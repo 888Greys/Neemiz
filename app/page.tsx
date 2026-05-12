@@ -1,318 +1,271 @@
-import { AppShell } from "@/components/app-shell";
-import { Icon } from "@/components/icon";
-import { MobileProductChip, OddsButton, ProductShortcut, WalletSummary } from "@/components/ui";
-import { liveEvents, predictionMarkets, productCards } from "@/lib/mock-data";
+"use client";
 
-const tickerItems = [
-  { teams: "Real Madrid vs Man City", score: "2 - 1", time: "68'" },
-  { teams: "Arsenal vs Chelsea", score: "1 - 1", time: "45'" },
-  { teams: "PSG vs Bayern", score: "0 - 2", time: "72'" },
-  { teams: "Liverpool vs Spurs", score: "3 - 0", time: "88'" },
-  { teams: "Barcelona vs Atlético", score: "1 - 0", time: "34'" },
-  { teams: "Dortmund vs Leipzig", score: "2 - 2", time: "61'" },
+import { useState } from "react";
+import Link from "next/link";
+
+const products = [
+  {
+    icon: "⚽",
+    label: "Sports Betting",
+    desc: "Live odds on 30+ sports. In-play markets updated in real time.",
+    color: "from-violet-500/20 to-transparent",
+    border: "rgba(139,92,246,0.25)",
+  },
+  {
+    icon: "🚀",
+    label: "Aviator",
+    desc: "Provably fair crash game. Cash out before the plane flies away.",
+    color: "from-orange-500/20 to-transparent",
+    border: "rgba(249,115,22,0.25)",
+  },
+  {
+    icon: "🔮",
+    label: "Predictions",
+    desc: "Polymarket-style markets. Trade YES/NO on real-world events.",
+    color: "from-pink-500/20 to-transparent",
+    border: "rgba(236,72,153,0.25)",
+  },
+  {
+    icon: "🤝",
+    label: "P2P Trading",
+    desc: "Buy and sell with real merchants. Escrow-protected every trade.",
+    color: "from-emerald-500/20 to-transparent",
+    border: "rgba(16,185,129,0.25)",
+  },
+  {
+    icon: "📈",
+    label: "Binary & Forex",
+    desc: "Up or down. Trade currency pairs with fixed risk, fixed reward.",
+    color: "from-blue-500/20 to-transparent",
+    border: "rgba(59,130,246,0.25)",
+  },
+  {
+    icon: "💰",
+    label: "Smart Wallet",
+    desc: "Multi-currency wallet. Deposit, withdraw, and transfer instantly.",
+    color: "from-amber-500/20 to-transparent",
+    border: "rgba(245,158,11,0.25)",
+  },
 ];
 
-const statsBar = [
-  { label: "Live Events", value: "142", icon: "sports_soccer" },
-  { label: "Markets Open", value: "4,800+", icon: "bar_chart" },
-  { label: "Players Online", value: "12.4K", icon: "group" },
-  { label: "24h Volume", value: "$2.1M", icon: "trending_up" },
+const stats = [
+  { value: "30+", label: "Sports covered" },
+  { value: "$2M+", label: "Daily volume" },
+  { value: "50K+", label: "Players ready" },
+  { value: "99.9%", label: "Uptime SLA" },
 ];
 
-export default function HomePage() {
+const ticker = [
+  { teams: "Real Madrid vs Man City", score: "2–1", time: "68'" },
+  { teams: "Arsenal vs Chelsea",      score: "1–1", time: "45'" },
+  { teams: "PSG vs Bayern",           score: "0–2", time: "72'" },
+  { teams: "Liverpool vs Spurs",      score: "3–0", time: "88'" },
+  { teams: "Barcelona vs Atlético",   score: "1–0", time: "34'" },
+  { teams: "Dortmund vs Leipzig",     score: "2–2", time: "61'" },
+];
+
+export default function LandingPage() {
+  const [email, setEmail] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (email) setSubmitted(true);
+  }
+
   return (
-    <AppShell>
-      {/* Live ticker */}
-      <div className="overflow-hidden border-b border-outline-variant bg-surface-container-lowest py-2">
+    <div className="hero-bg noise min-h-screen text-white">
+
+      {/* ── Navbar ──────────────────────────────────────────── */}
+      <nav className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-6 py-4 md:px-10">
+        <div className="glass rounded-full px-5 py-2.5">
+          <span className="text-xl font-black tracking-tight text-white">
+            NEEM<span className="gradient-text">IZ</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/sign-in"
+            className="glass rounded-full px-5 py-2 text-sm font-semibold text-white/80 transition hover:text-white"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/sign-up"
+            className="rounded-full bg-violet-600 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-violet-500/25 transition hover:bg-violet-500"
+          >
+            Get early access
+          </Link>
+        </div>
+      </nav>
+
+      {/* ── Live ticker ─────────────────────────────────────── */}
+      <div className="fixed left-0 right-0 top-[68px] z-40 overflow-hidden border-b border-white/5 bg-black/40 py-2 backdrop-blur-sm">
         <div className="flex animate-ticker whitespace-nowrap">
-          {[...tickerItems, ...tickerItems].map((item, i) => (
-            <span key={i} className="mx-6 inline-flex items-center gap-3 text-xs">
-              <span className="animate-live-pulse h-1.5 w-1.5 rounded-full bg-[#EF4444]" />
-              <span className="text-on-surface-variant">{item.teams}</span>
-              <span className="font-mono font-bold text-on-surface">{item.score}</span>
-              <span className="text-[#EF4444]">{item.time}</span>
-              <span className="mx-2 text-outline-variant">|</span>
+          {[...ticker, ...ticker].map((item, i) => (
+            <span key={i} className="mx-8 inline-flex items-center gap-3 text-xs">
+              <span className="animate-live-dot h-1.5 w-1.5 rounded-full bg-red-500" />
+              <span className="text-white/50">{item.teams}</span>
+              <span className="font-mono font-bold text-white">{item.score}</span>
+              <span className="font-mono text-red-400">{item.time}</span>
+              <span className="ml-4 text-white/10">|</span>
             </span>
           ))}
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-[1440px] p-4 md:p-6">
-        {/* Stats bar */}
-        <div className="mb-6 hidden grid-cols-4 gap-3 md:grid animate-fade-up" style={{ animationDelay: "0.05s" }}>
-          {statsBar.map((stat) => (
-            <div key={stat.label} className="flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-container px-4 py-3 transition hover:border-primary/50">
-              <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10">
-                <Icon name={stat.icon} className="text-[18px] text-primary" />
-              </div>
-              <div>
-                <div className="font-mono text-base font-bold text-on-surface">{stat.value}</div>
-                <div className="text-[10px] uppercase tracking-wide text-on-surface-variant">{stat.label}</div>
-              </div>
+      {/* ── Hero ────────────────────────────────────────────── */}
+      <section className="relative flex min-h-screen flex-col items-center justify-center px-6 pt-36 pb-24 text-center">
+
+        {/* Background orbs */}
+        <div className="animate-orb pointer-events-none absolute left-1/4 top-1/3 h-96 w-96 -translate-x-1/2 rounded-full bg-violet-600/15 blur-[100px]" />
+        <div className="pointer-events-none absolute right-1/4 top-1/2 h-64 w-64 rounded-full bg-amber-500/10 blur-[80px]" style={{ animation: "orb-move 15s ease-in-out infinite reverse" }} />
+        <div className="pointer-events-none absolute bottom-1/4 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-indigo-500/10 blur-[60px]" style={{ animation: "orb-move 10s ease-in-out infinite 3s" }} />
+
+        {/* Badge */}
+        <div className="animate-fade-up mb-6" style={{ animationDelay: "0.1s" }}>
+          <span className="glass-purple inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-violet-300">
+            <span className="animate-live-dot h-1.5 w-1.5 rounded-full bg-violet-400" />
+            Now in development · Launching soon
+          </span>
+        </div>
+
+        {/* Headline */}
+        <h1
+          className="animate-fade-up mx-auto mb-6 max-w-4xl text-5xl font-black leading-[1.05] tracking-tight md:text-7xl lg:text-8xl"
+          style={{ animationDelay: "0.2s" }}
+        >
+          The Future of{" "}
+          <span className="shimmer-text">Smart Betting</span>
+          <br />
+          is Almost Here
+        </h1>
+
+        {/* Sub */}
+        <p
+          className="animate-fade-up mx-auto mb-10 max-w-xl text-lg text-white/50 md:text-xl"
+          style={{ animationDelay: "0.3s" }}
+        >
+          Sports · Aviator · P2P Trading · Predictions · Binary/Forex — all in one platform. Built for serious players.
+        </p>
+
+        {/* CTA */}
+        <div className="animate-fade-up w-full max-w-md" style={{ animationDelay: "0.4s" }}>
+          {submitted ? (
+            <div className="glass-purple rounded-2xl px-8 py-6">
+              <div className="mb-2 text-3xl">🎉</div>
+              <p className="font-bold text-violet-300">You&apos;re on the list!</p>
+              <p className="mt-1 text-sm text-white/50">We&apos;ll hit you up the moment we launch.</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="glass flex overflow-hidden rounded-2xl p-1.5">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email address"
+                required
+                className="flex-1 bg-transparent px-4 py-3 text-sm text-white placeholder-white/30 transition"
+              />
+              <button
+                type="submit"
+                className="shrink-0 rounded-xl bg-violet-600 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-violet-500/30 transition hover:bg-violet-500 active:scale-95"
+              >
+                Notify me
+              </button>
+            </form>
+          )}
+          <p className="mt-3 text-xs text-white/25">No spam. Early access perks for waitlist members.</p>
+        </div>
+
+        {/* Stats */}
+        <div
+          className="animate-fade-up mt-16 grid grid-cols-2 gap-4 md:grid-cols-4"
+          style={{ animationDelay: "0.5s" }}
+        >
+          {stats.map((s) => (
+            <div key={s.label} className="stat-card rounded-2xl px-6 py-4 text-center">
+              <div className="font-mono text-2xl font-black text-white">{s.value}</div>
+              <div className="mt-1 text-xs text-white/40">{s.label}</div>
             </div>
           ))}
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-          {/* Desktop featured match hero */}
-          <section
-            className="animate-fade-up animate-glow-breathe relative hidden min-h-64 overflow-hidden rounded-xl border border-primary/20 bg-surface-container md:block"
-            style={{ animationDelay: "0.1s" }}
-          >
-            {/* Background layers */}
-            <div className="hero-grid absolute inset-0" />
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-transparent" />
-            <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/6 blur-3xl" />
-            <div className="absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-secondary/6 blur-3xl" />
-
-            <div className="relative p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 rounded-full bg-[#EF4444]/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#EF4444]">
-                    <span className="animate-live-pulse h-1.5 w-1.5 rounded-full bg-[#EF4444]" />
-                    Live
-                  </span>
-                  <span className="font-mono text-sm text-on-surface-variant">68:42</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-on-surface-variant">Premier League</span>
-                  <Icon name="sports_soccer" className="text-on-surface-variant" />
-                </div>
-              </div>
-
-              <div className="mb-8 flex items-center justify-between">
-                <Team name="Real Madrid" badge="RM" />
-                <div className="px-4 text-center">
-                  <div className="font-headline text-5xl font-black tracking-tight text-on-surface">2 – 1</div>
-                  <div className="mt-1 text-[10px] uppercase tracking-widest text-on-surface-variant">Featured Match</div>
-                  <div className="mt-3 flex items-center justify-center gap-1.5">
-                    {[...Array(5)].map((_, i) => (
-                      <span key={i} className={`h-1 rounded-full ${i < 2 ? "w-4 bg-primary" : i === 2 ? "w-2 bg-[#EF4444]" : "w-2 bg-outline-variant"}`} />
-                    ))}
-                  </div>
-                </div>
-                <Team name="Man City" badge="MC" flip />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <OddsButton label="1 — Real Madrid" odds="1.85" />
-                <OddsButton label="X — Draw" odds="3.40" />
-                <OddsButton label="2 — Man City" odds="4.20" />
-              </div>
-
-              <div className="mt-4 flex items-center justify-between border-t border-outline-variant/50 pt-3 text-xs text-on-surface-variant">
-                <span>43 markets available</span>
-                <button className="flex items-center gap-1 text-primary transition hover:underline">
-                  View all markets <Icon name="arrow_forward" className="text-[14px]" />
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Mobile section */}
-          <div className="space-y-4 md:hidden animate-fade-up">
-            <WalletSummary />
-            <div className="flex snap-x gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {productCards.map((item) => (
-                <MobileProductChip key={item.label} href={item.href} label={item.label} />
-              ))}
-            </div>
-            <section>
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Featured Match</h3>
-                <span className="flex items-center gap-1.5 text-xs font-bold text-[#EF4444]">
-                  <span className="animate-live-pulse h-1.5 w-1.5 rounded-full bg-[#EF4444]" /> Live 75&apos;
-                </span>
-              </div>
-              <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-surface-container p-4">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/6 via-transparent to-transparent" />
-                <div className="relative mb-5 flex items-center justify-between">
-                  <MobileTeam name="Arsenal" badge="AR" />
-                  <div className="text-center">
-                    <div className="font-headline text-3xl font-black tracking-widest text-primary">2 – 1</div>
-                    <div className="text-[10px] uppercase tracking-wide text-on-surface-variant">Premier League</div>
-                  </div>
-                  <MobileTeam name="Chelsea" badge="CH" />
-                </div>
-                <div className="relative flex gap-2">
-                  <OddsButton label="1" odds="2.10" />
-                  <OddsButton label="X" odds="3.45" />
-                  <OddsButton label="2" odds="3.80" />
-                </div>
-              </div>
-            </section>
+        {/* Scroll hint */}
+        <div className="animate-fade-in absolute bottom-8 left-1/2 -translate-x-1/2" style={{ animationDelay: "1.2s" }}>
+          <div className="flex flex-col items-center gap-2 text-white/20">
+            <span className="text-xs uppercase tracking-widest">Explore</span>
+            <div className="animate-float h-6 w-px bg-gradient-to-b from-white/20 to-transparent" />
           </div>
+        </div>
+      </section>
 
-          {/* Desktop prediction preview */}
-          <section
-            className="animate-fade-up hidden rounded-xl border border-outline-variant bg-surface-container p-6 xl:block"
-            style={{ animationDelay: "0.15s" }}
-          >
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Featured Market</h2>
-              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">Prediction</span>
-            </div>
-            <PredictionPreview />
-          </section>
+      {/* ── Products ────────────────────────────────────────── */}
+      <section className="mx-auto max-w-6xl px-6 pb-32">
+        <div className="mb-14 text-center">
+          <h2 className="mb-3 text-3xl font-black md:text-5xl">
+            Everything in{" "}
+            <span className="gradient-text">one place</span>
+          </h2>
+          <p className="text-white/40">Six products. One account. Zero switching.</p>
         </div>
 
-        {/* Markets grid */}
-        <section
-          className="mt-6 hidden animate-fade-up md:block"
-          style={{ animationDelay: "0.2s" }}
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Markets</h2>
-            <span className="text-xs text-on-surface-variant">All products</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-            {productCards.filter((item) => item.label !== "Live").map((item, i) => (
-              <div key={item.label} className="animate-fade-up" style={{ animationDelay: `${0.22 + i * 0.04}s` }}>
-                <ProductShortcut {...item} />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {products.map((p, i) => (
+            <div
+              key={p.label}
+              className="product-card animate-fade-up group relative overflow-hidden rounded-2xl p-6"
+              style={{
+                animationDelay: `${0.1 + i * 0.08}s`,
+                borderColor: p.border,
+              }}
+            >
+              <div className={`absolute inset-0 bg-gradient-to-br ${p.color} opacity-0 transition-opacity duration-300 group-hover:opacity-100`} />
+              <div className="relative">
+                <div className="mb-4 text-4xl">{p.icon}</div>
+                <h3 className="mb-2 text-lg font-bold text-white">{p.label}</h3>
+                <p className="text-sm leading-relaxed text-white/45">{p.desc}</p>
               </div>
-            ))}
-          </div>
-        </section>
+              <div className="relative mt-6 flex items-center gap-2 text-xs font-bold text-white/25 transition-colors group-hover:text-violet-400">
+                Coming soon
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
-        {/* Bottom row */}
-        <div className="mt-6 grid gap-6 xl:grid-cols-2">
-          <section
-            className="animate-fade-up overflow-hidden rounded-xl border border-outline-variant bg-surface-container"
-            style={{ animationDelay: "0.3s" }}
+      {/* ── Bottom CTA ──────────────────────────────────────── */}
+      <section className="relative overflow-hidden border-t border-white/5 px-6 py-32 text-center">
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-violet-900/10 to-transparent" />
+        <div className="relative mx-auto max-w-2xl">
+          <div className="mb-6 text-5xl animate-float-slow">🏆</div>
+          <h2 className="mb-4 text-3xl font-black md:text-5xl">
+            Get in early.{" "}
+            <span className="gradient-text">Win big.</span>
+          </h2>
+          <p className="mb-10 text-white/40">
+            Waitlist members get boosted welcome bonuses, early access to all products, and founder-tier status.
+          </p>
+          <Link
+            href="/sign-up"
+            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 px-10 py-4 text-base font-bold text-white shadow-2xl shadow-violet-500/30 transition hover:from-violet-500 hover:to-indigo-500 hover:shadow-violet-500/40 active:scale-95"
           >
-            <SectionHeader title="Trending In-Play" live />
-            <div className="divide-y divide-outline-variant">
-              {liveEvents.slice(0, 4).map((event, i) => (
-                <div
-                  key={`${event.home}-${event.away}`}
-                  className="group flex items-center justify-between gap-3 p-4 transition hover:bg-surface-variant"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="flex items-center gap-1 text-xs font-bold text-[#EF4444]">
-                        <span className="animate-live-pulse h-1 w-1 rounded-full bg-[#EF4444]" />
-                        {event.time}
-                      </span>
-                      <span className="truncate text-xs text-on-surface-variant">{event.league}</span>
-                    </div>
-                    <div className="truncate font-medium">{event.home} vs {event.away}</div>
-                  </div>
-                  <div className="flex shrink-0 gap-1.5">
-                    {event.odds.slice(0, 3).map((odd) => (
-                      <span
-                        key={odd}
-                        className="min-w-11 rounded border border-outline-variant bg-surface-dim px-2.5 py-1.5 text-center font-mono text-sm transition group-hover:border-primary/40"
-                      >
-                        {odd}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="border-t border-outline-variant bg-surface-dim/30 px-4 py-3 text-center">
-              <button className="text-xs font-bold text-primary transition hover:underline">
-                View all live events <Icon name="arrow_forward" className="inline text-[14px]" />
-              </button>
-            </div>
-          </section>
-
-          <section
-            className="animate-fade-up rounded-xl border border-outline-variant bg-surface-container p-5 md:hidden xl:block"
-            style={{ animationDelay: "0.35s" }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Predictions</h2>
-              <span className="text-xs text-on-surface-variant">Polymarket-style</span>
-            </div>
-            <PredictionPreview />
-          </section>
+            Create your account
+            <span>→</span>
+          </Link>
+          <p className="mt-4 text-xs text-white/25">Free to join · No credit card required</p>
         </div>
-      </div>
-    </AppShell>
-  );
-}
+      </section>
 
-function Team({ name, badge, flip }: { name: string; badge: string; flip?: boolean }) {
-  return (
-    <div className={`flex flex-1 flex-col items-center ${flip ? "items-center" : "items-center"}`}>
-      <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full border border-outline-variant bg-gradient-to-br from-surface-variant to-surface-container-highest shadow-lg">
-        <span className="font-mono text-sm font-black text-on-surface-variant">{badge}</span>
-      </div>
-      <span className="text-center text-sm font-semibold">{name}</span>
-    </div>
-  );
-}
-
-function MobileTeam({ name, badge }: { name: string; badge: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="flex h-11 w-11 items-center justify-center rounded-full border border-outline-variant bg-surface-variant shadow">
-        <span className="font-mono text-xs font-black text-on-surface-variant">{badge}</span>
-      </div>
-      <span className="text-sm font-medium">{name}</span>
-    </div>
-  );
-}
-
-function SectionHeader({ title, live }: { title: string; live?: boolean }) {
-  return (
-    <div className="flex items-center justify-between border-b border-outline-variant bg-surface-dim/50 px-4 py-3">
-      <h2 className="flex items-center gap-2 font-semibold">
-        {live && <span className="animate-live-pulse h-2 w-2 rounded-full bg-[#EF4444]" />}
-        {title}
-      </h2>
-      <span className="text-xs font-bold uppercase tracking-wide text-primary">View All</span>
-    </div>
-  );
-}
-
-function PredictionPreview() {
-  const market = predictionMarkets[0];
-  return (
-    <div>
-      <h3 className="mb-1 text-sm font-bold text-on-surface">{market.title}</h3>
-      <p className="mb-5 text-xs text-on-surface-variant">Community prediction market · 847 traders</p>
-      <div className="space-y-3">
-        <PredictionBar label="Yes" value={market.yes} odds="1.53" tone="yes" />
-        <PredictionBar label="No" value={market.no} odds="2.65" tone="no" />
-      </div>
-      <div className="mt-5 grid grid-cols-3 gap-2 border-t border-outline-variant pt-4 text-center">
-        <div>
-          <div className="font-mono text-sm font-bold text-on-surface">{market.volume}</div>
-          <div className="text-[10px] uppercase tracking-wide text-on-surface-variant">Volume</div>
+      {/* ── Footer ──────────────────────────────────────────── */}
+      <footer className="border-t border-white/5 px-6 py-8 text-center text-xs text-white/20">
+        <div className="mb-3 text-sm font-black tracking-tight text-white/40">
+          NEEM<span className="text-violet-500">IZ</span>
         </div>
-        <div>
-          <div className="font-mono text-sm font-bold text-on-surface">{market.closes}</div>
-          <div className="text-[10px] uppercase tracking-wide text-on-surface-variant">Closes</div>
-        </div>
-        <div>
-          <div className="font-mono text-sm font-bold text-primary">847</div>
-          <div className="text-[10px] uppercase tracking-wide text-on-surface-variant">Traders</div>
-        </div>
-      </div>
+        <p>© 2025 Neemiz. All rights reserved.</p>
+        <p className="mt-1">Play responsibly. 18+ only.</p>
+      </footer>
     </div>
-  );
-}
-
-function PredictionBar({ label, value, odds, tone }: { label: string; value: number; odds: string; tone: "yes" | "no" }) {
-  const isYes = tone === "yes";
-  const fillColor = isYes ? "bg-primary/15" : "bg-[#EF4444]/15";
-  const textColor = isYes ? "text-primary" : "text-[#EF4444]";
-  const borderColor = isYes ? "border-primary/30 hover:border-primary/60" : "border-[#EF4444]/20 hover:border-[#EF4444]/40";
-  return (
-    <button className={`relative flex h-13 w-full items-center overflow-hidden rounded-lg border bg-surface-dim text-left transition ${borderColor}`}>
-      <span className={`absolute inset-y-0 left-0 transition-all duration-500 ${fillColor}`} style={{ width: `${value}%` }} />
-      <span className="relative z-10 flex w-full items-center justify-between px-4 py-3">
-        <span className={`flex items-center gap-2 font-bold ${textColor}`}>
-          <span className={`h-2 w-2 rounded-full ${isYes ? "bg-primary" : "bg-[#EF4444]"}`} />
-          {label}
-        </span>
-        <span className="flex items-center gap-4 font-mono text-sm">
-          <span className="text-on-surface-variant">{value}%</span>
-          <span className={`font-bold ${textColor}`}>{odds}</span>
-        </span>
-      </span>
-    </button>
   );
 }
