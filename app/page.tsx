@@ -79,7 +79,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── Hero ── */}
-      <section className="relative flex min-h-screen flex-col items-center justify-center px-5 pb-20 pt-32 text-center md:px-6 md:pt-36 md:pb-24">
+      <section className="relative flex min-h-[100svh] flex-col items-center justify-center px-5 pb-16 pt-28 text-center md:min-h-screen md:px-6 md:pt-36 md:pb-24">
 
         {/* Orbs */}
         <div className="animate-orb pointer-events-none absolute left-1/2 top-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-violet-600/20 blur-[80px] md:h-96 md:w-96 md:blur-[100px]" />
@@ -143,7 +143,7 @@ export default function LandingPage() {
 
         {/* Stats */}
         <div
-          className="animate-fade-up mt-12 grid grid-cols-4 gap-2 md:mt-16 md:gap-4"
+          className="animate-fade-up mt-8 grid grid-cols-4 gap-2 md:mt-16 md:gap-4"
           style={{ animationDelay: "0.5s" }}
         >
           {stats.map((s) => (
