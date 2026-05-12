@@ -41,24 +41,25 @@ export default function LandingPage() {
     <div className="hero-bg noise min-h-screen text-white">
 
       {/* ── Navbar ── */}
-      <nav className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-4 py-3 md:px-10 md:py-4">
-        <div className="glass rounded-full px-4 py-2 md:px-5 md:py-2.5">
-          <span className="text-lg font-black tracking-tight text-white md:text-xl">
+      <nav className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-3 py-3 md:px-10 md:py-4">
+        <div className="glass rounded-full px-3 py-1.5 md:px-5 md:py-2.5">
+          <span className="text-base font-black tracking-tight text-white md:text-xl">
             NEEM<span className="gradient-text">IZ</span>
           </span>
         </div>
-        <div className="flex items-center gap-2 md:gap-3">
+        <div className="flex items-center gap-1.5 md:gap-3">
           <Link
             href="/sign-in"
-            className="glass rounded-full px-4 py-2 text-xs font-semibold text-white/80 transition hover:text-white md:px-5 md:text-sm"
+            className="glass rounded-full px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:text-white md:px-5 md:py-2 md:text-sm"
           >
             Sign in
           </Link>
           <Link
             href="/sign-up"
-            className="rounded-full bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-violet-500/25 transition hover:bg-violet-500 md:px-5 md:text-sm"
+            className="rounded-full bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-lg shadow-violet-500/25 transition hover:bg-violet-500 md:px-5 md:py-2 md:text-sm"
           >
-            Join waitlist
+            <span className="md:hidden">Join</span>
+            <span className="hidden md:inline">Join waitlist</span>
           </Link>
         </div>
       </nav>
