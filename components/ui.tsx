@@ -3,20 +3,24 @@ import { Icon } from "@/components/icon";
 
 export function OddsButton({ label, odds, tone = "default" }: { label: string; odds: string; tone?: "default" | "up" | "down" }) {
   return (
-    <button className="group flex min-h-12 flex-1 flex-col items-center justify-center rounded border border-outline-variant bg-surface-container p-2 transition hover:border-primary hover:bg-surface-variant">
+    <button className="group flex min-h-12 flex-1 flex-col items-center justify-center rounded-lg border border-outline-variant bg-surface-container p-2 transition hover:border-primary/60 hover:bg-primary/8 active:scale-95">
       <span className="mb-0.5 text-[10px] font-bold uppercase tracking-wide text-on-surface-variant group-hover:text-primary">{label}</span>
-      <span className={`font-mono text-sm font-bold ${tone === "up" ? "text-primary" : tone === "down" ? "text-error" : "text-on-surface"}`}>{odds}</span>
+      <span className={`font-mono text-sm font-bold transition group-hover:text-primary ${tone === "up" ? "text-primary" : tone === "down" ? "text-error" : "text-on-surface"}`}>{odds}</span>
     </button>
   );
 }
 
 export function ProductShortcut({ href, label, icon }: { href: string; label: string; icon: string }) {
   return (
-    <Link href={href} className="group flex items-center gap-3 rounded-lg border border-outline-variant bg-surface-container p-4 transition hover:border-primary">
-      <span className="flex h-10 w-10 items-center justify-center rounded bg-surface-dim text-on-surface-variant transition group-hover:bg-primary/10 group-hover:text-primary">
+    <Link href={href} className="group flex items-center gap-3 rounded-xl border border-outline-variant bg-surface-container p-4 transition hover:border-primary/50 hover:bg-primary/5 active:scale-[0.98]">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-dim text-on-surface-variant transition group-hover:bg-primary/12 group-hover:text-primary">
         <Icon name={icon} />
       </span>
-      <span className="font-medium text-on-surface">{label}</span>
+      <div className="min-w-0">
+        <span className="block font-semibold text-on-surface">{label}</span>
+        <span className="text-[11px] text-on-surface-variant">Explore market</span>
+      </div>
+      <Icon name="chevron_right" className="ml-auto shrink-0 text-[18px] text-outline transition group-hover:translate-x-0.5 group-hover:text-primary" />
     </Link>
   );
 }

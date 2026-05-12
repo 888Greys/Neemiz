@@ -41,3 +41,65 @@ body {
     linear-gradient(to bottom, rgba(45, 52, 73, 0.8) 1px, transparent 1px);
   background-size: 40px 40px;
 }
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+@keyframes odds-flash {
+  0% { background-color: transparent; }
+  30% { background-color: rgba(78, 222, 163, 0.18); }
+  100% { background-color: transparent; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes glow-breathe {
+  0%, 100% { box-shadow: 0 0 24px 4px rgba(78, 222, 163, 0.12); }
+  50% { box-shadow: 0 0 40px 8px rgba(78, 222, 163, 0.22); }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-live-pulse {
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+.animate-odds-flash {
+  animation: odds-flash 0.6s ease-out;
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s ease-out both;
+}
+
+.animate-ticker {
+  animation: ticker-scroll 28s linear infinite;
+}
+
+.animate-glow-breathe {
+  animation: glow-breathe 3s ease-in-out infinite;
+}
+
+.hero-grid {
+  background-image:
+    linear-gradient(to right, rgba(78, 222, 163, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(78, 222, 163, 0.04) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.odds-btn:hover .odds-value {
+  animation: odds-flash 0.4s ease-out;
+}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Show, UserButton } from "@clerk/nextjs";
 import { balance, mobileNav, navItems } from "@/lib/mock-data";
 import { Icon } from "@/components/icon";
 
@@ -35,12 +36,27 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
           <Link href="/wallet" className="hidden font-mono text-sm font-bold text-on-surface sm:block">
             {balance}
           </Link>
-          <button className="rounded bg-primary-container px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-on-primary-container transition hover:bg-primary md:px-4 md:py-2">
+          <Link href="/wallet" className="rounded bg-primary-container px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-on-primary-container transition hover:bg-primary md:px-4 md:py-2">
             Deposit
-          </button>
-          <Link href="/login" className="text-on-surface-variant transition hover:text-on-surface">
-            <Icon name="account_circle" fill />
           </Link>
+          <Show when="signed-in">
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "h-8 w-8 rounded-full ring-2 ring-primary/30",
+                  userButtonPopoverCard: "bg-surface-container border border-outline-variant",
+                  userButtonPopoverActionButton: "text-on-surface hover:bg-surface-variant",
+                  userButtonPopoverActionButtonText: "text-on-surface",
+                  userButtonPopoverFooter: "hidden",
+                },
+              }}
+            />
+          </Show>
+          <Show when="signed-out">
+            <Link href="/sign-in" className="text-on-surface-variant transition hover:text-on-surface">
+              <Icon name="account_circle" fill />
+            </Link>
+          </Show>
         </div>
       </header>
 
