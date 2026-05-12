@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NEEMIZ - Mobile Home</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#283044",
+                        "surface-dim": "#0b1326",
+                        "on-surface-variant": "#bbcabf",
+                        "on-secondary-fixed": "#00201c",
+                        "secondary": "#4fdbc8",
+                        "surface-container-lowest": "#060e20",
+                        "inverse-primary": "#006c49",
+                        "on-secondary-container": "#003f38",
+                        "surface-variant": "#2d3449",
+                        "on-tertiary-container": "#2c3a4e",
+                        "surface-container-high": "#222a3d",
+                        "background": "#0b1326",
+                        "outline-variant": "#3c4a42",
+                        "tertiary-container": "#95a4bb",
+                        "tertiary": "#b9c7e0",
+                        "secondary-container": "#04b4a2",
+                        "on-tertiary": "#233144",
+                        "on-primary-container": "#00422b",
+                        "surface-tint": "#4edea3",
+                        "on-secondary": "#003731",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed": "#6ffbbe",
+                        "error": "#ffb4ab",
+                        "primary-container": "#10b981",
+                        "surface-container": "#171f33",
+                        "tertiary-fixed": "#d5e3fd",
+                        "on-primary-fixed-variant": "#005236",
+                        "primary": "#4edea3",
+                        "error-container": "#93000a",
+                        "on-surface": "#dae2fd",
+                        "on-primary-fixed": "#002113",
+                        "surface": "#0b1326",
+                        "on-background": "#dae2fd",
+                        "on-secondary-fixed-variant": "#005048",
+                        "on-error": "#690005",
+                        "outline": "#86948a",
+                        "primary-fixed-dim": "#4edea3",
+                        "secondary-fixed": "#71f8e4",
+                        "secondary-fixed-dim": "#4fdbc8",
+                        "inverse-surface": "#dae2fd",
+                        "on-tertiary-fixed": "#0d1c2f",
+                        "surface-bright": "#31394d",
+                        "tertiary-fixed-dim": "#b9c7e0",
+                        "on-tertiary-fixed-variant": "#3a485c",
+                        "surface-container-highest": "#2d3449",
+                        "surface-container-low": "#131b2e",
+                        "on-primary": "#003824"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "grid-columns": "12",
+                        "space-xl": "48px",
+                        "space-lg": "24px",
+                        "space-sm": "8px",
+                        "space-md": "16px",
+                        "space-xs": "4px",
+                        "max-width": "1440px",
+                        "grid-gutter": "12px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "data-tabular": ["JetBrains Mono"],
+                        "headline-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                        "label-caps": ["11px", { "lineHeight": "12px", "letterSpacing": "0.04em", "fontWeight": "700" }],
+                        "data-tabular": ["13px", { "lineHeight": "16px", "letterSpacing": "-0.02em", "fontWeight": "500" }],
+                        "headline-sm": ["18px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "headline-lg": ["30px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "body-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0em", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col pb-20">
+<!-- Top Navigation (Mobile Optimized) -->
+<header class="bg-surface-container dark:bg-surface-dim docked full-width top-0 border-b border-outline-variant flat no shadows flex justify-between items-center w-full px-4 h-16 sticky z-40">
+<div class="flex items-center gap-2">
+<span class="text-headline-md font-headline-md font-black tracking-tighter text-on-surface dark:text-on-surface">NEEMIZ</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex flex-col items-end">
+<span class="text-label-caps font-label-caps text-on-surface-variant">BALANCE</span>
+<span class="text-body-md font-body-md text-primary font-bold">$1,240.50</span>
+</div>
+<button class="bg-primary-container text-white px-4 py-1.5 rounded text-body-sm font-bold">Deposit</button>
+<span class="material-symbols-outlined text-on-surface-variant text-2xl">account_circle</span>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col w-full max-w-md mx-auto">
+<!-- Wallet Summary Card -->
+<section class="p-4">
+<div class="bg-surface-container rounded-lg border border-outline-variant p-4 flex flex-col gap-4">
+<div class="flex justify-between items-center">
+<div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">TOTAL EQUITY</span>
+<h2 class="text-headline-sm font-headline-sm text-on-surface">$3,450.00</h2>
+</div>
+<div class="flex gap-2">
+<button class="bg-surface-variant text-primary px-3 py-1.5 rounded flex items-center gap-1 text-label-caps font-label-caps font-bold">
+<span class="material-symbols-outlined text-[16px]">arrow_downward</span> Receive
+                        </button>
+<button class="bg-surface-variant text-on-surface px-3 py-1.5 rounded flex items-center gap-1 text-label-caps font-label-caps font-bold">
+<span class="material-symbols-outlined text-[16px]">arrow_upward</span> Send
+                        </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Quick Links (Horizontal Scroll) -->
+<section class="pl-4 pb-4">
+<div class="flex gap-4 overflow-x-auto no-scrollbar snap-x">
+<div class="flex flex-col items-center gap-2 min-w-[64px] snap-start cursor-pointer hover:bg-surface-variant rounded-lg p-2 transition-colors group">
+<div class="w-12 h-12 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center group-hover:scale-105 transition-transform">
+<span class="material-symbols-outlined">sports_soccer</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">Sports</span>
+</div>
+<div class="flex flex-col items-center gap-2 min-w-[64px] snap-start cursor-pointer hover:bg-surface-variant rounded-lg p-2 transition-colors group">
+<div class="w-12 h-12 rounded-full bg-surface-container text-on-surface flex items-center justify-center group-hover:scale-105 transition-transform border border-outline-variant">
+<span class="material-symbols-outlined text-primary">sensors</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">Live</span>
+</div>
+<div class="flex flex-col items-center gap-2 min-w-[64px] snap-start cursor-pointer hover:bg-surface-variant rounded-lg p-2 transition-colors group">
+<div class="w-12 h-12 rounded-full bg-surface-container text-on-surface flex items-center justify-center group-hover:scale-105 transition-transform border border-outline-variant">
+<span class="material-symbols-outlined text-primary">groups</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">P2P</span>
+</div>
+<div class="flex flex-col items-center gap-2 min-w-[64px] snap-start cursor-pointer hover:bg-surface-variant rounded-lg p-2 transition-colors group">
+<div class="w-12 h-12 rounded-full bg-surface-container text-on-surface flex items-center justify-center group-hover:scale-105 transition-transform border border-outline-variant">
+<span class="material-symbols-outlined text-primary">analytics</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">Binary</span>
+</div>
+<div class="flex flex-col items-center gap-2 min-w-[64px] snap-start cursor-pointer hover:bg-surface-variant rounded-lg p-2 transition-colors group">
+<div class="w-12 h-12 rounded-full bg-surface-container text-on-surface flex items-center justify-center group-hover:scale-105 transition-transform border border-outline-variant">
+<span class="material-symbols-outlined text-primary">flight_takeoff</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">Aviator</span>
+</div>
+<div class="flex flex-col items-center gap-2 min-w-[64px] snap-start cursor-pointer pr-4 hover:bg-surface-variant rounded-lg p-2 transition-colors group">
+<div class="w-12 h-12 rounded-full bg-surface-container text-on-surface flex items-center justify-center group-hover:scale-105 transition-transform border border-outline-variant">
+<span class="material-symbols-outlined text-primary">currency_exchange</span>
+</div>
+<span class="text-label-caps font-label-caps text-on-surface-variant">Forex</span>
+</div>
+</div>
+</section>
+<!-- Hero Match -->
+<section class="px-4 pb-4">
+<h3 class="text-body-lg font-headline-sm text-on-surface mb-2 font-bold">Featured Event</h3>
+<div class="bg-surface-container rounded-lg border border-outline-variant overflow-hidden relative">
+<div class="h-32 bg-surface-variant relative overflow-hidden">
+<img alt="Soccer Stadium" class="w-full h-full object-cover opacity-50 mix-blend-overlay" data-alt="A dynamic, high-contrast photograph of a massive soccer stadium at night, intensely illuminated by floodlights. The field glows with a vibrant green hue, contrasting against the deep, dark navy and black shadows of the stands. The composition is highly structured, emphasizing the vast scale and professional, high-stakes atmosphere of the arena. The visual style is crisp, cinematic, and perfectly aligned with a sleek, modern, dark-themed sports betting interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDhws1B0PY9DFh0YAp_AT28wH1OJse_AHIPZOrtzO9_F4EXjdDg33LJ8lRBjQpSf0aXhNasl3DDkyyrCqi0pshI-xHNqR0McNSM3dxvDB6l1wOY7gwtAGcn-4VTb0Cf6DsbMy9KfKC8wsSHrYKDDMALkXWvzmqx-z8j9EaR84gtr9KVFWl2Oy_Gdh-Kbj9G0cjoVkWuAYUY4323PQi4d_52lhv0LKZdJKa1ENkUwDLZk0kzmtsZIs3L63dTeKV1s2rzDSH6eY6G_Y"/>
+<div class="absolute inset-0 bg-gradient-to-t from-surface-container to-transparent"></div>
+<div class="absolute top-2 left-2 bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">sensors</span> LIVE 68'
+                    </div>
+</div>
+<div class="p-4 relative -mt-16 z-10">
+<div class="flex justify-between items-end mb-4">
+<div class="flex flex-col items-center gap-1 w-1/3">
+<div class="w-10 h-10 bg-surface rounded-full border border-outline-variant flex items-center justify-center font-bold text-on-surface">ARS</div>
+<span class="text-body-md font-body-md text-on-surface font-bold">Arsenal</span>
+<span class="text-headline-md font-headline-md text-primary font-black">2</span>
+</div>
+<div class="flex flex-col items-center pb-2 w-1/3">
+<span class="text-label-caps font-label-caps text-on-surface-variant">PREMIER LEAGUE</span>
+<span class="text-body-sm font-body-md text-on-surface-variant">vs</span>
+</div>
+<div class="flex flex-col items-center gap-1 w-1/3">
+<div class="w-10 h-10 bg-surface rounded-full border border-outline-variant flex items-center justify-center font-bold text-on-surface">MCI</div>
+<span class="text-body-md font-body-md text-on-surface font-bold">Man City</span>
+<span class="text-headline-md font-headline-md text-on-surface font-black">1</span>
+</div>
+</div>
+<!-- Hero Odds -->
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-variant rounded border border-outline-variant p-2 flex justify-between items-center active:bg-surface-bright transition-colors">
+<span class="text-label-caps font-label-caps text-on-surface-variant">1</span>
+<span class="text-data-tabular font-data-tabular text-primary font-bold">2.10</span>
+</button>
+<button class="flex-1 bg-surface-variant rounded border border-outline-variant p-2 flex justify-between items-center active:bg-surface-bright transition-colors">
+<span class="text-label-caps font-label-caps text-on-surface-variant">X</span>
+<span class="text-data-tabular font-data-tabular text-on-surface font-bold">3.45</span>
+</button>
+<button class="flex-1 bg-surface-variant rounded border border-outline-variant p-2 flex justify-between items-center active:bg-surface-bright transition-colors">
+<span class="text-label-caps font-label-caps text-on-surface-variant">2</span>
+<span class="text-data-tabular font-data-tabular text-on-surface font-bold">3.20</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Live Now List -->
+<section class="px-4 pb-24">
+<div class="flex justify-between items-center mb-2">
+<h3 class="text-body-lg font-headline-sm text-on-surface font-bold flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-[#EF4444] animate-pulse"></span>
+                    Live Now
+                </h3>
+<a class="text-body-sm font-body-md text-primary flex items-center hover:underline" href="#">See All <span class="material-symbols-outlined text-[16px]">chevron_right</span></a>
+</div>
+<div class="flex flex-col gap-2">
+<!-- Live Game Item 1 -->
+<div class="bg-surface-container rounded-lg border border-outline-variant p-3 flex flex-col gap-3">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="text-[10px] text-error font-bold tracking-wider">42'</span>
+<span class="text-body-sm font-body-md text-on-surface-variant">La Liga</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">bar_chart</span>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex flex-col gap-1 w-1/2">
+<div class="flex justify-between items-center">
+<span class="text-body-md font-body-md text-on-surface font-semibold">Real Madrid</span>
+<span class="text-body-md font-body-md text-primary font-bold">1</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-body-md font-body-md text-on-surface font-semibold">Barcelona</span>
+<span class="text-body-md font-body-md text-on-surface font-bold">0</span>
+</div>
+</div>
+<div class="flex gap-1 w-1/2 justify-end">
+<button class="bg-surface-variant rounded border border-outline-variant px-3 py-1.5 flex flex-col items-center min-w-[50px] active:bg-surface-bright">
+<span class="text-[10px] text-on-surface-variant">1</span>
+<span class="text-data-tabular font-data-tabular text-primary">1.85</span>
+</button>
+<button class="bg-surface-variant rounded border border-outline-variant px-3 py-1.5 flex flex-col items-center min-w-[50px] active:bg-surface-bright">
+<span class="text-[10px] text-on-surface-variant">X</span>
+<span class="text-data-tabular font-data-tabular text-on-surface">3.10</span>
+</button>
+<button class="bg-surface-variant rounded border border-outline-variant px-3 py-1.5 flex flex-col items-center min-w-[50px] active:bg-surface-bright">
+<span class="text-[10px] text-on-surface-variant">2</span>
+<span class="text-data-tabular font-data-tabular text-on-surface">4.50</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Live Game Item 2 -->
+<div class="bg-surface-container rounded-lg border border-outline-variant p-3 flex flex-col gap-3">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="text-[10px] text-error font-bold tracking-wider">75'</span>
+<span class="text-body-sm font-body-md text-on-surface-variant">NBA</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[16px]">bar_chart</span>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex flex-col gap-1 w-1/2">
+<div class="flex justify-between items-center">
+<span class="text-body-md font-body-md text-on-surface font-semibold">Lakers</span>
+<span class="text-body-md font-body-md text-on-surface font-bold">89</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-body-md font-body-md text-on-surface font-semibold">Warriors</span>
+<span class="text-body-md font-body-md text-primary font-bold">94</span>
+</div>
+</div>
+<div class="flex gap-1 w-1/2 justify-end">
+<button class="bg-surface-variant rounded border border-outline-variant px-3 py-1.5 flex flex-col items-center min-w-[70px] active:bg-surface-bright">
+<span class="text-[10px] text-on-surface-variant">LAL +5.5</span>
+<span class="text-data-tabular font-data-tabular text-on-surface">1.90</span>
+</button>
+<button class="bg-surface-variant rounded border border-outline-variant px-3 py-1.5 flex flex-col items-center min-w-[70px] active:bg-surface-bright">
+<span class="text-[10px] text-on-surface-variant">GSW -5.5</span>
+<span class="text-data-tabular font-data-tabular text-on-surface">1.90</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Active Ticket Pill (Floating) -->
+<div class="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-40">
+<button class="bg-primary-container text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 font-bold text-body-sm hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-[18px]">receipt_long</span>
+            1 Selection - $10.00
+        </button>
+</div>
+<!-- Bottom Navigation Bar (Generated from JSON) -->
+<nav class="bg-surface-container-high dark:bg-surface-container-high fixed bottom-0 w-full z-50 border-t border-outline-variant shadow-lg lg:hidden flex justify-around items-center h-16 px-2">
+<button class="flex flex-col items-center justify-center text-primary active:scale-90 transition-transform">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-label-caps font-label-caps mt-1">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant active:scale-90 transition-transform active:bg-surface-variant rounded p-1">
+<span class="material-symbols-outlined">sports_basketball</span>
+<span class="text-label-caps font-label-caps mt-1">Sports</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant active:scale-90 transition-transform active:bg-surface-variant rounded p-1">
+<span class="material-symbols-outlined">settings_remote</span>
+<span class="text-label-caps font-label-caps mt-1">Live</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant active:scale-90 transition-transform active:bg-surface-variant rounded p-1">
+<span class="material-symbols-outlined">account_balance_wallet</span>
+<span class="text-label-caps font-label-caps mt-1">Wallet</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant active:scale-90 transition-transform active:bg-surface-variant rounded p-1">
+<span class="material-symbols-outlined">menu</span>
+<span class="text-label-caps font-label-caps mt-1">Menu</span>
+</button>
+</nav>
+</body></html>

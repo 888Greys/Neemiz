@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100vh;
+  background: #0b1326;
+  color: #dae2fd;
+  font-family: var(--font-inter), sans-serif;
+}
+
+::selection {
+  background: rgba(78, 222, 163, 0.28);
+  color: #dae2fd;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+.icon-fill {
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.flight-grid {
+  background-image:
+    linear-gradient(to right, rgba(45, 52, 73, 0.8) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(45, 52, 73, 0.8) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
