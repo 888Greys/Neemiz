@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import { balance, mobileNav, navItems } from "@/lib/mock-data";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
@@ -37,9 +38,21 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
           <Link href="/wallet" className="rounded bg-primary-container px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-on-primary-container transition hover:bg-primary md:px-4 md:py-2">
             Deposit
           </Link>
-          <Link href="/login" className="text-on-surface-variant transition hover:text-on-surface">
-            <Icon name="account_circle" fill />
-          </Link>
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <button className="hidden rounded border border-outline-variant px-3 py-1.5 text-xs font-bold text-on-surface transition hover:bg-surface-variant sm:inline-flex">
+                Sign in
+              </button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button className="rounded bg-primary-container px-3 py-1.5 text-xs font-bold text-on-primary-container transition hover:bg-primary">
+                Join
+              </button>
+            </SignUpButton>
+          </Show>
+          <Show when="signed-in">
+            <UserButton />
+          </Show>
         </div>
       </header>
 

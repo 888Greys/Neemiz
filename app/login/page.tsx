@@ -1,4 +1,4 @@
-import { LoginPanel } from "@/components/login-panel";
+import { redirect } from "next/navigation";
 
 type LoginPageProps = {
   searchParams: {
@@ -7,5 +7,5 @@ type LoginPageProps = {
 };
 
 export default function LoginPage({ searchParams }: LoginPageProps) {
-  return <LoginPanel initialMode={searchParams.mode === "signup" ? "signup" : "login"} />;
+  redirect(searchParams.mode === "signup" ? "/sign-up" : "/sign-in");
 }

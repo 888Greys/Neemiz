@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -31,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={`${inter.variable} ${jetBrains.variable} bg-background text-on-background`}>
-        {children}
+        <ClerkProvider>{children}</ClerkProvider>
       </body>
     </html>
   );
