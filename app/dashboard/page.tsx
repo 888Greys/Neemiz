@@ -1,175 +1,140 @@
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icon";
-import { MobileProductChip, OddsButton, ProductShortcut, WalletSummary } from "@/components/ui";
-import { liveEvents, predictionMarkets, productCards } from "@/lib/mock-data";
 
-export default function HomePage() {
+const gameCards = [
+  { title: "Mines", icon: "grid_view", color: "from-sky-500 to-blue-900" },
+  { title: "Lucky Jet", icon: "rocket_launch", color: "from-violet-400 to-purple-900" },
+  { title: "Dice", icon: "casino", color: "from-blue-300 to-blue-900" },
+  { title: "Coinflip", icon: "paid", color: "from-amber-300 to-orange-800" },
+  { title: "Penalty", icon: "sports_soccer", color: "from-green-400 to-green-900" },
+  { title: "Aviator", icon: "flight_takeoff", color: "from-cyan-400 to-blue-800" },
+];
+
+const sports = [
+  ["Croatia Cup", "GNK Dinamo Zagreb", "HNK Rijeka", "19:00", "1.44", "4.10", "6.60"],
+  ["Spain LaLiga", "Villarreal", "Sevilla", "20:00", "1.96", "3.52", "4.00"],
+  ["DreamLeague", "Pvision", "Tundra", "Break", "1.15", "4.83", "+89"],
+  ["DreamLeague", "BB", "REKONIX", "Map 2", "1.02", "10.99", "+55"],
+];
+
+export default function DashboardPage() {
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-[1440px] p-4 md:p-6">
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_1fr]">
-          <section className="hidden min-h-60 overflow-hidden rounded-xl border border-outline-variant bg-surface-container p-6 md:block">
-            <div className="absolute" />
-            <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="rounded bg-[#EF4444] px-2 py-0.5 text-[10px] font-bold uppercase text-white">Live</span>
-                <span className="font-mono text-sm text-on-surface-variant">68:42</span>
-              </div>
-              <Icon name="sports_soccer" className="text-on-surface-variant" />
-            </div>
-            <div className="mb-8 flex items-center justify-between">
-              <Team name="Real Madrid" />
-              <div className="px-4 text-center">
-                <div className="font-headline text-4xl font-black tracking-tight">2 - 1</div>
-                <div className="text-xs uppercase tracking-widest text-on-surface-variant">Featured Match</div>
-              </div>
-              <Team name="Man City" />
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              <OddsButton label="1" odds="1.85" />
-              <OddsButton label="X" odds="3.40" />
-              <OddsButton label="2" odds="4.20" />
-            </div>
-          </section>
-
-          <div className="space-y-6 md:hidden">
-            <WalletSummary />
-            <div className="flex snap-x gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {productCards.map((item) => (
-                <MobileProductChip key={item.label} href={item.href} label={item.label} />
-              ))}
-            </div>
-            <section>
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Featured Match</h3>
-                <span className="flex items-center gap-1 text-xs font-bold text-primary"><span className="h-1.5 w-1.5 rounded-full bg-primary" /> Live 75&apos;</span>
-              </div>
-              <div className="rounded-lg border border-outline-variant bg-surface-container p-4">
-                <div className="mb-5 flex items-center justify-between">
-                  <MobileTeam name="Arsenal" />
-                  <div className="text-center">
-                    <div className="font-headline text-2xl font-semibold tracking-widest text-primary">2 - 1</div>
-                    <div className="text-[10px] uppercase tracking-wide text-on-surface-variant">Premier League</div>
-                  </div>
-                  <MobileTeam name="Chelsea" />
-                </div>
-                <div className="flex gap-2">
-                  <OddsButton label="1" odds="2.10" />
-                  <OddsButton label="X" odds="3.45" />
-                  <OddsButton label="2" odds="3.80" />
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <section className="hidden rounded-xl border border-outline-variant bg-surface-container p-6 xl:block">
-            <h2 className="mb-5 text-lg font-semibold">Featured Market</h2>
-            <PredictionPreview />
-          </section>
+      <div className="mx-auto w-full max-w-[1500px] px-3 py-3 md:px-6 md:py-4">
+        <div className="mb-3 flex gap-2 overflow-x-auto no-scrollbar md:mb-5">
+          {["Lobby", "Live Casino", "Quick Games", "Sports", "Markets"].map((tab, index) => (
+            <button
+              key={tab}
+              className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-bold md:rounded-2xl md:px-5 md:py-2.5 md:text-base ${
+                index === 0 ? "bg-primary-container text-on-primary-container" : "bg-surface-container-high text-on-surface-variant"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
 
-        <section className="mt-6 hidden md:block">
-          <h2 className="mb-4 text-lg font-semibold">Markets</h2>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            {productCards.filter((item) => item.label !== "Live").map((item) => (
-              <ProductShortcut key={item.label} {...item} />
+        <section className="grid gap-3 md:gap-5 xl:grid-cols-[1fr_420px]">
+          <div className="relative min-h-[210px] overflow-hidden rounded-2xl border border-outline-variant bg-gradient-to-r from-[#07101d] via-[#243149] to-[#080a10] p-4 md:min-h-[300px] md:rounded-[28px] md:p-9">
+            <div className="relative z-10 max-w-xl">
+              <div className="mb-3 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-primary md:mb-4 md:px-3 md:text-xs">
+                Nezeem lobby
+              </div>
+              <h1 className="text-3xl font-black uppercase leading-none tracking-tight md:text-7xl">
+                Crypto
+                <br />
+                Casino #1
+              </h1>
+              <p className="mt-3 max-w-md text-xs leading-5 text-on-surface-variant md:mt-5 md:text-lg md:leading-7">
+                Casino, sports, fast games, P2P and prediction markets arranged in one compact wallet experience.
+              </p>
+              <button className="mt-5 rounded-xl bg-white px-5 py-2 text-sm font-black text-black md:mt-8 md:rounded-2xl md:px-8 md:py-3 md:text-lg">Play</button>
+            </div>
+            <div className="absolute -right-12 bottom-0 hidden h-80 w-80 rounded-full border-[38px] border-white/15 xl:block" />
+            <div className="absolute right-20 top-14 hidden h-24 w-24 rounded-full bg-primary/30 blur-3xl md:block" />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 md:gap-5 xl:grid-cols-1">
+            <article className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#4f78ff] to-[#244dff] p-4 md:rounded-[28px] md:p-6">
+              <h2 className="text-xl font-black md:text-3xl">Best game of the week</h2>
+              <div className="mt-4 flex h-24 items-end justify-center rounded-2xl border border-white/40 bg-white/15 md:mt-8 md:h-36 md:rounded-3xl">
+                <Icon name="emoji_events" className="mb-5 text-4xl text-white/85 md:mb-7 md:text-6xl" />
+              </div>
+              <button className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-black text-black md:mt-5 md:py-3 md:text-lg">Play</button>
+            </article>
+
+            <article className="rounded-2xl bg-[#62758a] p-4 md:rounded-[28px] md:p-6">
+              <h3 className="text-xl font-black md:text-2xl">Bonuses</h3>
+              <p className="mt-9 flex items-center gap-2 text-sm text-white/90 md:mt-16 md:text-base">
+                <span className="h-2 w-2 rounded-full bg-white" /> 1 available bonus
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section className="mt-6 md:mt-8">
+          <div className="mb-3 flex items-center justify-between md:mb-4">
+            <h2 className="flex items-center gap-2 text-lg font-black md:gap-3 md:text-2xl">
+              <span className="text-primary">Nezeem</span> games
+            </h2>
+            <button className="rounded-xl bg-surface-container-high px-3 py-2 text-xs font-bold md:rounded-2xl md:px-5 md:py-2.5 md:text-base">All games</button>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:gap-3 lg:grid-cols-6">
+            {gameCards.map((game) => (
+              <article
+                key={game.title}
+                className={`flex aspect-square flex-col justify-end overflow-hidden rounded-xl bg-gradient-to-br ${game.color} p-3 shadow-[inset_0_-40px_60px_rgba(0,0,0,.28)] sm:aspect-[4/5] md:rounded-2xl md:p-4 md:shadow-[inset_0_-50px_70px_rgba(0,0,0,.28)]`}
+              >
+                <Icon name={game.icon} className="mb-auto text-3xl text-white/85 md:text-5xl" />
+                <h3 className="text-lg font-black uppercase leading-none md:text-3xl">{game.title}</h3>
+                <p className="mt-1.5 text-[9px] font-bold uppercase text-white/70 md:mt-2 md:text-[10px]">Nezeem games</p>
+              </article>
             ))}
           </div>
         </section>
 
-        <div className="mt-6 grid gap-6 xl:grid-cols-2">
-          <section className="overflow-hidden rounded-xl border border-outline-variant bg-surface-container">
-            <Header title="Trending In-Play" live />
-            <div className="divide-y divide-outline-variant">
-              {liveEvents.slice(0, 4).map((event) => (
-                <div key={`${event.home}-${event.away}`} className="flex items-center justify-between gap-3 p-4 transition hover:bg-surface-variant">
+        <section className="mt-7 md:mt-10">
+          <div className="mb-3 flex items-center justify-between md:mb-4">
+            <h2 className="flex items-center gap-2 text-lg font-black md:text-2xl">
+              <span className="rounded-lg bg-[#ff1979] p-1 md:p-1.5">
+                <Icon name="sensors" className="text-[16px] md:text-[20px]" />
+              </span>
+              Top Sports
+            </h2>
+            <button className="rounded-xl bg-surface-container-high px-3 py-2 text-xs font-bold md:rounded-2xl md:px-5 md:py-2.5 md:text-base">View all</button>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 md:gap-4 2xl:grid-cols-4">
+            {sports.map(([league, home, away, time, one, draw, two]) => (
+              <article key={`${league}-${home}`} className="rounded-xl bg-[#f2f3f6] p-3 text-black md:rounded-2xl md:p-5">
+                <div className="mb-3 flex items-center gap-2 md:mb-4">
+                  <span className="rounded-full bg-[#ff4b14] p-1 text-white">
+                    <Icon name="local_fire_department" fill className="text-[16px] md:text-[18px]" />
+                  </span>
                   <div>
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="text-xs font-bold text-[#EF4444]">{event.time}</span>
-                      <span className="text-xs text-on-surface-variant">{event.league}</span>
-                    </div>
-                    <div className="font-medium">{event.home} vs {event.away}</div>
-                  </div>
-                  <div className="flex gap-1">
-                    {event.odds.slice(0, 3).map((odd, index) => (
-                      <span key={odd} className="min-w-12 rounded border border-outline-variant bg-surface-dim px-3 py-1 text-center font-mono text-sm">{odd}</span>
-                    ))}
+                    <div className="text-sm font-black md:text-lg">{league}</div>
+                    <div className="text-xs text-black/65 md:text-sm">Soccer</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-xl border border-outline-variant bg-surface-container p-5 md:hidden xl:block">
-            <h2 className="mb-4 text-lg font-semibold">Predictions</h2>
-            <PredictionPreview />
-          </section>
-        </div>
+                <div className="mb-3 inline-flex rounded-full bg-white px-2.5 py-1 text-xs font-bold text-black/70 md:mb-4 md:px-3 md:text-sm">{time}</div>
+                <div className="mb-4 space-y-1 text-sm font-semibold md:mb-5 md:text-lg">
+                  <div>{home}</div>
+                  <div>{away}</div>
+                </div>
+                <div className="text-xs text-black/60 md:text-sm">Full time result</div>
+                <div className="mt-2 grid grid-cols-4 gap-1">
+                  {[["1", one], ["X", draw], ["2", two], ["", "+99"]].map(([label, value]) => (
+                    <button key={`${home}-${label}-${value}`} className="rounded-lg bg-[#e8eaf0] px-1.5 py-2 text-sm font-black md:px-2 md:py-3 md:text-base">
+                      <span className="mr-1 text-xs text-black/50 md:mr-2 md:text-sm">{label}</span>
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
       </div>
     </AppShell>
-  );
-}
-
-function Team({ name }: { name: string }) {
-  return (
-    <div className="flex flex-1 flex-col items-center">
-      <div className="mb-2 flex h-16 w-16 items-center justify-center rounded-full border border-outline-variant bg-surface-dim">
-        <Icon name="sports_soccer" className="text-primary" />
-      </div>
-      <span className="text-center text-lg font-semibold">{name}</span>
-    </div>
-  );
-}
-
-function MobileTeam({ name }: { name: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-variant">
-        <Icon name="sports_soccer" className="text-[20px] text-on-surface-variant" />
-      </div>
-      <span className="text-sm">{name}</span>
-    </div>
-  );
-}
-
-function Header({ title, live }: { title: string; live?: boolean }) {
-  return (
-    <div className="flex items-center justify-between border-b border-outline-variant bg-surface-dim/50 p-4">
-      <h2 className="flex items-center gap-2 font-semibold">
-        {live && <span className="h-2 w-2 rounded-full bg-[#EF4444]" />}
-        {title}
-      </h2>
-      <span className="text-xs font-bold uppercase text-primary">View All</span>
-    </div>
-  );
-}
-
-function PredictionPreview() {
-  const market = predictionMarkets[0];
-  return (
-    <div>
-      <h3 className="mb-6 text-center text-lg font-semibold">{market.title}</h3>
-      <div className="space-y-4">
-        <PredictionBar label="Yes" value={market.yes} odds="1.53" tone="yes" />
-        <PredictionBar label="No" value={market.no} odds="2.65" tone="no" />
-      </div>
-      <div className="mt-5 flex justify-between border-t border-outline-variant pt-4 font-mono text-sm text-on-surface-variant">
-        <span>Vol: {market.volume}</span>
-        <span>Closes: {market.closes}</span>
-      </div>
-    </div>
-  );
-}
-
-function PredictionBar({ label, value, odds, tone }: { label: string; value: number; odds: string; tone: "yes" | "no" }) {
-  const color = tone === "yes" ? "bg-primary/20 text-primary" : "bg-[#EF4444]/20 text-[#EF4444]";
-  return (
-    <button className="relative flex h-12 w-full items-center overflow-hidden rounded border border-outline-variant bg-surface-dim text-left">
-      <span className={`absolute inset-y-0 left-0 ${color}`} style={{ width: `${value}%` }} />
-      <span className="relative z-10 flex w-full items-center justify-between px-4">
-        <span className="font-bold text-on-surface">{label}</span>
-        <span className="flex gap-4 font-mono"><span className="text-on-surface-variant">{value}%</span><span className={tone === "yes" ? "text-primary" : "text-[#EF4444]"}>{odds}</span></span>
-      </span>
-    </button>
   );
 }
