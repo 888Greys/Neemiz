@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
 
 type Mode = "login" | "signup";
@@ -17,7 +18,7 @@ export function LoginPanel({ initialMode }: { initialMode: Mode }) {
           <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Icon name="check_circle" fill className="text-[32px]" />
           </div>
-          <h1 className="text-2xl font-bold">You are on the Neemiz waitlist</h1>
+          <h1 className="text-2xl font-bold">You are on the Nezeem waitlist</h1>
           <p className="mt-3 text-sm leading-6 text-on-surface-variant">
             Thank you for requesting early access. We are finalizing the live betting, wallet, P2P, prediction market, and trading features. You will be notified as soon as your account is ready.
           </p>
@@ -37,7 +38,7 @@ export function LoginPanel({ initialMode }: { initialMode: Mode }) {
     <AuthShell>
       <div className="mb-8 text-center">
         <Link href="/" className="text-3xl font-black uppercase tracking-tight text-primary">
-          NEEMIZ
+          <BrandLogo size="md" />
         </Link>
         <p className="mt-3 text-sm text-on-surface-variant">
           {mode === "login" ? "Access your launch preview account." : "Reserve early access before public launch."}
@@ -130,7 +131,7 @@ function SignupForm({ onJoin }: { onJoin: () => void }) {
         Join Waitlist
       </button>
       <p className="rounded border border-primary/25 bg-primary/10 p-3 text-xs leading-5 text-on-surface-variant">
-        Neemiz is currently in launch preparation. Creating an account reserves your place; we will notify you when deposits, betting, P2P, and trading features are available.
+        Nezeem is currently in launch preparation. Creating an account reserves your place; we will notify you when deposits, betting, P2P, and trading features are available.
       </p>
     </form>
   );

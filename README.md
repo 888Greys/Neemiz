@@ -1,6 +1,6 @@
-# Neemiz
+# Nezeem
 
-Neemiz is a mobile-first betting and trading prototype built with Next.js, TypeScript, Tailwind CSS, and Bun. The current version is a polished UI prototype only: it uses mock data and does not place real bets, process payments, settle markets, or connect to SportsMonk yet.
+Nezeem is a mobile-first betting and trading prototype built with Next.js, TypeScript, Tailwind CSS, and Bun. The current version is a polished UI prototype only: it uses mock data and does not place real bets, process payments, settle markets, or connect to SportsMonk yet.
 
 ## Current Pages
 
@@ -54,7 +54,7 @@ bun run build
 - `app/` - Next.js routes and global layout/styles
 - `components/` - shared shell, icons, cards, odds buttons, wallet UI, and ticket UI
 - `lib/mock-data.ts` - mock events, markets, P2P merchants, wallet activity, and Aviator history
-- `tailwind.config.ts` - Neemiz theme tokens
+- `tailwind.config.ts` - Nezeem theme tokens
 
 ## Notes
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand-logo";
 
 const products = [
   { icon: "⚽", label: "Sports Betting",  desc: "Live odds on 30+ sports. In-play markets updated in real time.", color: "from-violet-500/20 to-transparent", border: "rgba(139,92,246,0.25)" },
@@ -41,22 +42,20 @@ export default function LandingPage() {
     <div className="hero-bg noise min-h-screen text-white">
 
       {/* ── Navbar ── */}
-      <nav className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between px-3 py-3 md:px-10 md:py-4">
-        <div className="glass rounded-full px-3 py-1.5 md:px-5 md:py-2.5">
-          <span className="text-base font-black tracking-tight text-white md:text-xl">
-            NEEM<span className="gradient-text">IZ</span>
-          </span>
+      <nav className="fixed left-0 right-0 top-0 z-50 flex min-w-0 items-center justify-between gap-2 px-2.5 py-3 md:px-10 md:py-4">
+        <div className="glass min-w-0 shrink rounded-full px-2.5 py-1.5 md:px-5 md:py-2.5">
+          <BrandLogo size="sm" />
         </div>
-        <div className="flex items-center gap-1.5 md:gap-3">
+        <div className="flex shrink-0 items-center gap-1.5 md:gap-3">
           <Link
             href="/sign-in"
-            className="glass rounded-full px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:text-white md:px-5 md:py-2 md:text-sm"
+            className="glass hidden rounded-full px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:text-white min-[360px]:inline-flex md:px-5 md:py-2 md:text-sm"
           >
             Sign in
           </Link>
           <Link
             href="/sign-up"
-            className="rounded-full bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-lg shadow-violet-500/25 transition hover:bg-violet-500 md:px-5 md:py-2 md:text-sm"
+            className="inline-flex max-w-[120px] items-center justify-center rounded-full bg-violet-600 px-3 py-1.5 text-xs font-bold text-white shadow-lg shadow-violet-500/25 transition hover:bg-violet-500 md:max-w-none md:px-5 md:py-2 md:text-sm"
           >
             <span className="md:hidden">Join</span>
             <span className="hidden md:inline">Join waitlist</span>
@@ -221,9 +220,9 @@ export default function LandingPage() {
       {/* ── Footer ── */}
       <footer className="border-t border-white/5 px-5 py-6 text-center text-xs text-white/20 md:px-6 md:py-8">
         <div className="mb-2 text-sm font-black tracking-tight text-white/40">
-          NEEM<span className="text-violet-500">IZ</span>
+          <BrandLogo size="sm" />
         </div>
-        <p>© 2025 Neemiz. All rights reserved.</p>
+        <p>© 2025 Nezeem. All rights reserved.</p>
         <p className="mt-1">Play responsibly. 18+ only.</p>
       </footer>
     </div>

@@ -14,8 +14,8 @@ const jetBrains = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Neemiz",
-    template: "%s | Neemiz",
+    default: "Nezeem",
+    template: "%s | Nezeem",
   },
   description: "A premium betting, predictions, P2P, forex, binary, and Aviator prototype.",
 };

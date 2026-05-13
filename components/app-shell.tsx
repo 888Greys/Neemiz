@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { balance, mobileNav, navItems } from "@/lib/mock-data";
+import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
 
 type AppShellProps = {
@@ -20,9 +21,7 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
     <div className="min-h-screen bg-background text-on-surface">
       <header className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between border-b border-outline-variant bg-surface-dim px-4 md:px-6">
         <div className="flex items-center gap-4">
-          <Link href="/" className="font-headline text-2xl font-black tracking-tight text-on-surface">
-            NEEMIZ
-          </Link>
+          <BrandLogo href="/" size="sm" />
           <div className="relative ml-4 hidden md:block">
             <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-on-surface-variant" />
             <input
