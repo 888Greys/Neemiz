@@ -1,7 +1,7 @@
 export const balance = "$1,240.50";
 
 export const navItems = [
-  { href: "/", label: "Home", icon: "home" },
+  { href: "/dashboard", label: "Home", icon: "home" },
   { href: "/sports", label: "Sports", icon: "sports_soccer" },
   { href: "/sports?tab=live", label: "Live", icon: "sensors" },
   { href: "/p2p", label: "P2P", icon: "groups" },
@@ -13,11 +13,11 @@ export const navItems = [
 ];
 
 export const mobileNav = [
-  { href: "/", label: "Home", icon: "home" },
-  { href: "/sports", label: "Sports", icon: "sports_basketball" },
-  { href: "/sports?tab=live", label: "Live", icon: "settings_remote" },
-  { href: "/wallet", label: "Wallet", icon: "account_balance_wallet" },
   { href: "/login", label: "Menu", icon: "menu" },
+  { href: "/dashboard", label: "Home", icon: "home", activePath: "/dashboard" },
+  { href: "/dashboard#casino", label: "Casino", icon: "casino", activePath: "/dashboard#casino" },
+  { href: "/wallet", label: "Free money", icon: "paid" },
+  { href: "/sports", label: "Sports", icon: "sports_soccer" },
 ];
 
 export const productCards = [

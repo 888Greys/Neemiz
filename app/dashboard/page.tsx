@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icon";
 import Link from "next/link";
+import { MobileHeroCarousel } from "@/components/mobile-hero-carousel";
 
 const tempAssets = {
   bonusMobile: "https://v3.bundlecdn.com/b02632/plain/bonus/bonus-banner.1/main_bonus_360-v2.png",
@@ -38,6 +39,57 @@ const lobbyChips = [
   ["Only on Nezeem", "looks_one"],
   ["Slots", "casino"],
   ["Bonus buy", "redeem"],
+];
+
+const appCategories = [
+  {
+    icon: "sports_soccer",
+    title: "Sports Betting",
+    desc: "Live odds on 30+ sports. In-play markets updated in real time.",
+    tone: "from-[#2a1b55]/85 to-[#11131c]",
+    border: "border-violet-500/35",
+    iconBg: "bg-violet-500/18 text-violet-200",
+  },
+  {
+    icon: "rocket_launch",
+    title: "Aviator",
+    desc: "Provably fair crash game. Cash out before the plane flies away.",
+    tone: "from-[#2a1d12]/85 to-[#11131c]",
+    border: "border-orange-500/35",
+    iconBg: "bg-orange-500/18 text-orange-200",
+  },
+  {
+    icon: "online_prediction",
+    title: "Predictions",
+    desc: "Polymarket-style markets. Trade YES/NO on real-world events.",
+    tone: "from-[#261321]/85 to-[#11131c]",
+    border: "border-pink-500/35",
+    iconBg: "bg-pink-500/18 text-pink-200",
+  },
+  {
+    icon: "handshake",
+    title: "P2P Trading",
+    desc: "Buy and sell with real merchants. Escrow-protected every trade.",
+    tone: "from-[#102921]/85 to-[#11131c]",
+    border: "border-emerald-500/35",
+    iconBg: "bg-emerald-500/18 text-emerald-200",
+  },
+  {
+    icon: "show_chart",
+    title: "Binary & Forex",
+    desc: "Up or down. Trade currency pairs with fixed risk, fixed reward.",
+    tone: "from-[#101f34]/85 to-[#11131c]",
+    border: "border-blue-500/35",
+    iconBg: "bg-blue-500/18 text-blue-200",
+  },
+  {
+    icon: "account_balance_wallet",
+    title: "Smart Wallet",
+    desc: "Multi-currency wallet. Deposit, withdraw, and transfer instantly.",
+    tone: "from-[#2c2410]/85 to-[#11131c]",
+    border: "border-amber-500/35",
+    iconBg: "bg-amber-500/18 text-amber-200",
+  },
 ];
 
 export default function DashboardPage() {
@@ -145,6 +197,8 @@ export default function DashboardPage() {
           </button>
         </section>
 
+        <AppCategorySection />
+
         <section className="mt-6 md:mt-8">
           <div className="mb-3 flex items-center justify-between md:mb-4">
             <h2 className="flex items-center gap-2 text-lg font-black md:gap-3 md:text-2xl">
@@ -217,25 +271,13 @@ function MobileDashboard() {
   return (
     <div className="md:hidden">
       <div className="space-y-4 px-2 py-3">
-        <section
-          className="relative h-[120px] overflow-hidden rounded-2xl bg-cover bg-center p-4"
-          style={{ backgroundImage: `linear-gradient(90deg, rgba(0,0,0,.58), rgba(0,0,0,.05)), url(${tempAssets.bonusMobile})` }}
-        >
-          <div className="relative z-10 max-w-[150px]">
-            <h1 className="text-lg font-black leading-tight">
-              Welcome Bonus
-              <br />
-              up to 600%
-              <br />
-              and 500 FS
-            </h1>
-            <div className="mt-4 flex gap-1">
-              {[0, 1, 2, 3, 4, 5].map((dot) => (
-                <span key={dot} className={`h-1.5 rounded-full ${dot === 0 ? "w-5 bg-white" : "w-1.5 bg-white/35"}`} />
-              ))}
-            </div>
-          </div>
-        </section>
+        <MobileHeroCarousel
+          slides={[
+            { title: "Welcome Bonus\nup to 600%\nand 500 FS", image: tempAssets.bonusMobile, cta: "Claim bonus" },
+            { title: "Free bets\nfor betting\nand sports", image: tempAssets.gameWeekMobile, cta: "Play now" },
+            { title: "Bonus gifts\nfor early\nplayers", image: tempAssets.freebet, cta: "Open gifts" },
+          ]}
+        />
 
         <section className="grid grid-cols-[1.35fr_.85fr] gap-2">
           <article
@@ -263,6 +305,8 @@ function MobileDashboard() {
           ]}
         />
 
+        <MobileAppCategories />
+
         <MobileGameSection
           title="All games"
           icon="apps"
@@ -284,6 +328,73 @@ function MobileDashboard() {
         />
       </div>
     </div>
+  );
+}
+
+function AppCategorySection() {
+  return (
+    <section className="mt-7 md:mt-10">
+      <div className="mb-4 flex items-end justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">Nezeem markets</p>
+          <h2 className="mt-1 text-2xl font-black">Product categories</h2>
+        </div>
+        <Link href="/wallet" className="hidden rounded-2xl bg-surface-container-high px-5 py-2.5 text-sm font-black text-slate-100 transition hover:bg-[#303137] lg:inline-flex">
+          Open wallet
+        </Link>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-3">
+        {appCategories.map((category) => (
+          <article
+            key={category.title}
+            className={`min-h-[178px] cursor-default rounded-2xl border ${category.border} bg-gradient-to-br ${category.tone} p-5`}
+          >
+            <span className={`mb-6 flex h-12 w-12 items-center justify-center rounded-2xl ${category.iconBg}`}>
+              <Icon name={category.icon} fill className="text-[28px]" />
+            </span>
+            <h3 className="text-xl font-black">{category.title}</h3>
+            <p className="mt-3 max-w-sm text-sm font-semibold leading-6 text-slate-400">{category.desc}</p>
+            <span className="mt-5 inline-flex items-center gap-2 text-sm font-black text-primary">
+              Coming soon
+              <Icon name="arrow_forward" className="text-[18px]" />
+            </span>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function MobileAppCategories() {
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-sm font-black">
+          <Icon name="widgets" fill className="text-[18px] text-primary" />
+          Categories
+        </h2>
+        <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Coming soon</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {appCategories.map((category) => (
+          <article
+            key={category.title}
+            className={`min-h-[118px] rounded-xl border ${category.border} bg-gradient-to-br ${category.tone} p-3`}
+          >
+            <span className={`mb-3 flex h-8 w-8 items-center justify-center rounded-lg ${category.iconBg}`}>
+              <Icon name={category.icon} fill className="text-[19px]" />
+            </span>
+            <h3 className="text-[13px] font-black leading-tight">{category.title}</h3>
+            <p className="mt-1.5 line-clamp-2 text-[10px] font-semibold leading-4 text-slate-400">{category.desc}</p>
+            <span className="mt-2 inline-flex items-center gap-1 text-[10px] font-black text-primary">
+              Coming soon
+              <Icon name="arrow_forward" className="text-[13px]" />
+            </span>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 

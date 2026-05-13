@@ -55,10 +55,10 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
 
         <div className="flex min-w-0 flex-1 items-center justify-between gap-3 lg:gap-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-6">
-            <BrandLogo href="/" size="sm" />
+            <BrandLogo href="/dashboard" size="sm" />
             <nav className="hidden items-center rounded-2xl bg-[#25262a] p-1 text-sm font-black text-slate-200 md:flex">
-              <TopNavLink href="/" icon="home" label="Home" pathname={pathname} />
-              <TopNavLink href="/dashboard" icon="casino" label="Casino" pathname={pathname} />
+              <TopNavLink href="/dashboard" icon="home" label="Home" pathname={pathname} />
+              <TopNavLink href="/dashboard#casino" icon="casino" label="Casino" pathname={pathname} />
               <TopNavLink href="/wallet" icon="paid" label="Free money" pathname={pathname} />
               <TopNavLink href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} />
             </nav>
@@ -96,22 +96,23 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
 
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} />}
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-white/10 bg-[#111113] px-2 shadow-lg lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-12 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href.split("?")[0]);
+          const activePath = "activePath" in item ? item.activePath : item.href.split("?")[0].split("#")[0];
+          const active = activePath === pathname;
           if (item.label === "Menu") {
             return (
-              <button key={item.label} className="flex flex-col items-center justify-center rounded p-2 text-xs text-on-surface-variant" onClick={() => setMobileMenuOpen(true)} type="button">
-                <Icon name={item.icon} />
-                <span className="mt-1 text-[10px] font-bold">{item.label}</span>
+              <button key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[8px] text-on-surface-variant" onClick={() => setMobileMenuOpen(true)} type="button">
+                <Icon name={item.icon} className="text-[18px]" />
+                <span className="mt-0.5 font-bold leading-none">{item.label}</span>
               </button>
             );
           }
 
           return (
-            <Link key={item.label} href={item.href} className={`flex flex-col items-center justify-center rounded p-2 text-xs ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}>
-              <Icon name={item.icon} fill={active} />
-              <span className="mt-1 text-[10px] font-bold">{item.label}</span>
+            <Link key={item.label} href={item.href} className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[8px] ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}>
+              <Icon name={item.icon} fill={active} className="text-[18px]" />
+              <span className="mt-0.5 max-w-full truncate font-bold leading-none">{item.label}</span>
             </Link>
           );
         })}
@@ -539,7 +540,7 @@ function MobileMenuDrawer({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/65 lg:hidden">
-      <aside className="relative flex h-full w-[175px] flex-col bg-[#1b1c20] shadow-2xl">
+      <aside className="relative flex h-full w-[72vw] max-w-[310px] min-w-[255px] flex-col bg-[#1b1c20] shadow-2xl">
         <button className="absolute -right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#3a3d45] text-white" onClick={onClose} type="button" aria-label="Close menu">
           <Icon name="close" className="text-[18px]" />
         </button>
