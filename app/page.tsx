@@ -42,7 +42,7 @@ export default function LandingPage() {
     <div className="hero-bg noise min-h-screen text-white">
 
       {/* ── Navbar ── */}
-      <nav className="fixed left-0 right-0 top-0 z-50 flex min-w-0 items-center justify-between gap-2 px-2.5 py-3 md:px-10 md:py-4">
+      <nav className="fixed left-0 right-0 top-0 z-50 flex min-w-0 items-center justify-between gap-2 overflow-hidden px-2.5 py-3 md:px-10 md:py-4">
         <div className="glass min-w-0 shrink rounded-full px-2.5 py-1.5 md:px-5 md:py-2.5">
           <BrandLogo size="sm" />
         </div>
@@ -67,7 +67,7 @@ export default function LandingPage() {
       <div className="fixed left-0 right-0 top-[56px] z-40 overflow-hidden border-b border-white/5 bg-black/50 py-1.5 backdrop-blur-sm md:top-[68px]">
         <div className="flex animate-ticker whitespace-nowrap">
           {[...ticker, ...ticker].map((item, i) => (
-            <span key={i} className="mx-6 inline-flex items-center gap-2 text-[11px] md:mx-8 md:gap-3 md:text-xs">
+            <span key={i} className="mx-3 inline-flex items-center gap-2 text-[10px] md:mx-8 md:gap-3 md:text-xs">
               <span className="animate-live-dot h-1.5 w-1.5 rounded-full bg-red-500" />
               <span className="text-white/50">{item.teams}</span>
               <span className="font-mono font-bold text-white">{item.score}</span>
@@ -79,7 +79,7 @@ export default function LandingPage() {
       </div>
 
       {/* ── Hero ── */}
-      <section className="relative flex min-h-[100svh] flex-col items-center justify-center px-5 pb-16 pt-28 text-center md:min-h-screen md:px-6 md:pt-36 md:pb-24">
+      <section className="relative mx-auto flex min-h-[100svh] w-full max-w-full flex-col items-center justify-center overflow-hidden px-4 pb-16 pt-28 text-center md:min-h-screen md:px-6 md:pt-36 md:pb-24">
 
         {/* Orbs */}
         <div className="animate-orb pointer-events-none absolute left-1/2 top-1/3 h-64 w-64 -translate-x-1/2 rounded-full bg-violet-600/20 blur-[80px] md:h-96 md:w-96 md:blur-[100px]" />
@@ -95,7 +95,7 @@ export default function LandingPage() {
 
         {/* Headline */}
         <h1
-          className="animate-fade-up mx-auto mb-5 max-w-xs text-4xl font-black leading-[1.05] tracking-tight sm:max-w-lg sm:text-5xl md:mb-6 md:max-w-4xl md:text-7xl lg:text-8xl"
+          className="animate-fade-up mx-auto mb-5 w-full max-w-[22rem] text-[2.45rem] font-black leading-[1.03] tracking-tight sm:max-w-lg sm:text-5xl md:mb-6 md:max-w-4xl md:text-7xl lg:text-8xl"
           style={{ animationDelay: "0.2s" }}
         >
           The Future of{" "}
@@ -106,14 +106,14 @@ export default function LandingPage() {
 
         {/* Subtext */}
         <p
-          className="animate-fade-up mx-auto mb-8 max-w-sm text-sm text-white/50 md:mb-10 md:max-w-xl md:text-xl"
+          className="animate-fade-up mx-auto mb-8 w-full max-w-[21rem] text-sm text-white/50 md:mb-10 md:max-w-xl md:text-xl"
           style={{ animationDelay: "0.3s" }}
         >
           Sports · Aviator · P2P · Predictions · Forex — all in one platform. Built for serious players.
         </p>
 
         {/* CTA form */}
-        <div className="animate-fade-up w-full max-w-sm px-1 md:max-w-md md:px-0" style={{ animationDelay: "0.4s" }}>
+        <div className="animate-fade-up w-full max-w-[21rem] px-0 md:max-w-md" style={{ animationDelay: "0.4s" }}>
           {submitted ? (
             <div className="glass-purple rounded-2xl px-6 py-5 md:px-8 md:py-6">
               <div className="mb-2 text-3xl">🎉</div>
@@ -121,7 +121,7 @@ export default function LandingPage() {
               <p className="mt-1 text-sm text-white/50">We&apos;ll hit you up the moment we launch.</p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="glass flex flex-col gap-2 overflow-hidden rounded-2xl p-2 sm:flex-row sm:gap-0 sm:p-1.5">
+            <form onSubmit={handleSubmit} className="glass flex w-full flex-col gap-2 overflow-hidden rounded-2xl p-2 sm:flex-row sm:gap-0 sm:p-1.5">
               <input
                 type="email"
                 value={email}
@@ -143,7 +143,7 @@ export default function LandingPage() {
 
         {/* Stats */}
         <div
-          className="animate-fade-up mt-8 grid grid-cols-4 gap-2 md:mt-16 md:gap-4"
+          className="animate-fade-up mt-8 grid w-full max-w-[21rem] grid-cols-4 gap-2 md:mt-16 md:max-w-none md:gap-4"
           style={{ animationDelay: "0.5s" }}
         >
           {stats.map((s) => (
