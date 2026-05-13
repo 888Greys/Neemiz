@@ -1,13 +1,25 @@
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icon";
+import Link from "next/link";
+
+const tempAssets = {
+  bonusMobile: "https://v3.bundlecdn.com/b02632/plain/bonus/bonus-banner.1/main_bonus_360-v2.png",
+  bonusDesktop: "https://v3.bundlecdn.com/b02632/plain/bonus/bonus-banner.1/main_bonus_768-v2.png",
+  gameWeekMobile: "https://v3.bundlecdn.com/b02632/plain/casino/game-of-the-week.1/mobile.png",
+  gameWeekDesktop: "https://v3.bundlecdn.com/b02632/plain/casino/game-of-the-week.1/desktop.png",
+  freebet: "https://v3.bundlecdn.com/b02632/plain/betting/brand-freebet.png",
+  randomGame: "https://v3.bundlecdn.com/b02632/plain/casino/random-game.1/bg-right-mobile.png",
+  jackpot: "https://v3.bundlecdn.com/b02632/plain/casino/jackpot.1/start.png",
+  poker: "https://v3.bundlecdn.com/b02632/plain/casino/poker/poker-cards.png",
+};
 
 const gameCards = [
-  { title: "Mines", icon: "grid_view", color: "from-sky-500 to-blue-900" },
-  { title: "Lucky Jet", icon: "rocket_launch", color: "from-violet-400 to-purple-900" },
-  { title: "Dice", icon: "casino", color: "from-blue-300 to-blue-900" },
-  { title: "Coinflip", icon: "paid", color: "from-amber-300 to-orange-800" },
-  { title: "Penalty", icon: "sports_soccer", color: "from-green-400 to-green-900" },
-  { title: "Aviator", icon: "flight_takeoff", color: "from-cyan-400 to-blue-800" },
+  { title: "Mines", icon: "grid_view", color: "from-sky-500 to-blue-900", image: tempAssets.randomGame },
+  { title: "Lucky Jet", icon: "rocket_launch", color: "from-violet-400 to-purple-900", image: tempAssets.jackpot },
+  { title: "Dice", icon: "casino", color: "from-blue-300 to-blue-900", image: tempAssets.poker },
+  { title: "Coinflip", icon: "paid", color: "from-amber-300 to-orange-800", image: tempAssets.freebet },
+  { title: "Penalty", icon: "sports_soccer", color: "from-green-400 to-green-900", image: tempAssets.gameWeekMobile },
+  { title: "Aviator", icon: "flight_takeoff", color: "from-cyan-400 to-blue-800", image: tempAssets.bonusMobile },
 ];
 
 const sports = [
@@ -17,25 +29,50 @@ const sports = [
   ["DreamLeague", "BB", "REKONIX", "Map 2", "1.02", "10.99", "+55"],
 ];
 
+const lobbyChips = [
+  ["Lobby", "apps"],
+  ["Nezeem games", "sports_score"],
+  ["Quick games", "bolt"],
+  ["Popular", "star"],
+  ["New", "new_releases"],
+  ["Only on Nezeem", "looks_one"],
+  ["Slots", "casino"],
+  ["Bonus buy", "redeem"],
+];
+
 export default function DashboardPage() {
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-[1500px] px-3 py-3 md:px-6 md:py-4">
-        <div className="mb-3 flex gap-2 overflow-x-auto no-scrollbar md:mb-5">
-          {["Lobby", "Live Casino", "Quick Games", "Sports", "Markets"].map((tab, index) => (
-            <button
+      <MobileDashboard />
+
+      <div className="mx-auto hidden w-full max-w-[1600px] px-3 py-3 md:block md:px-6 md:py-8">
+        <div className="mb-4 flex gap-0 overflow-x-auto no-scrollbar md:mb-10">
+          {[
+            ["Lobby", "/dashboard"],
+            ["Live Casino", "/aviator"],
+            ["Quick games", "/binary"],
+          ].map(([tab, href], index) => (
+            <Link
               key={tab}
-              className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-bold md:rounded-2xl md:px-5 md:py-2.5 md:text-base ${
-                index === 0 ? "bg-primary-container text-on-primary-container" : "bg-surface-container-high text-on-surface-variant"
+              href={href}
+              className={`shrink-0 px-5 py-3 text-sm font-black md:px-6 md:text-base ${
+                index === 0
+                  ? "rounded-2xl bg-[#087cff] text-white"
+                  : index === 1
+                    ? "border-r border-white/10 bg-[#27282c] text-slate-100"
+                    : "rounded-r-2xl bg-[#27282c] text-slate-100"
               }`}
             >
               {tab}
-            </button>
+            </Link>
           ))}
         </div>
 
-        <section className="grid gap-3 md:gap-5 xl:grid-cols-[1fr_420px]">
-          <div className="relative min-h-[210px] overflow-hidden rounded-2xl border border-outline-variant bg-gradient-to-r from-[#07101d] via-[#243149] to-[#080a10] p-4 md:min-h-[300px] md:rounded-[28px] md:p-9">
+        <section className="grid gap-3 md:gap-5 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_440px]">
+          <div
+            className="relative min-h-[210px] overflow-hidden rounded-2xl border border-outline-variant bg-cover bg-center p-4 md:min-h-[300px] md:rounded-[28px] md:p-9"
+            style={{ backgroundImage: `linear-gradient(90deg, rgba(5,8,14,.72), rgba(5,8,14,.18)), url(${tempAssets.bonusDesktop})` }}
+          >
             <div className="relative z-10 max-w-xl">
               <div className="mb-3 inline-flex rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-primary md:mb-4 md:px-3 md:text-xs">
                 Nezeem lobby
@@ -50,12 +87,13 @@ export default function DashboardPage() {
               </p>
               <button className="mt-5 rounded-xl bg-white px-5 py-2 text-sm font-black text-black md:mt-8 md:rounded-2xl md:px-8 md:py-3 md:text-lg">Play</button>
             </div>
-            <div className="absolute -right-12 bottom-0 hidden h-80 w-80 rounded-full border-[38px] border-white/15 xl:block" />
-            <div className="absolute right-20 top-14 hidden h-24 w-24 rounded-full bg-primary/30 blur-3xl md:block" />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 md:gap-5 xl:grid-cols-1">
-            <article className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#4f78ff] to-[#244dff] p-4 md:rounded-[28px] md:p-6">
+            <article
+              className="overflow-hidden rounded-2xl bg-cover bg-center p-4 md:rounded-[28px] md:p-6"
+              style={{ backgroundImage: `linear-gradient(180deg, rgba(57,99,255,.55), rgba(29,70,255,.42)), url(${tempAssets.gameWeekDesktop})` }}
+            >
               <h2 className="text-xl font-black md:text-3xl">Best game of the week</h2>
               <div className="mt-4 flex h-24 items-end justify-center rounded-2xl border border-white/40 bg-white/15 md:mt-8 md:h-36 md:rounded-3xl">
                 <Icon name="emoji_events" className="mb-5 text-4xl text-white/85 md:mb-7 md:text-6xl" />
@@ -63,13 +101,48 @@ export default function DashboardPage() {
               <button className="mt-3 w-full rounded-xl bg-white py-2 text-sm font-black text-black md:mt-5 md:py-3 md:text-lg">Play</button>
             </article>
 
-            <article className="rounded-2xl bg-[#62758a] p-4 md:rounded-[28px] md:p-6">
+            <article
+              className="rounded-2xl bg-cover bg-center p-4 md:rounded-[28px] md:p-6"
+              style={{ backgroundImage: `linear-gradient(90deg, rgba(98,117,138,.88), rgba(98,117,138,.42)), url(${tempAssets.freebet})` }}
+            >
               <h3 className="text-xl font-black md:text-2xl">Bonuses</h3>
               <p className="mt-9 flex items-center gap-2 text-sm text-white/90 md:mt-16 md:text-base">
                 <span className="h-2 w-2 rounded-full bg-white" /> 1 available bonus
               </p>
             </article>
           </div>
+        </section>
+
+        <section className="mt-5 grid gap-3 xl:grid-cols-[1fr_400px]">
+          <label className="relative block">
+            <Icon name="search" className="absolute left-4 top-1/2 -translate-y-1/2 text-[25px] text-slate-400" />
+            <input
+              className="h-14 w-full rounded-2xl border border-transparent bg-[#242529] pl-12 pr-4 text-base font-medium text-white outline-none transition placeholder:text-slate-400 focus:border-[#087cff]"
+              placeholder="Search"
+            />
+          </label>
+          <button className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-[#242529] text-base font-black text-slate-100 transition hover:bg-[#303137]" type="button">
+            <Icon name="tune" className="text-[22px]" />
+            Providers
+          </button>
+        </section>
+
+        <section className="mt-6 flex gap-2 overflow-x-auto no-scrollbar">
+          {lobbyChips.map(([label, icon], index) => (
+            <button
+              key={label}
+              className={`flex shrink-0 items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black transition md:text-base ${
+                index === 0 ? "bg-[#087cff] text-white" : "bg-[#242529] text-slate-100 hover:bg-[#303137]"
+              }`}
+              type="button"
+            >
+              <Icon name={icon} fill className="text-[22px]" />
+              {label}
+            </button>
+          ))}
+          <button className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#242529] text-white transition hover:bg-[#303137]" type="button">
+            <Icon name="chevron_right" className="text-[26px]" />
+          </button>
         </section>
 
         <section className="mt-6 md:mt-8">
@@ -84,6 +157,7 @@ export default function DashboardPage() {
               <article
                 key={game.title}
                 className={`flex aspect-square flex-col justify-end overflow-hidden rounded-xl bg-gradient-to-br ${game.color} p-3 shadow-[inset_0_-40px_60px_rgba(0,0,0,.28)] sm:aspect-[4/5] md:rounded-2xl md:p-4 md:shadow-[inset_0_-50px_70px_rgba(0,0,0,.28)]`}
+                style={{ backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.05), rgba(0,0,0,.45)), url(${game.image})`, backgroundSize: "cover", backgroundPosition: "center" }}
               >
                 <Icon name={game.icon} className="mb-auto text-3xl text-white/85 md:text-5xl" />
                 <h3 className="text-lg font-black uppercase leading-none md:text-3xl">{game.title}</h3>
@@ -136,5 +210,109 @@ export default function DashboardPage() {
         </section>
       </div>
     </AppShell>
+  );
+}
+
+function MobileDashboard() {
+  return (
+    <div className="md:hidden">
+      <div className="space-y-4 px-2 py-3">
+        <section
+          className="relative h-[120px] overflow-hidden rounded-2xl bg-cover bg-center p-4"
+          style={{ backgroundImage: `linear-gradient(90deg, rgba(0,0,0,.58), rgba(0,0,0,.05)), url(${tempAssets.bonusMobile})` }}
+        >
+          <div className="relative z-10 max-w-[150px]">
+            <h1 className="text-lg font-black leading-tight">
+              Welcome Bonus
+              <br />
+              up to 600%
+              <br />
+              and 500 FS
+            </h1>
+            <div className="mt-4 flex gap-1">
+              {[0, 1, 2, 3, 4, 5].map((dot) => (
+                <span key={dot} className={`h-1.5 rounded-full ${dot === 0 ? "w-5 bg-white" : "w-1.5 bg-white/35"}`} />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-[1.35fr_.85fr] gap-2">
+          <article
+            className="relative min-h-[72px] overflow-hidden rounded-xl bg-cover bg-center p-3"
+            style={{ backgroundImage: `linear-gradient(90deg, rgba(102,87,69,.92), rgba(102,87,69,.35)), url(${tempAssets.freebet})` }}
+          >
+            <h2 className="text-sm font-black">Free money</h2>
+            <p className="mt-1 max-w-[100px] text-[10px] leading-3 text-white/90">Giving away prizes & other rewards</p>
+          </article>
+          <article
+            className="relative min-h-[72px] overflow-hidden rounded-xl bg-cover bg-center p-3"
+            style={{ backgroundImage: `linear-gradient(90deg, rgba(97,118,141,.88), rgba(97,118,141,.30)), url(${tempAssets.gameWeekMobile})` }}
+          >
+            <h2 className="text-sm font-black">Bonuses</h2>
+          </article>
+        </section>
+
+        <MobileGameSection
+          title="Nezeem games"
+          icon="sports_score"
+          games={[
+            ["Mines", "grid_view", "from-sky-500 to-blue-900", tempAssets.randomGame],
+            ["Lucky Jet", "rocket_launch", "from-violet-400 to-purple-900", tempAssets.jackpot],
+            ["Dice", "casino", "from-blue-300 to-blue-900", tempAssets.poker],
+          ]}
+        />
+
+        <MobileGameSection
+          title="All games"
+          icon="apps"
+          games={[
+            ["Aviator", "flight_takeoff", "from-red-500 to-red-900", tempAssets.gameWeekMobile],
+            ["Jeta", "flight", "from-yellow-300 to-yellow-700", tempAssets.jackpot],
+            ["Coin Volcano", "local_fire_department", "from-orange-400 to-red-900", tempAssets.bonusMobile],
+          ]}
+        />
+
+        <MobileGameSection
+          title="Quick games"
+          icon="bolt"
+          games={[
+            ["Rocket", "rocket_launch", "from-red-500 to-red-900", tempAssets.freebet],
+            ["Penalty", "sports_soccer", "from-green-400 to-green-900", tempAssets.gameWeekMobile],
+            ["Cross Fire", "extension", "from-slate-300 to-blue-700", tempAssets.randomGame],
+          ]}
+        />
+      </div>
+    </div>
+  );
+}
+
+function MobileGameSection({ games, icon, title }: { games: string[][]; icon: string; title: string }) {
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-sm font-black">
+          <Icon name={icon} fill className="text-[18px]" />
+          {title}
+        </h2>
+        <button className="flex items-center gap-1 rounded-xl bg-[#242529] px-3 py-2 text-xs font-black" type="button">
+          All games
+          <Icon name="chevron_right" className="text-[17px]" />
+        </button>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {games.map(([title, icon, color, image]) => (
+          <article
+            key={title}
+            className={`flex aspect-[.72] flex-col justify-end overflow-hidden rounded-xl bg-gradient-to-br ${color} bg-cover bg-center p-2 shadow-[inset_0_-38px_55px_rgba(0,0,0,.25)]`}
+            style={{ backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,.48)), url(${image})` }}
+          >
+            <Icon name={icon} className="mb-auto text-[34px] text-white/85" />
+            <h3 className="text-xl font-black uppercase leading-none">{title}</h3>
+            <p className="mt-1 text-[7px] font-bold uppercase text-white/70">Nezeem games</p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
