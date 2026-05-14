@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { SignUpButton } from "@clerk/nextjs";
 import { mobileNav } from "@/lib/mock-data";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
+import { LoginModal } from "@/components/login-modal";
 
 const tempAssets = {
   appInstall: "https://v3.bundlecdn.com/b02632/plain/bonus/app-install/phone-small-v1.png",
@@ -27,6 +28,7 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
     return stored === null ? true : stored === "true";
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -47,21 +49,17 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
           }`}
         >
           {sidebarCollapsed ? (
-            <SignInButton mode="modal">
-              <button className="flex h-12 w-12 items-center justify-center rounded-full bg-[#34363b] text-slate-300" type="button">
-                <Icon name="person" fill className="text-[28px]" />
-              </button>
-            </SignInButton>
+            <button onClick={() => setLoginOpen(true)} className="flex h-12 w-12 items-center justify-center rounded-full bg-[#34363b] text-slate-300" type="button">
+              <Icon name="person" fill className="text-[28px]" />
+            </button>
           ) : (
-            <SignInButton mode="modal">
-              <button className="flex w-full items-center gap-3 rounded-2xl text-left transition hover:bg-white/[0.03]" type="button">
-                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#34363b] text-slate-300">
-                  <Icon name="person" fill className="text-[32px]" />
-                </span>
-                <span className="flex-1 text-lg font-black">Log in</span>
-                <Icon name="chevron_right" className="text-[32px] text-slate-400" />
-              </button>
-            </SignInButton>
+            <button onClick={() => setLoginOpen(true)} className="flex w-full items-center gap-3 rounded-2xl text-left transition hover:bg-white/[0.03]" type="button">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#34363b] text-slate-300">
+                <Icon name="person" fill className="text-[32px]" />
+              </span>
+              <span className="flex-1 text-lg font-black">Log in</span>
+              <Icon name="chevron_right" className="text-[32px] text-slate-400" />
+            </button>
           )}
         </div>
 
@@ -77,11 +75,13 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
             </nav>
           </div>
           <div className="flex shrink-0 items-center gap-2 md:gap-3">
-            <SignInButton mode="modal">
-              <button className="rounded-lg bg-[#28292d] px-3 py-2 text-xs font-black text-white transition hover:bg-[#34353b] md:rounded-2xl md:px-6 md:py-3 md:text-base">
-                Login
-              </button>
-            </SignInButton>
+            <button
+              onClick={() => setLoginOpen(true)}
+              className="rounded-lg bg-[#28292d] px-3 py-2 text-xs font-black text-white transition hover:bg-[#34353b] md:rounded-2xl md:px-6 md:py-3 md:text-base"
+              type="button"
+            >
+              Login
+            </button>
             <SignUpButton mode="modal">
               <button className="rounded-lg bg-[#05b957] px-3 py-2 text-xs font-black text-white transition hover:bg-[#08c963] md:rounded-2xl md:px-6 md:py-3 md:text-base">
                 Registration
@@ -108,7 +108,8 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
         {rightPanel && <aside className="hidden w-80 shrink-0 bg-surface-container-lowest lg:flex">{rightPanel}</aside>}
       </div>
 
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} />}
+      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => setLoginOpen(false)} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} />}
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-12 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
@@ -450,7 +451,7 @@ function TelegramIcon() {
   );
 }
 
-function MobileMenuDrawer({ onClose }: { onClose: () => void }) {
+function MobileMenuDrawer({ onClose, onOpenLogin }: { onClose: () => void; onOpenLogin: () => void }) {
   const [openGroups, setOpenGroups] = useState({
     sports: false,
     casino: false,
@@ -466,15 +467,13 @@ function MobileMenuDrawer({ onClose }: { onClose: () => void }) {
         </button>
 
         <div className="no-scrollbar flex-1 overflow-y-auto p-2">
-          <SignInButton mode="modal">
-            <button className="mb-2 flex w-full items-center gap-2 rounded-xl p-1 text-left" type="button">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#34363b]">
-                <Icon name="person" fill className="text-[18px] text-slate-300" />
-              </span>
-              <span className="flex-1 text-xs font-black">Log in</span>
-              <Icon name="chevron_right" className="text-[18px] text-slate-400" />
-            </button>
-          </SignInButton>
+          <button onClick={onOpenLogin} className="mb-2 flex w-full items-center gap-2 rounded-xl p-1 text-left" type="button">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#34363b]">
+              <Icon name="person" fill className="text-[18px] text-slate-300" />
+            </span>
+            <span className="flex-1 text-xs font-black">Log in</span>
+            <Icon name="chevron_right" className="text-[18px] text-slate-400" />
+          </button>
 
           <Link
             href="/wallet"
