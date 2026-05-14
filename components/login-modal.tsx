@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useSignIn, useClerk } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useSignIn } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 
 function TgIcon() {
@@ -42,7 +43,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
   const [error, setError]     = useState("");
 
   const { signIn } = useSignIn();
-  const { setActive } = useClerk();
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,9 +53,14 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     try {
       const identifier = tab === "email" ? email : `${country.code}${phone}`;
       const result = await signIn.create({ identifier, password });
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
+      // Clerk v7: result is { error } — no error means success
+      const err = (result as { error?: { longMessage?: string; message?: string } | null }).error;
+      if (err) {
+        setError(err.longMessage ?? err.message ?? "Invalid credentials");
+      } else {
         onClose();
+        router.push("/dashboard");
+        router.refresh();
       }
     } catch (err: unknown) {
       const e = err as { errors?: { longMessage?: string; message?: string }[] };

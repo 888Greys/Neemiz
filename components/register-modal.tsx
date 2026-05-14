@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSignUp, useClerk } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useSignUp } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 
 function TgIcon() {
@@ -47,7 +48,9 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   const [code, setCode]         = useState("");
 
   const { signUp } = useSignUp();
-  const { setActive } = useClerk();
+  const router = useRouter();
+
+  type ClerkV7Result = { error?: { longMessage?: string; message?: string } | null };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,11 +59,13 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     setError("");
     try {
       if (tab === "email") {
-        await signUp.create({ emailAddress: email, password, username: username || undefined });
+        const r = await signUp.create({ emailAddress: email, password, username: username || undefined }) as ClerkV7Result;
+        if (r.error) { setError(r.error.longMessage ?? r.error.message ?? "Registration failed"); return; }
         await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
         setPendingVerify(true);
       } else {
-        await signUp.create({ phoneNumber: `${country.code}${phone}`, password, username: username || undefined });
+        const r = await signUp.create({ phoneNumber: `${country.code}${phone}`, password, username: username || undefined }) as ClerkV7Result;
+        if (r.error) { setError(r.error.longMessage ?? r.error.message ?? "Registration failed"); return; }
         await signUp.preparePhoneNumberVerification({ strategy: "phone_code" });
         setPendingVerify(true);
       }
@@ -78,12 +83,16 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     setLoading(true);
     setError("");
     try {
-      const result = tab === "email"
+      const result = (tab === "email"
         ? await signUp.attemptEmailAddressVerification({ code })
-        : await signUp.attemptPhoneNumberVerification({ code });
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
+        : await signUp.attemptPhoneNumberVerification({ code })) as ClerkV7Result;
+      const err = result.error;
+      if (err) {
+        setError(err.longMessage ?? err.message ?? "Invalid code");
+      } else {
         onClose();
+        router.push("/dashboard");
+        router.refresh();
       }
     } catch (err: unknown) {
       const e = err as { errors?: { longMessage?: string; message?: string }[] };
