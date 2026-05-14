@@ -1,5 +1,7 @@
-function Sk({ className }: { className: string }) {
-  return <div className={`skeleton rounded ${className}`} />;
+import React from "react";
+
+function Sk({ className, style }: { className: string; style?: React.CSSProperties }) {
+  return <div className={`skeleton rounded ${className}`} style={style} />;
 }
 
 export default function AviatorLoading() {
