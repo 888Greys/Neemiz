@@ -50,25 +50,33 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   const { signUp } = useSignUp();
   const router = useRouter();
 
-  type ClerkV7Result = { error?: { longMessage?: string; message?: string } | null };
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!signUp || !agreed) return;
     setLoading(true);
     setError("");
     try {
-      if (tab === "email") {
-        const r = await signUp.create({ emailAddress: email, password, username: username || undefined }) as ClerkV7Result;
-        if (r.error) { setError(r.error.longMessage ?? r.error.message ?? "Registration failed"); return; }
-        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-        setPendingVerify(true);
-      } else {
-        const r = await signUp.create({ phoneNumber: `${country.code}${phone}`, password, username: username || undefined }) as ClerkV7Result;
-        if (r.error) { setError(r.error.longMessage ?? r.error.message ?? "Registration failed"); return; }
-        await signUp.preparePhoneNumberVerification({ strategy: "phone_code" });
-        setPendingVerify(true);
+      const params = tab === "email"
+        ? { emailAddress: email, password, ...(username ? { username } : {}) }
+        : { phoneNumber: `${country.code}${phone}`, password, ...(username ? { username } : {}) };
+
+      type R = { error?: { longMessage?: string; message?: string } | null; status?: string };
+      const result = await signUp.create(params as Parameters<typeof signUp.create>[0]) as unknown as R;
+
+      // Clerk v7 returns { error } — older versions return { status }
+      if (result?.error) {
+        setError(result.error.longMessage ?? result.error.message ?? "Registration failed");
+        return;
       }
+      // If status-based (v5/v6 compat) and needs verification
+      if (result?.status === "missing_requirements") {
+        setPendingVerify(true);
+        return;
+      }
+      // Otherwise account created — redirect
+      onClose();
+      router.push("/dashboard");
+      router.refresh();
     } catch (err: unknown) {
       const e = err as { errors?: { longMessage?: string; message?: string }[] };
       setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Registration failed");
@@ -83,12 +91,15 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     setLoading(true);
     setError("");
     try {
-      const result = (tab === "email"
-        ? await signUp.attemptEmailAddressVerification({ code })
-        : await signUp.attemptPhoneNumberVerification({ code })) as ClerkV7Result;
-      const err = result.error;
-      if (err) {
-        setError(err.longMessage ?? err.message ?? "Invalid code");
+      type VR = { error?: { longMessage?: string; message?: string } | null };
+      type SignUpAny = { attemptEmailAddressVerification: (p: unknown) => Promise<VR>; attemptPhoneNumberVerification: (p: unknown) => Promise<VR> };
+      const signUpAny = signUp as unknown as SignUpAny;
+      const result: VR = tab === "email"
+        ? await signUpAny.attemptEmailAddressVerification({ code })
+        : await signUpAny.attemptPhoneNumberVerification({ code });
+
+      if (result?.error) {
+        setError(result.error.longMessage ?? result.error.message ?? "Invalid code");
       } else {
         onClose();
         router.push("/dashboard");
@@ -104,11 +115,11 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
 
   async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
     if (!signUp) return;
-    await signUp.authenticateWithRedirect({
+    await signUp.create({
       strategy,
-      redirectUrl: "/sso-callback",
-      redirectUrlComplete: "/dashboard",
-    });
+      redirectUrl: `${window.location.origin}/sso-callback`,
+      redirectUrlComplete: `${window.location.origin}/dashboard`,
+    } as Parameters<typeof signUp.create>[0]);
   }
 
   return (

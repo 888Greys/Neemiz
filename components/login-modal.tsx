@@ -72,11 +72,11 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
 
   async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
     if (!signIn) return;
-    await signIn.authenticateWithRedirect({
+    await signIn.create({
       strategy,
-      redirectUrl: "/sso-callback",
-      redirectUrlComplete: "/dashboard",
-    });
+      redirectUrl: `${window.location.origin}/sso-callback`,
+      redirectUrlComplete: `${window.location.origin}/dashboard`,
+    } as Parameters<typeof signIn.create>[0]);
   }
 
   return (
