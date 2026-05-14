@@ -104,7 +104,7 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
         </aside>
 
         <main className="flex-1 overflow-y-auto border-r border-outline-variant bg-background pb-24 lg:pb-0">
-          <div className="flex min-h-full flex-col">
+          <div className="flex flex-col" style={{ minHeight: "calc(100vh - 3.5rem)" }}>
             <div className="flex-1">{children}</div>
             <AppFooter />
           </div>
