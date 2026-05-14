@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSignUp } from "@clerk/nextjs";
+import { useSignUp, useClerk } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 
 function TgIcon() {
@@ -46,7 +46,8 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   const [pendingVerify, setPendingVerify] = useState(false);
   const [code, setCode]         = useState("");
 
-  const { signUp, setActive } = useSignUp();
+  const { signUp } = useSignUp();
+  const { setActive } = useClerk();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

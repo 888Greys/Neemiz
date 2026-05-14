@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignIn, useClerk } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 
 function TgIcon() {
@@ -41,7 +41,8 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
 
-  const { signIn, setActive } = useSignIn();
+  const { signIn } = useSignIn();
+  const { setActive } = useClerk();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
