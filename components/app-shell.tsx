@@ -22,8 +22,9 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return localStorage.getItem("sidebar-collapsed") === "true";
+    if (typeof window === "undefined") return true;
+    const stored = localStorage.getItem("sidebar-collapsed");
+    return stored === null ? true : stored === "true";
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -594,147 +595,135 @@ function MobileDrawerLink({ badge, href, icon, label, onClick }: { badge?: strin
 /* ── Footer ─────────────────────────────────────────────── */
 function AppFooter() {
   const socials = [
-    { label: "WhatsApp",  icon: "M17.5 14.4c-.3-.1-1.7-.8-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.6-2-.2-.3 0-.5.1-.6l.5-.6c.1-.2.1-.3.2-.5 0-.2 0-.4-.1-.5-.1-.1-.7-1.6-1-2.2-.2-.6-.5-.5-.7-.5H8c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.1 3c.1.2 2 3 4.8 4.2.7.3 1.2.4 1.6.5.7.2 1.3.2 1.8.1.5-.1 1.7-.7 1.9-1.4.2-.6.2-1.2.1-1.3-.1-.1-.3-.2-.6-.3zm-5.4 7.3h-.1a10.4 10.4 0 0 1-5.3-1.5l-.4-.2-3.7 1 1-3.6-.3-.4a10.5 10.5 0 1 1 8.8 4.7zm0-20C5.4 1.7 1 6.2 1 11.7c0 1.9.5 3.7 1.4 5.2L1 22l5.2-1.4a10.3 10.3 0 0 0 5 1.3c5.5 0 10-4.5 10-10S17.7 1.7 12.1 1.7z", viewBox: "0 0 24 24" },
-    { label: "Telegram",  svg: true },
+    { label: "WhatsApp",  svg: <path d="M17.5 14.4c-.3-.1-1.7-.8-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.6-2-.2-.3 0-.5.1-.6l.5-.6c.1-.2.1-.3.2-.5 0-.2 0-.4-.1-.5-.1-.1-.7-1.6-1-2.2-.2-.6-.5-.5-.7-.5H8c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.1 3c.1.2 2 3 4.8 4.2.7.3 1.2.4 1.6.5.7.2 1.3.2 1.8.1.5-.1 1.7-.7 1.9-1.4.2-.6.2-1.2.1-1.3-.1-.1-.3-.2-.6-.3zm-5.4 7.3h-.1a10.4 10.4 0 0 1-5.3-1.5l-.4-.2-3.7 1 1-3.6-.3-.4a10.5 10.5 0 1 1 8.8 4.7zm0-20C5.4 1.7 1 6.2 1 11.7c0 1.9.5 3.7 1.4 5.2L1 22l5.2-1.4a10.3 10.3 0 0 0 5 1.3c5.5 0 10-4.5 10-10S17.7 1.7 12.1 1.7z" />, vb: "0 0 24 24" },
+    { label: "Telegram",  tg: true },
     { label: "Instagram", mat: "photo_camera" },
-    { label: "Facebook",  icon: "M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z", viewBox: "0 0 24 24" },
-    { label: "X",         icon: "M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L2.25 2.25h6.865l4.258 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z", viewBox: "0 0 20 20" },
-    { label: "Pinterest", icon: "M12 0C5.4 0 0 5.4 0 12c0 5.1 3.1 9.4 7.5 11.3-.1-.9-.2-2.4 0-3.4.2-.9 1.4-5.8 1.4-5.8s-.3-.7-.3-1.8c0-1.7 1-2.9 2.1-2.9 1 0 1.5.8 1.5 1.7 0 1-.7 2.6-1 4-.3 1.2.6 2.2 1.7 2.2 2.1 0 3.6-2.2 3.6-5.3 0-2.8-2-4.7-4.8-4.7-3.3 0-5.2 2.5-5.2 5 0 1 .4 2 .9 2.5a.4.4 0 0 1 .1.3l-.3 1.3c-.1.3-.3.4-.6.2-2.2-1-3.5-4.2-3.5-6.7 0-3.9 2.8-7.4 8.2-7.4 4.3 0 7.6 3 7.6 7.1 0 4.2-2.7 7.6-6.4 7.6-1.2 0-2.4-.6-2.8-1.4l-.8 2.9c-.3 1-.1 1.2-.4 1.8.8.2 1.5.3 2.3.3 6.6 0 12-5.4 12-12S18.6 0 12 0z", viewBox: "0 0 24 24" },
-    { label: "Threads",   icon: "M12.2 2C7.7 2 5 4.9 5 9.3v5.4C5 19.1 7.7 22 12.2 22c4.4 0 6.8-2.9 6.8-7.3 0-.3 0-.5-.1-.8H17c0 .3.1.5.1.8 0 3-1.6 5.3-4.9 5.3s-5.2-2.2-5.2-5.3V9.3c0-3.1 1.9-5.3 5.2-5.3 2.8 0 4.5 1.6 4.8 4.1H19C18.6 4.3 15.9 2 12.2 2zm0 7c-1.7 0-2.8 1-2.8 2.3 0 1.4 1 2.2 2.5 2.5.5.1 1.3.1 1.9-.1.9-.4 1.3-1.1 1.3-2.1 0-1.5-1.1-2.6-2.9-2.6z", viewBox: "0 0 24 24" },
-  ];
-
-  const infoLinks = ["Rules", "Promotions", "Partner program", "Responsible Gaming", "Privacy Policy"];
-  const categoryLinks = [
-    { label: "Live Sports", href: "/sports?tab=live" },
-    { label: "Sports", href: "/sports" },
-    { label: "Esports", href: "/sports?tab=esports" },
-    { label: "Bonuses", href: "/wallet#bonuses" },
-    { label: "Aviator", href: "/aviator" },
-    { label: "Predictions", href: "/predictions" },
-    { label: "P2P Trading", href: "/p2p" },
-    { label: "Binary & Forex", href: "/binary" },
+    { label: "Facebook",  svg: <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />, vb: "0 0 24 24" },
+    { label: "X",         svg: <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L2.25 2.25h6.865l4.258 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />, vb: "0 0 20 20" },
+    { label: "Threads",   svg: <path d="M12.2 2C7.7 2 5 4.9 5 9.3v5.4C5 19.1 7.7 22 12.2 22c4.4 0 6.8-2.9 6.8-7.3 0-.3 0-.5-.1-.8H17c0 .3.1.5.1.8 0 3-1.6 5.3-4.9 5.3s-5.2-2.2-5.2-5.3V9.3c0-3.1 1.9-5.3 5.2-5.3 2.8 0 4.5 1.6 4.8 4.1H19C18.6 4.3 15.9 2 12.2 2zm0 7c-1.7 0-2.8 1-2.8 2.3 0 1.4 1 2.2 2.5 2.5.5.1 1.3.1 1.9-.1.9-.4 1.3-1.1 1.3-2.1 0-1.5-1.1-2.6-2.9-2.6z" />, vb: "0 0 24 24" },
   ];
 
   return (
-    <footer className="mt-6 border-t border-white/[0.06] bg-[#0d0e11] px-5 py-8 lg:px-8">
-      {/* ── Top row: support + contact cards ── */}
-      <div className="mb-8 grid gap-3 sm:grid-cols-3">
-        {/* Support */}
-        <div className="relative flex items-center gap-4 overflow-hidden rounded-2xl bg-gradient-to-r from-[#0f4c9e] to-[#1462cc] px-5 py-4">
-          <div className="absolute -right-4 -top-4 h-28 w-28 rounded-full bg-white/5 blur-xl" />
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15">
-            <Icon name="support_agent" fill className="text-[28px] text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-white">Support</span>
-              <span className="rounded-full bg-[#05b957] px-2 py-0.5 text-[10px] font-black text-white">24/7</span>
+    <footer className="mt-8 border-t border-white/[0.06] bg-[#0a0b0e]">
+      {/* ── Support bar ── */}
+      <div className="relative overflow-hidden border-b border-white/[0.05] bg-gradient-to-r from-[#0d1f45] via-[#102560] to-[#0d1f45]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_120%,rgba(99,102,241,0.18),transparent)]" />
+        <div className="relative mx-auto flex flex-wrap items-center justify-between gap-4 px-6 py-5 xl:px-10">
+          <div className="flex items-center gap-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
+              <Icon name="support_agent" fill className="text-[24px] text-white" />
             </div>
-            <p className="mt-0.5 text-[11px] text-white/65">Contact us if you still have questions</p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black text-white">Support</span>
+                <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white">24/7</span>
+              </div>
+              <p className="text-[11px] text-white/50">Contact us if you still have questions</p>
+            </div>
           </div>
-          <button className="shrink-0 rounded-xl bg-white px-4 py-2 text-xs font-black text-[#0f4c9e] transition hover:bg-white/90" type="button">
-            Contact support
-          </button>
-        </div>
-
-        {/* Commercial offers */}
-        <div className="flex flex-col justify-center rounded-2xl border border-white/[0.07] bg-[#13141a] px-5 py-4">
-          <div className="mb-1 text-xs font-bold text-slate-400">Commercial offers</div>
-          <a href="mailto:business@nezeem.com" className="text-sm font-black text-white transition hover:text-violet-400">
-            business@nezeem.com
-          </a>
-        </div>
-
-        {/* Partner program */}
-        <div className="flex flex-col justify-center rounded-2xl border border-white/[0.07] bg-[#13141a] px-5 py-4">
-          <div className="mb-1 text-xs font-bold text-slate-400">Partner program</div>
-          <a href="mailto:partners@nezeem.com" className="text-sm font-black text-white transition hover:text-violet-400">
-            partners@nezeem.com
-          </a>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-2.5 text-center">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-white/40">Commercial offers</div>
+              <a href="mailto:business@nezeem.com" className="text-xs font-black text-white transition hover:text-violet-300">business@nezeem.com</a>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-2.5 text-center">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-white/40">Partner program</div>
+              <a href="mailto:partners@nezeem.com" className="text-xs font-black text-white transition hover:text-violet-300">partners@nezeem.com</a>
+            </div>
+            <button className="rounded-2xl bg-white px-6 py-2.5 text-xs font-black text-[#102560] transition hover:bg-white/90" type="button">
+              Contact support
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* ── Middle row: links + app banners ── */}
-      <div className="mb-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
-        {/* Information */}
+      {/* ── Main footer body ── */}
+      <div className="mx-auto grid gap-10 px-6 py-10 xl:px-10 lg:grid-cols-[1fr_1fr_1fr_auto]">
+        {/* Brand + description */}
         <div>
-          <h4 className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">Information</h4>
-          <ul className="space-y-2">
-            {infoLinks.map((l) => (
-              <li key={l}>
-                <Link href="#" className="text-sm text-slate-300 transition hover:text-white">{l}</Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Categories */}
-        <div>
-          <h4 className="mb-3 text-xs font-black uppercase tracking-widest text-slate-400">Categories</h4>
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
-            {categoryLinks.map((l) => (
-              <li key={l.label}>
-                <Link href={l.href} className="text-sm text-slate-300 transition hover:text-white">{l.label}</Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* App banners */}
-        <div className="flex gap-3 sm:col-span-2 lg:col-span-1">
-          <Link href="#" className="flex flex-1 flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-violet-700 to-violet-900 p-4 lg:w-40 lg:flex-none">
-            <div className="mb-6">
-              <div className="text-sm font-black leading-tight text-white">Download the app</div>
-              <div className="mt-1 text-[11px] text-white/60">Available for Android and iOS</div>
-            </div>
-            <button className="w-full rounded-xl bg-white py-2 text-xs font-black text-violet-800 transition hover:bg-white/90" type="button">
-              Install
-            </button>
-          </Link>
-          <Link href="#" className="flex flex-1 flex-col justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a3a5c] to-[#0f2440] p-4 lg:w-40 lg:flex-none">
-            <div className="mb-6">
-              <div className="text-sm font-black leading-tight text-white">Application for Windows</div>
-              <div className="mt-1 text-[11px] text-white/60">Desktop experience</div>
-            </div>
-            <button className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-white py-2 text-xs font-black text-[#1a3a5c] transition hover:bg-white/90" type="button">
-              Install
-            </button>
-          </Link>
-        </div>
-      </div>
-
-      {/* ── Bottom row: socials + copyright ── */}
-      <div className="border-t border-white/[0.06] pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Socials */}
-          <div className="flex items-center gap-2">
+          <div className="mb-3 text-lg font-black tracking-tight text-white">Nezeem</div>
+          <p className="mb-4 text-[12px] leading-5 text-slate-500">Sports betting, Aviator, Polymarket predictions, P2P trading, Binary &amp; Forex, and a Smart Wallet — one seamless platform.</p>
+          <div className="flex items-center gap-1.5">
             {socials.map((s) => (
-              <button
-                key={s.label}
-                type="button"
-                aria-label={s.label}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e2028] text-white transition hover:bg-[#2a2c36]"
+              <button key={s.label} type="button" aria-label={s.label}
+                className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#16171d] text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#1e2028] hover:text-white"
               >
-                {s.svg ? (
-                  <TelegramIcon />
-                ) : s.mat ? (
-                  <Icon name={s.mat} fill className="text-[18px]" />
+                {s.tg ? <TelegramIcon /> : s.mat ? (
+                  <Icon name={s.mat} fill className="text-[15px]" />
                 ) : (
-                  <svg viewBox={s.viewBox} className="h-4 w-4" fill="currentColor">
-                    <path d={s.icon} />
-                  </svg>
+                  <svg viewBox={s.vb} className="h-3.5 w-3.5" fill="currentColor">{s.svg}</svg>
                 )}
               </button>
             ))}
           </div>
+        </div>
 
-          {/* Copyright + 18+ */}
-          <div className="flex items-center gap-4">
-            <p className="text-xs text-slate-500">© 2026 Nezeem. All rights reserved. Play responsibly.</p>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/20 text-sm font-black text-white/50">
-              18+
+        {/* Information */}
+        <div>
+          <h4 className="mb-4 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Information</h4>
+          <ul className="space-y-2.5">
+            {["Rules", "Promotions", "Partner program", "Responsible Gaming", "Privacy Policy", "Terms of Service"].map((l) => (
+              <li key={l}>
+                <Link href="#" className="text-[13px] text-slate-400 transition hover:text-white">{l}</Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Products */}
+        <div>
+          <h4 className="mb-4 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Products</h4>
+          <ul className="space-y-2.5">
+            {[
+              { label: "Sports Betting", href: "/sports" },
+              { label: "Aviator", href: "/aviator" },
+              { label: "Predictions", href: "/predictions" },
+              { label: "P2P Trading", href: "/p2p" },
+              { label: "Binary & Forex", href: "/binary" },
+              { label: "Smart Wallet", href: "/wallet" },
+            ].map((l) => (
+              <li key={l.label}>
+                <Link href={l.href} className="text-[13px] text-slate-400 transition hover:text-white">{l.label}</Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* App downloads */}
+        <div className="flex flex-row gap-3 lg:flex-col">
+          <Link href="#"
+            className="flex w-40 flex-col gap-3 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600/80 to-violet-900 p-4 ring-1 ring-violet-500/30 transition hover:ring-violet-400/50"
+          >
+            <Icon name="phone_iphone" fill className="text-[28px] text-white/80" />
+            <div>
+              <div className="text-xs font-black text-white">Mobile App</div>
+              <div className="text-[10px] text-white/50">Android &amp; iOS</div>
+            </div>
+            <span className="mt-auto block w-full rounded-xl bg-white/15 py-1.5 text-center text-[11px] font-black text-white">
+              Install →
             </span>
-          </div>
+          </Link>
+          <Link href="#"
+            className="flex w-40 flex-col gap-3 overflow-hidden rounded-2xl bg-gradient-to-br from-[#1c2d4a] to-[#0f1e33] p-4 ring-1 ring-white/[0.08] transition hover:ring-white/20"
+          >
+            <Icon name="desktop_windows" fill className="text-[28px] text-white/80" />
+            <div>
+              <div className="text-xs font-black text-white">Windows App</div>
+              <div className="text-[10px] text-white/50">Desktop experience</div>
+            </div>
+            <span className="mt-auto block w-full rounded-xl bg-white/10 py-1.5 text-center text-[11px] font-black text-white">
+              Install →
+            </span>
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Bottom bar ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] px-6 py-4 xl:px-10">
+        <p className="text-[11px] text-slate-600">© 2026 Nezeem. All rights reserved. Play responsibly. 18+ only.</p>
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-slate-600">Licensed &amp; regulated</span>
+          <span className="flex h-7 w-9 items-center justify-center rounded-lg border border-white/15 text-xs font-black text-slate-400">18+</span>
         </div>
       </div>
     </footer>

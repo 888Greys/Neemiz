@@ -152,6 +152,53 @@ body {
   animation: shimmer 4s linear infinite;
 }
 
+/* Hero headline animations */
+@keyframes hero-sheen {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+@keyframes hero-sweep-down {
+  0%   { background-position: 0% 0%; }
+  50%  { background-position: 0% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
+.hero-white-sheen {
+  background: linear-gradient(
+    90deg,
+    #fff 0%,
+    #f0ecff 20%,
+    #ffffff 38%,
+    #d8d0ff 50%,
+    #ffffff 62%,
+    #f0ecff 80%,
+    #fff 100%
+  );
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: hero-sheen 5s linear infinite;
+}
+
+.hero-gradient-glow {
+  background: linear-gradient(
+    180deg,
+    #c4b5fd 0%,
+    #a78bfa 18%,
+    #ffffff 45%,
+    #a78bfa 65%,
+    #f59e0b 100%
+  );
+  background-size: 100% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: hero-sweep-down 4s ease-in-out infinite;
+  filter: drop-shadow(0 0 22px rgba(139, 92, 246, 0.55));
+}
+
 .glass {
   background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(12px);

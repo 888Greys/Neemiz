@@ -135,10 +135,10 @@ export function HeroSection() {
               Platform is live · 6 products
             </div>
 
-            <h1 className="text-5xl font-black uppercase leading-[.92] tracking-tight text-white xl:text-7xl 2xl:text-8xl">
-              One platform.
+            <h1 className="text-5xl font-black uppercase leading-[.92] tracking-tight xl:text-7xl 2xl:text-8xl">
+              <span className="hero-white-sheen">One platform.</span>
               <br />
-              <span className="bg-gradient-to-r from-violet-400 via-white to-amber-400 bg-clip-text text-transparent">
+              <span className="hero-gradient-glow">
                 Six markets.
               </span>
             </h1>
