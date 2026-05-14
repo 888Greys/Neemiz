@@ -115,6 +115,17 @@ body {
   100% { transform: translateX(260%); }
 }
 
+@keyframes skeleton-sweep {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #1a1b1f 25%, #26272e 50%, #1a1b1f 75%);
+  background-size: 1200px 100%;
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
+}
+
 .animate-fade-up       { animation: fade-up 0.7s ease-out both; }
 .animate-fade-in       { animation: fade-in 1s ease-out both; }
 .animate-float         { animation: float 6s ease-in-out infinite; }
