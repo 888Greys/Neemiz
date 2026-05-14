@@ -46,11 +46,11 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   const [pendingVerify, setPendingVerify] = useState(false);
   const [code, setCode]         = useState("");
 
-  const { signUp, isLoaded, setActive } = useSignUp();
+  const { signUp, setActive } = useSignUp();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isLoaded || !agreed) return;
+    if (!signUp || !agreed) return;
     setLoading(true);
     setError("");
     try {
@@ -73,7 +73,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
-    if (!isLoaded) return;
+    if (!signUp) return;
     setLoading(true);
     setError("");
     try {
@@ -93,7 +93,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   }
 
   async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
-    if (!isLoaded) return;
+    if (!signUp) return;
     await signUp.authenticateWithRedirect({
       strategy,
       redirectUrl: "/sso-callback",

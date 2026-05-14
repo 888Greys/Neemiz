@@ -41,11 +41,11 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
 
-  const { signIn, isLoaded, setActive } = useSignIn();
+  const { signIn, setActive } = useSignIn();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isLoaded) return;
+    if (!signIn) return;
     setLoading(true);
     setError("");
     try {
@@ -64,7 +64,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
   }
 
   async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
-    if (!isLoaded) return;
+    if (!signIn) return;
     await signIn.authenticateWithRedirect({
       strategy,
       redirectUrl: "/sso-callback",
