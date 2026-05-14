@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
-import { SignUpButton } from "@clerk/nextjs";
 import { mobileNav } from "@/lib/mock-data";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
 import { LoginModal } from "@/components/login-modal";
+import { RegisterModal } from "@/components/register-modal";
 
 const tempAssets = {
   appInstall: "https://v3.bundlecdn.com/b02632/plain/bonus/app-install/phone-small-v1.png",
@@ -29,6 +29,7 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState(false);
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -82,11 +83,13 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
             >
               Login
             </button>
-            <SignUpButton mode="modal">
-              <button className="rounded-lg bg-[#05b957] px-3 py-2 text-xs font-black text-white transition hover:bg-[#08c963] md:rounded-2xl md:px-6 md:py-3 md:text-base">
-                Registration
-              </button>
-            </SignUpButton>
+            <button
+              onClick={() => setRegisterOpen(true)}
+              className="rounded-lg bg-[#05b957] px-3 py-2 text-xs font-black text-white transition hover:bg-[#08c963] md:rounded-2xl md:px-6 md:py-3 md:text-base"
+              type="button"
+            >
+              Registration
+            </button>
           </div>
         </div>
       </header>
@@ -108,8 +111,9 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
         {rightPanel && <aside className="hidden w-80 shrink-0 bg-surface-container-lowest lg:flex">{rightPanel}</aside>}
       </div>
 
-      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => setLoginOpen(false)} />}
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} />}
+      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} />}
+      {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} />}
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-12 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
@@ -451,7 +455,7 @@ function TelegramIcon() {
   );
 }
 
-function MobileMenuDrawer({ onClose, onOpenLogin }: { onClose: () => void; onOpenLogin: () => void }) {
+function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void }) {
   const [openGroups, setOpenGroups] = useState({
     sports: false,
     casino: false,
@@ -467,13 +471,15 @@ function MobileMenuDrawer({ onClose, onOpenLogin }: { onClose: () => void; onOpe
         </button>
 
         <div className="no-scrollbar flex-1 overflow-y-auto p-2">
-          <button onClick={onOpenLogin} className="mb-2 flex w-full items-center gap-2 rounded-xl p-1 text-left" type="button">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#34363b]">
-              <Icon name="person" fill className="text-[18px] text-slate-300" />
-            </span>
-            <span className="flex-1 text-xs font-black">Log in</span>
-            <Icon name="chevron_right" className="text-[18px] text-slate-400" />
-          </button>
+          <div className="mb-2 flex gap-2">
+            <button onClick={onOpenLogin} className="flex flex-1 items-center gap-2 rounded-xl bg-[#28292d] px-3 py-2 text-left" type="button">
+              <Icon name="person" fill className="text-[16px] text-slate-300" />
+              <span className="text-xs font-black">Log in</span>
+            </button>
+            <button onClick={onOpenRegister} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#05b957] px-3 py-2" type="button">
+              <span className="text-xs font-black text-white">Register</span>
+            </button>
+          </div>
 
           <Link
             href="/wallet"
