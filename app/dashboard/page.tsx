@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MobileHeroCarousel } from "@/components/mobile-hero-carousel";
 import { HeroSection } from "@/components/hero-section";
 import { liveEvents } from "@/lib/mock-data";
+import { GameRow } from "@/components/game-row";
 
 const tempAssets = {
   bonusMobile: "https://v3.bundlecdn.com/b02632/plain/bonus/bonus-banner.1/main_bonus_360-v2.png",
@@ -127,135 +128,81 @@ export default function DashboardPage() {
 }
 
 
-/* ── Shared section header ────────────────────────────── */
-
-function SectionHeader({ icon, title, href }: { icon: string; title: string; href: string }) {
-  return (
-    <div className="mb-4 flex items-center justify-between">
-      <h2 className="flex items-center gap-2 text-xl font-black text-white">
-        <Icon name={icon} fill className="text-[22px] text-amber-400" />
-        {title}
-      </h2>
-      <div className="flex items-center gap-2">
-        <Link href={href} className="flex items-center gap-1 rounded-xl bg-[#1e2028] px-4 py-2 text-sm font-black text-slate-300 transition hover:bg-[#26272e] hover:text-white">
-          All games
-          <Icon name="chevron_right" className="text-[16px]" />
-        </Link>
-        <button type="button" className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e2028] text-slate-400 transition hover:bg-[#26272e] hover:text-white">
-          <Icon name="chevron_left" className="text-[20px]" />
-        </button>
-        <button type="button" className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e2028] text-slate-400 transition hover:bg-[#26272e] hover:text-white">
-          <Icon name="chevron_right" className="text-[20px]" />
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function GameCard({ title, provider, image, color, href }: { title: string; provider: string; image: string; color: string; href: string }) {
-  return (
-    <Link
-      href={href}
-      className="group relative flex-shrink-0 w-[160px] overflow-hidden rounded-2xl transition hover:scale-[1.03]"
-      style={{
-        backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.8) 100%), url(${image})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        aspectRatio: "3/4",
-      }}
-    >
-      {title && (
-        <div className="absolute bottom-0 left-0 right-0 p-3">
-          <h3 className="text-sm font-black uppercase leading-tight text-white">{title}</h3>
-          {provider && <p className="mt-0.5 text-[10px] font-bold uppercase text-white/50">{provider}</p>}
-        </div>
-      )}
-    </Link>
-  );
-}
+/* SectionHeader and GameCard moved to components/game-row.tsx */
 
 /* ── CDN helpers ──────────────────────────────────────── */
 
 const CDN = "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev";
 
-function cdnGames(category: string, count: number, ext: "avif" | "webp" = "avif") {
+function cdnGames(source: string, count: number, start = 1) {
   return Array.from({ length: count }, (_, i) => ({
-    title: "", provider: "", color: "", href: "/aviator",
-    image: `${CDN}/games/${category}/${i + 1}.${ext}`,
+    image: `${CDN}/games/${source}/${start + i}.avif`,
+    href: "/aviator",
   }));
 }
 
 /* ── Nezeem games ─────────────────────────────────────── */
 
 function NezeemGamesSection() {
-  const games = cdnGames("nezeem", 60);
   return (
-    <section className="mt-10">
-      <SectionHeader icon="videogame_asset" title="Nezeem games" href="/aviator" />
-      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {games.map((g) => <GameCard key={g.image} {...g} />)}
-      </div>
-    </section>
+    <GameRow
+      icon="videogame_asset"
+      title="Nezeem games"
+      allHref="/casino/nezeem"
+      games={cdnGames("nezeem", 60)}
+    />
   );
 }
 
 /* ── Crash games ──────────────────────────────────────── */
 
 function CrashGamesSection() {
-  const games = cdnGames("crash", 157);
   return (
-    <section className="mt-10">
-      <SectionHeader icon="rocket_launch" title="Crash games" href="/aviator" />
-      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {games.map((g) => <GameCard key={g.image} {...g} />)}
-      </div>
-    </section>
+    <GameRow
+      icon="rocket_launch"
+      title="Crash games"
+      allHref="/casino/crash"
+      games={cdnGames("crash", 157)}
+    />
   );
 }
 
 /* ── Mines ────────────────────────────────────────────── */
 
 function MinesSection() {
-  const games = cdnGames("mines", 46);
   return (
-    <section className="mt-10">
-      <SectionHeader icon="grid_view" title="Mines" href="/aviator" />
-      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {games.map((g) => <GameCard key={g.image} {...g} />)}
-      </div>
-    </section>
+    <GameRow
+      icon="grid_view"
+      title="Mines"
+      allHref="/casino/mines"
+      games={cdnGames("mines", 46)}
+    />
   );
 }
 
 /* ── Chicken Games ────────────────────────────────────── */
 
 function ChickenGamesSection() {
-  // Uses fast-games images offset by 30 so cards differ from Nezeem row
-  const games = Array.from({ length: 30 }, (_, i) => ({
-    title: "", provider: "", color: "", href: "/aviator",
-    image: `${CDN}/games/nezeem/${i + 31}.avif`,
-  }));
   return (
-    <section className="mt-10">
-      <SectionHeader icon="egg" title="Chicken Games" href="/aviator" />
-      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {games.map((g) => <GameCard key={g.image} {...g} />)}
-      </div>
-    </section>
+    <GameRow
+      icon="egg"
+      title="Chicken Games"
+      allHref="/casino/chicken"
+      games={cdnGames("nezeem", 30, 31)}
+    />
   );
 }
 
 /* ── Plinko ───────────────────────────────────────────── */
 
 function PlinkoSection() {
-  const games = cdnGames("plinko", 60);
   return (
-    <section className="mt-10">
-      <SectionHeader icon="casino" title="Plinko" href="/aviator" />
-      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {games.map((g) => <GameCard key={g.image} {...g} />)}
-      </div>
-    </section>
+    <GameRow
+      icon="casino"
+      title="Plinko"
+      allHref="/casino/plinko"
+      games={cdnGames("plinko", 60)}
+    />
   );
 }
 
