@@ -4,3 +4,13 @@ out
 dist
 .env*.local
 npm-debug.log*
+
+# clerk configuration (can include secrets)
+/.clerk/
+
+# Images — hosted on Cloudflare R2, not tracked in git
+/public/games/
+/public/hero/
+/public/leagues/
+/public/promo-ball.jpeg
+/public/promo-2.avif

@@ -9,6 +9,16 @@ const nextConfig = {
       },
     ];
   },
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "cdn.sportmonks.com" },
+      { protocol: "https", hostname: "**.sportmonks.com" },
+      { protocol: "https", hostname: "flagcdn.com" },
+      { protocol: "https", hostname: "v3.bundlecdn.com" },
+      { protocol: "https", hostname: "cdn.worldvectorlogo.com" },
+      { protocol: "https", hostname: "pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev" },
+    ],
+  },
 };
 
 export default nextConfig;

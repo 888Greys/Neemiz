@@ -1,0 +1,150 @@
+"use client";
+
+import { useState } from "react";
+
+export function SportsBetSlip() {
+  const [betAmount, setBetAmount] = useState("");
+  const [multiplier, setMultiplier] = useState<"x1.5" | "x2" | "x3">("x2");
+
+  return (
+    <div className="flex h-full w-full flex-col overflow-y-auto no-scrollbar bg-[#f4f6fa] p-3 gap-3">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-1 pt-1">
+        <span className="text-[18px] font-black text-[#1a1a2e]">Betslip</span>
+        <div className="flex items-center gap-1.5 rounded-full bg-slate-200/70 px-3 py-1.5">
+          <CurrencyIcon />
+          <span className="text-[12px] font-black text-slate-500">KSh 0.00</span>
+        </div>
+      </div>
+
+      {/* ── Bet code ── */}
+      <div className="flex gap-2">
+        <input
+          placeholder="Bet code"
+          className="min-w-0 flex-1 rounded-2xl bg-slate-200/60 px-4 py-3 text-sm text-slate-700 outline-none placeholder:text-slate-400"
+        />
+        <button
+          type="button"
+          className="shrink-0 rounded-2xl bg-[#06c96e] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05b85f] active:scale-[0.97]"
+        >
+          View bet
+        </button>
+      </div>
+
+      {/* ── Wheel of fortune card ── */}
+      <div className="rounded-3xl bg-white p-4 shadow-sm">
+        <div className="mb-0.5 text-[15px] font-black text-[#1a1a2e]">Wheel of fortune</div>
+        <div className="mb-4 text-[13px] text-slate-400">Spin and try your luck!</div>
+
+        {/* Wheel */}
+        <div className="flex justify-center py-2">
+          <WheelGraphic />
+        </div>
+
+        {/* Bet amount */}
+        <div className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-3">
+          <input
+            value={betAmount}
+            onChange={(e) => setBetAmount(e.target.value)}
+            placeholder="Bet amount"
+            type="number"
+            min="0"
+            className="min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+          />
+          <button
+            type="button"
+            className="shrink-0 text-[13px] font-black text-[#087cff] transition hover:text-[#0668d6]"
+          >
+            Bet all
+          </button>
+        </div>
+
+        {/* Multiplier label */}
+        <div className="mt-3 text-[12px] font-bold text-slate-400">Bet amount per spin</div>
+
+        {/* Multipliers + Spin in one row */}
+        <div className="mt-2 flex gap-2">
+          {(["x1.5", "x2", "x3"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMultiplier(m)}
+              className={`flex-1 rounded-2xl py-3 text-[13px] font-black shadow-sm transition active:scale-[0.96] ${
+                multiplier === m
+                  ? "bg-white text-[#1a1a2e] shadow-[0_2px_10px_rgba(0,0,0,.12)]"
+                  : "bg-slate-100 text-slate-500 hover:bg-white hover:shadow-[0_2px_8px_rgba(0,0,0,.08)]"
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="flex-1 rounded-2xl bg-[#087cff] py-3 text-[13px] font-black text-white shadow-[0_4px_14px_rgba(8,124,255,.35)] transition hover:bg-[#0668d6] active:scale-[0.97]"
+          >
+            Spin
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CurrencyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="#94a3b8" strokeWidth="1.5" />
+      <text x="12" y="16" textAnchor="middle" fontSize="8" fontWeight="900" fill="#94a3b8">
+        KSh
+      </text>
+    </svg>
+  );
+}
+
+function WheelGraphic() {
+  const cx = 100;
+  const cy = 100;
+  const r = 74;
+  const sw = 14;
+
+  return (
+    <svg viewBox="0 0 200 200" className="h-44 w-44" aria-hidden="true">
+      {/* Background ring */}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={sw + 4} />
+
+      {/* Red half (left) */}
+      <path
+        d={`M ${cx} ${cy - r} A ${r} ${r} 0 0 0 ${cx} ${cy + r}`}
+        fill="none"
+        stroke="#ff4757"
+        strokeWidth={sw}
+        strokeLinecap="butt"
+      />
+      {/* Green half (right) */}
+      <path
+        d={`M ${cx} ${cy + r} A ${r} ${r} 0 0 0 ${cx} ${cy - r}`}
+        fill="none"
+        stroke="#2ed573"
+        strokeWidth={sw}
+        strokeLinecap="butt"
+      />
+
+      {/* Blue pointer at top */}
+      <polygon
+        points={`${cx},${cy - r - 12} ${cx - 8},${cy - r + 4} ${cx + 8},${cy - r + 4}`}
+        fill="#087cff"
+      />
+
+      {/* Center white fill */}
+      <circle cx={cx} cy={cy} r={r - sw / 2 - 4} fill="white" />
+
+      {/* Center labels */}
+      <text x={cx} y={cy - 8} textAnchor="middle" fontSize="12" fill="#94a3b8" fontWeight="600">
+        Win
+      </text>
+      <text x={cx} y={cy + 14} textAnchor="middle" fontSize="18" fill="#1a1a2e" fontWeight="900">
+        KSh 0.00
+      </text>
+    </svg>
+  );
+}

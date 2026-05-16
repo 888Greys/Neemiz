@@ -115,9 +115,11 @@ export default function DashboardPage() {
         <HeroSection />
 
         <div className="mx-auto w-full max-w-[1600px] px-6 pb-10">
-          <ProductShowcase />
-          <GamesSection />
-          <LiveSportsSection />
+          <NezeemGamesSection />
+          <CrashGamesSection />
+          <MinesSection />
+          <ChickenGamesSection />
+          <PlinkoSection />
         </div>
       </div>
     </AppShell>
@@ -125,163 +127,144 @@ export default function DashboardPage() {
 }
 
 
-/* ── Product Showcase ─────────────────────────────────── */
+/* ── Shared section header ────────────────────────────── */
 
-function ProductShowcase() {
+function SectionHeader({ icon, title, href }: { icon: string; title: string; href: string }) {
   return (
-    <section className="mt-10">
-      <div className="mb-5 flex items-end justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[.2em] text-slate-500">What we offer</p>
-          <h2 className="mt-1 text-2xl font-black text-white">All products</h2>
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {products.map((p) => (
-          <Link
-            key={p.title}
-            href={p.href}
-            className={`group relative overflow-hidden rounded-2xl border bg-gradient-to-br ${p.bg} ${p.border} p-5 transition-all duration-200`}
-          >
-            {/* glow on hover */}
-            <div
-              className="pointer-events-none absolute -inset-px rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-              style={{ boxShadow: `inset 0 0 40px 0 ${p.glow}` }}
-            />
-
-            <div className="relative">
-              <div className="mb-5 flex items-center justify-between">
-                <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${p.iconBg}`}>
-                  <Icon name={p.icon} fill className={`text-[26px] ${p.iconColor}`} />
-                </span>
-                {p.badge && (
-                  <span className="rounded-full bg-[#ff1979] px-2.5 py-0.5 text-[10px] font-black text-white">
-                    {p.badge}
-                  </span>
-                )}
-              </div>
-
-              <h3 className="text-lg font-black text-white">{p.title}</h3>
-              <p className="mt-1.5 text-sm leading-5 text-slate-400">{p.desc}</p>
-
-              <div className="mt-5 flex items-center gap-1.5 text-sm font-black text-slate-300 transition-colors group-hover:text-white">
-                {p.cta}
-                <Icon name="arrow_forward" className="text-[16px] transition-transform group-hover:translate-x-1" />
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ── Games ────────────────────────────────────────────── */
-
-function GamesSection() {
-  return (
-    <section className="mt-10">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-black text-white">
-          <span className="text-orange-400">Casino</span> games
-        </h2>
-        <Link href="/aviator" className="rounded-xl bg-[#1e2028] px-4 py-2 text-sm font-black text-slate-300 transition hover:bg-[#26272e] hover:text-white">
+    <div className="mb-4 flex items-center justify-between">
+      <h2 className="flex items-center gap-2 text-xl font-black text-white">
+        <Icon name={icon} fill className="text-[22px] text-amber-400" />
+        {title}
+      </h2>
+      <div className="flex items-center gap-2">
+        <Link href={href} className="flex items-center gap-1 rounded-xl bg-[#1e2028] px-4 py-2 text-sm font-black text-slate-300 transition hover:bg-[#26272e] hover:text-white">
           All games
+          <Icon name="chevron_right" className="text-[16px]" />
         </Link>
+        <button type="button" className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e2028] text-slate-400 transition hover:bg-[#26272e] hover:text-white">
+          <Icon name="chevron_left" className="text-[20px]" />
+        </button>
+        <button type="button" className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e2028] text-slate-400 transition hover:bg-[#26272e] hover:text-white">
+          <Icon name="chevron_right" className="text-[20px]" />
+        </button>
       </div>
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-        {gameCards.map((game) => (
-          <Link
-            key={game.title}
-            href={game.href}
-            className={`group flex aspect-[4/5] flex-col justify-end overflow-hidden rounded-2xl bg-gradient-to-br ${game.color} p-3 transition`}
-            style={{
-              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,.04), rgba(0,0,0,.52)), url(${game.image})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }}
-          >
-            <Icon name={game.icon} className="mb-auto text-[32px] text-white/85 transition group-hover:scale-110 md:text-[40px]" />
-            <h3 className="text-base font-black uppercase leading-none md:text-2xl">{game.title}</h3>
-            <p className="mt-1 text-[9px] font-bold uppercase text-white/60">Nezeem</p>
-          </Link>
-        ))}
-      </div>
-    </section>
+    </div>
   );
 }
 
-/* ── Live Sports ──────────────────────────────────────── */
+function GameCard({ title, provider, image, color, href }: { title: string; provider: string; image: string; color: string; href: string }) {
+  return (
+    <Link
+      href={href}
+      className="group relative flex-shrink-0 w-[160px] overflow-hidden rounded-2xl transition hover:scale-[1.03]"
+      style={{
+        backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.8) 100%), url(${image})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        aspectRatio: "3/4",
+      }}
+    >
+      {title && (
+        <div className="absolute bottom-0 left-0 right-0 p-3">
+          <h3 className="text-sm font-black uppercase leading-tight text-white">{title}</h3>
+          {provider && <p className="mt-0.5 text-[10px] font-bold uppercase text-white/50">{provider}</p>}
+        </div>
+      )}
+    </Link>
+  );
+}
 
-function LiveSportsSection() {
+/* ── Nezeem games ─────────────────────────────────────── */
+
+function NezeemGamesSection() {
+  const games = Array.from({ length: 7 }, (_, i) => ({
+    title: "", provider: "", color: "", href: "/aviator",
+    image: `https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/game${i + 1}.avif`,
+  }));
   return (
     <section className="mt-10">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-xl font-black text-white">
-          <span className="flex items-center gap-1.5 rounded-lg bg-[#ff1979] px-2 py-1 text-sm">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
-            LIVE
-          </span>
-          Sports
-        </h2>
-        <Link href="/sports" className="rounded-xl bg-[#1e2028] px-4 py-2 text-sm font-black text-slate-300 transition hover:bg-[#26272e] hover:text-white">
-          View all
-        </Link>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
-        {liveEvents.map((event) => (
-          <Link
-            key={`${event.league}-${event.home}`}
-            href="/sports"
-            className="group rounded-2xl bg-[#f2f3f6] p-4 text-black transition hover:bg-white"
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="rounded-full bg-[#ff4b14] p-1 text-white">
-                  <Icon name="local_fire_department" fill className="text-[15px]" />
-                </span>
-                <div>
-                  <div className="text-sm font-black">{event.league}</div>
-                  <div className="text-[10px] text-black/55">{event.time}</div>
-                </div>
-              </div>
-              <span className="flex items-center gap-1 rounded-full bg-[#ff1979]/12 px-2 py-0.5 text-[9px] font-black text-[#ff1979]">
-                <span className="h-1 w-1 animate-pulse rounded-full bg-[#ff1979]" />
-                LIVE
-              </span>
-            </div>
-            <div className="mb-4 space-y-1">
-              <div className="flex items-center justify-between text-sm font-bold">
-                <span>{event.home}</span>
-                <span className="font-black">{event.score.split(" - ")[0]}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm font-bold">
-                <span>{event.away}</span>
-                <span className="font-black">{event.score.split(" - ")[1]}</span>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-              {[["1", event.odds[0]], ["X", event.odds[1]], ["2", event.odds[2]]].map(([label, value]) =>
-                value ? (
-                  <button
-                    key={`${event.home}-${label}`}
-                    className="rounded-xl bg-[#e8eaf0] px-2 py-2.5 text-sm font-black transition hover:bg-[#087cff] hover:text-white"
-                    type="button"
-                  >
-                    <span className="mr-1 text-[10px] opacity-50">{label}</span>
-                    {value}
-                  </button>
-                ) : null
-              )}
-            </div>
-          </Link>
-        ))}
+      <SectionHeader icon="videogame_asset" title="Nezeem games" href="/aviator" />
+      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+        {games.map((g) => <GameCard key={g.image} {...g} />)}
       </div>
     </section>
   );
 }
+
+/* ── Crash games ──────────────────────────────────────── */
+
+const crashGames = [
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g1.avif" },
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g2.avif" },
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g3.avif" },
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g4.avif" },
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g5.avif" },
+];
+
+function CrashGamesSection() {
+  return (
+    <section className="mt-10">
+      <SectionHeader icon="rocket_launch" title="Crash games" href="/aviator" />
+      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+        {crashGames.map((g) => <GameCard key={g.image} {...g} />)}
+      </div>
+    </section>
+  );
+}
+
+/* ── Mines ────────────────────────────────────────────── */
+
+const minesGames = [
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g6.avif" },
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g7.avif" },
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g8.avif" },
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g9.avif" },
+];
+
+function MinesSection() {
+  return (
+    <section className="mt-10">
+      <SectionHeader icon="grid_view" title="Mines" href="/aviator" />
+      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+        {minesGames.map((g) => <GameCard key={g.image} {...g} />)}
+      </div>
+    </section>
+  );
+}
+
+/* ── Chicken Games ────────────────────────────────────── */
+
+const chickenGames = [
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g10.avif" },
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g11.avif" },
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g12.avif" },
+  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g13.avif" },
+];
+
+function ChickenGamesSection() {
+  return (
+    <section className="mt-10">
+      <SectionHeader icon="egg" title="Chicken Games" href="/aviator" />
+      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+        {chickenGames.map((g) => <GameCard key={g.image} {...g} />)}
+      </div>
+    </section>
+  );
+}
+
+/* ── Plinko ───────────────────────────────────────────── */
+
+function PlinkoSection() {
+  return (
+    <section className="mt-10">
+      <SectionHeader icon="casino" title="Plinko" href="/aviator" />
+      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+        {/* images coming soon */}
+      </div>
+    </section>
+  );
+}
+
 
 /* ── Mobile ───────────────────────────────────────────── */
 

@@ -17,9 +17,10 @@ const tempAssets = {
 type AppShellProps = {
   children: React.ReactNode;
   rightPanel?: React.ReactNode;
+  mainBg?: string;
 };
 
-export function AppShell({ children, rightPanel }: AppShellProps) {
+export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -69,6 +70,7 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
             <BrandLogo href="/dashboard" size="sm" />
             <nav className="hidden items-center gap-0.5 rounded-2xl bg-[#18191d] p-1 ring-1 ring-white/[0.06] text-sm font-black md:flex">
               <TopNavLink href="/dashboard" icon="home" label="Home" pathname={pathname} />
+              <TopNavLink href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} />
               <TopNavLink href="/p2p" icon="swap_horiz" label="P2P" pathname={pathname} />
               <TopNavLink href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} />
               <TopNavLink href="/predictions" icon="online_prediction" label="Polymarket" pathname={pathname} />
@@ -103,7 +105,7 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
           <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} />
         </aside>
 
-        <main className="flex-1 overflow-y-auto border-r border-outline-variant bg-background pb-24 lg:pb-0">
+        <main className={`no-scrollbar flex-1 overflow-y-auto pb-24 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
           <div className="flex min-h-screen flex-col">
             <div className="flex-1">{children}</div>
             <AppFooter />
@@ -186,11 +188,11 @@ function Sidebar({ collapsed, onToggle, pathname }: { collapsed: boolean; onTogg
       <div className={`no-scrollbar flex-1 overflow-y-auto py-5 ${collapsed ? "px-2" : "px-4"}`}>
         {/* Sports */}
         <SidebarGroup collapsed={collapsed} icon="sports_soccer" isOpen={openGroups.sports} onToggle={() => toggleGroup("sports")} title="Sports">
-          <SidebarItem collapsed={collapsed} href="/sports" icon="local_fire_department" label="Top Events" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=live" icon="sensors" label="Live" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=esports" icon="sports_martial_arts" label="Esports" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=all" icon="calendar_month" label="All Sports" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=history" icon="manage_history" label="Bet History" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/sports?tab=Top" icon="local_fire_department" label="Top" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/sports?tab=Live" icon="sensors" label="Live" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/sports?tab=Esports" icon="sports_esports" label="Esports" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/sports?tab=Sports" icon="calendar_month" label="All Sports" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/sports?tab=Markets" icon="trending_up" label="Markets" pathname={pathname} suppressActive />
         </SidebarGroup>
 
         {/* Casino */}
@@ -497,11 +499,11 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister }: { onClose: (
 
           {/* Sports */}
           <MobileDrawerGroup icon="sports_soccer" isOpen={openGroups.sports} label="Sports" onToggle={() => setOpenGroups((v) => ({ ...v, sports: !v.sports }))}>
-            <MobileDrawerLink href="/sports" icon="local_fire_department" label="Top Events" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=live" icon="sensors" label="Live" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=esports" icon="sports_martial_arts" label="Esports" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=all" icon="calendar_month" label="All Sports" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=history" icon="manage_history" label="Bet History" onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=Top" icon="local_fire_department" label="Top" onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=Live" icon="sensors" label="Live" onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=Esports" icon="sports_esports" label="Esports" onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=Sports" icon="calendar_month" label="All Sports" onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=Markets" icon="trending_up" label="Markets" onClick={onClose} />
           </MobileDrawerGroup>
 
           {/* Casino */}

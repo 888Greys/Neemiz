@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat -ano)",
+      "Bash(findstr :8000)",
+      "Bash(findstr :3000)",
+      "Bash(taskkill /PID 5092 /F)",
+      "PowerShell(Stop-Process -Id 5092 -Force)",
+      "Bash(ls \"E:\\\\AaPom\\\\Neemiz\")",
+      "Bash(grep -E \"\\\\.jpg$|\\\\.png$|\\\\.webp$|\\\\.jpeg$\")",
+      "Bash(grep -E \"\\\\.\\(jpg|jpeg|png|webp\\)$\")",
+      "WebSearch",
+      "Bash(bun add *)",
+      "WebFetch(domain:worldvectorlogo.com)",
+      "Bash(ls \"E:\\\\AaPom\\\\Neemiz\\\\1\" -la 2>&1; echo \"---\"; ls \"E:\\\\AaPom\\\\Neemiz\\\\\" | grep -v \"node_modules\")",
+      "Read(//mnt/e/AaPom/Neemiz/**)",
+      "Bash(Get-ChildItem \"E:\\\\AaPom\\\\Neemiz\\\\2\")",
+      "Bash(Select-Object Name, Length)",
+      "Bash(cp \"E:/AaPom/Neemiz/2/0ff74178-31d9-43ef-83d8-ec8b6d8fa733_vertical.avif\" \"E:/AaPom/Neemiz/.claude/worktrees/hardcore-tharp-31762e/public/games/game1.avif\")",
+      "Bash(cp \"E:/AaPom/Neemiz/2/1216b244-5acb-4737-991d-f2f3f0d48207_vertical \\(1\\).avif\" \"E:/AaPom/Neemiz/.claude/worktrees/hardcore-tharp-31762e/public/games/game2.avif\")",
+      "Bash(cp \"E:/AaPom/Neemiz/2/27c65015-b02d-4aae-831c-e7c8d49807a8_vertical.avif\" \"E:/AaPom/Neemiz/.claude/worktrees/hardcore-tharp-31762e/public/games/game3.avif\")",
+      "Bash(cp \"E:/AaPom/Neemiz/2/30669acc-c57e-463d-bca7-2ee517cd0592_vertical.avif\" \"E:/AaPom/Neemiz/.claude/worktrees/hardcore-tharp-31762e/public/games/game4.avif\")",
+      "Bash(cp \"E:/AaPom/Neemiz/2/68e48a5c-4992-4bc7-bfb1-51ccd8f2093a_vertical.avif\" \"E:/AaPom/Neemiz/.claude/worktrees/hardcore-tharp-31762e/public/games/game5.avif\")",
+      "Bash(cd \"E:/AaPom/Neemiz/.claire/worktrees/hardcore-tharp-31762e\")",
+      "Bash(ls \"E:/AaPom/Neemiz/.claude/worktrees/hardcore-tharp-31762e/node_modules/playwright\")",
+      "Bash(npm install *)",
+      "Bash(wrangler --version)",
+      "Bash(wrangler whoami *)"
+    ]
+  }
+}
