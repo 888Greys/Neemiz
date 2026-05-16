@@ -64,61 +64,52 @@ export default async function SportsPage({ searchParams }: Props) {
     ? await Promise.all([getLivescores(), getUpcomingFixtures()])
     : [MOCK_LIVE, MOCK_UPCOMING];
 
-  const displayLive =
-    activeTab === "Live"
-      ? liveMatches
-      : activeTab === "Top"
-        ? liveMatches.slice(0, 6)
-        : [];
+  // Group upcoming by league
+  const leagueGroups = upcomingMatches.reduce<Record<string, { meta: Match; fixtures: Match[] }>>(
+    (acc, m) => {
+      if (!acc[m.league]) acc[m.league] = { meta: m, fixtures: [] };
+      acc[m.league].fixtures.push(m);
+      return acc;
+    },
+    {},
+  );
 
-  const displayUpcoming =
-    activeTab === "Markets" || activeTab === "Esports"
-      ? []
-      : upcomingMatches.slice(0, 9);
+  const showLive = activeTab === "Live" || activeTab === "Top";
+  const showUpcoming = activeTab !== "Live" && activeTab !== "Esports" && activeTab !== "Markets";
+  const displayLive = showLive ? (activeTab === "Top" ? liveMatches.slice(0, 6) : liveMatches) : [];
 
   return (
     <AppShell rightPanel={<SportsBetSlip />} mainBg="bg-[#f4f6fa]">
-      {/* ── Sub-tab bar ──────────────────────────────────────────────────── */}
+      {/* ── Sub-tab bar ── */}
       <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5">
         <div className="flex flex-1 gap-1 overflow-x-auto no-scrollbar">
-          {TABS.map((tab) => {
-            const active = tab === activeTab;
-            return (
-              <Link
-                key={tab}
-                href={`/sports?tab=${tab}`}
-                className={`shrink-0 rounded-xl px-4 py-2 text-sm font-black transition-all ${
-                  active
-                    ? "bg-[#087cff] text-white shadow-[0_4px_14px_rgba(8,124,255,.25)]"
-                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                }`}
-              >
-                {tab}
-              </Link>
-            );
-          })}
+          {TABS.map((tab) => (
+            <Link
+              key={tab}
+              href={`/sports?tab=${tab}`}
+              className={`shrink-0 rounded-xl px-4 py-2 text-sm font-black transition-all ${
+                tab === activeTab
+                  ? "bg-[#087cff] text-white shadow-[0_4px_14px_rgba(8,124,255,.25)]"
+                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+              }`}
+            >
+              {tab}
+            </Link>
+          ))}
         </div>
-        <button
-          className="shrink-0 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition"
-          type="button"
-          aria-label="Search"
-        >
+        <button className="shrink-0 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition" type="button" aria-label="Search">
           <Search size={20} />
         </button>
       </div>
 
-      {/* ── Promo banner ─────────────────────────────────────────────────── */}
+      {/* ── Promo banner ── */}
       <SportPromoBanner />
 
-      {/* ── League / match icons strip ────────────────────────────────────── */}
+      {/* ── League strip ── */}
       <div className="border-b border-slate-200 bg-white px-3 py-3">
         <div className="flex gap-3 overflow-x-auto no-scrollbar">
           {LEAGUE_STRIP.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              className="flex shrink-0 flex-col items-center gap-1.5 rounded-xl p-1.5 transition hover:bg-slate-50"
-            >
+            <button key={item.label} type="button" className="flex shrink-0 flex-col items-center gap-1.5 rounded-xl p-1.5 transition hover:bg-slate-50">
               <span className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-200 overflow-hidden">
                 {"img" in item && item.img ? (
                   <Image src={item.img} alt={item.label} width={56} height={56} className="h-full w-full object-cover" />
@@ -126,41 +117,46 @@ export default async function SportsPage({ searchParams }: Props) {
                   <TrendingUp size={28} className="text-slate-500" />
                 )}
               </span>
-              <span className="w-14 whitespace-pre-line text-center text-[9px] font-bold leading-tight text-slate-500">
-                {item.label}
-              </span>
+              <span className="w-14 whitespace-pre-line text-center text-[9px] font-bold leading-tight text-slate-500">{item.label}</span>
             </button>
           ))}
         </div>
       </div>
 
       <div className="bg-[#f4f6fa] px-3 py-4 space-y-6 min-h-screen">
-        {/* ── Top Live section ─────────────────────────────────────────────── */}
+        {/* ── Live ── */}
         {displayLive.length > 0 && (
           <section>
-            <SectionHeader title="Top Live" icon={Radio} href={`/sports?tab=Live`} />
+            <SectionHeader title="Live Now" icon={Radio} href="/sports?tab=Live" />
             <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {displayLive.map((m) => (
-                <MatchCard key={m.id} match={m} />
-              ))}
+              {displayLive.map((m) => <MatchCard key={m.id} match={m} />)}
             </div>
           </section>
         )}
 
-        {/* ── Top Sports / Upcoming ─────────────────────────────────────────── */}
-        {displayUpcoming.length > 0 && (
-          <section>
-            <SectionHeader title="Top Sports" icon={Trophy} href={`/sports?tab=Sports`} label="All" />
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {displayUpcoming.map((m) => (
-                <MatchCard key={m.id} match={m} />
-              ))}
+        {/* ── Upcoming grouped by league ── */}
+        {showUpcoming && Object.entries(leagueGroups).map(([leagueName, { meta, fixtures }]) => (
+          <section key={leagueName}>
+            {/* League header */}
+            <div className="mb-3 flex items-center gap-2.5">
+              {meta.countryFlag && (
+                <Image src={meta.countryFlag} alt={meta.country} width={22} height={22} className="h-[22px] w-[22px] rounded-sm object-cover" unoptimized />
+              )}
+              {meta.leagueLogo && (
+                <Image src={meta.leagueLogo} alt={leagueName} width={22} height={22} className="h-[22px] w-[22px] object-contain" unoptimized />
+              )}
+              <span className="text-base font-black text-[#1a1a2e]">{leagueName}</span>
+              {meta.country && <span className="text-sm text-slate-400">· {meta.country}</span>}
+              <span className="ml-auto text-xs font-bold text-slate-400">{fixtures.length} matches</span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {fixtures.map((m) => <MatchCard key={m.id} match={m} />)}
             </div>
           </section>
-        )}
+        ))}
 
-        {/* Empty state */}
-        {displayLive.length === 0 && displayUpcoming.length === 0 && (
+        {/* ── Empty state ── */}
+        {displayLive.length === 0 && (!showUpcoming || Object.keys(leagueGroups).length === 0) && (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
               <CircleDot size={36} className="text-slate-400" />
@@ -232,27 +228,21 @@ function MatchCard({ match: m }: { match: Match }) {
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.08] transition hover:shadow-md hover:ring-black/[0.15]">
-      {/* ── Header: flame + league logo + name + sport ── */}
-      <div className="flex items-start gap-2 px-3.5 pt-3 pb-2">
-        <div className="flex shrink-0 items-center gap-1 pt-0.5">
-          <Flame size={16} className="text-orange-500" />
+      {/* ── Header: country flag + league logo + name ── */}
+      <div className="flex items-center gap-2 px-3.5 pt-3 pb-2">
+        <div className="flex shrink-0 items-center gap-1">
+          {m.countryFlag ? (
+            <Image src={m.countryFlag} alt={m.country} width={20} height={20} className="h-5 w-5 rounded-sm object-cover" unoptimized />
+          ) : (
+            <Flame size={16} className="text-orange-500" />
+          )}
           {m.leagueLogo && (
-            <>
-              <span className="text-[11px] font-black text-slate-300">+</span>
-              <Image
-                src={m.leagueLogo}
-                alt={m.league}
-                width={18}
-                height={18}
-                className="h-[18px] w-[18px] object-contain"
-                unoptimized
-              />
-            </>
+            <Image src={m.leagueLogo} alt={m.league} width={20} height={20} className="h-5 w-5 object-contain" unoptimized />
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-black text-[#1a1a2e]">{m.league}</div>
-          <div className="text-[11px] text-slate-400">Soccer</div>
+          {m.country && <div className="text-[11px] text-slate-400">{m.country}</div>}
         </div>
       </div>
 

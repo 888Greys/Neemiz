@@ -60,23 +60,16 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         ? { emailAddress: email, password, ...(username ? { username } : {}) }
         : { phoneNumber: `${country.code}${phone}`, password, ...(username ? { username } : {}) };
 
-      type R = { error?: { longMessage?: string; message?: string } | null; status?: string };
-      const result = await signUp.create(params as Parameters<typeof signUp.create>[0]) as unknown as R;
+      await signUp.create(params as Parameters<typeof signUp.create>[0]);
 
-      // Clerk v7 returns { error } — older versions return { status }
-      if (result?.error) {
-        setError(result.error.longMessage ?? result.error.message ?? "Registration failed");
-        return;
+      // Trigger verification — Clerk sends the code to email or phone
+      if (tab === "email") {
+        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      } else {
+        await (signUp as unknown as { preparePhoneNumberVerification: () => Promise<void> }).preparePhoneNumberVerification();
       }
-      // If status-based (v5/v6 compat) and needs verification
-      if (result?.status === "missing_requirements") {
-        setPendingVerify(true);
-        return;
-      }
-      // Otherwise account created — redirect
-      onClose();
-      router.push("/dashboard");
-      router.refresh();
+
+      setPendingVerify(true);
     } catch (err: unknown) {
       const e = err as { errors?: { longMessage?: string; message?: string }[] };
       setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Registration failed");
@@ -91,19 +84,16 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     setLoading(true);
     setError("");
     try {
-      type VR = { error?: { longMessage?: string; message?: string } | null };
-      type SignUpAny = { attemptEmailAddressVerification: (p: unknown) => Promise<VR>; attemptPhoneNumberVerification: (p: unknown) => Promise<VR> };
-      const signUpAny = signUp as unknown as SignUpAny;
-      const result: VR = tab === "email"
-        ? await signUpAny.attemptEmailAddressVerification({ code })
-        : await signUpAny.attemptPhoneNumberVerification({ code });
+      const result = tab === "email"
+        ? await signUp.attemptEmailAddressVerification({ code })
+        : await (signUp as unknown as { attemptPhoneNumberVerification: (p: { code: string }) => Promise<{ status: string }> }).attemptPhoneNumberVerification({ code });
 
-      if (result?.error) {
-        setError(result.error.longMessage ?? result.error.message ?? "Invalid code");
-      } else {
+      if (result.status === "complete") {
         onClose();
         router.push("/dashboard");
         router.refresh();
+      } else {
+        setError("Verification incomplete. Please try again.");
       }
     } catch (err: unknown) {
       const e = err as { errors?: { longMessage?: string; message?: string }[] };
@@ -123,13 +113,16 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className="relative w-full max-w-[420px] rounded-3xl border border-white/[0.08] bg-[#111316] shadow-2xl"
+        className="relative w-full rounded-t-3xl border border-white/[0.08] bg-[#111316] shadow-2xl sm:max-w-[420px] sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Drag handle — mobile only */}
+        <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-white/10 sm:hidden" />
+
         {/* Header */}
-        <div className="flex items-center justify-between px-7 pt-7 pb-5">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 sm:px-7 sm:pt-7 sm:pb-5">
           <h2 className="text-2xl font-black text-white">Registration</h2>
           <button
             onClick={onClose}
@@ -141,12 +134,14 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
           </button>
         </div>
 
-        <div className="px-7 pb-7">
+        <div className="overflow-y-auto px-6 pb-8 sm:px-7 sm:pb-7" style={{ maxHeight: "90dvh" }}>
           {pendingVerify ? (
             /* ── Verification step ── */
             <form onSubmit={handleVerify} className="space-y-4">
               <p className="text-sm text-slate-400">
-                Enter the verification code sent to your {tab === "email" ? "email" : "phone"}.
+                We sent a 6-digit code to{" "}
+                <span className="font-bold text-white">{tab === "email" ? email : `${country.code}${phone}`}</span>.
+                Check your {tab === "email" ? "inbox" : "messages"}.
               </p>
               <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
                 <Icon name="verified" fill className="text-[18px] shrink-0 text-slate-500" />

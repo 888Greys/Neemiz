@@ -1,59 +1,80 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Icon } from "@/components/icon";
+import Link from "next/link";
 
-type Slide = {
-  title: string;
-  image: string;
-  cta: string;
-};
-
-export function MobileHeroCarousel({ slides }: { slides: Slide[] }) {
-  const [activeSlide, setActiveSlide] = useState(0);
+export function MobileHeroCarousel({ slides }: { slides: string[] }) {
+  const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % slides.length);
-    }, 4500);
-
-    return () => window.clearInterval(timer);
+    const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 8000);
+    return () => clearInterval(t);
   }, [slides.length]);
 
-  const slide = slides[activeSlide];
-
   return (
-    <section
-      className="relative h-[190px] overflow-hidden rounded-2xl bg-cover bg-center p-4 transition-[background-image] duration-500"
-      style={{ backgroundImage: `linear-gradient(90deg, rgba(0,0,0,.62), rgba(0,0,0,.08)), url(${slide.image})` }}
-    >
-      <div className="relative z-10 flex h-full max-w-[170px] flex-col justify-between">
-        <div>
-          <h1 className="whitespace-pre-line text-xl font-black leading-tight">{slide.title}</h1>
-          <button className="mt-4 rounded-xl bg-white px-4 py-2 text-xs font-black text-black" type="button">
-            {slide.cta}
-          </button>
+    <section className="relative overflow-hidden" style={{ minHeight: "56vw", maxHeight: 280 }}>
+      {/* Background images */}
+      {slides.map((src, i) => (
+        <div
+          key={src}
+          className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000"
+          style={{ backgroundImage: `url(${src})`, opacity: i === index ? 1 : 0 }}
+        />
+      ))}
+      {/* Overlays */}
+      <div className="absolute inset-0 bg-black/55" />
+      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent" />
+
+      {/* Content */}
+      <div className="relative z-10 flex h-full flex-col justify-center px-5 py-8">
+        <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-300">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          </span>
+          Platform is live · 6 products
         </div>
-        <div className="flex gap-1 pb-1">
-          {slides.map((item, index) => (
-            <button
-              key={item.title}
-              className={`h-1.5 rounded-full transition-all ${index === activeSlide ? "w-5 bg-white" : "w-1.5 bg-white/35"}`}
-              onClick={() => setActiveSlide(index)}
-              type="button"
-              aria-label={`Show slide ${index + 1}`}
-            />
-          ))}
+
+        <h1 className="text-[28px] font-black uppercase leading-[.9] tracking-tight text-white">
+          One platform.
+          <br />
+          <span className="bg-gradient-to-r from-violet-400 via-white to-amber-400 bg-clip-text text-transparent">
+            Six markets.
+          </span>
+        </h1>
+
+        <p className="mt-2 text-[11px] leading-[1.6] text-slate-400">
+          Sports · Aviator · Predictions · P2P · Binary · Wallet
+        </p>
+
+        <div className="mt-4 flex items-center gap-2">
+          <Link
+            href="/sports"
+            className="rounded-xl bg-white px-5 py-2 text-xs font-black text-black active:scale-95"
+          >
+            Get started
+          </Link>
+          <Link
+            href="/aviator"
+            className="rounded-xl border border-white/15 bg-white/8 px-5 py-2 text-xs font-black text-white active:scale-95"
+          >
+            Play Aviator
+          </Link>
         </div>
       </div>
-      <button
-        className="absolute right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur"
-        onClick={() => setActiveSlide((current) => (current + 1) % slides.length)}
-        type="button"
-        aria-label="Next slide"
-      >
-        <Icon name="chevron_right" className="text-[22px]" />
-      </button>
+
+      {/* Dot indicators */}
+      <div className="absolute bottom-3 right-4 flex gap-1">
+        {slides.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            aria-label={`Slide ${i + 1}`}
+            onClick={() => setIndex(i)}
+            className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/30"}`}
+          />
+        ))}
+      </div>
     </section>
   );
 }

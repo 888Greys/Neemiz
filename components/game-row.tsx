@@ -9,7 +9,7 @@ function GameCard({ image, href }: { image: string; href: string }) {
   return (
     <Link
       href={href}
-      className="group relative flex-shrink-0 w-[160px] overflow-hidden rounded-2xl transition-transform hover:scale-[1.04] active:scale-[.98]"
+      className="group relative flex-shrink-0 w-[120px] md:w-[160px] overflow-hidden rounded-2xl transition-transform hover:scale-[1.04] active:scale-[.98]"
       style={{
         backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.75) 100%), url(${image})`,
         backgroundSize: "cover",
@@ -34,7 +34,6 @@ export function GameRow({
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
 
-  // Scroll 4 cards at a time: card width (160) + gap (12) × 4
   const SCROLL_PX = 4 * (160 + 12);
 
   const scrollBy = (dir: 1 | -1) => {
@@ -42,11 +41,11 @@ export function GameRow({
   };
 
   return (
-    <section className="mt-10">
+    <section className="mt-6 md:mt-10">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-xl font-black text-white">
-          <Icon name={icon} fill className="text-[22px] text-amber-400" />
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-base font-black text-white md:text-xl">
+          <Icon name={icon} fill className="text-[18px] text-amber-400 md:text-[22px]" />
           {title}
         </h2>
         <div className="flex items-center gap-2">

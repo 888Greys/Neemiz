@@ -54,10 +54,16 @@ interface SMOdd {
   bookmaker_odds?: Array<{ label: string; value: string; name?: string }>;
 }
 
+// Sportmonks state_id reference:
+// 1=NS(Not Started) 2=1H 3=HT 4=2H 5=FT 6=ET 7=PEN 11=AET 13=Abandoned 17=Cancelled
+const FINISHED_STATE_IDS = new Set([5, 11, 13, 17, 21]);
+const LIVE_STATE_IDS = new Set([2, 3, 4, 6, 7]);
+
 interface SMFixture {
   id: number;
   name: string;
   starting_at: string;
+  state_id?: number;
   participants?: SMParticipant[];
   scores?: SMScore[];
   periods?: SMPeriod[];
@@ -194,23 +200,27 @@ function normalize(f: SMFixture, live: boolean): Match {
 export async function getLivescores(): Promise<Match[]> {
   const raw = await fetchSM<SMFixture>(
     "/livescores/inplay",
-    "participants;scores;periods;state;league.country;odds",
+    "participants;scores;periods;state;league.country",
     undefined,
-    30,
+    60,
   );
-  return raw.map((f) => normalize(f, true));
+  return raw
+    .filter((f) => !FINISHED_STATE_IDS.has(f.state_id ?? 0))
+    .map((f) => normalize(f, true));
 }
 
-export async function getUpcomingFixtures(limit = 18): Promise<Match[]> {
+export async function getUpcomingFixtures(): Promise<Match[]> {
   const today = new Date().toISOString().split("T")[0];
-  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().split("T")[0];
+  const endDate = new Date(Date.now() + 15 * 86_400_000).toISOString().split("T")[0];
   const raw = await fetchSM<SMFixture>(
-    `/fixtures/between/${today}/${tomorrow}`,
-    "participants;league.country;odds",
-    { per_page: String(limit), sort: "starting_at" },
-    300,
+    `/fixtures/between/${today}/${endDate}`,
+    "participants;league.country",
+    { per_page: "200", sort: "starting_at" },
+    60,
   );
-  return raw.map((f) => normalize(f, false));
+  return raw
+    .filter((f) => !FINISHED_STATE_IDS.has(f.state_id ?? 0) && !LIVE_STATE_IDS.has(f.state_id ?? 0))
+    .map((f) => normalize(f, false));
 }
 
 // ── Mock fallback (used when SPORTS_MONK_API is not set) ──────────────────────
