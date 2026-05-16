@@ -174,13 +174,21 @@ function GameCard({ title, provider, image, color, href }: { title: string; prov
   );
 }
 
+/* ── CDN helpers ──────────────────────────────────────── */
+
+const CDN = "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev";
+
+function cdnGames(category: string, count: number, ext: "avif" | "webp" = "avif") {
+  return Array.from({ length: count }, (_, i) => ({
+    title: "", provider: "", color: "", href: "/aviator",
+    image: `${CDN}/games/${category}/${i + 1}.${ext}`,
+  }));
+}
+
 /* ── Nezeem games ─────────────────────────────────────── */
 
 function NezeemGamesSection() {
-  const games = Array.from({ length: 7 }, (_, i) => ({
-    title: "", provider: "", color: "", href: "/aviator",
-    image: `https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/game${i + 1}.avif`,
-  }));
+  const games = cdnGames("nezeem", 60);
   return (
     <section className="mt-10">
       <SectionHeader icon="videogame_asset" title="Nezeem games" href="/aviator" />
@@ -193,20 +201,13 @@ function NezeemGamesSection() {
 
 /* ── Crash games ──────────────────────────────────────── */
 
-const crashGames = [
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g1.avif" },
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g2.avif" },
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g3.avif" },
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g4.avif" },
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g5.avif" },
-];
-
 function CrashGamesSection() {
+  const games = cdnGames("crash", 157);
   return (
     <section className="mt-10">
       <SectionHeader icon="rocket_launch" title="Crash games" href="/aviator" />
       <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {crashGames.map((g) => <GameCard key={g.image} {...g} />)}
+        {games.map((g) => <GameCard key={g.image} {...g} />)}
       </div>
     </section>
   );
@@ -214,19 +215,13 @@ function CrashGamesSection() {
 
 /* ── Mines ────────────────────────────────────────────── */
 
-const minesGames = [
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g6.avif" },
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g7.avif" },
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g8.avif" },
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g9.avif" },
-];
-
 function MinesSection() {
+  const games = cdnGames("mines", 46);
   return (
     <section className="mt-10">
       <SectionHeader icon="grid_view" title="Mines" href="/aviator" />
       <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {minesGames.map((g) => <GameCard key={g.image} {...g} />)}
+        {games.map((g) => <GameCard key={g.image} {...g} />)}
       </div>
     </section>
   );
@@ -234,19 +229,17 @@ function MinesSection() {
 
 /* ── Chicken Games ────────────────────────────────────── */
 
-const chickenGames = [
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g10.avif" },
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g11.avif" },
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g12.avif" },
-  { title: "", provider: "", color: "", href: "/aviator", image: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/games/all/g13.avif" },
-];
-
 function ChickenGamesSection() {
+  // Uses fast-games images offset by 30 so cards differ from Nezeem row
+  const games = Array.from({ length: 30 }, (_, i) => ({
+    title: "", provider: "", color: "", href: "/aviator",
+    image: `${CDN}/games/nezeem/${i + 31}.avif`,
+  }));
   return (
     <section className="mt-10">
       <SectionHeader icon="egg" title="Chicken Games" href="/aviator" />
       <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {chickenGames.map((g) => <GameCard key={g.image} {...g} />)}
+        {games.map((g) => <GameCard key={g.image} {...g} />)}
       </div>
     </section>
   );
@@ -255,11 +248,12 @@ function ChickenGamesSection() {
 /* ── Plinko ───────────────────────────────────────────── */
 
 function PlinkoSection() {
+  const games = cdnGames("plinko", 60);
   return (
     <section className="mt-10">
       <SectionHeader icon="casino" title="Plinko" href="/aviator" />
       <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-        {/* images coming soon */}
+        {games.map((g) => <GameCard key={g.image} {...g} />)}
       </div>
     </section>
   );
