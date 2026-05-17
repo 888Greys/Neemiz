@@ -52,6 +52,8 @@ interface SMOdd {
   value?: string;
   name?: string;
   participant?: string;
+  total?: string | null;
+  handicap?: string | null;
   bookmaker_odds?: Array<{ label: string; value: string; name?: string }>;
 }
 
@@ -279,6 +281,18 @@ export interface LineupEntry {
   on_bench: boolean;
 }
 
+export interface MarketOdd {
+  label: string;
+  value: string;
+  extra?: string; // Over 2.5 / handicap -0.5 / etc.
+}
+
+export interface BettingMarket {
+  id: number;
+  name: string;
+  odds: MarketOdd[];
+}
+
 export interface MatchDetail {
   match: Match;
   homeParticipantId: number;
@@ -289,6 +303,7 @@ export interface MatchDetail {
   awayLineup: LineupEntry[];
   homePeriodScores: (number | null)[];
   awayPeriodScores: (number | null)[];
+  markets: BettingMarket[];
 }
 
 interface SMFixtureDetail extends SMFixture {
@@ -303,13 +318,60 @@ interface SMFixtureDetail extends SMFixture {
   lineups?: Array<LineupEntry>;
 }
 
+// Priority market IDs — shown first in "Main" tab
+const MAIN_MARKET_IDS = [1, 2, 80, 14, 6, 31, 56, 7, 10, 28];
+const PREFERRED_BOOKMAKER = 2; // bookmaker_id with best coverage
+
+function buildMarkets(odds: SMOdd[]): BettingMarket[] {
+  // Use preferred bookmaker; fallback to first available per market
+  const byMarket = new Map<number, SMOdd[]>();
+  for (const o of odds) {
+    if (!o.market_id || !o.label || !o.value) continue;
+    const list = byMarket.get(o.market_id) ?? [];
+    list.push(o);
+    byMarket.set(o.market_id, list);
+  }
+
+  const markets: BettingMarket[] = [];
+  for (const [marketId, raw] of Array.from(byMarket.entries())) {
+    const name = raw[0].market_description ?? `Market ${marketId}`;
+    // Prefer bookmaker 2, fall back to first bookmaker in set
+    const preferred = raw.filter((o) => o.bookmaker_id === PREFERRED_BOOKMAKER);
+    const set = preferred.length > 0 ? preferred : raw;
+    // Deduplicate by label+extra
+    const seen = new Set<string>();
+    const marketOdds: MarketOdd[] = [];
+    for (const o of set as SMOdd[]) {
+      const extra = o.total ?? o.handicap ?? undefined;
+      const key = `${o.label}|${extra ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      marketOdds.push({ label: o.label!, value: Number(o.value).toFixed(2), extra });
+    }
+    if (marketOdds.length === 0) continue;
+    markets.push({ id: marketId, name, odds: marketOdds });
+  }
+
+  // Sort: priority markets first, then alphabetically
+  markets.sort((a, b) => {
+    const ai = MAIN_MARKET_IDS.indexOf(a.id);
+    const bi = MAIN_MARKET_IDS.indexOf(b.id);
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    if (ai !== -1) return -1;
+    if (bi !== -1) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  return markets;
+}
+
 // Stats to skip (shown in events timeline instead)
 const SKIP_STAT_NAMES = new Set(["Substitutions", "Yellowcards", "Redcards", "Assists"]);
 
 export async function getFixtureDetail(id: number): Promise<MatchDetail | null> {
   const f = await fetchSMOne<SMFixtureDetail>(
     `/fixtures/${id}`,
-    "participants;scores;periods;state;league.country;events;statistics.type;lineups",
+    "participants;scores;periods;state;league.country;events;statistics.type;lineups;odds",
     30,
   );
   if (!f) return null;
@@ -346,6 +408,7 @@ export async function getFixtureDetail(id: number): Promise<MatchDetail | null> 
     awayLineup: (f.lineups ?? []).filter((l) => l.participant_id === away?.id).sort((a, b) => (a.formation_position ?? 99) - (b.formation_position ?? 99)),
     homePeriodScores,
     awayPeriodScores,
+    markets: buildMarkets(f.odds ?? []),
   };
 }
 

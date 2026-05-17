@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { SportsBetSlip } from "@/components/sports-bet-slip";
-import { getFixtureDetail, type MatchDetail, type MatchEvent, type LineupEntry } from "@/lib/sportmonks";
+import { getFixtureDetail, type MatchEvent, type LineupEntry } from "@/lib/sportmonks";
+import { MarketsSection } from "@/components/markets-section";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -15,7 +16,7 @@ export default async function FixtureDetailPage({ params }: Props) {
   const detail = await getFixtureDetail(id);
   if (!detail) notFound();
 
-  const { match: m, homeParticipantId, events, stats, homeLineup, awayLineup, homePeriodScores, awayPeriodScores } = detail;
+  const { match: m, homeParticipantId, events, stats, homeLineup, awayLineup, homePeriodScores, awayPeriodScores, markets } = detail;
 
   return (
     <AppShell rightPanel={<SportsBetSlip />} mainBg="bg-[#f4f6fa]">
@@ -96,6 +97,9 @@ export default async function FixtureDetailPage({ params }: Props) {
             )}
           </div>
         </div>
+
+        {/* ── Betting markets ── */}
+        {markets.length > 0 && <MarketsSection markets={markets} />}
 
         {/* ── Events timeline ── */}
         {events.length > 0 && (
