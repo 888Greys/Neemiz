@@ -63,10 +63,12 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       await signUp.create(params as Parameters<typeof signUp.create>[0]);
 
       // Trigger verification — Clerk sends the code to email or phone
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const su = signUp as any;
       if (tab === "email") {
-        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+        await su.prepareEmailAddressVerification({ strategy: "email_code" });
       } else {
-        await (signUp as unknown as { preparePhoneNumberVerification: () => Promise<void> }).preparePhoneNumberVerification();
+        await su.preparePhoneNumberVerification();
       }
 
       setPendingVerify(true);
@@ -84,9 +86,11 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     setLoading(true);
     setError("");
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const su = signUp as any;
       const result = tab === "email"
-        ? await signUp.attemptEmailAddressVerification({ code })
-        : await (signUp as unknown as { attemptPhoneNumberVerification: (p: { code: string }) => Promise<{ status: string }> }).attemptPhoneNumberVerification({ code });
+        ? await su.attemptEmailAddressVerification({ code })
+        : await su.attemptPhoneNumberVerification({ code });
 
       if (result.status === "complete") {
         onClose();
