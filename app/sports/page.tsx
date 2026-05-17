@@ -228,49 +228,53 @@ function MatchCard({ match: m }: { match: Match }) {
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.08] transition hover:shadow-md hover:ring-black/[0.15]">
-      {/* ── Header: country flag + league logo + name ── */}
-      <div className="flex items-center gap-2 px-3.5 pt-3 pb-2">
-        <div className="flex shrink-0 items-center gap-1">
-          {m.countryFlag ? (
-            <Image src={m.countryFlag} alt={m.country} width={20} height={20} className="h-5 w-5 rounded-sm object-cover" unoptimized />
+      {/* ── Clickable top section → match detail ── */}
+      <Link href={`/sports/${m.id}`} className="block">
+        {/* ── Header: country flag + league logo + name ── */}
+        <div className="flex items-center gap-2 px-3.5 pt-3 pb-2">
+          <div className="flex shrink-0 items-center gap-1">
+            {m.countryFlag ? (
+              <Image src={m.countryFlag} alt={m.country} width={20} height={20} className="h-5 w-5 rounded-sm object-cover" unoptimized />
+            ) : (
+              <Flame size={16} className="text-orange-500" />
+            )}
+            {m.leagueLogo && (
+              <Image src={m.leagueLogo} alt={m.league} width={20} height={20} className="h-5 w-5 object-contain" unoptimized />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13px] font-black text-[#1a1a2e]">{m.league}</div>
+            {m.country && <div className="text-[11px] text-slate-400">{m.country}</div>}
+          </div>
+          <ChevronRight size={14} className="shrink-0 text-slate-300" />
+        </div>
+
+        {/* ── Live badge / upcoming time ── */}
+        <div className="flex items-center gap-2 px-3.5 pb-2.5">
+          {m.isLive ? (
+            <span className="flex items-center gap-1.5 rounded-full bg-[#fff0f0] px-2.5 py-1 text-[11px] font-black text-red-500">
+              <LiveWaveIcon />
+              {m.period}
+            </span>
           ) : (
-            <Flame size={16} className="text-orange-500" />
+            <span className="flex items-center gap-1.5 rounded-full bg-[#f0f4ff] px-2.5 py-1 text-[11px] font-black text-[#4a6cf7]">
+              <Clock size={13} />
+              {m.period}
+              {dateStr && <span className="font-normal text-slate-400"> · {dateStr}</span>}
+            </span>
           )}
-          {m.leagueLogo && (
-            <Image src={m.leagueLogo} alt={m.league} width={20} height={20} className="h-5 w-5 object-contain" unoptimized />
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] font-black text-[#1a1a2e]">{m.league}</div>
-          {m.country && <div className="text-[11px] text-slate-400">{m.country}</div>}
-        </div>
-      </div>
-
-      {/* ── Live badge / upcoming time ── */}
-      <div className="flex items-center gap-2 px-3.5 pb-2.5">
-        {m.isLive ? (
-          <span className="flex items-center gap-1.5 rounded-full bg-[#fff0f0] px-2.5 py-1 text-[11px] font-black text-red-500">
-            <LiveWaveIcon />
-            {m.period}
+          <span className="flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-400">
+            <Tv2 size={12} />
+            TV
           </span>
-        ) : (
-          <span className="flex items-center gap-1.5 rounded-full bg-[#f0f4ff] px-2.5 py-1 text-[11px] font-black text-[#4a6cf7]">
-            <Clock size={13} />
-            {m.period}
-            {dateStr && <span className="font-normal text-slate-400"> · {dateStr}</span>}
-          </span>
-        )}
-        <span className="flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-400">
-          <Tv2 size={12} />
-          TV
-        </span>
-      </div>
+        </div>
 
-      {/* ── Teams ── */}
-      <div className="space-y-2 px-3.5 pb-3">
-        <TeamRow participant={m.home} />
-        <TeamRow participant={m.away} />
-      </div>
+        {/* ── Teams ── */}
+        <div className="space-y-2 px-3.5 pb-3">
+          <TeamRow participant={m.home} />
+          <TeamRow participant={m.away} />
+        </div>
+      </Link>
 
       {/* ── Odds footer ── */}
       <div className="border-t border-slate-100 px-3.5 py-3">

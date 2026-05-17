@@ -91,6 +91,25 @@ export interface Match {
 
 // ── Fetcher ───────────────────────────────────────────────────────────────────
 
+async function fetchSMOne<T>(
+  path: string,
+  include?: string,
+  revalidate = 30,
+): Promise<T | null> {
+  if (!TOKEN) return null;
+  const params = new URLSearchParams({ api_token: TOKEN });
+  if (include) params.set("include", include);
+  try {
+    const res = await fetch(`${BASE}${path}?${params}`, { next: { revalidate } });
+    if (!res.ok) { console.error(`SportsMonk ${path} → ${res.status}`); return null; }
+    const json = await res.json();
+    return (json.data ?? null) as T | null;
+  } catch (e) {
+    console.error("SportsMonk fetchOne error:", e);
+    return null;
+  }
+}
+
 async function fetchSM<T>(
   path: string,
   include?: string,
@@ -221,6 +240,106 @@ export async function getUpcomingFixtures(): Promise<Match[]> {
   return raw
     .filter((f) => !FINISHED_STATE_IDS.has(f.state_id ?? 0) && !LIVE_STATE_IDS.has(f.state_id ?? 0))
     .map((f) => normalize(f, false));
+}
+
+// ── Fixture detail ────────────────────────────────────────────────────────────
+
+export interface MatchEvent {
+  id: number;
+  type_id: number;   // 14=Goal 15=OwnGoal 16=RedCard 17=YellowRed 18=Sub 19=YellowCard
+  participant_id: number;
+  player_name: string;
+  related_player_name: string | null;
+  minute: number;
+  extra_minute: number | null;
+  result: string | null;
+  info: string | null;
+  addition: string | null;
+}
+
+export interface MatchStat {
+  name: string;
+  home: number | null;
+  away: number | null;
+}
+
+export interface LineupEntry {
+  player_id: number;
+  player_name: string;
+  participant_id: number;
+  jersey_number: number | null;
+  formation_position: number | null;
+  on_bench: boolean;
+}
+
+export interface MatchDetail {
+  match: Match;
+  homeParticipantId: number;
+  awayParticipantId: number;
+  events: MatchEvent[];
+  stats: MatchStat[];
+  homeLineup: LineupEntry[];
+  awayLineup: LineupEntry[];
+  homePeriodScores: (number | null)[];
+  awayPeriodScores: (number | null)[];
+}
+
+interface SMFixtureDetail extends SMFixture {
+  events?: MatchEvent[];
+  statistics?: Array<{
+    type_id: number;
+    participant_id: number;
+    location: "home" | "away";
+    data: { value: number };
+    type?: { name: string };
+  }>;
+  lineups?: Array<LineupEntry>;
+}
+
+// Stats to skip (shown in events timeline instead)
+const SKIP_STAT_NAMES = new Set(["Substitutions", "Yellowcards", "Redcards", "Assists"]);
+
+export async function getFixtureDetail(id: number): Promise<MatchDetail | null> {
+  const f = await fetchSMOne<SMFixtureDetail>(
+    `/fixtures/${id}`,
+    "participants;scores;periods;state;league.country;events;statistics.type;lineups",
+    30,
+  );
+  if (!f) return null;
+
+  const home = f.participants?.find((p) => p.meta?.location === "home");
+  const away = f.participants?.find((p) => p.meta?.location === "away");
+  const isLive = LIVE_STATE_IDS.has(f.state_id ?? 0);
+
+  // Period scores: type_id 15 = 1st half final, type_id 16 = 2nd half final (Sportmonks period score types)
+  // Actually scores array has type_id per-score; 1=current, 2=1H, 3=FT, etc.
+  const periodScore = (loc: "home" | "away", typeId: number) =>
+    f.scores?.find((s) => s.score.participant === loc && s.type_id === typeId)?.score.goals ?? null;
+
+  const homePeriodScores = [periodScore("home", 2), periodScore("home", 3)];
+  const awayPeriodScores = [periodScore("away", 2), periodScore("away", 3)];
+
+  // Stats: pair home/away by stat name, skip irrelevant ones
+  const statMap: Record<string, MatchStat> = {};
+  for (const s of f.statistics ?? []) {
+    const name = s.type?.name ?? `Stat ${s.type_id}`;
+    if (SKIP_STAT_NAMES.has(name)) continue;
+    if (!statMap[name]) statMap[name] = { name, home: null, away: null };
+    if (s.location === "home") statMap[name].home = s.data.value;
+    else statMap[name].away = s.data.value;
+  }
+
+  return {
+    match: normalize(f, isLive),
+    homeParticipantId: home?.id ?? 0,
+    awayParticipantId: away?.id ?? 0,
+    events: (f.events ?? []).sort((a, b) => a.minute - b.minute || (a.extra_minute ?? 0) - (b.extra_minute ?? 0)),
+    stats: Object.values(statMap).filter((s) => s.home !== null || s.away !== null),
+    homeLineup: (f.lineups ?? []).filter((l) => l.participant_id === home?.id).sort((a, b) => (a.formation_position ?? 99) - (b.formation_position ?? 99)),
+    awayLineup: (f.lineups ?? []).filter((l) => l.participant_id === away?.id).sort((a, b) => (a.formation_position ?? 99) - (b.formation_position ?? 99)),
+    homePeriodScores,
+    awayPeriodScores,
+  };
 }
 
 // ── Mock fallback (used when SPORTS_MONK_API is not set) ──────────────────────
