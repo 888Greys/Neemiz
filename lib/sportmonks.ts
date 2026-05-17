@@ -45,6 +45,7 @@ interface SMState {
 interface SMOdd {
   id: number;
   market_id?: number;
+  bookmaker_id?: number;
   type_id?: number;
   market_description?: string;
   label?: string;
@@ -156,18 +157,23 @@ function buildPeriodLabel(f: SMFixture): string {
 function extractOdds(f: SMFixture): { label: string; value: string }[] {
   if (!f.odds?.length) return [];
 
-  // Try flat-odds first (v3 default): market_id 1 = Full Time Result
-  const flat = f.odds.filter(
-    (o) => (o.market_id === 1 || o.type_id === 1) && o.value && o.label,
-  );
-  if (flat.length >= 2) {
-    return flat.slice(0, 3).map((o) => ({
+  // market_id 1 = Full Time Result (1X2); pick first bookmaker's set
+  const ftr = f.odds.filter((o) => o.market_id === 1 && o.value && o.label);
+  if (ftr.length >= 2) {
+    // group by bookmaker_id to get a consistent set of 3
+    const firstBookie = ftr[0].bookmaker_id;
+    const set = firstBookie
+      ? ftr.filter((o) => o.bookmaker_id === firstBookie)
+      : ftr;
+    const ORDER: Record<string, number> = { home: 0, "1": 0, draw: 1, x: 1, away: 2, "2": 2 };
+    const sorted = set.sort((a, b) => (ORDER[a.label!.toLowerCase()] ?? 9) - (ORDER[b.label!.toLowerCase()] ?? 9));
+    return sorted.slice(0, 3).map((o) => ({
       label: normaliseOddLabel(o.label!),
       value: Number(o.value).toFixed(2),
     }));
   }
 
-  // Try nested bookmaker_odds
+  // Fallback: nested bookmaker_odds
   const nested = f.odds.find((o) => o.bookmaker_odds?.length);
   if (nested?.bookmaker_odds) {
     return nested.bookmaker_odds.slice(0, 3).map((o) => ({
@@ -196,7 +202,8 @@ function normalize(f: SMFixture, live: boolean): Match {
   const awayScore = cur.find((s) => s.score.participant === "away")?.score.goals ?? null;
 
   const odds = extractOdds(f);
-  const extraMarkets = Math.max(0, (f.odds?.length ?? 0) - 1) * 12;
+  const distinctMarkets = new Set(f.odds?.map((o) => o.market_id)).size;
+  const extraMarkets = Math.max(0, distinctMarkets - 1);
 
   return {
     id: f.id,
@@ -219,7 +226,7 @@ function normalize(f: SMFixture, live: boolean): Match {
 export async function getLivescores(): Promise<Match[]> {
   const raw = await fetchSM<SMFixture>(
     "/livescores/inplay",
-    "participants;scores;periods;state;league.country",
+    "participants;scores;periods;state;league.country;odds",
     undefined,
     60,
   );
@@ -233,7 +240,7 @@ export async function getUpcomingFixtures(): Promise<Match[]> {
   const endDate = new Date(Date.now() + 15 * 86_400_000).toISOString().split("T")[0];
   const raw = await fetchSM<SMFixture>(
     `/fixtures/between/${today}/${endDate}`,
-    "participants;league.country",
+    "participants;league.country;odds",
     { per_page: "200", sort: "starting_at" },
     60,
   );
