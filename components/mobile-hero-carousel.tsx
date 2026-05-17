@@ -12,7 +12,7 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
   }, [slides.length]);
 
   return (
-    <section className="relative overflow-hidden" style={{ minHeight: "56vw", maxHeight: 280 }}>
+    <section className="relative overflow-hidden rounded-b-3xl" style={{ minHeight: "72vw", maxHeight: 340 }}>
       {/* Background images */}
       {slides.map((src, i) => (
         <div
@@ -21,42 +21,44 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
           style={{ backgroundImage: `url(${src})`, opacity: i === index ? 1 : 0 }}
         />
       ))}
-      {/* Overlays */}
-      <div className="absolute inset-0 bg-black/55" />
-      <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent" />
+
+      {/* Layered overlays for depth */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/50 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
 
       {/* Content */}
-      <div className="relative z-10 flex h-full flex-col justify-center px-5 py-8">
-        <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-slate-300">
+      <div className="relative z-10 flex h-full flex-col justify-end px-5 pb-7 pt-10">
+        {/* Live badge */}
+        <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-400 ring-1 ring-emerald-500/30">
           <span className="relative flex h-1.5 w-1.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
           </span>
-          Platform is live · 6 products
+          Platform live · 6 products
         </div>
 
-        <h1 className="text-[28px] font-black uppercase leading-[.9] tracking-tight text-white">
+        <h1 className="text-[36px] font-black uppercase leading-[.88] tracking-tight text-white drop-shadow-lg">
           One platform.
           <br />
-          <span className="bg-gradient-to-r from-violet-400 via-white to-amber-400 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-violet-400 via-fuchsia-300 to-amber-400 bg-clip-text text-transparent">
             Six markets.
           </span>
         </h1>
 
-        <p className="mt-2 text-[11px] leading-[1.6] text-slate-400">
+        <p className="mt-2.5 text-[11px] font-semibold leading-relaxed text-white/50 tracking-wide">
           Sports · Aviator · Predictions · P2P · Binary · Wallet
         </p>
 
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-5 flex items-center gap-2.5">
           <Link
             href="/sports"
-            className="rounded-xl bg-white px-5 py-2 text-xs font-black text-black active:scale-95"
+            className="rounded-2xl bg-white px-6 py-2.5 text-[13px] font-black text-black shadow-lg active:scale-95 transition"
           >
             Get started
           </Link>
           <Link
             href="/aviator"
-            className="rounded-xl border border-white/15 bg-white/8 px-5 py-2 text-xs font-black text-white active:scale-95"
+            className="rounded-2xl border border-white/20 bg-white/10 px-6 py-2.5 text-[13px] font-black text-white backdrop-blur-sm active:scale-95 transition"
           >
             Play Aviator
           </Link>
@@ -71,7 +73,7 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
             type="button"
             aria-label={`Slide ${i + 1}`}
             onClick={() => setIndex(i)}
-            className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/30"}`}
+            className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/25"}`}
           />
         ))}
       </div>

@@ -223,31 +223,65 @@ const BG_IMAGES = [
   "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg6.avif",
 ];
 
+const QUICK_NAV = [
+  { href: "/sports",      icon: "sports_soccer",          label: "Sports",      color: "bg-violet-500/20 text-violet-300" },
+  { href: "/aviator",     icon: "rocket_launch",          label: "Aviator",     color: "bg-orange-500/20 text-orange-300" },
+  { href: "/dashboard",   icon: "casino",                 label: "Casino",      color: "bg-blue-500/20 text-blue-300" },
+  { href: "/p2p",         icon: "swap_horiz",             label: "P2P",         color: "bg-emerald-500/20 text-emerald-300" },
+  { href: "/binary",      icon: "candlestick_chart",      label: "Binary",      color: "bg-sky-500/20 text-sky-300" },
+  { href: "/wallet",      icon: "account_balance_wallet", label: "Wallet",      color: "bg-amber-500/20 text-amber-300" },
+];
+
 function MobileDashboard() {
   return (
-    <div className="space-y-4 md:hidden">
+    <div className="md:hidden">
       {/* ── Hero ── */}
       <MobileHeroCarousel slides={BG_IMAGES} />
 
-      {/* Aviator featured */}
-      <Link
-        href="/aviator"
-        className="mx-3 flex min-h-[140px] items-center justify-between overflow-hidden rounded-2xl bg-cover bg-center px-5"
-        style={{ backgroundImage: `linear-gradient(90deg, rgba(29,12,8,.9), rgba(29,12,8,.45)), url(${tempAssets.gameWeekMobile})` }}
-      >
-        <div>
-          <div className="mb-2 flex items-center gap-1.5">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-[#ff1979]" />
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#ff1979]">Live now</span>
-          </div>
-          <h2 className="text-2xl font-black">Aviator</h2>
-          <p className="mt-1 text-xs text-white/70">Cash out before it flies away</p>
-          <span className="mt-4 inline-block rounded-full bg-white/15 px-4 py-1.5 text-xs font-black">Play now</span>
-        </div>
-        <Icon name="rocket_launch" fill className="text-[72px] text-orange-400 opacity-90" />
-      </Link>
+      {/* ── Quick nav ── */}
+      <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-4 py-4">
+        {QUICK_NAV.map((item) => (
+          <Link
+            key={item.href + item.label}
+            href={item.href}
+            className="flex shrink-0 flex-col items-center gap-1.5"
+          >
+            <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.color} ring-1 ring-white/10`}>
+              <Icon name={item.icon} fill className="text-[22px]" />
+            </span>
+            <span className="text-[10px] font-black text-white/60">{item.label}</span>
+          </Link>
+        ))}
+      </div>
 
-      <TrendingMatchCarousel />
+      {/* ── Aviator banner ── */}
+      <div className="px-4">
+        <Link
+          href="/aviator"
+          className="flex min-h-[190px] items-end overflow-hidden rounded-3xl bg-cover bg-center p-5"
+          style={{ backgroundImage: `linear-gradient(135deg, rgba(20,8,4,.95) 0%, rgba(20,8,4,.6) 60%, rgba(20,8,4,.2) 100%), url(${tempAssets.gameWeekMobile})` }}
+        >
+          <div className="flex w-full items-end justify-between">
+            <div>
+              <div className="mb-2.5 flex items-center gap-1.5">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-[#ff1979]" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#ff1979]">Live now</span>
+              </div>
+              <h2 className="text-[32px] font-black leading-none">Aviator</h2>
+              <p className="mt-1.5 text-[12px] text-white/60">Cash out before it flies away</p>
+              <span className="mt-4 inline-block rounded-2xl bg-[#ff1979] px-5 py-2 text-[12px] font-black text-white shadow-lg shadow-[#ff1979]/30">
+                Play now →
+              </span>
+            </div>
+            <Icon name="rocket_launch" fill className="text-[88px] text-orange-400/80 drop-shadow-lg" />
+          </div>
+        </Link>
+      </div>
+
+      {/* ── Trending matches ── */}
+      <div className="mt-5">
+        <TrendingMatchCarousel />
+      </div>
     </div>
   );
 }
