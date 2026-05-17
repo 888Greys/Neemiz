@@ -10,7 +10,7 @@ body {
   min-height: 100vh;
   background: #08080c;
   color: #f1f0ff;
-  font-family: var(--font-inter), sans-serif;
+  font-family: var(--font-jakarta), sans-serif;
   overflow-x: hidden;
 }
 

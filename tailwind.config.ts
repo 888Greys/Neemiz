@@ -43,8 +43,8 @@ const config: Config = {
         full: "9999px",
       },
       fontFamily: {
-        body: ["var(--font-inter)", "sans-serif"],
-        headline: ["var(--font-inter)", "sans-serif"],
+        body: ["var(--font-jakarta)", "sans-serif"],
+        headline: ["var(--font-jakarta)", "sans-serif"],
         mono: ["var(--font-jetbrains)", "monospace"],
       },
     },
