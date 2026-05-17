@@ -80,13 +80,16 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className="relative w-full max-w-[420px] rounded-3xl border border-white/[0.08] bg-[#111316] shadow-2xl"
+        className="relative w-full rounded-t-3xl border border-white/[0.08] bg-[#111316] shadow-2xl sm:max-w-[420px] sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Drag handle — mobile only */}
+        <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-white/10 sm:hidden" />
+
         {/* Header */}
-        <div className="flex items-center justify-between px-7 pt-7 pb-5">
+        <div className="flex items-center justify-between px-6 pt-5 pb-4 sm:px-7 sm:pt-7 sm:pb-5">
           <h2 className="text-2xl font-black text-white">Login</h2>
           <button
             onClick={onClose}
@@ -98,7 +101,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
           </button>
         </div>
 
-        <div className="px-7 pb-7">
+        <div className="overflow-y-auto px-6 pb-8 sm:px-7 sm:pb-7" style={{ maxHeight: "85dvh" }}>
           {/* Tab switcher */}
           <div className="mb-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-[#18191f] p-1">
             {(["phone", "email"] as const).map((t) => (
@@ -264,3 +267,4 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     </div>
   );
 }
+

@@ -63,14 +63,18 @@ const tradingPairs = [
 ];
 
 const INTERVAL = 4500;
+const BG_IMAGES = ["https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg1.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg2.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg3.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg4.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg5.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg6.avif"];
+const BG_INTERVAL = 10000;
 
 /* ── Hero Section ─────────────────────────────────────── */
 export function HeroSection() {
   const [activeTab, setActiveTab] = useState(0);
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [bgIndex, setBgIndex] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const bgTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const startCycle = (tab: number) => {
     // clear existing
@@ -98,9 +102,13 @@ export function HeroSection() {
 
   useEffect(() => {
     startCycle(0);
+    bgTimerRef.current = setInterval(() => {
+      setBgIndex((i) => (i + 1) % BG_IMAGES.length);
+    }, BG_INTERVAL);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (progressRef.current) clearInterval(progressRef.current);
+      if (bgTimerRef.current) clearInterval(bgTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -115,15 +123,27 @@ export function HeroSection() {
   };
 
   return (
-    <section className="relative overflow-hidden">
-      {/* Glow orbs */}
+    <section className="relative overflow-hidden min-h-[calc(100vh-64px)] flex flex-col justify-center">
+      {/* Background image carousel */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-violet-600/10 blur-[120px]" />
-        <div className="absolute -bottom-24 right-1/3 h-[400px] w-[400px] rounded-full bg-amber-500/6 blur-[100px]" />
+        {BG_IMAGES.map((src, i) => (
+          <div
+            key={src}
+            className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000"
+            style={{
+              backgroundImage: `url(${src})`,
+              opacity: i === bgIndex ? 1 : 0,
+            }}
+          />
+        ))}
+        {/* Dark overlay so text stays readable */}
+        <div className="absolute inset-0 bg-black/60" />
+        {/* Subtle bottom fade into page */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0d0e12] to-transparent" />
       </div>
 
       <div className="relative mx-auto w-full max-w-[1600px] px-6 py-12 xl:py-16">
-        <div className="grid items-center gap-10 xl:grid-cols-[1fr_420px] 2xl:grid-cols-[1fr_480px]">
+        <div className="grid items-center gap-10">
 
           {/* ── Left ── */}
           <div className="max-w-2xl">
@@ -170,110 +190,6 @@ export function HeroSection() {
             </div>
           </div>
 
-          {/* ── Right panel ── */}
-          <div className="hidden overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0e0f12] xl:block">
-            {/* Tabs + progress */}
-            <div className="px-5 pt-4">
-              <div className="flex items-center gap-1">
-                {panelTabs.map((tab, i) => (
-                  <button
-                    key={tab}
-                    onClick={() => handleTabClick(i)}
-                    type="button"
-                    className={`relative px-3 py-2 text-sm font-black transition-colors ${
-                      activeTab === i ? "text-white" : "text-slate-600 hover:text-slate-400"
-                    }`}
-                  >
-                    {tab}
-                    {/* progress bar under active tab */}
-                    {activeTab === i && (
-                      <div className="absolute bottom-0 left-0 h-[2px] rounded-full bg-amber-400 transition-none" style={{ width: `${progress}%` }} />
-                    )}
-                  </button>
-                ))}
-                <Link
-                  href={activeTab === 0 ? "/sports" : activeTab === 1 ? "/predictions" : "/binary"}
-                  className="ml-auto text-xs font-black text-slate-600 transition hover:text-slate-300"
-                >
-                  View all →
-                </Link>
-              </div>
-              <div className="mt-1 h-px bg-white/[0.06]" />
-            </div>
-
-            {/* Panel body — fade on tab switch */}
-            <div
-              className="divide-y divide-white/[0.04] transition-opacity duration-200"
-              style={{ opacity: visible ? 1 : 0 }}
-            >
-              {activeTab === 0 && liveMatches.map((m) => (
-                <Link key={m.home} href="/sports"
-                  className="group flex items-center gap-4 px-5 py-3 transition hover:bg-white/[0.03]"
-                >
-                  {/* Left accent */}
-                  <div className="h-8 w-[3px] shrink-0 rounded-full bg-[#ff1979]/60 group-hover:bg-[#ff1979]" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 text-sm font-black text-white">
-                      {m.home}
-                      <span className="text-[10px] font-bold text-slate-600">VS</span>
-                      {m.away}
-                    </div>
-                    <div className="text-[11px] text-slate-600">{m.league} · {m.time}</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-sm font-bold text-slate-300">{m.score}</span>
-                    <span className={`min-w-[38px] rounded-lg px-2 py-1 text-center text-xs font-black ${m.up ? "bg-emerald-500/12 text-emerald-400" : "bg-red-500/12 text-red-400"}`}>
-                      {m.odds}
-                    </span>
-                  </div>
-                </Link>
-              ))}
-
-              {activeTab === 1 && marketData.map((m) => (
-                <Link key={m.title} href="/predictions"
-                  className="group flex items-center gap-4 px-5 py-3 transition hover:bg-white/[0.03]"
-                >
-                  <div className="h-8 w-[3px] shrink-0 rounded-full bg-violet-500/60 group-hover:bg-violet-400" />
-                  <div className="flex-1 min-w-0">
-                    <div className="truncate text-sm font-black text-white">{m.title}</div>
-                    <div className="mt-1 flex h-1 overflow-hidden rounded-full bg-white/10">
-                      <div className="bg-emerald-500 transition-all" style={{ width: `${m.yes}%` }} />
-                      <div className="bg-red-500 transition-all" style={{ width: `${100 - m.yes}%` }} />
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs font-black text-emerald-400">{m.yes}% YES</div>
-                    <div className={`text-[11px] font-bold ${m.change.startsWith("+") ? "text-emerald-500" : "text-red-500"}`}>{m.change}</div>
-                  </div>
-                </Link>
-              ))}
-
-              {activeTab === 2 && tradingPairs.map((t) => (
-                <Link key={t.pair} href="/binary"
-                  className="group flex items-center gap-4 px-5 py-3 transition hover:bg-white/[0.03]"
-                >
-                  <div className={`h-8 w-[3px] shrink-0 rounded-full ${t.up ? "bg-emerald-500/60 group-hover:bg-emerald-400" : "bg-red-500/60 group-hover:bg-red-400"}`} />
-                  <div className="flex items-center gap-2 flex-1">
-                    <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${t.up ? "bg-emerald-500/12 text-emerald-400" : "bg-red-500/12 text-red-400"}`}>
-                      <Icon name={t.up ? "trending_up" : "trending_down"} className="text-[16px]" />
-                    </span>
-                    <span className="text-sm font-black text-white">{t.pair}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-mono text-sm font-bold text-white">{t.price}</div>
-                    <div className={`text-xs font-black ${t.up ? "text-emerald-400" : "text-red-400"}`}>{t.change}</div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            {/* Laurel badges */}
-            <div className="flex items-center justify-around border-t border-white/[0.05] px-5 py-4">
-              <LaurelBadge title="No.1" subtitle="Betting Platform" />
-              <div className="h-8 w-px bg-white/[0.07]" />
-              <LaurelBadge title="No.1" subtitle="Trading Volume" />
-            </div>
-          </div>
         </div>
       </div>
 

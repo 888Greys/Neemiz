@@ -17,9 +17,10 @@ const tempAssets = {
 type AppShellProps = {
   children: React.ReactNode;
   rightPanel?: React.ReactNode;
+  mainBg?: string;
 };
 
-export function AppShell({ children, rightPanel }: AppShellProps) {
+export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -69,6 +70,7 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
             <BrandLogo href="/dashboard" size="sm" />
             <nav className="hidden items-center gap-0.5 rounded-2xl bg-[#18191d] p-1 ring-1 ring-white/[0.06] text-sm font-black md:flex">
               <TopNavLink href="/dashboard" icon="home" label="Home" pathname={pathname} />
+              <TopNavLink href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} />
               <TopNavLink href="/p2p" icon="swap_horiz" label="P2P" pathname={pathname} />
               <TopNavLink href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} />
               <TopNavLink href="/predictions" icon="online_prediction" label="Polymarket" pathname={pathname} />
@@ -103,7 +105,7 @@ export function AppShell({ children, rightPanel }: AppShellProps) {
           <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} />
         </aside>
 
-        <main className="flex-1 overflow-y-auto border-r border-outline-variant bg-background pb-24 lg:pb-0">
+        <main className={`no-scrollbar flex-1 overflow-y-auto pb-24 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
           <div className="flex min-h-screen flex-col">
             <div className="flex-1">{children}</div>
             <AppFooter />
@@ -186,11 +188,11 @@ function Sidebar({ collapsed, onToggle, pathname }: { collapsed: boolean; onTogg
       <div className={`no-scrollbar flex-1 overflow-y-auto py-5 ${collapsed ? "px-2" : "px-4"}`}>
         {/* Sports */}
         <SidebarGroup collapsed={collapsed} icon="sports_soccer" isOpen={openGroups.sports} onToggle={() => toggleGroup("sports")} title="Sports">
-          <SidebarItem collapsed={collapsed} href="/sports" icon="local_fire_department" label="Top Events" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=live" icon="sensors" label="Live" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=esports" icon="sports_martial_arts" label="Esports" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=all" icon="calendar_month" label="All Sports" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=history" icon="manage_history" label="Bet History" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/sports?tab=Top" icon="local_fire_department" label="Top" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/sports?tab=Live" icon="sensors" label="Live" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/sports?tab=Esports" icon="sports_esports" label="Esports" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/sports?tab=Sports" icon="calendar_month" label="All Sports" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/sports?tab=Markets" icon="trending_up" label="Markets" pathname={pathname} suppressActive />
         </SidebarGroup>
 
         {/* Casino */}
@@ -497,11 +499,11 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister }: { onClose: (
 
           {/* Sports */}
           <MobileDrawerGroup icon="sports_soccer" isOpen={openGroups.sports} label="Sports" onToggle={() => setOpenGroups((v) => ({ ...v, sports: !v.sports }))}>
-            <MobileDrawerLink href="/sports" icon="local_fire_department" label="Top Events" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=live" icon="sensors" label="Live" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=esports" icon="sports_martial_arts" label="Esports" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=all" icon="calendar_month" label="All Sports" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=history" icon="manage_history" label="Bet History" onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=Top" icon="local_fire_department" label="Top" onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=Live" icon="sensors" label="Live" onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=Esports" icon="sports_esports" label="Esports" onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=Sports" icon="calendar_month" label="All Sports" onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=Markets" icon="trending_up" label="Markets" onClick={onClose} />
           </MobileDrawerGroup>
 
           {/* Casino */}
@@ -601,59 +603,41 @@ function MobileDrawerLink({ badge, href, icon, label, onClick }: { badge?: strin
 
 /* ── Footer ─────────────────────────────────────────────── */
 function AppFooter() {
-  const socials = [
+  const socials: { label: string; tg?: boolean; mat?: string; svg?: React.ReactNode; vb?: string }[] = [
     { label: "WhatsApp",  svg: <path d="M17.5 14.4c-.3-.1-1.7-.8-2-1-.3-.1-.5-.1-.7.1-.2.3-.8 1-.9 1.2-.2.2-.3.2-.6.1-.3-.1-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.6-2-.2-.3 0-.5.1-.6l.5-.6c.1-.2.1-.3.2-.5 0-.2 0-.4-.1-.5-.1-.1-.7-1.6-1-2.2-.2-.6-.5-.5-.7-.5H8c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1 2.8 1.1 3c.1.2 2 3 4.8 4.2.7.3 1.2.4 1.6.5.7.2 1.3.2 1.8.1.5-.1 1.7-.7 1.9-1.4.2-.6.2-1.2.1-1.3-.1-.1-.3-.2-.6-.3zm-5.4 7.3h-.1a10.4 10.4 0 0 1-5.3-1.5l-.4-.2-3.7 1 1-3.6-.3-.4a10.5 10.5 0 1 1 8.8 4.7zm0-20C5.4 1.7 1 6.2 1 11.7c0 1.9.5 3.7 1.4 5.2L1 22l5.2-1.4a10.3 10.3 0 0 0 5 1.3c5.5 0 10-4.5 10-10S17.7 1.7 12.1 1.7z" />, vb: "0 0 24 24" },
     { label: "Telegram",  tg: true },
     { label: "Instagram", mat: "photo_camera" },
     { label: "Facebook",  svg: <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />, vb: "0 0 24 24" },
     { label: "X",         svg: <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L2.25 2.25h6.865l4.258 5.622L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />, vb: "0 0 20 20" },
-    { label: "Threads",   svg: <path d="M12.2 2C7.7 2 5 4.9 5 9.3v5.4C5 19.1 7.7 22 12.2 22c4.4 0 6.8-2.9 6.8-7.3 0-.3 0-.5-.1-.8H17c0 .3.1.5.1.8 0 3-1.6 5.3-4.9 5.3s-5.2-2.2-5.2-5.3V9.3c0-3.1 1.9-5.3 5.2-5.3 2.8 0 4.5 1.6 4.8 4.1H19C18.6 4.3 15.9 2 12.2 2zm0 7c-1.7 0-2.8 1-2.8 2.3 0 1.4 1 2.2 2.5 2.5.5.1 1.3.1 1.9-.1.9-.4 1.3-1.1 1.3-2.1 0-1.5-1.1-2.6-2.9-2.6z" />, vb: "0 0 24 24" },
+  ];
+
+  const infoLinks = ["Rules", "Promotions", "Partner program", "Responsible Gaming", "Privacy Policy", "Terms of Service"];
+  const products = [
+    { label: "Sports Betting", href: "/sports" },
+    { label: "Aviator", href: "/aviator" },
+    { label: "Predictions", href: "/predictions" },
+    { label: "P2P Trading", href: "/p2p" },
+    { label: "Binary & Forex", href: "/binary" },
+    { label: "Smart Wallet", href: "/wallet" },
   ];
 
   return (
-    <footer className="mt-8 border-t border-white/[0.06] bg-[#0a0b0e]">
-      {/* ── Support bar ── */}
-      <div className="relative overflow-hidden border-b border-white/[0.05] bg-gradient-to-r from-[#0d1f45] via-[#102560] to-[#0d1f45]">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_120%,rgba(99,102,241,0.18),transparent)]" />
-        <div className="relative mx-auto flex flex-wrap items-center justify-between gap-4 px-6 py-5 xl:px-10">
-          <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20">
-              <Icon name="support_agent" fill className="text-[24px] text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-black text-white">Support</span>
-                <span className="rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-white">24/7</span>
-              </div>
-              <p className="text-[11px] text-white/50">Contact us if you still have questions</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-2.5 text-center">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-white/40">Commercial offers</div>
-              <a href="mailto:business@nezeem.com" className="text-xs font-black text-white transition hover:text-violet-300">business@nezeem.com</a>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 px-5 py-2.5 text-center">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-white/40">Partner program</div>
-              <a href="mailto:partners@nezeem.com" className="text-xs font-black text-white transition hover:text-violet-300">partners@nezeem.com</a>
-            </div>
-            <button className="rounded-2xl bg-white px-6 py-2.5 text-xs font-black text-[#102560] transition hover:bg-white/90" type="button">
-              Contact support
-            </button>
-          </div>
-        </div>
-      </div>
+    <footer className="border-t border-white/[0.06] bg-[#0d0e11]">
+      {/* ── Main body ── */}
+      <div className="mx-auto grid gap-12 px-6 py-12 xl:px-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
 
-      {/* ── Main footer body ── */}
-      <div className="mx-auto grid gap-10 px-6 py-10 xl:px-10 lg:grid-cols-[1fr_1fr_1fr_auto]">
-        {/* Brand + description */}
-        <div>
-          <div className="mb-3 text-lg font-black tracking-tight text-white">Nezeem</div>
-          <p className="mb-4 text-[12px] leading-5 text-slate-500">Sports betting, Aviator, Polymarket predictions, P2P trading, Binary &amp; Forex, and a Smart Wallet — one seamless platform.</p>
+        {/* Brand column */}
+        <div className="flex flex-col gap-5">
+          <div>
+            <div className="mb-2 text-xl font-black tracking-tight text-white">Nezeem</div>
+            <p className="text-[12px] leading-[1.7] text-slate-500">
+              Sports betting, Aviator, Polymarket predictions,<br className="hidden sm:block" /> P2P trading, Binary &amp; Forex, and a Smart Wallet<br className="hidden sm:block" /> — one seamless platform.
+            </p>
+          </div>
           <div className="flex items-center gap-1.5">
             {socials.map((s) => (
               <button key={s.label} type="button" aria-label={s.label}
-                className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#16171d] text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#1e2028] hover:text-white"
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.05] text-slate-500 transition hover:bg-white/[0.09] hover:text-white"
               >
                 {s.tg ? <TelegramIcon /> : s.mat ? (
                   <Icon name={s.mat} fill className="text-[15px]" />
@@ -663,15 +647,26 @@ function AppFooter() {
               </button>
             ))}
           </div>
+          {/* Contact */}
+          <div className="flex flex-col gap-1.5">
+            <a href="mailto:business@nezeem.com" className="flex items-center gap-2 text-[11px] text-slate-500 transition hover:text-white">
+              <Icon name="mail" className="text-[14px] text-slate-600" />
+              business@nezeem.com
+            </a>
+            <a href="mailto:partners@nezeem.com" className="flex items-center gap-2 text-[11px] text-slate-500 transition hover:text-white">
+              <Icon name="handshake" className="text-[14px] text-slate-600" />
+              partners@nezeem.com
+            </a>
+          </div>
         </div>
 
         {/* Information */}
         <div>
-          <h4 className="mb-4 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Information</h4>
-          <ul className="space-y-2.5">
-            {["Rules", "Promotions", "Partner program", "Responsible Gaming", "Privacy Policy", "Terms of Service"].map((l) => (
+          <h4 className="mb-5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600">Information</h4>
+          <ul className="space-y-3">
+            {infoLinks.map((l) => (
               <li key={l}>
-                <Link href="#" className="text-[13px] text-slate-400 transition hover:text-white">{l}</Link>
+                <Link href="#" className="text-[13px] text-slate-500 transition hover:text-white">{l}</Link>
               </li>
             ))}
           </ul>
@@ -679,58 +674,58 @@ function AppFooter() {
 
         {/* Products */}
         <div>
-          <h4 className="mb-4 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">Products</h4>
-          <ul className="space-y-2.5">
-            {[
-              { label: "Sports Betting", href: "/sports" },
-              { label: "Aviator", href: "/aviator" },
-              { label: "Predictions", href: "/predictions" },
-              { label: "P2P Trading", href: "/p2p" },
-              { label: "Binary & Forex", href: "/binary" },
-              { label: "Smart Wallet", href: "/wallet" },
-            ].map((l) => (
+          <h4 className="mb-5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600">Products</h4>
+          <ul className="space-y-3">
+            {products.map((l) => (
               <li key={l.label}>
-                <Link href={l.href} className="text-[13px] text-slate-400 transition hover:text-white">{l.label}</Link>
+                <Link href={l.href} className="text-[13px] text-slate-500 transition hover:text-white">{l.label}</Link>
               </li>
             ))}
           </ul>
         </div>
 
-        {/* App downloads */}
-        <div className="flex flex-row gap-3 lg:flex-col">
-          <Link href="#"
-            className="flex w-40 flex-col gap-3 overflow-hidden rounded-2xl bg-gradient-to-br from-violet-600/80 to-violet-900 p-4 ring-1 ring-violet-500/30 transition hover:ring-violet-400/50"
-          >
-            <Icon name="phone_iphone" fill className="text-[28px] text-white/80" />
+        {/* App + Support */}
+        <div className="flex flex-col gap-4">
+          <h4 className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-600">Get the app</h4>
+          <Link href="#" className="group flex items-center gap-3 rounded-xl bg-white/[0.04] p-3 ring-1 ring-white/[0.06] transition hover:bg-white/[0.07] hover:ring-white/[0.12]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#05b957]/15 text-[#05b957]">
+              <Icon name="phone_iphone" fill className="text-[20px]" />
+            </span>
             <div>
               <div className="text-xs font-black text-white">Mobile App</div>
-              <div className="text-[10px] text-white/50">Android &amp; iOS</div>
+              <div className="text-[10px] text-slate-500">Android &amp; iOS</div>
             </div>
-            <span className="mt-auto block w-full rounded-xl bg-white/15 py-1.5 text-center text-[11px] font-black text-white">
-              Install →
-            </span>
+            <Icon name="chevron_right" className="ml-auto text-[18px] text-slate-600 transition group-hover:text-slate-400" />
           </Link>
-          <Link href="#"
-            className="flex w-40 flex-col gap-3 overflow-hidden rounded-2xl bg-gradient-to-br from-[#1c2d4a] to-[#0f1e33] p-4 ring-1 ring-white/[0.08] transition hover:ring-white/20"
-          >
-            <Icon name="desktop_windows" fill className="text-[28px] text-white/80" />
+          <Link href="#" className="group flex items-center gap-3 rounded-xl bg-white/[0.04] p-3 ring-1 ring-white/[0.06] transition hover:bg-white/[0.07] hover:ring-white/[0.12]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#087cff]/15 text-[#087cff]">
+              <Icon name="desktop_windows" fill className="text-[20px]" />
+            </span>
             <div>
               <div className="text-xs font-black text-white">Windows App</div>
-              <div className="text-[10px] text-white/50">Desktop experience</div>
+              <div className="text-[10px] text-slate-500">Desktop</div>
             </div>
-            <span className="mt-auto block w-full rounded-xl bg-white/10 py-1.5 text-center text-[11px] font-black text-white">
-              Install →
-            </span>
+            <Icon name="chevron_right" className="ml-auto text-[18px] text-slate-600 transition group-hover:text-slate-400" />
           </Link>
+          <button type="button" className="mt-1 flex items-center gap-3 rounded-xl bg-white/[0.04] p-3 ring-1 ring-white/[0.06] text-left transition hover:bg-white/[0.07]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-slate-300">
+              <Icon name="support_agent" fill className="text-[20px]" />
+            </span>
+            <div className="flex-1">
+              <div className="text-xs font-black text-white">Support</div>
+              <div className="text-[10px] text-slate-500">Available 24/7</div>
+            </div>
+            <span className="rounded-full bg-[#05b957] px-2 py-0.5 text-[9px] font-black text-white">LIVE</span>
+          </button>
         </div>
       </div>
 
       {/* ── Bottom bar ── */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] px-6 py-4 xl:px-10">
         <p className="text-[11px] text-slate-600">© 2026 Nezeem. All rights reserved. Play responsibly. 18+ only.</p>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <span className="text-[11px] text-slate-600">Licensed &amp; regulated</span>
-          <span className="flex h-7 w-9 items-center justify-center rounded-lg border border-white/15 text-xs font-black text-slate-400">18+</span>
+          <span className="flex h-6 w-8 items-center justify-center rounded border border-white/10 text-[10px] font-black text-slate-500">18+</span>
         </div>
       </div>
     </footer>

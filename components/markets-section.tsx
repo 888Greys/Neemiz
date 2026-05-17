@@ -1,0 +1,175 @@
+"use client";
+
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import type { BettingMarket, MarketOdd } from "@/lib/sportmonks";
+
+const MAIN_IDS = new Set([1, 2, 80, 14, 6, 31, 56, 7, 10, 28]);
+const TOTAL_IDS = new Set([80, 28, 53, 20, 21, 7, 27, 81, 105, 107]);
+const HANDICAP_IDS = new Set([6, 56, 26, 32, 94, 96, 104, 106]);
+const GOALS_IDS = new Set([14, 15, 16, 57, 93, 11, 247, 13, 82, 83, 84, 85, 86, 87, 88, 98, 99]);
+
+const TABS = [
+  { key: "main",     label: "Main" },
+  { key: "quick",    label: "Quick ⚡" },
+  { key: "total",    label: "Total" },
+  { key: "handicap", label: "Handicap" },
+  { key: "goals",    label: "Goals/Score" },
+  { key: "all",      label: "All" },
+] as const;
+
+type TabKey = (typeof TABS)[number]["key"];
+
+function filterMarkets(markets: BettingMarket[], tab: TabKey): BettingMarket[] {
+  switch (tab) {
+    case "main":     return markets.filter((m) => MAIN_IDS.has(m.id));
+    case "quick":    return markets.slice(0, 5);
+    case "total":    return markets.filter((m) => TOTAL_IDS.has(m.id));
+    case "handicap": return markets.filter((m) => HANDICAP_IDS.has(m.id));
+    case "goals":    return markets.filter((m) => GOALS_IDS.has(m.id));
+    case "all":      return markets;
+  }
+}
+
+export function MarketsSection({ markets }: { markets: BettingMarket[] }) {
+  const [activeTab, setActiveTab] = useState<TabKey>("main");
+  const visible = filterMarkets(markets, activeTab);
+
+  return (
+    <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.08]">
+      {/* Tabs */}
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar border-b border-slate-100 px-3 py-2.5">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setActiveTab(t.key)}
+            className={`shrink-0 rounded-xl px-3.5 py-1.5 text-[12px] font-black transition-all ${
+              activeTab === t.key
+                ? "bg-[#087cff] text-white"
+                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Markets */}
+      <div className="divide-y divide-slate-100">
+        {visible.length === 0 && (
+          <p className="py-10 text-center text-[13px] text-slate-400">No markets available</p>
+        )}
+        {visible.map((market) => (
+          <MarketBlock key={market.id} market={market} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MarketBlock({ market }: { market: BettingMarket }) {
+  const [open, setOpen] = useState(true);
+
+  // Detect if this is an Over/Under style market (pairs grouped by line)
+  const isOUMarket = market.odds.some((o) => o.extra && (o.label === "Over" || o.label === "Under"));
+  const isHandicapMarket = market.odds.some((o) => o.extra && o.extra.match(/^-?\d/));
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-slate-50"
+      >
+        <span className="text-[13px] font-black text-[#1a1a2e]">{market.name}</span>
+        {open ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
+      </button>
+
+      {open && (
+        <div className="px-3 pb-3">
+          {isOUMarket ? (
+            <OUMarket odds={market.odds} />
+          ) : isHandicapMarket ? (
+            <HandicapMarket odds={market.odds} />
+          ) : (
+            <SimpleMarket odds={market.odds} />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Standard market: 2-3 buttons in a row
+function SimpleMarket({ odds }: { odds: BettingMarket["odds"] }) {
+  return (
+    <div className={`grid gap-1.5 ${odds.length === 2 ? "grid-cols-2" : odds.length === 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-3"}`}>
+      {odds.slice(0, 9).map((o, i) => (
+        <OddPill key={i} label={o.label} value={o.value} />
+      ))}
+    </div>
+  );
+}
+
+// Over/Under market: group by line, show pairs
+function OUMarket({ odds }: { odds: BettingMarket["odds"] }) {
+  const lines = new Map<string, { over?: string; under?: string }>();
+  for (const o of odds) {
+    const line = o.extra ?? "";
+    const entry = lines.get(line) ?? {};
+    if (o.label === "Over") entry.over = o.value;
+    if (o.label === "Under") entry.under = o.value;
+    lines.set(line, entry);
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {Array.from(lines.entries()).slice(0, 8).map(([line, { over, under }]) => (
+        <div key={line} className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+          {under ? <OddPill label="Under" value={under} /> : <div />}
+          <span className="text-center text-[11px] font-black text-slate-400 tabular-nums">{line}</span>
+          {over ? <OddPill label="Over" value={over} /> : <div />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Handicap market: show handicap + two team buttons
+function HandicapMarket({ odds }: { odds: BettingMarket["odds"] }) {
+  const groups = new Map<string, BettingMarket["odds"]>();
+  for (const o of odds) {
+    const key = o.extra ?? "";
+    const list = groups.get(key) ?? [];
+    list.push(o);
+    groups.set(key, list);
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {Array.from(groups.entries()).slice(0, 8).map(([line, group]) => (
+        <div key={line} className="flex items-center gap-1.5">
+          <span className="w-12 shrink-0 text-center text-[11px] font-black text-slate-400">{line}</span>
+          <div className={`grid flex-1 gap-1.5 ${group.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+            {group.map((o: MarketOdd, i: number) => (
+              <OddPill key={i} label={o.label} value={o.value} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function OddPill({ label, value }: { label: string; value: string }) {
+  return (
+    <button
+      type="button"
+      className="group flex items-center justify-between gap-1 rounded-xl bg-slate-100 px-2.5 py-2 transition hover:bg-[#e8f0fe]"
+    >
+      <span className="truncate text-[11px] font-bold text-slate-500 group-hover:text-[#4a6cf7]">{label}</span>
+      <span className="shrink-0 text-[13px] font-black text-[#2ecc71] group-hover:text-[#4a6cf7]">{value}</span>
+    </button>
+  );
+}
