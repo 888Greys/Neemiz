@@ -63,8 +63,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       await signUp.create(params as Parameters<typeof signUp.create>[0]);
 
       // Trigger verification — Clerk sends the code to email or phone
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const su = signUp as any;
+      const su = signUp as any; // SignUpFutureResource missing these methods in types
       if (tab === "email") {
         await su.prepareEmailAddressVerification({ strategy: "email_code" });
       } else {
@@ -86,8 +85,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     setLoading(true);
     setError("");
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const su = signUp as any;
+      const su = signUp as any; // SignUpFutureResource missing these methods in types
       const result = tab === "email"
         ? await su.attemptEmailAddressVerification({ code })
         : await su.attemptPhoneNumberVerification({ code });
