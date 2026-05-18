@@ -49,6 +49,8 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   // pendingVerify only shown when Clerk requires OTP (instance setting); user can skip
   const [pendingVerify, setPendingVerify] = useState(false);
   const [code, setCode]               = useState("");
+  const [resending, setResending]     = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const { signUp } = useSignUp();
   const { signIn } = useSignIn();
@@ -90,21 +92,16 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         onClose();
         router.push("/dashboard");
       } else {
-        // Clerk requires OTP — try to trigger the send, but don't block on it
-        // (if prepareEmailAddressVerification hangs we still show the verify screen)
-        try {
-          const su = signUp as any;
-          await Promise.race([
-            tab === "email"
-              ? su.prepareEmailAddressVerification({ strategy: "email_code" })
-              : su.preparePhoneNumberVerification(),
-            new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8_000)),
-          ]);
-        } catch {
-          // If preparation fails or times out the code may still arrive;
-          // show the verify screen anyway so the user can enter it.
-        }
+        // Send the verification code
+        const su = signUp as any;
+        await Promise.race([
+          tab === "email"
+            ? su.prepareEmailAddressVerification({ strategy: "email_code" })
+            : su.preparePhoneNumberVerification(),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Code delivery timed out. Please check your inbox or try resending.")), 12_000)),
+        ]);
         setPendingVerify(true);
+        startResendCooldown();
       }
     } catch (err: unknown) {
       const e = err as { errors?: { longMessage?: string; message?: string }[] };
@@ -140,6 +137,37 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Invalid code. Please try again.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function startResendCooldown() {
+    setResendCooldown(60);
+    const t = setInterval(() => {
+      setResendCooldown((v) => {
+        if (v <= 1) { clearInterval(t); return 0; }
+        return v - 1;
+      });
+    }, 1000);
+  }
+
+  async function handleResend() {
+    if (!signUp || resendCooldown > 0) return;
+    setResending(true);
+    setError("");
+    try {
+      const su = signUp as any;
+      await Promise.race([
+        tab === "email"
+          ? su.prepareEmailAddressVerification({ strategy: "email_code" })
+          : su.preparePhoneNumberVerification(),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Timed out. Please try again.")), 10_000)),
+      ]);
+      startResendCooldown();
+    } catch (err: unknown) {
+      const e = err as { errors?: { longMessage?: string; message?: string }[]; message?: string };
+      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "Failed to resend. Please try again.");
+    } finally {
+      setResending(false);
     }
   }
 
@@ -209,26 +237,31 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         <div className="overflow-y-auto px-6 pb-8 sm:px-7 sm:pb-7" style={{ maxHeight: "90dvh" }}>
           <div key={pendingVerify ? "verify" : "register"} className="animate-fade-up" style={{ animationDuration: "0.25s" }}>
           {pendingVerify ? (
-            /* ── Verification step (optional — only shown if Clerk requires it) ── */
+            /* ── Verification step ── */
             <form onSubmit={handleVerify} className="space-y-4">
-              <p className="text-sm text-slate-400">
-                We sent a 6-digit code to{" "}
-                <span className="font-bold text-white">{tab === "email" ? email : `${country.code}${phone}`}</span>.
-                Check your {tab === "email" ? "inbox" : "messages"}.
-              </p>
+              {/* Sent-to info */}
+              <div className="rounded-2xl bg-[#18191f] px-4 py-3.5 ring-1 ring-white/[0.07]">
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Code sent to</p>
+                <p className="mt-0.5 font-bold text-white truncate">{tab === "email" ? email : `${country.code}${phone}`}</p>
+              </div>
+
+              {/* OTP input */}
               <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
                 <Icon name="verified" fill className="text-[18px] shrink-0 text-slate-500" />
                 <input
                   type="text"
+                  inputMode="numeric"
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                   placeholder="Enter 6-digit code"
-                  className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder-slate-600 outline-none tracking-[0.2em]"
+                  className="flex-1 bg-transparent py-3.5 text-lg font-black text-white placeholder-slate-600 outline-none tracking-[0.3em]"
                   maxLength={6}
                   autoFocus
                 />
               </div>
+
               {error && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-xs font-bold text-red-400">{error}</p>}
+
               <button
                 type="submit"
                 disabled={loading || code.length < 6}
@@ -244,9 +277,24 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                   </span>
                 ) : "Verify & Enter"}
               </button>
-              <p className="text-center text-xs text-slate-600">
-                Check your inbox and enter the 6-digit code to continue.
-              </p>
+
+              {/* Resend + spam hint */}
+              <div className="space-y-2 text-center">
+                <p className="text-xs text-slate-500">
+                  Didn't receive it?{" "}
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resendCooldown > 0 || resending}
+                    className="font-black text-[#087cff] transition hover:text-blue-400 disabled:text-slate-600 disabled:cursor-not-allowed"
+                  >
+                    {resending ? "Sending…" : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                  </button>
+                </p>
+                <p className="text-[11px] text-slate-600">
+                  💡 Check your <span className="text-slate-400 font-bold">spam / junk</span> folder if you don't see it
+                </p>
+              </div>
             </form>
           ) : (
             <>
