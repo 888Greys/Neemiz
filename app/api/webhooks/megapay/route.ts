@@ -1,4 +1,5 @@
 // MegaPay push callback — called by MegaPay when payment completes
+// Reads MEGAPAY_BASE_URL or MEGAPAY_API_URL (either name works)
 // Set MEGAPAY_CALLBACK_URL=https://www.nezeem.com/api/webhooks/megapay in Vercel env
 import { db } from "@/lib/db";
 import { TransactionStatus } from "@prisma/client";

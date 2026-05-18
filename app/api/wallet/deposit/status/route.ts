@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const baseUrl = (process.env.MEGAPAY_BASE_URL ?? "").replace(/\/+$/, "");
+  const baseUrl = (process.env.MEGAPAY_BASE_URL ?? process.env.MEGAPAY_API_URL ?? "").replace(/\/+$/, "");
   const apiKey  = process.env.MEGAPAY_API_KEY ?? "";
   const email   = process.env.MEGAPAY_EMAIL ?? "";
 
