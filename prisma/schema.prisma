@@ -8,18 +8,119 @@ datasource db {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  clerkId        String   @unique @map("clerk_id")
-  email          String   @unique
+  id             String        @id @default(cuid())
+  clerkId        String        @unique @map("clerk_id")
+  email          String?       @unique
+  phone          String?       @unique
   username       String?
-  firstName      String?  @map("first_name")
-  lastName       String?  @map("last_name")
-  imageUrl       String?  @map("image_url")
-  walletBalance  Decimal  @default(0.00) @map("wallet_balance") @db.Decimal(18, 2)
-  currency       String   @default("USD")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  firstName      String?       @map("first_name")
+  lastName       String?       @map("last_name")
+  imageUrl       String?       @map("image_url")
+  walletBalance  Decimal       @default(0.00) @map("wallet_balance") @db.Decimal(18, 2)
+  currency       String        @default("KES")
+  isActive       Boolean       @default(true) @map("is_active")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  bets           Bet[]
+  transactions   Transaction[]
 
   @@map("users")
+}
+
+model Bet {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  user         User      @relation(fields: [userId], references: [id])
+
+  // Bet details
+  betType      BetType   @default(SINGLE) @map("bet_type")
+  stake        Decimal   @db.Decimal(18, 2)
+  totalOdds    Decimal   @db.Decimal(10, 4) @map("total_odds")
+  potentialWin Decimal   @db.Decimal(18, 2) @map("potential_win")
+  status       BetStatus @default(PENDING)
+
+  // Settlement
+  settledAt    DateTime? @map("settled_at")
+  winAmount    Decimal?  @db.Decimal(18, 2) @map("win_amount")
+
+  selections   BetSelection[]
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("bets")
+}
+
+model BetSelection {
+  id          String  @id @default(cuid())
+  betId       String  @map("bet_id")
+  bet         Bet     @relation(fields: [betId], references: [id])
+
+  fixtureId   String  @map("fixture_id")
+  matchName   String  @map("match_name")
+  market      String
+  label       String
+  odds        Decimal @db.Decimal(10, 4)
+
+  // Settlement
+  result      SelectionResult @default(PENDING)
+
+  @@map("bet_selections")
+}
+
+model Transaction {
+  id          String            @id @default(cuid())
+  userId      String            @map("user_id")
+  user        User              @relation(fields: [userId], references: [id])
+
+  type        TransactionType
+  amount      Decimal           @db.Decimal(18, 2)
+  currency    String            @default("KES")
+  status      TransactionStatus @default(PENDING)
+
+  // Payment provider reference
+  reference   String?           @unique
+  provider    String?           // "megapay", "crypto", "manual"
+  metadata    Json?
+
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@map("transactions")
+}
+
+enum BetType {
+  SINGLE
+  MULTI
+}
+
+enum BetStatus {
+  PENDING
+  WON
+  LOST
+  VOID
+  CASHED_OUT
+}
+
+enum SelectionResult {
+  PENDING
+  WON
+  LOST
+  VOID
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  BET_STAKE
+  BET_WIN
+  BONUS
+  REFUND
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
