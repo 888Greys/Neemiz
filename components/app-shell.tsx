@@ -10,7 +10,7 @@ import { Icon } from "@/components/icon";
 import { LoginModal } from "@/components/login-modal";
 import { RegisterModal } from "@/components/register-modal";
 import { AuthModalContext } from "@/lib/auth-modal-context";
-import { BetslipProvider } from "@/lib/betslip-context";
+import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 
 const tempAssets = {
@@ -168,6 +168,8 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} />}
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} />}
+
+      {rightPanel && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-12 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
@@ -654,6 +656,68 @@ function MobileDrawerLink({ badge, href, icon, label, onClick }: { badge?: strin
       <span className="flex-1">{label}</span>
       {badge && <span className="rounded-full bg-[#ff1979] px-2 py-0.5 text-[9px]">{badge}</span>}
     </Link>
+  );
+}
+
+/* ── Mobile Betslip Sheet ───────────────────────────────── */
+function MobileBetslipSheet({ children }: { children: React.ReactNode }) {
+  const { bets } = useBetslip();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* FAB — sits just above the bottom nav */}
+      <div className="fixed bottom-14 left-0 right-0 z-40 flex justify-center lg:hidden pointer-events-none">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-[#16171d] pl-4 pr-3 py-2.5 ring-1 ring-white/[0.12] shadow-[0_4px_24px_rgba(0,0,0,.5)] transition active:scale-[0.97]"
+        >
+          <Icon name="receipt_long" fill className={`text-[18px] ${bets.length > 0 ? "text-[#087cff]" : "text-slate-500"}`} />
+          <span className={`text-[13px] font-black ${bets.length > 0 ? "text-white" : "text-slate-400"}`}>
+            Betslip
+          </span>
+          {bets.length > 0 ? (
+            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#087cff] px-1.5 text-[10px] font-black text-white">
+              {bets.length}
+            </span>
+          ) : (
+            <Icon name="chevron_up" className="text-[16px] text-slate-500" />
+          )}
+        </button>
+      </div>
+
+      {/* Bottom sheet */}
+      {open && (
+        <div className="fixed inset-0 z-[70] lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/70 animate-fade-in"
+            onClick={() => setOpen(false)}
+          />
+          {/* Sheet */}
+          <div className="animate-sheet-in absolute bottom-0 left-0 right-0 flex max-h-[88vh] flex-col rounded-t-3xl bg-[#0d0e11] shadow-2xl">
+            {/* Handle bar */}
+            <div className="flex shrink-0 items-center justify-between px-4 pt-3 pb-1">
+              <div className="mx-auto h-1 w-10 rounded-full bg-white/[0.15]" />
+            </div>
+            {/* Close row */}
+            <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 pb-2">
+              <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Betslip</span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.07] text-slate-400 transition hover:bg-white/[0.12] hover:text-white"
+              >
+                <Icon name="close" className="text-[16px]" />
+              </button>
+            </div>
+            {/* Betslip content */}
+            <div className="flex-1 overflow-hidden">{children}</div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

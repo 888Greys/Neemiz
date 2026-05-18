@@ -286,3 +286,9 @@ input[type="email"]:focus {
   to   { transform: translateX(0); opacity: 1; }
 }
 .animate-drawer-in { animation: drawer-in 0.25s cubic-bezier(0,0,0.2,1) both; }
+
+@keyframes sheet-in {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.animate-sheet-in { animation: sheet-in 0.28s cubic-bezier(0,0,0.2,1) both; }
