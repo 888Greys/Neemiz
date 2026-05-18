@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { BetType, TransactionType, TransactionStatus } from "@prisma/client";
 
 type BetSelectionInput = {
@@ -36,12 +37,7 @@ export async function POST(req: Request) {
   const potentialWin = stake * totalOdds;
 
   const result = await db.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({
-      where: { clerkId: userId },
-      select: { id: true, walletBalance: true },
-    });
-
-    if (!user) throw new Error("USER_NOT_FOUND");
+    const user = await getOrCreateUser(userId);
 
     const balance = Number(user.walletBalance);
     if (balance < stake) throw new Error("INSUFFICIENT_BALANCE");

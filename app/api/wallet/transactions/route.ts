@@ -1,15 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { getOrCreateUser } from "@/lib/get-or-create-user";
 
 export async function GET() {
   const { userId } = await auth();
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const user = await db.user.findUnique({
-    where: { clerkId: userId },
-    select: { id: true },
-  });
-  if (!user) return Response.json({ error: "User not found" }, { status: 404 });
+  const user = await getOrCreateUser(userId);
 
   const txns = await db.transaction.findMany({
     where: { userId: user.id },

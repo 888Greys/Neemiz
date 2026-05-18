@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { getOrCreateUser } from "@/lib/get-or-create-user";
 
 export async function GET(req: Request) {
   const { userId } = await auth();
@@ -8,12 +9,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const limit = Math.min(Number(url.searchParams.get("limit") ?? "20"), 50);
 
-  const user = await db.user.findUnique({
-    where: { clerkId: userId },
-    select: { id: true },
-  });
-
-  if (!user) return Response.json({ error: "User not found" }, { status: 404 });
+  const user = await getOrCreateUser(userId);
 
   const bets = await db.bet.findMany({
     where: { userId: user.id },

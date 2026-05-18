@@ -1,5 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
 function normalizeMsisdn(phone: string): string {
@@ -41,11 +42,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid Safaricom number. Use 07XXXXXXXX or 01XXXXXXXX." }, { status: 400 });
   }
 
-  const user = await db.user.findUnique({
-    where: { clerkId: userId },
-    select: { id: true },
-  });
-  if (!user) return Response.json({ error: "User not found" }, { status: 404 });
+  const user = await getOrCreateUser(userId);
 
   const reference = `nezeem-dep-${user.id.slice(-6)}-${Date.now()}`;
 
