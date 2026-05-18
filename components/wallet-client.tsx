@@ -110,14 +110,14 @@ export function WalletClient() {
   const fmtBalance = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="w-full">
 
       {/* ── Balance hero ── */}
       <div className="relative overflow-hidden bg-gradient-to-br from-[#051b35] via-[#091522] to-[#0d0e11] px-6 pb-8 pt-10">
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#087cff]/15 blur-3xl" />
         <div className="pointer-events-none absolute -left-12 bottom-0 h-44 w-44 rounded-full bg-[#05b957]/8 blur-2xl" />
 
-        <div className="relative text-center">
+        <div className="relative mx-auto max-w-2xl text-center">
           <p className="mb-1 text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
             Available Balance
           </p>
@@ -153,7 +153,8 @@ export function WalletClient() {
       </div>
 
       {/* ── Tabs ── */}
-      <div className="sticky top-0 z-10 flex gap-0 border-b border-white/[0.08] bg-[#0d0e11]">
+      <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#0d0e11]">
+      <div className="mx-auto flex max-w-2xl gap-0">
         {(["deposit", "withdraw", "history"] as const).map((t) => (
           <button
             key={t}
@@ -173,9 +174,10 @@ export function WalletClient() {
             {t === "history" ? "History" : t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
-      </div>
+      </div>{/* inner max-w */}
+      </div>{/* sticky wrapper */}
 
-      <div className="px-4 py-5">
+      <div className="mx-auto max-w-2xl px-4 py-5">
         {/* ── DEPOSIT TAB ── */}
         {tab === "deposit" && (
           <>

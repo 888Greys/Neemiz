@@ -61,7 +61,7 @@ export function ProfileClient() {
     : "—";
 
   return (
-    <div className="mx-auto max-w-lg">
+    <div className="w-full">
       {/* ── Hero banner ── */}
       <div className="relative overflow-hidden bg-gradient-to-br from-[#0a1628] via-[#111420] to-[#0d0e11] px-6 pb-8 pt-10">
         {/* Decorative blobs */}
@@ -69,7 +69,7 @@ export function ProfileClient() {
         <div className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-[#05b957]/8 blur-2xl" />
 
         {/* Avatar */}
-        <div className="relative flex flex-col items-center gap-3 text-center">
+        <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-3 text-center">
           <div className="relative">
             <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-[#087cff] to-[#0556c8] text-4xl font-black text-white shadow-[0_0_40px_rgba(8,124,255,0.35)]">
               {initials}
@@ -100,7 +100,7 @@ export function ProfileClient() {
         </div>
       </div>
 
-      <div className="space-y-4 px-4 py-5">
+      <div className="mx-auto max-w-2xl space-y-4 px-4 py-5">
         {/* ── Account Info ── */}
         <section>
           <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Account Info</p>
