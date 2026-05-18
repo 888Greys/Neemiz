@@ -153,11 +153,22 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         redirectUrl: `${window.location.origin}/sso-callback`,
         actionCompleteRedirectUrl: `${window.location.origin}/dashboard`,
       });
-      const redirectUrl = result?.firstFactorVerification?.externalVerificationRedirectURL;
-      if (redirectUrl) {
-        window.location.href = redirectUrl;
+      console.log("OAuth result status:", result?.status);
+      console.log("OAuth firstFactorVerification:", JSON.stringify(result?.firstFactorVerification));
+
+      if (result?.status === "complete" && result?.createdSessionId) {
+        await setActive({ session: result.createdSessionId });
+        onClose();
+        router.push("/dashboard");
+        return;
+      }
+
+      const url = result?.firstFactorVerification?.externalVerificationRedirectURL;
+      const href = typeof url === "string" ? url : url?.href ?? url?.toString?.();
+      if (href) {
+        window.location.href = href;
       } else {
-        setError("Could not start OAuth flow. Please try again.");
+        setError(`OAuth not ready (status: ${result?.status}). Check console.`);
       }
     } catch (err: unknown) {
       console.error("OAuth error:", err);

@@ -80,9 +80,24 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
         redirectUrl: `${window.location.origin}/sso-callback`,
         actionCompleteRedirectUrl: `${window.location.origin}/dashboard`,
       });
-      const redirectUrl = result?.firstFactorVerification?.externalVerificationRedirectURL;
-      if (redirectUrl) {
-        window.location.href = redirectUrl;
+      console.log("OAuth result status:", result?.status);
+      console.log("OAuth firstFactorVerification:", JSON.stringify(result?.firstFactorVerification));
+
+      // Handle completed sign-in (existing session)
+      if (result?.status === "complete" && result?.createdSessionId) {
+        await setActive({ session: result.createdSessionId });
+        onClose();
+        router.push("/dashboard");
+        return;
+      }
+
+      // Get redirect URL — try all possible locations Clerk may put it
+      const url = result?.firstFactorVerification?.externalVerificationRedirectURL;
+      const href = typeof url === "string" ? url : url?.href ?? url?.toString?.();
+      if (href) {
+        window.location.href = href;
+      } else {
+        setError(`OAuth not ready (status: ${result?.status}). Check console for details.`);
       }
     } catch (err: unknown) {
       console.error("OAuth error:", err);
