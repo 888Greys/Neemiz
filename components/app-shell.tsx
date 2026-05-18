@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { mobileNav } from "@/lib/mock-data";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
@@ -25,6 +26,9 @@ type AppShellProps = {
 export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
+  const { isSignedIn, user } = useUser();
+  const displayName = user?.username ?? user?.firstName ?? "User";
+  const initials = displayName.charAt(0).toUpperCase();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return true;
     const stored = localStorage.getItem("sidebar-collapsed");
@@ -60,16 +64,33 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
           }`}
         >
           {sidebarCollapsed ? (
-            <button onClick={() => setLoginOpen(true)} className="flex h-12 w-12 items-center justify-center rounded-full bg-[#34363b] text-slate-300" type="button">
-              <Icon name="person" fill className="text-[28px]" />
-            </button>
+            isSignedIn ? (
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white">
+                {initials}
+              </div>
+            ) : (
+              <button onClick={() => setLoginOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-[#34363b] text-slate-300" type="button">
+                <Icon name="person" fill className="text-[22px]" />
+              </button>
+            )
+          ) : isSignedIn ? (
+            <div className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white">
+                {initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-black text-white">{displayName}</div>
+                <div className="truncate text-[10px] text-slate-500">ID {user?.id?.slice(-8)}</div>
+              </div>
+              <Icon name="chevron_right" className="text-[18px] text-slate-400" />
+            </div>
           ) : (
-            <button onClick={() => setLoginOpen(true)} className="flex w-full items-center gap-3 rounded-2xl text-left transition hover:bg-white/[0.03]" type="button">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#34363b] text-slate-300">
-                <Icon name="person" fill className="text-[32px]" />
+            <button onClick={() => setLoginOpen(true)} className="flex w-full items-center gap-2.5 rounded-xl text-left transition hover:bg-white/[0.03] px-2 py-2" type="button">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#34363b] text-slate-300">
+                <Icon name="person" fill className="text-[22px]" />
               </span>
-              <span className="flex-1 text-lg font-black">Log in</span>
-              <Icon name="chevron_right" className="text-[32px] text-slate-400" />
+              <span className="flex-1 text-[13px] font-black">Log in</span>
+              <Icon name="chevron_right" className="text-[18px] text-slate-400" />
             </button>
           )}
         </div>
@@ -86,22 +107,24 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
               <TopNavLink href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} />
             </nav>
           </div>
-          <div className="flex shrink-0 items-center gap-2 md:gap-3">
-            <button
-              onClick={() => setLoginOpen(true)}
-              className="rounded-lg bg-[#28292d] px-3 py-2 text-xs font-black text-white transition hover:bg-[#34353b] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] md:rounded-2xl md:px-6 md:py-3 md:text-base"
-              type="button"
-            >
-              Login
-            </button>
-            <button
-              onClick={() => setRegisterOpen(true)}
-              className="rounded-lg bg-[#05b957] px-3 py-2 text-xs font-black text-white transition hover:bg-[#08c963] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05b957]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] md:rounded-2xl md:px-6 md:py-3 md:text-base"
-              type="button"
-            >
-              Registration
-            </button>
-          </div>
+          {!isSignedIn && (
+            <div className="flex shrink-0 items-center gap-2 md:gap-3">
+              <button
+                onClick={() => setLoginOpen(true)}
+                className="rounded-lg bg-[#28292d] px-3 py-2 text-xs font-black text-white transition hover:bg-[#34353b] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] md:rounded-2xl md:px-6 md:py-3 md:text-base"
+                type="button"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => setRegisterOpen(true)}
+                className="rounded-lg bg-[#05b957] px-3 py-2 text-xs font-black text-white transition hover:bg-[#08c963] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05b957]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] md:rounded-2xl md:px-6 md:py-3 md:text-base"
+                type="button"
+              >
+                Registration
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -312,27 +335,27 @@ function SidebarGroup({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mb-5">
+    <section className="mb-3">
       <button
-        className={`mb-2 flex w-full items-center rounded-xl text-left text-slate-200 transition hover:bg-white/[0.04] ${
-          collapsed ? "justify-center p-2" : "gap-3 px-2 py-1.5"
+        className={`mb-1 flex w-full items-center rounded-lg text-left text-slate-200 transition hover:bg-white/[0.04] ${
+          collapsed ? "justify-center p-1.5" : "gap-2 px-2 py-1"
         }`}
         onClick={onToggle}
         type="button"
         aria-expanded={isOpen}
       >
-        <span className="flex h-8 w-8 items-center justify-center rounded-full text-slate-300">
-          <Icon name={icon} fill className="text-[26px]" />
+        <span className="flex h-6 w-6 items-center justify-center text-slate-400">
+          <Icon name={icon} fill className="text-[18px]" />
         </span>
         {!collapsed && (
           <>
-            <span className="flex-1 text-lg font-black">{title}</span>
-            <Icon name={isOpen ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[24px] text-slate-400" />
+            <span className="flex-1 text-[12px] font-black uppercase tracking-wide text-slate-400">{title}</span>
+            <Icon name={isOpen ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[16px] text-slate-500" />
           </>
         )}
       </button>
       <div className={`overflow-hidden transition-all duration-200 ease-out ${isOpen ? "max-h-[280px] opacity-100" : "max-h-0 opacity-0"}`}>
-        <div className={collapsed ? "space-y-1" : "ml-4 space-y-1 border-l border-white/10 pl-4"}>{children}</div>
+        <div className={collapsed ? "space-y-0.5" : "ml-3 space-y-0.5 border-l border-white/10 pl-3"}>{children}</div>
       </div>
     </section>
   );
@@ -368,18 +391,18 @@ function SidebarItem({
   const active = !suppressActive && (href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href.split("?")[0]));
   const content = (
     <>
-      <Icon name={icon} fill={active || highlight} className={`text-[24px] ${highlight && !active ? "text-violet-400" : "text-slate-400"}`} />
+      <Icon name={icon} fill={active || highlight} className={`text-[18px] ${highlight && !active ? "text-violet-400" : "text-slate-400"}`} />
       {!collapsed && (
         <>
-          <span className="min-w-0 flex-1 whitespace-nowrap">{label}</span>
-          {badge && <span className="rounded-full bg-[#ff1979] px-2 py-0.5 text-[10px] font-black text-white">{badge}</span>}
-          <Icon name={direct ? "chevron_right" : isOpen === undefined ? "chevron_right" : isOpen ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[22px] text-slate-400" />
+          <span className="min-w-0 flex-1 whitespace-nowrap text-[12px]">{label}</span>
+          {badge && <span className="rounded-full bg-[#ff1979] px-1.5 py-0.5 text-[9px] font-black text-white">{badge}</span>}
+          <Icon name={direct ? "chevron_right" : isOpen === undefined ? "chevron_right" : isOpen ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[16px] text-slate-500" />
         </>
       )}
     </>
   );
-  const className = `flex items-center rounded-xl text-base font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
-    collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
+  const className = `flex items-center rounded-lg font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
+    collapsed ? "justify-center px-1.5 py-2" : "gap-2 px-2 py-1.5"
   } ${
     active && !muted
       ? "bg-[#3a3b41] text-white"
@@ -445,15 +468,15 @@ function StandaloneSidebarItem({
     <Link
       href={href}
       title={collapsed ? label : undefined}
-      className={`flex items-center rounded-xl text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
-        collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-2.5 py-2.5"
+      className={`flex items-center rounded-lg text-[12px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
+        collapsed ? "justify-center px-1.5 py-2" : "gap-2 px-2 py-1.5"
       } ${active ? "bg-[#3a3b41] text-white" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}
     >
-      <Icon name={icon} fill className="text-[22px] text-slate-400" />
+      <Icon name={icon} fill className="text-[18px] text-slate-400" />
       {!collapsed && (
         <>
           <span className="flex-1">{label}</span>
-          {badge && <span className="rounded-full bg-[#ff1979] px-2.5 py-0.5 text-xs font-black text-white">{badge}</span>}
+          {badge && <span className="rounded-full bg-[#ff1979] px-1.5 py-0.5 text-[9px] font-black text-white">{badge}</span>}
         </>
       )}
     </Link>

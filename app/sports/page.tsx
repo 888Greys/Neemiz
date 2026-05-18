@@ -31,32 +31,33 @@ const WVL = "https://cdn.worldvectorlogo.com/logos";
 
 const LEAGUE_STRIP = [
   // Football
-  { label: "Conf.\nCup CAF",   img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/caf.avif" },
-  { label: "Premier\nLeague",  img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/premier.avif" },
-  { label: "LaLiga",           img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/laliga.avif" },
-  { label: "Bundesliga",       img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/bundesliga.avif" },
-  { label: "Serie A",          img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/seriea.avif" },
-  { label: "Ligue 1",          img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/ligue1.avif" },
-  { label: "FA Cup",           img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/facup.avif" },
+  { label: "Conf.\nCup CAF",    filter: "CAF",          img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/caf.avif" },
+  { label: "Premier\nLeague",   filter: "Premier",       img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/premier.avif" },
+  { label: "LaLiga",            filter: "La Liga",       img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/laliga.avif" },
+  { label: "Bundesliga",        filter: "Bundesliga",    img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/bundesliga.avif" },
+  { label: "Serie A",           filter: "Serie A",       img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/seriea.avif" },
+  { label: "Ligue 1",           filter: "Ligue 1",       img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/ligue1.avif" },
+  { label: "FA Cup",            filter: "FA Cup",        img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/facup.avif" },
   // Basketball / other sports
-  { label: "NBA",              img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/nba-logo.webp" },
-  { label: "NHL",              img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/nhl.avif" },
-  { label: "KHL",              img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/khl.avif" },
-  { label: "WNBA",             img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/wnba.avif" },
-  // Esports (worldvectorlogo)
-  { label: "CS2",              img: `${WVL}/counter-strike-global-offensive-2.svg` },
-  { label: "Valorant",         img: `${WVL}/valorant-logo.svg` },
-  { label: "Rainbow\nSix",     img: `${WVL}/rainbow-six-siege-logo.svg` },
-  { label: "Call of\nDuty",    img: `${WVL}/call-of-duty.svg` },
-  { label: "League of\nLegends", img: `${WVL}/league-of-legends.svg` },
+  { label: "NBA",               filter: "NBA",           img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/nba-logo.webp" },
+  { label: "NHL",               filter: "NHL",           img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/nhl.avif" },
+  { label: "KHL",               filter: "KHL",           img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/khl.avif" },
+  { label: "WNBA",              filter: "WNBA",          img: "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/leagues/wnba.avif" },
+  // Esports
+  { label: "CS2",               filter: "CS",            img: `${WVL}/counter-strike-global-offensive-2.svg` },
+  { label: "Valorant",          filter: "Valorant",      img: `${WVL}/valorant-logo.svg` },
+  { label: "Rainbow\nSix",      filter: "Rainbow",       img: `${WVL}/rainbow-six-siege-logo.svg` },
+  { label: "Call of\nDuty",     filter: "Duty",          img: `${WVL}/call-of-duty.svg` },
+  { label: "League of\nLegends",filter: "Legends",       img: `${WVL}/league-of-legends.svg` },
   // Other
-  { label: "Markets", icon: "trending_up" },
+  { label: "Markets", filter: "markets", icon: "trending_up" },
 ];
 
-type Props = { searchParams: { tab?: string } };
+type Props = { searchParams: { tab?: string; league?: string } };
 
 export default async function SportsPage({ searchParams }: Props) {
   const activeTab = (searchParams.tab ?? "Top") as Tab;
+  const leagueFilter = searchParams.league ?? "";
 
   const hasToken = Boolean(process.env.SPORTS_MONK_API);
 
@@ -64,8 +65,20 @@ export default async function SportsPage({ searchParams }: Props) {
     ? await Promise.all([getLivescores(), getUpcomingFixtures()])
     : [MOCK_LIVE, MOCK_UPCOMING];
 
+  const filterMatches = (matches: Match[]) =>
+    leagueFilter
+      ? matches.filter((m) => m.league.toLowerCase().includes(leagueFilter.toLowerCase()))
+      : matches;
+
+  const showLive = activeTab === "Live" || activeTab === "Top";
+  const showUpcoming = activeTab !== "Live" && activeTab !== "Esports" && activeTab !== "Markets";
+  const displayLive = showLive
+    ? filterMatches(activeTab === "Top" ? liveMatches.slice(0, 6) : liveMatches)
+    : [];
+  const filteredUpcoming = filterMatches(upcomingMatches);
+
   // Group upcoming by league
-  const leagueGroups = upcomingMatches.reduce<Record<string, { meta: Match; fixtures: Match[] }>>(
+  const leagueGroups = filteredUpcoming.reduce<Record<string, { meta: Match; fixtures: Match[] }>>(
     (acc, m) => {
       if (!acc[m.league]) acc[m.league] = { meta: m, fixtures: [] };
       acc[m.league].fixtures.push(m);
@@ -73,10 +86,6 @@ export default async function SportsPage({ searchParams }: Props) {
     },
     {},
   );
-
-  const showLive = activeTab === "Live" || activeTab === "Top";
-  const showUpcoming = activeTab !== "Live" && activeTab !== "Esports" && activeTab !== "Markets";
-  const displayLive = showLive ? (activeTab === "Top" ? liveMatches.slice(0, 6) : liveMatches) : [];
 
   return (
     <AppShell rightPanel={<SportsBetSlip />} mainBg="bg-background">
@@ -106,20 +115,26 @@ export default async function SportsPage({ searchParams }: Props) {
       <SportPromoBanner />
 
       {/* ── League strip ── */}
-      <div className="border-b border-white/10 bg-[#111113] px-3 py-3">
-        <div className="flex gap-3 overflow-x-auto no-scrollbar">
-          {LEAGUE_STRIP.map((item) => (
-            <button key={item.label} type="button" className="flex shrink-0 flex-col items-center gap-1.5 rounded-xl p-1.5 transition hover:bg-white/[0.05]">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/[0.08] ring-1 ring-white/[0.1] overflow-hidden">
-                {"img" in item && item.img ? (
-                  <Image src={item.img} alt={item.label} width={56} height={56} className="h-full w-full object-cover" />
-                ) : (
-                  <TrendingUp size={28} className="text-slate-400" />
-                )}
-              </span>
-              <span className="w-14 whitespace-pre-line text-center text-[9px] font-bold leading-tight text-slate-400">{item.label}</span>
-            </button>
-          ))}
+      <div className="border-b border-white/10 bg-[#111113] px-3 py-2">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar">
+          {LEAGUE_STRIP.map((item) => {
+            const isActive = leagueFilter && leagueFilter === item.filter;
+            const href = isActive
+              ? `/sports?tab=${activeTab}`
+              : `/sports?tab=${activeTab}&league=${encodeURIComponent(item.filter)}`;
+            return (
+              <Link key={item.label} href={href} className={`flex shrink-0 flex-col items-center gap-1 rounded-xl p-1 transition hover:bg-white/[0.05] ${isActive ? "bg-white/[0.08]" : ""}`}>
+                <span className={`flex h-10 w-10 items-center justify-center rounded-full overflow-hidden ring-1 ${isActive ? "ring-[#087cff] bg-[#087cff]/10" : "ring-white/[0.1] bg-white/[0.07]"}`}>
+                  {"img" in item && item.img ? (
+                    <Image src={item.img} alt={item.label} width={40} height={40} className="h-full w-full object-cover" />
+                  ) : (
+                    <TrendingUp size={20} className="text-slate-400" />
+                  )}
+                </span>
+                <span className={`w-10 whitespace-pre-line text-center text-[8px] font-bold leading-tight ${isActive ? "text-[#087cff]" : "text-slate-500"}`}>{item.label}</span>
+              </Link>
+            );
+          })}
         </div>
       </div>
 
