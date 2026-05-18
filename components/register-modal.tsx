@@ -66,6 +66,10 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       setError("Password must be at least 8 characters");
       return;
     }
+    if (username && username.length < 4) {
+      setError("Username must be at least 4 characters");
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -77,25 +81,31 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       await signUp.create(params as Parameters<typeof signUp.create>[0]);
 
       if (signUp.status === "complete" && signUp.createdSessionId) {
-        // Clerk instance has verification disabled — account active immediately
+        // Verification disabled in Clerk dashboard — instant login
         await setActive({ session: signUp.createdSessionId });
         onClose();
         router.push("/dashboard");
-        router.refresh();
       } else {
-        // Clerk requires OTP verification — show optional verify step
-        // Users can skip and verify later at withdrawal
-        const su = signUp as any;
-        if (tab === "email") {
-          await su.prepareEmailAddressVerification({ strategy: "email_code" });
-        } else {
-          await su.preparePhoneNumberVerification();
+        // Clerk requires OTP — try to trigger the send, but don't block on it
+        // (if prepareEmailAddressVerification hangs we still show the verify screen)
+        try {
+          const su = signUp as any;
+          await Promise.race([
+            tab === "email"
+              ? su.prepareEmailAddressVerification({ strategy: "email_code" })
+              : su.preparePhoneNumberVerification(),
+            new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 8_000)),
+          ]);
+        } catch {
+          // If preparation fails or times out the code may still arrive;
+          // show the verify screen anyway so the user can enter it.
         }
         setPendingVerify(true);
       }
     } catch (err: unknown) {
       const e = err as { errors?: { longMessage?: string; message?: string }[] };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Registration failed");
+      const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "";
+      setError(msg || "Registration failed. Please try again or log in if you already have an account.");
     } finally {
       setLoading(false);
     }
@@ -118,13 +128,12 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         await setActive({ session: signUp.createdSessionId });
         onClose();
         router.push("/dashboard");
-        router.refresh();
       } else {
-        setError("Verification incomplete. Please try again.");
+        setError("Verification incomplete — please try again.");
       }
     } catch (err: unknown) {
       const e = err as { errors?: { longMessage?: string; message?: string }[] };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Invalid code");
+      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Invalid code. Please try again.");
     } finally {
       setLoading(false);
     }
