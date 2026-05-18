@@ -70,16 +70,16 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
         >
           {sidebarCollapsed ? (
             isSignedIn ? (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white">
+              <Link href="/profile" className="flex h-10 w-10 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white transition hover:opacity-80">
                 {initials}
-              </div>
+              </Link>
             ) : (
               <button onClick={() => setLoginOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-[#34363b] text-slate-300" type="button">
                 <Icon name="person" fill className="text-[22px]" />
               </button>
             )
           ) : isSignedIn ? (
-            <div className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2">
+            <Link href="/profile" className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-white/[0.05]">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white">
                 {initials}
               </div>
@@ -88,7 +88,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
                 <div className="truncate text-[10px] text-slate-500">ID {user?.id?.slice(-8)}</div>
               </div>
               <Icon name="chevron_right" className="text-[18px] text-slate-400" />
-            </div>
+            </Link>
           ) : (
             <button onClick={() => setLoginOpen(true)} className="flex w-full items-center gap-2.5 rounded-xl text-left transition hover:bg-white/[0.03] px-2 py-2" type="button">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#34363b] text-slate-300">
