@@ -62,9 +62,9 @@ const tradingPairs = [
   { pair: "XRP/USD", price: "1.47", change: "+3.98%", up: true },
 ];
 
-const INTERVAL = 4500;
+const INTERVAL = 2250;
 const BG_IMAGES = ["https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg1.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg2.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg3.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg4.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg5.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg6.avif"];
-const BG_INTERVAL = 10000;
+const BG_INTERVAL = 5000;
 
 /* ── Hero Section ─────────────────────────────────────── */
 export function HeroSection() {
