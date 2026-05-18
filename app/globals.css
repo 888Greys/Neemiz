@@ -21,6 +21,14 @@ body {
 
 .material-symbols-outlined {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  /* Hide raw icon name text until the font file is downloaded */
+  font-display: block;
+  /* Prevent layout shift — icons are inline-block with fixed size */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
 }
 
 .icon-fill {
