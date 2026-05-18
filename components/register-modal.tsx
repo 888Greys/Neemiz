@@ -141,11 +141,16 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
 
   async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
     if (!signUp) return;
-    await signUp.create({
-      strategy,
-      redirectUrl: `${window.location.origin}/sso-callback`,
-      redirectUrlComplete: `${window.location.origin}/dashboard`,
-    } as Parameters<typeof signUp.create>[0]);
+    try {
+      await (signUp as any).authenticateWithRedirect({
+        strategy,
+        redirectUrl: `${window.location.origin}/sso-callback`,
+        redirectUrlComplete: `${window.location.origin}/dashboard`,
+      });
+    } catch (err: unknown) {
+      const e = err as { errors?: { longMessage?: string; message?: string }[] };
+      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "OAuth sign-up failed");
+    }
   }
 
   return (

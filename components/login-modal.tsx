@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignIn, useClerk } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 
 function TgIcon() {
@@ -43,6 +43,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
   const [error, setError]     = useState("");
 
   const { signIn } = useSignIn();
+  const { setActive } = useClerk();
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -52,19 +53,19 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     setError("");
     try {
       const identifier = tab === "email" ? email : `${country.code}${phone}`;
-      const result = await signIn.create({ identifier, password });
-      // Clerk v7: result is { error } — no error means success
-      const err = (result as { error?: { longMessage?: string; message?: string } | null }).error;
-      if (err) {
-        setError(err.longMessage ?? err.message ?? "Invalid credentials");
-      } else {
+      await signIn.create({ identifier, password });
+      // signIn.status is updated reactively after create()
+      const si = signIn as unknown as { status: string; createdSessionId?: string };
+      if (si.status === "complete" && si.createdSessionId) {
+        await setActive({ session: si.createdSessionId });
         onClose();
         router.push("/dashboard");
-        router.refresh();
+      } else {
+        setError("Sign-in incomplete. Please try again.");
       }
     } catch (err: unknown) {
       const e = err as { errors?: { longMessage?: string; message?: string }[] };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Invalid credentials");
+      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Invalid email or password");
     } finally {
       setLoading(false);
     }
@@ -72,11 +73,16 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
 
   async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
     if (!signIn) return;
-    await signIn.create({
-      strategy,
-      redirectUrl: `${window.location.origin}/sso-callback`,
-      redirectUrlComplete: `${window.location.origin}/dashboard`,
-    } as Parameters<typeof signIn.create>[0]);
+    try {
+      await (signIn as any).authenticateWithRedirect({
+        strategy,
+        redirectUrl: `${window.location.origin}/sso-callback`,
+        redirectUrlComplete: `${window.location.origin}/dashboard`,
+      });
+    } catch (err: unknown) {
+      const e = err as { errors?: { longMessage?: string; message?: string }[] };
+      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "OAuth sign-in failed");
+    }
   }
 
   return (
