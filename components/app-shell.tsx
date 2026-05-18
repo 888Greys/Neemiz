@@ -11,6 +11,7 @@ import { LoginModal } from "@/components/login-modal";
 import { RegisterModal } from "@/components/register-modal";
 import { ProfileModal } from "@/components/profile-modal";
 import { WalletModal } from "@/components/wallet-modal";
+import { SupportWidget } from "@/components/support-widget";
 import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
@@ -177,6 +178,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} />}
 
       {rightPanel && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
+      <SupportWidget />
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
