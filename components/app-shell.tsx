@@ -11,6 +11,7 @@ import { LoginModal } from "@/components/login-modal";
 import { RegisterModal } from "@/components/register-modal";
 import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider } from "@/lib/betslip-context";
+import { useWalletBalance } from "@/lib/use-wallet-balance";
 
 const tempAssets = {
   appInstall: "https://v3.bundlecdn.com/b02632/plain/bonus/app-install/phone-small-v1.png",
@@ -29,6 +30,10 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
   const { isSignedIn, user } = useUser();
   const displayName = user?.username ?? user?.firstName ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
+  const { balance, currency } = useWalletBalance();
+  const fmtBalance = isSignedIn
+    ? `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window === "undefined") return true;
     const stored = localStorage.getItem("sidebar-collapsed");
@@ -107,7 +112,20 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
               <TopNavLink href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} />
             </nav>
           </div>
-          {!isSignedIn && (
+          {isSignedIn ? (
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href="/wallet"
+                className="flex items-center gap-2 rounded-2xl bg-[#18191d] px-4 py-2 ring-1 ring-white/[0.07] transition hover:bg-[#22242a]"
+              >
+                <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
+                <span className="text-sm font-black text-white">{fmtBalance}</span>
+                <span className="rounded-lg bg-[#05b957] px-2.5 py-1 text-xs font-black text-white transition hover:bg-[#08c963]">
+                  Deposit
+                </span>
+              </Link>
+            </div>
+          ) : (
             <div className="flex shrink-0 items-center gap-2 md:gap-3">
               <button
                 onClick={() => setLoginOpen(true)}
