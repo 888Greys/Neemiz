@@ -75,15 +75,19 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     if (!signIn) return;
     setError("");
     try {
-      await (signIn as any).authenticateWithRedirect({
+      const result = await (signIn as any).create({
         strategy,
-        redirectUrl: "/sso-callback",
-        redirectUrlComplete: "/dashboard",
+        redirectUrl: `${window.location.origin}/sso-callback`,
+        actionCompleteRedirectUrl: `${window.location.origin}/dashboard`,
       });
+      const redirectUrl = result?.firstFactorVerification?.externalVerificationRedirectURL;
+      if (redirectUrl) {
+        window.location.href = redirectUrl;
+      }
     } catch (err: unknown) {
       console.error("OAuth error:", err);
       const e = err as { errors?: { longMessage?: string; message?: string }[]; message?: string };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "OAuth sign-in failed. Check console for details.");
+      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "OAuth sign-in failed.");
     }
   }
 
