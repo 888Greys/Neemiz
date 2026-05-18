@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSignUp, useSignIn, useClerk } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
+import { CountryPicker } from "@/components/country-picker";
+import { COUNTRIES, type Country } from "@/lib/countries";
 
 function TgIcon() {
   return (
@@ -15,18 +17,6 @@ function TgIcon() {
   );
 }
 
-const COUNTRIES = [
-  { flag: "🇰🇪", code: "+254", iso: "KE" },
-  { flag: "🇺🇸", code: "+1",   iso: "US" },
-  { flag: "🇬🇧", code: "+44",  iso: "GB" },
-  { flag: "🇳🇬", code: "+234", iso: "NG" },
-  { flag: "🇿🇦", code: "+27",  iso: "ZA" },
-  { flag: "🇹🇿", code: "+255", iso: "TZ" },
-  { flag: "🇺🇬", code: "+256", iso: "UG" },
-  { flag: "🇮🇳", code: "+91",  iso: "IN" },
-  { flag: "🇦🇪", code: "+971", iso: "AE" },
-];
-
 type Props = {
   onClose: () => void;
   onSwitchToLogin?: () => void;
@@ -34,8 +24,7 @@ type Props = {
 
 export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   const [tab, setTab]                 = useState<"phone" | "email">("email");
-  const [country, setCountry]         = useState(COUNTRIES[0]);
-  const [showCC, setShowCC]           = useState(false);
+  const [country, setCountry]         = useState<Country>(COUNTRIES[0]);
   const [phone, setPhone]             = useState("");
   const [email, setEmail]             = useState("");
   const [username, setUsername]       = useState("");
@@ -330,16 +319,8 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                     />
                   </div>
                 ) : (
-                  <div className="relative flex overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
-                    <button
-                      type="button"
-                      onClick={() => setShowCC((v) => !v)}
-                      className="flex shrink-0 items-center gap-1 border-r border-white/10 px-3 py-3.5 text-sm transition hover:bg-white/[0.04]"
-                    >
-                      <span className="text-base leading-none">{country.flag}</span>
-                      <span className="text-slate-400">{country.code}</span>
-                      <Icon name="expand_more" className="text-[14px] text-slate-500" />
-                    </button>
+                  <div className="flex rounded-2xl bg-[#18191f] ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+                    <CountryPicker value={country} onChange={setCountry} />
                     <input
                       type="tel"
                       value={phone}
@@ -348,22 +329,6 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                       required
                       className="flex-1 bg-transparent px-4 py-3.5 text-sm text-white placeholder-slate-600 outline-none"
                     />
-                    {showCC && (
-                      <div className="animate-dropdown absolute left-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] shadow-xl">
-                        {COUNTRIES.map((c) => (
-                          <button
-                            key={c.iso}
-                            type="button"
-                            onClick={() => { setCountry(c); setShowCC(false); }}
-                            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-300 transition hover:bg-white/[0.06]"
-                          >
-                            <span>{c.flag}</span>
-                            <span className="flex-1 text-left">{c.iso}</span>
-                            <span className="text-slate-500">{c.code}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 )}
 
