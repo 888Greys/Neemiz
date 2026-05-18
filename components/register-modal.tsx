@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSignUp, useClerk } from "@clerk/nextjs";
+import { useSignUp, useSignIn, useClerk } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 
 function TgIcon() {
@@ -51,6 +51,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   const [code, setCode]               = useState("");
 
   const { signUp } = useSignUp();
+  const { signIn } = useSignIn();
   const { setActive } = useClerk();
   const router = useRouter();
 
@@ -143,23 +144,27 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   }
 
   async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
-    if (!signUp) return;
+    if (!signIn) { setError("Auth not ready. Please refresh."); return; }
     setError("");
+    setLoading(true);
     try {
-      const result = await (signUp as any).create({
+      const result = await (signIn as any).create({
         strategy,
         redirectUrl: `${window.location.origin}/sso-callback`,
         actionCompleteRedirectUrl: `${window.location.origin}/dashboard`,
       });
-      const redirectUrl = result?.verifications?.externalAccount?.externalVerificationRedirectURL
-        ?? result?.firstFactorVerification?.externalVerificationRedirectURL;
+      const redirectUrl = result?.firstFactorVerification?.externalVerificationRedirectURL;
       if (redirectUrl) {
         window.location.href = redirectUrl;
+      } else {
+        setError("Could not start OAuth flow. Please try again.");
       }
     } catch (err: unknown) {
       console.error("OAuth error:", err);
       const e = err as { errors?: { longMessage?: string; message?: string }[]; message?: string };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "OAuth sign-up failed.");
+      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "OAuth sign-in failed. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }
 
