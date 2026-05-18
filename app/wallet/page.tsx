@@ -1,14 +1,10 @@
 import { AppShell } from "@/components/app-shell";
-import { ComingSoon } from "@/components/coming-soon";
+import { WalletClient } from "@/components/wallet-client";
 
 export default function WalletPage() {
   return (
     <AppShell>
-      <ComingSoon
-        icon="account_balance_wallet"
-        title="Smart Wallet"
-        description="Multi-currency wallet. Deposit, withdraw, and transfer instantly."
-      />
+      <WalletClient />
     </AppShell>
   );
 }
