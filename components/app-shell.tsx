@@ -9,6 +9,8 @@ import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
 import { LoginModal } from "@/components/login-modal";
 import { RegisterModal } from "@/components/register-modal";
+import { ProfileModal } from "@/components/profile-modal";
+import { WalletModal } from "@/components/wallet-modal";
 import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
@@ -40,8 +42,10 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
     return stored === null ? true : stored === "true";
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
+  const [loginOpen, setLoginOpen]       = useState(false);
   const [registerOpen, setRegisterOpen] = useState(false);
+  const [profileOpen, setProfileOpen]   = useState(false);
+  const [walletOpen, setWalletOpen]     = useState(false);
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -70,16 +74,16 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
         >
           {sidebarCollapsed ? (
             isSignedIn ? (
-              <Link href="/profile" className="flex h-10 w-10 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white transition hover:opacity-80">
+              <button onClick={() => setProfileOpen(true)} type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white transition hover:opacity-80">
                 {initials}
-              </Link>
+              </button>
             ) : (
               <button onClick={() => setLoginOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-[#34363b] text-slate-300" type="button">
                 <Icon name="person" fill className="text-[22px]" />
               </button>
             )
           ) : isSignedIn ? (
-            <Link href="/profile" className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-white/[0.05]">
+            <button onClick={() => setProfileOpen(true)} type="button" className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-white/[0.05]">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white">
                 {initials}
               </div>
@@ -88,7 +92,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
                 <div className="truncate text-[10px] text-slate-500">ID {user?.id?.slice(-8)}</div>
               </div>
               <Icon name="chevron_right" className="text-[18px] text-slate-400" />
-            </Link>
+            </button>
           ) : (
             <button onClick={() => setLoginOpen(true)} className="flex w-full items-center gap-2.5 rounded-xl text-left transition hover:bg-white/[0.03] px-2 py-2" type="button">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#34363b] text-slate-300">
@@ -114,16 +118,17 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
           </div>
           {isSignedIn ? (
             <div className="flex shrink-0 items-center gap-2">
-              <Link
-                href="/wallet"
+              <button
+                type="button"
+                onClick={() => setWalletOpen(true)}
                 className="flex items-center gap-1.5 rounded-2xl bg-[#18191d] px-2.5 py-1.5 sm:px-4 sm:py-2 ring-1 ring-white/[0.07] transition hover:bg-[#22242a]"
               >
                 <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
                 <span className="text-xs sm:text-sm font-black text-white">{fmtBalance}</span>
-                <span className="hidden sm:inline rounded-lg bg-[#05b957] px-2.5 py-1 text-xs font-black text-white transition hover:bg-[#08c963]">
+                <span className="hidden sm:inline rounded-lg bg-[#05b957] px-2.5 py-1 text-xs font-black text-white">
                   Deposit
                 </span>
-              </Link>
+              </button>
             </div>
           ) : (
             <div className="flex shrink-0 items-center gap-2 md:gap-3">
@@ -167,7 +172,9 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
 
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} />}
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} />}
+      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} />}
+      {walletOpen && <WalletModal onClose={() => setWalletOpen(false)} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} />}
 
       {rightPanel && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
 
@@ -515,7 +522,7 @@ function TelegramIcon() {
   );
 }
 
-function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void }) {
+function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenWallet }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenWallet: () => void }) {
   const { isSignedIn, user } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
@@ -544,31 +551,31 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister }: { onClose: (
           {isSignedIn ? (
             /* ── Signed-in user header ── */
             <div className="mb-3">
-              <Link
-                href="/profile"
-                onClick={onClose}
-                className="flex items-center gap-3 rounded-xl bg-[#28292d] px-3 py-2.5 transition hover:bg-[#32343b]"
+              <button
+                type="button"
+                onClick={onOpenProfile}
+                className="flex w-full items-center gap-3 rounded-xl bg-[#28292d] px-3 py-2.5 transition hover:bg-[#32343b]"
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white">
                   {initials}
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 text-left">
                   <p className="truncate text-[13px] font-black text-white">{displayName}</p>
                   <p className="text-[10px] text-slate-500">View profile</p>
                 </div>
                 <Icon name="chevron_right" className="text-[16px] text-slate-500" />
-              </Link>
-              <Link
-                href="/wallet"
-                onClick={onClose}
-                className="mt-1.5 flex items-center justify-between rounded-xl bg-gradient-to-r from-[#087cff]/20 to-[#16171d] px-3 py-2.5 ring-1 ring-[#087cff]/20 transition hover:ring-[#087cff]/40"
+              </button>
+              <button
+                type="button"
+                onClick={onOpenWallet}
+                className="mt-1.5 flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-[#087cff]/20 to-[#16171d] px-3 py-2.5 ring-1 ring-[#087cff]/20 transition hover:ring-[#087cff]/40"
               >
                 <div className="flex items-center gap-2">
                   <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
                   <span className="text-xs font-black text-white">{fmtBalance}</span>
                 </div>
                 <span className="rounded-lg bg-[#05b957] px-3 py-1 text-[10px] font-black text-white">Deposit</span>
-              </Link>
+              </button>
             </div>
           ) : (
             /* ── Guest header ── */
