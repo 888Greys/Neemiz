@@ -13,7 +13,7 @@ export function OddButton({ bet }: Props) {
   return (
     <button
       type="button"
-      onClick={() => toggleBet(bet)}
+      onClick={(e) => { e.stopPropagation(); toggleBet(bet); }}
       className={`group flex flex-1 items-center justify-between gap-1.5 rounded-xl px-2.5 py-2 transition ${
         active
           ? "bg-[#087cff] ring-1 ring-[#087cff]/50"

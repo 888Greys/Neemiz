@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { liveEvents } from "@/lib/mock-data";
 import { Icon } from "@/components/icon";
+import { useBetslip } from "@/lib/betslip-context";
 
 const SPORT_ICONS: Record<string, string> = {
   "Premier League": "sports_soccer",
@@ -15,6 +17,8 @@ const SPORT_ICONS: Record<string, string> = {
 export function TrendingMatchCarousel() {
   const [index, setIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const { toggleBet, hasBet } = useBetslip();
+  const router = useRouter();
 
   useEffect(() => {
     if (isHovered) return;
@@ -44,10 +48,10 @@ export function TrendingMatchCarousel() {
         </Link>
       </div>
 
-      <Link
-        href="/sports"
+      <div
         key={index}
-        className="block animate-in fade-in slide-in-from-bottom-1 duration-300 rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07] overflow-hidden"
+        className="block animate-in fade-in slide-in-from-bottom-1 duration-300 rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07] overflow-hidden cursor-pointer"
+        onClick={() => router.push("/sports")}
       >
         {/* League bar */}
         <div className="flex items-center gap-2 border-b border-white/[0.05] px-4 py-2.5">
@@ -75,21 +79,41 @@ export function TrendingMatchCarousel() {
 
           {/* Odds row */}
           <div className="mt-4 grid grid-cols-3 gap-2">
-            {["1", "X", "2"].map((label, i) => (
-              <button
-                key={label}
-                type="button"
-                className="flex flex-col items-center rounded-xl bg-white/[0.05] py-2.5 transition active:scale-[0.97] hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/50"
-              >
-                <span className="text-[9px] font-bold text-slate-500">{label}</span>
-                <span className="mt-0.5 text-sm font-black text-white">{event.odds[i] ?? "—"}</span>
-              </button>
-            ))}
+            {["1", "X", "2"].map((label, i) => {
+              const betId = `trending-${event.home}-${event.away}-${label}`;
+              const selected = hasBet(betId);
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleBet({
+                      id: betId,
+                      matchName: `${event.home} vs ${event.away}`,
+                      market: "1X2",
+                      label,
+                      value: String(event.odds[i] ?? "—"),
+                    });
+                  }}
+                  className={`flex flex-col items-center rounded-xl py-2.5 transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/50 ${
+                    selected
+                      ? "bg-[#087cff]/20 ring-1 ring-[#087cff]/50"
+                      : "bg-white/[0.05] hover:bg-white/[0.09]"
+                  }`}
+                >
+                  <span className="text-[9px] font-bold text-slate-500">{label}</span>
+                  <span className={`mt-0.5 text-sm font-black ${selected ? "text-[#087cff]" : "text-white"}`}>
+                    {event.odds[i] ?? "—"}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="mt-2.5 text-right text-[10px] text-slate-600">{event.markets} more markets</div>
         </div>
-      </Link>
+      </div>
 
       {/* Dot indicators */}
       <div className="mt-2.5 flex justify-center gap-1.5">

@@ -121,7 +121,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Game rows — shared across all screen sizes */}
-      <div className="mx-auto w-full max-w-[1600px] px-3 pb-10 md:px-6">
+      <div className="mx-auto w-full max-w-[1600px] px-3 pb-4 md:pb-10 md:px-6">
         <NezeemGamesSection />
         <CrashGamesSection />
         <MinesSection />

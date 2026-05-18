@@ -16,7 +16,7 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
   return (
     <section
       className="relative overflow-hidden rounded-b-3xl"
-      style={{ minHeight: "72vw", maxHeight: 340 }}
+      style={{ minHeight: "65vw", maxHeight: 380 }}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onTouchStart={() => setPaused(true)}
@@ -46,7 +46,7 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
           Platform live · 6 products
         </div>
 
-        <h1 className="text-[36px] font-black uppercase leading-[.88] tracking-tight text-white drop-shadow-lg">
+        <h1 className="text-[32px] font-black uppercase leading-[.88] tracking-tight text-white drop-shadow-lg">
           One platform.
           <br />
           <span className="bg-gradient-to-r from-violet-400 via-fuchsia-300 to-amber-400 bg-clip-text text-transparent">
@@ -61,13 +61,13 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
         <div className="mt-5 flex items-center gap-2.5">
           <Link
             href="/sports"
-            className="rounded-2xl bg-white px-6 py-2.5 text-[13px] font-black text-black shadow-lg active:scale-[0.97] transition"
+            className="rounded-2xl bg-white px-6 py-3 text-[13px] font-black text-black shadow-lg active:scale-[0.97] transition"
           >
             Get started
           </Link>
           <Link
             href="/aviator"
-            className="rounded-2xl border border-white/20 bg-white/10 px-6 py-2.5 text-[13px] font-black text-white backdrop-blur-sm active:scale-[0.97] transition"
+            className="rounded-2xl border border-white/20 bg-white/10 px-6 py-3 text-[13px] font-black text-white backdrop-blur-sm active:scale-[0.97] transition"
           >
             Play Aviator
           </Link>

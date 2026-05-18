@@ -73,15 +73,17 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
 
   async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
     if (!signIn) return;
+    setError("");
     try {
       await (signIn as any).authenticateWithRedirect({
         strategy,
-        redirectUrl: `${window.location.origin}/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}/dashboard`,
+        redirectUrl: "/sso-callback",
+        redirectUrlComplete: "/dashboard",
       });
     } catch (err: unknown) {
-      const e = err as { errors?: { longMessage?: string; message?: string }[] };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "OAuth sign-in failed");
+      console.error("OAuth error:", err);
+      const e = err as { errors?: { longMessage?: string; message?: string }[]; message?: string };
+      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "OAuth sign-in failed. Check console for details.");
     }
   }
 
@@ -200,6 +202,9 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
                 Forgot your password?
               </button>
             </div>
+
+            {/* Clerk CAPTCHA mount point — required for bot protection in production */}
+            <div id="clerk-captcha" />
 
             {/* Submit */}
             <button

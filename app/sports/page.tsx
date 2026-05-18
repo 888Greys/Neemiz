@@ -96,7 +96,7 @@ export default async function SportsPage({ searchParams }: Props) {
             <Link
               key={tab}
               href={`/sports?tab=${tab}`}
-              className={`shrink-0 rounded-xl px-4 py-2 text-sm font-black transition-all ${
+              className={`shrink-0 rounded-xl px-3 py-2.5 sm:px-4 text-sm font-black transition-all ${
                 tab === activeTab
                   ? "bg-[#087cff] text-white shadow-[0_4px_14px_rgba(8,124,255,.25)]"
                   : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
@@ -213,18 +213,20 @@ function SectionHeader({
           {label}
           <ChevronRight size={16} />
         </Link>
-        <button
-          type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.07] text-slate-400 transition hover:bg-white/[0.12]"
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <button
-          type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.07] text-slate-400 transition hover:bg-white/[0.12]"
-        >
-          <ChevronRight size={18} />
-        </button>
+        <div className="hidden sm:flex items-center gap-1">
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.07] text-slate-400 transition hover:bg-white/[0.12]"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.07] text-slate-400 transition hover:bg-white/[0.12]"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );

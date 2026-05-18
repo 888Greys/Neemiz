@@ -78,7 +78,10 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         ? { emailAddress: email, password, ...(username ? { username } : {}) }
         : { phoneNumber: `${country.code}${phone}`, password, ...(username ? { username } : {}) };
 
-      await signUp.create(params as Parameters<typeof signUp.create>[0]);
+      await Promise.race([
+        signUp.create(params as Parameters<typeof signUp.create>[0]),
+        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Request timed out. Please check your connection and try again.")), 15_000)),
+      ]);
 
       if (signUp.status === "complete" && signUp.createdSessionId) {
         // Verification disabled in Clerk dashboard — instant login
@@ -141,15 +144,17 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
 
   async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
     if (!signUp) return;
+    setError("");
     try {
       await (signUp as any).authenticateWithRedirect({
         strategy,
-        redirectUrl: `${window.location.origin}/sso-callback`,
-        redirectUrlComplete: `${window.location.origin}/dashboard`,
+        redirectUrl: "/sso-callback",
+        redirectUrlComplete: "/dashboard",
       });
     } catch (err: unknown) {
-      const e = err as { errors?: { longMessage?: string; message?: string }[] };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "OAuth sign-up failed");
+      console.error("OAuth error:", err);
+      const e = err as { errors?: { longMessage?: string; message?: string }[]; message?: string };
+      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "OAuth sign-up failed. Check console for details.");
     }
   }
 
@@ -216,11 +221,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                 ) : "Verify & Enter"}
               </button>
               <p className="text-center text-xs text-slate-600">
-                You can also{" "}
-                <button type="button" onClick={onClose} className="text-slate-400 hover:text-white transition">
-                  verify later
-                </button>
-                {" "}— required only at withdrawal.
+                Check your inbox and enter the 6-digit code to continue.
               </p>
             </form>
           ) : (
@@ -359,6 +360,9 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                     I confirm I am 18+ years old.
                   </span>
                 </label>
+
+                {/* Clerk CAPTCHA mount point — required for bot protection in production */}
+                <div id="clerk-captcha" />
 
                 {/* Submit */}
                 <button

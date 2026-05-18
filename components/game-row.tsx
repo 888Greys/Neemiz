@@ -75,20 +75,22 @@ export function GameRow({
             All games
             <Icon name="chevron_right" className="text-[16px]" />
           </Link>
-          <button
-            type="button"
-            onClick={() => scrollBy(-1)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e2028] text-slate-400 transition hover:bg-[#26272e] hover:text-white active:scale-95"
-          >
-            <Icon name="chevron_left" className="text-[20px]" />
-          </button>
-          <button
-            type="button"
-            onClick={() => scrollBy(1)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e2028] text-slate-400 transition hover:bg-[#26272e] hover:text-white active:scale-95"
-          >
-            <Icon name="chevron_right" className="text-[20px]" />
-          </button>
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => scrollBy(-1)}
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e2028] text-slate-400 transition hover:bg-[#26272e] hover:text-white active:scale-95"
+            >
+              <Icon name="chevron_left" className="text-[20px]" />
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollBy(1)}
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1e2028] text-slate-400 transition hover:bg-[#26272e] hover:text-white active:scale-95"
+            >
+              <Icon name="chevron_right" className="text-[20px]" />
+            </button>
+          </div>
         </div>
       </div>
 

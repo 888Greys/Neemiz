@@ -116,11 +116,11 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
             <div className="flex shrink-0 items-center gap-2">
               <Link
                 href="/wallet"
-                className="flex items-center gap-2 rounded-2xl bg-[#18191d] px-4 py-2 ring-1 ring-white/[0.07] transition hover:bg-[#22242a]"
+                className="flex items-center gap-1.5 rounded-2xl bg-[#18191d] px-2.5 py-1.5 sm:px-4 sm:py-2 ring-1 ring-white/[0.07] transition hover:bg-[#22242a]"
               >
                 <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
-                <span className="text-sm font-black text-white">{fmtBalance}</span>
-                <span className="rounded-lg bg-[#05b957] px-2.5 py-1 text-xs font-black text-white transition hover:bg-[#08c963]">
+                <span className="text-xs sm:text-sm font-black text-white">{fmtBalance}</span>
+                <span className="hidden sm:inline rounded-lg bg-[#05b957] px-2.5 py-1 text-xs font-black text-white transition hover:bg-[#08c963]">
                   Deposit
                 </span>
               </Link>
@@ -155,7 +155,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
           <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} />
         </aside>
 
-        <main ref={mainRef} className={`no-scrollbar flex-1 overflow-y-auto pb-24 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
+        <main ref={mainRef} className={`no-scrollbar flex-1 overflow-y-auto pb-32 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
           <div className="flex min-h-screen flex-col">
             <div className="flex-1">{children}</div>
             <AppFooter />
@@ -171,22 +171,22 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
 
       {rightPanel && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-12 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
           const activePath = "activePath" in item ? item.activePath : item.href.split("?")[0].split("#")[0];
           const active = activePath === pathname;
           if (item.label === "Menu") {
             return (
-              <button key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[8px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset" onClick={() => setMobileMenuOpen(true)} type="button">
-                <Icon name={item.icon} className="text-[18px]" />
+              <button key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset" onClick={() => setMobileMenuOpen(true)} type="button">
+                <Icon name={item.icon} className="text-[20px]" />
                 <span className="mt-0.5 font-bold leading-none">{item.label}</span>
               </button>
             );
           }
 
           return (
-            <Link key={item.label} href={item.href} className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}>
-              <Icon name={item.icon} fill={active} className="text-[18px]" />
+            <Link key={item.label} href={item.href} className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}>
+              <Icon name={item.icon} fill={active} className="text-[20px]" />
               <span className="mt-0.5 max-w-full truncate font-bold leading-none">{item.label}</span>
             </Link>
           );
@@ -667,7 +667,7 @@ function MobileBetslipSheet({ children }: { children: React.ReactNode }) {
   return (
     <>
       {/* FAB — sits just above the bottom nav */}
-      <div className="fixed bottom-14 left-0 right-0 z-40 flex justify-center lg:hidden pointer-events-none">
+      <div className="fixed bottom-[64px] left-0 right-0 z-40 flex justify-center lg:hidden pointer-events-none">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -682,7 +682,7 @@ function MobileBetslipSheet({ children }: { children: React.ReactNode }) {
               {bets.length}
             </span>
           ) : (
-            <Icon name="chevron_up" className="text-[16px] text-slate-500" />
+            <Icon name="expand_less" className="text-[16px] text-slate-500" />
           )}
         </button>
       </div>
