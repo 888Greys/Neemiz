@@ -75,29 +75,30 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     if (!signIn) return;
     setError("");
     try {
-      const result = await (signIn as any).create({
+      // In Clerk v7, create() mutates signIn in place — return value is undefined
+      await (signIn as any).create({
         strategy,
         redirectUrl: `${window.location.origin}/sso-callback`,
         actionCompleteRedirectUrl: `${window.location.origin}/dashboard`,
       });
-      console.log("OAuth result status:", result?.status);
-      console.log("OAuth firstFactorVerification:", JSON.stringify(result?.firstFactorVerification));
 
-      // Handle completed sign-in (existing session)
-      if (result?.status === "complete" && result?.createdSessionId) {
-        await setActive({ session: result.createdSessionId });
+      // Read from signIn directly after mutation
+      const si = signIn as any;
+      console.log("signIn.status:", si.status, "fFV:", JSON.stringify(si.firstFactorVerification));
+
+      if (si.status === "complete" && si.createdSessionId) {
+        await setActive({ session: si.createdSessionId });
         onClose();
         router.push("/dashboard");
         return;
       }
 
-      // Get redirect URL — try all possible locations Clerk may put it
-      const url = result?.firstFactorVerification?.externalVerificationRedirectURL;
+      const url = si.firstFactorVerification?.externalVerificationRedirectURL;
       const href = typeof url === "string" ? url : url?.href ?? url?.toString?.();
       if (href) {
         window.location.href = href;
       } else {
-        setError(`OAuth not ready (status: ${result?.status}). Check console for details.`);
+        setError(`OAuth error (status: ${si.status}). Check console.`);
       }
     } catch (err: unknown) {
       console.error("OAuth error:", err);
