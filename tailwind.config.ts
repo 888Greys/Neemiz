@@ -5,6 +5,15 @@ const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      transitionDuration: {
+        fast: "120ms",
+        base: "200ms",
+        slow: "300ms",
+      },
+      transitionTimingFunction: {
+        spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        "ease-out": "cubic-bezier(0, 0, 0.2, 1)",
+      },
       colors: {
         background: "#08080c",
         surface: "#0e0e14",
@@ -34,6 +43,12 @@ const config: Config = {
         "on-primary": "#ffffff",
         "on-primary-container": "#ffffff",
         "on-secondary-container": "#fff7ed",
+        accent: {
+          sports:  "#087cff",
+          casino:  "#ff1979",
+          finance: "#05b957",
+          gold:    "#f59e0b",
+        },
       },
       borderRadius: {
         DEFAULT: "0.5rem",
@@ -49,7 +64,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [require("tailwindcss-animate")],
 };
 
 export default config;

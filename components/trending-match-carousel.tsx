@@ -14,22 +14,28 @@ const SPORT_ICONS: Record<string, string> = {
 
 export function TrendingMatchCarousel() {
   const [index, setIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
+    if (isHovered) return;
     const t = setInterval(() => setIndex((i) => (i + 1) % liveEvents.length), 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [isHovered]);
 
   const event = liveEvents[index];
   const icon = SPORT_ICONS[event.league] ?? "emoji_events";
 
   return (
-    <section className="px-3">
+    <section
+      className="px-3"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div className="mb-2 flex items-center justify-between">
         <h2 className="flex items-center gap-1.5 text-sm font-black">
           <span className="relative flex h-1.5 w-1.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff1979] opacity-75" />
-            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#ff1979]" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#ff1979] animate-live-dot" />
           </span>
           Trending Now
         </h2>
@@ -73,7 +79,7 @@ export function TrendingMatchCarousel() {
               <button
                 key={label}
                 type="button"
-                className="flex flex-col items-center rounded-xl bg-white/[0.05] py-2.5 transition active:scale-95 hover:bg-white/[0.09]"
+                className="flex flex-col items-center rounded-xl bg-white/[0.05] py-2.5 transition active:scale-[0.97] hover:bg-white/[0.09] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/50"
               >
                 <span className="text-[9px] font-bold text-slate-500">{label}</span>
                 <span className="mt-0.5 text-sm font-black text-white">{event.odds[i] ?? "—"}</span>
@@ -93,7 +99,7 @@ export function TrendingMatchCarousel() {
             type="button"
             aria-label={`Match ${i + 1}`}
             onClick={() => setIndex(i)}
-            className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/20"}`}
+            className={`h-1.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/20"}`}
           />
         ))}
       </div>

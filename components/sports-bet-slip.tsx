@@ -5,15 +5,22 @@ import { useState } from "react";
 export function SportsBetSlip() {
   const [betAmount, setBetAmount] = useState("");
   const [multiplier, setMultiplier] = useState<"x1.5" | "x2" | "x3">("x2");
+  const [spinning, setSpinning] = useState(false);
+
+  const handleSpin = () => {
+    if (spinning) return;
+    setSpinning(true);
+    setTimeout(() => setSpinning(false), 1500);
+  };
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto no-scrollbar bg-[#f4f6fa] p-3 gap-3">
+    <div className="flex h-full w-full flex-col overflow-y-auto no-scrollbar bg-[#0d0e11] p-3 gap-3">
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-1 pt-1">
-        <span className="text-[18px] font-black text-[#1a1a2e]">Betslip</span>
-        <div className="flex items-center gap-1.5 rounded-full bg-slate-200/70 px-3 py-1.5">
+        <span className="text-[18px] font-black text-white">Betslip</span>
+        <div className="flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5">
           <CurrencyIcon />
-          <span className="text-[12px] font-black text-slate-500">KSh 0.00</span>
+          <span className="text-[12px] font-black text-slate-400">KSh 0.00</span>
         </div>
       </div>
 
@@ -21,7 +28,7 @@ export function SportsBetSlip() {
       <div className="flex gap-2">
         <input
           placeholder="Bet code"
-          className="min-w-0 flex-1 rounded-2xl bg-slate-200/60 px-4 py-3 text-sm text-slate-700 outline-none placeholder:text-slate-400"
+          className="min-w-0 flex-1 rounded-2xl bg-white/[0.07] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:ring-1 focus:ring-[#087cff]/50"
         />
         <button
           type="button"
@@ -32,35 +39,35 @@ export function SportsBetSlip() {
       </div>
 
       {/* ── Wheel of fortune card ── */}
-      <div className="rounded-3xl bg-white p-4 shadow-sm">
-        <div className="mb-0.5 text-[15px] font-black text-[#1a1a2e]">Wheel of fortune</div>
+      <div className="rounded-3xl bg-[#16171d] ring-1 ring-white/[0.07] p-4">
+        <div className="mb-0.5 text-[15px] font-black text-white">Wheel of fortune</div>
         <div className="mb-4 text-[13px] text-slate-400">Spin and try your luck!</div>
 
         {/* Wheel */}
         <div className="flex justify-center py-2">
-          <WheelGraphic />
+          <WheelGraphic spinning={spinning} />
         </div>
 
         {/* Bet amount */}
-        <div className="mt-4 flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-3">
+        <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white/[0.07] px-4 py-3">
           <input
             value={betAmount}
             onChange={(e) => setBetAmount(e.target.value)}
             placeholder="Bet amount"
             type="number"
             min="0"
-            className="min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
           />
           <button
             type="button"
-            className="shrink-0 text-[13px] font-black text-[#087cff] transition hover:text-[#0668d6]"
+            className="shrink-0 text-[13px] font-black text-[#087cff] transition hover:text-[#4fa8ff]"
           >
             Bet all
           </button>
         </div>
 
         {/* Multiplier label */}
-        <div className="mt-3 text-[12px] font-bold text-slate-400">Bet amount per spin</div>
+        <div className="mt-3 text-[12px] font-bold text-slate-500">Bet amount per spin</div>
 
         {/* Multipliers + Spin in one row */}
         <div className="mt-2 flex gap-2">
@@ -69,10 +76,10 @@ export function SportsBetSlip() {
               key={m}
               type="button"
               onClick={() => setMultiplier(m)}
-              className={`flex-1 rounded-2xl py-3 text-[13px] font-black shadow-sm transition active:scale-[0.96] ${
+              className={`flex-1 rounded-2xl py-3 text-[13px] font-black transition active:scale-[0.97] ${
                 multiplier === m
-                  ? "bg-white text-[#1a1a2e] shadow-[0_2px_10px_rgba(0,0,0,.12)]"
-                  : "bg-slate-100 text-slate-500 hover:bg-white hover:shadow-[0_2px_8px_rgba(0,0,0,.08)]"
+                  ? "bg-white/[0.15] text-white ring-1 ring-white/20"
+                  : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.10] hover:text-white"
               }`}
             >
               {m}
@@ -80,9 +87,19 @@ export function SportsBetSlip() {
           ))}
           <button
             type="button"
-            className="flex-1 rounded-2xl bg-[#087cff] py-3 text-[13px] font-black text-white shadow-[0_4px_14px_rgba(8,124,255,.35)] transition hover:bg-[#0668d6] active:scale-[0.97]"
+            onClick={handleSpin}
+            disabled={spinning}
+            className="flex-1 rounded-2xl bg-[#087cff] py-3 text-[13px] font-black text-white shadow-[0_4px_14px_rgba(8,124,255,.35)] transition hover:bg-[#0668d6] active:scale-[0.97] disabled:opacity-70"
           >
-            Spin
+            {spinning ? (
+              <span className="flex items-center justify-center gap-1.5">
+                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Spinning
+              </span>
+            ) : "Spin"}
           </button>
         </div>
       </div>
@@ -93,24 +110,29 @@ export function SportsBetSlip() {
 function CurrencyIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none">
-      <circle cx="12" cy="12" r="10" stroke="#94a3b8" strokeWidth="1.5" />
-      <text x="12" y="16" textAnchor="middle" fontSize="8" fontWeight="900" fill="#94a3b8">
+      <circle cx="12" cy="12" r="10" stroke="#64748b" strokeWidth="1.5" />
+      <text x="12" y="16" textAnchor="middle" fontSize="8" fontWeight="900" fill="#64748b">
         KSh
       </text>
     </svg>
   );
 }
 
-function WheelGraphic() {
+function WheelGraphic({ spinning }: { spinning: boolean }) {
   const cx = 100;
   const cy = 100;
   const r = 74;
   const sw = 14;
 
   return (
-    <svg viewBox="0 0 200 200" className="h-44 w-44" aria-hidden="true">
+    <svg
+      viewBox="0 0 200 200"
+      className={`h-44 w-44 transition-all duration-300 ${spinning ? "animate-spin" : ""}`}
+      style={spinning ? { animationDuration: "0.6s" } : undefined}
+      aria-hidden="true"
+    >
       {/* Background ring */}
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={sw + 4} />
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#2a2b35" strokeWidth={sw + 4} />
 
       {/* Red half (left) */}
       <path
@@ -135,14 +157,14 @@ function WheelGraphic() {
         fill="#087cff"
       />
 
-      {/* Center white fill */}
-      <circle cx={cx} cy={cy} r={r - sw / 2 - 4} fill="white" />
+      {/* Center fill */}
+      <circle cx={cx} cy={cy} r={r - sw / 2 - 4} fill="#16171d" />
 
       {/* Center labels */}
-      <text x={cx} y={cy - 8} textAnchor="middle" fontSize="12" fill="#94a3b8" fontWeight="600">
+      <text x={cx} y={cy - 8} textAnchor="middle" fontSize="12" fill="#64748b" fontWeight="600">
         Win
       </text>
-      <text x={cx} y={cy + 14} textAnchor="middle" fontSize="18" fill="#1a1a2e" fontWeight="900">
+      <text x={cx} y={cy + 14} textAnchor="middle" fontSize="18" fill="#ffffff" fontWeight="900">
         KSh 0.00
       </text>
     </svg>

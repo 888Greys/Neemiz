@@ -2,20 +2,39 @@
 
 import { useRef } from "react";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
+import { useAuthModal } from "@/lib/auth-modal-context";
 
 /* ── Single game card ─────────────────────────────────── */
 function GameCard({ image, href }: { image: string; href: string }) {
+  const { isSignedIn } = useAuth();
+  const { openLogin } = useAuthModal();
+
+  const sharedClassName = "group relative flex-shrink-0 w-[120px] md:w-[160px] overflow-hidden rounded-2xl transition-transform hover:scale-[1.04] active:scale-[.98]";
+  const sharedStyle = {
+    backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.75) 100%), url(${image})`,
+    backgroundSize: "cover" as const,
+    backgroundPosition: "center",
+    aspectRatio: "3/4",
+  };
+
+  if (!isSignedIn) {
+    return (
+      <button
+        type="button"
+        onClick={openLogin}
+        className={sharedClassName}
+        style={sharedStyle}
+      />
+    );
+  }
+
   return (
     <Link
       href={href}
-      className="group relative flex-shrink-0 w-[120px] md:w-[160px] overflow-hidden rounded-2xl transition-transform hover:scale-[1.04] active:scale-[.98]"
-      style={{
-        backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.75) 100%), url(${image})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        aspectRatio: "3/4",
-      }}
+      className={sharedClassName}
+      style={sharedStyle}
     />
   );
 }

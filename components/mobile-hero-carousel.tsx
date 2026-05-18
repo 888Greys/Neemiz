@@ -5,14 +5,23 @@ import Link from "next/link";
 
 export function MobileHeroCarousel({ slides }: { slides: string[] }) {
   const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
+    if (paused) return;
     const t = setInterval(() => setIndex((i) => (i + 1) % slides.length), 8000);
     return () => clearInterval(t);
-  }, [slides.length]);
+  }, [slides.length, paused]);
 
   return (
-    <section className="relative overflow-hidden rounded-b-3xl" style={{ minHeight: "72vw", maxHeight: 340 }}>
+    <section
+      className="relative overflow-hidden rounded-b-3xl"
+      style={{ minHeight: "72vw", maxHeight: 340 }}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={() => setPaused(true)}
+      onTouchEnd={() => setPaused(false)}
+    >
       {/* Background images */}
       {slides.map((src, i) => (
         <div
@@ -26,8 +35,8 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
       <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/50 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
 
-      {/* Content */}
-      <div className="relative z-10 flex h-full flex-col justify-end px-5 pb-7 pt-10">
+      {/* Content — re-keys on index change to trigger fade-up */}
+      <div key={index} className="animate-fade-up relative z-10 flex h-full flex-col justify-end px-5 pb-7 pt-10" style={{ animationDuration: "0.4s" }}>
         {/* Live badge */}
         <div className="mb-4 inline-flex w-fit items-center gap-2 rounded-full bg-emerald-500/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-400 ring-1 ring-emerald-500/30">
           <span className="relative flex h-1.5 w-1.5">
@@ -52,13 +61,13 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
         <div className="mt-5 flex items-center gap-2.5">
           <Link
             href="/sports"
-            className="rounded-2xl bg-white px-6 py-2.5 text-[13px] font-black text-black shadow-lg active:scale-95 transition"
+            className="rounded-2xl bg-white px-6 py-2.5 text-[13px] font-black text-black shadow-lg active:scale-[0.97] transition"
           >
             Get started
           </Link>
           <Link
             href="/aviator"
-            className="rounded-2xl border border-white/20 bg-white/10 px-6 py-2.5 text-[13px] font-black text-white backdrop-blur-sm active:scale-95 transition"
+            className="rounded-2xl border border-white/20 bg-white/10 px-6 py-2.5 text-[13px] font-black text-white backdrop-blur-sm active:scale-[0.97] transition"
           >
             Play Aviator
           </Link>
@@ -73,7 +82,7 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
             type="button"
             aria-label={`Slide ${i + 1}`}
             onClick={() => setIndex(i)}
-            className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/25"}`}
+            className={`h-1.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/25"}`}
           />
         ))}
       </div>

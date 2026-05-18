@@ -7,7 +7,6 @@ import {
   Flame,
   TrendingUp,
   Radio,
-  Trophy,
   ChevronRight,
   ChevronLeft,
   Clock,
@@ -79,9 +78,9 @@ export default async function SportsPage({ searchParams }: Props) {
   const displayLive = showLive ? (activeTab === "Top" ? liveMatches.slice(0, 6) : liveMatches) : [];
 
   return (
-    <AppShell rightPanel={<SportsBetSlip />} mainBg="bg-[#f4f6fa]">
+    <AppShell rightPanel={<SportsBetSlip />} mainBg="bg-background">
       {/* ── Sub-tab bar ── */}
-      <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-2.5">
+      <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-white/10 bg-[#111113] px-3 py-2.5">
         <div className="flex flex-1 gap-1 overflow-x-auto no-scrollbar">
           {TABS.map((tab) => (
             <Link
@@ -90,14 +89,14 @@ export default async function SportsPage({ searchParams }: Props) {
               className={`shrink-0 rounded-xl px-4 py-2 text-sm font-black transition-all ${
                 tab === activeTab
                   ? "bg-[#087cff] text-white shadow-[0_4px_14px_rgba(8,124,255,.25)]"
-                  : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                  : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
               }`}
             >
               {tab}
             </Link>
           ))}
         </div>
-        <button className="shrink-0 flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-slate-200 transition" type="button" aria-label="Search">
+        <button className="shrink-0 flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-slate-400 hover:bg-white/[0.09] transition" type="button" aria-label="Search">
           <Search size={20} />
         </button>
       </div>
@@ -106,24 +105,24 @@ export default async function SportsPage({ searchParams }: Props) {
       <SportPromoBanner />
 
       {/* ── League strip ── */}
-      <div className="border-b border-slate-200 bg-white px-3 py-3">
+      <div className="border-b border-white/10 bg-[#111113] px-3 py-3">
         <div className="flex gap-3 overflow-x-auto no-scrollbar">
           {LEAGUE_STRIP.map((item) => (
-            <button key={item.label} type="button" className="flex shrink-0 flex-col items-center gap-1.5 rounded-xl p-1.5 transition hover:bg-slate-50">
-              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 ring-1 ring-slate-200 overflow-hidden">
+            <button key={item.label} type="button" className="flex shrink-0 flex-col items-center gap-1.5 rounded-xl p-1.5 transition hover:bg-white/[0.05]">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/[0.08] ring-1 ring-white/[0.1] overflow-hidden">
                 {"img" in item && item.img ? (
                   <Image src={item.img} alt={item.label} width={56} height={56} className="h-full w-full object-cover" />
                 ) : (
-                  <TrendingUp size={28} className="text-slate-500" />
+                  <TrendingUp size={28} className="text-slate-400" />
                 )}
               </span>
-              <span className="w-14 whitespace-pre-line text-center text-[9px] font-bold leading-tight text-slate-500">{item.label}</span>
+              <span className="w-14 whitespace-pre-line text-center text-[9px] font-bold leading-tight text-slate-400">{item.label}</span>
             </button>
           ))}
         </div>
       </div>
 
-      <div className="bg-[#f4f6fa] px-3 py-4 space-y-6 min-h-screen">
+      <div className="bg-background px-3 py-4 space-y-6 min-h-screen">
         {/* ── Live ── */}
         {displayLive.length > 0 && (
           <section>
@@ -145,9 +144,9 @@ export default async function SportsPage({ searchParams }: Props) {
               {meta.leagueLogo && (
                 <Image src={meta.leagueLogo} alt={leagueName} width={22} height={22} className="h-[22px] w-[22px] object-contain" unoptimized />
               )}
-              <span className="text-base font-black text-[#1a1a2e]">{leagueName}</span>
+              <span className="text-base font-black text-white">{leagueName}</span>
               {meta.country && <span className="text-sm text-slate-400">· {meta.country}</span>}
-              <span className="ml-auto text-xs font-bold text-slate-400">{fixtures.length} matches</span>
+              <span className="ml-auto text-xs font-bold text-slate-500">{fixtures.length} matches</span>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {fixtures.map((m) => <MatchCard key={m.id} match={m} />)}
@@ -158,8 +157,8 @@ export default async function SportsPage({ searchParams }: Props) {
         {/* ── Empty state ── */}
         {displayLive.length === 0 && (!showUpcoming || Object.keys(leagueGroups).length === 0) && (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
-              <CircleDot size={36} className="text-slate-400" />
+            <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.06]">
+              <CircleDot size={36} className="text-slate-500" />
             </span>
             <p className="text-sm text-slate-400">No events available right now</p>
           </div>
@@ -188,25 +187,25 @@ function SectionHeader({
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#087cff]/10">
           <IconComp size={16} className="text-[#087cff]" />
         </span>
-        <span className="text-base font-black text-[#1a1a2e]">{title}</span>
+        <span className="text-base font-black text-white">{title}</span>
       </div>
       <div className="flex items-center gap-1">
         <Link
           href={href}
-          className="flex items-center gap-1 rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 transition hover:bg-slate-200"
+          className="flex items-center gap-1 rounded-xl bg-white/[0.07] px-3 py-1.5 text-xs font-black text-slate-300 transition hover:bg-white/[0.12]"
         >
           {label}
           <ChevronRight size={16} />
         </Link>
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+          className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.07] text-slate-400 transition hover:bg-white/[0.12]"
         >
           <ChevronLeft size={18} />
         </button>
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200"
+          className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/[0.07] text-slate-400 transition hover:bg-white/[0.12]"
         >
           <ChevronRight size={18} />
         </button>
@@ -227,7 +226,7 @@ function MatchCard({ match: m }: { match: Match }) {
     : null;
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-black/[0.08] transition hover:shadow-md hover:ring-black/[0.15]">
+    <div className="flex flex-col overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07] transition hover:ring-white/[0.14] hover:bg-[#1a1b22]">
       {/* ── Clickable top section → match detail ── */}
       <Link href={`/sports/${m.id}`} className="block">
         {/* ── Header: country flag + league logo + name ── */}
@@ -243,27 +242,27 @@ function MatchCard({ match: m }: { match: Match }) {
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px] font-black text-[#1a1a2e]">{m.league}</div>
+            <div className="truncate text-[13px] font-black text-white">{m.league}</div>
             {m.country && <div className="text-[11px] text-slate-400">{m.country}</div>}
           </div>
-          <ChevronRight size={14} className="shrink-0 text-slate-300" />
+          <ChevronRight size={14} className="shrink-0 text-slate-600" />
         </div>
 
         {/* ── Live badge / upcoming time ── */}
         <div className="flex items-center gap-2 px-3.5 pb-2.5">
           {m.isLive ? (
-            <span className="flex items-center gap-1.5 rounded-full bg-[#fff0f0] px-2.5 py-1 text-[11px] font-black text-red-500">
+            <span className="flex items-center gap-1.5 rounded-full bg-red-500/15 px-2.5 py-1 text-[11px] font-black text-red-400">
               <LiveWaveIcon />
               {m.period}
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 rounded-full bg-[#f0f4ff] px-2.5 py-1 text-[11px] font-black text-[#4a6cf7]">
+            <span className="flex items-center gap-1.5 rounded-full bg-[#087cff]/12 px-2.5 py-1 text-[11px] font-black text-[#087cff]">
               <Clock size={13} />
               {m.period}
-              {dateStr && <span className="font-normal text-slate-400"> · {dateStr}</span>}
+              {dateStr && <span className="font-normal text-slate-500"> · {dateStr}</span>}
             </span>
           )}
-          <span className="flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-black text-slate-400">
+          <span className="flex items-center gap-1 rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-black text-slate-500">
             <Tv2 size={12} />
             TV
           </span>
@@ -277,8 +276,8 @@ function MatchCard({ match: m }: { match: Match }) {
       </Link>
 
       {/* ── Odds footer ── */}
-      <div className="border-t border-slate-100 px-3.5 py-3">
-        <div className="mb-2 text-[10px] font-bold text-slate-400">Full time result</div>
+      <div className="border-t border-white/[0.07] px-3.5 py-3">
+        <div className="mb-2 text-[10px] font-bold text-slate-500">Full time result</div>
         <div className="flex items-center gap-1.5">
           {m.odds.length > 0 ? (
             <>
@@ -288,14 +287,14 @@ function MatchCard({ match: m }: { match: Match }) {
               {m.extraMarkets > 0 && (
                 <button
                   type="button"
-                  className="ml-auto shrink-0 rounded-xl bg-slate-100 px-2.5 py-2 text-[11px] font-black text-slate-500 transition hover:bg-slate-200"
+                  className="ml-auto shrink-0 rounded-xl bg-white/[0.07] px-2.5 py-2 text-[11px] font-black text-slate-400 transition hover:bg-white/[0.12]"
                 >
                   +{m.extraMarkets}
                 </button>
               )}
             </>
           ) : (
-            <span className="text-[11px] text-slate-400">Odds unavailable</span>
+            <span className="text-[11px] text-slate-500">Odds unavailable</span>
           )}
         </div>
       </div>
@@ -330,11 +329,11 @@ function TeamRow({
       ) : (
         <TeamAvatar name={participant.name} />
       )}
-      <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-[#1a1a2e]">
+      <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-white">
         {participant.name}
       </span>
       {participant.score !== null && (
-        <span className="shrink-0 min-w-[20px] text-right text-[13px] font-black text-[#1a1a2e]">
+        <span className="shrink-0 min-w-[20px] text-right text-[13px] font-black text-white">
           {participant.score}
         </span>
       )}
@@ -364,12 +363,12 @@ function OddButton({ label, value }: { label: string; value: string }) {
   return (
     <button
       type="button"
-      className="group flex flex-1 items-center justify-between gap-1.5 rounded-xl bg-slate-100 px-2.5 py-2 transition hover:bg-[#e8f0fe]"
+      className="group flex flex-1 items-center justify-between gap-1.5 rounded-xl bg-white/[0.06] px-2.5 py-2 transition hover:bg-[#087cff]/15"
     >
-      <span className="text-[11px] font-bold text-slate-400 group-hover:text-[#4a6cf7]">
+      <span className="text-[11px] font-bold text-slate-400 group-hover:text-[#087cff]">
         {label}
       </span>
-      <span className="text-[13px] font-black text-[#2ecc71] group-hover:text-[#4a6cf7]">
+      <span className="text-[13px] font-black text-emerald-400 group-hover:text-[#087cff]">
         {value}
       </span>
     </button>

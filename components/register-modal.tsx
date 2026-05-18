@@ -117,7 +117,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className="relative w-full rounded-t-3xl border border-white/[0.08] bg-[#111316] shadow-2xl sm:max-w-[420px] sm:rounded-3xl"
+        className="relative w-full rounded-t-3xl border border-white/[0.08] bg-[#111316] shadow-2xl sm:max-w-[420px] sm:rounded-3xl animate-in fade-in slide-in-from-bottom-4 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag handle — mobile only */}
@@ -137,6 +137,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         </div>
 
         <div className="overflow-y-auto px-6 pb-8 sm:px-7 sm:pb-7" style={{ maxHeight: "90dvh" }}>
+          <div key={pendingVerify ? "verify" : "register"} className="animate-fade-up" style={{ animationDuration: "0.25s" }}>
           {pendingVerify ? (
             /* ── Verification step ── */
             <form onSubmit={handleVerify} className="space-y-4">
@@ -163,7 +164,15 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                 disabled={loading}
                 className="w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-60"
               >
-                {loading ? "Verifying…" : "Verify & Create Account"}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Verifying…
+                  </span>
+                ) : "Verify & Create Account"}
               </button>
             </form>
           ) : (
@@ -219,7 +228,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                       className="flex-1 bg-transparent px-4 py-3.5 text-sm text-white placeholder-slate-600 outline-none"
                     />
                     {showCC && (
-                      <div className="absolute left-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] shadow-xl">
+                      <div className="animate-dropdown absolute left-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] shadow-xl">
                         {COUNTRIES.map((c) => (
                           <button
                             key={c.iso}
@@ -290,7 +299,15 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                   disabled={loading || !agreed}
                   className="w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-50"
                 >
-                  {loading ? "Creating account…" : "Create Account"}
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Creating account…
+                    </span>
+                  ) : "Create Account"}
                 </button>
               </form>
 
@@ -336,6 +353,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
             </>
           )}
 
+          </div>
           {/* Switch to login */}
           <p className="mt-6 text-center text-sm text-slate-500">
             Already have an account?{" "}

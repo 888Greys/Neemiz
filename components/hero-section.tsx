@@ -72,6 +72,7 @@ export function HeroSection() {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(true);
   const [bgIndex, setBgIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bgTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -102,16 +103,25 @@ export function HeroSection() {
 
   useEffect(() => {
     startCycle(0);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (progressRef.current) clearInterval(progressRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (isHovered) {
+      if (bgTimerRef.current) clearInterval(bgTimerRef.current);
+      return;
+    }
     bgTimerRef.current = setInterval(() => {
       setBgIndex((i) => (i + 1) % BG_IMAGES.length);
     }, BG_INTERVAL);
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (progressRef.current) clearInterval(progressRef.current);
       if (bgTimerRef.current) clearInterval(bgTimerRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isHovered]);
 
   const handleTabClick = (i: number) => {
     setVisible(false);
@@ -123,7 +133,11 @@ export function HeroSection() {
   };
 
   return (
-    <section className="relative overflow-hidden min-h-[calc(100vh-64px)] flex flex-col justify-center">
+    <section
+      className="relative overflow-hidden min-h-[calc(100vh-64px)] flex flex-col justify-center"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       {/* Background image carousel */}
       <div className="pointer-events-none absolute inset-0">
         {BG_IMAGES.map((src, i) => (
@@ -194,6 +208,11 @@ export function HeroSection() {
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      {/* Progress bar for active tab cycling */}
+      <div
+        className="absolute bottom-0 left-0 h-0.5 bg-[#087cff] transition-none"
+        style={{ width: `${progress}%` }}
+      />
     </section>
   );
 }

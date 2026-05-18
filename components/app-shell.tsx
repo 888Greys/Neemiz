@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { mobileNav } from "@/lib/mock-data";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
 import { LoginModal } from "@/components/login-modal";
 import { RegisterModal } from "@/components/register-modal";
+import { AuthModalContext } from "@/lib/auth-modal-context";
 
 const tempAssets = {
   appInstall: "https://v3.bundlecdn.com/b02632/plain/bonus/app-install/phone-small-v1.png",
@@ -40,9 +41,15 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
     });
   };
 
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, behavior: "instant" });
+  }, [pathname]);
+
   if (isLogin) return <>{children}</>;
 
   return (
+    <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true) }}>
     <div className="min-h-screen bg-background text-on-surface">
       <header className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center bg-[#111113] px-3 lg:h-20 lg:px-0">
         <div
@@ -80,14 +87,14 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
           <div className="flex shrink-0 items-center gap-2 md:gap-3">
             <button
               onClick={() => setLoginOpen(true)}
-              className="rounded-lg bg-[#28292d] px-3 py-2 text-xs font-black text-white transition hover:bg-[#34353b] md:rounded-2xl md:px-6 md:py-3 md:text-base"
+              className="rounded-lg bg-[#28292d] px-3 py-2 text-xs font-black text-white transition hover:bg-[#34353b] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] md:rounded-2xl md:px-6 md:py-3 md:text-base"
               type="button"
             >
               Login
             </button>
             <button
               onClick={() => setRegisterOpen(true)}
-              className="rounded-lg bg-[#05b957] px-3 py-2 text-xs font-black text-white transition hover:bg-[#08c963] md:rounded-2xl md:px-6 md:py-3 md:text-base"
+              className="rounded-lg bg-[#05b957] px-3 py-2 text-xs font-black text-white transition hover:bg-[#08c963] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05b957]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] md:rounded-2xl md:px-6 md:py-3 md:text-base"
               type="button"
             >
               Registration
@@ -105,7 +112,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
           <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} />
         </aside>
 
-        <main className={`no-scrollbar flex-1 overflow-y-auto pb-24 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
+        <main ref={mainRef} className={`no-scrollbar flex-1 overflow-y-auto pb-24 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
           <div className="flex min-h-screen flex-col">
             <div className="flex-1">{children}</div>
             <AppFooter />
@@ -125,7 +132,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
           const active = activePath === pathname;
           if (item.label === "Menu") {
             return (
-              <button key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[8px] text-on-surface-variant" onClick={() => setMobileMenuOpen(true)} type="button">
+              <button key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[8px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset" onClick={() => setMobileMenuOpen(true)} type="button">
                 <Icon name={item.icon} className="text-[18px]" />
                 <span className="mt-0.5 font-bold leading-none">{item.label}</span>
               </button>
@@ -133,7 +140,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
           }
 
           return (
-            <Link key={item.label} href={item.href} className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[8px] ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}>
+            <Link key={item.label} href={item.href} className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[8px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}>
               <Icon name={item.icon} fill={active} className="text-[18px]" />
               <span className="mt-0.5 max-w-full truncate font-bold leading-none">{item.label}</span>
             </Link>
@@ -141,6 +148,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
         })}
       </nav>
     </div>
+    </AuthModalContext.Provider>
   );
 }
 
@@ -150,7 +158,7 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
   return (
     <Link
       href={href}
-      className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 transition-all duration-150 ${
+      className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#18191d] ${
         active
           ? "bg-[#087cff] text-white shadow-[0_4px_16px_rgba(8,124,255,.35)]"
           : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
@@ -177,7 +185,7 @@ function Sidebar({ collapsed, onToggle, pathname }: { collapsed: boolean; onTogg
   return (
     <div className="relative flex h-full flex-col">
       <button
-        className="absolute -right-5 top-44 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-[#353740] text-slate-300 shadow-xl transition hover:bg-[#424550] hover:text-white"
+        className="absolute -right-5 top-44 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-[#353740] text-slate-300 shadow-xl transition hover:bg-[#424550] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1b1c20]"
         type="button"
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         onClick={onToggle}
@@ -226,7 +234,7 @@ function Sidebar({ collapsed, onToggle, pathname }: { collapsed: boolean; onTogg
       </div>
 
       <div className={`border-t border-white/10 ${collapsed ? "p-2" : "p-4"}`}>
-        <Link href="/dashboard" className={`mb-2 flex items-center rounded-2xl bg-[#32343b] transition hover:bg-[#3a3c44] ${collapsed ? "justify-center p-2" : "gap-2.5 p-2.5"}`}>
+        <Link href="/dashboard" className={`mb-2 flex items-center rounded-2xl bg-[#32343b] transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${collapsed ? "justify-center p-2" : "gap-2.5 p-2.5"}`}>
           <span
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500 bg-cover bg-center text-white"
             style={{ backgroundImage: `url(${tempAssets.appInstall})` }}
@@ -253,7 +261,7 @@ function Sidebar({ collapsed, onToggle, pathname }: { collapsed: boolean; onTogg
           ].map(([icon, label]) => (
             <button
               key={label}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35] text-white transition hover:bg-[#393b43]"
+              className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35] text-white transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20]"
               type="button"
               aria-label={label}
             >
@@ -320,7 +328,9 @@ function SidebarGroup({
           </>
         )}
       </button>
-      {isOpen && <div className={collapsed ? "space-y-1" : "ml-4 space-y-1 border-l border-white/10 pl-4"}>{children}</div>}
+      <div className={`overflow-hidden transition-all duration-200 ease-out ${isOpen ? "max-h-[280px] opacity-100" : "max-h-0 opacity-0"}`}>
+        <div className={collapsed ? "space-y-1" : "ml-4 space-y-1 border-l border-white/10 pl-4"}>{children}</div>
+      </div>
     </section>
   );
 }
@@ -365,7 +375,7 @@ function SidebarItem({
       )}
     </>
   );
-  const className = `flex items-center rounded-xl text-base font-bold transition ${
+  const className = `flex items-center rounded-xl text-base font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
     collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
   } ${
     active && !muted
@@ -432,7 +442,7 @@ function StandaloneSidebarItem({
     <Link
       href={href}
       title={collapsed ? label : undefined}
-      className={`flex items-center rounded-xl text-sm font-black transition ${
+      className={`flex items-center rounded-xl text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
         collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-2.5 py-2.5"
       } ${active ? "bg-[#3a3b41] text-white" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}
     >
@@ -468,8 +478,8 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister }: { onClose: (
   });
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/65 lg:hidden">
-      <aside className="relative flex h-full w-[72vw] max-w-[310px] min-w-[255px] flex-col bg-[#1b1c20] shadow-2xl">
+    <div className="fixed inset-0 z-[60] bg-black/65 animate-fade-in lg:hidden">
+      <aside className="animate-drawer-in relative flex h-full w-[72vw] max-w-[310px] min-w-[255px] flex-col bg-[#1b1c20] shadow-2xl">
         <button className="absolute -right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#3a3d45] text-white" onClick={onClose} type="button" aria-label="Close menu">
           <Icon name="close" className="text-[18px]" />
         </button>
@@ -586,7 +596,9 @@ function MobileDrawerGroup({ children, icon, isOpen, label, onToggle }: { childr
         <span className="flex-1">{label}</span>
         <Icon name={isOpen ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[17px] text-slate-400" />
       </button>
-      {isOpen && <div className="ml-3 border-l border-white/10 pl-2">{children}</div>}
+      <div className={`overflow-hidden transition-all duration-200 ease-out ${isOpen ? "max-h-[280px] opacity-100" : "max-h-0 opacity-0"}`}>
+        <div className="ml-3 border-l border-white/10 pl-2">{children}</div>
+      </div>
     </section>
   );
 }
