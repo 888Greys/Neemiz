@@ -1,108 +1,197 @@
 "use client";
 
 import { useState } from "react";
+import { useBetslip } from "@/lib/betslip-context";
+import { Icon } from "@/components/icon";
 
 export function SportsBetSlip() {
-  const [betAmount, setBetAmount] = useState("");
-  const [multiplier, setMultiplier] = useState<"x1.5" | "x2" | "x3">("x2");
-  const [spinning, setSpinning] = useState(false);
+  const { bets, removeBet, clearBets } = useBetslip();
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [tab, setTab] = useState<"single" | "multi">("single");
 
-  const handleSpin = () => {
-    if (spinning) return;
-    setSpinning(true);
-    setTimeout(() => setSpinning(false), 1500);
-  };
+  const totalOdds = bets.reduce((acc, b) => acc * parseFloat(b.value || "1"), 1);
+  const multiStake = parseFloat(amounts["__multi__"] || "0");
+  const multiPayout = multiStake > 0 ? (multiStake * totalOdds).toFixed(2) : null;
 
   return (
-    <div className="flex h-full w-full flex-col overflow-y-auto no-scrollbar bg-[#0d0e11] p-3 gap-3">
+    <div className="flex h-full w-full flex-col bg-[#0d0e11]">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between px-1 pt-1">
-        <span className="text-[18px] font-black text-white">Betslip</span>
-        <div className="flex items-center gap-1.5 rounded-full bg-white/[0.07] px-3 py-1.5">
-          <CurrencyIcon />
-          <span className="text-[12px] font-black text-slate-400">KSh 0.00</span>
+      <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="text-[15px] font-black text-white">Betslip</span>
+          {bets.length > 0 && (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#087cff] text-[10px] font-black text-white">
+              {bets.length}
+            </span>
+          )}
         </div>
-      </div>
-
-      {/* ── Bet code ── */}
-      <div className="flex gap-2">
-        <input
-          placeholder="Bet code"
-          className="min-w-0 flex-1 rounded-2xl bg-white/[0.07] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:ring-1 focus:ring-[#087cff]/50"
-        />
-        <button
-          type="button"
-          className="shrink-0 rounded-2xl bg-[#06c96e] px-5 py-3 text-sm font-black text-white transition hover:bg-[#05b85f] active:scale-[0.97]"
-        >
-          View bet
-        </button>
-      </div>
-
-      {/* ── Wheel of fortune card ── */}
-      <div className="rounded-3xl bg-[#16171d] ring-1 ring-white/[0.07] p-4">
-        <div className="mb-0.5 text-[15px] font-black text-white">Wheel of fortune</div>
-        <div className="mb-4 text-[13px] text-slate-400">Spin and try your luck!</div>
-
-        {/* Wheel */}
-        <div className="flex justify-center py-2">
-          <WheelGraphic spinning={spinning} />
-        </div>
-
-        {/* Bet amount */}
-        <div className="mt-4 flex items-center gap-2 rounded-2xl bg-white/[0.07] px-4 py-3">
-          <input
-            value={betAmount}
-            onChange={(e) => setBetAmount(e.target.value)}
-            placeholder="Bet amount"
-            type="number"
-            min="0"
-            className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
-          />
-          <button
-            type="button"
-            className="shrink-0 text-[13px] font-black text-[#087cff] transition hover:text-[#4fa8ff]"
-          >
-            Bet all
-          </button>
-        </div>
-
-        {/* Multiplier label */}
-        <div className="mt-3 text-[12px] font-bold text-slate-500">Bet amount per spin</div>
-
-        {/* Multipliers + Spin in one row */}
-        <div className="mt-2 flex gap-2">
-          {(["x1.5", "x2", "x3"] as const).map((m) => (
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-full bg-white/[0.07] px-3 py-1.5">
+            <CurrencyIcon />
+            <span className="text-[12px] font-black text-slate-400">KSh 0.00</span>
+          </div>
+          {bets.length > 0 && (
             <button
-              key={m}
               type="button"
-              onClick={() => setMultiplier(m)}
-              className={`flex-1 rounded-2xl py-3 text-[13px] font-black transition active:scale-[0.97] ${
-                multiplier === m
-                  ? "bg-white/[0.15] text-white ring-1 ring-white/20"
-                  : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.10] hover:text-white"
+              onClick={clearBets}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.07] text-slate-500 transition hover:bg-red-500/15 hover:text-red-400"
+              aria-label="Clear betslip"
+            >
+              <Icon name="delete_outline" className="text-[16px]" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Tabs (only when bets exist) ── */}
+      {bets.length > 0 && (
+        <div className="flex border-b border-white/[0.07]">
+          {(["single", "multi"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`flex-1 py-2.5 text-[12px] font-black transition ${
+                tab === t
+                  ? "border-b-2 border-[#087cff] text-white"
+                  : "text-slate-500 hover:text-slate-300"
               }`}
             >
-              {m}
+              {t === "single" ? "Single" : `Multi (${bets.length})`}
             </button>
           ))}
+        </div>
+      )}
+
+      <div className="no-scrollbar flex-1 overflow-y-auto">
+        {bets.length === 0 ? (
+          /* ── Empty state ── */
+          <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
+            <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-white/[0.05]">
+              <Icon name="receipt_long" className="text-[28px] text-slate-600" />
+            </span>
+            <p className="text-sm font-black text-slate-500">Your betslip is empty</p>
+            <p className="mt-1 text-[11px] text-slate-600">Click odds on any match to add a selection</p>
+          </div>
+        ) : tab === "single" ? (
+          /* ── Single bets ── */
+          <div className="space-y-2 p-3">
+            {bets.map((bet) => {
+              const stake = parseFloat(amounts[bet.id] || "0");
+              const payout = stake > 0 ? (stake * parseFloat(bet.value)).toFixed(2) : null;
+              return (
+                <div key={bet.id} className="rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07] p-3">
+                  {/* Match + remove */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[11px] text-slate-500">{bet.matchName}</div>
+                      <div className="truncate text-[12px] font-black text-white">{bet.market} · {bet.label}</div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="rounded-lg bg-[#087cff] px-2 py-0.5 text-[13px] font-black text-white">
+                        {bet.value}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeBet(bet.id)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-white/[0.06] text-slate-500 transition hover:bg-red-500/15 hover:text-red-400"
+                      >
+                        <Icon name="close" className="text-[13px]" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Stake input */}
+                  <div className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2">
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="Stake (KSh)"
+                      value={amounts[bet.id] ?? ""}
+                      onChange={(e) => setAmounts((a) => ({ ...a, [bet.id]: e.target.value }))}
+                      className="min-w-0 flex-1 bg-transparent text-[12px] text-white outline-none placeholder:text-slate-600"
+                    />
+                    <button
+                      type="button"
+                      className="shrink-0 text-[11px] font-black text-[#087cff] transition hover:text-[#4fa8ff]"
+                      onClick={() => setAmounts((a) => ({ ...a, [bet.id]: "1000" }))}
+                    >
+                      All in
+                    </button>
+                  </div>
+
+                  {payout && (
+                    <div className="mt-2 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">Possible win</span>
+                      <span className="font-black text-emerald-400">KSh {payout}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── Multi bet ── */
+          <div className="p-3 space-y-2">
+            {bets.map((bet) => (
+              <div key={bet.id} className="flex items-center justify-between rounded-xl bg-[#16171d] px-3 py-2.5 ring-1 ring-white/[0.06]">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[10px] text-slate-500">{bet.matchName}</div>
+                  <div className="truncate text-[11px] font-black text-white">{bet.label}</div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <span className="text-[12px] font-black text-[#087cff]">{bet.value}</span>
+                  <button type="button" onClick={() => removeBet(bet.id)}
+                    className="flex h-5 w-5 items-center justify-center rounded-full bg-white/[0.06] text-slate-500 hover:text-red-400"
+                  >
+                    <Icon name="close" className="text-[11px]" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <div className="mt-3 rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07] p-3">
+              <div className="mb-2 flex items-center justify-between text-[11px]">
+                <span className="text-slate-500">Total odds</span>
+                <span className="font-black text-white">{totalOdds.toFixed(2)}</span>
+              </div>
+              <div className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2">
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Stake (KSh)"
+                  value={amounts["__multi__"] ?? ""}
+                  onChange={(e) => setAmounts((a) => ({ ...a, __multi__: e.target.value }))}
+                  className="min-w-0 flex-1 bg-transparent text-[12px] text-white outline-none placeholder:text-slate-600"
+                />
+                <button type="button" className="shrink-0 text-[11px] font-black text-[#087cff]"
+                  onClick={() => setAmounts((a) => ({ ...a, __multi__: "1000" }))}
+                >
+                  All in
+                </button>
+              </div>
+              {multiPayout && (
+                <div className="mt-2 flex items-center justify-between text-[11px]">
+                  <span className="text-slate-500">Possible win</span>
+                  <span className="font-black text-emerald-400">KSh {multiPayout}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Place bet button ── */}
+      {bets.length > 0 && (
+        <div className="border-t border-white/[0.07] p-3">
           <button
             type="button"
-            onClick={handleSpin}
-            disabled={spinning}
-            className="flex-1 rounded-2xl bg-[#087cff] py-3 text-[13px] font-black text-white shadow-[0_4px_14px_rgba(8,124,255,.35)] transition hover:bg-[#0668d6] active:scale-[0.97] disabled:opacity-70"
+            className="w-full rounded-2xl bg-[#06c96e] py-3.5 text-sm font-black text-white shadow-[0_4px_14px_rgba(6,201,110,.3)] transition hover:bg-[#05b85f] active:scale-[.98]"
           >
-            {spinning ? (
-              <span className="flex items-center justify-center gap-1.5">
-                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Spinning
-              </span>
-            ) : "Spin"}
+            Place {bets.length === 1 ? "Bet" : `${bets.length} Bets`}
           </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -113,59 +202,6 @@ function CurrencyIcon() {
       <circle cx="12" cy="12" r="10" stroke="#64748b" strokeWidth="1.5" />
       <text x="12" y="16" textAnchor="middle" fontSize="8" fontWeight="900" fill="#64748b">
         KSh
-      </text>
-    </svg>
-  );
-}
-
-function WheelGraphic({ spinning }: { spinning: boolean }) {
-  const cx = 100;
-  const cy = 100;
-  const r = 74;
-  const sw = 14;
-
-  return (
-    <svg
-      viewBox="0 0 200 200"
-      className={`h-44 w-44 transition-all duration-300 ${spinning ? "animate-spin" : ""}`}
-      style={spinning ? { animationDuration: "0.6s" } : undefined}
-      aria-hidden="true"
-    >
-      {/* Background ring */}
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#2a2b35" strokeWidth={sw + 4} />
-
-      {/* Red half (left) */}
-      <path
-        d={`M ${cx} ${cy - r} A ${r} ${r} 0 0 0 ${cx} ${cy + r}`}
-        fill="none"
-        stroke="#ff4757"
-        strokeWidth={sw}
-        strokeLinecap="butt"
-      />
-      {/* Green half (right) */}
-      <path
-        d={`M ${cx} ${cy + r} A ${r} ${r} 0 0 0 ${cx} ${cy - r}`}
-        fill="none"
-        stroke="#2ed573"
-        strokeWidth={sw}
-        strokeLinecap="butt"
-      />
-
-      {/* Blue pointer at top */}
-      <polygon
-        points={`${cx},${cy - r - 12} ${cx - 8},${cy - r + 4} ${cx + 8},${cy - r + 4}`}
-        fill="#087cff"
-      />
-
-      {/* Center fill */}
-      <circle cx={cx} cy={cy} r={r - sw / 2 - 4} fill="#16171d" />
-
-      {/* Center labels */}
-      <text x={cx} y={cy - 8} textAnchor="middle" fontSize="12" fill="#64748b" fontWeight="600">
-        Win
-      </text>
-      <text x={cx} y={cy + 14} textAnchor="middle" fontSize="18" fill="#ffffff" fontWeight="900">
-        KSh 0.00
       </text>
     </svg>
   );

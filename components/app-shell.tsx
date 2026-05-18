@@ -9,6 +9,7 @@ import { Icon } from "@/components/icon";
 import { LoginModal } from "@/components/login-modal";
 import { RegisterModal } from "@/components/register-modal";
 import { AuthModalContext } from "@/lib/auth-modal-context";
+import { BetslipProvider } from "@/lib/betslip-context";
 
 const tempAssets = {
   appInstall: "https://v3.bundlecdn.com/b02632/plain/bonus/app-install/phone-small-v1.png",
@@ -49,6 +50,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
   if (isLogin) return <>{children}</>;
 
   return (
+    <BetslipProvider>
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true) }}>
     <div className="min-h-screen bg-background text-on-surface">
       <header className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center bg-[#111113] px-3 lg:h-20 lg:px-0">
@@ -149,6 +151,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
       </nav>
     </div>
     </AuthModalContext.Provider>
+    </BetslipProvider>
   );
 }
 

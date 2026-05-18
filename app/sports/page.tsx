@@ -22,6 +22,7 @@ import {
 } from "@/lib/sportmonks";
 import Image from "next/image";
 import Link from "next/link";
+import { OddButton } from "@/components/odd-button";
 
 const TABS = ["Top", "Live", "Esports", "Sports", "Markets"] as const;
 type Tab = (typeof TABS)[number];
@@ -282,7 +283,16 @@ function MatchCard({ match: m }: { match: Match }) {
           {m.odds.length > 0 ? (
             <>
               {m.odds.map((o) => (
-                <OddButton key={o.label} label={o.label} value={o.value} />
+                <OddButton
+                  key={o.label}
+                  bet={{
+                    id: `${m.id}-${o.label}`,
+                    matchName: `${m.home.name} vs ${m.away.name}`,
+                    market: "Full time result",
+                    label: o.label,
+                    value: o.value,
+                  }}
+                />
               ))}
               {m.extraMarkets > 0 && (
                 <button
@@ -359,18 +369,3 @@ function TeamAvatar({ name }: { name: string }) {
   );
 }
 
-function OddButton({ label, value }: { label: string; value: string }) {
-  return (
-    <button
-      type="button"
-      className="group flex flex-1 items-center justify-between gap-1.5 rounded-xl bg-white/[0.06] px-2.5 py-2 transition hover:bg-[#087cff]/15"
-    >
-      <span className="text-[11px] font-bold text-slate-400 group-hover:text-[#087cff]">
-        {label}
-      </span>
-      <span className="text-[13px] font-black text-emerald-400 group-hover:text-[#087cff]">
-        {value}
-      </span>
-    </button>
-  );
-}
