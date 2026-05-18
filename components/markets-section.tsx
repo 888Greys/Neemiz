@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { BettingMarket, MarketOdd } from "@/lib/sportmonks";
+import { useBetslip } from "@/lib/betslip-context";
 
 const MAIN_IDS = new Set([1, 2, 80, 14, 6, 31, 56, 7, 10, 28]);
 const TOTAL_IDS = new Set([80, 28, 53, 20, 21, 7, 27, 81, 105, 107]);
@@ -31,7 +32,13 @@ function filterMarkets(markets: BettingMarket[], tab: TabKey): BettingMarket[] {
   }
 }
 
-export function MarketsSection({ markets }: { markets: BettingMarket[] }) {
+type MarketsSectionProps = {
+  markets: BettingMarket[];
+  fixtureId: number;
+  matchName: string;
+};
+
+export function MarketsSection({ markets, fixtureId, matchName }: MarketsSectionProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("main");
   const visible = filterMarkets(markets, activeTab);
 
@@ -61,16 +68,21 @@ export function MarketsSection({ markets }: { markets: BettingMarket[] }) {
           <p className="py-10 text-center text-[13px] text-slate-500">No markets available</p>
         )}
         {visible.map((market) => (
-          <MarketBlock key={market.id} market={market} />
+          <MarketBlock key={market.id} market={market} fixtureId={fixtureId} matchName={matchName} />
         ))}
       </div>
     </div>
   );
 }
 
-function MarketBlock({ market }: { market: BettingMarket }) {
-  const [open, setOpen] = useState(true);
+type MarketBlockProps = {
+  market: BettingMarket;
+  fixtureId: number;
+  matchName: string;
+};
 
+function MarketBlock({ market, fixtureId, matchName }: MarketBlockProps) {
+  const [open, setOpen] = useState(true);
   const isOUMarket = market.odds.some((o) => o.extra && (o.label === "Over" || o.label === "Under"));
   const isHandicapMarket = market.odds.some((o) => o.extra && o.extra.match(/^-?\d/));
 
@@ -88,11 +100,11 @@ function MarketBlock({ market }: { market: BettingMarket }) {
       <div className={`overflow-hidden transition-all duration-200 ease-out ${open ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"}`}>
         <div className="px-3 pb-3">
           {isOUMarket ? (
-            <OUMarket odds={market.odds} />
+            <OUMarket odds={market.odds} marketName={market.name} fixtureId={fixtureId} matchName={matchName} />
           ) : isHandicapMarket ? (
-            <HandicapMarket odds={market.odds} />
+            <HandicapMarket odds={market.odds} marketName={market.name} fixtureId={fixtureId} matchName={matchName} />
           ) : (
-            <SimpleMarket odds={market.odds} />
+            <SimpleMarket odds={market.odds} marketName={market.name} fixtureId={fixtureId} matchName={matchName} />
           )}
         </div>
       </div>
@@ -100,17 +112,59 @@ function MarketBlock({ market }: { market: BettingMarket }) {
   );
 }
 
-function SimpleMarket({ odds }: { odds: BettingMarket["odds"] }) {
+type OddPillProps = {
+  label: string;
+  value: string;
+  extra?: string;
+  marketName: string;
+  fixtureId: number;
+  matchName: string;
+};
+
+function OddPill({ label, value, extra, marketName, fixtureId, matchName }: OddPillProps) {
+  const { toggleBet, hasBet } = useBetslip();
+  const id = `${fixtureId}-${marketName}-${label}-${extra ?? ""}`.replace(/\s+/g, "_");
+  const active = hasBet(id);
+  const displayLabel = extra ? `${label} ${extra}` : label;
+
+  return (
+    <button
+      type="button"
+      onClick={() => toggleBet({ id, matchName, market: marketName, label: displayLabel, value })}
+      className={`group flex items-center justify-between gap-1 rounded-xl px-2.5 py-2 transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/50 ${
+        active
+          ? "bg-[#087cff] ring-1 ring-[#087cff]/50"
+          : "bg-white/[0.07] hover:bg-[#087cff]/15"
+      }`}
+    >
+      <span className={`truncate text-[11px] font-bold ${active ? "text-white" : "text-slate-400 group-hover:text-[#087cff]"}`}>
+        {displayLabel}
+      </span>
+      <span className={`shrink-0 text-[13px] font-black ${active ? "text-white" : "text-emerald-400 group-hover:text-[#087cff]"}`}>
+        {value}
+      </span>
+    </button>
+  );
+}
+
+type MarketInnerProps = {
+  odds: BettingMarket["odds"];
+  marketName: string;
+  fixtureId: number;
+  matchName: string;
+};
+
+function SimpleMarket({ odds, marketName, fixtureId, matchName }: MarketInnerProps) {
   return (
     <div className={`grid gap-1.5 ${odds.length === 2 ? "grid-cols-2" : odds.length === 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-3"}`}>
       {odds.slice(0, 9).map((o, i) => (
-        <OddPill key={i} label={o.label} value={o.value} />
+        <OddPill key={i} label={o.label} value={o.value} marketName={marketName} fixtureId={fixtureId} matchName={matchName} />
       ))}
     </div>
   );
 }
 
-function OUMarket({ odds }: { odds: BettingMarket["odds"] }) {
+function OUMarket({ odds, marketName, fixtureId, matchName }: MarketInnerProps) {
   const lines = new Map<string, { over?: string; under?: string }>();
   for (const o of odds) {
     const line = o.extra ?? "";
@@ -124,16 +178,16 @@ function OUMarket({ odds }: { odds: BettingMarket["odds"] }) {
     <div className="space-y-1.5">
       {Array.from(lines.entries()).slice(0, 8).map(([line, { over, under }]) => (
         <div key={line} className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
-          {under ? <OddPill label="Under" value={under} /> : <div />}
+          {under ? <OddPill label="Under" value={under} extra={line} marketName={marketName} fixtureId={fixtureId} matchName={matchName} /> : <div />}
           <span className="text-center text-[11px] font-black text-slate-500 tabular-nums">{line}</span>
-          {over ? <OddPill label="Over" value={over} /> : <div />}
+          {over ? <OddPill label="Over" value={over} extra={line} marketName={marketName} fixtureId={fixtureId} matchName={matchName} /> : <div />}
         </div>
       ))}
     </div>
   );
 }
 
-function HandicapMarket({ odds }: { odds: BettingMarket["odds"] }) {
+function HandicapMarket({ odds, marketName, fixtureId, matchName }: MarketInnerProps) {
   const groups = new Map<string, BettingMarket["odds"]>();
   for (const o of odds) {
     const key = o.extra ?? "";
@@ -149,23 +203,11 @@ function HandicapMarket({ odds }: { odds: BettingMarket["odds"] }) {
           <span className="w-12 shrink-0 text-center text-[11px] font-black text-slate-500">{line}</span>
           <div className={`grid flex-1 gap-1.5 ${group.length >= 3 ? "grid-cols-3" : "grid-cols-2"}`}>
             {group.map((o: MarketOdd, i: number) => (
-              <OddPill key={i} label={o.label} value={o.value} />
+              <OddPill key={i} label={o.label} value={o.value} extra={o.extra} marketName={marketName} fixtureId={fixtureId} matchName={matchName} />
             ))}
           </div>
         </div>
       ))}
     </div>
-  );
-}
-
-function OddPill({ label, value }: { label: string; value: string }) {
-  return (
-    <button
-      type="button"
-      className="group flex items-center justify-between gap-1 rounded-xl bg-white/[0.07] px-2.5 py-2 transition hover:bg-[#087cff]/15 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/50"
-    >
-      <span className="truncate text-[11px] font-bold text-slate-400 group-hover:text-[#087cff]">{label}</span>
-      <span className="shrink-0 text-[13px] font-black text-emerald-400 group-hover:text-[#087cff]">{value}</span>
-    </button>
   );
 }

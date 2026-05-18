@@ -99,7 +99,7 @@ export default async function FixtureDetailPage({ params }: Props) {
         </div>
 
         {/* ── Betting markets ── */}
-        {markets.length > 0 && <MarketsSection markets={markets} />}
+        {markets.length > 0 && <MarketsSection markets={markets} fixtureId={id} matchName={`${m.home.name} vs ${m.away.name}`} />}
 
         {/* ── Events timeline ── */}
         {events.length > 0 && (
