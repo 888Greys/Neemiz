@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
-import { usePathname } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
+import { usePathname, useRouter } from "next/navigation";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { mobileNav } from "@/lib/mock-data";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
@@ -516,6 +516,16 @@ function TelegramIcon() {
 }
 
 function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void }) {
+  const { isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
+  const router = useRouter();
+  const { balance, currency } = useWalletBalance();
+  const displayName = user?.username ?? user?.firstName ?? "User";
+  const initials = displayName.charAt(0).toUpperCase();
+  const fmtBalance = isSignedIn
+    ? `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
+
   const [openGroups, setOpenGroups] = useState({
     sports: false,
     casino: false,
@@ -531,15 +541,47 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister }: { onClose: (
         </button>
 
         <div className="no-scrollbar flex-1 overflow-y-auto p-2">
-          <div className="mb-2 flex gap-2">
-            <button onClick={onOpenLogin} className="flex flex-1 items-center gap-2 rounded-xl bg-[#28292d] px-3 py-2 text-left" type="button">
-              <Icon name="person" fill className="text-[16px] text-slate-300" />
-              <span className="text-xs font-black">Log in</span>
-            </button>
-            <button onClick={onOpenRegister} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#05b957] px-3 py-2" type="button">
-              <span className="text-xs font-black text-white">Register</span>
-            </button>
-          </div>
+          {isSignedIn ? (
+            /* ── Signed-in user header ── */
+            <div className="mb-3">
+              <Link
+                href="/profile"
+                onClick={onClose}
+                className="flex items-center gap-3 rounded-xl bg-[#28292d] px-3 py-2.5 transition hover:bg-[#32343b]"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white">
+                  {initials}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-black text-white">{displayName}</p>
+                  <p className="text-[10px] text-slate-500">View profile</p>
+                </div>
+                <Icon name="chevron_right" className="text-[16px] text-slate-500" />
+              </Link>
+              <Link
+                href="/wallet"
+                onClick={onClose}
+                className="mt-1.5 flex items-center justify-between rounded-xl bg-gradient-to-r from-[#087cff]/20 to-[#16171d] px-3 py-2.5 ring-1 ring-[#087cff]/20 transition hover:ring-[#087cff]/40"
+              >
+                <div className="flex items-center gap-2">
+                  <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
+                  <span className="text-xs font-black text-white">{fmtBalance}</span>
+                </div>
+                <span className="rounded-lg bg-[#05b957] px-3 py-1 text-[10px] font-black text-white">Deposit</span>
+              </Link>
+            </div>
+          ) : (
+            /* ── Guest header ── */
+            <div className="mb-2 flex gap-2">
+              <button onClick={onOpenLogin} className="flex flex-1 items-center gap-2 rounded-xl bg-[#28292d] px-3 py-2 text-left" type="button">
+                <Icon name="person" fill className="text-[16px] text-slate-300" />
+                <span className="text-xs font-black">Log in</span>
+              </button>
+              <button onClick={onOpenRegister} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#05b957] px-3 py-2" type="button">
+                <span className="text-xs font-black text-white">Register</span>
+              </button>
+            </div>
+          )}
 
           <Link
             href="/wallet"
@@ -628,6 +670,21 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister }: { onClose: (
             <span className="flex-1 text-xs font-black">Support</span>
             <span className="rounded-full bg-[#087cff] px-2 py-0.5 text-[10px] font-black">24/7</span>
           </Link>
+
+          {isSignedIn && (
+            <button
+              type="button"
+              className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-red-400 transition hover:bg-red-500/10"
+              onClick={async () => {
+                onClose();
+                await signOut();
+                router.push("/");
+              }}
+            >
+              <Icon name="logout" className="text-[16px]" />
+              <span className="text-xs font-black">Sign Out</span>
+            </button>
+          )}
         </div>
       </aside>
     </div>
