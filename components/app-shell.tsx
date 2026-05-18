@@ -12,6 +12,7 @@ import { RegisterModal } from "@/components/register-modal";
 import { ProfileModal } from "@/components/profile-modal";
 import { WalletModal } from "@/components/wallet-modal";
 import { SupportWidget } from "@/components/support-widget";
+import { NotificationsBell } from "@/components/notifications-dropdown";
 import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
@@ -130,6 +131,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
                   Deposit
                 </span>
               </button>
+              <NotificationsBell />
             </div>
           ) : (
             <div className="flex shrink-0 items-center gap-2 md:gap-3">
