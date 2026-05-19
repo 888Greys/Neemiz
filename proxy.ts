@@ -2,14 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PROTECTED = [
-  "/sports",
-  "/aviator",
-  "/binary",
-  "/p2p",
   "/wallet",
-  "/predictions",
-  "/casino",
-  "/dashboard",
+  "/profile",
 ];
 
 function isProtected(pathname: string) {
