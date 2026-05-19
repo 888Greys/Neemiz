@@ -25,7 +25,11 @@
       "Bash(ls \"E:/AaPom/Neemiz/.claude/worktrees/hardcore-tharp-31762e/node_modules/playwright\")",
       "Bash(npm install *)",
       "Bash(wrangler --version)",
-      "Bash(wrangler whoami *)"
+      "Bash(wrangler whoami *)",
+      "PowerShell(cd \"E:\\\\AaPom\\\\Neemiz\\\\.claude\\\\worktrees\\\\strange-poitras-cde494\"; bun add -D tailwindcss-animate; Write-Output \"EXIT:$LASTEXITCODE\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

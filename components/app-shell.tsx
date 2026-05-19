@@ -195,6 +195,14 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
               </button>
             );
           }
+          if (item.label === "Wallet") {
+            return (
+              <button key={item.label} type="button" className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset" onClick={() => setWalletOpen(true)}>
+                <Icon name={item.icon} className="text-[20px]" />
+                <span className="mt-0.5 font-bold leading-none">{item.label}</span>
+              </button>
+            );
+          }
 
           return (
             <Link key={item.label} href={item.href} className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}>

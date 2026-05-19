@@ -1,10 +1,7 @@
-import { AppShell } from "@/components/app-shell";
-import { ProfileClient } from "@/components/profile-client";
+import { redirect } from "next/navigation";
 
+// Profile is now a floating modal opened from the app shell.
+// Redirect any direct /profile visits back to the dashboard.
 export default function ProfilePage() {
-  return (
-    <AppShell>
-      <ProfileClient />
-    </AppShell>
-  );
+  redirect("/dashboard");
 }

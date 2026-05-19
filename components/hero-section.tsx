@@ -76,6 +76,8 @@ export function HeroSection() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bgTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Ref so interval callbacks always read the latest value without stale closure
+  const isHoveredRef = useRef(false);
 
   const startCycle = (tab: number) => {
     // clear existing
@@ -85,10 +87,12 @@ export function HeroSection() {
     setProgress(0);
     const step = 100 / (INTERVAL / 50);
     progressRef.current = setInterval(() => {
+      if (isHoveredRef.current) return; // paused on hover
       setProgress((p) => Math.min(p + step, 100));
     }, 50);
 
     timerRef.current = setInterval(() => {
+      if (isHoveredRef.current) return; // paused on hover
       setVisible(false);
       setTimeout(() => {
         setActiveTab((t) => {
@@ -135,8 +139,8 @@ export function HeroSection() {
   return (
     <section
       className="relative overflow-hidden min-h-[calc(100vh-64px)] flex flex-col justify-center"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => { isHoveredRef.current = true;  setIsHovered(true); }}
+      onMouseLeave={() => { isHoveredRef.current = false; setIsHovered(false); }}
     >
       {/* Background image carousel */}
       <div className="pointer-events-none absolute inset-0">
