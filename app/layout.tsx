@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { PageTransition } from "./page-transition";
 import { Toaster } from "@/lib/toast";
+import { SupabaseAuthProvider } from "@/lib/supabase/auth-context";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -39,10 +39,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={`${jakarta.variable} ${jetBrains.variable} bg-background text-on-background`}>
-        <ClerkProvider>
+        <SupabaseAuthProvider>
           <PageTransition>{children}</PageTransition>
           <Toaster />
-        </ClerkProvider>
+        </SupabaseAuthProvider>
       </body>
     </html>
   );

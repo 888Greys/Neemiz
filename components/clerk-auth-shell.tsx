@@ -12,7 +12,7 @@ export function ClerkAuthShell({ children }: { children: React.ReactNode }) {
           </Link>
         </div>
         {children}
-        <p className="mt-5 text-center text-xs text-slate-600">Protected by Clerk · 256-bit encryption</p>
+        <p className="mt-5 text-center text-xs text-slate-600">Protected by Supabase Auth · 256-bit encryption</p>
       </div>
     </main>
   );

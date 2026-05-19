@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
@@ -12,8 +12,9 @@ function normalizeMsisdn(phone: string): string {
 }
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const baseUrl = (process.env.MEGAPAY_BASE_URL ?? process.env.MEGAPAY_API_URL ?? "").replace(/\/+$/, "");
   const apiKey  = process.env.MEGAPAY_API_KEY ?? "";
@@ -42,9 +43,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid Safaricom number. Use 07XXXXXXXX or 01XXXXXXXX." }, { status: 400 });
   }
 
-  const user = await getOrCreateUser(userId);
+  const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
-  const reference = `nezeem-dep-${user.id.slice(-6)}-${Date.now()}`;
+  const reference = `nezeem-dep-${dbUser.id.slice(-6)}-${Date.now()}`;
 
   // Call MegaPay STK push
   const mpRes = await fetch(`${baseUrl}/backend/v1/initiatestk`, {
@@ -70,10 +71,9 @@ export async function POST(req: Request) {
     );
   }
 
-  // Save pending transaction so we can credit wallet on confirmation
   await db.transaction.create({
     data: {
-      userId: user.id,
+      userId: dbUser.id,
       type: TransactionType.DEPOSIT,
       amount: amountKes,
       currency: "KES",

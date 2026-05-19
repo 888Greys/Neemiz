@@ -2,13 +2,14 @@
 
 import { useRef } from "react";
 import Link from "next/link";
-import { useAuth } from "@clerk/nextjs";
+import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
 import { useAuthModal } from "@/lib/auth-modal-context";
+import { toast } from "@/lib/toast";
 
 /* ── Single game card ─────────────────────────────────── */
 function GameCard({ image, href }: { image: string; href: string }) {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn } = useSupabaseAuth();
   const { openLogin } = useAuthModal();
 
   const sharedClassName = "group relative flex-shrink-0 w-[120px] md:w-[160px] overflow-hidden rounded-2xl transition-transform hover:scale-[1.04] active:scale-[.98]";
@@ -30,9 +31,11 @@ function GameCard({ image, href }: { image: string; href: string }) {
     );
   }
 
+  // All game cards are coming soon — show toast instead of navigating
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
+      onClick={() => toast.info("Coming soon", "This game is launching soon. Stay tuned! 🎮")}
       className={sharedClassName}
       style={sharedStyle}
     />

@@ -1,3 +1,5 @@
+"use client";
+
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icon";
 import Link from "next/link";
@@ -5,6 +7,8 @@ import { MobileHeroCarousel } from "@/components/mobile-hero-carousel";
 import { HeroSection } from "@/components/hero-section";
 import { GameRow } from "@/components/game-row";
 import { TrendingMatchCarousel } from "@/components/trending-match-carousel";
+import { useAuthModal } from "@/lib/auth-modal-context";
+import { toast } from "@/lib/toast";
 
 const tempAssets = {
   bonusMobile: "https://v3.bundlecdn.com/b02632/plain/bonus/bonus-banner.1/main_bonus_360-v2.png",
@@ -224,15 +228,17 @@ const BG_IMAGES = [
 ];
 
 const QUICK_NAV = [
-  { href: "/sports",      icon: "sports_soccer",          label: "Sports",      color: "bg-violet-500/20 text-violet-300" },
-  { href: "/aviator",     icon: "rocket_launch",          label: "Aviator",     color: "bg-orange-500/20 text-orange-300" },
-  { href: "/dashboard",   icon: "casino",                 label: "Casino",      color: "bg-blue-500/20 text-blue-300" },
-  { href: "/p2p",         icon: "swap_horiz",             label: "P2P",         color: "bg-emerald-500/20 text-emerald-300" },
-  { href: "/binary",      icon: "candlestick_chart",      label: "Binary",      color: "bg-sky-500/20 text-sky-300" },
-  { href: "/wallet",      icon: "account_balance_wallet", label: "Wallet",      color: "bg-amber-500/20 text-amber-300" },
+  { href: "/sports",  action: null,     icon: "sports_soccer",          label: "Sports",  color: "bg-violet-500/20 text-violet-300" },
+  { href: "/aviator", action: null,     icon: "rocket_launch",          label: "Aviator", color: "bg-orange-500/20 text-orange-300" },
+  { href: null,       action: "casino", icon: "casino",                 label: "Casino",  color: "bg-blue-500/20 text-blue-300" },
+  { href: "/p2p",     action: null,     icon: "swap_horiz",             label: "P2P",     color: "bg-emerald-500/20 text-emerald-300" },
+  { href: "/binary",  action: null,     icon: "candlestick_chart",      label: "Binary",  color: "bg-sky-500/20 text-sky-300" },
+  { href: null,       action: "wallet", icon: "account_balance_wallet", label: "Wallet",  color: "bg-amber-500/20 text-amber-300" },
 ];
 
 function MobileDashboard() {
+  const { openWallet } = useAuthModal();
+
   return (
     <div className="md:hidden">
       {/* ── Hero ── */}
@@ -240,18 +246,35 @@ function MobileDashboard() {
 
       {/* ── Quick nav ── */}
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-4 py-4">
-        {QUICK_NAV.map((item) => (
-          <Link
-            key={item.href + item.label}
-            href={item.href}
-            className="flex shrink-0 flex-col items-center gap-1.5"
-          >
-            <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.color} ring-1 ring-white/10`}>
-              <Icon name={item.icon} fill className="text-[22px]" />
-            </span>
-            <span className="text-[10px] font-black text-white/60">{item.label}</span>
-          </Link>
-        ))}
+        {QUICK_NAV.map((item) => {
+          const inner = (
+            <>
+              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.color} ring-1 ring-white/10`}>
+                <Icon name={item.icon} fill className="text-[22px]" />
+              </span>
+              <span className="text-[10px] font-black text-white/60">{item.label}</span>
+            </>
+          );
+          if (item.action === "wallet") {
+            return (
+              <button key={item.label} type="button" onClick={openWallet} className="flex shrink-0 flex-col items-center gap-1.5">
+                {inner}
+              </button>
+            );
+          }
+          if (item.action === "casino") {
+            return (
+              <button key={item.label} type="button" onClick={() => toast.info("Coming soon", "Casino lobby launching soon! 🎰")} className="flex shrink-0 flex-col items-center gap-1.5">
+                {inner}
+              </button>
+            );
+          }
+          return (
+            <Link key={item.label} href={item.href!} className="flex shrink-0 flex-col items-center gap-1.5">
+              {inner}
+            </Link>
+          );
+        })}
       </div>
 
       {/* ── Aviator banner ── */}

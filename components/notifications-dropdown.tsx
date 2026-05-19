@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
+import { toast } from "@/lib/toast";
 
 type Tab = "all" | "personal" | "general";
 
@@ -164,7 +165,7 @@ export function NotificationsDropdown({ onClose }: Props) {
           <div className="flex flex-col items-center gap-3 py-12 text-center">
             <Icon name="notifications_off" fill className="text-[32px] text-slate-700" />
             <p className="text-sm font-black text-white">No notifications</p>
-            <p className="text-xs text-slate-600">You're all caught up!</p>
+            <p className="text-xs text-slate-600">You&apos;re all caught up!</p>
           </div>
         ) : (
           filtered.map((n, i) => (
@@ -216,7 +217,11 @@ export function NotificationsDropdown({ onClose }: Props) {
 
       {/* Footer */}
       <div className="border-t border-white/[0.07] px-4 py-3 text-center">
-        <button type="button" className="text-[12px] font-black text-slate-500 transition hover:text-white">
+        <button
+          type="button"
+          onClick={() => toast.info("Coming soon", "A full notifications centre is on the way!")}
+          className="text-[12px] font-black text-slate-500 transition hover:text-white"
+        >
           View all notifications
         </button>
       </div>

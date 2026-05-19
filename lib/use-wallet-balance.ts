@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 
 type WalletState = {
   balance: number;
@@ -10,7 +10,7 @@ type WalletState = {
 };
 
 export function useWalletBalance() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn } = useSupabaseAuth();
   const [state, setState] = useState<WalletState>({ balance: 0, currency: "KES", loading: false });
 
   const refresh = useCallback(async () => {
