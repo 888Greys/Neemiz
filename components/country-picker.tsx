@@ -94,7 +94,7 @@ export function CountryPicker({ value, onChange }: Props) {
           {/* Country list */}
           <div className="no-scrollbar max-h-[220px] overflow-y-auto">
             {filtered.length === 0 ? (
-              <p className="px-4 py-4 text-center text-sm text-slate-500">No results for "{search}"</p>
+              <p className="px-4 py-4 text-center text-sm text-slate-500">No results for &quot;{search}&quot;</p>
             ) : (
               filtered.map((c) => (
                 <button
