@@ -155,7 +155,7 @@ function normalizeOddsEvent(event: OddsEvent, liveScore?: ScoreEvent): Match {
 
 async function fetchOdds(sportKey: string): Promise<OddsEvent[]> {
   if (!API_KEY) return [];
-  const url = `${BASE}/sports/${sportKey}/odds?apiKey=${API_KEY}&regions=eu&markets=h2h,totals,spreads&oddsFormat=decimal`;
+  const url = `${BASE}/sports/${sportKey}/odds?apiKey=${API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal`;
   try {
     const res = await fetch(url, { next: { revalidate: 7200 } });
     if (!res.ok) {
