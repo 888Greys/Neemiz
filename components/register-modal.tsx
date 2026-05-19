@@ -3,11 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useSignUp, useSignIn, useClerk } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 import { CountryPicker } from "@/components/country-picker";
 import { COUNTRIES, type Country } from "@/lib/countries";
 import { toast } from "@/lib/toast";
+import { createClient } from "@/lib/supabase/client";
 
 function TgIcon() {
   return (
@@ -36,68 +36,76 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   const [agreed, setAgreed]           = useState(false);
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState("");
-  // pendingVerify only shown when Clerk requires OTP (instance setting); user can skip
   const [pendingVerify, setPendingVerify] = useState(false);
   const [code, setCode]               = useState("");
   const [resending, setResending]     = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
-  const { signUp } = useSignUp();
-  const { signIn } = useSignIn();
-  const { setActive } = useClerk();
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!signUp || !agreed) return;
+    if (!agreed) return;
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
-      return;
-    }
-    if (username && username.length < 4) {
-      setError("Username must be at least 4 characters");
-      return;
-    }
+    if (password !== confirmPassword) { setError("Passwords do not match"); return; }
+    if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
+    if (username && username.length < 4) { setError("Username must be at least 4 characters"); return; }
 
     setLoading(true);
     setError("");
+
+    const supabase = createClient();
+
     try {
-      const params = tab === "email"
-        ? { emailAddress: email, password, ...(username ? { username } : {}) }
-        : { phoneNumber: `${country.code}${phone}`, password, ...(username ? { username } : {}) };
+      if (tab === "email") {
+        const { error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: username || null,
+              first_name: null,
+            },
+            // OTP-style confirmation (set "Email OTP" in Supabase Auth settings)
+          },
+        });
 
-      await Promise.race([
-        signUp.create(params as Parameters<typeof signUp.create>[0]),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Request timed out. Please check your connection and try again.")), 15_000)),
-      ]);
+        if (authError) {
+          setError(authError.message);
+          return;
+        }
 
-      if (signUp.status === "complete" && signUp.createdSessionId) {
-        // Verification disabled in Clerk dashboard — instant login
-        await setActive({ session: signUp.createdSessionId });
+        // Show OTP screen — Supabase sends a 6-digit code to the email
+        setPendingVerify(true);
+        startResendCooldown();
+      } else {
+        // Phone tab: register with phone number as email alias + password
+        // Full phone auth (SMS OTP) requires Supabase SMS provider (Twilio/Vonage)
+        const phoneEmail = `${country.code}${phone}`.replace("+", "") + "@phone.nezeem.com";
+
+        const { error: authError } = await supabase.auth.signUp({
+          email: phoneEmail,
+          password,
+          options: {
+            data: {
+              username: username || null,
+              phone_number: `${country.code}${phone}`,
+            },
+          },
+        });
+
+        if (authError) {
+          setError(authError.message);
+          return;
+        }
+
+        // Phone registrations are auto-confirmed (no email OTP for phone-alias accounts)
         onClose();
         toast.success("Account created!", "Welcome to Nezeem 🎉");
         router.push("/dashboard");
-      } else {
-        // Send the verification code
-        const su = signUp as any;
-        await Promise.race([
-          tab === "email"
-            ? su.prepareEmailAddressVerification({ strategy: "email_code" })
-            : su.preparePhoneNumberVerification(),
-          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Code delivery timed out. Please check your inbox or try resending.")), 12_000)),
-        ]);
-        setPendingVerify(true);
-        startResendCooldown();
       }
-    } catch (err: unknown) {
-      const e = err as { errors?: { longMessage?: string; message?: string }[] };
-      const msg = e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "";
-      setError(msg || "Registration failed. Please try again or log in if you already have an account.");
+    } catch {
+      setError("Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -105,28 +113,30 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
-    if (!signUp) return;
     setLoading(true);
     setError("");
+
+    const supabase = createClient();
+
     try {
-      const su = signUp as any;
-      if (tab === "email") {
-        await su.attemptEmailAddressVerification({ code });
-      } else {
-        await su.attemptPhoneNumberVerification({ code });
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email,
+        token: code,
+        type: "signup",
+      });
+
+      if (verifyError) {
+        setError(verifyError.message === "Token has expired or is invalid"
+          ? "Code is invalid or has expired. Please request a new one."
+          : verifyError.message);
+        return;
       }
 
-      if (signUp.status === "complete" && signUp.createdSessionId) {
-        await setActive({ session: signUp.createdSessionId });
-        onClose();
-        toast.success("Account verified!", "Welcome to Nezeem 🎉");
-        router.push("/dashboard");
-      } else {
-        setError("Verification incomplete — please try again.");
-      }
-    } catch (err: unknown) {
-      const e = err as { errors?: { longMessage?: string; message?: string }[] };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Invalid code. Please try again.");
+      onClose();
+      toast.success("Account verified!", "Welcome to Nezeem 🎉");
+      router.push("/dashboard");
+    } catch {
+      setError("Verification failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -143,64 +153,47 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   }
 
   async function handleResend() {
-    if (!signUp || resendCooldown > 0) return;
+    if (resendCooldown > 0) return;
     setResending(true);
     setError("");
+
+    const supabase = createClient();
+
     try {
-      const su = signUp as any;
-      await Promise.race([
-        tab === "email"
-          ? su.prepareEmailAddressVerification({ strategy: "email_code" })
-          : su.preparePhoneNumberVerification(),
-        new Promise<never>((_, rej) => setTimeout(() => rej(new Error("Timed out. Please try again.")), 10_000)),
-      ]);
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email,
+      });
+
+      if (resendError) {
+        setError(resendError.message);
+        return;
+      }
+
       startResendCooldown();
-    } catch (err: unknown) {
-      const e = err as { errors?: { longMessage?: string; message?: string }[]; message?: string };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "Failed to resend. Please try again.");
+      toast.info("Code resent", "Check your inbox (and spam folder).");
+    } catch {
+      setError("Failed to resend. Please try again.");
     } finally {
       setResending(false);
     }
   }
 
-  async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
-    if (!signIn) { setError("Auth not ready. Please refresh."); return; }
+  async function handleOAuth(provider: "google" | "github") {
     setError("");
     setLoading(true);
-    try {
-      // In Clerk v7, create() mutates signIn in place — return value is undefined
-      await (signIn as any).create({
-        strategy,
-        redirectUrl: `${window.location.origin}/sso-callback`,
-        actionCompleteRedirectUrl: `${window.location.origin}/dashboard`,
-      });
-
-      // Read from signIn directly after mutation
-      const si = signIn as any;
-      console.log("signIn.status:", si.status, "fFV:", JSON.stringify(si.firstFactorVerification));
-
-      if (si.status === "complete" && si.createdSessionId) {
-        await setActive({ session: si.createdSessionId });
-        onClose();
-        toast.success("Account created!", "Welcome to Nezeem 🎉");
-        router.push("/dashboard");
-        return;
-      }
-
-      const url = si.firstFactorVerification?.externalVerificationRedirectURL;
-      const href = typeof url === "string" ? url : url?.href ?? url?.toString?.();
-      if (href) {
-        window.location.href = href;
-      } else {
-        setError(`OAuth error (status: ${si.status}). Check console.`);
-      }
-    } catch (err: unknown) {
-      console.error("OAuth error:", err);
-      const e = err as { errors?: { longMessage?: string; message?: string }[]; message?: string };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "OAuth sign-in failed. Please try again.");
-    } finally {
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (authError) {
+      setError(authError.message);
       setLoading(false);
     }
+    // On success the browser redirects — no need to set loading false
   }
 
   return (
@@ -235,22 +228,20 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
               {/* Sent-to info */}
               <div className="rounded-2xl bg-[#18191f] px-4 py-3.5 ring-1 ring-white/[0.07]">
                 <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Code sent to</p>
-                <p className="mt-0.5 font-bold text-white truncate">{tab === "email" ? email : `${country.code}${phone}`}</p>
+                <p className="mt-0.5 font-bold text-white truncate">{email}</p>
               </div>
 
-              {/* Spam warning — prominent amber box */}
-              {tab === "email" && (
-                <div className="flex items-start gap-3 rounded-2xl bg-amber-400/10 px-4 py-3 ring-1 ring-amber-400/20">
-                  <Icon name="warning" fill className="mt-0.5 shrink-0 text-[18px] text-amber-400" />
-                  <div className="space-y-0.5">
-                    <p className="text-[12px] font-black text-amber-300">Check your spam / junk folder</p>
-                    <p className="text-[11px] leading-relaxed text-amber-400/70">
-                      The code comes from <span className="font-bold text-amber-300">noreply@clerk.dev</span>.
-                      Email providers often mark it as spam — check there first before resending.
-                    </p>
-                  </div>
+              {/* Spam warning */}
+              <div className="flex items-start gap-3 rounded-2xl bg-amber-400/10 px-4 py-3 ring-1 ring-amber-400/20">
+                <Icon name="warning" fill className="mt-0.5 shrink-0 text-[18px] text-amber-400" />
+                <div className="space-y-0.5">
+                  <p className="text-[12px] font-black text-amber-300">Check your spam / junk folder</p>
+                  <p className="text-[11px] leading-relaxed text-amber-400/70">
+                    The code comes from <span className="font-bold text-amber-300">noreply@nezeem.com</span>.
+                    If you don&apos;t see it, check spam before resending.
+                  </p>
                 </div>
-              )}
+              </div>
 
               {/* OTP input */}
               <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
@@ -411,9 +402,6 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                   </span>
                 </label>
 
-                {/* Clerk CAPTCHA mount point — required for bot protection in production */}
-                <div id="clerk-captcha" />
-
                 {/* Submit */}
                 <button
                   type="submit"
@@ -441,7 +429,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
 
               {/* Social */}
               <div className="flex justify-center gap-2.5">
-                <button type="button" onClick={() => handleOAuth("oauth_google")} aria-label="Google"
+                <button type="button" onClick={() => handleOAuth("google")} aria-label="Google"
                   className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#18191f] ring-1 ring-white/[0.07] transition hover:bg-[#22252e]"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -456,7 +444,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                 >
                   <TgIcon />
                 </button>
-                <button type="button" onClick={() => handleOAuth("oauth_github")} aria-label="GitHub"
+                <button type="button" onClick={() => handleOAuth("github")} aria-label="GitHub"
                   className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#18191f] text-white ring-1 ring-white/[0.07] transition hover:bg-[#22252e]"
                 >
                   <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
@@ -473,8 +461,8 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
               </div>
             </>
           )}
-
           </div>
+
           {/* Switch to login */}
           <p className="mt-6 text-center text-sm text-slate-500">
             Already have an account?{" "}

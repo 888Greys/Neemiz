@@ -1,23 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { toast } from "@/lib/toast";
 
+// OAuth flow now uses /auth/callback (Supabase PKCE).
+// This page is kept as a redirect shim for any old links.
 export default function SSOCallbackPage() {
-  const { handleRedirectCallback } = useClerk();
   const router = useRouter();
-
-  useEffect(() => {
-    handleRedirectCallback({})
-      .then(() => {
-        toast.success("Welcome back!", "You have successfully signed in.");
-      })
-      .catch(() => {
-        router.replace("/dashboard");
-      });
-  }, [handleRedirectCallback, router]);
+  useEffect(() => { router.replace("/dashboard"); }, [router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0d0e11]">

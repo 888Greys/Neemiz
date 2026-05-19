@@ -1,11 +1,6 @@
 import { redirect } from "next/navigation";
 
-type LoginPageProps = {
-  searchParams: {
-    mode?: string;
-  };
-};
-
-export default function LoginPage({ searchParams }: LoginPageProps) {
-  redirect(searchParams.mode === "signup" ? "/sign-up" : "/sign-in");
+// Auth is now handled via modals. Redirect to home.
+export default function LoginPage() {
+  redirect("/");
 }

@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSignIn, useClerk } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 import { CountryPicker } from "@/components/country-picker";
 import { COUNTRIES, type Country } from "@/lib/countries";
 import { toast } from "@/lib/toast";
+import { createClient } from "@/lib/supabase/client";
 
 function TgIcon() {
   return (
@@ -23,79 +23,62 @@ type Props = {
 };
 
 export function LoginModal({ onClose, onSwitchToRegister }: Props) {
-  const [tab, setTab]         = useState<"phone" | "email">("phone");
-  const [country, setCountry] = useState<Country>(COUNTRIES[0]);
-  const [phone, setPhone]     = useState("");
-  const [email, setEmail]     = useState("");
+  const [tab, setTab]           = useState<"phone" | "email">("email");
+  const [country, setCountry]   = useState<Country>(COUNTRIES[0]);
+  const [phone, setPhone]       = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [showPw, setShowPw]   = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
+  const [showPw, setShowPw]     = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
 
-  const { signIn } = useSignIn();
-  const { setActive } = useClerk();
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!signIn) return;
     setLoading(true);
     setError("");
+
+    const supabase = createClient();
+
     try {
-      const identifier = tab === "email" ? email : `${country.code}${phone}`;
-      await signIn.create({ identifier, password });
-      // signIn.status is updated reactively after create()
-      const si = signIn as unknown as { status: string; createdSessionId?: string };
-      if (si.status === "complete" && si.createdSessionId) {
-        await setActive({ session: si.createdSessionId });
-        onClose();
-        toast.success("Welcome back!", "You have successfully logged in.");
-        router.push("/dashboard");
-      } else {
-        setError("Sign-in incomplete. Please try again.");
+      // For phone tab we use the phone number as the email identifier
+      // (Supabase phone+password requires an SMS provider — use email-style phone for now)
+      const identifier = tab === "email" ? email : `${country.code}${phone}`.replace("+", "") + "@phone.nezeem.com";
+
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: identifier,
+        password,
+      });
+
+      if (authError) {
+        setError(authError.message === "Invalid login credentials"
+          ? "Incorrect email or password. Please try again."
+          : authError.message);
+        return;
       }
-    } catch (err: unknown) {
-      const e = err as { errors?: { longMessage?: string; message?: string }[] };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Invalid email or password");
+
+      onClose();
+      toast.success("Welcome back!", "You have successfully logged in.");
+      router.push("/dashboard");
+    } catch {
+      setError("Sign-in failed. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleOAuth(strategy: "oauth_google" | "oauth_github") {
-    if (!signIn) return;
+  async function handleOAuth(provider: "google" | "github") {
     setError("");
-    try {
-      // In Clerk v7, create() mutates signIn in place — return value is undefined
-      await (signIn as any).create({
-        strategy,
-        redirectUrl: `${window.location.origin}/sso-callback`,
-        actionCompleteRedirectUrl: `${window.location.origin}/dashboard`,
-      });
-
-      // Read from signIn directly after mutation
-      const si = signIn as any;
-      console.log("signIn.status:", si.status, "fFV:", JSON.stringify(si.firstFactorVerification));
-
-      if (si.status === "complete" && si.createdSessionId) {
-        await setActive({ session: si.createdSessionId });
-        onClose();
-        toast.success("Welcome back!", "Signed in with OAuth.");
-        router.push("/dashboard");
-        return;
-      }
-
-      const url = si.firstFactorVerification?.externalVerificationRedirectURL;
-      const href = typeof url === "string" ? url : url?.href ?? url?.toString?.();
-      if (href) {
-        window.location.href = href;
-      } else {
-        setError(`OAuth error (status: ${si.status}). Check console.`);
-      }
-    } catch (err: unknown) {
-      console.error("OAuth error:", err);
-      const e = err as { errors?: { longMessage?: string; message?: string }[]; message?: string };
-      setError(e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? e?.message ?? "OAuth sign-in failed.");
+    const supabase = createClient();
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (authError) {
+      setError(authError.message);
     }
   }
 
@@ -184,13 +167,14 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
 
             {/* Forgot */}
             <div className="text-right">
-              <button type="button" className="text-xs font-bold text-[#087cff] transition hover:text-blue-400">
+              <button
+                type="button"
+                onClick={() => toast.info("Password reset", "Check your email for a reset link after entering your email above and clicking below.")}
+                className="text-xs font-bold text-[#087cff] transition hover:text-blue-400"
+              >
                 Forgot your password?
               </button>
             </div>
-
-            {/* Clerk CAPTCHA mount point — required for bot protection in production */}
-            <div id="clerk-captcha" />
 
             {/* Submit */}
             <button
@@ -222,7 +206,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
             {/* Google */}
             <button
               type="button"
-              onClick={() => handleOAuth("oauth_google")}
+              onClick={() => handleOAuth("google")}
               aria-label="Google"
               className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#18191f] ring-1 ring-white/[0.07] transition hover:bg-[#22252e]"
             >
@@ -240,7 +224,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
             {/* GitHub */}
             <button
               type="button"
-              onClick={() => handleOAuth("oauth_github")}
+              onClick={() => handleOAuth("github")}
               aria-label="GitHub"
               className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#18191f] text-white ring-1 ring-white/[0.07] transition hover:bg-[#22252e]"
             >
@@ -272,4 +256,3 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     </div>
   );
 }
-

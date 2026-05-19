@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
@@ -15,17 +15,17 @@ type Props = {
 };
 
 export function ProfileModal({ onClose, onOpenWallet }: Props) {
-  const { user } = useUser();
-  const { signOut } = useClerk();
+  const { user, signOut } = useSupabaseAuth();
   const router = useRouter();
   const { balance, currency } = useWalletBalance();
   const [view, setView] = useState<View>("main");
 
-  const displayName = user?.username ?? user?.firstName ?? "User";
+  const meta = user?.user_metadata ?? {};
+  const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials    = displayName.charAt(0).toUpperCase();
-  const email       = user?.primaryEmailAddress?.emailAddress;
-  const phone       = user?.primaryPhoneNumber?.phoneNumber;
-  const isVerified  = user?.primaryEmailAddress?.verification.status === "verified";
+  const email       = user?.email;
+  const phone       = user?.phone ?? meta.phone_number ?? null;
+  const isVerified  = user?.email_confirmed_at != null;
   const fmtBalance  = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
   const memberId    = user?.id?.slice(-8).toUpperCase() ?? "—";
 
@@ -44,6 +44,13 @@ export function ProfileModal({ onClose, onOpenWallet }: Props) {
     { icon: "language",      label: "Language & Region",sub: "English · Kenya",            action: cs },
     { icon: "support_agent", label: "Help & Support",   sub: "24/7 live chat",             action: cs },
   ];
+
+  async function handleSignOut() {
+    await signOut();
+    onClose();
+    toast.info("Signed out", "See you next time!");
+    router.push("/");
+  }
 
   return (
     <div
@@ -115,6 +122,7 @@ export function ProfileModal({ onClose, onOpenWallet }: Props) {
                   </button>
                   <button
                     type="button"
+                    onClick={() => toast.info("Coming soon", "M-Pesa withdrawals are launching soon!")}
                     className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/[0.07] py-2.5 text-sm font-black text-slate-300 ring-1 ring-white/[0.09] transition hover:bg-white/[0.11] active:scale-[0.98]"
                   >
                     <Icon name="remove_circle" fill className="text-[16px] text-slate-400" />
@@ -165,12 +173,7 @@ export function ProfileModal({ onClose, onOpenWallet }: Props) {
               <div className="px-4 pb-6">
                 <button
                   type="button"
-                  onClick={async () => {
-                    await signOut();
-                    onClose();
-                    toast.info("Signed out", "See you next time!");
-                    router.push("/");
-                  }}
+                  onClick={handleSignOut}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.07] py-3 text-sm font-black text-red-400 ring-1 ring-red-500/[0.12] transition hover:bg-red-500/[0.12] hover:ring-red-500/30"
                 >
                   <Icon name="logout" className="text-[16px]" />
@@ -195,7 +198,7 @@ export function ProfileModal({ onClose, onOpenWallet }: Props) {
                         </div>
                       </div>
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isVerified ? "bg-emerald-500/12 text-emerald-400" : "bg-amber-500/12 text-amber-400"}`}>
-                        {isVerified ? "Verified" : "Verify"}
+                        {isVerified ? "Verified" : "Unverified"}
                       </span>
                     </div>
                   )}
@@ -246,19 +249,14 @@ export function ProfileModal({ onClose, onOpenWallet }: Props) {
                       <p className="text-[11px] text-slate-500">Log out on other devices</p>
                     </div>
                   </div>
-                  <button type="button" className="text-xs font-black text-red-400 transition hover:text-red-300">End all</button>
+                  <button type="button" onClick={cs} className="text-xs font-black text-red-400 transition hover:text-red-300">End all</button>
                 </div>
               </div>
 
               <div className="px-4 pb-6">
                 <button
                   type="button"
-                  onClick={async () => {
-                    await signOut();
-                    onClose();
-                    toast.info("Signed out", "See you next time!");
-                    router.push("/");
-                  }}
+                  onClick={handleSignOut}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.07] py-3 text-sm font-black text-red-400 ring-1 ring-red-500/[0.12] transition hover:bg-red-500/[0.12] hover:ring-red-500/30"
                 >
                   <Icon name="logout" className="text-[16px]" />

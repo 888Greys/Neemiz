@@ -1,10 +1,11 @@
-import { auth } from "@clerk/nextjs/server";
+import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { TransactionStatus } from "@prisma/client";
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const baseUrl = (process.env.MEGAPAY_BASE_URL ?? process.env.MEGAPAY_API_URL ?? "").replace(/\/+$/, "");
   const apiKey  = process.env.MEGAPAY_API_KEY ?? "";
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
   // Check if already credited (idempotency)
   const existing = await db.transaction.findUnique({
     where: { reference: transactionRequestId },
-    include: { user: { select: { clerkId: true, walletBalance: true } } },
+    include: { user: { select: { walletBalance: true } } },
   });
 
   if (existing?.status === TransactionStatus.COMPLETED) {
@@ -58,7 +59,6 @@ export async function POST(req: Request) {
     });
   }
 
-  // Credit the wallet in a transaction
   if (!existing) {
     return Response.json({ status: "pending", message: "Transaction record not found." });
   }

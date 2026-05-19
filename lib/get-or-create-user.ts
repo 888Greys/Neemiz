@@ -1,38 +1,32 @@
-import { clerkClient } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 
+type UserData = {
+  email?: string | null;
+  phone?: string | null;
+  username?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  imageUrl?: string | null;
+};
+
 /**
- * Finds the DB user by Clerk ID, creating the record if it doesn't exist yet.
- * This handles the case where the Clerk webhook missed the user.created event.
+ * Finds the DB user by Supabase ID, creating the record if it doesn't exist yet.
+ * Pass `data` on first call (e.g. from auth webhook or sign-up API route) so the
+ * row is seeded with the user's profile info.
  */
-export async function getOrCreateUser(clerkId: string) {
-  // Fast path — user already exists
-  const existing = await db.user.findUnique({ where: { clerkId } });
+export async function getOrCreateUser(supabaseId: string, data?: UserData) {
+  const existing = await db.user.findUnique({ where: { supabaseId } });
   if (existing) return existing;
 
-  // Fetch from Clerk and create
-  const client = await clerkClient();
-  const clerkUser = await client.users.getUser(clerkId);
-
-  const primaryEmail = clerkUser.emailAddresses.find(
-    (e) => e.id === clerkUser.primaryEmailAddressId
-  )?.emailAddress ?? null;
-
-  const primaryPhone = clerkUser.phoneNumbers.find(
-    (p) => p.id === clerkUser.primaryPhoneNumberId
-  )?.phoneNumber ?? null;
-
-  return db.user.upsert({
-    where: { clerkId },
-    update: {},
-    create: {
-      clerkId,
-      email: primaryEmail,
-      phone: primaryPhone,
-      username: clerkUser.username ?? null,
-      firstName: clerkUser.firstName ?? null,
-      lastName: clerkUser.lastName ?? null,
-      imageUrl: clerkUser.imageUrl ?? null,
+  return db.user.create({
+    data: {
+      supabaseId,
+      email: data?.email ?? null,
+      phone: data?.phone ?? null,
+      username: data?.username ?? null,
+      firstName: data?.firstName ?? null,
+      lastName: data?.lastName ?? null,
+      imageUrl: data?.imageUrl ?? null,
     },
   });
 }

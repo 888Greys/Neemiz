@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { mobileNav } from "@/lib/mock-data";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
@@ -32,8 +32,9 @@ type AppShellProps = {
 export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
-  const { isSignedIn, user } = useUser();
-  const displayName = user?.username ?? user?.firstName ?? "User";
+  const { isSignedIn, user } = useSupabaseAuth();
+  const meta = user?.user_metadata ?? {};
+  const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
   const { balance, currency } = useWalletBalance();
   const fmtBalance = isSignedIn
@@ -92,7 +93,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] font-black text-white">{displayName}</div>
-                <div className="truncate text-[10px] text-slate-500">ID {user?.id?.slice(-8)}</div>
+                <div className="truncate text-[10px] text-slate-500">ID {user?.id?.slice(-8).toUpperCase()}</div>
               </div>
               <Icon name="chevron_right" className="text-[18px] text-slate-400" />
             </button>
@@ -548,11 +549,11 @@ function TelegramIcon() {
 }
 
 function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenWallet }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenWallet: () => void }) {
-  const { isSignedIn, user } = useUser();
-  const { signOut } = useClerk();
+  const { isSignedIn, user, signOut } = useSupabaseAuth();
   const router = useRouter();
   const { balance, currency } = useWalletBalance();
-  const displayName = user?.username ?? user?.firstName ?? "User";
+  const meta = user?.user_metadata ?? {};
+  const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
   const fmtBalance = isSignedIn
     ? `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`

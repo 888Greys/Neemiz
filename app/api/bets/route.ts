@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { BetType, TransactionType, TransactionStatus } from "@prisma/client";
@@ -18,8 +18,9 @@ type PlaceBetBody = {
 };
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: PlaceBetBody;
   try {
@@ -37,14 +38,14 @@ export async function POST(req: Request) {
   const potentialWin = stake * totalOdds;
 
   const result = await db.$transaction(async (tx) => {
-    const user = await getOrCreateUser(userId);
+    const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
-    const balance = Number(user.walletBalance);
+    const balance = Number(dbUser.walletBalance);
     if (balance < stake) throw new Error("INSUFFICIENT_BALANCE");
 
     // Deduct stake
     const updated = await tx.user.update({
-      where: { id: user.id },
+      where: { id: dbUser.id },
       data: { walletBalance: { decrement: stake } },
       select: { walletBalance: true },
     });
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
     // Record transaction
     await tx.transaction.create({
       data: {
-        userId: user.id,
+        userId: dbUser.id,
         type: TransactionType.BET_STAKE,
         amount: stake,
         currency: "KES",
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
     // Create the bet
     const bet = await tx.bet.create({
       data: {
-        userId: user.id,
+        userId: dbUser.id,
         betType: type === "MULTI" ? BetType.MULTI : BetType.SINGLE,
         stake,
         totalOdds,
