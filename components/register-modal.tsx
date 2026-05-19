@@ -7,6 +7,7 @@ import { useSignUp, useSignIn, useClerk } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 import { CountryPicker } from "@/components/country-picker";
 import { COUNTRIES, type Country } from "@/lib/countries";
+import { toast } from "@/lib/toast";
 
 function TgIcon() {
   return (
@@ -79,6 +80,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         // Verification disabled in Clerk dashboard — instant login
         await setActive({ session: signUp.createdSessionId });
         onClose();
+        toast.success("Account created!", "Welcome to Nezeem 🎉");
         router.push("/dashboard");
       } else {
         // Send the verification code
@@ -117,6 +119,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       if (signUp.status === "complete" && signUp.createdSessionId) {
         await setActive({ session: signUp.createdSessionId });
         onClose();
+        toast.success("Account verified!", "Welcome to Nezeem 🎉");
         router.push("/dashboard");
       } else {
         setError("Verification incomplete — please try again.");
@@ -179,6 +182,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       if (si.status === "complete" && si.createdSessionId) {
         await setActive({ session: si.createdSessionId });
         onClose();
+        toast.success("Account created!", "Welcome to Nezeem 🎉");
         router.push("/dashboard");
         return;
       }

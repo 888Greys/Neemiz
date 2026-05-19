@@ -5,6 +5,7 @@ import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
+import { toast } from "@/lib/toast";
 
 type View = "main" | "settings";
 
@@ -165,6 +166,7 @@ export function ProfileModal({ onClose, onOpenWallet }: Props) {
                   onClick={async () => {
                     await signOut();
                     onClose();
+                    toast.info("Signed out", "See you next time!");
                     router.push("/");
                   }}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.07] py-3 text-sm font-black text-red-400 ring-1 ring-red-500/[0.12] transition hover:bg-red-500/[0.12] hover:ring-red-500/30"
@@ -252,6 +254,7 @@ export function ProfileModal({ onClose, onOpenWallet }: Props) {
                   onClick={async () => {
                     await signOut();
                     onClose();
+                    toast.info("Signed out", "See you next time!");
                     router.push("/");
                   }}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.07] py-3 text-sm font-black text-red-400 ring-1 ring-red-500/[0.12] transition hover:bg-red-500/[0.12] hover:ring-red-500/30"

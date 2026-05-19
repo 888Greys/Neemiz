@@ -11,6 +11,7 @@ import { LoginModal } from "@/components/login-modal";
 import { RegisterModal } from "@/components/register-modal";
 import { ProfileModal } from "@/components/profile-modal";
 import { WalletModal } from "@/components/wallet-modal";
+import { toast } from "@/lib/toast";
 import { SupportWidget } from "@/components/support-widget";
 import { NotificationsBell } from "@/components/notifications-dropdown";
 import { AuthModalContext } from "@/lib/auth-modal-context";
@@ -701,6 +702,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
               onClick={async () => {
                 onClose();
                 await signOut();
+                toast.info("Signed out", "See you next time!");
                 router.push("/");
               }}
             >

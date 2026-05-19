@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { PageTransition } from "./page-transition";
+import { Toaster } from "@/lib/toast";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${jakarta.variable} ${jetBrains.variable} bg-background text-on-background`}>
         <ClerkProvider>
           <PageTransition>{children}</PageTransition>
+          <Toaster />
         </ClerkProvider>
       </body>
     </html>

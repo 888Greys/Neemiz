@@ -6,6 +6,7 @@ import { useSignIn, useClerk } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 import { CountryPicker } from "@/components/country-picker";
 import { COUNTRIES, type Country } from "@/lib/countries";
+import { toast } from "@/lib/toast";
 
 function TgIcon() {
   return (
@@ -48,6 +49,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
       if (si.status === "complete" && si.createdSessionId) {
         await setActive({ session: si.createdSessionId });
         onClose();
+        toast.success("Welcome back!", "You have successfully logged in.");
         router.push("/dashboard");
       } else {
         setError("Sign-in incomplete. Please try again.");
@@ -78,6 +80,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
       if (si.status === "complete" && si.createdSessionId) {
         await setActive({ session: si.createdSessionId });
         onClose();
+        toast.success("Welcome back!", "Signed in with OAuth.");
         router.push("/dashboard");
         return;
       }
