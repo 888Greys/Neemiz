@@ -274,7 +274,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
               {/* Resend + spam hint */}
               <div className="space-y-2 text-center">
                 <p className="text-xs text-slate-500">
-                  Didn&apos;t receive it?{" "}
+                  Didn't receive it?{" "}
                   <button
                     type="button"
                     onClick={handleResend}
@@ -285,7 +285,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                   </button>
                 </p>
                 <p className="text-[11px] text-slate-600">
-                  💡 Check your <span className="text-slate-400 font-bold">spam / junk</span> folder if you don&apos;t see it
+                  💡 Check your <span className="text-slate-400 font-bold">spam / junk</span> folder if you don't see it
                 </p>
               </div>
             </form>
