@@ -103,9 +103,10 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     }
   }
 
-  async function handleVerify(e?: React.FormEvent) {
+  async function handleVerify(e?: React.FormEvent, overrideCode?: string) {
     e?.preventDefault();
-    if (code.length < 6 || loading) return;
+    const token = overrideCode ?? code;
+    if (token.length < 6 || loading) return;
     setLoading(true);
     setError("");
 
@@ -114,7 +115,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     try {
       const { error: verifyError } = await supabase.auth.verifyOtp({
         email,
-        token: code,
+        token,
         type: "signup",
       });
 
@@ -239,7 +240,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                   onChange={(e) => {
                     const v = e.target.value.replace(/\D/g, "");
                     setCode(v);
-                    if (v.length === 6) handleVerify();
+                    if (v.length === 6) handleVerify(undefined, v);
                   }}
                   placeholder="Enter 6-digit code"
                   className="flex-1 bg-transparent py-3.5 text-lg font-black text-white placeholder-slate-600 outline-none tracking-[0.3em]"

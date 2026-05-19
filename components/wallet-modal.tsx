@@ -91,8 +91,8 @@ export function WalletModal({ onClose }: Props) {
     setError(""); setLoading(true);
     try {
       const res  = await fetch("/api/wallet/deposit", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ amountKes: Number(amount), phoneNumber: normalizeMsisdn(phone) }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to initiate payment.");
+      const data = await res.json().catch(() => ({}) as Record<string, string>);
+      if (!res.ok) throw new Error((data as Record<string,string>).error ?? "Failed to initiate payment.");
       setDeposit({ step: "pending", txId: data.transactionRequestId, amount: Number(amount) });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
