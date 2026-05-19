@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useAuth } from "@clerk/nextjs";
+import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
@@ -43,7 +43,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export function SportsBetSlip() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn } = useSupabaseAuth();
   const { openLogin } = useAuthModal();
   const { bets, removeBet, clearBets } = useBetslip();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
