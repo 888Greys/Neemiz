@@ -20,7 +20,7 @@ type View =
   | "language"
   | "support";
 
-type Props = { onClose: () => void; onOpenWallet: () => void };
+type Props = { onClose: () => void; onOpenWallet: () => void; initialView?: View };
 
 // ── Bet history types ────────────────────────────────────────────────────────
 
@@ -563,11 +563,11 @@ const VIEW_TITLES: Record<View, string> = {
   support: "Help & Support",
 };
 
-export function ProfileModal({ onClose, onOpenWallet }: Props) {
+export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const { user, signOut } = useSupabaseAuth();
   const router = useRouter();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
-  const [view, setView] = useState<View>("main");
+  const [view, setView] = useState<View>(initialView ?? "main");
 
   const meta        = user?.user_metadata ?? {};
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";

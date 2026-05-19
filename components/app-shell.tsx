@@ -46,10 +46,16 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
     return stored === null ? true : stored === "true";
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [loginOpen, setLoginOpen]       = useState(false);
-  const [registerOpen, setRegisterOpen] = useState(false);
-  const [profileOpen, setProfileOpen]   = useState(false);
-  const [walletOpen, setWalletOpen]     = useState(false);
+  const [loginOpen, setLoginOpen]             = useState(false);
+  const [registerOpen, setRegisterOpen]       = useState(false);
+  const [profileOpen, setProfileOpen]         = useState(false);
+  const [profileInitialView, setProfileInitialView] = useState<string | undefined>(undefined);
+  const [walletOpen, setWalletOpen]           = useState(false);
+
+  function openProfile(view?: string) {
+    setProfileInitialView(view);
+    setProfileOpen(true);
+  }
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -162,7 +168,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
             sidebarCollapsed ? "w-[78px]" : "w-[280px]"
           }`}
         >
-          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => setWalletOpen(true)} />
+          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => setWalletOpen(true)} onOpenBonuses={() => openProfile("bonuses")} onOpenSupport={() => openProfile("support")} />
         </aside>
 
         <main ref={mainRef} className={`no-scrollbar flex-1 overflow-y-auto pb-32 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
@@ -177,9 +183,9 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
 
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} />}
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
-      {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} />}
+      {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} initialView={profileInitialView as Parameters<typeof ProfileModal>[0]["initialView"]} />}
       {walletOpen && <WalletModal onClose={() => setWalletOpen(false)} onDepositConfirmed={refreshWalletBalance} />}
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} onOpenBonuses={() => { setMobileMenuOpen(false); openProfile("bonuses"); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} />}
 
       {rightPanel && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       <SupportWidget />
@@ -237,7 +243,7 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
   );
 }
 
-function Sidebar({ collapsed, onToggle, onOpenWallet, pathname }: { collapsed: boolean; onToggle: () => void; onOpenWallet: () => void; pathname: string }) {
+function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSupport, pathname }: { collapsed: boolean; onToggle: () => void; onOpenWallet: () => void; onOpenBonuses: () => void; onOpenSupport: () => void; pathname: string }) {
   const [openGroups, setOpenGroups] = useState({
     sports: true,
     casino: true,
@@ -295,13 +301,17 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, pathname }: { collapsed: b
         {/* Utility */}
         <div className="space-y-1">
           <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="account_balance_wallet" label="Wallet" pathname={pathname} onClick={onOpenWallet} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="redeem" label="Bonuses" pathname={pathname} badge="1" onClick={onOpenWallet} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/dashboard#promotions" icon="campaign" label="Promotions" pathname={pathname} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="redeem" label="Bonuses" pathname={pathname} badge="1" onClick={onOpenBonuses} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/dashboard" icon="campaign" label="Promotions" pathname={pathname} onClick={() => toast.info("Promotions", "Seasonal promotions and free bets are launching soon!")} />
         </div>
       </div>
 
       <div className={`border-t border-white/10 ${collapsed ? "p-2" : "p-4"}`}>
-        <Link href="/dashboard" className={`mb-2 flex items-center rounded-2xl bg-[#32343b] transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${collapsed ? "justify-center p-2" : "gap-2.5 p-2.5"}`}>
+        <button
+          type="button"
+          onClick={() => toast.info("Nezeem for Windows", "The desktop app is coming soon! You'll be notified on launch.")}
+          className={`mb-2 flex w-full items-center rounded-2xl bg-[#32343b] transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${collapsed ? "justify-center p-2" : "gap-2.5 p-2.5"}`}
+        >
           <span
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500 bg-cover bg-center text-white"
             style={{ backgroundImage: `url(${tempAssets.appInstall})` }}
@@ -310,33 +320,49 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, pathname }: { collapsed: b
           </span>
           {!collapsed && (
             <>
-              <span className="min-w-0 flex-1">
+              <span className="min-w-0 flex-1 text-left">
                 <span className="block text-xs font-black leading-4">Nezeem for Windows</span>
                 <span className="block text-[11px] leading-4 text-slate-300">Instant access to the platform</span>
               </span>
               <Icon name="chevron_right" className="text-[22px] text-slate-300" />
             </>
           )}
-        </Link>
+        </button>
 
         <div className={`mb-4 flex items-center gap-1.5 ${collapsed ? "flex-col" : ""}`}>
-          {[
-            ["chat", "WhatsApp"],
-            ["telegram", "Telegram"],
-            ["photo_camera", "Instagram"],
-            ...(!collapsed ? [["more_vert", "More"]] : []),
-          ].map(([icon, label]) => (
-            <button
-              key={label}
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35] text-white transition hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20]"
-              type="button"
-              aria-label={label}
-            >
-              {icon === "telegram" ? <TelegramIcon /> : <Icon name={icon} fill={icon !== "more_vert"} className="text-[19px]" />}
-            </button>
-          ))}
+          <a
+            href="https://wa.me/254700000000"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="WhatsApp"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35] text-white transition hover:bg-white/[0.08]"
+          >
+            <Icon name="chat" fill className="text-[19px]" />
+          </a>
+          <a
+            href="https://t.me/NeezemSupport"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Telegram"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35] text-white transition hover:bg-white/[0.08]"
+          >
+            <TelegramIcon />
+          </a>
+          <a
+            href="https://instagram.com/nezeem"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Instagram"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35] text-white transition hover:bg-white/[0.08]"
+          >
+            <Icon name="photo_camera" fill className="text-[19px]" />
+          </a>
           {!collapsed && (
-            <button className="ml-auto flex h-9 items-center gap-1 rounded-xl bg-[#2d2f35] px-2.5 text-xs font-bold" type="button">
+            <button
+              type="button"
+              onClick={() => toast.info("Language", "More language options are coming soon!")}
+              className="ml-auto flex h-9 items-center gap-1 rounded-xl bg-[#2d2f35] px-2.5 text-xs font-bold transition hover:bg-white/[0.08]"
+            >
               <span className="text-base leading-none">🇬🇧</span>
               EN
               <Icon name="expand_more" className="text-[18px]" />
@@ -344,17 +370,21 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, pathname }: { collapsed: b
           )}
         </div>
 
-        <Link href="/login" className={`flex items-center rounded-2xl transition hover:bg-white/[0.03] ${collapsed ? "justify-center" : "gap-3"}`}>
+        <button
+          type="button"
+          onClick={onOpenSupport}
+          className={`flex w-full items-center rounded-2xl transition hover:bg-white/[0.03] ${collapsed ? "justify-center" : "gap-3"}`}
+        >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35]">
-            <Icon name="mode_comment" fill className="text-[19px]" />
+            <Icon name="support_agent" fill className="text-[19px]" />
           </span>
           {!collapsed && (
             <>
-              <span className="flex-1 text-base font-black">Support</span>
+              <span className="flex-1 text-left text-base font-black">Support</span>
               <span className="rounded-full bg-[#087cff] px-2.5 py-0.5 text-xs font-black text-white">24/7</span>
             </>
           )}
-        </Link>
+        </button>
       </div>
     </div>
   );
@@ -548,7 +578,7 @@ function TelegramIcon() {
   );
 }
 
-function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenWallet }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenWallet: () => void }) {
+function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenWallet, onOpenBonuses, onOpenSupport }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenWallet: () => void; onOpenBonuses: () => void; onOpenSupport: () => void }) {
   const { isSignedIn, user, signOut } = useSupabaseAuth();
   const router = useRouter();
   const { balance, currency } = useWalletBalance();
@@ -661,48 +691,56 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
 
           <div className="space-y-1">
             <MobileDrawerLink icon="account_balance_wallet" label="Wallet" onClick={onOpenWallet} />
-            <MobileDrawerLink icon="redeem" label="Bonuses" badge="1" onClick={onOpenWallet} />
-            <MobileDrawerLink href="/dashboard#promotions" icon="campaign" label="Promotions" onClick={onClose} />
+            <MobileDrawerLink icon="redeem" label="Bonuses" badge="1" onClick={onOpenBonuses} />
+            <MobileDrawerLink icon="campaign" label="Promotions" onClick={() => { onClose(); toast.info("Promotions", "Seasonal promotions and free bets are launching soon!"); }} />
           </div>
         </div>
 
         <div className="border-t border-white/10 p-2">
-          <Link href="/dashboard" className="mb-2 flex items-center gap-2 rounded-xl bg-[#32343b] p-2" onClick={onClose}>
+          <button
+            type="button"
+            onClick={() => { onClose(); toast.info("Nezeem App", "The mobile app is coming soon!"); }}
+            className="mb-2 flex w-full items-center gap-2 rounded-xl bg-[#32343b] p-2 text-left transition hover:bg-white/[0.06]"
+          >
             <span
               className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500 bg-cover bg-center"
               style={{ backgroundImage: `url(${tempAssets.appInstall})` }}
             >
-              <Icon name="desktop_windows" fill className="text-[17px]" />
+              <Icon name="phone_iphone" fill className="text-[17px]" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[10px] font-black">Nezeem for iOS</span>
-              <span className="block text-[9px] leading-3 text-slate-300">Instant access to the platform</span>
+              <span className="block text-[10px] font-black">Nezeem Mobile App</span>
+              <span className="block text-[9px] leading-3 text-slate-300">Android & iOS — coming soon</span>
             </span>
             <Icon name="chevron_right" className="text-[17px]" />
-          </Link>
+          </button>
 
           <div className="mb-2 flex items-center gap-1">
-            <button className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35]" type="button" aria-label="WhatsApp">
+            <a href="https://wa.me/254700000000" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35] text-white transition hover:bg-white/[0.08]">
               <Icon name="chat" fill className="text-[17px]" />
-            </button>
-            <button className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35]" type="button" aria-label="Telegram">
+            </a>
+            <a href="https://t.me/NeezemSupport" target="_blank" rel="noopener noreferrer" aria-label="Telegram" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35] text-white transition hover:bg-white/[0.08]">
               <TelegramIcon />
-            </button>
-            <button className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35]" type="button" aria-label="Instagram">
+            </a>
+            <a href="https://instagram.com/nezeem" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35] text-white transition hover:bg-white/[0.08]">
               <Icon name="photo_camera" fill className="text-[17px]" />
-            </button>
-            <button className="ml-auto flex h-8 items-center gap-1 rounded-lg bg-[#2d2f35] px-2 text-[10px] font-black" type="button">
+            </a>
+            <button
+              type="button"
+              onClick={() => { onClose(); toast.info("Language", "More language options are coming soon!"); }}
+              className="ml-auto flex h-8 items-center gap-1 rounded-lg bg-[#2d2f35] px-2 text-[10px] font-black transition hover:bg-white/[0.08]"
+            >
               <span>🇬🇧</span> EN
             </button>
           </div>
 
-          <Link href="/login" className="flex items-center gap-2" onClick={onClose}>
+          <button type="button" onClick={onOpenSupport} className="flex w-full items-center gap-2 rounded-xl transition hover:bg-white/[0.03]">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35]">
-              <Icon name="mode_comment" fill className="text-[17px]" />
+              <Icon name="support_agent" fill className="text-[17px]" />
             </span>
-            <span className="flex-1 text-xs font-black">Support</span>
+            <span className="flex-1 text-left text-xs font-black">Support</span>
             <span className="rounded-full bg-[#087cff] px-2 py-0.5 text-[10px] font-black">24/7</span>
-          </Link>
+          </button>
 
           {isSignedIn && (
             <button
