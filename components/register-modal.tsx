@@ -133,7 +133,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   }
 
   function startResendCooldown() {
-    setResendCooldown(60);
+    setResendCooldown(30);
     const t = setInterval(() => {
       setResendCooldown((v) => {
         if (v <= 1) { clearInterval(t); return 0; }
@@ -238,6 +238,20 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                 <p className="mt-0.5 font-bold text-white truncate">{tab === "email" ? email : `${country.code}${phone}`}</p>
               </div>
 
+              {/* Spam warning — prominent amber box */}
+              {tab === "email" && (
+                <div className="flex items-start gap-3 rounded-2xl bg-amber-400/10 px-4 py-3 ring-1 ring-amber-400/20">
+                  <Icon name="warning" fill className="mt-0.5 shrink-0 text-[18px] text-amber-400" />
+                  <div className="space-y-0.5">
+                    <p className="text-[12px] font-black text-amber-300">Check your spam / junk folder</p>
+                    <p className="text-[11px] leading-relaxed text-amber-400/70">
+                      The code comes from <span className="font-bold text-amber-300">noreply@clerk.dev</span>.
+                      Email providers often mark it as spam — check there first before resending.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* OTP input */}
               <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
                 <Icon name="verified" fill className="text-[18px] shrink-0 text-slate-500" />
@@ -271,23 +285,18 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                 ) : "Verify & Enter"}
               </button>
 
-              {/* Resend + spam hint */}
-              <div className="space-y-2 text-center">
-                <p className="text-xs text-slate-500">
-                  Didn't receive it?{" "}
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={resendCooldown > 0 || resending}
-                    className="font-black text-[#087cff] transition hover:text-blue-400 disabled:text-slate-600 disabled:cursor-not-allowed"
-                  >
-                    {resending ? "Sending…" : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
-                  </button>
-                </p>
-                <p className="text-[11px] text-slate-600">
-                  💡 Check your <span className="text-slate-400 font-bold">spam / junk</span> folder if you don't see it
-                </p>
-              </div>
+              {/* Resend */}
+              <p className="text-center text-xs text-slate-500">
+                Still nothing?{" "}
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendCooldown > 0 || resending}
+                  className="font-black text-[#087cff] transition hover:text-blue-400 disabled:cursor-not-allowed disabled:text-slate-600"
+                >
+                  {resending ? "Sending…" : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                </button>
+              </p>
             </form>
           ) : (
             <>
