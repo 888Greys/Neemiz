@@ -29,18 +29,20 @@ export function ProfileModal({ onClose, onOpenWallet }: Props) {
   const fmtBalance  = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
   const memberId    = user?.id?.slice(-8).toUpperCase() ?? "—";
 
+  const cs = () => toast.info("Coming soon", "This feature is on its way!");
+
   const MENU = [
-    { icon: "redeem",            label: "Bonuses",             sub: "Free spins and other offers" },
-    { icon: "confirmation_number", label: "Bonus codes",       sub: "Code activation" },
-    { icon: "history",           label: "Bet history",         sub: "Open and settled bets" },
-    { icon: "receipt_long",      label: "Transaction history", sub: "Deposit and withdrawal statuses", action: () => { onClose(); onOpenWallet(); } },
+    { icon: "redeem",              label: "Bonuses",             sub: "Free spins and other offers",         action: cs },
+    { icon: "confirmation_number", label: "Bonus codes",         sub: "Code activation",                     action: cs },
+    { icon: "history",             label: "Bet history",         sub: "Open and settled bets",               action: cs },
+    { icon: "receipt_long",        label: "Transaction history", sub: "Deposit and withdrawal statuses",     action: () => { onClose(); onOpenWallet(); } },
   ];
 
   const SETTINGS_ITEMS = [
-    { icon: "notifications", label: "Notifications",    sub: "Push & email alerts" },
-    { icon: "security",      label: "Security & 2FA",   sub: "Password, two-factor auth" },
-    { icon: "language",      label: "Language & Region",sub: "English · Kenya" },
-    { icon: "support_agent", label: "Help & Support",   sub: "24/7 live chat" },
+    { icon: "notifications", label: "Notifications",    sub: "Push & email alerts",        action: cs },
+    { icon: "security",      label: "Security & 2FA",   sub: "Password, two-factor auth",  action: cs },
+    { icon: "language",      label: "Language & Region",sub: "English · Kenya",            action: cs },
+    { icon: "support_agent", label: "Help & Support",   sub: "24/7 live chat",             action: cs },
   ];
 
   return (
@@ -217,7 +219,7 @@ export function ProfileModal({ onClose, onOpenWallet }: Props) {
               <div className="mx-4 mb-3 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
                 {SETTINGS_ITEMS.map((item, i) => (
                   <div key={item.label}>
-                    <button type="button" className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.04]">
+                    <button type="button" onClick={item.action} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.04] active:scale-[0.99]">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
                         <Icon name={item.icon} fill className="text-[16px] text-slate-400" />
                       </div>

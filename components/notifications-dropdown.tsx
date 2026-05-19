@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
+import { toast } from "@/lib/toast";
 
 type Tab = "all" | "personal" | "general";
 
@@ -216,7 +217,11 @@ export function NotificationsDropdown({ onClose }: Props) {
 
       {/* Footer */}
       <div className="border-t border-white/[0.07] px-4 py-3 text-center">
-        <button type="button" className="text-[12px] font-black text-slate-500 transition hover:text-white">
+        <button
+          type="button"
+          onClick={() => toast.info("Coming soon", "A full notifications centre is on the way!")}
+          className="text-[12px] font-black text-slate-500 transition hover:text-white"
+        >
           View all notifications
         </button>
       </div>

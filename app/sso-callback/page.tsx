@@ -3,15 +3,20 @@
 import { useEffect } from "react";
 import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { toast } from "@/lib/toast";
 
 export default function SSOCallbackPage() {
   const { handleRedirectCallback } = useClerk();
   const router = useRouter();
 
   useEffect(() => {
-    handleRedirectCallback({}).catch(() => {
-      router.replace("/dashboard");
-    });
+    handleRedirectCallback({})
+      .then(() => {
+        toast.success("Welcome back!", "You have successfully signed in.");
+      })
+      .catch(() => {
+        router.replace("/dashboard");
+      });
   }, [handleRedirectCallback, router]);
 
   return (

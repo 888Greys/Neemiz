@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
+import { toast } from "@/lib/toast";
 
 const QUICK_AMOUNTS = [100, 250, 500, 1_000, 2_500, 5_000];
 const POLL_INTERVAL = 4_000;
@@ -302,7 +303,11 @@ export function WalletModal({ onClose }: Props) {
                 <span className="text-base">🇰🇪</span>
                 <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="07XXXXXXXX" className="flex-1 bg-transparent py-3.5 text-sm text-white outline-none placeholder:text-slate-700" />
               </div>
-              <button type="button" disabled className="w-full rounded-2xl bg-amber-400/15 py-3.5 text-sm font-black text-amber-400 ring-1 ring-amber-400/20 disabled:cursor-not-allowed disabled:opacity-60">
+              <button
+                type="button"
+                onClick={() => toast.info("Coming soon", "M-Pesa withdrawals are launching soon!")}
+                className="w-full rounded-2xl bg-amber-400/15 py-3.5 text-sm font-black text-amber-400 ring-1 ring-amber-400/20 transition hover:bg-amber-400/25 active:scale-[0.98]"
+              >
                 Withdraw — Coming Soon
               </button>
             </div>

@@ -67,7 +67,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
 
   return (
     <BetslipProvider>
-    <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true) }}>
+    <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
     <div className="min-h-screen bg-background text-on-surface">
       <header className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center bg-[#111113] px-3 lg:h-20 lg:px-0">
         <div

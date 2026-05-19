@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { Icon } from "@/components/icon";
 import { useAuthModal } from "@/lib/auth-modal-context";
+import { toast } from "@/lib/toast";
 
 /* ── Single game card ─────────────────────────────────── */
 function GameCard({ image, href }: { image: string; href: string }) {
@@ -30,9 +31,11 @@ function GameCard({ image, href }: { image: string; href: string }) {
     );
   }
 
+  // All game cards are coming soon — show toast instead of navigating
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
+      onClick={() => toast.info("Coming soon", "This game is launching soon. Stay tuned! 🎮")}
       className={sharedClassName}
       style={sharedStyle}
     />
