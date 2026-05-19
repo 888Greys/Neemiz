@@ -160,7 +160,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
             sidebarCollapsed ? "w-[78px]" : "w-[280px]"
           }`}
         >
-          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} />
+          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => setWalletOpen(true)} />
         </aside>
 
         <main ref={mainRef} className={`no-scrollbar flex-1 overflow-y-auto pb-32 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
@@ -227,7 +227,7 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
   );
 }
 
-function Sidebar({ collapsed, onToggle, pathname }: { collapsed: boolean; onToggle: () => void; pathname: string }) {
+function Sidebar({ collapsed, onToggle, onOpenWallet, pathname }: { collapsed: boolean; onToggle: () => void; onOpenWallet: () => void; pathname: string }) {
   const [openGroups, setOpenGroups] = useState({
     sports: true,
     casino: true,
@@ -284,8 +284,8 @@ function Sidebar({ collapsed, onToggle, pathname }: { collapsed: boolean; onTogg
 
         {/* Utility */}
         <div className="space-y-1">
-          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="account_balance_wallet" label="Wallet" pathname={pathname} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/wallet#bonuses" icon="redeem" label="Bonuses" pathname={pathname} badge="1" />
+          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="account_balance_wallet" label="Wallet" pathname={pathname} onClick={onOpenWallet} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="redeem" label="Bonuses" pathname={pathname} badge="1" onClick={onOpenWallet} />
           <StandaloneSidebarItem collapsed={collapsed} href="/dashboard#promotions" icon="campaign" label="Promotions" pathname={pathname} />
         </div>
       </div>
@@ -484,6 +484,7 @@ function StandaloneSidebarItem({
   href,
   icon,
   label,
+  onClick,
   pathname,
 }: {
   badge?: string;
@@ -491,18 +492,16 @@ function StandaloneSidebarItem({
   href: string;
   icon: string;
   label: string;
+  onClick?: () => void;
   pathname: string;
 }) {
   const active = pathname.startsWith(href.split("?")[0]) && href !== "/dashboard#promotions";
+  const cls = `flex items-center rounded-lg text-[12px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
+    collapsed ? "justify-center px-1.5 py-2" : "gap-2 px-2 py-1.5"
+  } ${active ? "bg-[#3a3b41] text-white" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`;
 
-  return (
-    <Link
-      href={href}
-      title={collapsed ? label : undefined}
-      className={`flex items-center rounded-lg text-[12px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
-        collapsed ? "justify-center px-1.5 py-2" : "gap-2 px-2 py-1.5"
-      } ${active ? "bg-[#3a3b41] text-white" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`}
-    >
+  const inner = (
+    <>
       <Icon name={icon} fill className="text-[18px] text-slate-400" />
       {!collapsed && (
         <>
@@ -510,6 +509,19 @@ function StandaloneSidebarItem({
           {badge && <span className="rounded-full bg-[#ff1979] px-1.5 py-0.5 text-[9px] font-black text-white">{badge}</span>}
         </>
       )}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button type="button" title={collapsed ? label : undefined} onClick={onClick} className={cls}>
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <Link href={href} title={collapsed ? label : undefined} className={cls}>
+      {inner}
     </Link>
   );
 }
@@ -594,17 +606,17 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
             </div>
           )}
 
-          <Link
-            href="/wallet"
-            className="mb-4 flex h-[54px] items-center justify-between overflow-hidden rounded-xl bg-gradient-to-r from-[#044947] to-[#05605d] bg-cover bg-center px-3"
-            onClick={onClose}
+          <button
+            type="button"
+            className="mb-4 flex h-[54px] w-full items-center justify-between overflow-hidden rounded-xl bg-gradient-to-r from-[#044947] to-[#05605d] bg-cover bg-center px-3"
+            onClick={onOpenWallet}
             style={{ backgroundImage: `linear-gradient(90deg, rgba(4,73,71,.88), rgba(5,96,93,.52)), url(${tempAssets.freebet})` }}
           >
             <span className="text-xs font-black leading-tight">
               Free<br />money
             </span>
             <Icon name="payments" className="text-[38px] text-white/80" />
-          </Link>
+          </button>
 
           {/* Sports */}
           <MobileDrawerGroup icon="sports_soccer" isOpen={openGroups.sports} label="Sports" onToggle={() => setOpenGroups((v) => ({ ...v, sports: !v.sports }))}>
@@ -638,8 +650,8 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
           <div className="my-3 border-t border-white/10" />
 
           <div className="space-y-1">
-            <MobileDrawerLink href="/wallet" icon="account_balance_wallet" label="Wallet" onClick={onClose} />
-            <MobileDrawerLink href="/wallet#bonuses" icon="redeem" label="Bonuses" badge="1" onClick={onClose} />
+            <MobileDrawerLink icon="account_balance_wallet" label="Wallet" onClick={onOpenWallet} />
+            <MobileDrawerLink icon="redeem" label="Bonuses" badge="1" onClick={onOpenWallet} />
             <MobileDrawerLink href="/dashboard#promotions" icon="campaign" label="Promotions" onClick={onClose} />
           </div>
         </div>
@@ -717,12 +729,21 @@ function MobileDrawerGroup({ children, icon, isOpen, label, onToggle }: { childr
   );
 }
 
-function MobileDrawerLink({ badge, href, icon, label, onClick }: { badge?: string; href: string; icon: string; label: string; onClick: () => void }) {
-  return (
-    <Link href={href} className="flex items-center gap-2 rounded-lg px-1 py-2 text-[11px] font-black text-slate-200" onClick={onClick}>
+function MobileDrawerLink({ badge, href, icon, label, onClick }: { badge?: string; href?: string; icon: string; label: string; onClick: () => void }) {
+  const cls = "flex items-center gap-2 rounded-lg px-1 py-2 text-[11px] font-black text-slate-200";
+  const inner = (
+    <>
       <Icon name={icon} fill className="text-[16px] text-slate-400" />
       <span className="flex-1">{label}</span>
       {badge && <span className="rounded-full bg-[#ff1979] px-2 py-0.5 text-[9px]">{badge}</span>}
+    </>
+  );
+  if (!href) {
+    return <button type="button" className={cls} onClick={onClick}>{inner}</button>;
+  }
+  return (
+    <Link href={href} className={cls} onClick={onClick}>
+      {inner}
     </Link>
   );
 }
