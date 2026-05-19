@@ -40,17 +40,17 @@ export async function POST(req: Request) {
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const baseUrl = (
-      process.env.NEZEEM_MEGAPAY_BASE_URL ??
-      process.env.ACEGIRLS_MEGAPAY_BASE_URL ??
       process.env.MEGAPAY_BASE_URL ??
       process.env.MEGAPAY_API_URL ??
+      process.env.NEZEEM_MEGAPAY_BASE_URL ??
+      process.env.ACEGIRLS_MEGAPAY_BASE_URL ??
       ""
     ).replace(/\/+$/, "");
-    const apiKey = process.env.NEZEEM_MEGAPAY_API_KEY ?? process.env.ACEGIRLS_MEGAPAY_API_KEY ?? process.env.MEGAPAY_API_KEY ?? "";
-    const email = process.env.NEZEEM_MEGAPAY_EMAIL ?? process.env.ACEGIRLS_MEGAPAY_EMAIL ?? process.env.MEGAPAY_EMAIL ?? "";
-    const callbackUrl = process.env.NEZEEM_MEGAPAY_CALLBACK_URL ?? process.env.ACEGIRLS_MEGAPAY_CALLBACK_URL ?? process.env.MEGAPAY_CALLBACK_URL ?? "";
+    const apiKey = process.env.MEGAPAY_API_KEY ?? process.env.NEZEEM_MEGAPAY_API_KEY ?? process.env.ACEGIRLS_MEGAPAY_API_KEY ?? "";
+    const email = process.env.MEGAPAY_EMAIL ?? process.env.NEZEEM_MEGAPAY_EMAIL ?? process.env.ACEGIRLS_MEGAPAY_EMAIL ?? "";
+    const callbackUrl = process.env.MEGAPAY_CALLBACK_URL ?? process.env.NEZEEM_MEGAPAY_CALLBACK_URL ?? process.env.ACEGIRLS_MEGAPAY_CALLBACK_URL ?? "";
     const callbackToken =
-      process.env.NEZEEM_MEGAPAY_CALLBACK_TOKEN ?? process.env.ACEGIRLS_MEGAPAY_CALLBACK_TOKEN ?? process.env.MEGAPAY_CALLBACK_TOKEN ?? "";
+      process.env.MEGAPAY_CALLBACK_TOKEN ?? process.env.NEZEEM_MEGAPAY_CALLBACK_TOKEN ?? process.env.ACEGIRLS_MEGAPAY_CALLBACK_TOKEN ?? "";
 
     if (!baseUrl || !apiKey || !email) {
       return Response.json({ error: "MegaPay not configured" }, { status: 503 });
@@ -73,20 +73,22 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XXXXXXXX or 01XXXXXXXX." }, { status: 400 });
     }
 
-    const reference = `neemiz-${Date.now()}`;
+    const reference = `neemiz-yea-${Date.now()}`;
+
+    const payload: Record<string, string> = {
+      api_key: apiKey,
+      email,
+      amount: String(Math.round(amountKes)),
+      msisdn,
+      reference,
+    };
+    if (callbackUrl) payload.callback = callbackUrl;
+    if (callbackToken) payload.callback_token = callbackToken;
 
     const mpRes = await fetch(`${baseUrl}/backend/v1/initiatestk`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        email,
-        amount: String(amountKes),
-        msisdn,
-        reference,
-        ...(callbackUrl   ? { callback:       callbackUrl }   : {}),
-        ...(callbackToken ? { callback_token: callbackToken } : {}),
-      }),
+      body: JSON.stringify(payload),
     });
 
     const { data: mpData, raw: mpRaw } = await readProviderJson(mpRes);

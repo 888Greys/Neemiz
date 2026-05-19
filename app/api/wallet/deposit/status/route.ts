@@ -8,14 +8,14 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const baseUrl = (
-    process.env.NEZEEM_MEGAPAY_BASE_URL ??
-    process.env.ACEGIRLS_MEGAPAY_BASE_URL ??
     process.env.MEGAPAY_BASE_URL ??
     process.env.MEGAPAY_API_URL ??
+    process.env.NEZEEM_MEGAPAY_BASE_URL ??
+    process.env.ACEGIRLS_MEGAPAY_BASE_URL ??
     ""
   ).replace(/\/+$/, "");
-  const apiKey = process.env.NEZEEM_MEGAPAY_API_KEY ?? process.env.ACEGIRLS_MEGAPAY_API_KEY ?? process.env.MEGAPAY_API_KEY ?? "";
-  const email = process.env.NEZEEM_MEGAPAY_EMAIL ?? process.env.ACEGIRLS_MEGAPAY_EMAIL ?? process.env.MEGAPAY_EMAIL ?? "";
+  const apiKey = process.env.MEGAPAY_API_KEY ?? process.env.NEZEEM_MEGAPAY_API_KEY ?? process.env.ACEGIRLS_MEGAPAY_API_KEY ?? "";
+  const email = process.env.MEGAPAY_EMAIL ?? process.env.NEZEEM_MEGAPAY_EMAIL ?? process.env.ACEGIRLS_MEGAPAY_EMAIL ?? "";
 
   if (!baseUrl || !apiKey || !email) {
     return Response.json({ error: "MegaPay not configured" }, { status: 503 });
