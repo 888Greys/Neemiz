@@ -20,24 +20,14 @@ body {
 }
 
 .material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  /* Hide raw icon name text until the font file is downloaded */
+  font-display: block;
+  /* Prevent layout shift — icons are inline-block with fixed size */
   display: inline-flex;
-  width: 1em;
-  min-width: 1em;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  font-family: "Material Symbols Outlined", sans-serif;
-  font-style: normal;
-  font-weight: normal;
-  line-height: 1;
-  letter-spacing: normal;
-  text-transform: none;
-  white-space: nowrap;
-  direction: ltr;
-  -webkit-font-feature-settings: "liga";
-  font-feature-settings: "liga";
-  -webkit-font-smoothing: antialiased;
-  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
   user-select: none;
 }
 
@@ -133,11 +123,6 @@ body {
   100% { transform: translateX(260%); }
 }
 
-@keyframes city-drift {
-  0%, 12%   { transform: translateY(0); }
-  88%, 100% { transform: translateY(-50%); }
-}
-
 @keyframes skeleton-sweep {
   0%   { background-position: -600px 0; }
   100% { background-position: 600px 0; }
@@ -159,7 +144,6 @@ body {
 .animate-pulse-ring    { animation: pulse-ring 2s ease-in-out infinite; }
 .animate-zeem          { display: inline-block; animation: zeem-pulse 1.35s ease-in-out infinite; }
 .loading-scan          { animation: loading-scan 1.25s ease-in-out infinite; }
-.city-drift            { animation: city-drift 16s ease-in-out infinite alternate; }
 
 .shimmer-text {
   background: linear-gradient(

@@ -5,9 +5,5 @@ type IconProps = {
 };
 
 export function Icon({ name, className = "", fill }: IconProps) {
-  return (
-    <span aria-hidden="true" className={`material-symbols-outlined ${fill ? "icon-fill" : ""} ${className}`}>
-      {name}
-    </span>
-  );
+  return <span className={`material-symbols-outlined ${fill ? "icon-fill" : ""} ${className}`}>{name}</span>;
 }

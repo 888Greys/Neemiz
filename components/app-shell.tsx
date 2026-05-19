@@ -23,17 +23,6 @@ const tempAssets = {
   freebet: "https://v3.bundlecdn.com/b02632/plain/betting/brand-freebet.png",
 };
 
-const cityOptions = [
-  { city: "Nairobi", events: "42+", locations: ["Westlands", "Kilimani", "CBD"] },
-  { city: "Mombasa", events: "18+", locations: ["Nyali", "Bamburi", "Old Town"] },
-  { city: "Kisumu", events: "14+", locations: ["Milimani", "Dunga", "Mega City"] },
-  { city: "Nakuru", events: "9+", locations: ["Section 58", "Milimani", "CBD"] },
-  { city: "Eldoret", events: "14+", locations: ["Langas", "Kapsoya", "Town Centre"] },
-  { city: "Naivasha", events: "4+", locations: ["Lake View", "Moi South Lake", "Town"] },
-  { city: "Meru", events: "7+", locations: ["Makutano", "Milimani", "Town"] },
-  { city: "Online", events: "24/7", locations: ["Live games", "Markets", "Wallet"] },
-];
-
 type AppShellProps = {
   children: React.ReactNode;
   rightPanel?: React.ReactNode;
@@ -60,8 +49,6 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
   const [registerOpen, setRegisterOpen] = useState(false);
   const [profileOpen, setProfileOpen]   = useState(false);
   const [walletOpen, setWalletOpen]     = useState(false);
-  const [locationOpen, setLocationOpen] = useState(false);
-  const [selectedCity, setSelectedCity] = useState("Nairobi");
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -123,15 +110,6 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
         <div className="flex min-w-0 flex-1 items-center justify-between gap-3 lg:gap-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-6">
             <BrandLogo href="/dashboard" size="sm" />
-            <button
-              className="hidden shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/[0.05] hover:text-white sm:flex"
-              onClick={() => setLocationOpen(true)}
-              type="button"
-            >
-              <Icon name="location_on" className="text-[18px] text-[#087cff]" />
-              <span>{selectedCity}</span>
-              <Icon name="keyboard_arrow_down" className="text-[18px] text-slate-500" />
-            </button>
             <nav className="hidden items-center gap-0.5 rounded-2xl bg-[#18191d] p-1 ring-1 ring-white/[0.06] text-sm font-black md:flex">
               <TopNavLink href="/dashboard" icon="home" label="Home" pathname={pathname} />
               <TopNavLink href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} />
@@ -198,7 +176,6 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
 
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} />}
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
-      {locationOpen && <LocationPickerModal selectedCity={selectedCity} onClose={() => setLocationOpen(false)} onSelect={(city) => { setSelectedCity(city); setLocationOpen(false); }} />}
       {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} />}
       {walletOpen && <WalletModal onClose={() => setWalletOpen(false)} />}
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} />}
@@ -256,101 +233,6 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
       <Icon name={icon} fill={active} className="text-[17px]" />
       {label}
     </Link>
-  );
-}
-
-function LocationPickerModal({
-  selectedCity,
-  onClose,
-  onSelect,
-}: {
-  selectedCity: string;
-  onClose: () => void;
-  onSelect: (city: string) => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/70 px-4 pt-[11vh] backdrop-blur-sm sm:items-center sm:pt-0">
-      <div className="relative w-full max-w-[840px] overflow-hidden rounded-2xl border border-white/15 bg-[#f8fbff] text-[#17191d] shadow-2xl">
-        <button
-          className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white transition hover:bg-white/25"
-          onClick={onClose}
-          type="button"
-          aria-label="Close locations"
-        >
-          <Icon name="close" className="text-[24px]" />
-        </button>
-
-        <div className="relative overflow-hidden bg-[#0b83d5] px-5 py-8 text-center text-white sm:px-10">
-          <div className="absolute inset-0 opacity-25 [background-image:linear-gradient(30deg,rgba(255,255,255,.32)_1px,transparent_1px),linear-gradient(150deg,rgba(255,255,255,.22)_1px,transparent_1px)] [background-size:74px_42px]" />
-          <div className="city-drift pointer-events-none absolute inset-x-0 top-2 flex flex-col items-center gap-1 text-[12px] font-black uppercase tracking-[0.2em] text-white/20">
-            {[...cityOptions, ...cityOptions].map((item, index) => (
-              <span key={`${item.city}-${index}`}>{item.city}</span>
-            ))}
-          </div>
-          <h2 className="relative text-2xl font-black tracking-tight sm:text-3xl">AllEvents in your city</h2>
-          <div className="relative mx-auto mt-6 flex max-w-[660px] items-center overflow-hidden rounded bg-white shadow-lg">
-            <div className="flex min-w-0 flex-1 items-center gap-3 px-4">
-              <Icon name="search" className="text-[24px] text-slate-400" />
-              <input
-                className="h-[52px] min-w-0 flex-1 bg-transparent py-4 text-base font-semibold text-slate-700 outline-none placeholder:text-slate-400"
-                placeholder="Enter your city..."
-                type="text"
-              />
-            </div>
-            <button className="hidden h-full items-center gap-2 border-l border-slate-200 px-5 text-sm font-bold text-[#087cff] transition hover:bg-sky-50 sm:flex" type="button">
-              <Icon name="my_location" className="text-[21px]" />
-              Current Location
-            </button>
-          </div>
-        </div>
-
-        <div className="relative bg-white px-5 pb-7 pt-6 sm:px-9 sm:pb-9">
-          <h3 className="text-xl font-black text-slate-950">Explore Cities Near You</h3>
-          <p className="mt-2 text-sm font-semibold text-slate-400">Discover events and games by city, with popular locations listed under each one.</p>
-
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {cityOptions.map((item) => {
-              const active = item.city === selectedCity;
-              return (
-                <button
-                  key={item.city}
-                  className={`group flex min-h-[116px] items-start gap-3 rounded-xl border p-3 text-left transition ${
-                    active ? "border-[#087cff] bg-sky-50 shadow-sm" : "border-transparent bg-white hover:border-slate-200 hover:bg-slate-50"
-                  }`}
-                  onClick={() => onSelect(item.city)}
-                  type="button"
-                >
-                  <span className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-xl ${active ? "bg-[#087cff] text-white" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"}`}>
-                    <Icon name={item.city === "Online" ? "language" : "location_on"} className="text-[28px]" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-base font-black text-slate-700">{item.city}</span>
-                      <span className="text-xs font-black text-slate-400">{item.events} Events</span>
-                    </span>
-                    <span className="mt-2 flex flex-wrap gap-1.5">
-                      {item.locations.map((location) => (
-                        <span key={location} className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-500">
-                          {location}
-                        </span>
-                      ))}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 opacity-20">
-            <div className="absolute bottom-0 left-5 h-10 w-7 rounded-t-full border border-sky-300" />
-            <div className="absolute bottom-0 left-16 h-16 w-16 rounded-t-full border border-sky-300" />
-            <div className="absolute bottom-0 left-36 h-11 w-24 border border-sky-300" />
-            <div className="absolute bottom-0 right-24 h-14 w-16 border border-sky-300" />
-            <div className="absolute bottom-0 right-10 h-20 w-10 border border-sky-300" />
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 
