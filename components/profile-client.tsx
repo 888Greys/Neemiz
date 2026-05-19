@@ -1,7 +1,7 @@
 "use client";
 
-import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
 import Link from "next/link";
@@ -20,8 +20,7 @@ const SETTINGS = [
 ];
 
 export function ProfileClient() {
-  const { user, isLoaded } = useUser();
-  const { signOut } = useClerk();
+  const { user, isLoaded, isSignedIn, signOut } = useSupabaseAuth();
   const router = useRouter();
   const { balance, currency } = useWalletBalance();
 
@@ -36,7 +35,7 @@ export function ProfileClient() {
     );
   }
 
-  if (!user) {
+  if (!isSignedIn || !user) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-5 px-6 text-center">
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/[0.06]">
@@ -50,14 +49,15 @@ export function ProfileClient() {
     );
   }
 
-  const displayName = user.username ?? user.firstName ?? "User";
+  const meta        = user.user_metadata ?? {};
+  const displayName = meta.username ?? meta.first_name ?? user.email?.split("@")[0] ?? "User";
   const initials    = displayName.charAt(0).toUpperCase();
-  const email       = user.primaryEmailAddress?.emailAddress;
-  const phone       = user.primaryPhoneNumber?.phoneNumber;
-  const isVerified  = user.primaryEmailAddress?.verification.status === "verified";
+  const email       = user.email;
+  const phone       = user.phone ?? meta.phone_number;
+  const isVerified  = user.email_confirmed_at != null;
   const fmtBalance  = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
-  const memberSince = user.createdAt
-    ? new Date(user.createdAt).toLocaleDateString("en-KE", { month: "long", year: "numeric" })
+  const memberSince = user.created_at
+    ? new Date(user.created_at).toLocaleDateString("en-KE", { month: "long", year: "numeric" })
     : "—";
 
   return (
@@ -112,7 +112,7 @@ export function ProfileClient() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">User ID</p>
-                <p className="font-mono text-sm font-bold text-white">{user.id.slice(-12).toUpperCase()}</p>
+                <p className="font-mono text-sm font-bold text-white">{user.id.slice(-12).toUpperCase().replace(/-/g, "")}</p>
               </div>
             </div>
 
@@ -223,6 +223,7 @@ export function ProfileClient() {
           onClick={async () => {
             await signOut();
             router.push("/");
+            router.refresh();
           }}
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.07] py-3.5 text-sm font-black text-red-400 ring-1 ring-red-500/[0.12] transition hover:bg-red-500/[0.12] hover:ring-red-500/30 active:scale-[0.99]"
         >
@@ -231,7 +232,7 @@ export function ProfileClient() {
         </button>
 
         <p className="pb-4 text-center text-[10px] text-slate-700">
-          Nezeem · Account ID {user.id.slice(-8).toUpperCase()}
+          Nezeem · Account ID {user.id.slice(-8).toUpperCase().replace(/-/g, "")}
         </p>
       </div>
     </div>

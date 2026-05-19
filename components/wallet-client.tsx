@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
@@ -36,8 +36,7 @@ const TXN_META: Record<string, { label: string; icon: string; color: string; sig
 /* ────────────────────────────────────────────────────────── */
 
 export function WalletClient() {
-  const { isSignedIn } = useAuth();
-  const { user }       = useUser();
+  const { isSignedIn, user } = useSupabaseAuth();
   const { openLogin }  = useAuthModal();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
 
@@ -52,9 +51,8 @@ export function WalletClient() {
   const pollCount = useRef(0);
 
   useEffect(() => {
-    if (user?.phoneNumbers?.[0]?.phoneNumber && !phone) {
-      setPhone(user.phoneNumbers[0].phoneNumber.replace("+", ""));
-    }
+    const ph = user?.phone ?? user?.user_metadata?.phone_number;
+    if (ph && !phone) setPhone(ph.replace("+", ""));
   }, [user, phone]);
 
   useEffect(() => {
