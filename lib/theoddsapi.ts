@@ -25,16 +25,14 @@ const SPORT_META: Record<string, { league: string; country: string; flag: string
   cricket_icc_world_cup:        { league: "ICC World Cup",       country: "International",flag: ""            },
 };
 
-// Sports to fetch for the main sports page
+// Sports to fetch — keep this list short on the free tier (500 req/month).
+// 5 sports × 2 calls = 10 req per cache miss; at revalidate 7200s that's
+// ~10 × 12/day × 30 = 3,600/month → upgrade to Developer ($79/mo) for 10k.
 const FETCH_SPORTS = [
   "soccer_epl",
   "soccer_spain_la_liga",
   "soccer_germany_bundesliga",
   "soccer_italy_serie_a",
-  "soccer_france_ligue_one",
-  "soccer_uefa_champs_league",
-  "soccer_africa_cup_of_nations",
-  "soccer_kenya_premier_league",
   "basketball_nba",
 ];
 
@@ -159,7 +157,7 @@ async function fetchOdds(sportKey: string): Promise<OddsEvent[]> {
   if (!API_KEY) return [];
   const url = `${BASE}/sports/${sportKey}/odds?apiKey=${API_KEY}&regions=eu&markets=h2h,totals,spreads&oddsFormat=decimal`;
   try {
-    const res = await fetch(url, { next: { revalidate: 120 } });
+    const res = await fetch(url, { next: { revalidate: 7200 } });
     if (!res.ok) {
       if (res.status !== 404) console.error(`OddsAPI odds ${sportKey} → ${res.status}`);
       return [];
@@ -175,7 +173,7 @@ async function fetchScores(sportKey: string): Promise<ScoreEvent[]> {
   if (!API_KEY) return [];
   const url = `${BASE}/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1`;
   try {
-    const res = await fetch(url, { next: { revalidate: 30 } });
+    const res = await fetch(url, { next: { revalidate: 7200 } });
     if (!res.ok) return [];
     return (await res.json()) as ScoreEvent[];
   } catch (e) {
