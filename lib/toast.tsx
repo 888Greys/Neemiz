@@ -42,7 +42,6 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    // Trigger enter animation
     requestAnimationFrame(() => setVisible(true));
     const t = setTimeout(() => {
       setVisible(false);
@@ -69,7 +68,7 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
   return (
     <div
       className={`flex items-start gap-3 rounded-2xl bg-[#17181e] px-4 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.6)] ring-1 ${ringColor} transition-all duration-300 ${
-        visible ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
+        visible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"
       }`}
       style={{ minWidth: 260, maxWidth: 340 }}
     >
@@ -122,7 +121,7 @@ export function Toaster() {
   return createPortal(
     <div
       aria-live="polite"
-      className="pointer-events-none fixed bottom-[80px] left-0 right-0 z-[9999] flex flex-col items-center gap-2 px-4 lg:bottom-6 lg:items-end lg:pr-6"
+      className="pointer-events-none fixed top-4 right-4 z-[9999] flex flex-col items-end gap-2"
     >
       {items.map((item) => (
         <div key={item.id} className="pointer-events-auto">

@@ -103,8 +103,9 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     }
   }
 
-  async function handleVerify(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleVerify(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (code.length < 6 || loading) return;
     setLoading(true);
     setError("");
 
@@ -118,9 +119,12 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       });
 
       if (verifyError) {
-        setError(verifyError.message === "Token has expired or is invalid"
-          ? "Code is invalid or has expired. Please request a new one."
-          : verifyError.message);
+        setCode("");
+        setError(
+          verifyError.message === "Token has expired or is invalid"
+            ? "Code expired or invalid — request a new one below."
+            : verifyError.message
+        );
         return;
       }
 
@@ -128,6 +132,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       toast.success("Account verified!", "Welcome to Nezeem 🎉");
       router.push("/dashboard");
     } catch {
+      setCode("");
       setError("Verification failed. Please try again.");
     } finally {
       setLoading(false);
@@ -231,44 +236,60 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                   type="text"
                   inputMode="numeric"
                   value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "");
+                    setCode(v);
+                    if (v.length === 6) handleVerify();
+                  }}
                   placeholder="Enter 6-digit code"
                   className="flex-1 bg-transparent py-3.5 text-lg font-black text-white placeholder-slate-600 outline-none tracking-[0.3em]"
                   maxLength={6}
                   autoFocus
                 />
+                {loading && (
+                  <svg className="h-4 w-4 shrink-0 animate-spin text-[#087cff]" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                )}
               </div>
 
-              {error && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-xs font-bold text-red-400">{error}</p>}
+              {error && (
+                <div className="rounded-xl bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20">
+                  <p className="text-xs font-bold text-red-400">{error}</p>
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resendCooldown > 0 || resending}
+                    className="mt-1.5 text-xs font-black text-[#087cff] transition hover:text-blue-400 disabled:cursor-not-allowed disabled:text-slate-600"
+                  >
+                    {resending ? "Sending…" : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "→ Send a new code"}
+                  </button>
+                </div>
+              )}
 
               <button
                 type="submit"
                 disabled={loading || code.length < 6}
                 className="w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-60"
               >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Verifying…
-                  </span>
-                ) : "Verify & Enter"}
+                Verify & Enter
               </button>
 
-              {/* Resend */}
-              <p className="text-center text-xs text-slate-500">
-                Still nothing?{" "}
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={resendCooldown > 0 || resending}
-                  className="font-black text-[#087cff] transition hover:text-blue-400 disabled:cursor-not-allowed disabled:text-slate-600"
-                >
-                  {resending ? "Sending…" : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
-                </button>
-              </p>
+              {/* Resend — shown when no error */}
+              {!error && (
+                <p className="text-center text-xs text-slate-500">
+                  Still nothing?{" "}
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    disabled={resendCooldown > 0 || resending}
+                    className="font-black text-[#087cff] transition hover:text-blue-400 disabled:cursor-not-allowed disabled:text-slate-600"
+                  >
+                    {resending ? "Sending…" : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend code"}
+                  </button>
+                </p>
+              )}
             </form>
           ) : (
             <>
