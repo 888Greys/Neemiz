@@ -14,6 +14,20 @@ const CRYPTO_ASSETS = [
   { name: "Ethereum", code: "ETH", network: "ERC-20", min: "0.003", color: "bg-[#8792dd]", icon: "E" },
   { name: "Litecoin", code: "LTC", network: "LTC", min: "0.05", color: "bg-[#b9bec8]", icon: "L" },
 ];
+const CRYPTO_ADDRESS = "TPAAstiM7hP8UXrpA6awtZuJkKdsG54N7";
+const QR_CELLS = [
+  1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1,
+  1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0,
+  1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1,
+  0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1,
+  1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0,
+  0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1,
+  1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1,
+  1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1,
+  0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0,
+  1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1,
+  1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1,
+];
 
 type DepositState =
   | { step: "idle" }
@@ -169,6 +183,79 @@ function CryptoSelector({
   );
 }
 
+function QrPattern() {
+  return (
+    <div className="grid h-28 w-28 shrink-0 grid-cols-11 gap-0.5 rounded-xl bg-white p-2">
+      {QR_CELLS.map((filled, index) => (
+        <span key={index} className={filled ? "rounded-[1px] bg-slate-950" : "rounded-[1px] bg-white"} />
+      ))}
+    </div>
+  );
+}
+
+function CryptoDepositPanel({
+  asset,
+  search,
+  setSearch,
+  open,
+  setOpen,
+  onSelect,
+  onCopy,
+  copied,
+}: {
+  asset: CryptoAsset;
+  search: string;
+  setSearch: (value: string) => void;
+  open: boolean;
+  setOpen: (value: boolean) => void;
+  onSelect: (asset: CryptoAsset) => void;
+  onCopy: () => void;
+  copied: boolean;
+}) {
+  return (
+    <div className="space-y-5">
+      <CryptoSelector asset={asset} search={search} setSearch={setSearch} open={open} setOpen={setOpen} onSelect={onSelect} />
+
+      {!open && (
+        <>
+          <button type="button" className="flex h-14 w-full items-center justify-between rounded-2xl bg-white/[0.06] px-5 text-left ring-1 ring-white/[0.08]" disabled>
+            <span className="text-base font-black text-white">{asset.network}</span>
+            <Icon name="expand_more" className="text-[26px] text-slate-500" />
+          </button>
+
+          <div className="text-center">
+            <p className="text-sm font-bold text-slate-400">
+              Minimum <span className="font-black text-white">{asset.code} {asset.min}</span>
+            </p>
+            <p className="mt-1 text-xs font-bold text-slate-600">Amounts below this will not be credited.</p>
+          </div>
+
+          <div className="flex flex-col gap-4 rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/[0.08] sm:flex-row sm:items-center">
+            <QrPattern />
+            <div className="min-w-0 flex-1 text-center sm:text-left">
+              <p className="text-base font-black text-white">Deposit address</p>
+              <p className="mt-2 break-all text-sm font-bold leading-relaxed text-slate-400">
+                <span className="text-white">{CRYPTO_ADDRESS.slice(0, 6)}</span>{CRYPTO_ADDRESS.slice(6, -5)}
+                <span className="text-white">{CRYPTO_ADDRESS.slice(-5)}</span>
+              </p>
+              <button
+                type="button"
+                onClick={onCopy}
+                className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-[#087cff] px-5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff]"
+              >
+                <Icon name={copied ? "check" : "content_copy"} className="text-[19px]" />
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+
+          <BonusCard />
+        </>
+      )}
+    </div>
+  );
+}
+
 export function WalletModal({ onClose }: Props) {
   const { isSignedIn, user } = useSupabaseAuth();
   const [mode, setMode] = useState<"fiat" | "crypto">("fiat");
@@ -176,6 +263,7 @@ export function WalletModal({ onClose }: Props) {
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoAsset>(CRYPTO_ASSETS[0]);
   const [cryptoOpen, setCryptoOpen] = useState(false);
   const [cryptoSearch, setCryptoSearch] = useState("");
+  const [copiedCryptoAddress, setCopiedCryptoAddress] = useState(false);
   const [amount, setAmount] = useState("500");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -234,6 +322,16 @@ export function WalletModal({ onClose }: Props) {
     setDeposit({ step: "idle" });
     setError("");
     pollCount.current = 0;
+  }
+
+  async function copyCryptoAddress() {
+    try {
+      await navigator.clipboard.writeText(CRYPTO_ADDRESS);
+      setCopiedCryptoAddress(true);
+      window.setTimeout(() => setCopiedCryptoAddress(false), 1500);
+    } catch {
+      setCopiedCryptoAddress(false);
+    }
   }
 
   async function handleDeposit() {
@@ -314,46 +412,16 @@ export function WalletModal({ onClose }: Props) {
                   </button>
                 </>
               ) : (
-                <>
-                  <CryptoSelector
-                    asset={selectedCrypto}
-                    search={cryptoSearch}
-                    setSearch={setCryptoSearch}
-                    open={cryptoOpen}
-                    setOpen={setCryptoOpen}
-                    onSelect={setSelectedCrypto}
-                  />
-
-                  {!cryptoOpen && (
-                    <>
-                      <button type="button" className="flex h-14 w-full items-center justify-between rounded-2xl bg-white/[0.06] px-5 text-left ring-1 ring-white/[0.08]" disabled>
-                        <span className="text-base font-black text-white">{selectedCrypto.network}</span>
-                        <Icon name="expand_more" className="text-[26px] text-slate-500" />
-                      </button>
-
-                      <div className="rounded-2xl bg-white/[0.04] px-5 py-4 text-center ring-1 ring-white/[0.08]">
-                        <p className="text-sm font-bold text-slate-400">
-                          Minimum <span className="font-black text-white">{selectedCrypto.code} {selectedCrypto.min}</span>
-                        </p>
-                        <p className="mt-1 text-xs font-bold text-slate-600">Amounts below this will not be credited.</p>
-                      </div>
-
-                      <div className="rounded-2xl border border-dashed border-[#087cff]/50 bg-[#087cff]/10 px-5 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087cff]/18">
-                            <Icon name="account_balance_wallet" fill className="text-[24px] text-[#5ea9ff]" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-black text-white">{selectedCrypto.code} deposit address</p>
-                            <p className="text-xs font-bold text-slate-500">Crypto deposits are being connected.</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <BonusCard />
-                    </>
-                  )}
-                </>
+                <CryptoDepositPanel
+                  asset={selectedCrypto}
+                  search={cryptoSearch}
+                  setSearch={setCryptoSearch}
+                  open={cryptoOpen}
+                  setOpen={setCryptoOpen}
+                  onSelect={setSelectedCrypto}
+                  onCopy={copyCryptoAddress}
+                  copied={copiedCryptoAddress}
+                />
               )}
             </div>
           ) : (
@@ -370,29 +438,45 @@ export function WalletModal({ onClose }: Props) {
                 Back
               </button>
 
-              <div className="flex items-center gap-4">
-                <span className="text-2xl font-black tracking-tight text-[#31c45d]">M-PESA</span>
-                <h2 className="text-4xl font-black tracking-tight text-white">M-pesa</h2>
-              </div>
+              {mode === "crypto" ? (
+                <h2 className="text-4xl font-black tracking-tight text-white">Deposit</h2>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <span className="text-2xl font-black tracking-tight text-[#31c45d]">M-PESA</span>
+                  <h2 className="text-4xl font-black tracking-tight text-white">M-pesa</h2>
+                </div>
+              )}
 
               <MoneyTabs mode={mode} setMode={setMode} />
 
-              {deposit.step === "confirmed" ? (
+              {mode === "crypto" ? (
+                <CryptoDepositPanel
+                  asset={selectedCrypto}
+                  search={cryptoSearch}
+                  setSearch={setCryptoSearch}
+                  open={cryptoOpen}
+                  setOpen={setCryptoOpen}
+                  onSelect={setSelectedCrypto}
+                  onCopy={copyCryptoAddress}
+                  copied={copiedCryptoAddress}
+                />
+              ) : deposit.step === "confirmed" ? (
                 <div className="rounded-2xl bg-white/[0.06] p-6 text-center ring-1 ring-[#05b957]/30">
                   <Icon name="check_circle" fill className="mx-auto text-[54px] text-[#05b957]" />
-                  <p className="mt-2 text-2xl font-black text-white">Payment received</p>
-                  <p className="mt-1 text-sm font-bold text-slate-400">KSh {deposit.amount.toLocaleString()} was added to your wallet.</p>
+                  <p className="mt-2 text-3xl font-black text-white">Success</p>
+                  <p className="mt-1 text-sm font-bold text-slate-400">Payment confirmed. KSh {deposit.amount.toLocaleString()} was added to your wallet.</p>
                   <button type="button" onClick={reset} className="mt-5 h-14 w-full rounded-xl bg-[#087cff] text-base font-black text-white">
                     Deposit more
                   </button>
                 </div>
               ) : deposit.step === "pending" ? (
                 <div className="rounded-2xl bg-white/[0.06] p-6 text-center ring-1 ring-[#087cff]/30">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#087cff]/15">
-                    <Icon name="phone_iphone" fill className="text-[34px] text-[#5ea9ff]" />
+                  <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#087cff]/20 border-t-[#087cff]" />
+                  <p className="mt-5 text-3xl font-black text-white">Verifying status</p>
+                  <div className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm font-black text-red-200 ring-1 ring-red-500/20">
+                    Please enter your MPESA PIN to complete the transaction
                   </div>
-                  <p className="mt-3 text-2xl font-black text-white">Check your phone</p>
-                  <p className="mt-1 text-sm font-bold text-slate-400">Enter your M-Pesa PIN to complete KES {deposit.amount.toLocaleString()}.</p>
+                  <p className="mt-3 text-sm font-bold text-slate-400">This can take 1-3 minutes. Please wait.</p>
                   <button type="button" onClick={reset} className="mt-5 text-sm font-bold text-slate-500 transition hover:text-white">
                     Cancel
                   </button>
