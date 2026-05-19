@@ -36,7 +36,7 @@ type DepositState =
   | { step: "failed"; message: string };
 
 type CryptoAsset = (typeof CRYPTO_ASSETS)[number];
-type Props = { onClose: () => void };
+type Props = { onClose: () => void; onDepositConfirmed?: () => void };
 
 function normalizeMsisdn(v: string) {
   const s = v.trim().replace(/\s+/g, "");
@@ -256,7 +256,7 @@ function CryptoDepositPanel({
   );
 }
 
-export function WalletModal({ onClose }: Props) {
+export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   const { isSignedIn, user } = useSupabaseAuth();
   const [mode, setMode] = useState<"fiat" | "crypto">("fiat");
   const [screen, setScreen] = useState<"methods" | "mpesa">("methods");
@@ -304,6 +304,7 @@ export function WalletModal({ onClose }: Props) {
         if (data.status === "confirmed") {
           clearInterval(pollRef.current!);
           setDeposit({ step: "confirmed", amount: deposit.amount, newBalance: data.newBalance, receipt: data.receipt ?? "" });
+          onDepositConfirmed?.();
         } else if (data.status === "failed") {
           clearInterval(pollRef.current!);
           setDeposit({ step: "failed", message: data.message ?? "Payment failed." });

@@ -36,7 +36,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
   const meta = user?.user_metadata ?? {};
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
-  const { balance, currency } = useWalletBalance();
+  const { balance, currency, refresh: refreshWalletBalance } = useWalletBalance();
   const fmtBalance = isSignedIn
     ? `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
@@ -178,7 +178,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} />}
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
       {profileOpen && <ProfileModal onClose={() => setProfileOpen(false)} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} />}
-      {walletOpen && <WalletModal onClose={() => setWalletOpen(false)} />}
+      {walletOpen && <WalletModal onClose={() => setWalletOpen(false)} onDepositConfirmed={refreshWalletBalance} />}
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} />}
 
       {rightPanel && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
