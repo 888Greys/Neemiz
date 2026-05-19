@@ -11,6 +11,28 @@ function normalizeMsisdn(phone: string): string {
   return v;
 }
 
+function stringValue(data: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = data[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return "";
+}
+
+function providerMessage(data: Record<string, unknown>, fallback: string) {
+  return stringValue(data, ["massage", "message", "Message", "ResultDesc", "error", "Error"]) || fallback;
+}
+
+async function readProviderJson(res: Response) {
+  const raw = await res.text().catch(() => "");
+  try {
+    return { data: raw ? JSON.parse(raw) as Record<string, unknown> : {}, raw };
+  } catch {
+    return { data: {}, raw };
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -51,7 +73,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XXXXXXXX or 01XXXXXXXX." }, { status: 400 });
     }
 
-    const reference = `nezeem-dep-${user.id.slice(0, 8)}-${Date.now()}`;
+    const reference = `neemiz-${Date.now()}`;
 
     const mpRes = await fetch(`${baseUrl}/backend/v1/initiatestk`, {
       method: "POST",
@@ -67,11 +89,23 @@ export async function POST(req: Request) {
       }),
     });
 
-    const mpData = await mpRes.json().catch(() => ({})) as Record<string, string>;
+    const { data: mpData, raw: mpRaw } = await readProviderJson(mpRes);
+    const providerRequestId = stringValue(mpData, [
+      "transaction_request_id",
+      "transactionRequestId",
+      "TransactionRequestID",
+      "TransactionRequestId",
+      "request_id",
+      "RequestID",
+    ]);
+    const successCode = stringValue(mpData, ["success", "Success", "status", "Status"]);
+    const queued = (successCode === "200" || successCode.toLowerCase() === "success" || successCode.toLowerCase() === "queued") && providerRequestId;
 
-    if (!mpRes.ok || mpData.success !== "200" || !mpData.transaction_request_id) {
+    if (!mpRes.ok || !queued) {
+      const fallback = mpRaw ? `MegaPay rejected the request: ${mpRaw.slice(0, 180)}` : "MegaPay rejected the request.";
+      console.error("MegaPay deposit rejected:", { status: mpRes.status, body: mpData, raw: mpRaw });
       return Response.json(
-        { error: mpData.massage ?? mpData.message ?? "MegaPay rejected the request." },
+        { error: providerMessage(mpData, fallback) },
         { status: 400 }
       );
     }
@@ -85,7 +119,7 @@ export async function POST(req: Request) {
           amount: amountKes,
           currency: "KES",
           status: TransactionStatus.PENDING,
-          reference: mpData.transaction_request_id,
+          reference: providerRequestId,
           provider: "megapay",
           metadata: { msisdn, reference },
         },
@@ -97,7 +131,7 @@ export async function POST(req: Request) {
     return Response.json({
       status: "queued",
       message: "Check your phone for the M-Pesa prompt.",
-      transactionRequestId: mpData.transaction_request_id,
+      transactionRequestId: providerRequestId,
     });
   } catch (err) {
     console.error("Deposit route error:", err);

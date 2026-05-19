@@ -201,9 +201,9 @@ export function WalletModal({ onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/82 p-3 sm:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/82 px-3 py-4 sm:px-6 sm:py-8" onClick={onClose}>
       <div
-        className="relative flex max-h-[88dvh] w-full max-w-[490px] flex-col overflow-hidden rounded-[28px] bg-white text-[#111318] shadow-2xl animate-in fade-in zoom-in-95 duration-200"
+        className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[490px] flex-col overflow-hidden rounded-[28px] bg-white text-[#111318] shadow-2xl animate-in fade-in zoom-in-95 duration-200 sm:max-h-[calc(100dvh-4rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -215,7 +215,7 @@ export function WalletModal({ onClose }: Props) {
           <Icon name="close" className="text-[28px]" />
         </button>
 
-        <div className="no-scrollbar overflow-y-auto px-6 pb-8 pt-6 sm:px-6">
+        <div className="no-scrollbar overflow-y-auto px-6 pb-8 pt-8 sm:px-6">
           {screen === "methods" ? (
             <div className="space-y-5">
               <h2 className="pr-10 text-4xl font-black tracking-tight text-[#090b10]">Deposit</h2>
