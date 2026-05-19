@@ -59,7 +59,7 @@ interface SMOdd {
 
 // Sportmonks state_id reference:
 // 1=NS(Not Started) 2=1H 3=HT 4=2H 5=FT 6=ET 7=PEN 11=AET 13=Abandoned 17=Cancelled
-const FINISHED_STATE_IDS = new Set([5, 11, 13, 17, 21]);
+export const FINISHED_STATE_IDS = new Set([5, 11, 13, 17, 21]);
 const LIVE_STATE_IDS = new Set([2, 3, 4, 6, 7]);
 
 interface SMFixture {
@@ -295,6 +295,7 @@ export interface BettingMarket {
 
 export interface MatchDetail {
   match: Match;
+  stateId: number;
   homeParticipantId: number;
   awayParticipantId: number;
   events: MatchEvent[];
@@ -400,6 +401,7 @@ export async function getFixtureDetail(id: number): Promise<MatchDetail | null> 
 
   return {
     match: normalize(f, isLive),
+    stateId: f.state_id ?? 0,
     homeParticipantId: home?.id ?? 0,
     awayParticipantId: away?.id ?? 0,
     events: (f.events ?? []).sort((a, b) => a.minute - b.minute || (a.extra_minute ?? 0) - (b.extra_minute ?? 0)),

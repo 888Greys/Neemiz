@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/bets/settle",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}
