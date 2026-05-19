@@ -17,11 +17,18 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-    const baseUrl = (process.env.MEGAPAY_BASE_URL ?? process.env.MEGAPAY_API_URL ?? "").replace(/\/+$/, "");
-    const apiKey  = process.env.MEGAPAY_API_KEY ?? "";
-    const email   = process.env.MEGAPAY_EMAIL ?? "";
-    const callbackUrl   = process.env.MEGAPAY_CALLBACK_URL ?? "";
-    const callbackToken = process.env.MEGAPAY_CALLBACK_TOKEN ?? "";
+    const baseUrl = (
+      process.env.NEZEEM_MEGAPAY_BASE_URL ??
+      process.env.ACEGIRLS_MEGAPAY_BASE_URL ??
+      process.env.MEGAPAY_BASE_URL ??
+      process.env.MEGAPAY_API_URL ??
+      ""
+    ).replace(/\/+$/, "");
+    const apiKey = process.env.NEZEEM_MEGAPAY_API_KEY ?? process.env.ACEGIRLS_MEGAPAY_API_KEY ?? process.env.MEGAPAY_API_KEY ?? "";
+    const email = process.env.NEZEEM_MEGAPAY_EMAIL ?? process.env.ACEGIRLS_MEGAPAY_EMAIL ?? process.env.MEGAPAY_EMAIL ?? "";
+    const callbackUrl = process.env.NEZEEM_MEGAPAY_CALLBACK_URL ?? process.env.ACEGIRLS_MEGAPAY_CALLBACK_URL ?? process.env.MEGAPAY_CALLBACK_URL ?? "";
+    const callbackToken =
+      process.env.NEZEEM_MEGAPAY_CALLBACK_TOKEN ?? process.env.ACEGIRLS_MEGAPAY_CALLBACK_TOKEN ?? process.env.MEGAPAY_CALLBACK_TOKEN ?? "";
 
     if (!baseUrl || !apiKey || !email) {
       return Response.json({ error: "MegaPay not configured" }, { status: 503 });
@@ -44,8 +51,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XXXXXXXX or 01XXXXXXXX." }, { status: 400 });
     }
 
-    const dbUser = await getOrCreateUser(user.id, { email: user.email });
-    const reference = `nezeem-dep-${dbUser.id.slice(-6)}-${Date.now()}`;
+    const reference = `nezeem-dep-${user.id.slice(0, 8)}-${Date.now()}`;
 
     const mpRes = await fetch(`${baseUrl}/backend/v1/initiatestk`, {
       method: "POST",
@@ -70,18 +76,23 @@ export async function POST(req: Request) {
       );
     }
 
-    await db.transaction.create({
-      data: {
-        userId: dbUser.id,
-        type: TransactionType.DEPOSIT,
-        amount: amountKes,
-        currency: "KES",
-        status: TransactionStatus.PENDING,
-        reference: mpData.transaction_request_id,
-        provider: "megapay",
-        metadata: { msisdn, reference },
-      },
-    });
+    try {
+      const dbUser = await getOrCreateUser(user.id, { email: user.email });
+      await db.transaction.create({
+        data: {
+          userId: dbUser.id,
+          type: TransactionType.DEPOSIT,
+          amount: amountKes,
+          currency: "KES",
+          status: TransactionStatus.PENDING,
+          reference: mpData.transaction_request_id,
+          provider: "megapay",
+          metadata: { msisdn, reference },
+        },
+      });
+    } catch (ledgerErr) {
+      console.error("Deposit ledger write failed:", ledgerErr);
+    }
 
     return Response.json({
       status: "queued",

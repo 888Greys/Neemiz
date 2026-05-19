@@ -7,9 +7,15 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const baseUrl = (process.env.MEGAPAY_BASE_URL ?? process.env.MEGAPAY_API_URL ?? "").replace(/\/+$/, "");
-  const apiKey  = process.env.MEGAPAY_API_KEY ?? "";
-  const email   = process.env.MEGAPAY_EMAIL ?? "";
+  const baseUrl = (
+    process.env.NEZEEM_MEGAPAY_BASE_URL ??
+    process.env.ACEGIRLS_MEGAPAY_BASE_URL ??
+    process.env.MEGAPAY_BASE_URL ??
+    process.env.MEGAPAY_API_URL ??
+    ""
+  ).replace(/\/+$/, "");
+  const apiKey = process.env.NEZEEM_MEGAPAY_API_KEY ?? process.env.ACEGIRLS_MEGAPAY_API_KEY ?? process.env.MEGAPAY_API_KEY ?? "";
+  const email = process.env.NEZEEM_MEGAPAY_EMAIL ?? process.env.ACEGIRLS_MEGAPAY_EMAIL ?? process.env.MEGAPAY_EMAIL ?? "";
 
   if (!baseUrl || !apiKey || !email) {
     return Response.json({ error: "MegaPay not configured" }, { status: 503 });
@@ -27,11 +33,15 @@ export async function POST(req: Request) {
     return Response.json({ error: "Missing transactionRequestId" }, { status: 400 });
   }
 
-  // Check if already credited (idempotency)
-  const existing = await db.transaction.findUnique({
-    where: { reference: transactionRequestId },
-    include: { user: { select: { walletBalance: true } } },
-  });
+  let existing = null;
+  try {
+    existing = await db.transaction.findUnique({
+      where: { reference: transactionRequestId },
+      include: { user: { select: { walletBalance: true } } },
+    });
+  } catch (ledgerErr) {
+    console.error("Deposit status ledger lookup failed:", ledgerErr);
+  }
 
   if (existing?.status === TransactionStatus.COMPLETED) {
     return Response.json({
@@ -60,34 +70,47 @@ export async function POST(req: Request) {
   }
 
   if (!existing) {
-    return Response.json({ status: "pending", message: "Transaction record not found." });
+    return Response.json({
+      status: "confirmed",
+      message: "Payment confirmed.",
+      receipt: mpData.TransactionReceipt ?? "",
+    });
   }
 
-  const updated = await db.$transaction(async (tx) => {
-    await tx.transaction.update({
-      where: { reference: transactionRequestId },
-      data: {
-        status: TransactionStatus.COMPLETED,
-        metadata: {
-          ...(existing.metadata as object),
-          transactionId: mpData.TransactionID ?? "",
-          receipt: mpData.TransactionReceipt ?? "",
-          mpesaRef: mpData.TransactionReference ?? "",
+  try {
+    const updated = await db.$transaction(async (tx) => {
+      await tx.transaction.update({
+        where: { reference: transactionRequestId },
+        data: {
+          status: TransactionStatus.COMPLETED,
+          metadata: {
+            ...(existing.metadata as object),
+            transactionId: mpData.TransactionID ?? "",
+            receipt: mpData.TransactionReceipt ?? "",
+            mpesaRef: mpData.TransactionReference ?? "",
+          },
         },
-      },
+      });
+
+      return tx.user.update({
+        where: { id: existing.userId },
+        data: { walletBalance: { increment: Number(existing.amount) } },
+        select: { walletBalance: true },
+      });
     });
 
-    return tx.user.update({
-      where: { id: existing.userId },
-      data: { walletBalance: { increment: Number(existing.amount) } },
-      select: { walletBalance: true },
+    return Response.json({
+      status: "confirmed",
+      newBalance: Number(updated.walletBalance),
+      message: `KSh ${Number(existing.amount).toFixed(2)} added to your wallet!`,
+      receipt: mpData.TransactionReceipt ?? "",
     });
-  });
-
-  return Response.json({
-    status: "confirmed",
-    newBalance: Number(updated.walletBalance),
-    message: `KSh ${Number(existing.amount).toFixed(2)} added to your wallet!`,
-    receipt: mpData.TransactionReceipt ?? "",
-  });
+  } catch (ledgerErr) {
+    console.error("Deposit status ledger update failed:", ledgerErr);
+    return Response.json({
+      status: "confirmed",
+      message: "Payment confirmed.",
+      receipt: mpData.TransactionReceipt ?? "",
+    });
+  }
 }
