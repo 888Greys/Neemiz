@@ -290,6 +290,7 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSuppo
         <SidebarGroup collapsed={collapsed} icon="online_prediction" isOpen={openGroups.markets} onToggle={() => toggleGroup("markets")} title="Markets">
           <SidebarItem collapsed={collapsed} href="/predictions" icon="bar_chart" label="Predictions" pathname={pathname} direct />
           <SidebarItem collapsed={collapsed} href="/p2p" icon="swap_horiz" label="P2P Trading" pathname={pathname} direct />
+          <SidebarItem collapsed={collapsed} href="/p2p/merchant" icon="storefront" label="Merchant" pathname={pathname} direct />
         </SidebarGroup>
 
         {/* Trade */}
@@ -682,6 +683,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
           <MobileDrawerGroup icon="online_prediction" isOpen={openGroups.markets} label="Markets" onToggle={() => setOpenGroups((v) => ({ ...v, markets: !v.markets }))}>
             <MobileDrawerLink href="/predictions" icon="bar_chart" label="Predictions" onClick={onClose} />
             <MobileDrawerLink href="/p2p" icon="swap_horiz" label="P2P Trading" onClick={onClose} />
+            <MobileDrawerLink href="/p2p/merchant" icon="storefront" label="Merchant Center" onClick={onClose} />
           </MobileDrawerGroup>
 
           {/* Trade */}
