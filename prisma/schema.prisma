@@ -22,8 +22,13 @@ model User {
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
-  bets           Bet[]
-  transactions   Transaction[]
+  bets              Bet[]
+  transactions      Transaction[]
+
+  // P2P
+  merchantProfile   MerchantProfile?
+  p2pBuyOrders      P2POrder[]        @relation("P2PBuyer")
+  p2pMessages       P2PMessage[]
 
   @@map("users")
 }
@@ -123,4 +128,206 @@ enum TransactionStatus {
   COMPLETED
   FAILED
   CANCELLED
+}
+
+// ─── P2P Trading ────────────────────────────────────────────────────────────
+
+model MerchantProfile {
+  id               String    @id @default(cuid())
+  userId           String    @unique @map("user_id")
+  user             User      @relation(fields: [userId], references: [id])
+
+  displayName      String    @map("display_name")
+  isVerified       Boolean   @default(false) @map("is_verified")
+  isOnline         Boolean   @default(false) @map("is_online")
+
+  // Stats
+  totalTrades      Int       @default(0) @map("total_trades")
+  completedTrades  Int       @default(0) @map("completed_trades")
+  completionRate   Decimal   @default(100) @map("completion_rate") @db.Decimal(5, 2)
+  avgReleaseTime   Int       @default(0) @map("avg_release_time") // minutes
+
+  // KYC
+  kycStatus        KycStatus @default(PENDING) @map("kyc_status")
+  kycDocumentUrl   String?   @map("kyc_document_url")
+  kycNote          String?   @map("kyc_note")
+
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  ads              P2PAd[]
+  sellOrders       P2POrder[] @relation("P2PSeller")
+  paymentMethods   P2PPaymentMethod[]
+  cryptoBalances   P2PCryptoBalance[]
+
+  @@map("merchant_profiles")
+}
+
+model P2PPaymentMethod {
+  id           String          @id @default(cuid())
+  merchantId   String          @map("merchant_id")
+  merchant     MerchantProfile @relation(fields: [merchantId], references: [id])
+
+  type         PaymentType     // MPESA | BANK
+  name         String          // e.g. "Equity Bank", "Safaricom M-Pesa"
+  accountName  String          @map("account_name")
+  accountNo    String          @map("account_no")  // phone or account number
+  bankName     String?         @map("bank_name")
+  isActive     Boolean         @default(true) @map("is_active")
+
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  @@map("p2p_payment_methods")
+}
+
+model P2PCryptoBalance {
+  id           String          @id @default(cuid())
+  merchantId   String          @map("merchant_id")
+  merchant     MerchantProfile @relation(fields: [merchantId], references: [id])
+
+  crypto       String          // "USDT", "BTC", "ETH"
+  total        Decimal         @default(0) @db.Decimal(18, 8)
+  locked       Decimal         @default(0) @db.Decimal(18, 8) // in active orders
+  available    Decimal         @default(0) @db.Decimal(18, 8) // total - locked
+
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+
+  @@unique([merchantId, crypto])
+  @@map("p2p_crypto_balances")
+}
+
+model P2PAd {
+  id              String          @id @default(cuid())
+  merchantId      String          @map("merchant_id")
+  merchant        MerchantProfile @relation(fields: [merchantId], references: [id])
+
+  side            AdSide          // BUY | SELL
+  crypto          String          // "USDT", "BTC", "ETH"
+  fiat            String          @default("KES")
+
+  pricePerUnit    Decimal         @map("price_per_unit") @db.Decimal(18, 2) // KES per 1 crypto
+  totalAmount     Decimal         @map("total_amount") @db.Decimal(18, 8)   // total crypto
+  availableAmount Decimal         @map("available_amount") @db.Decimal(18, 8)
+
+  minLimit        Decimal         @map("min_limit") @db.Decimal(18, 2) // min KES
+  maxLimit        Decimal         @map("max_limit") @db.Decimal(18, 2) // max KES
+
+  paymentMethods  String[]        @map("payment_methods") // ["mpesa","bank"]
+  paymentWindow   Int             @default(15) @map("payment_window") // minutes
+  terms           String?
+
+  isActive        Boolean         @default(true) @map("is_active")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  orders          P2POrder[]
+
+  @@map("p2p_ads")
+}
+
+model P2POrder {
+  id              String          @id @default(cuid())
+  adId            String          @map("ad_id")
+  ad              P2PAd           @relation(fields: [adId], references: [id])
+
+  buyerId         String          @map("buyer_id")
+  buyer           User            @relation("P2PBuyer", fields: [buyerId], references: [id])
+  sellerId        String          @map("seller_id")
+  seller          MerchantProfile @relation("P2PSeller", fields: [sellerId], references: [id])
+
+  crypto          String
+  cryptoAmount    Decimal         @map("crypto_amount") @db.Decimal(18, 8)
+  fiatAmount      Decimal         @map("fiat_amount") @db.Decimal(18, 2)   // KES
+  pricePerUnit    Decimal         @map("price_per_unit") @db.Decimal(18, 2)
+
+  status          OrderStatus     @default(PENDING)
+  paymentMethod   String          @map("payment_method") // "mpesa" | "bank"
+
+  // Payment proof from buyer
+  paymentRef      String?         @map("payment_ref")
+  paymentProofUrl String?         @map("payment_proof_url")
+  paidAt          DateTime?       @map("paid_at")
+
+  // Escrow
+  escrowReleased  Boolean         @default(false) @map("escrow_released")
+  releasedAt      DateTime?       @map("released_at")
+
+  // Cancellation
+  cancelledBy     String?         @map("cancelled_by")
+  cancelReason    String?         @map("cancel_reason")
+
+  expiresAt       DateTime        @map("expires_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  messages        P2PMessage[]
+  dispute         P2PDispute?
+
+  @@map("p2p_orders")
+}
+
+model P2PMessage {
+  id        String    @id @default(cuid())
+  orderId   String    @map("order_id")
+  order     P2POrder  @relation(fields: [orderId], references: [id])
+  senderId  String    @map("sender_id")
+  sender    User      @relation(fields: [senderId], references: [id])
+
+  content   String
+  imageUrl  String?   @map("image_url") // for payment screenshots
+
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("p2p_messages")
+}
+
+model P2PDispute {
+  id          String        @id @default(cuid())
+  orderId     String        @unique @map("order_id")
+  order       P2POrder      @relation(fields: [orderId], references: [id])
+
+  raisedById  String        @map("raised_by_id")
+  reason      String
+  evidence    String?       // URL to screenshot/proof
+
+  status      DisputeStatus @default(OPEN)
+  resolution  String?
+  resolvedAt  DateTime?     @map("resolved_at")
+
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@map("p2p_disputes")
+}
+
+// ─── P2P Enums ───────────────────────────────────────────────────────────────
+
+enum AdSide {
+  BUY
+  SELL
+}
+
+enum OrderStatus {
+  PENDING    // order created, waiting for buyer to pay
+  PAID       // buyer marked as paid, waiting merchant to release
+  RELEASED   // crypto released to buyer ✅
+  CANCELLED  // cancelled before payment
+  DISPUTED   // dispute raised
+  EXPIRED    // payment window passed
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentType {
+  MPESA
+  BANK
+}
+
+enum DisputeStatus {
+  OPEN
+  RESOLVED
+  CLOSED
 }
