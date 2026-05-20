@@ -477,14 +477,16 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                   </button>
                 </div>
               ) : deposit.step === "pending" ? (
-                <div className="rounded-2xl bg-white/[0.06] p-6 text-center ring-1 ring-[#087cff]/30">
-                  <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#087cff]/20 border-t-[#087cff]" />
-                  <p className="mt-5 text-3xl font-black text-white">Verifying status</p>
-                  <div className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm font-black text-red-200 ring-1 ring-red-500/20">
-                    Please enter your MPESA PIN to complete the transaction
+                <div className="flex flex-col items-center justify-center gap-5 py-10">
+                  <div className="relative flex h-20 w-20 items-center justify-center">
+                    <div className="absolute inset-0 animate-spin rounded-full border-4 border-[#087cff]/15 border-t-[#087cff]" />
+                    <span className="text-2xl font-black text-[#31c45d]">M</span>
                   </div>
-                  <p className="mt-3 text-sm font-bold text-slate-400">This can take 1-3 minutes. Please wait.</p>
-                  <button type="button" onClick={reset} className="mt-5 text-sm font-bold text-slate-500 transition hover:text-white">
+                  <div className="text-center">
+                    <p className="text-xl font-black text-white">Waiting for payment</p>
+                    <p className="mt-1 text-sm font-bold text-slate-500">Approve the M-Pesa prompt on your phone</p>
+                  </div>
+                  <button type="button" onClick={reset} className="text-xs font-bold text-slate-600 transition hover:text-slate-400">
                     Cancel
                   </button>
                 </div>
