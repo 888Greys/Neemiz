@@ -274,6 +274,7 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSuppo
           <SidebarItem collapsed={collapsed} href="/sports?tab=Esports" icon="sports_esports" label="Esports" pathname={pathname} suppressActive />
           <SidebarItem collapsed={collapsed} href="/sports?tab=Sports" icon="calendar_month" label="All Sports" pathname={pathname} suppressActive />
           <SidebarItem collapsed={collapsed} href="/sports?tab=Markets" icon="trending_up" label="Markets" pathname={pathname} suppressActive />
+          <SidebarItem collapsed={collapsed} href="/my-bets" icon="receipt_long" label="My Bets" pathname={pathname} />
         </SidebarGroup>
 
         {/* Casino */}
@@ -665,6 +666,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
             <MobileDrawerLink href="/sports?tab=Esports" icon="sports_esports" label="Esports" onClick={onClose} />
             <MobileDrawerLink href="/sports?tab=Sports" icon="calendar_month" label="All Sports" onClick={onClose} />
             <MobileDrawerLink href="/sports?tab=Markets" icon="trending_up" label="Markets" onClick={onClose} />
+            <MobileDrawerLink href="/my-bets" icon="receipt_long" label="My Bets" onClick={onClose} />
           </MobileDrawerGroup>
 
           {/* Casino */}
