@@ -129,6 +129,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
                 <CountryPicker value={country} onChange={setCountry} />
                 <input
                   type="tel"
+                  autoFocus
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="700 000000"
@@ -140,6 +141,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
                 <Icon name="mail" fill className="text-[18px] shrink-0 text-slate-500" />
                 <input
                   type="email"
+                  autoFocus
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"

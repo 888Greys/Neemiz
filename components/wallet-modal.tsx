@@ -48,25 +48,25 @@ function normalizeMsisdn(v: string) {
 
 function MoneyTabs({ mode, setMode }: { mode: "fiat" | "crypto"; setMode: (mode: "fiat" | "crypto") => void }) {
   return (
-    <div className="grid grid-cols-2 rounded-2xl bg-white/[0.06] p-1 ring-1 ring-white/[0.08]">
+    <div className="grid grid-cols-2 rounded-2xl bg-white/[0.045] p-1 ring-1 ring-white/[0.07]">
       <button
         type="button"
         onClick={() => setMode("fiat")}
-        className={`flex h-12 items-center justify-center gap-3 rounded-xl text-sm font-black transition ${
-          mode === "fiat" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/25" : "text-slate-400 hover:text-white"
+        className={`flex h-11 items-center justify-center gap-2.5 rounded-xl text-sm font-black transition ${
+          mode === "fiat" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
         }`}
       >
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#05b957] text-[13px] font-black text-white">$</span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#05b957] text-[12px] font-black text-white">$</span>
         Fiat
       </button>
       <button
         type="button"
         onClick={() => setMode("crypto")}
-        className={`flex h-12 items-center justify-center gap-3 rounded-xl text-sm font-black transition ${
-          mode === "crypto" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/25" : "text-slate-400 hover:text-white"
+        className={`flex h-11 items-center justify-center gap-2.5 rounded-xl text-sm font-black transition ${
+          mode === "crypto" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
         }`}
       >
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ff9811] text-[12px] font-black text-white">B</span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff9811] text-[11px] font-black text-white">B</span>
         Crypto
       </button>
     </div>
@@ -77,28 +77,28 @@ function BonusCard() {
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-lg font-black text-white">Deposit bonus</p>
+        <p className="text-base font-black text-white">Deposit bonus</p>
         <div className="flex shrink-0 items-center gap-2 text-xs font-bold text-slate-500">
           Without bonus
-          <span className="flex h-8 w-12 items-center rounded-full bg-white/[0.08] p-1 ring-1 ring-white/[0.06]">
-            <span className="h-6 w-6 rounded-full bg-white/80 shadow-sm" />
+          <span className="flex h-7 w-11 items-center rounded-full bg-white/[0.07] p-1 ring-1 ring-white/[0.06]">
+            <span className="h-5 w-5 rounded-full bg-white/80 shadow-sm" />
           </span>
         </div>
       </div>
-      <div className="relative overflow-hidden rounded-2xl border border-[#05b957]/70 bg-gradient-to-br from-[#11365b] via-[#087cff] to-[#05b957] px-4 py-4 text-white shadow-lg shadow-blue-950/25">
-        <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#05b957] ring-2 ring-[#10141d]">
-          <Icon name="check" className="text-[17px] text-white" />
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-400/25 bg-[linear-gradient(135deg,#0d6fce_0%,#0aa0d7_52%,#07b85d_100%)] px-4 py-4 text-white shadow-lg shadow-black/20">
+        <div className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#05b957] ring-2 ring-[#10141d]">
+          <Icon name="check" className="text-[18px] text-white" />
         </div>
-        <div className="max-w-[70%]">
-          <p className="text-base font-black">+130% on the first deposit</p>
-          <p className="mt-1 text-sm font-bold leading-snug text-white/85">Deposit at least USD 10 and receive the bonus</p>
-          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-black">
+        <div className="max-w-[74%]">
+          <p className="text-[15px] font-black leading-tight">+130% on the first deposit</p>
+          <p className="mt-1 text-xs font-bold leading-snug text-white/85">Deposit at least USD 10 and receive the bonus</p>
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-black/18 px-3 py-1 text-[11px] font-black">
             28d : 09h : 49m
-            <Icon name="info" fill className="text-[15px]" />
+            <Icon name="info" fill className="text-[14px]" />
           </div>
         </div>
-        <div className="absolute bottom-2 right-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-white/10">
-          <Icon name="redeem" fill className="text-[58px] text-white/90" />
+        <div className="absolute bottom-3 right-7 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/12">
+          <Icon name="redeem" fill className="text-[42px] text-white/90" />
         </div>
       </div>
     </div>
@@ -249,7 +249,6 @@ function CryptoDepositPanel({
             </div>
           </div>
 
-          <BonusCard />
         </>
       )}
     </div>
@@ -264,7 +263,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   const [cryptoOpen, setCryptoOpen] = useState(false);
   const [cryptoSearch, setCryptoSearch] = useState("");
   const [copiedCryptoAddress, setCopiedCryptoAddress] = useState(false);
-  const [amount, setAmount] = useState("500");
+  const [amount, setAmount] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -361,23 +360,23 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/78 px-3 py-4 backdrop-blur-md sm:px-6 sm:py-8" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/72 px-3 py-4 backdrop-blur-md sm:px-6 sm:py-8" onClick={onClose}>
       <div
-        className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[520px] flex-col overflow-hidden rounded-[28px] border border-white/[0.10] bg-[#0d111a] text-white shadow-2xl shadow-black/50 animate-in fade-in zoom-in-95 duration-200 sm:max-h-[calc(100dvh-4rem)]"
+        className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[500px] flex-col overflow-hidden rounded-[24px] border border-white/[0.10] bg-[#10131b]/95 text-white shadow-2xl shadow-black/55 animate-in fade-in zoom-in-95 duration-200 sm:max-h-[calc(100dvh-4rem)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-[radial-gradient(circle_at_30%_0%,rgba(8,124,255,0.28),transparent_55%),radial-gradient(circle_at_80%_0%,rgba(5,185,87,0.18),transparent_45%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_24%_0%,rgba(8,124,255,0.24),transparent_55%),radial-gradient(circle_at_82%_0%,rgba(5,185,87,0.16),transparent_46%)]" />
 
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-5 top-5 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-slate-400 ring-1 ring-white/[0.08] transition hover:bg-white/[0.10] hover:text-white"
+          className="absolute right-5 top-5 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.07] text-slate-400 ring-1 ring-white/[0.08] transition hover:bg-white/[0.12] hover:text-white"
           aria-label="Close wallet"
         >
           <Icon name="close" className="text-[23px]" />
         </button>
 
-        <div className="no-scrollbar relative overflow-y-auto px-6 pb-8 pt-8">
+        <div className="no-scrollbar relative overflow-y-auto px-5 pb-6 pt-6 sm:px-6 sm:pb-7">
           {screen === "methods" ? (
             <div className="space-y-5">
               <div>
@@ -426,25 +425,32 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
               )}
             </div>
           ) : (
-            <div className="space-y-5">
+            <div className="space-y-4">
               <button
                 type="button"
                 onClick={() => {
                   reset();
                   setScreen("methods");
                 }}
-                className="flex items-center gap-2 text-sm font-black text-[#5ea9ff] transition hover:text-white"
+                className="inline-flex h-9 items-center gap-1 rounded-full bg-white/[0.05] pl-2 pr-4 text-sm font-black text-[#75b8ff] ring-1 ring-white/[0.07] transition hover:bg-white/[0.09] hover:text-white"
               >
-                <Icon name="chevron_left" className="text-[24px]" />
+                <Icon name="chevron_left" className="text-[22px]" />
                 Back
               </button>
 
               {mode === "crypto" ? (
-                <h2 className="text-4xl font-black tracking-tight text-white">Deposit</h2>
+                <div className="pr-12">
+                  <h2 className="text-3xl font-black tracking-tight text-white">Crypto deposit</h2>
+                  <p className="mt-1 text-sm font-bold text-slate-500">Choose an asset and send only on the selected network.</p>
+                </div>
               ) : (
-                <div className="flex items-center gap-4">
-                  <span className="text-2xl font-black tracking-tight text-[#31c45d]">M-PESA</span>
-                  <h2 className="text-4xl font-black tracking-tight text-white">M-pesa</h2>
+                <div className="pr-12">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-300 ring-1 ring-emerald-400/20">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                    M-Pesa
+                  </div>
+                  <h2 className="mt-3 text-3xl font-black tracking-tight text-white">Deposit by phone</h2>
+                  <p className="mt-1 text-sm font-bold text-slate-500">Enter your Safaricom number and approve the STK prompt.</p>
                 </div>
               )}
 
@@ -498,7 +504,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="Phone number"
-                    className="h-14 w-full rounded-2xl bg-white/[0.06] px-5 text-base font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
+                    className="h-14 w-full rounded-2xl bg-white/[0.055] px-5 text-base font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-500 transition focus:bg-white/[0.075] focus:ring-2 focus:ring-[#087cff]/50"
                   />
 
                   <label className="relative block">
@@ -506,25 +512,24 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     <input
                       type="number"
                       min="150"
+                      autoFocus
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
-                      className="h-14 w-full rounded-2xl bg-white/[0.06] px-5 pt-4 text-base font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
+                      placeholder="0"
+                      className="h-14 w-full rounded-2xl bg-white/[0.055] px-5 pt-4 text-base font-bold text-white outline-none ring-1 ring-white/[0.08] transition focus:bg-white/[0.075] focus:ring-2 focus:ring-[#087cff]/50 placeholder:text-slate-600"
                     />
-                    <span className="absolute right-3 top-2 flex h-9 items-center rounded-xl bg-gradient-to-b from-[#31c45d] to-[#05a64d] px-4 text-sm font-black text-white shadow-sm">
-                      Bonus
-                    </span>
                   </label>
 
-                  <p className="-mt-3 text-sm font-bold text-slate-500">from KES 150 to KES 150,000</p>
+                  <p className="-mt-2 text-sm font-bold text-slate-500">KES 150 - KES 150,000</p>
 
-                  <div className="flex flex-wrap justify-center gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {QUICK_AMOUNTS.map((q) => (
                       <button
                         key={q}
                         type="button"
                         onClick={() => setAmount(String(q))}
-                        className={`h-10 rounded-full px-5 text-sm font-black transition ${
-                          amount === String(q) ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "bg-white/[0.07] text-slate-300 hover:bg-white/[0.10]"
+                        className={`h-10 rounded-xl px-3 text-sm font-black transition ${
+                          amount === String(q) ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/18" : "bg-white/[0.065] text-slate-300 hover:bg-white/[0.10]"
                         }`}
                       >
                         KES {q.toLocaleString()}
@@ -538,12 +543,10 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     type="button"
                     onClick={handleDeposit}
                     disabled={loading || !amount || !phone}
-                    className="h-14 w-full rounded-xl bg-[#05b957] text-base font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="h-14 w-full rounded-2xl bg-[#05b957] text-base font-black text-white shadow-lg shadow-emerald-500/18 transition hover:bg-[#07cc63] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-slate-500 disabled:shadow-none"
                   >
                     {loading ? "Sending prompt..." : "Deposit"}
                   </button>
-
-                  <BonusCard />
                 </>
               )}
             </div>
