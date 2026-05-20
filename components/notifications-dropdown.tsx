@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
 import { Icon } from "@/components/icon";
 
 type Tab = "all" | "personal" | "general";
@@ -14,6 +15,9 @@ interface Notification {
   read: boolean;
   badge: string;
   badgeColor: string;
+  link?: string | null;
+  source: "tx" | "db";
+  rawDate: number;
 }
 
 const TX_META: Record<string, { badge: string; badgeColor: string; icon: string; sign: "+" | "-" }> = {
@@ -23,6 +27,15 @@ const TX_META: Record<string, { badge: string; badgeColor: string; icon: string;
   BET_WIN:    { badge: "WIN",        badgeColor: "bg-emerald-500/15 text-emerald-400", icon: "emoji_events",  sign: "+" },
   BONUS:      { badge: "BONUS",      badgeColor: "bg-amber-400/15 text-amber-400",     icon: "redeem",        sign: "+" },
   REFUND:     { badge: "REFUND",     badgeColor: "bg-sky-400/15 text-sky-400",         icon: "undo",          sign: "+" },
+};
+
+const DB_NOTIF_META: Record<string, { badge: string; badgeColor: string }> = {
+  p2p_paid:      { badge: "P2P",       badgeColor: "bg-[#087cff]/15 text-[#087cff]" },
+  p2p_released:  { badge: "RELEASED",  badgeColor: "bg-[#31c45d]/15 text-[#31c45d]" },
+  p2p_dispute:   { badge: "DISPUTE",   badgeColor: "bg-red-500/15 text-red-400" },
+  p2p_cancelled: { badge: "CANCELLED", badgeColor: "bg-slate-500/15 text-slate-400" },
+  kyc_approved:  { badge: "KYC ✓",    badgeColor: "bg-[#31c45d]/15 text-[#31c45d]" },
+  kyc_rejected:  { badge: "KYC ✗",    badgeColor: "bg-red-500/15 text-red-400" },
 };
 
 function timeAgo(dateStr: string): string {
@@ -84,16 +97,50 @@ function txToNotification(tx: { id: string; type: string; amount: number; status
     read:       tx.status !== "PENDING",
     badge:      meta.badge,
     badgeColor: meta.badgeColor,
+    source:     "tx",
+    rawDate:    new Date(tx.createdAt).getTime(),
   };
 }
+
+interface DbNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  isRead: boolean;
+  link?: string | null;
+  createdAt: string;
+}
+
+function dbToNotification(n: DbNotification): Notification {
+  const meta = DB_NOTIF_META[n.type] ?? { badge: n.type.toUpperCase(), badgeColor: "bg-white/10 text-slate-400" };
+  const isP2P = n.type.startsWith("p2p_");
+  const isKyc = n.type.startsWith("kyc_");
+
+  return {
+    id:         n.id,
+    type:       isP2P || isKyc ? "personal" : "system",
+    title:      n.title,
+    body:       n.body,
+    time:       timeAgo(n.createdAt),
+    read:       n.isRead,
+    badge:      meta.badge,
+    badgeColor: meta.badgeColor,
+    link:       n.link,
+    source:     "db",
+    rawDate:    new Date(n.createdAt).getTime(),
+  };
+}
+
+const LAST_READ_KEY = "nezeem_notif_last_read";
 
 type Props = { onClose: () => void };
 
 export function NotificationsDropdown({ onClose }: Props) {
-  const [tab, setTab]       = useState<Tab>("all");
-  const [notes, setNotes]   = useState<Notification[]>([]);
+  const [tab, setTab]         = useState<Tab>("all");
+  const [notes, setNotes]     = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const ref                 = useRef<HTMLDivElement>(null);
+  const ref                   = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -103,16 +150,34 @@ export function NotificationsDropdown({ onClose }: Props) {
     return () => document.removeEventListener("mousedown", handler);
   }, [onClose]);
 
-  useEffect(() => {
+  const loadNotifications = useCallback(async () => {
     setLoading(true);
-    fetch("/api/wallet/transactions")
-      .then((r) => r.ok ? r.json() : [])
-      .then((txns: { id: string; type: string; amount: number; status: string; createdAt: string }[]) => {
-        setNotes(Array.isArray(txns) ? txns.map(txToNotification) : []);
-      })
-      .catch(() => setNotes([]))
-      .finally(() => setLoading(false));
+    try {
+      const [txRes, dbRes] = await Promise.allSettled([
+        fetch("/api/wallet/transactions").then((r) => r.ok ? r.json() : []),
+        fetch("/api/notifications").then((r) => r.ok ? r.json() : []),
+      ]);
+
+      const txNotes: Notification[] = txRes.status === "fulfilled" && Array.isArray(txRes.value)
+        ? txRes.value.map(txToNotification)
+        : [];
+
+      const dbNotes: Notification[] = dbRes.status === "fulfilled" && Array.isArray(dbRes.value)
+        ? dbRes.value.map(dbToNotification)
+        : [];
+
+      const merged = [...txNotes, ...dbNotes].sort((a, b) => b.rawDate - a.rawDate);
+      setNotes(merged);
+    } catch {
+      setNotes([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
 
   const filtered = notes.filter((n) => {
     if (tab === "personal") return n.type === "personal";
@@ -122,9 +187,12 @@ export function NotificationsDropdown({ onClose }: Props) {
 
   const unread = notes.filter((n) => !n.read).length;
 
-  function markAllRead() {
+  async function markAllRead() {
     localStorage.setItem(LAST_READ_KEY, String(Date.now()));
     setNotes((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await fetch("/api/notifications", { method: "PATCH" });
+    } catch { /* ignore */ }
   }
 
   function markRead(id: string) {
@@ -194,11 +262,9 @@ export function NotificationsDropdown({ onClose }: Props) {
             <p className="text-xs text-slate-600">Deposits, bets and wins will appear here</p>
           </div>
         ) : (
-          filtered.map((n, i) => (
-            <div key={n.id}>
-              <button
-                type="button"
-                onClick={() => markRead(n.id)}
+          filtered.map((n, i) => {
+            const inner = (
+              <div
                 className={`relative flex w-full items-start gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.03] ${
                   !n.read ? "bg-[#087cff]/[0.04]" : ""
                 }`}
@@ -225,41 +291,71 @@ export function NotificationsDropdown({ onClose }: Props) {
                   </p>
                   <p className="mt-0.5 text-[11px] leading-snug text-slate-500 line-clamp-2">{n.body}</p>
                 </div>
-              </button>
-              {i < filtered.length - 1 && <div className="mx-4 h-px bg-white/[0.04]" />}
-            </div>
-          ))
+              </div>
+            );
+
+            return (
+              <div key={n.id}>
+                {n.link ? (
+                  <Link href={n.link} onClick={() => markRead(n.id)} className="block w-full">
+                    {inner}
+                  </Link>
+                ) : (
+                  <button type="button" onClick={() => markRead(n.id)} className="w-full">
+                    {inner}
+                  </button>
+                )}
+                {i < filtered.length - 1 && <div className="mx-4 h-px bg-white/[0.04]" />}
+              </div>
+            );
+          })
         )}
       </div>
 
       {/* Footer */}
       <div className="border-t border-white/[0.07] px-4 py-3 text-center">
-        <p className="text-[11px] text-slate-600">Showing your last 20 transactions</p>
+        <p className="text-[11px] text-slate-600">Showing your recent notifications</p>
       </div>
     </div>
   );
 }
 
-const LAST_READ_KEY = "nezeem_notif_last_read";
-
 /* ── Bell button with badge — used in header ── */
 export function NotificationsBell() {
-  const [open, setOpen]   = useState(false);
+  const [open, setOpen]     = useState(false);
   const [unread, setUnread] = useState(0);
 
-  useEffect(() => {
-    const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
-    fetch("/api/wallet/transactions")
-      .then((r) => r.ok ? r.json() : [])
-      .then((txns: { status: string; createdAt: string }[]) => {
-        if (Array.isArray(txns)) {
-          setUnread(txns.filter((t) =>
+  const refreshUnread = useCallback(async () => {
+    try {
+      const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
+
+      const [txRes, dbRes] = await Promise.allSettled([
+        fetch("/api/wallet/transactions").then((r) => r.ok ? r.json() : []),
+        fetch("/api/notifications").then((r) => r.ok ? r.json() : []),
+      ]);
+
+      let count = 0;
+
+      if (txRes.status === "fulfilled" && Array.isArray(txRes.value)) {
+        count += txRes.value.filter(
+          (t: { status: string; createdAt: string }) =>
             t.status === "PENDING" && new Date(t.createdAt).getTime() > lastRead
-          ).length);
-        }
-      })
-      .catch(() => {});
-  }, [open]);
+        ).length;
+      }
+
+      if (dbRes.status === "fulfilled" && Array.isArray(dbRes.value)) {
+        count += dbRes.value.filter(
+          (n: { isRead: boolean }) => n.isRead === false
+        ).length;
+      }
+
+      setUnread(count);
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    refreshUnread();
+  }, [open, refreshUnread]);
 
   return (
     <div className="relative">

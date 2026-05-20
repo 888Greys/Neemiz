@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { createClient } from "@/lib/supabase/client";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,9 +109,26 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
 
   useEffect(() => {
     fetchMessages();
-    const id = setInterval(fetchMessages, 5000);
-    return () => clearInterval(id);
-  }, [fetchMessages]);
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`p2p-order-${orderId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "p2p_messages",
+          filter: `order_id=eq.${orderId}`,
+        },
+        () => {
+          fetchMessages();
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchMessages, orderId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

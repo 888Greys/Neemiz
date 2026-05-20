@@ -17,6 +17,16 @@ interface MerchantStatus {
   createdAt?: string;
 }
 
+interface Deposit {
+  id: string;
+  crypto: string;
+  amount: number;
+  txHash: string;
+  network: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt: string;
+}
+
 interface Ad {
   id: string;
   side: "BUY" | "SELL";
@@ -147,6 +157,211 @@ function PendingCard({ status }: { status: MerchantStatus }) {
         <p className="text-slate-600 text-xs mt-4">
           Applied: {status.createdAt ? new Date(status.createdAt).toLocaleDateString() : "—"}
         </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Deposit Status Badge ─────────────────────────────────────────────────────
+
+function DepositStatusBadge({ status }: { status: Deposit["status"] }) {
+  const map: Record<Deposit["status"], string> = {
+    PENDING:  "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    APPROVED: "bg-[#31c45d]/10 text-[#31c45d] border-[#31c45d]/20",
+    REJECTED: "bg-red-500/10 text-red-400 border-red-500/20",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-black ${map[status]}`}>
+      {status}
+    </span>
+  );
+}
+
+// ─── Deposit Crypto Section ───────────────────────────────────────────────────
+
+function DepositCryptoSection() {
+  const [open, setOpen]           = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [deposits, setDeposits]   = useState<Deposit[]>([]);
+  const [loadingDeposits, setLoadingDeposits] = useState(true);
+  const [form, setForm] = useState({
+    crypto: "USDT",
+    amount: "",
+    txHash: "",
+    network: "TRC20",
+  });
+
+  const fetchDeposits = useCallback(async () => {
+    try {
+      const res = await fetch("/api/p2p/merchant/deposit");
+      if (res.ok) setDeposits(await res.json());
+    } catch { /* ignore */ } finally {
+      setLoadingDeposits(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchDeposits(); }, [fetchDeposits]);
+
+  async function submit() {
+    if (!form.amount || !form.txHash) return toast.error("Amount and TX hash are required");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/p2p/merchant/deposit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          crypto:  form.crypto,
+          amount:  Number(form.amount),
+          txHash:  form.txHash.trim(),
+          network: form.network,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      toast.success("Deposit submitted! Admin will review shortly.");
+      setOpen(false);
+      setForm({ crypto: "USDT", amount: "", txHash: "", network: "TRC20" });
+      fetchDeposits();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="mb-6">
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-white font-black text-lg">Deposit Crypto</h2>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#31c45d] text-white font-black text-sm hover:bg-[#28af52] transition-colors"
+        >
+          <Icon name="add" className="text-base" />
+          Deposit Crypto
+        </button>
+      </div>
+
+      {/* Inline form */}
+      {open && (
+        <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl p-5 mb-4">
+          <p className="text-slate-400 text-sm mb-4">
+            Deposit your crypto and submit the TX hash. Admin will credit your balance within 1 hour.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            {/* Crypto */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 mb-1.5 block">Crypto</label>
+              <select
+                value={form.crypto}
+                onChange={(e) => setForm((f) => ({ ...f, crypto: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm outline-none"
+              >
+                {["USDT", "BTC", "ETH"].map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            {/* Network */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 mb-1.5 block">Network</label>
+              <select
+                value={form.network}
+                onChange={(e) => setForm((f) => ({ ...f, network: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm outline-none"
+              >
+                {["TRC20", "ERC20", "BEP20"].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+
+            {/* Amount */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 mb-1.5 block">Amount</label>
+              <input
+                type="number"
+                value={form.amount}
+                onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                placeholder="e.g. 100"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-slate-600 outline-none focus:border-[#31c45d]/40"
+              />
+            </div>
+
+            {/* TX Hash */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 mb-1.5 block">TX Hash</label>
+              <input
+                type="text"
+                value={form.txHash}
+                onChange={(e) => setForm((f) => ({ ...f, txHash: e.target.value }))}
+                placeholder="0x..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder:text-slate-600 outline-none focus:border-[#31c45d]/40 font-mono text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setOpen(false)}
+              className="flex-1 py-2.5 rounded-xl font-bold text-slate-400 bg-white/5 hover:bg-white/10 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={submitting || !form.amount || !form.txHash}
+              className="flex-1 py-2.5 rounded-xl font-black text-white bg-[#31c45d] hover:bg-[#28af52] disabled:opacity-40 transition-all"
+            >
+              {submitting
+                ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Submitting…</span>
+                : "Submit Deposit"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Deposits table */}
+      <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl overflow-hidden">
+        {loadingDeposits ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="w-6 h-6 border-2 border-white/10 border-t-[#31c45d] rounded-full animate-spin" />
+          </div>
+        ) : deposits.length === 0 ? (
+          <div className="text-center py-10">
+            <Icon name="south_america" className="text-3xl text-slate-700 mb-2" />
+            <p className="text-slate-500 text-sm">No deposits yet</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  {["Date", "Crypto", "Amount", "Network", "TX Hash", "Status"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-black text-slate-500 uppercase tracking-wide">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {deposits.map((d, i) => (
+                  <tr key={d.id} className={`${i < deposits.length - 1 ? "border-b border-white/[0.04]" : ""} hover:bg-white/[0.02] transition-colors`}>
+                    <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
+                      {new Date(d.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "2-digit" })}
+                    </td>
+                    <td className="px-4 py-3 text-white font-bold">{d.crypto}</td>
+                    <td className="px-4 py-3 text-white font-black">{Number(d.amount).toFixed(6)}</td>
+                    <td className="px-4 py-3 text-slate-400 text-xs">{d.network}</td>
+                    <td className="px-4 py-3 font-mono text-slate-400 text-xs">
+                      <span title={d.txHash}>{d.txHash.length > 14 ? `${d.txHash.slice(0, 7)}…${d.txHash.slice(-7)}` : d.txHash}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <DepositStatusBadge status={d.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -405,6 +620,9 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
           </div>
         ))}
       </div>
+
+      {/* Deposit Crypto section */}
+      <DepositCryptoSection />
 
       {/* Ads section */}
       <div className="flex items-center justify-between mb-4">

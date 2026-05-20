@@ -19,6 +19,7 @@ model User {
   walletBalance  Decimal       @default(0.00) @map("wallet_balance") @db.Decimal(18, 2)
   currency       String        @default("KES")
   isActive       Boolean       @default(true) @map("is_active")
+  isAdmin        Boolean       @default(false) @map("is_admin")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
@@ -29,6 +30,7 @@ model User {
   merchantProfile   MerchantProfile?
   p2pBuyOrders      P2POrder[]        @relation("P2PBuyer")
   p2pMessages       P2PMessage[]
+  notifications     Notification[]
 
   @@map("users")
 }
@@ -159,6 +161,7 @@ model MerchantProfile {
   sellOrders       P2POrder[] @relation("P2PSeller")
   paymentMethods   P2PPaymentMethod[]
   cryptoBalances   P2PCryptoBalance[]
+  cryptoDeposits   P2PCryptoDeposit[]
 
   @@map("merchant_profiles")
 }
@@ -299,6 +302,36 @@ model P2PDispute {
   @@map("p2p_disputes")
 }
 
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // "p2p_paid", "p2p_released", "p2p_dispute", "p2p_cancelled", "kyc_approved", "kyc_rejected"
+  title     String
+  body      String
+  link      String?
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+}
+
+model P2PCryptoDeposit {
+  id          String          @id @default(cuid())
+  merchantId  String          @map("merchant_id")
+  merchant    MerchantProfile @relation(fields: [merchantId], references: [id])
+  crypto      String          // "USDT", "BTC", "ETH"
+  amount      Decimal         @db.Decimal(18, 8)
+  txHash      String?         @map("tx_hash")
+  network     String          @default("TRC20")
+  status      DepositStatus   @default(PENDING)
+  adminNote   String?         @map("admin_note")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  @@map("p2p_crypto_deposits")
+}
+
 // ─── P2P Enums ───────────────────────────────────────────────────────────────
 
 enum AdSide {
@@ -330,4 +363,10 @@ enum DisputeStatus {
   OPEN
   RESOLVED
   CLOSED
+}
+
+enum DepositStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

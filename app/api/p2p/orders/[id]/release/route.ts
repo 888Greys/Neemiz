@@ -67,5 +67,16 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     });
   });
 
+  // Notify buyer that crypto has been released
+  await db.notification.create({
+    data: {
+      userId: order.buyerId,
+      type: "p2p_released",
+      title: `${order.crypto} released to your account`,
+      body: `${Number(order.cryptoAmount).toFixed(6)} ${order.crypto} from order #${order.id.slice(0, 8).toUpperCase()} has been released.`,
+      link: `/p2p/order/${order.id}`,
+    },
+  });
+
   return Response.json({ status: "RELEASED" });
 }

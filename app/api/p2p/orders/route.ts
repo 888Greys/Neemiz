@@ -2,6 +2,65 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 
+// GET /api/p2p/orders — list all orders where the user is buyer or seller
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+  // Find the user's merchant profile (if any) to check seller orders
+  const merchant = await db.merchantProfile.findUnique({
+    where: { userId: dbUser.id },
+    select: { id: true },
+  });
+
+  const orders = await db.p2POrder.findMany({
+    where: {
+      OR: [
+        { buyerId: dbUser.id },
+        ...(merchant ? [{ sellerId: merchant.id }] : []),
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      status: true,
+      crypto: true,
+      cryptoAmount: true,
+      fiatAmount: true,
+      paymentMethod: true,
+      createdAt: true,
+      expiresAt: true,
+      buyerId: true,
+      sellerId: true,
+      seller: {
+        select: {
+          id: true,
+          displayName: true,
+        },
+      },
+      buyer: {
+        select: {
+          firstName: true,
+          lastName: true,
+          username: true,
+        },
+      },
+    },
+  });
+
+  const result = orders.map((o) => ({
+    ...o,
+    isBuyer: o.buyerId === dbUser.id,
+    isSeller: merchant ? o.sellerId === merchant.id : false,
+  }));
+
+  return Response.json(result);
+}
+
 // POST /api/p2p/orders — buyer takes an ad and creates an order
 export async function POST(req: Request) {
   const supabase = await createClient();

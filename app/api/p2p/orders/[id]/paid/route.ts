@@ -30,5 +30,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     },
   });
 
+  // Notify the merchant to verify and release
+  const merchantUser = await db.merchantProfile.findUnique({
+    where: { id: order.sellerId },
+    select: { userId: true, displayName: true },
+  });
+  if (merchantUser) {
+    await db.notification.create({
+      data: {
+        userId: merchantUser.userId,
+        type: "p2p_paid",
+        title: "Payment received — release crypto",
+        body: `Buyer has marked payment of KSh ${Number(order.fiatAmount).toLocaleString()} for order #${order.id.slice(0, 8).toUpperCase()}. Verify and release.`,
+        link: `/p2p/order/${order.id}`,
+      },
+    });
+  }
+
   return Response.json({ status: updated.status });
 }

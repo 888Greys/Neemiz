@@ -291,6 +291,7 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSuppo
           <SidebarItem collapsed={collapsed} href="/predictions" icon="bar_chart" label="Predictions" pathname={pathname} direct />
           <SidebarItem collapsed={collapsed} href="/p2p" icon="swap_horiz" label="P2P Trading" pathname={pathname} direct />
           <SidebarItem collapsed={collapsed} href="/p2p/merchant" icon="storefront" label="Merchant" pathname={pathname} direct />
+          <SidebarItem collapsed={collapsed} href="/p2p/orders" icon="receipt_long" label="My Orders" pathname={pathname} direct />
         </SidebarGroup>
 
         {/* Trade */}
@@ -684,6 +685,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
             <MobileDrawerLink href="/predictions" icon="bar_chart" label="Predictions" onClick={onClose} />
             <MobileDrawerLink href="/p2p" icon="swap_horiz" label="P2P Trading" onClick={onClose} />
             <MobileDrawerLink href="/p2p/merchant" icon="storefront" label="Merchant Center" onClick={onClose} />
+            <MobileDrawerLink href="/p2p/orders" icon="receipt_long" label="My Orders" onClick={onClose} />
           </MobileDrawerGroup>
 
           {/* Trade */}
