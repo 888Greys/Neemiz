@@ -179,7 +179,7 @@ export function MyBetsClient() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -237,7 +237,7 @@ export function MyBetsClient() {
           <p className="font-black text-slate-500">No {filter !== "ALL" ? filter.toLowerCase() : ""} bets yet</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((bet) => <BetCard key={bet.id} bet={bet} />)}
         </div>
       )}

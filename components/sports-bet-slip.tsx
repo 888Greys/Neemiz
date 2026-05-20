@@ -297,6 +297,13 @@ export function SportsBetSlip() {
                 </div>
               ))
             )}
+            <Link
+              href="/my-bets"
+              className="mx-3 my-3 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.06] transition hover:bg-white/[0.08]"
+            >
+              <span className="text-[11px] font-black text-slate-400">Open full My Bets page</span>
+              <Icon name="arrow_forward" className="text-[14px] text-[#087cff]" />
+            </Link>
           </div>
 
         ) : bets.length === 0 ? (
