@@ -64,10 +64,32 @@ Production deploys are triggered from the `main` branch on Vercel.
 
 ## Server Cron
 
-Vercel cron is disabled for this project so Hobby deployments are not blocked by the 30-minute settlement schedule. Run bet settlement from the server instead:
+Vercel cron is disabled for this project so Hobby deployments are not blocked by the 30-minute settlement schedule. Bet settlement runs from the VPS instead.
+
+Installed on `root@vmi3292677`:
+
+- Secret file: `/opt/neemiz/settle.env`
+- Runner script: `/opt/neemiz/settle-bets.sh`
+- Cron log: `/var/log/neemiz-settle.log`
+- Schedule: every 30 minutes
 
 ```cron
-*/30 * * * * curl -fsS -X POST https://www.nezeem.com/api/bets/settle -H "Authorization: Bearer YOUR_CRON_SECRET" >/tmp/neemiz-settle.log 2>&1
+*/30 * * * * /opt/neemiz/settle-bets.sh >> /var/log/neemiz-settle.log 2>&1
 ```
 
-`YOUR_CRON_SECRET` must match the `CRON_SECRET` value configured in Vercel.
+The runner calls:
+
+```bash
+curl -fsS -X POST https://www.nezeem.com/api/bets/settle \
+  -H "Authorization: Bearer ${CRON_SECRET}"
+```
+
+`CRON_SECRET` in `/opt/neemiz/settle.env` must match the `CRON_SECRET` value configured in Vercel.
+
+Useful server checks:
+
+```bash
+/opt/neemiz/settle-bets.sh
+crontab -l
+tail -n 50 /var/log/neemiz-settle.log
+```
