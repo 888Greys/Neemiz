@@ -364,7 +364,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
-                    <span>Enter your M-Pesa transaction code or reference below, then click <strong className="text-white">I've Paid</strong>.</span>
+                    <span>Enter your M-Pesa transaction code or reference below, then click <strong className="text-white">I&apos;ve Paid</strong>.</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">3</span>
@@ -396,7 +396,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               {order.status === "PAID" && order.isBuyer && (
                 <p className="text-slate-400 text-sm leading-relaxed">
                   Your payment has been recorded. The merchant is verifying it now.
-                  If they don't release within a reasonable time, you can raise a dispute.
+                  If they don&apos;t release within a reasonable time, you can raise a dispute.
                 </p>
               )}
 
