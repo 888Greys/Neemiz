@@ -22,7 +22,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   await db.$transaction([
     db.p2POrder.update({
       where: { id },
-      data: { status: "DISPUTED", disputedAt: new Date() },
+      data: { status: "DISPUTED" },
     }),
     db.p2PDispute.create({
       data: { orderId: id, raisedById: dbUser.id, reason, evidence: evidence ?? null },
