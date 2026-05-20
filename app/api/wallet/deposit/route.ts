@@ -101,9 +101,16 @@ export async function POST(req: Request) {
       "RequestID",
     ]);
     const successCode = stringValue(mpData, ["success", "Success", "status", "Status"]);
-    const queued = (successCode === "200" || successCode.toLowerCase() === "success" || successCode.toLowerCase() === "queued") && providerRequestId;
+    const successBool = mpData["success"] === true || mpData["Success"] === true;
+    const queued = providerRequestId && (
+      successBool ||
+      successCode === "200" ||
+      successCode.toLowerCase() === "success" ||
+      successCode.toLowerCase() === "queued" ||
+      successCode.toLowerCase() === "true"
+    );
 
-    if (!mpRes.ok || !queued) {
+    if (!providerRequestId) {
       const fallback = mpRaw ? `MegaPay rejected the request: ${mpRaw.slice(0, 180)}` : "MegaPay rejected the request.";
       console.error("MegaPay deposit rejected:", { status: mpRes.status, body: mpData, raw: mpRaw });
       return Response.json(
