@@ -101,9 +101,10 @@ export function SportsBetSlip() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Failed");
-        setPlacedMsg({ ok: true, text: `Multi bet placed! Possible win: KSh ${data.bet.potentialWin.toFixed(2)}` });
         clearBets();
         refreshBalance();
+        await fetchMyBets();
+        setTab("mybets");
       } else {
         // Place each single bet
         const results = await Promise.all(
@@ -132,14 +133,10 @@ export function SportsBetSlip() {
         const failed = results.filter((r) => !r.ok);
         const placed = results.filter((r) => r.ok).length;
         if (placed > 0) {
-          setPlacedMsg({
-            ok: failed.length === 0,
-            text: failed.length === 0
-              ? `${placed} bet${placed > 1 ? "s" : ""} placed!`
-              : `${placed} placed, ${failed.length} failed: ${failed.map((f) => f.error).join(", ")}`,
-          });
           clearBets();
           refreshBalance();
+          await fetchMyBets();
+          setTab("mybets");
         } else {
           setPlacedMsg({ ok: false, text: failed[0]?.error ?? "Failed to place bets" });
         }
@@ -250,36 +247,51 @@ export function SportsBetSlip() {
               </div>
             ) : (
               myBets.map((bet) => (
-                <div key={bet.id} className="px-4 py-3">
-                  <div className="mb-2 flex items-center justify-between">
+                <div key={bet.id} className="px-4 py-3.5">
+                  {/* Header row */}
+                  <div className="mb-2.5 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black text-slate-500 uppercase">{bet.type}</span>
+                      {bet.status === "PENDING" && (
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
+                        </span>
+                      )}
                       <StatusBadge status={bet.status} />
+                      <span className="text-[10px] font-bold text-slate-600 uppercase">{bet.type}</span>
                     </div>
                     <span className="text-[10px] text-slate-600">
                       {new Date(bet.createdAt).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
+
+                  {/* Selections */}
                   {bet.selections.map((s, i) => (
-                    <div key={i} className="mb-1.5 flex items-start justify-between gap-2">
+                    <div key={i} className="mb-2 flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[10px] text-slate-500">{s.matchName}</div>
-                        <div className="truncate text-[11px] font-black text-white">{s.market} · {s.label}</div>
+                        <div className="truncate text-[12px] font-black text-white">{s.label}
+                          <span className="ml-1 text-[10px] font-bold text-slate-500">· {s.market}</span>
+                        </div>
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-0.5">
-                        <span className="text-[11px] font-black text-[#087cff]">{s.odds.toFixed(2)}</span>
+                        <span className="rounded-md bg-[#087cff]/15 px-1.5 py-0.5 text-[11px] font-black text-[#75b8ff]">{s.odds.toFixed(2)}</span>
                         {s.result !== "PENDING" && (
                           <span className={`text-[9px] font-black uppercase ${statusColor(s.result)}`}>{s.result}</span>
                         )}
                       </div>
                     </div>
                   ))}
-                  <div className="mt-2 flex items-center justify-between border-t border-white/[0.06] pt-2 text-[11px]">
+
+                  {/* Footer */}
+                  <div className="mt-2 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 text-[11px]">
                     <span className="text-slate-500">Stake <span className="font-black text-white">KSh {bet.stake.toFixed(2)}</span></span>
                     {bet.status === "WON" && bet.winAmount ? (
-                      <span className="font-black text-emerald-400">Won KSh {bet.winAmount.toFixed(2)}</span>
+                      <span className="font-black text-emerald-400">+KSh {bet.winAmount.toFixed(2)}</span>
+                    ) : bet.status === "LOST" ? (
+                      <span className="text-red-400 font-black">-KSh {bet.stake.toFixed(2)}</span>
                     ) : (
-                      <span className="text-slate-500">To win <span className={`font-black ${statusColor(bet.status)}`}>KSh {bet.potentialWin.toFixed(2)}</span></span>
+                      <span className="text-slate-500">To win <span className="font-black text-amber-400">KSh {bet.potentialWin.toFixed(2)}</span></span>
                     )}
                   </div>
                 </div>
@@ -326,22 +338,37 @@ export function SportsBetSlip() {
                   </div>
 
                   {/* Stake row */}
-                  <div className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2.5 ring-1 ring-white/[0.06]">
+                  <div className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/40">
+                    <span className="shrink-0 text-[11px] font-black text-slate-500">KSh</span>
                     <input
                       type="number"
                       min="0"
-                      placeholder="Bet amount"
+                      placeholder="0"
                       value={amounts[bet.id] ?? ""}
-                      onChange={(e) => { setAmounts((a) => ({ ...a, [bet.id]: e.target.value })); }}
-                      className="min-w-0 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-slate-600"
+                      onChange={(e) => setAmounts((a) => ({ ...a, [bet.id]: e.target.value }))}
+                      className="min-w-0 flex-1 bg-transparent text-[13px] font-black text-white outline-none placeholder:text-slate-600"
                     />
                     <button
                       type="button"
                       className="shrink-0 text-[11px] font-black text-[#087cff] transition hover:text-[#4fa8ff]"
                       onClick={() => setAmounts((a) => ({ ...a, [bet.id]: String(Math.floor(balance)) }))}
                     >
-                      All in
+                      Max
                     </button>
+                  </div>
+
+                  {/* Quick chips */}
+                  <div className="mt-1.5 flex gap-1.5">
+                    {[50, 100, 200, 500].map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setAmounts((a) => ({ ...a, [bet.id]: String((parseFloat(a[bet.id] || "0") + q)) }))}
+                        className="flex-1 rounded-lg bg-white/[0.05] py-1 text-[10px] font-black text-slate-400 transition hover:bg-[#087cff]/20 hover:text-[#75b8ff]"
+                      >
+                        +{q}
+                      </button>
+                    ))}
                   </div>
 
                   {/* Possible win */}
