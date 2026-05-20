@@ -123,6 +123,7 @@ export function NotificationsDropdown({ onClose }: Props) {
   const unread = notes.filter((n) => !n.read).length;
 
   function markAllRead() {
+    localStorage.setItem(LAST_READ_KEY, String(Date.now()));
     setNotes((prev) => prev.map((n) => ({ ...n, read: true })));
   }
 
@@ -239,17 +240,22 @@ export function NotificationsDropdown({ onClose }: Props) {
   );
 }
 
+const LAST_READ_KEY = "nezeem_notif_last_read";
+
 /* ── Bell button with badge — used in header ── */
 export function NotificationsBell() {
   const [open, setOpen]   = useState(false);
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
+    const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
     fetch("/api/wallet/transactions")
       .then((r) => r.ok ? r.json() : [])
-      .then((txns: { status: string }[]) => {
+      .then((txns: { status: string; createdAt: string }[]) => {
         if (Array.isArray(txns)) {
-          setUnread(txns.filter((t) => t.status === "PENDING").length);
+          setUnread(txns.filter((t) =>
+            t.status === "PENDING" && new Date(t.createdAt).getTime() > lastRead
+          ).length);
         }
       })
       .catch(() => {});
