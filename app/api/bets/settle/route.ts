@@ -30,9 +30,9 @@ export async function POST(req: Request) {
   }
 
   // ── Step B: collect distinct fixture IDs ─────────────────────────────────
-  const fixtureIds = [
-    ...new Set(pendingBets.flatMap((b) => b.selections.map((s) => s.fixtureId))),
-  ];
+  const fixtureIds = Array.from(
+    new Set(pendingBets.flatMap((b) => b.selections.map((s) => s.fixtureId))),
+  );
 
   // ── Step C: fetch fixture details in parallel ─────────────────────────────
   const fetchResults = await Promise.allSettled(
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
 
   // ── Step D: which fixtures are finished ──────────────────────────────────
   const finishedFixtureIds = new Set(
-    [...fixtureMap.entries()]
+    Array.from(fixtureMap.entries())
       .filter(([, v]) => FINISHED_STATE_IDS.has(v.stateId))
       .map(([id]) => id),
   );
