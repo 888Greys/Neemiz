@@ -61,3 +61,13 @@ bun run build
 The original Stitch-generated HTML reference files have been removed after converting the design into reusable Next.js components. The next step is to replace mock data with real backend/API integrations, starting with SportsMonk for sports data and a secure wallet/ledger backend for account balances.
 
 Production deploys are triggered from the `main` branch on Vercel.
+
+## Server Cron
+
+Vercel cron is disabled for this project so Hobby deployments are not blocked by the 30-minute settlement schedule. Run bet settlement from the server instead:
+
+```cron
+*/30 * * * * curl -fsS -X POST https://www.nezeem.com/api/bets/settle -H "Authorization: Bearer YOUR_CRON_SECRET" >/tmp/neemiz-settle.log 2>&1
+```
+
+`YOUR_CRON_SECRET` must match the `CRON_SECRET` value configured in Vercel.
