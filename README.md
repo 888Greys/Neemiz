@@ -59,3 +59,5 @@ bun run build
 ## Notes
 
 The original Stitch-generated HTML reference files have been removed after converting the design into reusable Next.js components. The next step is to replace mock data with real backend/API integrations, starting with SportsMonk for sports data and a secure wallet/ledger backend for account balances.
+
+Production deploys are triggered from the `main` branch on Vercel.
