@@ -360,9 +360,9 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-start justify-center overflow-y-auto bg-black/72 px-3 py-4 backdrop-blur-md sm:px-6 sm:py-8" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/72 px-3 py-6 backdrop-blur-md sm:px-6 sm:py-8" onClick={onClose}>
       <div
-        className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[500px] flex-col overflow-hidden rounded-[24px] border border-white/[0.10] bg-[#10131b]/95 text-white shadow-2xl shadow-black/55 animate-in fade-in zoom-in-95 duration-200 sm:max-h-[calc(100dvh-4rem)]"
+        className="relative flex max-h-[calc(100dvh-3rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-[20px] border border-white/[0.10] bg-[#10131b]/95 text-white shadow-2xl shadow-black/55 animate-in fade-in zoom-in-95 duration-200 sm:max-h-[calc(100dvh-4rem)] sm:rounded-[24px]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_24%_0%,rgba(8,124,255,0.24),transparent_55%),radial-gradient(circle_at_82%_0%,rgba(5,185,87,0.16),transparent_46%)]" />
@@ -376,19 +376,19 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
           <Icon name="close" className="text-[23px]" />
         </button>
 
-        <div className="no-scrollbar relative overflow-y-auto px-5 pb-6 pt-6 sm:px-6 sm:pb-7">
+        <div className="no-scrollbar relative overflow-y-auto px-4 pb-5 pt-5 sm:px-6 sm:pb-7">
           {screen === "methods" ? (
-            <div className="space-y-5">
+            <div className="space-y-3 sm:space-y-5">
               <div>
-                <h2 className="pr-10 text-4xl font-black tracking-tight text-white">Deposit</h2>
-                <p className="mt-1 text-sm font-bold text-slate-500">Choose how you want to fund your Nezeem wallet.</p>
+                <h2 className="pr-10 text-3xl font-black tracking-tight text-white sm:text-4xl">Deposit</h2>
+                <p className="mt-1 text-xs font-bold text-slate-500 sm:text-sm">Choose how you want to fund your Nezeem wallet.</p>
               </div>
 
               <MoneyTabs mode={mode} setMode={setMode} />
 
               {mode === "fiat" ? (
                 <>
-                  <button type="button" className="flex h-14 w-full items-center justify-between rounded-2xl bg-white/[0.06] px-5 text-left ring-1 ring-white/[0.08]" disabled>
+                  <button type="button" className="flex h-12 w-full items-center justify-between rounded-2xl bg-white/[0.06] px-4 text-left ring-1 ring-white/[0.08]" disabled>
                     <span className="flex items-center gap-3 text-base font-black text-white">
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white">KSh</span>
                       Kenyan shilling
@@ -402,7 +402,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                       setScreen("mpesa");
                       setMode("fiat");
                     }}
-                    className="flex h-[112px] w-[235px] flex-col items-start justify-between rounded-2xl bg-white/[0.06] px-5 py-5 text-left ring-1 ring-white/[0.08] transition hover:bg-white/[0.10] active:scale-[0.99]"
+                    className="flex h-24 w-full flex-row items-center justify-between rounded-2xl bg-white/[0.06] px-5 py-4 text-left ring-1 ring-white/[0.08] transition hover:bg-white/[0.10] active:scale-[0.99] sm:h-[112px] sm:w-[235px] sm:flex-col sm:items-start"
                   >
                     <span className="text-2xl font-black tracking-tight text-[#31c45d]">M-PESA</span>
                     <span>
