@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { sendMerchantApplicationEmail } from "@/lib/brevo";
 
 // POST /api/p2p/merchant/apply — submit merchant application
 export async function POST(req: Request) {
@@ -24,6 +25,11 @@ export async function POST(req: Request) {
       kycStatus:     "PENDING",
     },
   });
+
+  // Email admin about new application (fire and forget)
+  if (dbUser.email) {
+    sendMerchantApplicationEmail(dbUser.email, displayName).catch(console.error);
+  }
 
   return Response.json({ id: merchant.id, kycStatus: merchant.kycStatus }, { status: 201 });
 }

@@ -1,6 +1,22 @@
 const BREVO_API_KEY = process.env.BREVO_API_KEY!;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL!;
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME ?? "Nezeem";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "toxicgreys001@gmail.com";
+
+async function sendEmail(to: string, toName: string, subject: string, htmlContent: string) {
+  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
+      to: [{ email: to, name: toName }],
+      subject,
+      htmlContent,
+    }),
+  });
+  if (!res.ok) console.error("Brevo send failed:", await res.text());
+}
 
 export async function sendWelcomeEmail(to: string, firstName: string) {
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -74,4 +90,123 @@ export async function sendWelcomeEmail(to: string, firstName: string) {
     const err = await res.text();
     throw new Error(`Brevo send failed: ${err}`);
   }
+}
+
+// ─── P2P Merchant Emails ──────────────────────────────────────────────────────
+
+function emailWrapper(content: string) {
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0f1a;font-family:Inter,sans-serif;color:#e2e8f0;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px;">
+      <tr><td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#0f1623;border-radius:16px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;">
+          <tr><td style="padding:32px 40px;border-bottom:1px solid rgba(255,255,255,0.06);">
+            <h1 style="margin:0;font-size:24px;font-weight:900;color:#fff;">Ne<span style="color:#087cff;">zeem</span></h1>
+          </td></tr>
+          <tr><td style="padding:40px;">${content}</td></tr>
+          <tr><td style="padding:20px 40px;border-top:1px solid rgba(255,255,255,0.06);text-align:center;">
+            <p style="margin:0;color:#475569;font-size:11px;">© ${new Date().getFullYear()} Nezeem · All rights reserved</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body></html>`;
+}
+
+// Notify admin when a new merchant application is submitted
+export async function sendMerchantApplicationEmail(applicantEmail: string, displayName: string) {
+  await sendEmail(
+    ADMIN_EMAIL,
+    "Nezeem Admin",
+    `New Merchant Application — ${displayName}`,
+    emailWrapper(`
+      <h2 style="margin:0 0 16px;font-size:20px;font-weight:800;color:#fff;">New Merchant Application</h2>
+      <p style="margin:0 0 24px;color:#94a3b8;line-height:1.6;">
+        A new merchant application has been submitted and is waiting for your review.
+      </p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;background:rgba(255,255,255,0.04);border-radius:12px;margin-bottom:28px;">
+        <tr><td style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <p style="margin:0;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Display Name</p>
+          <p style="margin:4px 0 0;font-size:16px;font-weight:700;color:#fff;">${displayName}</p>
+        </td></tr>
+        <tr><td style="padding:16px 20px;">
+          <p style="margin:0;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Email</p>
+          <p style="margin:4px 0 0;font-size:16px;font-weight:700;color:#fff;">${applicantEmail}</p>
+        </td></tr>
+      </table>
+      <a href="${APP_URL}/admin/p2p" style="display:inline-block;background:#087cff;color:#fff;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;">
+        Review Application →
+      </a>
+    `)
+  );
+}
+
+// Notify merchant when their KYC is approved
+export async function sendKycApprovedEmail(to: string, displayName: string) {
+  await sendEmail(
+    to,
+    displayName,
+    "Your Merchant Account is Approved ✓",
+    emailWrapper(`
+      <div style="text-align:center;margin-bottom:32px;">
+        <div style="width:64px;height:64px;background:#31c45d20;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
+          <span style="font-size:28px;">✓</span>
+        </div>
+        <h2 style="margin:0 0 12px;font-size:22px;font-weight:800;color:#31c45d;">You&apos;re Verified!</h2>
+        <p style="margin:0;color:#94a3b8;line-height:1.6;">
+          Your merchant application has been approved. You can now post buy &amp; sell ads on Nezeem P2P.
+        </p>
+      </div>
+      <table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:28px;">
+        <tr>
+          <td style="padding:0 8px 0 0;">
+            <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Post Ads</p>
+              <p style="margin:6px 0 0;font-size:13px;color:#e2e8f0;">Set your own price &amp; limits</p>
+            </div>
+          </td>
+          <td style="padding:0 0 0 8px;">
+            <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:16px;text-align:center;">
+              <p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Escrow Protected</p>
+              <p style="margin:6px 0 0;font-size:13px;color:#e2e8f0;">Every trade is secured</p>
+            </div>
+          </td>
+        </tr>
+      </table>
+      <div style="text-align:center;">
+        <a href="${APP_URL}/p2p/merchant" style="display:inline-block;background:#31c45d;color:#fff;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;">
+          Go to Merchant Center →
+        </a>
+      </div>
+    `)
+  );
+}
+
+// Notify merchant when their KYC is rejected
+export async function sendKycRejectedEmail(to: string, displayName: string, reason?: string) {
+  await sendEmail(
+    to,
+    displayName,
+    "Merchant Application Update",
+    emailWrapper(`
+      <div style="text-align:center;margin-bottom:32px;">
+        <h2 style="margin:0 0 12px;font-size:22px;font-weight:800;color:#fff;">Application Not Approved</h2>
+        <p style="margin:0;color:#94a3b8;line-height:1.6;">
+          Unfortunately your merchant application was not approved at this time.
+        </p>
+      </div>
+      ${reason ? `
+      <div style="background:rgba(255,255,255,0.04);border-left:3px solid #ef4444;border-radius:0 10px 10px 0;padding:16px 20px;margin-bottom:28px;">
+        <p style="margin:0;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Reason</p>
+        <p style="margin:0;color:#e2e8f0;line-height:1.6;">${reason}</p>
+      </div>` : ""}
+      <p style="color:#94a3b8;font-size:14px;line-height:1.6;margin-bottom:28px;">
+        You may re-apply with updated information. If you believe this was a mistake, contact our support team.
+      </p>
+      <div style="text-align:center;">
+        <a href="${APP_URL}/p2p/merchant" style="display:inline-block;background:#087cff;color:#fff;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;">
+          Re-apply →
+        </a>
+      </div>
+    `)
+  );
 }
