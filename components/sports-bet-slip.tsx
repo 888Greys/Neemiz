@@ -72,24 +72,55 @@ function slicePath(i: number) {
   return `M${CX},${CY} L${s.x.toFixed(2)},${s.y.toFixed(2)} A${R},${R},0,0,1,${e.x.toFixed(2)},${e.y.toFixed(2)}Z`;
 }
 
-function WheelOfFortune({ balance }: { balance: number }) {
+type WheelResult = { segmentIndex: number; label: string; multiplier: number; stake: number; winAmount: number; netChange: number };
+
+function WheelOfFortune({
+  balance,
+  isSignedIn,
+  openLogin,
+  refreshBalance,
+}: {
+  balance: number;
+  isSignedIn: boolean;
+  openLogin: () => void;
+  refreshBalance: () => void;
+}) {
   const [rotation, setRotation]   = useState(0);
   const [spinning, setSpinning]   = useState(false);
   const [animating, setAnimating] = useState(false);
-  const [result, setResult]       = useState<typeof WHEEL_SEGS[0] | null>(null);
+  const [result, setResult]       = useState<WheelResult | null>(null);
+  const [error, setError]         = useState<string | null>(null);
   const [amount, setAmount]       = useState("50");
 
-  function spin() {
-    if (spinning || animating) return;
-    const winner  = Math.floor(Math.random() * N);
-    const segMid  = winner * DEG + DEG / 2;
-    // rotate so that segMid lands at the pointer (top = 0°)
-    const snap    = (360 - segMid + 360) % 360;
-    const total   = rotation + 5 * 360 + snap - ((rotation % 360 + 360) % 360) + ((rotation % 360 + 360) % 360);
-    // simpler: just accumulate
-    const newRot  = rotation + 5 * 360 + ((360 - ((rotation % 360 + segMid) % 360)) % 360);
+  const amt            = parseFloat(amount || "0");
+  const notEnoughFunds = isSignedIn && amt > 0 && amt > balance;
 
+  async function spin() {
+    if (!isSignedIn) { openLogin(); return; }
+    if (spinning || animating) return;
+    setError(null);
     setResult(null);
+
+    // Call the server — it decides the winner and deducts/credits balance
+    let data: WheelResult;
+    try {
+      const res = await fetch("/api/wheel/spin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: amt }),
+      });
+      const json = await res.json();
+      if (!res.ok) { setError(json.error ?? "Spin failed"); return; }
+      data = json as WheelResult;
+    } catch {
+      setError("Network error — please try again");
+      return;
+    }
+
+    // Animate wheel to land on the server-determined segment
+    const segMid = data.segmentIndex * DEG + DEG / 2;
+    const newRot = rotation + 5 * 360 + ((360 - ((rotation % 360 + segMid) % 360)) % 360);
+
     setAnimating(true);
     setSpinning(true);
     setRotation(newRot);
@@ -97,11 +128,10 @@ function WheelOfFortune({ balance }: { balance: number }) {
     setTimeout(() => {
       setSpinning(false);
       setAnimating(false);
-      setResult(WHEEL_SEGS[winner]);
+      setResult(data);
+      refreshBalance(); // update header balance display
     }, 4200);
   }
-
-  const amt = parseFloat(amount || "0");
 
   return (
     <div className="flex flex-col items-center px-4 py-4">
@@ -124,32 +154,25 @@ function WheelOfFortune({ balance }: { balance: number }) {
             display: "block",
           }}
         >
-          {/* Outer ring glow */}
           <circle cx={CX} cy={CY} r={R + 3} fill="none" stroke="#087cff" strokeWidth="1" opacity="0.25" />
           <circle cx={CX} cy={CY} r={R + 1} fill="none" stroke="#087cff" strokeWidth="0.5" opacity="0.4" />
 
-          {/* Segments */}
           {WHEEL_SEGS.map((seg, i) => {
             const mid = i * DEG + DEG / 2;
             return (
               <g key={i}>
                 <path d={slicePath(i)} fill={seg.fill} stroke="#0d0e11" strokeWidth="1.5" />
-                {/* Radially-oriented label */}
                 <g transform={`rotate(${mid},${CX},${CY})`}>
                   <text
-                    x={CX}
-                    y={CY - TEXT_R}
+                    x={CX} y={CY - TEXT_R}
                     fill={seg.text}
-                    fontSize="10.5"
-                    fontWeight="900"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
+                    fontSize="10.5" fontWeight="900"
+                    textAnchor="middle" dominantBaseline="middle"
                     style={{ userSelect: "none", fontFamily: "inherit" }}
                   >
                     {seg.label}
                   </text>
                 </g>
-                {/* Divider dots on rim */}
                 {(() => {
                   const p = polarXY(CX, CY, R - 4, i * DEG);
                   return <circle cx={p.x} cy={p.y} r="2" fill="#0d0e11" opacity="0.7" />;
@@ -158,33 +181,37 @@ function WheelOfFortune({ balance }: { balance: number }) {
             );
           })}
 
-          {/* Center hub */}
           <circle cx={CX} cy={CY} r="16" fill="#0d0e11" stroke="#1e2a3a" strokeWidth="2" />
           <circle cx={CX} cy={CY} r="7"  fill="#087cff" />
           <circle cx={CX} cy={CY} r="3"  fill="#fff" opacity="0.6" />
         </svg>
       </div>
 
+      {/* Error */}
+      {error && (
+        <div className="mb-3 w-full rounded-2xl bg-red-500/10 px-4 py-2.5 text-center ring-1 ring-red-500/20">
+          <p className="text-[12px] font-bold text-red-400">{error}</p>
+        </div>
+      )}
+
       {/* Win/loss result */}
       {result && (
         <div className={`mb-3 w-full rounded-2xl px-4 py-3 text-center ring-1 transition-all ${
-          result.mult === 0
+          result.multiplier === 0
             ? "bg-red-500/10 ring-red-500/20"
-            : result.mult >= 5
+            : result.multiplier >= 5
             ? "bg-amber-500/10 ring-amber-500/20"
             : "bg-emerald-500/10 ring-emerald-500/20"
         }`}>
           <p className={`text-[11px] font-bold mb-0.5 ${
-            result.mult === 0 ? "text-red-400" : result.mult >= 5 ? "text-amber-400" : "text-emerald-400"
+            result.multiplier === 0 ? "text-red-400" : result.multiplier >= 5 ? "text-amber-400" : "text-emerald-400"
           }`}>
-            {result.mult === 0 ? "Better luck next time!" : result.mult >= 5 ? "🎉 Big win!" : "You won!"}
+            {result.multiplier === 0 ? "Better luck next time!" : result.multiplier >= 5 ? "🎉 Big win!" : "You won!"}
           </p>
           <p className={`text-xl font-black tabular-nums ${
-            result.mult === 0 ? "text-red-400" : result.mult >= 5 ? "text-amber-400" : "text-emerald-400"
+            result.multiplier === 0 ? "text-red-400" : result.multiplier >= 5 ? "text-amber-400" : "text-emerald-400"
           }`}>
-            {result.mult === 0
-              ? `-KSh ${amt.toFixed(2)}`
-              : `+KSh ${(amt * result.mult).toFixed(2)}`}
+            {result.multiplier === 0 ? `-KSh ${result.stake.toFixed(2)}` : `+KSh ${result.winAmount.toFixed(2)}`}
           </p>
         </div>
       )}
@@ -194,30 +221,31 @@ function WheelOfFortune({ balance }: { balance: number }) {
         <div className="flex items-center justify-between text-[11px]">
           <span className="text-slate-500">Win</span>
           <span className={`font-black tabular-nums ${
-            result
-              ? result.mult === 0 ? "text-red-400" : "text-emerald-400"
-              : "text-slate-300"
+            result ? result.multiplier === 0 ? "text-red-400" : "text-emerald-400" : "text-slate-300"
           }`}>
-            KSh {result
-              ? result.mult === 0 ? "0.00" : (amt * result.mult).toFixed(2)
-              : amt > 0 ? "—" : "0.00"}
+            KSh {result ? result.multiplier === 0 ? "0.00" : result.winAmount.toFixed(2) : "—"}
           </span>
         </div>
       </div>
 
-      {/* Bet amount */}
+      {/* Bet amount input */}
       <div className="w-full mb-2">
-        <div className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2.5 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/40 transition-shadow">
+        <div className={`flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2.5 ring-1 transition-shadow ${
+          notEnoughFunds ? "ring-red-500/40" : "ring-white/[0.07] focus-within:ring-[#087cff]/40"
+        }`}>
           <span className="shrink-0 text-[11px] font-black text-slate-500">KSh</span>
           <input
-            type="number"
-            min="12.96"
-            placeholder="Bet amount"
+            type="number" min="12.96" placeholder="Bet amount"
             value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            onChange={(e) => { setAmount(e.target.value); setError(null); }}
             className="min-w-0 flex-1 bg-transparent text-[13px] font-black text-white outline-none placeholder:text-slate-600"
           />
         </div>
+        {notEnoughFunds && (
+          <p className="mt-1 text-[10px] text-red-400 font-bold">
+            Insufficient balance — KSh {balance.toFixed(2)} available
+          </p>
+        )}
       </div>
 
       {/* Range hint */}
@@ -236,23 +264,33 @@ function WheelOfFortune({ balance }: { balance: number }) {
         ))}
       </div>
 
-      {/* Spin button */}
-      <button
-        type="button"
-        onClick={spin}
-        disabled={spinning || !amt || amt < 12.96}
-        className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-[0_4px_20px_rgba(8,124,255,.35)] hover:bg-[#0570e8] active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-      >
-        {spinning ? (
-          <span className="flex items-center justify-center gap-2">
-            <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-            </svg>
-            Spinning…
-          </span>
-        ) : "Spin"}
-      </button>
+      {/* CTA button — changes based on state */}
+      {!isSignedIn ? (
+        <button type="button" onClick={openLogin}
+          className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-[0_4px_20px_rgba(8,124,255,.35)] hover:bg-[#0570e8] active:scale-[.98] transition-all">
+          Log in to Spin
+        </button>
+      ) : notEnoughFunds ? (
+        <Link href="/wallet"
+          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#06c96e] py-3.5 text-sm font-black text-white shadow-[0_4px_14px_rgba(6,201,110,.3)] hover:bg-[#05b85f] active:scale-[.98] transition-all">
+          <Icon name="account_balance_wallet" className="w-4 h-4" />
+          Deposit to Spin
+        </Link>
+      ) : (
+        <button type="button" onClick={spin}
+          disabled={spinning || !amt || amt < 12.96}
+          className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-[0_4px_20px_rgba(8,124,255,.35)] hover:bg-[#0570e8] active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+          {spinning ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Spinning…
+            </span>
+          ) : "Spin"}
+        </button>
+      )}
     </div>
   );
 }
@@ -597,7 +635,12 @@ export function SportsBetSlip() {
 
           ) : bets.length === 0 ? (
             /* ── Empty state → Wheel ── */
-            <WheelOfFortune balance={balance} />
+            <WheelOfFortune
+              balance={balance}
+              isSignedIn={isSignedIn}
+              openLogin={openLogin}
+              refreshBalance={refreshBalance}
+            />
 
           ) : tab === "single" ? (
             /* ── Single bets ── */
