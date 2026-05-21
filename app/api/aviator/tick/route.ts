@@ -137,8 +137,9 @@ export async function POST() {
       });
     }
 
-    // Check if crash is due
-    if (currentMult >= crashPoint) {
+    // Check if crash is due (also force-crash rounds flying longer than 3 minutes)
+    const flyingTooLong = Date.now() - flyingStartedAt.getTime() > 3 * 60 * 1000;
+    if (currentMult >= crashPoint || flyingTooLong) {
       const crashedAt = new Date();
       const updated   = await db.aviatorRound.updateMany({
         where: { id: round.id, state: AviatorRoundState.FLYING },

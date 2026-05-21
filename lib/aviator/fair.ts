@@ -36,7 +36,7 @@ export function generateCrashPoint(serverSeed: string, roundId: string): number 
   if (h % 33 === 0) return 1.00;
 
   const raw = (100 * e) / (e - h) / 100;
-  return Math.max(1.00, Math.floor(raw * 100) / 100);
+  return Math.min(1000.00, Math.max(1.00, Math.floor(raw * 100) / 100));
 }
 
 // ─── Multiplier ───────────────────────────────────────────────────────────────
