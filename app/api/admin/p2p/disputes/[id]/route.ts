@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { creditUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
 
 // POST /api/admin/p2p/disputes/[id] — resolve a dispute
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -83,39 +84,27 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       });
     } else {
       // BUYER_WINS — release the locked crypto, mark order RELEASED
+      const cryptoAmt = Number(order.cryptoAmount);
+      const network   = defaultNetwork(order.crypto);
+
       await tx.p2POrder.update({
         where: { id: order.id },
         data: { status: "RELEASED", escrowReleased: true, releasedAt: new Date() },
       });
 
-      // Find merchant profile for the seller so we can deduct their balance
+      // Deduct from merchant's P2PCryptoBalance (locked + total)
       const sellerMerchant = await tx.merchantProfile.findUnique({
         where: { userId: sellerUserId },
       });
       if (sellerMerchant) {
         await tx.p2PCryptoBalance.updateMany({
           where: { merchantId: sellerMerchant.id, crypto: order.crypto },
-          data: {
-            locked: { decrement: Number(order.cryptoAmount) },
-            total:  { decrement: Number(order.cryptoAmount) },
-          },
+          data:  { locked: { decrement: cryptoAmt }, total: { decrement: cryptoAmt } },
         });
       }
 
-      // If buyer is also a merchant, credit their on-platform balance
-      const buyerMerchant = await tx.merchantProfile.findUnique({ where: { userId: buyerId } });
-      if (buyerMerchant) {
-        await tx.p2PCryptoBalance.upsert({
-          where: { merchantId_crypto: { merchantId: buyerMerchant.id, crypto: order.crypto } },
-          update: { total:     { increment: Number(order.cryptoAmount) },
-                    available: { increment: Number(order.cryptoAmount) } },
-          create: { merchantId: buyerMerchant.id,
-                    crypto:     order.crypto,
-                    total:      Number(order.cryptoAmount),
-                    locked:     0,
-                    available:  Number(order.cryptoAmount) },
-        });
-      }
+      // Credit buyer's UserCryptoBalance (works for any user)
+      await creditUserCrypto(tx, buyerId, order.crypto, network, cryptoAmt);
 
       // Notify buyer
       await tx.notification.create({

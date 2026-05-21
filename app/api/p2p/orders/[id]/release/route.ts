@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { creditUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
 
-// POST /api/p2p/orders/[id]/release — merchant confirms payment & releases crypto to buyer
+// POST /api/p2p/orders/[id]/release — merchant confirms fiat received & releases crypto
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
@@ -18,17 +19,16 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     include: { ad: true },
   });
 
-  if (!order)                          return Response.json({ error: "Order not found" }, { status: 404 });
-  if (order.sellerId !== merchant.id)  return Response.json({ error: "Forbidden" }, { status: 403 });
-  if (order.status !== "PAID")         return Response.json({ error: "Order is not in PAID state" }, { status: 400 });
+  if (!order)                         return Response.json({ error: "Order not found" }, { status: 404 });
+  if (order.sellerId !== merchant.id) return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (order.status !== "PAID")        return Response.json({ error: "Order is not in PAID state" }, { status: 400 });
 
+  const cryptoAmt   = Number(order.cryptoAmount);
+  const network     = defaultNetwork(order.crypto);
   const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
 
-  // Check if buyer also has a merchant profile (so we can credit their on-platform balance)
-  const buyerMerchant = await db.merchantProfile.findUnique({ where: { userId: order.buyerId } });
-
   await db.$transaction(async (tx) => {
-    // 1. Mark order released
+    // 1. Mark order RELEASED
     await tx.p2POrder.update({
       where: { id },
       data: {
@@ -38,41 +38,28 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       },
     });
 
-    // 2. Deduct crypto from merchant's balance entirely (locked + total)
-    //    The crypto has physically left the merchant's custody.
+    // 2. Remove crypto from merchant's balance (locked + total — it leaves the platform custody)
     await tx.p2PCryptoBalance.update({
       where: { merchantId_crypto: { merchantId: merchant.id, crypto: order.crypto } },
       data: {
-        locked: { decrement: Number(order.cryptoAmount) },
-        total:  { decrement: Number(order.cryptoAmount) },
+        locked: { decrement: cryptoAmt },
+        total:  { decrement: cryptoAmt },
       },
     });
 
-    // 3. If buyer is also a merchant on the platform, credit their crypto balance
-    if (buyerMerchant) {
-      await tx.p2PCryptoBalance.upsert({
-        where: { merchantId_crypto: { merchantId: buyerMerchant.id, crypto: order.crypto } },
-        update: { total:     { increment: Number(order.cryptoAmount) },
-                  available: { increment: Number(order.cryptoAmount) } },
-        create: { merchantId: buyerMerchant.id,
-                  crypto:     order.crypto,
-                  total:      Number(order.cryptoAmount),
-                  locked:     0,
-                  available:  Number(order.cryptoAmount) },
-      });
-    }
-    // If buyer is not a merchant, crypto was delivered externally (off-platform bank/wallet transfer).
+    // 3. Credit buyer's UserCryptoBalance — works for any user, merchant or not
+    await creditUserCrypto(tx, order.buyerId, order.crypto, network, cryptoAmt);
 
-    // 4. Update seller's trade stats
+    // 4. Update merchant trade stats
     const newTotal     = merchant.totalTrades + 1;
     const newCompleted = merchant.completedTrades + 1;
     const newAvgRelease = Math.round(
-      (merchant.avgReleaseTime * merchant.completedTrades + releaseTime) / newCompleted
+      (merchant.avgReleaseTime * merchant.completedTrades + releaseTime) / newCompleted,
     );
     await tx.merchantProfile.update({
       where: { id: merchant.id },
       data: {
-        totalTrades:    newTotal,
+        totalTrades:     newTotal,
         completedTrades: newCompleted,
         completionRate:  (newCompleted / newTotal) * 100,
         avgReleaseTime:  newAvgRelease,
@@ -85,8 +72,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     data: {
       userId: order.buyerId,
       type:   "p2p_released",
-      title:  `${order.crypto} released`,
-      body:   `${Number(order.cryptoAmount).toFixed(6)} ${order.crypto} from order #${order.id.slice(0, 8).toUpperCase()} has been released to you.`,
+      title:  `${order.crypto} credited to your account`,
+      body:   `${cryptoAmt.toFixed(6)} ${order.crypto} from order #${order.id.slice(0, 8).toUpperCase()} is now in your Nezeem wallet.`,
       link:   `/p2p/order/${order.id}`,
     },
   });

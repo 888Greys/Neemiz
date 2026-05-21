@@ -31,6 +31,8 @@ model User {
   p2pBuyOrders      P2POrder[]        @relation("P2PBuyer")
   p2pMessages       P2PMessage[]
   notifications     Notification[]
+  cryptoBalances    UserCryptoBalance[]
+  depositAddresses  CryptoDepositAddress[]
 
   @@map("users")
 }
@@ -330,6 +332,46 @@ model P2PCryptoDeposit {
   updatedAt   DateTime        @updatedAt @map("updated_at")
 
   @@map("p2p_crypto_deposits")
+}
+
+// ─── User Crypto Balances ─────────────────────────────────────────────────────
+// Tracks on-platform crypto holdings for ALL users (buyers and merchants alike).
+// Credited when a P2P trade completes; debited on withdrawal.
+
+model UserCryptoBalance {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+
+  crypto    String   // "USDT", "BTC", "ETH", "USDC" …
+  network   String   @default("TRC20") // "TRC20", "ERC20", "BTC", "BEP20" …
+  available Decimal  @default(0) @db.Decimal(18, 8) // spendable
+  locked    Decimal  @default(0) @db.Decimal(18, 8) // held in active orders
+
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, crypto, network])
+  @@map("user_crypto_balances")
+}
+
+// ─── Crypto Deposit Addresses ─────────────────────────────────────────────────
+// One unique blockchain address per user × crypto × network.
+// Generated via HD wallet derivation (NOWPayments / own node — phase 2).
+
+model CryptoDepositAddress {
+  id             String   @id @default(cuid())
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id])
+
+  crypto         String   // "USDT", "BTC", "ETH" …
+  network        String   // "TRC20", "ERC20", "BTC", "BEP20" …
+  address        String   @unique // the blockchain address
+  derivationIndex Int?    @map("derivation_index") // for HD wallet (phase 2)
+
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, crypto, network])
+  @@map("crypto_deposit_addresses")
 }
 
 // ─── P2P Enums ───────────────────────────────────────────────────────────────
