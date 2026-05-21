@@ -8,16 +8,22 @@ type BrandLogoProps = {
 };
 
 const sizes = {
-  sm: "text-2xl",
-  md: "text-3xl",
-  lg: "text-5xl md:text-7xl",
+  sm: { wrapper: "text-2xl", script: "text-3xl" },
+  md: { wrapper: "text-3xl", script: "text-4xl" },
+  lg: { wrapper: "text-5xl md:text-7xl", script: "text-6xl md:text-8xl" },
 };
 
 export function BrandLogo({ href, size = "md", animated = false, className = "" }: BrandLogoProps) {
   const content = (
-    <span className={`inline-flex items-baseline font-black tracking-tight ${sizes[size]} ${className}`}>
-      <span className="text-white">Ne</span>
-      <span className={animated ? "animate-zeem text-primary" : "text-primary"}>zeem</span>
+    <span className={`inline-flex items-baseline font-black tracking-tight ${sizes[size].wrapper} ${className}`}>
+      {/* Cursive "n" matching the favicon icon */}
+      <span
+        className={`font-brand text-primary leading-none ${sizes[size].script} ${animated ? "animate-zeem" : ""}`}
+        style={{ lineHeight: 1 }}
+      >
+        n
+      </span>
+      <span className="text-white -ml-0.5">ezeem</span>
     </span>
   );
 
