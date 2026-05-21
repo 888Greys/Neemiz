@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
+import { TransactionStatus } from "@prisma/client";
 
 const MEGAPAY_BASE_URL = (process.env.MEGAPAY_BASE_URL ?? "").replace(/\/+$/, "");
 const MEGAPAY_API_KEY  = process.env.MEGAPAY_API_KEY ?? "";
@@ -42,23 +43,25 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       const failed    = mpStatus === "failed" || mpStatus === "cancelled" || mpStatus === "expired";
 
       if (completed) {
-        const creditAmount = Number(data.Amount ?? tx.amount);
-        await db.$transaction([
-          db.transaction.update({
-            where: { id: tx.id },
-            data:  { status: "COMPLETED", amount: creditAmount, metadata: { mpData: JSON.parse(JSON.stringify(data)) } },
-          }),
-          db.user.update({
+        const creditAmount = Number(tx.amount);
+        await db.$transaction(async (prismaTx) => {
+          const claimed = await prismaTx.transaction.updateMany({
+            where: { id: tx.id, status: TransactionStatus.PENDING },
+            data:  { status: TransactionStatus.COMPLETED, metadata: { mpData: JSON.parse(JSON.stringify(data)) } },
+          });
+          if (claimed.count === 0) return;
+
+          await prismaTx.user.update({
             where: { id: tx.userId },
             data:  { walletBalance: { increment: creditAmount } },
-          }),
-        ]);
+          });
+        });
         return Response.json({ id: tx.id, status: "COMPLETED", amount: creditAmount });
       }
 
       if (failed) {
-        await db.transaction.update({
-          where: { id: tx.id },
+        await db.transaction.updateMany({
+          where: { id: tx.id, status: TransactionStatus.PENDING },
           data:  { status: "FAILED", metadata: { mpData: JSON.parse(JSON.stringify(data)) } },
         });
         return Response.json({ id: tx.id, status: "FAILED", amount: Number(tx.amount) });

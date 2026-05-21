@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
+import { randomInt } from "crypto";
 
 // Wheel segments — must match the client definition exactly (same order, same index)
 const SEGMENTS = [
@@ -21,10 +22,10 @@ const WEIGHTS = [25, 22, 8, 15, 25, 22, 3, 15]; // out of 135 total weight
 
 function weightedRandom(): number {
   const total = WEIGHTS.reduce((a, b) => a + b, 0);
-  let r = Math.random() * total;
+  let r = randomInt(total);
   for (let i = 0; i < WEIGHTS.length; i++) {
     r -= WEIGHTS[i];
-    if (r <= 0) return i;
+    if (r < 0) return i;
   }
   return WEIGHTS.length - 1;
 }
@@ -52,17 +53,15 @@ export async function POST(req: Request) {
   const netChange = parseFloat((winAmount - amount).toFixed(2)); // negative if mult=0
 
   try {
+    const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
     await db.$transaction(async (tx) => {
-      const dbUser = await getOrCreateUser(user.id, { email: user.email });
-      const balance = Number(dbUser.walletBalance);
-
-      if (balance < amount) throw new Error("INSUFFICIENT_BALANCE");
-
       // Deduct stake
-      await tx.user.update({
-        where: { id: dbUser.id },
+      const debited = await tx.user.updateMany({
+        where: { id: dbUser.id, walletBalance: { gte: amount } },
         data:  { walletBalance: { decrement: amount } },
       });
+      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
       await tx.transaction.create({
         data: {

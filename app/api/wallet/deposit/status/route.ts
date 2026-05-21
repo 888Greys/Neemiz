@@ -79,8 +79,8 @@ export async function POST(req: Request) {
 
   try {
     const updated = await db.$transaction(async (tx) => {
-      await tx.transaction.update({
-        where: { reference: transactionRequestId },
+      const claimed = await tx.transaction.updateMany({
+        where: { reference: transactionRequestId, status: TransactionStatus.PENDING },
         data: {
           status: TransactionStatus.COMPLETED,
           metadata: {
@@ -91,6 +91,12 @@ export async function POST(req: Request) {
           },
         },
       });
+      if (claimed.count === 0) {
+        return tx.user.findUniqueOrThrow({
+          where: { id: existing.userId },
+          select: { walletBalance: true },
+        });
+      }
 
       return tx.user.update({
         where: { id: existing.userId },

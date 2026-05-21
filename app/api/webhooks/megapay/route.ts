@@ -5,6 +5,12 @@ import { db } from "@/lib/db";
 import { TransactionStatus } from "@prisma/client";
 
 export async function POST(req: Request) {
+  const callbackToken = process.env.MEGAPAY_CALLBACK_TOKEN ?? "";
+  if (!callbackToken) {
+    console.error("MegaPay webhook rejected: MEGAPAY_CALLBACK_TOKEN is not configured");
+    return new Response("Webhook not configured", { status: 503 });
+  }
+
   let body: Record<string, string>;
   try {
     body = await req.json();
@@ -12,8 +18,12 @@ export async function POST(req: Request) {
     return new Response("Bad request", { status: 400 });
   }
 
-  const callbackToken = process.env.MEGAPAY_CALLBACK_TOKEN ?? "";
-  if (callbackToken && body.callback_token !== callbackToken) {
+  const suppliedToken =
+    body.callback_token ??
+    req.headers.get("x-callback-token") ??
+    req.headers.get("x-megapay-token") ??
+    "";
+  if (suppliedToken !== callbackToken) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -29,13 +39,13 @@ export async function POST(req: Request) {
     where: { reference: transactionRequestId },
   });
 
-  if (!existing || existing.status === TransactionStatus.COMPLETED) {
+  if (!existing || existing.status !== TransactionStatus.PENDING) {
     return new Response("OK", { status: 200 }); // Already processed or not found
   }
 
   await db.$transaction(async (tx) => {
-    await tx.transaction.update({
-      where: { reference: transactionRequestId },
+    const claimed = await tx.transaction.updateMany({
+      where: { reference: transactionRequestId, status: TransactionStatus.PENDING },
       data: {
         status: TransactionStatus.COMPLETED,
         metadata: {
@@ -47,6 +57,7 @@ export async function POST(req: Request) {
         },
       },
     });
+    if (claimed.count === 0) return;
 
     await tx.user.update({
       where: { id: existing.userId },

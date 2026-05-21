@@ -68,10 +68,11 @@ export async function POST(req: Request) {
         throw new Error("INSUFFICIENT_BALANCE");
       }
 
-      await tx.user.update({
-        where: { id: dbUser.id },
+      const debited = await tx.user.updateMany({
+        where: { id: dbUser.id, walletBalance: { gte: betAmount } },
         data:  { walletBalance: { decrement: betAmount } },
       });
+      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
       await tx.transaction.create({
         data: {

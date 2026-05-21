@@ -24,13 +24,14 @@ type SupabaseAuthEvent = {
 
 export async function POST(req: Request) {
   const secret = process.env.SUPABASE_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error("Supabase webhook rejected: SUPABASE_WEBHOOK_SECRET is not configured");
+    return new Response("Webhook not configured", { status: 503 });
+  }
 
-  // Verify shared secret if set
-  if (secret) {
-    const authHeader = req.headers.get("authorization");
-    if (authHeader !== `Bearer ${secret}`) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+  const authHeader = req.headers.get("authorization");
+  if (authHeader !== `Bearer ${secret}`) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   let event: SupabaseAuthEvent;

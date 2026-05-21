@@ -157,8 +157,8 @@ export async function createPayout(opts: {
 export function verifyIpnSignature(rawBody: string, signature: string): boolean {
   const secret = process.env.NOWPAYMENTS_IPN_SECRET;
   if (!secret) {
-    console.warn("NOWPAYMENTS_IPN_SECRET not set — skipping signature check");
-    return true; // allow in dev; block in prod by always setting the secret
+    console.warn("NOWPAYMENTS_IPN_SECRET not set — rejecting IPN signature check");
+    return false;
   }
   const expected = createHmac("sha512", secret).update(rawBody).digest("hex");
   return expected === signature;

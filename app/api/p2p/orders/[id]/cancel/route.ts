@@ -27,14 +27,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   await db.$transaction(async (tx) => {
     // 1. Mark cancelled
-    await tx.p2POrder.update({
-      where: { id },
+    const cancelled = await tx.p2POrder.updateMany({
+      where: { id, status: "PENDING" },
       data: {
         status:       "CANCELLED",
         cancelledBy:  dbUser.id,
         cancelReason: reason ?? null,
       },
     });
+    if (cancelled.count === 0) return;
 
     // 2. Restore ad's available amount
     await tx.p2PAd.update({
@@ -42,12 +43,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       data:  { availableAmount: { increment: cryptoAmt } },
     });
 
-    // 3. Return the locked crypto back to the merchant's available balance
-    await tx.p2PCryptoBalance.updateMany({
-      where: { merchantId: order.sellerId, crypto: order.crypto },
-      data:  { locked: { decrement: cryptoAmt } },
-      // Note: only decrement locked — total stays the same since crypto is still theirs
-    });
+    // Merchant crypto remains locked because the ad liquidity is available again.
   });
 
   // Notify the other party

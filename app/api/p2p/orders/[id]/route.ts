@@ -30,11 +30,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   // Auto-expire PENDING orders whose window has passed
   if (order.status === "PENDING" && order.expiresAt && new Date(order.expiresAt) < new Date()) {
     await db.$transaction(async (tx) => {
-      await tx.p2POrder.update({ where: { id }, data: { status: "EXPIRED" } });
-      // Return locked crypto to merchant's available balance
-      await tx.p2PCryptoBalance.updateMany({
-        where: { merchantId: order.sellerId, crypto: order.crypto },
-        data:  { locked: { decrement: Number(order.cryptoAmount) } },
+      const expired = await tx.p2POrder.updateMany({ where: { id, status: "PENDING" }, data: { status: "EXPIRED" } });
+      if (expired.count === 0) return;
+      // Return the reserved ad amount; merchant crypto remains locked while the ad is active.
+      await tx.p2PAd.update({
+        where: { id: order.adId },
+        data:  { availableAmount: { increment: Number(order.cryptoAmount) } },
       });
     });
     order.status = "EXPIRED" as typeof order.status;

@@ -37,6 +37,9 @@ export async function POST(req: Request) {
     console.warn(`NOWPayments IPN: unknown payment_id ${payment_id}`);
     return Response.json({ ok: true });
   }
+  if (userId && userId !== tx.userId) {
+    console.warn(`NOWPayments IPN: order_id ${userId} does not match transaction user ${tx.userId}`);
+  }
 
   // Already processed — idempotency guard
   if (tx.status === TransactionStatus.COMPLETED) {
@@ -60,8 +63,8 @@ export async function POST(req: Request) {
 
     await db.$transaction(async (prismaTx) => {
       // Update transaction record
-      await prismaTx.transaction.update({
-        where: { id: tx.id },
+      const claimed = await prismaTx.transaction.updateMany({
+        where: { id: tx.id, status: TransactionStatus.PENDING },
         data: {
           status:   TransactionStatus.COMPLETED,
           amount:   creditAmount,
@@ -75,15 +78,16 @@ export async function POST(req: Request) {
           },
         },
       });
+      if (claimed.count === 0) return;
 
       // Credit the user's on-platform crypto balance
-      await creditUserCrypto(prismaTx, userId, internal.crypto, internal.network, creditAmount);
+      await creditUserCrypto(prismaTx, tx.userId, internal.crypto, internal.network, creditAmount);
     });
 
     // Notify user
     await db.notification.create({
       data: {
-        userId,
+        userId: tx.userId,
         type:  "crypto_deposit",
         title: `${internal.crypto} deposit confirmed`,
         body:  `${creditAmount.toFixed(6)} ${internal.crypto} (${internal.network}) has been credited to your account.`,
@@ -91,11 +95,11 @@ export async function POST(req: Request) {
       },
     });
 
-    console.log(`NOWPayments IPN: credited ${creditAmount} ${internal.crypto} to user ${userId}`);
+    console.log(`NOWPayments IPN: credited ${creditAmount} ${internal.crypto} to user ${tx.userId}`);
 
   } else if (FAILED_STATUSES.has(payment_status)) {
-    await db.transaction.update({
-      where: { id: tx.id },
+    await db.transaction.updateMany({
+      where: { id: tx.id, status: TransactionStatus.PENDING },
       data: {
         status:   TransactionStatus.FAILED,
         metadata: {
@@ -109,7 +113,7 @@ export async function POST(req: Request) {
     // Notify user of failure
     await db.notification.create({
       data: {
-        userId,
+        userId: tx.userId,
         type:  "crypto_deposit_failed",
         title: `Deposit ${payment_status}`,
         body:  `Your ${internal.crypto} deposit (${internal.network}) was ${payment_status}. If funds were sent, contact support.`,

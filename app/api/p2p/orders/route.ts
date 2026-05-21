@@ -26,21 +26,22 @@ export async function GET() {
         ...(merchant ? [{ sellerId: merchant.id }] : []),
       ],
     },
-    select: { id: true, sellerId: true, crypto: true, cryptoAmount: true },
+    select: { id: true, adId: true, cryptoAmount: true },
   });
   if (expiredOrders.length > 0) {
-    await db.$transaction([
-      db.p2POrder.updateMany({
-        where: { id: { in: expiredOrders.map((o) => o.id) } },
-        data:  { status: "EXPIRED" },
-      }),
-      ...expiredOrders.map((o) =>
-        db.p2PCryptoBalance.updateMany({
-          where: { merchantId: o.sellerId, crypto: o.crypto },
-          data:  { locked: { decrement: Number(o.cryptoAmount) } },
-        })
-      ),
-    ]);
+    await db.$transaction(async (tx) => {
+      for (const order of expiredOrders) {
+        const expired = await tx.p2POrder.updateMany({
+          where: { id: order.id, status: "PENDING" },
+          data:  { status: "EXPIRED" },
+        });
+        if (expired.count === 0) continue;
+        await tx.p2PAd.update({
+          where: { id: order.adId },
+          data:  { availableAmount: { increment: Number(order.cryptoAmount) } },
+        });
+      }
+    });
   }
 
   const orders = await db.p2POrder.findMany({
@@ -110,11 +111,16 @@ export async function POST(req: Request) {
 
   if (!ad || !ad.isActive) return Response.json({ error: "Ad not found or inactive" }, { status: 404 });
   if (ad.merchant.userId === dbUser.id) return Response.json({ error: "Cannot trade with yourself" }, { status: 400 });
-  if (Number(ad.availableAmount) < Number(cryptoAmount)) {
+  const cryptoAmountNum = Number(cryptoAmount);
+  if (!Number.isFinite(cryptoAmountNum) || cryptoAmountNum <= 0) {
+    return Response.json({ error: "Invalid crypto amount" }, { status: 400 });
+  }
+
+  if (Number(ad.availableAmount) < cryptoAmountNum) {
     return Response.json({ error: "Insufficient ad liquidity" }, { status: 400 });
   }
 
-  const fiatAmount = Number(cryptoAmount) * Number(ad.pricePerUnit);
+  const fiatAmount = cryptoAmountNum * Number(ad.pricePerUnit);
   if (fiatAmount < Number(ad.minLimit) || fiatAmount > Number(ad.maxLimit)) {
     return Response.json({
       error: `Order must be between KSh ${ad.minLimit} and KSh ${ad.maxLimit}`,
@@ -127,10 +133,11 @@ export async function POST(req: Request) {
 
   // Create order + reduce available amount atomically
   const order = await db.$transaction(async (tx) => {
-    await tx.p2PAd.update({
-      where: { id: adId },
-      data: { availableAmount: { decrement: Number(cryptoAmount) } },
+    const reserved = await tx.p2PAd.updateMany({
+      where: { id: adId, isActive: true, availableAmount: { gte: cryptoAmountNum } },
+      data: { availableAmount: { decrement: cryptoAmountNum } },
     });
+    if (reserved.count === 0) throw new Error("INSUFFICIENT_AD_LIQUIDITY");
 
     return tx.p2POrder.create({
       data: {
@@ -138,14 +145,21 @@ export async function POST(req: Request) {
         buyerId:      dbUser.id,
         sellerId:     ad.merchantId,
         crypto:       ad.crypto,
-        cryptoAmount: Number(cryptoAmount),
+        cryptoAmount: cryptoAmountNum,
         fiatAmount,
         pricePerUnit: Number(ad.pricePerUnit),
         paymentMethod,
         expiresAt:    new Date(Date.now() + ad.paymentWindow * 60 * 1000),
       },
     });
+  }).catch((err: unknown) => {
+    if ((err as Error).message === "INSUFFICIENT_AD_LIQUIDITY") {
+      return null;
+    }
+    throw err;
   });
+
+  if (!order) return Response.json({ error: "Insufficient ad liquidity" }, { status: 400 });
 
   return Response.json({ orderId: order.id }, { status: 201 });
 }

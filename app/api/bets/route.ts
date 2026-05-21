@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { BetType, TransactionType, TransactionStatus } from "@prisma/client";
+import { getFixtureDetail } from "@/lib/sportmonks";
 
 type BetSelectionInput = {
   fixtureId: string;
@@ -17,6 +18,46 @@ type PlaceBetBody = {
   selections: BetSelectionInput[];
 };
 
+async function resolveLiveSelections(selections: BetSelectionInput[]) {
+  return Promise.all(
+    selections.map(async (selection) => {
+      const detail = await getFixtureDetail(Number(selection.fixtureId));
+      if (!detail) {
+        throw new Error("MARKET_UNAVAILABLE");
+      }
+
+      const requestedMarket = selection.market.trim().toLowerCase();
+      const requestedLabel = selection.label.trim().toLowerCase();
+      const market = detail.markets.find((m) => m.name.trim().toLowerCase() === requestedMarket);
+      if (!market) {
+        throw new Error("MARKET_UNAVAILABLE");
+      }
+
+      const odd = market.odds.find((o) => {
+        const base = o.label.trim().toLowerCase();
+        const withExtra = `${o.label} ${o.extra ?? ""}`.trim().toLowerCase();
+        return base === requestedLabel || withExtra === requestedLabel;
+      });
+      if (!odd) {
+        throw new Error("ODDS_CHANGED");
+      }
+
+      const odds = Number(odd.value);
+      if (!Number.isFinite(odds) || odds <= 1) {
+        throw new Error("ODDS_CHANGED");
+      }
+
+      return {
+        ...selection,
+        matchName: `${detail.match.home.name} vs ${detail.match.away.name}`,
+        market: market.name,
+        label: odd.extra ? `${odd.label} ${odd.extra}` : odd.label,
+        odds,
+      };
+    }),
+  );
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -31,22 +72,35 @@ export async function POST(req: Request) {
 
   const { type, stake, selections } = body;
 
-  if (!stake || stake <= 0) return Response.json({ error: "Invalid stake" }, { status: 400 });
+  if (!Number.isFinite(stake) || stake <= 0) return Response.json({ error: "Invalid stake" }, { status: 400 });
   if (!selections?.length) return Response.json({ error: "No selections" }, { status: 400 });
+  if (type === "SINGLE" && selections.length !== 1) return Response.json({ error: "Single bets require one selection" }, { status: 400 });
+  if (selections.length > 20) return Response.json({ error: "Too many selections" }, { status: 400 });
 
-  const totalOdds = selections.reduce((acc, s) => acc * s.odds, 1);
+  let verifiedSelections: BetSelectionInput[];
+  try {
+    verifiedSelections = await resolveLiveSelections(selections);
+  } catch (err) {
+    const message = (err as Error).message === "ODDS_CHANGED"
+      ? "Odds changed. Refresh the market and try again."
+      : "Market is no longer available.";
+    return Response.json({ error: message }, { status: 409 });
+  }
+
+  const totalOdds = verifiedSelections.reduce((acc, s) => acc * s.odds, 1);
   const potentialWin = stake * totalOdds;
+  const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
   const result = await db.$transaction(async (tx) => {
-    const dbUser = await getOrCreateUser(user.id, { email: user.email });
-
-    const balance = Number(dbUser.walletBalance);
-    if (balance < stake) throw new Error("INSUFFICIENT_BALANCE");
-
     // Deduct stake
-    const updated = await tx.user.update({
-      where: { id: dbUser.id },
+    const debited = await tx.user.updateMany({
+      where: { id: dbUser.id, walletBalance: { gte: stake } },
       data: { walletBalance: { decrement: stake } },
+    });
+    if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+
+    const updated = await tx.user.findUniqueOrThrow({
+      where: { id: dbUser.id },
       select: { walletBalance: true },
     });
 
@@ -70,7 +124,7 @@ export async function POST(req: Request) {
         totalOdds,
         potentialWin,
         selections: {
-          create: selections.map((s) => ({
+          create: verifiedSelections.map((s) => ({
             fixtureId: s.fixtureId,
             matchName: s.matchName,
             market: s.market,

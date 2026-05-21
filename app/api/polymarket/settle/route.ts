@@ -5,11 +5,13 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 const AUTH = process.env.SETTLE_SECRET;
 
 export async function POST(req: Request) {
-  if (AUTH) {
-    const header = req.headers.get("authorization") ?? "";
-    if (header !== `Bearer ${AUTH}`) {
-      return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  if (!AUTH) {
+    return Response.json({ error: "Settlement secret not configured" }, { status: 503 });
+  }
+
+  const header = req.headers.get("authorization") ?? "";
+  if (header !== `Bearer ${AUTH}`) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   // Find all pending bets, grouped by market
@@ -69,5 +71,3 @@ export async function POST(req: Request) {
 
   return Response.json({ ok: true, settled, voided });
 }
-
-export const GET = POST;

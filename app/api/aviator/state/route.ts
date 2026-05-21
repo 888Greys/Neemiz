@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { serializeRound, createNewRound } from "@/lib/aviator/round";
 
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/aviator/state
  *
