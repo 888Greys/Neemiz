@@ -547,42 +547,89 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             {status.displayName?.charAt(0).toUpperCase()}
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-black text-white">{status.displayName}</h1>
-              <div className="flex items-center gap-1 bg-[#31c45d]/10 border border-[#31c45d]/20 rounded-full px-2.5 py-0.5">
+              <div className="flex items-center gap-1 bg-[#31c45d]/10 border border-[#31c45d]/20 rounded-full px-2 py-0.5">
                 <Icon name="verified" className="text-[#31c45d] text-xs" />
-                <span className="text-[#31c45d] text-[10px] font-black">Verified Merchant</span>
+                <span className="text-[#31c45d] text-[10px] font-black">Verified</span>
               </div>
             </div>
-            <p className="text-slate-500 text-xs mt-0.5">Merchant Center</p>
+            <p className="text-slate-500 text-xs mt-0.5">
+              Merchant Center
+              {status.createdAt && (
+                <span className="ml-2 text-slate-600">· since {new Date(status.createdAt).toLocaleDateString("en-KE", { month: "short", year: "numeric" })}</span>
+              )}
+            </p>
           </div>
         </div>
+        {/* Post Ad — icon-only on mobile, full button on sm+ */}
         <button
           onClick={() => setCreate(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#087cff] text-white font-black text-sm hover:bg-[#0570e8] transition-colors shadow-lg shadow-[#087cff]/20"
+          className="flex items-center gap-2 sm:px-4 sm:py-2.5 p-2.5 rounded-xl bg-[#087cff] text-white font-black text-sm hover:bg-[#0570e8] transition-colors shadow-lg shadow-[#087cff]/20 shrink-0"
         >
           <Icon name="add" className="text-base" />
-          Post Ad
+          <span className="hidden sm:inline">Post Ad</span>
         </button>
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {[
-          { label: "Active Ads",  value: ads.filter((a) => a.isActive).length,  color: "text-[#087cff]",  icon: "campaign" },
-          { label: "Total Ads",   value: ads.length,                            color: "text-white",      icon: "list_alt" },
-          { label: "Total Volume", value: `${ads.reduce((s, a) => s + Number(a.totalAmount), 0).toFixed(2)}`,  color: "text-[#31c45d]", icon: "trending_up" },
-          { label: "Status",      value: "Verified",                            color: "text-[#31c45d]",  icon: "shield" },
-        ].map(({ label, value, color, icon }) => (
-          <div key={label} className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-white/[0.10] transition-colors">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-slate-500 text-xs">{label}</p>
-              <Icon name={icon} className={`text-sm ${color} opacity-60`} />
+      {(() => {
+        const activeAds     = ads.filter((a) => a.isActive);
+        const totalListed   = ads.reduce((s, a) => s + Number(a.totalAmount), 0);
+        const totalAvail    = ads.reduce((s, a) => s + Number(a.availableAmount), 0);
+        const listedKES     = ads.reduce((s, a) => s + Number(a.availableAmount) * Number(a.pricePerUnit), 0);
+        const cryptos       = ads.map((a) => a.crypto).filter((c, idx, arr) => arr.indexOf(c) === idx);
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            {/* Active Ads */}
+            <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-[#087cff]/20 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-slate-500 text-xs">Active Ads</p>
+                <Icon name="campaign" className="text-[#087cff] text-sm opacity-60" />
+              </div>
+              <p className="font-black text-2xl text-[#087cff]">{activeAds.length}</p>
+              <p className="text-slate-600 text-[11px] mt-1">{ads.length} total · {ads.length - activeAds.length} paused</p>
             </div>
-            <p className={`font-black text-lg ${color}`}>{value}</p>
+
+            {/* Listed crypto */}
+            <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-[#31c45d]/20 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-slate-500 text-xs">Listed Crypto</p>
+                <Icon name="currency_bitcoin" className="text-[#31c45d] text-sm opacity-60" />
+              </div>
+              <p className="font-black text-2xl text-[#31c45d]">{totalAvail.toFixed(4)}</p>
+              <p className="text-slate-600 text-[11px] mt-1">{totalListed.toFixed(4)} total · {cryptos.join(", ") || "—"}</p>
+            </div>
+
+            {/* KES value */}
+            <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-amber-500/20 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-slate-500 text-xs">Est. KES Value</p>
+                <Icon name="payments" className="text-amber-400 text-sm opacity-60" />
+              </div>
+              <p className="font-black text-2xl text-amber-400">
+                {listedKES >= 1000 ? `${(listedKES/1000).toFixed(1)}K` : listedKES.toFixed(0)}
+              </p>
+              <p className="text-slate-600 text-[11px] mt-1">across active listings</p>
+            </div>
+
+            {/* Account */}
+            <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-[#31c45d]/20 transition-colors">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-slate-500 text-xs">Account</p>
+                <Icon name="shield" className="text-[#31c45d] text-sm opacity-60" />
+              </div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <Icon name="verified" className="text-[#31c45d] text-sm" />
+                <p className="font-black text-sm text-[#31c45d]">Verified</p>
+              </div>
+              <p className="text-slate-600 text-[11px]">
+                {status.createdAt ? `Since ${new Date(status.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}` : "Active"}
+              </p>
+            </div>
           </div>
-        ))}
-      </div>
+        );
+      })()}
 
       {/* Deposits */}
       <DepositSection />
@@ -611,23 +658,71 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
           </div>
         ) : (
           <div>
-            {ads.map((ad, i) => (
-              <div key={ad.id} className={`flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition-colors ${i < ads.length - 1 ? "border-b border-white/[0.04]" : ""}`}>
-                <span className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-black border ${
-                  ad.side === "SELL" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-[#31c45d] bg-[#31c45d]/10 border-[#31c45d]/20"
-                }`}>{ad.side}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-bold text-sm">{ad.crypto} · <span className="text-[#087cff]">{ad.pricePerUnit.toLocaleString("en-KE")} KES</span></p>
-                  <p className="text-slate-500 text-xs mt-0.5">
-                    {ad.availableAmount.toFixed(4)} / {Number(ad.totalAmount).toFixed(4)} {ad.crypto} · KSh {ad.minLimit.toLocaleString()} – {ad.maxLimit.toLocaleString()}
-                  </p>
+            {ads.map((ad, i) => {
+              const pmLabel = (m: string) => m === "MPESA" ? "M-Pesa" : m === "BANK" ? "Bank" : m;
+              const filled = Number(ad.totalAmount) - Number(ad.availableAmount);
+              const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
+              return (
+                <div key={ad.id} className={`px-5 py-4 hover:bg-white/[0.02] transition-colors ${i < ads.length - 1 ? "border-b border-white/[0.04]" : ""}`}>
+                  {/* Row 1: side badge + crypto + price + status */}
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className={`shrink-0 px-2.5 py-0.5 rounded-lg text-[10px] font-black border ${
+                        ad.side === "SELL" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-[#31c45d] bg-[#31c45d]/10 border-[#31c45d]/20"
+                      }`}>{ad.side}</span>
+                      <div className="min-w-0">
+                        <span className="text-white font-bold text-sm">{ad.crypto}</span>
+                        <span className="text-slate-500 text-xs ml-1.5">at</span>
+                        <span className="text-[#087cff] font-black text-sm ml-1.5">{ad.pricePerUnit.toLocaleString("en-KE")} KES</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`w-1.5 h-1.5 rounded-full ${ad.isActive ? "bg-[#31c45d] animate-pulse" : "bg-slate-600"}`} />
+                      <span className={`text-[11px] font-bold ${ad.isActive ? "text-[#31c45d]" : "text-slate-500"}`}>{ad.isActive ? "Active" : "Paused"}</span>
+                      <span className="text-slate-700 text-xs ml-1">· {new Date(ad.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short" })}</span>
+                    </div>
+                  </div>
+
+                  {/* Row 2: stats grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-xs mb-3">
+                    <div>
+                      <p className="text-slate-600 mb-0.5">Available</p>
+                      <p className="text-slate-200 font-bold">{Number(ad.availableAmount).toFixed(4)} {ad.crypto}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-600 mb-0.5">Total listed</p>
+                      <p className="text-slate-200 font-bold">{Number(ad.totalAmount).toFixed(4)} {ad.crypto}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-600 mb-0.5">Order limit</p>
+                      <p className="text-slate-200 font-bold">KSh {ad.minLimit.toLocaleString()} – {ad.maxLimit.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-600 mb-0.5">Pay window</p>
+                      <p className="text-slate-200 font-bold">{ad.paymentWindow} min</p>
+                    </div>
+                  </div>
+
+                  {/* Row 3: payment methods + fill bar */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {ad.paymentMethods.map((m) => (
+                        <span key={m} className="bg-[#087cff]/10 border border-[#087cff]/15 rounded-md px-2 py-0.5 text-[10px] font-bold text-[#4da3ff]">
+                          {pmLabel(m)}
+                        </span>
+                      ))}
+                    </div>
+                    {/* Fill progress */}
+                    <div className="shrink-0 text-right min-w-[80px]">
+                      <p className="text-slate-600 text-[10px] mb-1">{fillPct.toFixed(0)}% filled</p>
+                      <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden w-20">
+                        <div className="h-full bg-[#087cff] rounded-full transition-all" style={{ width: `${fillPct}%` }} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className={`w-2 h-2 rounded-full ${ad.isActive ? "bg-[#31c45d]" : "bg-slate-600"}`} />
-                  <span className={`text-xs font-bold ${ad.isActive ? "text-[#31c45d]" : "text-slate-500"}`}>{ad.isActive ? "Active" : "Paused"}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

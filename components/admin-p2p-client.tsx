@@ -522,7 +522,7 @@ function DepositsTab({ onAction }: { onAction: () => void }) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/[0.06]">
-                  {["Merchant", "Crypto", "Amount", "Network", "TX Hash", "Submitted", "Status", "Actions"].map((h) => (
+                  {["Merchant", "Asset", "Amount", "TX Hash", "Submitted", "Status", "Actions"].map((h) => (
                     <th key={h} className="px-4 py-3.5 text-left text-xs font-black text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -534,29 +534,48 @@ function DepositsTab({ onAction }: { onAction: () => void }) {
                       key={d.id}
                       className={`${i < deposits.length - 1 ? "border-b border-white/[0.04]" : ""} hover:bg-white/[0.02] transition-colors`}
                     >
-                      <td className="px-4 py-3.5 text-white font-bold whitespace-nowrap">{d.merchant.displayName}</td>
-                      <td className="px-4 py-3.5 text-white font-black">{d.crypto}</td>
-                      <td className="px-4 py-3.5 text-white font-black">{Number(d.amount).toFixed(6)}</td>
-                      <td className="px-4 py-3.5 text-slate-400 text-xs">{d.network}</td>
+                      {/* Merchant */}
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <p className="text-white font-black text-sm">{d.merchant.displayName}</p>
+                        <p className="text-slate-500 text-[11px] mt-0.5">{(d.merchant as AdminDeposit["merchant"] & { user?: { email?: string | null } }).user?.email ?? ""}</p>
+                      </td>
+                      {/* Asset */}
+                      <td className="px-4 py-3.5">
+                        <p className="text-white font-black">{d.crypto}</p>
+                        <p className="text-slate-500 text-[11px]">{d.network}</p>
+                      </td>
+                      {/* Amount */}
+                      <td className="px-4 py-3.5">
+                        <p className="text-white font-black">{Number(d.amount).toFixed(6)}</p>
+                        <p className="text-slate-500 text-[11px]">{d.crypto}</p>
+                      </td>
+                      {/* TX Hash */}
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-1.5">
                           <span className="font-mono text-slate-400 text-xs">
-                            {d.txHash.length > 14 ? `${d.txHash.slice(0, 7)}…${d.txHash.slice(-7)}` : d.txHash}
+                            {d.txHash.length > 16 ? `${d.txHash.slice(0, 8)}…${d.txHash.slice(-8)}` : d.txHash}
                           </span>
                           <button
                             onClick={() => copyHash(d.txHash, d.id)}
-                            title="Copy TX hash"
-                            className="text-slate-600 hover:text-slate-300 transition-colors"
+                            title="Copy full TX hash"
+                            className="text-slate-600 hover:text-[#087cff] transition-colors"
                           >
-                            <Icon name={copiedId === d.id ? "check" : "content_copy"} className="text-[13px]" />
+                            <Icon name={copiedId === d.id ? "check" : "content_copy"} className={`text-[13px] ${copiedId === d.id ? "text-[#31c45d]" : ""}`} />
                           </button>
                         </div>
+                        <p className="text-slate-600 text-[10px] mt-0.5 font-mono" title={d.txHash}>{d.txHash.length > 30 ? `${d.txHash.slice(0,14)}…` : d.txHash}</p>
                       </td>
-                      <td className="px-4 py-3.5 text-slate-500 text-xs whitespace-nowrap">
-                        {new Date(d.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "2-digit" })}
+                      {/* Submitted */}
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <p className="text-slate-300 text-xs">{new Date(d.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}</p>
+                        <p className="text-slate-600 text-[11px]">{new Date(d.createdAt).toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" })}</p>
                       </td>
+                      {/* Status */}
                       <td className="px-4 py-3.5">
                         <DepositBadge status={d.status} />
+                        {d.status !== "PENDING" && (
+                          <p className="text-slate-600 text-[10px] mt-1">{d.status === "APPROVED" ? "Credited" : "Declined"}</p>
+                        )}
                       </td>
                       <td className="px-4 py-3.5">
                         {d.status === "PENDING" && (
