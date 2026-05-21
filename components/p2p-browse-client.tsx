@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { P2PSubNav } from "@/components/p2p-subnav";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -30,53 +31,6 @@ interface Ad {
   paymentWindow: number;
   terms: string | null;
   merchant: AdMerchant;
-}
-
-// ─── P2P Sub-Nav ─────────────────────────────────────────────────────────────
-
-function P2PSubNav({ isSignedIn }: { isSignedIn: boolean }) {
-  const pathname = usePathname();
-  const tabs = [
-    { href: "/p2p",           label: "Browse",         icon: "storefront" },
-    { href: "/p2p/orders",    label: "My Orders",      icon: "receipt_long" },
-    { href: "/p2p/merchant",  label: "Merchant Center", icon: "verified_user" },
-  ];
-
-  return (
-    <div className="flex items-center gap-1 border-b border-white/[0.07]">
-      <div className="max-w-5xl w-full mx-auto px-4 flex items-center justify-between">
-        <div className="flex items-center gap-0.5">
-          {tabs.map((t) => {
-            const active = t.href === "/p2p" ? pathname === "/p2p" : pathname.startsWith(t.href);
-            return (
-              <Link
-                key={t.href}
-                href={t.href}
-                className={`flex items-center gap-1.5 px-4 py-3.5 text-sm font-bold border-b-2 transition-all ${
-                  active
-                    ? "border-[#087cff] text-white"
-                    : "border-transparent text-slate-500 hover:text-slate-300"
-                }`}
-              >
-                <Icon name={t.icon} fill={active} className="text-[16px]" />
-                <span className="hidden sm:inline">{t.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-        {/* Merchant CTA — only show on browse tab, only if signed in */}
-        {pathname === "/p2p" && isSignedIn && (
-          <Link
-            href="/p2p/merchant"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#087cff]/10 border border-[#087cff]/20 text-[#087cff] text-xs font-black hover:bg-[#087cff]/20 transition-colors"
-          >
-            <Icon name="add_business" className="text-sm" />
-            <span className="hidden sm:inline">Post Ad</span>
-          </Link>
-        )}
-      </div>
-    </div>
-  );
 }
 
 // ─── Order Modal ──────────────────────────────────────────────────────────────
@@ -494,7 +448,7 @@ export function P2PBrowseClient() {
       {selectedAd && <OrderModal ad={selectedAd} onClose={() => setSelectedAd(null)} />}
 
       {/* Sub-navigation */}
-      <P2PSubNav isSignedIn={!!isSignedIn} />
+      <P2PSubNav />
 
       {/* Page body */}
       <div className="max-w-5xl mx-auto px-4 py-6">

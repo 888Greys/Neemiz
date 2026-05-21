@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
+import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 
@@ -42,40 +43,6 @@ interface Ad {
   paymentWindow: number;
   isActive: boolean;
   createdAt: string;
-}
-
-// ─── Sub-Nav (reuse same as browse) ──────────────────────────────────────────
-
-import { usePathname } from "next/navigation";
-
-function P2PSubNav() {
-  const pathname = usePathname();
-  const tabs = [
-    { href: "/p2p",           label: "Browse",          icon: "storefront" },
-    { href: "/p2p/orders",    label: "My Orders",       icon: "receipt_long" },
-    { href: "/p2p/merchant",  label: "Merchant Center", icon: "verified_user" },
-  ];
-  return (
-    <div className="flex items-center gap-1 border-b border-white/[0.07]">
-      <div className="max-w-5xl w-full mx-auto px-4 flex items-center">
-        {tabs.map((t) => {
-          const active = t.href === "/p2p" ? pathname === "/p2p" : pathname.startsWith(t.href);
-          return (
-            <Link
-              key={t.href}
-              href={t.href}
-              className={`flex items-center gap-1.5 px-4 py-3.5 text-sm font-bold border-b-2 transition-all ${
-                active ? "border-[#087cff] text-white" : "border-transparent text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              <Icon name={t.icon} fill={active} className="text-[16px]" />
-              <span className="hidden sm:inline">{t.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-    </div>
-  );
 }
 
 // ─── Apply Landing Page ───────────────────────────────────────────────────────

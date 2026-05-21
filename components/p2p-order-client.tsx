@@ -6,6 +6,7 @@ import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
+import { P2PSubNav } from "@/components/p2p-subnav";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -284,10 +285,12 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
   const currentUserId = user?.id ?? ""; // supabase user id — note: may differ from dbUser.id
 
   return (
+    <>
+      <P2PSubNav />
     <div className="max-w-5xl mx-auto px-4 py-6">
       {/* Back */}
       <button
-        onClick={() => router.push("/p2p")}
+        onClick={() => router.push("/p2p/orders")}
         className="flex items-center gap-1.5 text-slate-500 hover:text-white text-sm font-bold mb-6 transition-colors"
       >
         <Icon name="arrow_back" className="text-base" />
@@ -597,5 +600,6 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
         </div>
       </div>
     </div>
+    </>
   );
 }

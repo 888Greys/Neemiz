@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { P2PSubNav } from "@/components/p2p-subnav";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,6 +98,8 @@ export function P2POrdersClient() {
   };
 
   return (
+    <>
+      <P2PSubNav />
     <div className="max-w-4xl mx-auto px-4 py-6">
       {/* Header */}
       <div className="mb-6">
@@ -207,5 +210,6 @@ export function P2POrdersClient() {
         </div>
       )}
     </div>
+    </>
   );
 }
