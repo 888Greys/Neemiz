@@ -13,13 +13,12 @@ import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
  * Returns the current serialized round state.
  */
 
-const supabaseAdmin = createSupabaseAdmin(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
-
 async function broadcast(event: string, payload: unknown) {
   try {
+    const supabaseAdmin = createSupabaseAdmin(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
     await supabaseAdmin.channel("aviator").send({
       type:    "broadcast",
       event,

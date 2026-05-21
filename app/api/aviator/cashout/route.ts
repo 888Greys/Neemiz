@@ -5,11 +5,6 @@ import { getMultiplier } from "@/lib/aviator/fair";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 
-const supabaseAdmin = createSupabaseAdmin(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
-
 /**
  * POST /api/aviator/cashout
  * Body: { panelIndex: 0 | 1 }
@@ -104,6 +99,10 @@ export async function POST(req: Request) {
 
   // ── Broadcast cashout ─────────────────────────────────────────────────────
   try {
+    const supabaseAdmin = createSupabaseAdmin(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
     await supabaseAdmin.channel("aviator").send({
       type:    "broadcast",
       event:   "bet:cashedout",

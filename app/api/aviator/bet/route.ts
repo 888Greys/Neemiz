@@ -7,11 +7,6 @@ import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 const MIN_BET = 10;  // KES
 const MAX_BET = 50_000; // KES
 
-const supabaseAdmin = createSupabaseAdmin(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
-
 /**
  * POST /api/aviator/bet
  * Body: { betAmount, panelIndex, autoCashout? }
@@ -110,6 +105,10 @@ export async function POST(req: Request) {
 
   // ── Broadcast bet to live panel ────────────────────────────────────────────
   try {
+    const supabaseAdmin = createSupabaseAdmin(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
     await supabaseAdmin.channel("aviator").send({
       type:    "broadcast",
       event:   "bet:placed",
