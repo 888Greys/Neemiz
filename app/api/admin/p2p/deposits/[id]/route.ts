@@ -61,7 +61,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           type: "p2p_released",
           title: "Crypto deposit approved",
           body: `Your deposit of ${cryptoLabel} (${deposit.network}) has been approved and credited to your merchant balance.`,
-          link: "/p2p/dashboard",
+          link: "/p2p/merchant",
         },
       });
     });
@@ -80,7 +80,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           body: note
             ? `Your deposit of ${cryptoLabel} was rejected: ${note}`
             : `Your deposit of ${cryptoLabel} was rejected. Please contact support.`,
-          link: "/p2p/dashboard",
+          link: "/p2p/merchant",
         },
       });
     });

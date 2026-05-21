@@ -251,6 +251,7 @@ function KycRequestsTab({ onAction }: { onAction: () => void }) {
 // ─── Disputes Tab ─────────────────────────────────────────────────────────────
 
 function DisputesTab({ onAction }: { onAction: () => void }) {
+  const [filter, setFilter]           = useState<"ALL" | "OPEN" | "RESOLVED">("ALL");
   const [disputes, setDisputes]       = useState<Dispute[]>([]);
   const [loading, setLoading]         = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
@@ -261,12 +262,13 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
   const fetchDisputes = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/p2p/disputes");
+      const url = filter === "ALL" ? "/api/admin/p2p/disputes" : `/api/admin/p2p/disputes?status=${filter}`;
+      const res = await fetch(url);
       if (res.ok) setDisputes(await res.json());
     } catch { /* ignore */ } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => { fetchDisputes(); }, [fetchDisputes]);
 
@@ -302,12 +304,31 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
 
   return (
     <div>
+      {/* Filter tabs */}
+      <div className="flex gap-2 mb-5">
+        {(["ALL", "OPEN", "RESOLVED"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setFilter(s)}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+              filter === s
+                ? s === "OPEN"     ? "bg-red-500/20 text-red-400"
+                  : s === "RESOLVED" ? "bg-[#31c45d]/20 text-[#31c45d]"
+                  : "bg-[#087cff]/20 text-[#087cff]"
+                : "bg-white/5 text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
       ) : disputes.length === 0 ? (
         <div className="text-center py-16 bg-[#0f1623] border border-white/[0.06] rounded-2xl">
           <Icon name="gavel" className="text-4xl text-slate-700 mb-3" />
-          <p className="text-slate-400 font-bold">No disputes to resolve</p>
+          <p className="text-slate-400 font-bold">No {filter === "ALL" ? "" : filter.toLowerCase() + " "}disputes</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -416,6 +437,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
 // ─── Deposits Tab ─────────────────────────────────────────────────────────────
 
 function DepositsTab({ onAction }: { onAction: () => void }) {
+  const [filter, setFilter]           = useState<"ALL" | "PENDING" | "APPROVED" | "REJECTED">("ALL");
   const [deposits, setDeposits]       = useState<AdminDeposit[]>([]);
   const [loading, setLoading]         = useState(true);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -426,12 +448,13 @@ function DepositsTab({ onAction }: { onAction: () => void }) {
   const fetchDeposits = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/p2p/deposits");
+      const url = filter === "ALL" ? "/api/admin/p2p/deposits" : `/api/admin/p2p/deposits?status=${filter}`;
+      const res = await fetch(url);
       if (res.ok) setDeposits(await res.json());
     } catch { /* ignore */ } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => { fetchDeposits(); }, [fetchDeposits]);
 
@@ -466,12 +489,32 @@ function DepositsTab({ onAction }: { onAction: () => void }) {
 
   return (
     <div>
+      {/* Filter tabs */}
+      <div className="flex gap-2 mb-5">
+        {(["ALL", "PENDING", "APPROVED", "REJECTED"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setFilter(s)}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+              filter === s
+                ? s === "PENDING"  ? "bg-amber-500/20 text-amber-400"
+                  : s === "APPROVED" ? "bg-[#31c45d]/20 text-[#31c45d]"
+                  : s === "REJECTED" ? "bg-red-500/20 text-red-400"
+                  : "bg-[#087cff]/20 text-[#087cff]"
+                : "bg-white/5 text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
       ) : deposits.length === 0 ? (
         <div className="text-center py-16 bg-[#0f1623] border border-white/[0.06] rounded-2xl">
           <Icon name="south_america" className="text-4xl text-slate-700 mb-3" />
-          <p className="text-slate-400 font-bold">No pending deposits</p>
+          <p className="text-slate-400 font-bold">No {filter === "ALL" ? "" : filter.toLowerCase() + " "}deposits</p>
         </div>
       ) : (
         <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl overflow-hidden">
@@ -589,8 +632,8 @@ export function AdminP2PClient() {
     try {
       const [kycRes, disputesRes, depositsRes] = await Promise.all([
         fetch("/api/admin/p2p/merchants?status=PENDING"),
-        fetch("/api/admin/p2p/disputes"),
-        fetch("/api/admin/p2p/deposits"),
+        fetch("/api/admin/p2p/disputes?status=OPEN"),
+        fetch("/api/admin/p2p/deposits?status=PENDING"),
       ]);
       const [kyc, disputes, deposits] = await Promise.all([
         kycRes.ok      ? kycRes.json()      : [],
@@ -598,9 +641,9 @@ export function AdminP2PClient() {
         depositsRes.ok ? depositsRes.json() : [],
       ]);
       setCounts({
-        kyc:      Array.isArray(kyc)      ? kyc.length                                             : 0,
-        disputes: Array.isArray(disputes) ? disputes.filter((d: Dispute) => d.status === "DISPUTED").length : 0,
-        deposits: Array.isArray(deposits) ? deposits.filter((d: AdminDeposit) => d.status === "PENDING").length : 0,
+        kyc:      Array.isArray(kyc)      ? kyc.length      : 0,
+        disputes: Array.isArray(disputes) ? disputes.length : 0,
+        deposits: Array.isArray(deposits) ? deposits.length : 0,
       });
     } catch { /* ignore */ }
   }, []);

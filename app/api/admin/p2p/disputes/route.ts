@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { DisputeStatus } from "@prisma/client";
 
-// GET /api/admin/p2p/disputes — list all open disputes with order details
-export async function GET() {
+// GET /api/admin/p2p/disputes?status=OPEN|RESOLVED  (omit for all)
+export async function GET(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -11,8 +12,11 @@ export async function GET() {
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
   if (!dbUser.isAdmin) return Response.json({ error: "Forbidden" }, { status: 403 });
 
+  const { searchParams } = new URL(req.url);
+  const statusParam = searchParams.get("status") as DisputeStatus | null;
+
   const disputes = await db.p2PDispute.findMany({
-    where: { status: "OPEN" },
+    where: statusParam ? { status: statusParam } : undefined,
     orderBy: { createdAt: "desc" },
     include: {
       order: {
