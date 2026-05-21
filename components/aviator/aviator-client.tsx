@@ -145,12 +145,9 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       if (!res.ok) return;
       const data = await res.json();
 
-      // Only update local state if server's state differs significantly
-      if (data.state === "FLYING" && data.multiplier) {
-        // multiplier comes from RAF loop — no need to set here
-      }
-      if (data.state === "CRASHED" || data.state === "WAITING") {
-        // State machine advanced — re-fetch canonical state
+      // Re-fetch full state whenever server state differs from our local state
+      // This covers all transitions: WAITING→BETTING, BETTING→FLYING, FLYING→CRASHED, etc.
+      if (data.state !== roundRef.current?.state) {
         await fetchState();
       }
     } catch { /* non-critical */ }
