@@ -181,3 +181,6 @@ export async function POST() {
 
   return Response.json({ ok: true, state: round.state });
 }
+
+// Vercel cron hits GET — just delegate to the same logic
+export const GET = POST;
