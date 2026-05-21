@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { getMultiplier, generateServerSeed, hashServerSeed, generateCrashPoint } from "@/lib/aviator/fair";
 import { AviatorRoundState, TransactionType, TransactionStatus } from "@prisma/client";
-import { createNewRound } from "@/app/api/aviator/state/route";
+import { createNewRound } from "@/lib/aviator/round";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
 
 /**
