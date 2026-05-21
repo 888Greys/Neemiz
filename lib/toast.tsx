@@ -11,6 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
 
 type ToastType = "success" | "error" | "info";
 
@@ -50,10 +51,10 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
     return () => clearTimeout(t);
   }, [onRemove]);
 
-  const icon =
-    item.type === "success" ? "check_circle"
-    : item.type === "error" ? "error"
-    : "info";
+  const IconComponent =
+    item.type === "success" ? CheckCircle
+    : item.type === "error" ? AlertCircle
+    : Info;
 
   const iconColor =
     item.type === "success" ? "text-emerald-400"
@@ -73,9 +74,7 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
       style={{ minWidth: 260, maxWidth: 340 }}
     >
       {/* Icon */}
-      <span className={`material-symbols-outlined icon-fill text-[22px] mt-0.5 shrink-0 ${iconColor}`}>
-        {icon}
-      </span>
+      <IconComponent className={`shrink-0 mt-0.5 ${iconColor}`} size={20} strokeWidth={2.5} />
 
       {/* Text */}
       <div className="min-w-0 flex-1">
@@ -91,7 +90,7 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
         onClick={() => { setVisible(false); setTimeout(onRemove, 300); }}
         className="shrink-0 text-slate-600 hover:text-slate-300 transition mt-0.5"
       >
-        <span className="material-symbols-outlined text-[15px]">close</span>
+        <X size={15} strokeWidth={2} />
       </button>
     </div>
   );
