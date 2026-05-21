@@ -414,6 +414,15 @@ function MerchantPromoBanner({ isSignedIn }: { isSignedIn: boolean }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+const CRYPTO_ICONS: Record<string, string> = {
+  USDT: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
+  BTC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
+  ETH:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
+  BNB:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
+  USDC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
+  MATIC:"https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/matic.svg",
+};
+
 const CRYPTOS = ["USDT", "BTC", "ETH", "BNB"];
 const PAYMENTS = [
   { value: "",       label: "All" },
@@ -499,12 +508,21 @@ export function P2PBrowseClient() {
               <button
                 key={c}
                 onClick={() => setCrypto(c)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all border ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all border ${
                   crypto === c
                     ? "bg-[#087cff] border-[#087cff] text-white shadow shadow-[#087cff]/20"
                     : "bg-white/[0.04] border-white/[0.07] text-slate-400 hover:border-white/20 hover:text-white"
                 }`}
               >
+                {CRYPTO_ICONS[c] && (
+                  <img
+                    src={CRYPTO_ICONS[c]}
+                    alt={c}
+                    width={16}
+                    height={16}
+                    className="h-4 w-4 rounded-full"
+                  />
+                )}
                 {c}
               </button>
             ))}

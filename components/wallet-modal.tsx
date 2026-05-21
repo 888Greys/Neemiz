@@ -8,15 +8,24 @@ const QUICK_AMOUNTS = [400, 1_000, 3_000, 5_000];
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS = 30;
 
+const COIN_ICON_URL: Record<string, string> = {
+  USDT: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
+  USDC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
+  BTC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
+  ETH:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
+  BNB:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
+  MATIC:"https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/matic.svg",
+};
+
 const CRYPTO_ASSETS = [
-  { name: "Tether USD",  code: "USDT", network: "TRC20",   displayNet: "TRC-20",  min: 10,     color: "bg-[#5ac8b8]", icon: "T" },
-  { name: "Tether USD",  code: "USDT", network: "ERC20",   displayNet: "ERC-20",  min: 10,     color: "bg-[#5ac8b8]", icon: "T" },
-  { name: "Tether USD",  code: "USDT", network: "BEP20",   displayNet: "BEP-20",  min: 10,     color: "bg-[#5ac8b8]", icon: "T" },
-  { name: "USD Coin",    code: "USDC", network: "ERC20",   displayNet: "ERC-20",  min: 10,     color: "bg-[#2775ca]", icon: "U" },
-  { name: "USD Coin",    code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 10,     color: "bg-[#8247e5]", icon: "U" },
-  { name: "Bitcoin",     code: "BTC",  network: "BTC",     displayNet: "Bitcoin", min: 0.0001, color: "bg-[#ff9811]", icon: "₿" },
-  { name: "Ethereum",    code: "ETH",  network: "ERC20",   displayNet: "ERC-20",  min: 0.005,  color: "bg-[#8792dd]", icon: "E" },
-  { name: "BNB",         code: "BNB",  network: "BEP20",   displayNet: "BEP-20",  min: 0.01,   color: "bg-[#f3ba2f]", icon: "B" },
+  { name: "Tether USD",  code: "USDT", network: "TRC20",   displayNet: "TRC-20",  min: 10     },
+  { name: "Tether USD",  code: "USDT", network: "ERC20",   displayNet: "ERC-20",  min: 10     },
+  { name: "Tether USD",  code: "USDT", network: "BEP20",   displayNet: "BEP-20",  min: 10     },
+  { name: "USD Coin",    code: "USDC", network: "ERC20",   displayNet: "ERC-20",  min: 10     },
+  { name: "USD Coin",    code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 10     },
+  { name: "Bitcoin",     code: "BTC",  network: "BTC",     displayNet: "Bitcoin", min: 0.0001 },
+  { name: "Ethereum",    code: "ETH",  network: "ERC20",   displayNet: "ERC-20",  min: 0.005  },
+  { name: "BNB",         code: "BNB",  network: "BEP20",   displayNet: "BEP-20",  min: 0.01   },
 ];
 
 type DepositState =
@@ -70,9 +79,15 @@ function MoneyTabs({ mode, setMode }: { mode: "fiat" | "crypto"; setMode: (m: "f
 }
 
 function AssetIcon({ asset }: { asset: CryptoAsset }) {
+  const url = COIN_ICON_URL[asset.code];
+  if (url) {
+    return (
+      <img src={url} alt={asset.code} width={32} height={32} className="h-8 w-8 shrink-0 rounded-full" />
+    );
+  }
   return (
-    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${asset.color} text-sm font-black text-white`}>
-      {asset.icon}
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-black text-white">
+      {asset.code[0]}
     </span>
   );
 }

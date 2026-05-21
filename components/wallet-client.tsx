@@ -10,15 +10,24 @@ const QUICK_AMOUNTS = [100, 250, 500, 1_000, 2_500, 5_000];
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
 
+const COIN_ICON_URL: Record<string, string> = {
+  USDT: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
+  USDC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
+  BTC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
+  ETH:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
+  BNB:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
+  MATIC:"https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/matic.svg",
+};
+
 const CRYPTO_WITHDRAW_ASSETS = [
-  { name: "Tether USD",  code: "USDT", network: "TRC20",   displayNet: "TRC-20",  min: 10,     color: "bg-[#5ac8b8]", icon: "T" },
-  { name: "Tether USD",  code: "USDT", network: "ERC20",   displayNet: "ERC-20",  min: 10,     color: "bg-[#5ac8b8]", icon: "T" },
-  { name: "Tether USD",  code: "USDT", network: "BEP20",   displayNet: "BEP-20",  min: 10,     color: "bg-[#5ac8b8]", icon: "T" },
-  { name: "USD Coin",    code: "USDC", network: "ERC20",   displayNet: "ERC-20",  min: 10,     color: "bg-[#2775ca]", icon: "U" },
-  { name: "USD Coin",    code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 10,     color: "bg-[#8247e5]", icon: "U" },
-  { name: "Bitcoin",     code: "BTC",  network: "BTC",     displayNet: "Bitcoin", min: 0.0001, color: "bg-[#ff9811]", icon: "₿" },
-  { name: "Ethereum",    code: "ETH",  network: "ERC20",   displayNet: "ERC-20",  min: 0.005,  color: "bg-[#8792dd]", icon: "E" },
-  { name: "BNB",         code: "BNB",  network: "BEP20",   displayNet: "BEP-20",  min: 0.01,   color: "bg-[#f3ba2f]", icon: "B" },
+  { name: "Tether USD",  code: "USDT", network: "TRC20",   displayNet: "TRC-20",  min: 10     },
+  { name: "Tether USD",  code: "USDT", network: "ERC20",   displayNet: "ERC-20",  min: 10     },
+  { name: "Tether USD",  code: "USDT", network: "BEP20",   displayNet: "BEP-20",  min: 10     },
+  { name: "USD Coin",    code: "USDC", network: "ERC20",   displayNet: "ERC-20",  min: 10     },
+  { name: "USD Coin",    code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 10     },
+  { name: "Bitcoin",     code: "BTC",  network: "BTC",     displayNet: "Bitcoin", min: 0.0001 },
+  { name: "Ethereum",    code: "ETH",  network: "ERC20",   displayNet: "ERC-20",  min: 0.005  },
+  { name: "BNB",         code: "BNB",  network: "BEP20",   displayNet: "BEP-20",  min: 0.01   },
 ] as const;
 
 type CryptoWithdrawAsset = (typeof CRYPTO_WITHDRAW_ASSETS)[number];
@@ -76,6 +85,7 @@ export function WalletClient() {
   const [cwAsset, setCwAsset]           = useState<CryptoWithdrawAsset>(CRYPTO_WITHDRAW_ASSETS[0]);
   const [cwAmount, setCwAmount]         = useState("");
   const [cwAddress, setCwAddress]       = useState("");
+  const [cwOpen, setCwOpen]             = useState(false);
   const [cwState, setCwState]           = useState<CryptoWithdrawState>({ step: "idle" });
 
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -566,25 +576,69 @@ export function WalletClient() {
                         Crypto Asset
                       </p>
                       <div className="relative">
-                        <select
-                          value={`${cwAsset.code}:${cwAsset.network}`}
-                          onChange={(e) => {
-                            const found = CRYPTO_WITHDRAW_ASSETS.find(
-                              (a) => `${a.code}:${a.network}` === e.target.value,
-                            );
-                            if (found) { setCwAsset(found); setCwState({ step: "idle" }); }
-                          }}
-                          className="h-14 w-full appearance-none rounded-2xl bg-[#16171d] px-5 pr-10 text-base font-black text-white ring-1 ring-white/[0.07] outline-none transition focus:ring-[#087cff]/50"
+                        {/* Trigger */}
+                        <button
+                          type="button"
+                          onClick={() => setCwOpen((o) => !o)}
+                          className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] transition hover:bg-white/[0.06]"
                         >
-                          {CRYPTO_WITHDRAW_ASSETS.map((a) => (
-                            <option key={`${a.code}:${a.network}`} value={`${a.code}:${a.network}`}>
-                              {a.code} ({a.displayNet}) · min {a.min}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">
-                          <Icon name="expand_more" className="text-[22px] text-slate-500" />
-                        </div>
+                          <span className="flex items-center gap-3">
+                            {COIN_ICON_URL[cwAsset.code] && (
+                              <img
+                                src={COIN_ICON_URL[cwAsset.code]}
+                                alt={cwAsset.code}
+                                width={28}
+                                height={28}
+                                className="h-7 w-7 rounded-full"
+                              />
+                            )}
+                            <span>
+                              <span className="block text-sm font-black text-white">
+                                {cwAsset.code}
+                                <span className="ml-2 text-[11px] font-bold text-slate-500">{cwAsset.displayNet}</span>
+                              </span>
+                            </span>
+                          </span>
+                          <Icon name={cwOpen ? "expand_less" : "expand_more"} className="text-[22px] text-slate-500" />
+                        </button>
+
+                        {/* Dropdown */}
+                        {cwOpen && (
+                          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl bg-[#121824] shadow-2xl shadow-black/40 ring-1 ring-white/[0.09]">
+                            {CRYPTO_WITHDRAW_ASSETS.map((a) => (
+                              <button
+                                key={`${a.code}:${a.network}`}
+                                type="button"
+                                onClick={() => {
+                                  setCwAsset(a);
+                                  setCwOpen(false);
+                                  setCwState({ step: "idle" });
+                                }}
+                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.06]"
+                              >
+                                {COIN_ICON_URL[a.code] && (
+                                  <img
+                                    src={COIN_ICON_URL[a.code]}
+                                    alt={a.code}
+                                    width={28}
+                                    height={28}
+                                    className="h-7 w-7 rounded-full"
+                                  />
+                                )}
+                                <span className="flex-1">
+                                  <span className="block text-sm font-black text-white">
+                                    {a.code}
+                                    <span className="ml-2 text-[11px] font-bold text-slate-500">{a.displayNet}</span>
+                                  </span>
+                                  <span className="text-[10px] text-slate-600">min {a.min} {a.code}</span>
+                                </span>
+                                {cwAsset.code === a.code && cwAsset.network === a.network && (
+                                  <Icon name="check_circle" fill className="text-[18px] text-[#087cff]" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Balance hint */}
