@@ -1,14 +1,45 @@
 import { AppShell } from "@/components/app-shell";
-import { ComingSoon } from "@/components/coming-soon";
+import { AviatorClient } from "@/components/aviator/aviator-client";
+import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getOrCreateUser } from "@/lib/get-or-create-user";
 
-export default function AviatorPage() {
+export const dynamic = "force-dynamic";
+
+export default async function AviatorPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let userId:   string | undefined;
+  let username: string | undefined;
+  let balance = 0;
+
+  if (user) {
+    const dbUser = await getOrCreateUser(user.id, { email: user.email });
+    userId   = dbUser.id;
+    username = dbUser.username ?? undefined;
+    balance  = Number(dbUser.walletBalance);
+  }
+
   return (
     <AppShell>
-      <ComingSoon
-        icon="rocket_launch"
-        title="Aviator"
-        description="Provably fair crash game. Cash out before the plane flies away."
-      />
+      <div className="mx-auto max-w-5xl px-3 py-4 sm:px-4">
+        <div className="mb-4 flex items-center gap-3">
+          <span className="text-2xl">✈️</span>
+          <div>
+            <h1 className="text-lg font-black text-white">Aviator</h1>
+            <p className="text-xs text-white/40">
+              Provably fair crash game — cash out before it flies away!
+            </p>
+          </div>
+        </div>
+
+        <AviatorClient
+          userId={userId}
+          username={username}
+          balance={balance}
+        />
+      </div>
     </AppShell>
   );
 }

@@ -34,6 +34,9 @@ model User {
   cryptoBalances    UserCryptoBalance[]
   depositAddresses  CryptoDepositAddress[]
 
+  // Aviator
+  aviatorBets       AviatorBet[]
+
   @@map("users")
 }
 
@@ -411,4 +414,54 @@ enum DepositStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// ─── Aviator Crash Game ───────────────────────────────────────────────────────
+
+enum AviatorRoundState {
+  WAITING   // countdown between rounds (~5s)
+  BETTING   // players placing bets (~10s)
+  FLYING    // multiplier climbing — cash out before crash
+  CRASHED   // round over, showing result (~3s)
+}
+
+enum AviatorBetStatus {
+  ACTIVE     // bet placed, round still flying
+  CASHEDOUT  // player cashed out successfully
+  LOST       // plane crashed before cashout
+}
+
+model AviatorRound {
+  id              String            @id @default(cuid())
+  roundNumber     Int               @unique @default(autoincrement())
+  serverSeed      String            @map("server_seed")      // revealed post-crash
+  serverSeedHash  String            @map("server_seed_hash") // shown before round starts
+  crashPoint      Decimal           @db.Decimal(10, 2) @map("crash_point")
+  state           AviatorRoundState @default(WAITING)
+  bettingEndsAt   DateTime?         @map("betting_ends_at")
+  flyingStartedAt DateTime?         @map("flying_started_at")
+  crashedAt       DateTime?         @map("crashed_at")
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  bets            AviatorBet[]
+
+  @@map("aviator_rounds")
+}
+
+model AviatorBet {
+  id          String           @id @default(cuid())
+  roundId     String           @map("round_id")
+  round       AviatorRound     @relation(fields: [roundId], references: [id])
+  userId      String           @map("user_id")
+  user        User             @relation(fields: [userId], references: [id])
+  panelIndex  Int              @default(0) @map("panel_index") // 0 or 1
+  betAmount   Decimal          @db.Decimal(10, 2) @map("bet_amount")
+  autoCashout Decimal?         @db.Decimal(10, 2) @map("auto_cashout")
+  cashoutAt   Decimal?         @db.Decimal(10, 2) @map("cashout_at")
+  winAmount   Decimal?         @db.Decimal(10, 2) @map("win_amount")
+  status      AviatorBetStatus @default(ACTIVE)
+  placedAt    DateTime         @default(now()) @map("placed_at")
+
+  @@unique([roundId, userId, panelIndex])
+  @@map("aviator_bets")
 }
