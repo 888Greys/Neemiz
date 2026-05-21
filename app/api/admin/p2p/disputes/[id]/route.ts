@@ -82,15 +82,49 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         },
       });
     } else {
-      // BUYER_WINS — order stays DISPUTED, admin handles payout externally
+      // BUYER_WINS — release the locked crypto, mark order RELEASED
+      await tx.p2POrder.update({
+        where: { id: order.id },
+        data: { status: "RELEASED", escrowReleased: true, releasedAt: new Date() },
+      });
+
+      // Find merchant profile for the seller so we can deduct their balance
+      const sellerMerchant = await tx.merchantProfile.findUnique({
+        where: { userId: sellerUserId },
+      });
+      if (sellerMerchant) {
+        await tx.p2PCryptoBalance.updateMany({
+          where: { merchantId: sellerMerchant.id, crypto: order.crypto },
+          data: {
+            locked: { decrement: Number(order.cryptoAmount) },
+            total:  { decrement: Number(order.cryptoAmount) },
+          },
+        });
+      }
+
+      // If buyer is also a merchant, credit their on-platform balance
+      const buyerMerchant = await tx.merchantProfile.findUnique({ where: { userId: buyerId } });
+      if (buyerMerchant) {
+        await tx.p2PCryptoBalance.upsert({
+          where: { merchantId_crypto: { merchantId: buyerMerchant.id, crypto: order.crypto } },
+          update: { total:     { increment: Number(order.cryptoAmount) },
+                    available: { increment: Number(order.cryptoAmount) } },
+          create: { merchantId: buyerMerchant.id,
+                    crypto:     order.crypto,
+                    total:      Number(order.cryptoAmount),
+                    locked:     0,
+                    available:  Number(order.cryptoAmount) },
+        });
+      }
+
       // Notify buyer
       await tx.notification.create({
         data: {
           userId: buyerId,
-          type: "p2p_dispute",
-          title: `Dispute resolved — Buyer wins`,
-          body: `The dispute for order ${orderRef} was resolved in your favour. Your crypto will be credited shortly.${note ? ` Admin note: ${note}` : ""}`,
-          link: `/p2p/order/${order.id}`,
+          type:   "p2p_dispute",
+          title:  `Dispute resolved — Buyer wins`,
+          body:   `The dispute for order ${orderRef} was resolved in your favour. Your ${order.crypto} has been released.${note ? ` Admin note: ${note}` : ""}`,
+          link:   `/p2p/order/${order.id}`,
         },
       });
 
@@ -98,10 +132,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       await tx.notification.create({
         data: {
           userId: sellerUserId,
-          type: "p2p_dispute",
-          title: `Dispute resolved — Buyer wins`,
-          body: `The dispute for order ${orderRef} was resolved in favour of the buyer.${note ? ` Admin note: ${note}` : ""}`,
-          link: `/p2p/order/${order.id}`,
+          type:   "p2p_dispute",
+          title:  `Dispute resolved — Buyer wins`,
+          body:   `The dispute for order ${orderRef} was resolved in favour of the buyer.${note ? ` Admin note: ${note}` : ""}`,
+          link:   `/p2p/order/${order.id}`,
         },
       });
     }

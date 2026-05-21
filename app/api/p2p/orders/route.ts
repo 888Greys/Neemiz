@@ -16,6 +16,33 @@ export async function GET() {
     select: { id: true },
   });
 
+  // Expire any stale PENDING orders for this user before returning the list
+  const expiredOrders = await db.p2POrder.findMany({
+    where: {
+      status: "PENDING",
+      expiresAt: { lt: new Date() },
+      OR: [
+        { buyerId: dbUser.id },
+        ...(merchant ? [{ sellerId: merchant.id }] : []),
+      ],
+    },
+    select: { id: true, sellerId: true, crypto: true, cryptoAmount: true },
+  });
+  if (expiredOrders.length > 0) {
+    await db.$transaction([
+      db.p2POrder.updateMany({
+        where: { id: { in: expiredOrders.map((o) => o.id) } },
+        data:  { status: "EXPIRED" },
+      }),
+      ...expiredOrders.map((o) =>
+        db.p2PCryptoBalance.updateMany({
+          where: { merchantId: o.sellerId, crypto: o.crypto },
+          data:  { locked: { decrement: Number(o.cryptoAmount) } },
+        })
+      ),
+    ]);
+  }
+
   const orders = await db.p2POrder.findMany({
     where: {
       OR: [

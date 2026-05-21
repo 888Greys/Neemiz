@@ -27,6 +27,19 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   if (!isBuyer && !isSeller) return Response.json({ error: "Forbidden" }, { status: 403 });
 
+  // Auto-expire PENDING orders whose window has passed
+  if (order.status === "PENDING" && order.expiresAt && new Date(order.expiresAt) < new Date()) {
+    await db.$transaction(async (tx) => {
+      await tx.p2POrder.update({ where: { id }, data: { status: "EXPIRED" } });
+      // Return locked crypto to merchant's available balance
+      await tx.p2PCryptoBalance.updateMany({
+        where: { merchantId: order.sellerId, crypto: order.crypto },
+        data:  { locked: { decrement: Number(order.cryptoAmount) } },
+      });
+    });
+    order.status = "EXPIRED" as typeof order.status;
+  }
+
   return Response.json({
     id:              order.id,
     status:          order.status,
