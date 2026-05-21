@@ -8,30 +8,33 @@ export type RoundWithBets = NonNullable<Awaited<ReturnType<typeof db.aviatorRoun
 
 export function serializeRound(round: RoundWithBets) {
   const isCrashed = round.state === AviatorRoundState.CRASHED;
+  const bets = round.bets.map((b) => ({
+    id:          b.id,
+    roundId:     b.roundId,
+    userId:      b.userId,
+    username:    b.user.username,
+    panelIndex:  b.panelIndex,
+    betAmount:   Number(b.betAmount),
+    autoCashout: b.autoCashout ? Number(b.autoCashout) : null,
+    cashoutAt:   b.cashoutAt  ? Number(b.cashoutAt)   : null,
+    winAmount:   b.winAmount  ? Number(b.winAmount)   : null,
+    status:      b.status,
+    placedAt:    b.placedAt.toISOString(),
+  }));
   return {
-    roundId:         round.id,
-    roundNumber:     round.roundNumber,
-    serverSeedHash:  round.serverSeedHash,
-    serverSeed:      isCrashed ? round.serverSeed : undefined,
-    crashPoint:      isCrashed ? Number(round.crashPoint) : undefined,
-    state:           round.state,
-    bettingEndsAt:   round.bettingEndsAt?.toISOString()   ?? null,
-    flyingStartedAt: round.flyingStartedAt?.toISOString() ?? null,
-    crashedAt:       round.crashedAt?.toISOString()       ?? null,
-    createdAt:       round.createdAt.toISOString(),
-    bets: round.bets.map((b) => ({
-      id:          b.id,
-      roundId:     b.roundId,
-      userId:      b.userId,
-      username:    b.user.username,
-      panelIndex:  b.panelIndex,
-      betAmount:   Number(b.betAmount),
-      autoCashout: b.autoCashout ? Number(b.autoCashout) : null,
-      cashoutAt:   b.cashoutAt  ? Number(b.cashoutAt)   : null,
-      winAmount:   b.winAmount  ? Number(b.winAmount)   : null,
-      status:      b.status,
-      placedAt:    b.placedAt.toISOString(),
-    })),
+    round: {
+      id:              round.id,
+      roundNumber:     round.roundNumber,
+      serverSeedHash:  round.serverSeedHash,
+      serverSeed:      isCrashed ? round.serverSeed : undefined,
+      crashPoint:      isCrashed ? Number(round.crashPoint) : undefined,
+      state:           round.state,
+      bettingEndsAt:   round.bettingEndsAt?.toISOString()   ?? null,
+      flyingStartedAt: round.flyingStartedAt?.toISOString() ?? null,
+      crashedAt:       round.crashedAt?.toISOString()       ?? null,
+      createdAt:       round.createdAt.toISOString(),
+    },
+    bets,
   };
 }
 

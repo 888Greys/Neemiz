@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const PROTECTED = [
   "/wallet",
   "/profile",
+  "/admin",
 ];
 
 function isProtected(pathname: string) {
