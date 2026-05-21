@@ -37,6 +37,9 @@ model User {
   // Aviator
   aviatorBets       AviatorBet[]
 
+  // Polymarket
+  polymarketBets    PolymarketBet[]
+
   @@map("users")
 }
 
@@ -414,6 +417,36 @@ enum DepositStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// ─── Polymarket Prediction Bets ──────────────────────────────────────────────
+
+enum PolymarketBetStatus {
+  PENDING
+  WON
+  LOST
+  VOID
+}
+
+model PolymarketBet {
+  id           String               @id @default(cuid())
+  userId       String               @map("user_id")
+  user         User                 @relation(fields: [userId], references: [id])
+
+  marketId     String               @map("market_id")       // Polymarket conditionId
+  question     String
+  outcome      String               // "Yes" or "No"
+  price        Decimal              @db.Decimal(10, 6)       // 0–1 at time of bet
+  stake        Decimal              @db.Decimal(18, 2)
+  potentialWin Decimal              @db.Decimal(18, 2) @map("potential_win")
+
+  status       PolymarketBetStatus  @default(PENDING)
+  settledAt    DateTime?            @map("settled_at")
+  winAmount    Decimal?             @db.Decimal(18, 2) @map("win_amount")
+
+  createdAt    DateTime             @default(now()) @map("created_at")
+
+  @@map("polymarket_bets")
 }
 
 // ─── Aviator Crash Game ───────────────────────────────────────────────────────
