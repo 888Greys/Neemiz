@@ -43,6 +43,7 @@ import {
   Flame,
   Gamepad,
   Gamepad2,
+  QrCode,
   Gavel,
   Gift,
   Globe,
@@ -193,6 +194,7 @@ const iconMap: Record<string, LucideIcon> = {
 
   // P
   payments: CreditCard,
+  qr_code: QrCode,
   pending: Clock,
   person: User,
   phone: Phone,

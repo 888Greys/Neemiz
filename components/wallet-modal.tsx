@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
 
@@ -9,24 +9,14 @@ const POLL_INTERVAL = 4_000;
 const MAX_POLLS = 30;
 
 const CRYPTO_ASSETS = [
-  { name: "Tether USD", code: "USDT", network: "TRC-20", min: "5", color: "bg-[#5ac8b8]", icon: "T" },
-  { name: "Bitcoin", code: "BTC", network: "BTC", min: "0.0001", color: "bg-[#ff9811]", icon: "B" },
-  { name: "Ethereum", code: "ETH", network: "ERC-20", min: "0.003", color: "bg-[#8792dd]", icon: "E" },
-  { name: "Litecoin", code: "LTC", network: "LTC", min: "0.05", color: "bg-[#b9bec8]", icon: "L" },
-];
-const CRYPTO_ADDRESS = "TPAAstiM7hP8UXrpA6awtZuJkKdsG54N7";
-const QR_CELLS = [
-  1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1,
-  1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0,
-  1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1,
-  0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1,
-  1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 0,
-  0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1,
-  1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1,
-  1, 1, 0, 0, 1, 0, 1, 1, 1, 0, 1,
-  0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0,
-  1, 0, 0, 1, 1, 0, 1, 1, 0, 1, 1,
-  1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1,
+  { name: "Tether USD",  code: "USDT", network: "TRC20",   displayNet: "TRC-20",  min: 10,     color: "bg-[#5ac8b8]", icon: "T" },
+  { name: "Tether USD",  code: "USDT", network: "ERC20",   displayNet: "ERC-20",  min: 10,     color: "bg-[#5ac8b8]", icon: "T" },
+  { name: "Tether USD",  code: "USDT", network: "BEP20",   displayNet: "BEP-20",  min: 10,     color: "bg-[#5ac8b8]", icon: "T" },
+  { name: "USD Coin",    code: "USDC", network: "ERC20",   displayNet: "ERC-20",  min: 10,     color: "bg-[#2775ca]", icon: "U" },
+  { name: "USD Coin",    code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 10,     color: "bg-[#8247e5]", icon: "U" },
+  { name: "Bitcoin",     code: "BTC",  network: "BTC",     displayNet: "Bitcoin", min: 0.0001, color: "bg-[#ff9811]", icon: "₿" },
+  { name: "Ethereum",    code: "ETH",  network: "ERC20",   displayNet: "ERC-20",  min: 0.005,  color: "bg-[#8792dd]", icon: "E" },
+  { name: "BNB",         code: "BNB",  network: "BEP20",   displayNet: "BEP-20",  min: 0.01,   color: "bg-[#f3ba2f]", icon: "B" },
 ];
 
 type DepositState =
@@ -34,6 +24,12 @@ type DepositState =
   | { step: "pending"; txId: string; amount: number }
   | { step: "confirmed"; amount: number; newBalance: number; receipt: string }
   | { step: "failed"; message: string };
+
+type CryptoAddrState =
+  | { phase: "checking" }
+  | { phase: "form"; error?: string }
+  | { phase: "generating" }
+  | { phase: "ready"; address: string; paymentId: string; expiresAt?: string };
 
 type CryptoAsset = (typeof CRYPTO_ASSETS)[number];
 type Props = { onClose: () => void; onDepositConfirmed?: () => void };
@@ -46,7 +42,7 @@ function normalizeMsisdn(v: string) {
   return s;
 }
 
-function MoneyTabs({ mode, setMode }: { mode: "fiat" | "crypto"; setMode: (mode: "fiat" | "crypto") => void }) {
+function MoneyTabs({ mode, setMode }: { mode: "fiat" | "crypto"; setMode: (m: "fiat" | "crypto") => void }) {
   return (
     <div className="grid grid-cols-2 rounded-2xl bg-white/[0.045] p-1 ring-1 ring-white/[0.07]">
       <button
@@ -66,47 +62,19 @@ function MoneyTabs({ mode, setMode }: { mode: "fiat" | "crypto"; setMode: (mode:
           mode === "crypto" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
         }`}
       >
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff9811] text-[11px] font-black text-white">B</span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff9811] text-[11px] font-black text-white">₿</span>
         Crypto
       </button>
     </div>
   );
 }
 
-function BonusCard() {
-  return (
-    <div>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-base font-black text-white">Deposit bonus</p>
-        <div className="flex shrink-0 items-center gap-2 text-xs font-bold text-slate-500">
-          Without bonus
-          <span className="flex h-7 w-11 items-center rounded-full bg-white/[0.07] p-1 ring-1 ring-white/[0.06]">
-            <span className="h-5 w-5 rounded-full bg-white/80 shadow-sm" />
-          </span>
-        </div>
-      </div>
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-400/25 bg-[linear-gradient(135deg,#0d6fce_0%,#0aa0d7_52%,#07b85d_100%)] px-4 py-4 text-white shadow-lg shadow-black/20">
-        <div className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#05b957] ring-2 ring-[#10141d]">
-          <Icon name="check" className="text-[18px] text-white" />
-        </div>
-        <div className="max-w-[74%]">
-          <p className="text-[15px] font-black leading-tight">+130% on the first deposit</p>
-          <p className="mt-1 text-xs font-bold leading-snug text-white/85">Deposit at least USD 10 and receive the bonus</p>
-          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-black/18 px-3 py-1 text-[11px] font-black">
-            28d : 09h : 49m
-            <Icon name="info" fill className="text-[14px]" />
-          </div>
-        </div>
-        <div className="absolute bottom-3 right-7 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/12">
-          <Icon name="redeem" fill className="text-[42px] text-white/90" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AssetIcon({ asset }: { asset: CryptoAsset }) {
-  return <span className={`flex h-8 w-8 items-center justify-center rounded-full ${asset.color} text-sm font-black text-white`}>{asset.icon}</span>;
+  return (
+    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${asset.color} text-sm font-black text-white`}>
+      {asset.icon}
+    </span>
+  );
 }
 
 function CryptoSelector({
@@ -119,15 +87,17 @@ function CryptoSelector({
 }: {
   asset: CryptoAsset;
   search: string;
-  setSearch: (value: string) => void;
+  setSearch: (v: string) => void;
   open: boolean;
-  setOpen: (value: boolean) => void;
-  onSelect: (asset: CryptoAsset) => void;
+  setOpen: (v: boolean) => void;
+  onSelect: (a: CryptoAsset) => void;
 }) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return CRYPTO_ASSETS;
-    return CRYPTO_ASSETS.filter((item) => item.name.toLowerCase().includes(q) || item.code.toLowerCase().includes(q));
+    return CRYPTO_ASSETS.filter(
+      (item) => item.name.toLowerCase().includes(q) || item.code.toLowerCase().includes(q),
+    );
   }, [search]);
 
   return (
@@ -140,6 +110,7 @@ function CryptoSelector({
         <span className="flex items-center gap-3 text-base font-black text-white">
           <AssetIcon asset={asset} />
           {asset.code}
+          <span className="text-xs font-bold text-slate-500">{asset.displayNet}</span>
         </span>
         <Icon name={open ? "expand_less" : "expand_more"} className="text-[26px] text-slate-500" />
       </button>
@@ -158,7 +129,7 @@ function CryptoSelector({
           <div className="max-h-72 overflow-y-auto p-2">
             {filtered.map((item) => (
               <button
-                key={item.code}
+                key={`${item.code}:${item.network}`}
                 type="button"
                 onClick={() => {
                   onSelect(item);
@@ -170,25 +141,21 @@ function CryptoSelector({
                 <AssetIcon asset={item} />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-black text-white">{item.name}</span>
-                  <span className="block text-xs font-bold text-slate-500">{item.code} · {item.network}</span>
+                  <span className="block text-xs font-bold text-slate-500">
+                    {item.code} · {item.displayNet}
+                  </span>
                 </span>
-                {asset.code === item.code && <Icon name="check_circle" fill className="text-[20px] text-[#05b957]" />}
+                {asset.code === item.code && asset.network === item.network && (
+                  <Icon name="check_circle" fill className="text-[20px] text-[#05b957]" />
+                )}
               </button>
             ))}
-            {!filtered.length && <p className="px-3 py-8 text-center text-sm font-bold text-slate-500">No coins found</p>}
+            {!filtered.length && (
+              <p className="px-3 py-8 text-center text-sm font-bold text-slate-500">No coins found</p>
+            )}
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function QrPattern() {
-  return (
-    <div className="grid h-28 w-28 shrink-0 grid-cols-11 gap-0.5 rounded-xl bg-white p-2">
-      {QR_CELLS.map((filled, index) => (
-        <span key={index} className={filled ? "rounded-[1px] bg-slate-950" : "rounded-[1px] bg-white"} />
-      ))}
     </div>
   );
 }
@@ -200,55 +167,151 @@ function CryptoDepositPanel({
   open,
   setOpen,
   onSelect,
+  addrState,
+  amount,
+  setAmount,
+  onGenerate,
   onCopy,
   copied,
 }: {
   asset: CryptoAsset;
   search: string;
-  setSearch: (value: string) => void;
+  setSearch: (v: string) => void;
   open: boolean;
-  setOpen: (value: boolean) => void;
-  onSelect: (asset: CryptoAsset) => void;
+  setOpen: (v: boolean) => void;
+  onSelect: (a: CryptoAsset) => void;
+  addrState: CryptoAddrState;
+  amount: string;
+  setAmount: (v: string) => void;
+  onGenerate: () => void;
   onCopy: () => void;
   copied: boolean;
 }) {
   return (
     <div className="space-y-5">
-      <CryptoSelector asset={asset} search={search} setSearch={setSearch} open={open} setOpen={setOpen} onSelect={onSelect} />
+      <CryptoSelector
+        asset={asset}
+        search={search}
+        setSearch={setSearch}
+        open={open}
+        setOpen={setOpen}
+        onSelect={onSelect}
+      />
 
       {!open && (
         <>
-          <button type="button" className="flex h-14 w-full items-center justify-between rounded-2xl bg-white/[0.06] px-5 text-left ring-1 ring-white/[0.08]" disabled>
-            <span className="text-base font-black text-white">{asset.network}</span>
-            <Icon name="expand_more" className="text-[26px] text-slate-500" />
-          </button>
+          {/* Network badge */}
+          <div className="flex h-14 w-full items-center justify-between rounded-2xl bg-white/[0.06] px-5 ring-1 ring-white/[0.08]">
+            <span className="text-base font-black text-white">{asset.displayNet}</span>
+            <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-400">
+              {asset.network}
+            </span>
+          </div>
 
           <div className="text-center">
             <p className="text-sm font-bold text-slate-400">
-              Minimum <span className="font-black text-white">{asset.code} {asset.min}</span>
+              Minimum deposit:{" "}
+              <span className="font-black text-white">
+                {asset.min} {asset.code}
+              </span>
             </p>
-            <p className="mt-1 text-xs font-bold text-slate-600">Amounts below this will not be credited.</p>
+            <p className="mt-1 text-xs font-bold text-slate-600">
+              Amounts below this will not be credited.
+            </p>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/[0.08] sm:flex-row sm:items-center">
-            <QrPattern />
-            <div className="min-w-0 flex-1 text-center sm:text-left">
-              <p className="text-base font-black text-white">Deposit address</p>
-              <p className="mt-2 break-all text-sm font-bold leading-relaxed text-slate-400">
-                <span className="text-white">{CRYPTO_ADDRESS.slice(0, 6)}</span>{CRYPTO_ADDRESS.slice(6, -5)}
-                <span className="text-white">{CRYPTO_ADDRESS.slice(-5)}</span>
-              </p>
+          {/* Address panel */}
+          {addrState.phase === "checking" ? (
+            <div className="flex items-center justify-center gap-3 rounded-2xl bg-white/[0.06] py-8 ring-1 ring-white/[0.08]">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-[#087cff]" />
+              <span className="text-sm font-bold text-slate-500">Checking for existing address…</span>
+            </div>
+          ) : addrState.phase === "form" || addrState.phase === "generating" ? (
+            <div className="space-y-4 rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/[0.08]">
+              <div>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
+                  Expected deposit amount ({asset.code})
+                </p>
+                <input
+                  type="number"
+                  min={asset.min}
+                  step="any"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder={`Min. ${asset.min}`}
+                  className="w-full rounded-xl bg-white/[0.06] px-4 py-3 text-base font-bold text-white outline-none ring-1 ring-white/[0.08] transition placeholder:text-slate-600 focus:ring-[#087cff]/50"
+                />
+              </div>
+              {addrState.phase === "form" && addrState.error && (
+                <p className="text-xs font-bold text-red-400">{addrState.error}</p>
+              )}
               <button
                 type="button"
-                onClick={onCopy}
-                className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-[#087cff] px-5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff]"
+                onClick={onGenerate}
+                disabled={addrState.phase === "generating"}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:opacity-60"
               >
-                <Icon name={copied ? "check" : "content_copy"} className="text-[19px]" />
-                {copied ? "Copied" : "Copy"}
+                {addrState.phase === "generating" ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Generating…
+                  </>
+                ) : (
+                  <>
+                    <Icon name="qr_code" className="text-[18px]" />
+                    Generate deposit address
+                  </>
+                )}
               </button>
             </div>
-          </div>
+          ) : (
+            /* ready */
+            <div className="flex flex-col gap-4 rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/[0.08] sm:flex-row sm:items-center">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(addrState.address)}&bgcolor=ffffff&color=000000&margin=8&qzone=1`}
+                alt="Deposit QR code"
+                width={112}
+                height={112}
+                className="h-28 w-28 shrink-0 self-center rounded-xl"
+              />
+              <div className="min-w-0 flex-1 text-center sm:text-left">
+                <p className="text-base font-black text-white">Deposit address</p>
+                <p className="mt-2 break-all font-mono text-[13px] leading-relaxed text-slate-400">
+                  <span className="font-black text-white">{addrState.address.slice(0, 6)}</span>
+                  {addrState.address.slice(6, -5)}
+                  <span className="font-black text-white">{addrState.address.slice(-5)}</span>
+                </p>
+                {addrState.expiresAt && (
+                  <p className="mt-1.5 text-[11px] font-bold text-slate-600">
+                    Expires{" "}
+                    {new Date(addrState.expiresAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={onCopy}
+                  className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-[#087cff] px-5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff]"
+                >
+                  <Icon name={copied ? "check" : "content_copy"} className="text-[19px]" />
+                  {copied ? "Copied!" : "Copy address"}
+                </button>
+              </div>
+            </div>
+          )}
 
+          {addrState.phase === "ready" && (
+            <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3 ring-1 ring-amber-400/15">
+              <Icon name="info" fill className="mt-0.5 shrink-0 text-[16px] text-amber-400" />
+              <p className="text-xs font-bold text-amber-300/80">
+                Send only <strong>{asset.code}</strong> on the{" "}
+                <strong>{asset.displayNet}</strong> network to this address. Sending other
+                assets may result in permanent loss.
+              </p>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -259,30 +322,110 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   const { isSignedIn, user } = useSupabaseAuth();
   const [mode, setMode] = useState<"fiat" | "crypto">("fiat");
   const [screen, setScreen] = useState<"methods" | "mpesa">("methods");
+
+  // Crypto deposit state
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoAsset>(CRYPTO_ASSETS[0]);
   const [cryptoOpen, setCryptoOpen] = useState(false);
   const [cryptoSearch, setCryptoSearch] = useState("");
-  const [copiedCryptoAddress, setCopiedCryptoAddress] = useState(false);
+  const [cryptoAmount, setCryptoAmount] = useState("");
+  const [cryptoAddr, setCryptoAddr] = useState<CryptoAddrState>({ phase: "checking" });
+  const [copiedAddr, setCopiedAddr] = useState(false);
+
+  // Fiat deposit state
   const [amount, setAmount] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [deposit, setDeposit] = useState<DepositState>({ step: "idle" });
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCount = useRef(0);
 
+  // Pre-fill phone from profile
   useEffect(() => {
-    const userPhone = user?.phone ?? user?.user_metadata?.phone_number;
-    if (userPhone && !phone) setPhone(String(userPhone).replace("+", ""));
+    const ph = user?.phone ?? user?.user_metadata?.phone_number;
+    if (ph && !phone) setPhone(String(ph).replace("+", ""));
   }, [user, phone]);
 
+  // Check for an existing pending deposit address whenever coin changes
+  const checkCryptoAddr = useCallback(async (crypto: string, network: string) => {
+    setCryptoAddr({ phase: "checking" });
+    setCryptoAmount("");
+    try {
+      const res  = await fetch(`/api/crypto/address?crypto=${crypto}&network=${network}`);
+      const data = await res.json();
+      if (data?.address) {
+        setCryptoAddr({
+          phase:     "ready",
+          address:   data.address as string,
+          paymentId: data.paymentId as string,
+          expiresAt: data.expiresAt as string | undefined,
+        });
+      } else {
+        setCryptoAddr({ phase: "form" });
+      }
+    } catch {
+      setCryptoAddr({ phase: "form" });
+    }
+  }, []);
+
+  useEffect(() => {
+    checkCryptoAddr(selectedCrypto.code, selectedCrypto.network);
+  }, [selectedCrypto.code, selectedCrypto.network, checkCryptoAddr]);
+
+  async function generateCryptoAddress() {
+    const amt = Number(cryptoAmount);
+    if (!amt || amt < selectedCrypto.min) {
+      setCryptoAddr({
+        phase: "form",
+        error: `Minimum deposit is ${selectedCrypto.min} ${selectedCrypto.code}`,
+      });
+      return;
+    }
+    setCryptoAddr({ phase: "generating" });
+    try {
+      const res  = await fetch("/api/crypto/address", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          crypto:  selectedCrypto.code,
+          network: selectedCrypto.network,
+          amount:  amt,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to generate address");
+      setCryptoAddr({
+        phase:     "ready",
+        address:   data.address as string,
+        paymentId: data.paymentId as string,
+        expiresAt: data.expiresAt as string | undefined,
+      });
+    } catch (err: unknown) {
+      setCryptoAddr({
+        phase: "form",
+        error: err instanceof Error ? err.message : "Failed to generate address",
+      });
+    }
+  }
+
+  async function copyCryptoAddress() {
+    if (cryptoAddr.phase !== "ready") return;
+    try {
+      await navigator.clipboard.writeText(cryptoAddr.address);
+      setCopiedAddr(true);
+      window.setTimeout(() => setCopiedAddr(false), 1500);
+    } catch {
+      setCopiedAddr(false);
+    }
+  }
+
+  // M-Pesa deposit polling
   useEffect(() => {
     if (deposit.step !== "pending") {
       if (pollRef.current) clearInterval(pollRef.current);
       return;
     }
-
     const txId = deposit.txId;
     pollCount.current = 0;
     pollRef.current = setInterval(async () => {
@@ -292,31 +435,30 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
         setDeposit({ step: "failed", message: "Payment timed out. If you paid, it will be credited shortly." });
         return;
       }
-
       try {
-        const res = await fetch("/api/wallet/deposit/status", {
-          method: "POST",
+        const res  = await fetch("/api/wallet/deposit/status", {
+          method:  "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transactionRequestId: txId }),
+          body:    JSON.stringify({ transactionRequestId: txId }),
         });
         const data = await res.json();
         if (data.status === "confirmed") {
           clearInterval(pollRef.current!);
-          setDeposit({ step: "confirmed", amount: deposit.amount, newBalance: data.newBalance, receipt: data.receipt ?? "" });
+          setDeposit({
+            step:       "confirmed",
+            amount:     deposit.amount,
+            newBalance: data.newBalance as number,
+            receipt:    (data.receipt as string) ?? "",
+          });
           onDepositConfirmed?.();
         } else if (data.status === "failed") {
           clearInterval(pollRef.current!);
-          setDeposit({ step: "failed", message: data.message ?? "Payment failed." });
+          setDeposit({ step: "failed", message: (data.message as string) ?? "Payment failed." });
         }
-      } catch {
-        // Keep polling while the provider finishes processing.
-      }
+      } catch { /* keep polling */ }
     }, POLL_INTERVAL);
-
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [deposit]);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [deposit, onDepositConfirmed]);
 
   function reset() {
     setDeposit({ step: "idle" });
@@ -324,34 +466,19 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
     pollCount.current = 0;
   }
 
-  async function copyCryptoAddress() {
-    try {
-      await navigator.clipboard.writeText(CRYPTO_ADDRESS);
-      setCopiedCryptoAddress(true);
-      window.setTimeout(() => setCopiedCryptoAddress(false), 1500);
-    } catch {
-      setCopiedCryptoAddress(false);
-    }
-  }
-
   async function handleDeposit() {
-    if (!isSignedIn) {
-      setError("Log in to deposit.");
-      return;
-    }
-
+    if (!isSignedIn) { setError("Log in to deposit."); return; }
     setError("");
     setLoading(true);
     try {
-      const amountKes = Number(amount);
-      const res = await fetch("/api/wallet/deposit", {
-        method: "POST",
+      const res  = await fetch("/api/wallet/deposit", {
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amountKes, phoneNumber: normalizeMsisdn(phone) }),
+        body:    JSON.stringify({ amountKes: Number(amount), phoneNumber: normalizeMsisdn(phone) }),
       });
-      const data = await res.json().catch(() => ({}) as Record<string, string>);
-      if (!res.ok) throw new Error((data as Record<string, string>).error ?? "Failed to initiate payment.");
-      setDeposit({ step: "pending", txId: data.transactionRequestId, amount: amountKes });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to initiate payment.");
+      setDeposit({ step: "pending", txId: data.transactionRequestId as string, amount: Number(amount) });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -359,8 +486,26 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
     }
   }
 
+  const cryptoPanelProps = {
+    asset:      selectedCrypto,
+    search:     cryptoSearch,
+    setSearch:  setCryptoSearch,
+    open:       cryptoOpen,
+    setOpen:    setCryptoOpen,
+    onSelect:   (a: CryptoAsset) => { setSelectedCrypto(a); setCryptoOpen(false); },
+    addrState:  cryptoAddr,
+    amount:     cryptoAmount,
+    setAmount:  setCryptoAmount,
+    onGenerate: generateCryptoAddress,
+    onCopy:     copyCryptoAddress,
+    copied:     copiedAddr,
+  };
+
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/72 px-3 py-6 backdrop-blur-md sm:px-6 sm:py-8" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/72 px-3 py-6 backdrop-blur-md sm:px-6 sm:py-8"
+      onClick={onClose}
+    >
       <div
         className="relative flex max-h-[calc(100dvh-3rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-[20px] border border-white/[0.10] bg-[#10131b]/95 text-white shadow-2xl shadow-black/55 animate-in fade-in zoom-in-95 duration-200 sm:max-h-[calc(100dvh-4rem)] sm:rounded-[24px]"
         onClick={(e) => e.stopPropagation()}
@@ -380,17 +525,27 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
           {screen === "methods" ? (
             <div className="space-y-3 sm:space-y-5">
               <div>
-                <h2 className="pr-10 text-3xl font-black tracking-tight text-white sm:text-4xl">Deposit</h2>
-                <p className="mt-1 text-xs font-bold text-slate-500 sm:text-sm">Choose how you want to fund your Nezeem wallet.</p>
+                <h2 className="pr-10 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                  Deposit
+                </h2>
+                <p className="mt-1 text-xs font-bold text-slate-500 sm:text-sm">
+                  Choose how you want to fund your Nezeem wallet.
+                </p>
               </div>
 
               <MoneyTabs mode={mode} setMode={setMode} />
 
               {mode === "fiat" ? (
                 <>
-                  <button type="button" className="flex h-12 w-full items-center justify-between rounded-2xl bg-white/[0.06] px-4 text-left ring-1 ring-white/[0.08]" disabled>
+                  <button
+                    type="button"
+                    className="flex h-12 w-full items-center justify-between rounded-2xl bg-white/[0.06] px-4 text-left ring-1 ring-white/[0.08]"
+                    disabled
+                  >
                     <span className="flex items-center gap-3 text-base font-black text-white">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white">KSh</span>
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white">
+                        KSh
+                      </span>
                       Kenyan shilling
                     </span>
                     <Icon name="expand_more" className="text-[26px] text-slate-500" />
@@ -398,10 +553,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setScreen("mpesa");
-                      setMode("fiat");
-                    }}
+                    onClick={() => { setScreen("mpesa"); setMode("fiat"); }}
                     className="flex h-24 w-full flex-row items-center justify-between rounded-2xl bg-white/[0.06] px-5 py-4 text-left ring-1 ring-white/[0.08] transition hover:bg-white/[0.10] active:scale-[0.99] sm:h-[112px] sm:w-[235px] sm:flex-col sm:items-start"
                   >
                     <span className="text-2xl font-black tracking-tight text-[#31c45d]">M-PESA</span>
@@ -412,26 +564,15 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                   </button>
                 </>
               ) : (
-                <CryptoDepositPanel
-                  asset={selectedCrypto}
-                  search={cryptoSearch}
-                  setSearch={setCryptoSearch}
-                  open={cryptoOpen}
-                  setOpen={setCryptoOpen}
-                  onSelect={setSelectedCrypto}
-                  onCopy={copyCryptoAddress}
-                  copied={copiedCryptoAddress}
-                />
+                <CryptoDepositPanel {...cryptoPanelProps} />
               )}
             </div>
           ) : (
+            /* ── mpesa / crypto screen ── */
             <div className="space-y-4">
               <button
                 type="button"
-                onClick={() => {
-                  reset();
-                  setScreen("methods");
-                }}
+                onClick={() => { reset(); setScreen("methods"); }}
                 className="inline-flex h-9 items-center gap-1 rounded-full bg-white/[0.05] pl-2 pr-4 text-sm font-black text-[#75b8ff] ring-1 ring-white/[0.07] transition hover:bg-white/[0.09] hover:text-white"
               >
                 <Icon name="chevron_left" className="text-[22px]" />
@@ -441,7 +582,9 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
               {mode === "crypto" ? (
                 <div className="pr-12">
                   <h2 className="text-3xl font-black tracking-tight text-white">Crypto deposit</h2>
-                  <p className="mt-1 text-sm font-bold text-slate-500">Choose an asset and send only on the selected network.</p>
+                  <p className="mt-1 text-sm font-bold text-slate-500">
+                    Choose an asset and send only on the selected network.
+                  </p>
                 </div>
               ) : (
                 <div className="pr-12">
@@ -450,29 +593,28 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     M-Pesa
                   </div>
                   <h2 className="mt-3 text-3xl font-black tracking-tight text-white">Deposit by phone</h2>
-                  <p className="mt-1 text-sm font-bold text-slate-500">Enter your Safaricom number and approve the STK prompt.</p>
+                  <p className="mt-1 text-sm font-bold text-slate-500">
+                    Enter your Safaricom number and approve the STK prompt.
+                  </p>
                 </div>
               )}
 
               <MoneyTabs mode={mode} setMode={setMode} />
 
               {mode === "crypto" ? (
-                <CryptoDepositPanel
-                  asset={selectedCrypto}
-                  search={cryptoSearch}
-                  setSearch={setCryptoSearch}
-                  open={cryptoOpen}
-                  setOpen={setCryptoOpen}
-                  onSelect={setSelectedCrypto}
-                  onCopy={copyCryptoAddress}
-                  copied={copiedCryptoAddress}
-                />
+                <CryptoDepositPanel {...cryptoPanelProps} />
               ) : deposit.step === "confirmed" ? (
                 <div className="rounded-2xl bg-white/[0.06] p-6 text-center ring-1 ring-[#05b957]/30">
                   <Icon name="check_circle" fill className="mx-auto text-[54px] text-[#05b957]" />
                   <p className="mt-2 text-3xl font-black text-white">Success</p>
-                  <p className="mt-1 text-sm font-bold text-slate-400">Payment confirmed. KSh {deposit.amount.toLocaleString()} was added to your wallet.</p>
-                  <button type="button" onClick={reset} className="mt-5 h-14 w-full rounded-xl bg-[#087cff] text-base font-black text-white">
+                  <p className="mt-1 text-sm font-bold text-slate-400">
+                    Payment confirmed. KSh {deposit.amount.toLocaleString()} was added to your wallet.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="mt-5 h-14 w-full rounded-xl bg-[#087cff] text-base font-black text-white"
+                  >
                     Deposit more
                   </button>
                 </div>
@@ -484,9 +626,15 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                   </div>
                   <div className="text-center">
                     <p className="text-xl font-black text-white">Waiting for payment</p>
-                    <p className="mt-1 text-sm font-bold text-slate-500">Approve the M-Pesa prompt on your phone</p>
+                    <p className="mt-1 text-sm font-bold text-slate-500">
+                      Approve the M-Pesa prompt on your phone
+                    </p>
                   </div>
-                  <button type="button" onClick={reset} className="text-xs font-bold text-slate-600 transition hover:text-slate-400">
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="text-xs font-bold text-slate-600 transition hover:text-slate-400"
+                  >
                     Cancel
                   </button>
                 </div>
@@ -495,7 +643,11 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                   <Icon name="error" fill className="mx-auto text-[42px] text-red-400" />
                   <p className="mt-2 text-xl font-black text-white">Payment failed</p>
                   <p className="mt-1 text-sm font-semibold text-red-300">{deposit.message}</p>
-                  <button type="button" onClick={reset} className="mt-5 h-12 w-full rounded-xl bg-white/[0.08] text-base font-black text-white ring-1 ring-white/[0.08]">
+                  <button
+                    type="button"
+                    onClick={reset}
+                    className="mt-5 h-12 w-full rounded-xl bg-white/[0.08] text-base font-black text-white ring-1 ring-white/[0.08]"
+                  >
                     Try again
                   </button>
                 </div>
@@ -531,7 +683,9 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                         type="button"
                         onClick={() => setAmount(String(q))}
                         className={`h-10 rounded-xl px-3 text-sm font-black transition ${
-                          amount === String(q) ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/18" : "bg-white/[0.065] text-slate-300 hover:bg-white/[0.10]"
+                          amount === String(q)
+                            ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/18"
+                            : "bg-white/[0.065] text-slate-300 hover:bg-white/[0.10]"
                         }`}
                       >
                         KES {q.toLocaleString()}
@@ -539,7 +693,11 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     ))}
                   </div>
 
-                  {error && <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 ring-1 ring-red-500/20">{error}</p>}
+                  {error && (
+                    <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 ring-1 ring-red-500/20">
+                      {error}
+                    </p>
+                  )}
 
                   <button
                     type="button"
