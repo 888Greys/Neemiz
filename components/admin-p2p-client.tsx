@@ -78,7 +78,7 @@ function Spinner() {
 
 // ─── KYC Requests Tab ────────────────────────────────────────────────────────
 
-function KycRequestsTab() {
+function KycRequestsTab({ onAction }: { onAction: () => void }) {
   const [filter, setFilter]           = useState<KycStatus>("PENDING");
   const [merchants, setMerchants]     = useState<MerchantKyc[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -112,6 +112,7 @@ function KycRequestsTab() {
       setRejectingId(null);
       setRejectNote("");
       fetchMerchants();
+      onAction();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Action failed");
     } finally {
@@ -249,7 +250,7 @@ function KycRequestsTab() {
 
 // ─── Disputes Tab ─────────────────────────────────────────────────────────────
 
-function DisputesTab() {
+function DisputesTab({ onAction }: { onAction: () => void }) {
   const [disputes, setDisputes]       = useState<Dispute[]>([]);
   const [loading, setLoading]         = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
@@ -286,6 +287,7 @@ function DisputesTab() {
       setResolution(null);
       setNote("");
       fetchDisputes();
+      onAction();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -413,7 +415,7 @@ function DisputesTab() {
 
 // ─── Deposits Tab ─────────────────────────────────────────────────────────────
 
-function DepositsTab() {
+function DepositsTab({ onAction }: { onAction: () => void }) {
   const [deposits, setDeposits]       = useState<AdminDeposit[]>([]);
   const [loading, setLoading]         = useState(true);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -447,6 +449,7 @@ function DepositsTab() {
       setRejectingId(null);
       setRejectNote("");
       fetchDeposits();
+      onAction();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Action failed");
     } finally {
@@ -576,13 +579,38 @@ function DepositsTab() {
 
 type AdminTab = "kyc" | "disputes" | "deposits";
 
-export function AdminP2PClient() {
-  const [tab, setTab] = useState<AdminTab>("kyc");
+interface PendingCounts { kyc: number; disputes: number; deposits: number }
 
-  const tabs: { id: AdminTab; label: string; icon: string }[] = [
-    { id: "kyc",      label: "KYC Requests", icon: "verified_user" },
-    { id: "disputes", label: "Disputes",      icon: "gavel" },
-    { id: "deposits", label: "Deposits",      icon: "south_america" },
+export function AdminP2PClient() {
+  const [tab, setTab]       = useState<AdminTab>("kyc");
+  const [counts, setCounts] = useState<PendingCounts>({ kyc: 0, disputes: 0, deposits: 0 });
+
+  const fetchCounts = useCallback(async () => {
+    try {
+      const [kycRes, disputesRes, depositsRes] = await Promise.all([
+        fetch("/api/admin/p2p/merchants?status=PENDING"),
+        fetch("/api/admin/p2p/disputes"),
+        fetch("/api/admin/p2p/deposits"),
+      ]);
+      const [kyc, disputes, deposits] = await Promise.all([
+        kycRes.ok      ? kycRes.json()      : [],
+        disputesRes.ok ? disputesRes.json() : [],
+        depositsRes.ok ? depositsRes.json() : [],
+      ]);
+      setCounts({
+        kyc:      Array.isArray(kyc)      ? kyc.length                                             : 0,
+        disputes: Array.isArray(disputes) ? disputes.filter((d: Dispute) => d.status === "DISPUTED").length : 0,
+        deposits: Array.isArray(deposits) ? deposits.filter((d: AdminDeposit) => d.status === "PENDING").length : 0,
+      });
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => { fetchCounts(); }, [fetchCounts]);
+
+  const tabs: { id: AdminTab; label: string; icon: string; count: number }[] = [
+    { id: "kyc",      label: "KYC Requests", icon: "verified_user", count: counts.kyc      },
+    { id: "disputes", label: "Disputes",      icon: "gavel",         count: counts.disputes },
+    { id: "deposits", label: "Deposits",      icon: "south_america", count: counts.deposits },
   ];
 
   return (
@@ -599,7 +627,7 @@ export function AdminP2PClient() {
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black transition-all ${
+            className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black transition-all ${
               tab === t.id
                 ? "bg-[#087cff] text-white shadow-[0_2px_12px_rgba(8,124,255,.35)]"
                 : "text-slate-500 hover:text-slate-300"
@@ -607,14 +635,23 @@ export function AdminP2PClient() {
           >
             <Icon name={t.icon} className="text-base" />
             {t.label}
+            {t.count > 0 && (
+              <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black leading-none ${
+                tab === t.id
+                  ? "bg-white text-[#087cff]"
+                  : "bg-amber-500 text-white"
+              }`}>
+                {t.count > 99 ? "99+" : t.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {/* Tab content */}
-      {tab === "kyc"      && <KycRequestsTab />}
-      {tab === "disputes" && <DisputesTab />}
-      {tab === "deposits" && <DepositsTab />}
+      {tab === "kyc"      && <KycRequestsTab onAction={fetchCounts} />}
+      {tab === "disputes" && <DisputesTab    onAction={fetchCounts} />}
+      {tab === "deposits" && <DepositsTab    onAction={fetchCounts} />}
     </div>
   );
 }
