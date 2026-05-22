@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -279,6 +280,217 @@ function RatesTable({ rates, market, loading }: { rates: RateMap; market: Market
   );
 }
 
+// ─── My Orders ────────────────────────────────────────────────────────────────
+
+interface Order {
+  id:          string;
+  crypto:      string;
+  cryptoAmount:number;
+  fiatAmount:  number;
+  status:      string;
+  side:        "buy" | "sell"; // buyer or seller perspective
+  createdAt:   string;
+}
+
+const ORDER_STATUS_STYLE: Record<string, string> = {
+  PENDING:   "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  PAID:      "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  RELEASED:  "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20",
+  CANCELLED: "bg-white/5 text-slate-600 border-white/10",
+  DISPUTED:  "bg-red-500/10 text-red-400 border-red-500/20",
+  EXPIRED:   "bg-white/5 text-slate-600 border-white/10",
+};
+
+function MyOrders({ userId }: { userId: string }) {
+  const [orders,  setOrders]  = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/p2p/orders?limit=4")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => setOrders(Array.isArray(data) ? data.slice(0, 4) : []))
+      .catch(() => setOrders([]))
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  return (
+    <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">My Orders</p>
+        <Link href="/p2p/orders" className="text-[10px] text-[#3b82f6] hover:text-blue-300 font-bold transition-colors">
+          View all
+        </Link>
+      </div>
+
+      {loading ? (
+        <div className="px-4 pb-3 space-y-2">
+          {[1,2,3].map((i) => (
+            <div key={i} className="h-10 rounded-xl bg-white/[0.03] animate-pulse" />
+          ))}
+        </div>
+      ) : orders.length === 0 ? (
+        <div className="px-4 pb-4 text-center">
+          <Icon name="receipt_long" className="text-slate-700 text-2xl mb-1" />
+          <p className="text-[11px] text-slate-600">No orders yet</p>
+          <Link href="/p2p" className="text-[10px] text-[#22c55e] font-bold hover:underline">
+            Start trading →
+          </Link>
+        </div>
+      ) : (
+        <div className="px-3 pb-3 space-y-1.5">
+          {orders.map((o) => (
+            <Link
+              key={o.id}
+              href={`/p2p/orders/${o.id}`}
+              className="flex items-center gap-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.05] rounded-xl px-3 py-2 transition-colors"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-black text-white">
+                    {o.cryptoAmount} {o.crypto}
+                  </span>
+                  <span className="text-[9px] text-slate-600">·</span>
+                  <span className="text-[10px] text-slate-500">
+                    KSh {Number(o.fiatAmount).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                  </span>
+                </div>
+              </div>
+              <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full border ${ORDER_STATUS_STYLE[o.status] ?? ORDER_STATUS_STYLE.CANCELLED}`}>
+                {o.status}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Merchant Center ──────────────────────────────────────────────────────────
+
+interface MerchantInfo {
+  isMerchant:      boolean;
+  kycStatus:       string;
+  isOnline:        boolean;
+  displayName:     string;
+  completedTrades: number;
+  completionRate:  number;
+  activeAds:       number;
+}
+
+function MerchantCenter({ userId }: { userId: string }) {
+  const [info,    setInfo]    = useState<MerchantInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [toggling,setToggling]= useState(false);
+
+  useEffect(() => {
+    fetch("/api/p2p/merchant/profile")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => setInfo(d))
+      .catch(() => setInfo(null))
+      .finally(() => setLoading(false));
+  }, [userId]);
+
+  async function toggleOnline() {
+    if (!info) return;
+    setToggling(true);
+    try {
+      const res = await fetch("/api/p2p/merchant/online", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isOnline: !info.isOnline }),
+      });
+      if (res.ok) setInfo((prev) => prev ? { ...prev, isOnline: !prev.isOnline } : prev);
+    } finally {
+      setToggling(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="h-24 rounded-2xl bg-[#0a0f1a] border border-white/[0.06] animate-pulse" />
+    );
+  }
+
+  // Not a merchant yet
+  if (!info || !info.isMerchant) {
+    return (
+      <Link
+        href="/p2p/merchant"
+        className="flex items-center gap-3 bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-2xl px-4 py-3.5 hover:bg-[#3b82f6]/15 transition-colors"
+      >
+        <div className="w-8 h-8 rounded-xl bg-[#3b82f6]/20 flex items-center justify-center shrink-0">
+          <Icon name="storefront" className="text-[#3b82f6] text-lg" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-black text-white">Become a Merchant</p>
+          <p className="text-[10px] text-slate-500">Post ads · Earn on every trade</p>
+        </div>
+        <Icon name="arrow_forward" className="text-slate-600 text-sm shrink-0" />
+      </Link>
+    );
+  }
+
+  // Active merchant dashboard
+  return (
+    <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Merchant Center</p>
+        <Link href="/p2p/merchant" className="text-[10px] text-[#3b82f6] hover:text-blue-300 font-bold transition-colors">
+          Manage
+        </Link>
+      </div>
+
+      {/* Merchant info */}
+      <div className="px-4 pb-3 space-y-3">
+        {/* Name + online toggle */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-black text-white">{info.displayName}</p>
+            <p className="text-[10px] text-slate-600">{info.completedTrades} completed · {Number(info.completionRate).toFixed(0)}% rate</p>
+          </div>
+          <button
+            onClick={toggleOnline}
+            disabled={toggling}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black border transition-all ${
+              info.isOnline
+                ? "bg-[#22c55e]/15 border-[#22c55e]/30 text-[#22c55e]"
+                : "bg-white/[0.04] border-white/[0.08] text-slate-500"
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${info.isOnline ? "bg-[#22c55e] animate-pulse" : "bg-slate-600"}`} />
+            {info.isOnline ? "Online" : "Offline"}
+          </button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2 text-center">
+            <p className="text-base font-black text-white">{info.activeAds}</p>
+            <p className="text-[10px] text-slate-600">Active Ads</p>
+          </div>
+          <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2 text-center">
+            <p className="text-base font-black text-[#22c55e]">{Number(info.completionRate).toFixed(0)}%</p>
+            <p className="text-[10px] text-slate-600">Completion</p>
+          </div>
+        </div>
+
+        {/* Quick actions */}
+        <div className="grid grid-cols-2 gap-1.5">
+          <Link href="/p2p/merchant?tab=ads" className="flex items-center justify-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl py-2 text-[11px] font-black text-white hover:bg-white/[0.07] transition-colors">
+            <Icon name="view_list" className="text-sm text-slate-400" />
+            My Ads
+          </Link>
+          <Link href="/p2p/merchant?tab=deposit" className="flex items-center justify-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl py-2 text-[11px] font-black text-white hover:bg-white/[0.07] transition-colors">
+            <Icon name="account_balance_wallet" className="text-sm text-[#3b82f6]" />
+            Deposit
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Trust Signals ────────────────────────────────────────────────────────────
 
 function TrustBlock() {
@@ -308,6 +520,7 @@ function TrustBlock() {
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 export function P2PMarketPanel() {
+  const { user }              = useSupabaseAuth();
   const [rates, setRates]     = useState<RateMap>({});
   const [market, setMarket]   = useState<MarketRateMap>({});
   const [loading, setLoading] = useState(true);
@@ -421,21 +634,31 @@ export function P2PMarketPanel() {
         </Link>
       </div>
 
+      {/* My Orders — only when signed in */}
+      {user && <MyOrders userId={user.id} />}
+
+      {/* Merchant Center — shows become-merchant CTA or dashboard */}
+      {user
+        ? <MerchantCenter userId={user.id} />
+        : (
+          <Link
+            href="/p2p/merchant"
+            className="flex items-center gap-3 bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-2xl px-4 py-3.5 hover:bg-[#3b82f6]/15 transition-colors"
+          >
+            <div className="w-8 h-8 rounded-xl bg-[#3b82f6]/20 flex items-center justify-center shrink-0">
+              <Icon name="storefront" className="text-[#3b82f6] text-lg" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black text-white">Become a Merchant</p>
+              <p className="text-[10px] text-slate-500">Post ads · Earn on every trade</p>
+            </div>
+            <Icon name="arrow_forward" className="text-slate-600 text-sm shrink-0" />
+          </Link>
+        )
+      }
+
       {/* Trust signals */}
       <TrustBlock />
-
-      {/* Merchant CTA */}
-      <Link
-        href="/p2p/merchant"
-        className="flex items-center gap-3 bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-xl px-4 py-3 hover:bg-[#3b82f6]/15 transition-colors"
-      >
-        <Icon name="storefront" className="text-[#3b82f6] text-xl shrink-0" />
-        <div className="min-w-0">
-          <p className="text-xs font-black text-white">Become a Merchant</p>
-          <p className="text-[10px] text-slate-500">Post ads at your own rates</p>
-        </div>
-        <Icon name="arrow_forward" className="text-slate-600 text-sm ml-auto shrink-0" />
-      </Link>
     </div>
   );
 }
