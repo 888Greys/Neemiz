@@ -1,7 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { PolymarketClient } from "@/components/polymarket/polymarket-client";
 import { createClient } from "@/lib/supabase/server";
-import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 
 export const dynamic = "force-dynamic";
@@ -21,17 +20,7 @@ export default async function PolymarketPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-4">
-        <div className="mb-4 flex items-center gap-3">
-          <span className="text-2xl">📊</span>
-          <div>
-            <h1 className="text-lg font-black text-white">Polymarket</h1>
-            <p className="text-xs text-white/40">
-              Bet on real-world events — odds powered by prediction markets
-            </p>
-          </div>
-        </div>
-
+      <div className="mx-auto max-w-[1520px] px-3 py-3 sm:px-4">
         <PolymarketClient userId={userId} balance={balance} />
       </div>
     </AppShell>

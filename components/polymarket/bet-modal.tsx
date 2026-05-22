@@ -5,6 +5,7 @@ import type { PolymarketMarket } from "@/lib/polymarket";
 
 interface Props {
   market:  PolymarketMarket;
+  initialOutcome?: string;
   balance: number;
   onClose: () => void;
   onSuccess: () => void;
@@ -12,8 +13,8 @@ interface Props {
 
 const QUICK = [50, 100, 250, 500, 1000];
 
-export function BetModal({ market, balance, onClose, onSuccess }: Props) {
-  const [outcome,  setOutcome]  = useState<string>(market.outcomes[0]);
+export function BetModal({ market, initialOutcome, balance, onClose, onSuccess }: Props) {
+  const [outcome,  setOutcome]  = useState<string>(initialOutcome && market.outcomes.includes(initialOutcome) ? initialOutcome : market.outcomes[0]);
   const [amount,   setAmount]   = useState("100");
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
@@ -78,7 +79,7 @@ export function BetModal({ market, balance, onClose, onSuccess }: Props) {
                 }`}
               >
                 <span className={`text-sm font-black ${selected ? (isYes ? "text-[#31c45d]" : "text-red-400") : "text-white/60"}`}>{o}</span>
-                <span className="font-mono text-xs text-white/50">{(p * 100).toFixed(0)}¢ · {(1/p).toFixed(2)}x</span>
+                <span className="font-mono text-xs text-white/50">{(p * 100).toFixed(0)}% · {(1/p).toFixed(2)}x</span>
               </button>
             );
           })}
