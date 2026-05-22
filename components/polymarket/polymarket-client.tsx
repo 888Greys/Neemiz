@@ -36,6 +36,15 @@ interface Props {
   balance:  number;
 }
 
+interface DetailComment {
+  id: string;
+  author: string;
+  body: string;
+  createdAt: Date;
+  likes: number;
+  holder?: string;
+}
+
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
     PENDING: "bg-amber-500/10 text-amber-400 border-amber-500/20",
@@ -463,11 +472,18 @@ function DetailTradeTicket({
   market: PolymarketMarket;
   selectedOutcome: string;
   balance: number;
-  onBet: (m: PolymarketMarket, o?: string) => void;
+  onBet: (m: PolymarketMarket, o?: string, amount?: number) => void;
 }) {
+  const [side, setSide] = useState<"buy" | "sell">("buy");
+  const [orderSide, setOrderSide] = useState<"yes" | "no">("yes");
+  const [amount, setAmount] = useState(100);
   const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
   const price = marketPrice(market, selectedIndex);
   const noPrice = 1 - price;
+  const activePrice = orderSide === "yes" ? price : noPrice;
+  const noOutcome = market.outcomes.find((o) => o.toLowerCase() === "no");
+  const tradeOutcome = orderSide === "yes" ? selectedOutcome : (noOutcome ?? selectedOutcome);
+  const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0;
 
   return (
     <aside className="lg:sticky lg:top-24 lg:self-start">
@@ -488,8 +504,18 @@ function DetailTradeTicket({
 
         <div className="flex items-center justify-between border-b border-white/[0.06] px-4">
           <div className="flex gap-4">
-            <button className="border-b-2 border-white py-3 text-sm font-black text-white">Buy</button>
-            <button className="border-b-2 border-transparent py-3 text-sm font-black text-white/35">Sell</button>
+            <button
+              onClick={() => setSide("buy")}
+              className={`border-b-2 py-3 text-sm font-black ${side === "buy" ? "border-white text-white" : "border-transparent text-white/35"}`}
+            >
+              Buy
+            </button>
+            <button
+              onClick={() => setSide("sell")}
+              className={`border-b-2 py-3 text-sm font-black ${side === "sell" ? "border-white text-white" : "border-transparent text-white/35"}`}
+            >
+              Sell
+            </button>
           </div>
           <button className="flex items-center gap-1 text-[12px] font-black text-white/70">
             Market <ChevronDown className="h-3.5 w-3.5" />
@@ -499,14 +525,14 @@ function DetailTradeTicket({
         <div className="p-4">
           <div className="mb-5 grid grid-cols-2 gap-3">
             <button
-              onClick={() => onBet(market, selectedOutcome)}
-              className="h-14 rounded-xl bg-[#31c45d]/80 text-sm font-black text-white transition hover:bg-[#31c45d]"
+              onClick={() => setOrderSide("yes")}
+              className={`h-14 rounded-xl text-sm font-black transition ${orderSide === "yes" ? "bg-[#31c45d]/80 text-white" : "bg-[#31c45d]/15 text-[#31c45d]"}`}
             >
               Yes {(price * 100).toFixed(0)}¢
             </button>
             <button
-              onClick={() => onBet(market, `No — ${selectedOutcome}`)}
-              className="h-14 rounded-xl bg-white/[0.07] text-sm font-black text-white/40 transition hover:bg-red-500/15 hover:text-red-300"
+              onClick={() => setOrderSide("no")}
+              className={`h-14 rounded-xl text-sm font-black transition ${orderSide === "no" ? "bg-red-500/25 text-red-200" : "bg-white/[0.07] text-white/40 hover:bg-red-500/15 hover:text-red-300"}`}
             >
               No {(noPrice * 100).toFixed(0)}¢
             </button>
@@ -514,18 +540,28 @@ function DetailTradeTicket({
 
           <div className="mb-4 flex items-end justify-between">
             <span className="text-sm font-black text-white/70">Amount</span>
-            <span className="text-5xl font-black text-white/35">$0</span>
+            <span className="text-5xl font-black text-white/35">KSh {amount.toLocaleString()}</span>
           </div>
           <div className="mb-5 flex justify-end gap-2">
-            {["+1", "+5", "+10", "+100"].map((v) => (
-              <button key={v} className="rounded-lg bg-white/[0.06] px-3 py-2 text-[12px] font-black text-white/35">{v}</button>
+            {[50, 100, 250, 500].map((v) => (
+              <button
+                key={v}
+                onClick={() => setAmount(v)}
+                className={`rounded-lg px-3 py-2 text-[12px] font-black ${amount === v ? "bg-[#087cff]/25 text-[#8bc3ff]" : "bg-white/[0.06] text-white/35"}`}
+              >
+                {v >= 1000 ? `${v / 1000}K` : v}
+              </button>
             ))}
           </div>
+          <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.04] p-3 text-[12px]">
+            <div className="flex justify-between text-white/45"><span>Odds</span><span className="font-mono text-white">{(1 / activePrice).toFixed(2)}x</span></div>
+            <div className="mt-1 flex justify-between text-white/45"><span>Potential win</span><span className="font-mono text-[#31c45d]">KSh {potentialWin.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+          </div>
           <button
-            onClick={() => onBet(market, selectedOutcome)}
+            onClick={() => onBet(market, tradeOutcome, amount)}
             className="h-14 w-full rounded-xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-[#087cff]/20"
           >
-            Trade
+            {side === "buy" ? "Trade" : "Create Sell Order"}
           </button>
           <p className="mt-4 text-center text-[11px] text-white/30">Balance: KSh {Math.floor(balance).toLocaleString()}</p>
         </div>
@@ -550,13 +586,17 @@ function MarketDetailView({
   onBack,
   onBet,
   onOpen,
+  comments,
+  onAddComment,
 }: {
   market: PolymarketMarket;
   related: PolymarketMarket[];
   balance: number;
   onBack: () => void;
-  onBet: (m: PolymarketMarket, o?: string) => void;
+  onBet: (m: PolymarketMarket, o?: string, amount?: number) => void;
   onOpen: (m: PolymarketMarket) => void;
+  comments: DetailComment[];
+  onAddComment: (body: string) => void;
 }) {
   const topIndex = market.outcomePrices.reduce((best, price, index) => price > (market.outcomePrices[best] ?? 0) ? index : best, 0);
   const [selectedOutcome, setSelectedOutcome] = useState(market.outcomes[topIndex] ?? market.outcomes[0] ?? "Yes");
@@ -637,7 +677,7 @@ function MarketDetailView({
                 <button onClick={() => onBet(market, outcome)} className="hidden h-14 rounded-xl bg-[#31c45d]/80 text-sm font-black text-white xl:block">
                   Buy Yes {(price * 100).toFixed(1)}¢
                 </button>
-                <button onClick={() => onBet(market, `No — ${outcome}`)} className="hidden h-14 rounded-xl bg-red-500/15 text-sm font-black text-red-400 xl:block">
+                <button onClick={() => onBet(market, market.outcomes.find((o) => o.toLowerCase() === "no") ?? outcome)} className="hidden h-14 rounded-xl bg-red-500/15 text-sm font-black text-red-400 xl:block">
                   Buy No {((1 - price) * 100).toFixed(1)}¢
                 </button>
               </div>
@@ -659,26 +699,12 @@ function MarketDetailView({
 
         <section className="mt-10">
           <div className="mb-5 flex flex-wrap gap-5">
-            <button className="text-[15px] font-black text-white">Comments (471)</button>
+            <button className="text-[15px] font-black text-white">Comments ({comments.length})</button>
             <button className="text-[15px] font-black text-white/45">Top Holders</button>
             <button className="text-[15px] font-black text-white/45">Positions</button>
             <button className="text-[15px] font-black text-white/45">Activity</button>
           </div>
-          <div className="mb-6 flex h-12 items-center rounded-xl border border-white/[0.08] bg-[#15191f] px-4 text-[13px] font-semibold text-white/35">
-            Add a comment...
-            <MessageCircle className="ml-auto h-4 w-4" />
-          </div>
-          <div className="space-y-6">
-            {["Lee35-076", "Oto1b", "MarketWatcher"].map((name, i) => (
-              <div key={name} className="flex gap-3">
-                <div className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-amber-300" />
-                <div>
-                  <p className="text-[13px] font-black text-white">{name} <span className="ml-2 font-semibold text-white/35">{8 + i}h ago</span></p>
-                  <p className="mt-1 text-[14px] font-semibold text-white/85">{i === 0 ? "watching this one" : i === 1 ? "Price moved fast after the latest update." : "Liquidity looks clean here."}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <CommentsPanel comments={comments} onAddComment={onAddComment} />
         </section>
       </main>
 
@@ -710,6 +736,107 @@ function MarketDetailView({
   );
 }
 
+function CommentsPanel({ comments, onAddComment }: { comments: DetailComment[]; onAddComment: (body: string) => void }) {
+  const [draft, setDraft] = useState("");
+  const [sort, setSort] = useState<"newest" | "popular">("newest");
+  const shown = [...comments].sort((a, b) =>
+    sort === "popular" ? b.likes - a.likes : b.createdAt.getTime() - a.createdAt.getTime()
+  );
+
+  function submit() {
+    const body = draft.trim();
+    if (!body) return;
+    onAddComment(body);
+    setDraft("");
+  }
+
+  return (
+    <>
+      <div className="mb-4 rounded-xl border border-white/[0.08] bg-[#15191f] p-3">
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Add a comment..."
+          className="min-h-[76px] w-full resize-none bg-transparent text-[14px] font-semibold text-white outline-none placeholder:text-white/30"
+        />
+        <div className="mt-3 flex items-center justify-between">
+          <span className="text-[11px] font-semibold text-white/25">{draft.length}/280</span>
+          <button
+            onClick={submit}
+            disabled={!draft.trim()}
+            className="rounded-lg bg-[#087cff] px-4 py-2 text-[12px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Post
+          </button>
+        </div>
+      </div>
+
+      <div className="mb-5 flex items-center gap-4">
+        <button onClick={() => setSort("newest")} className={`text-[13px] font-black ${sort === "newest" ? "text-white" : "text-white/40"}`}>Newest</button>
+        <button onClick={() => setSort("popular")} className={`text-[13px] font-black ${sort === "popular" ? "text-white" : "text-white/40"}`}>Popular</button>
+        <label className="ml-2 flex items-center gap-2 text-[12px] font-bold text-white/45">
+          <input type="checkbox" className="h-4 w-4 rounded accent-[#087cff]" />
+          Holders
+        </label>
+        <span className="ml-auto rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-white/35">Beware of external links.</span>
+      </div>
+
+      <div className="space-y-6">
+        {shown.map((comment) => (
+          <div key={comment.id} className="flex gap-3">
+            <div className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-amber-300" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-black text-white">
+                {comment.author}
+                {comment.holder && <span className="ml-2 rounded bg-[#31c45d]/15 px-2 py-0.5 text-[10px] text-[#31c45d]">{comment.holder}</span>}
+                <span className="ml-2 font-semibold text-white/35">{timeAgo(comment.createdAt)}</span>
+              </p>
+              <p className="mt-1 text-[14px] font-semibold text-white/85">{comment.body}</p>
+              <button className="mt-2 text-[12px] font-bold text-white/35 hover:text-white/70">♡ {comment.likes}</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function timeAgo(date: Date) {
+  const mins = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+  if (mins < 1) return "now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function seedComments(market: PolymarketMarket): DetailComment[] {
+  return [
+    {
+      id: `${market.conditionId}-seed-1`,
+      author: "MarketWatcher",
+      body: `Watching liquidity on ${market.outcomes[0] ?? "this outcome"}. The chart move is the key signal here.`,
+      createdAt: new Date(Date.now() - 28 * 60_000),
+      likes: 7,
+      holder: market.outcomes[0],
+    },
+    {
+      id: `${market.conditionId}-seed-2`,
+      author: "Lee35-076",
+      body: "Price moved fast after the latest update.",
+      createdAt: new Date(Date.now() - 8 * 60 * 60_000),
+      likes: 3,
+    },
+    {
+      id: `${market.conditionId}-seed-3`,
+      author: "Oto1b",
+      body: "Need one more source before I size this up.",
+      createdAt: new Date(Date.now() - 9 * 60 * 60_000),
+      likes: 2,
+    },
+  ];
+}
+
 /* ── Main component ─────────────────────────────────────────────────────── */
 export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   const [markets,  setMarkets]  = useState<PolymarketMarket[]>([]);
@@ -717,10 +844,11 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   const [loading,  setLoading]  = useState(true);
   const [tab,      setTab]      = useState<"browse" | "my-bets">("browse");
   const [tag,      setTag]      = useState("Trending");
-  const [ticket,   setTicket]   = useState<{ market: PolymarketMarket; outcome?: string } | null>(null);
+  const [ticket,   setTicket]   = useState<{ market: PolymarketMarket; outcome?: string; amount?: number } | null>(null);
   const [balance,  setBalance]  = useState(initialBalance);
   const [search,   setSearch]   = useState("");
   const [selectedMarket, setSelectedMarket] = useState<PolymarketMarket | null>(null);
+  const [commentsByMarket, setCommentsByMarket] = useState<Record<string, DetailComment[]>>({});
   const tagBarRef = useRef<HTMLDivElement>(null);
 
   const fetchMarkets = useCallback(async () => {
@@ -781,12 +909,34 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   // Grid = all filtered except the hero (first in filtered)
   const gridMarkets = filtered;
 
-  const openBet = (market: PolymarketMarket, outcome?: string) => setTicket({ market, outcome });
+  const openBet = (market: PolymarketMarket, outcome?: string, amount?: number) => {
+    const normalizedOutcome = outcome && market.outcomes.includes(outcome)
+      ? outcome
+      : market.outcomes.find((o) => o.toLowerCase() === "no" && outcome?.toLowerCase().startsWith("no"))
+        ?? market.outcomes[0];
+    setTicket({ market, outcome: normalizedOutcome, amount });
+  };
   const openMarket = (market: PolymarketMarket) => {
     setSelectedMarket(market);
     setTab("browse");
     setSearch("");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const selectedComments = selectedMarket ? commentsByMarket[selectedMarket.conditionId] ?? seedComments(selectedMarket) : [];
+  const addComment = (body: string) => {
+    if (!selectedMarket) return;
+    const next: DetailComment = {
+      id: `${selectedMarket.conditionId}-${Date.now()}`,
+      author: userId ? "You" : "Guest",
+      body,
+      createdAt: new Date(),
+      likes: 0,
+    };
+    setCommentsByMarket((current) => ({
+      ...current,
+      [selectedMarket.conditionId]: [next, ...(current[selectedMarket.conditionId] ?? seedComments(selectedMarket))],
+    }));
+    toast.success("Comment posted");
   };
 
   return (
@@ -847,6 +997,8 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
           onBack={() => setSelectedMarket(null)}
           onBet={openBet}
           onOpen={openMarket}
+          comments={selectedComments}
+          onAddComment={addComment}
         />
       )}
 
@@ -962,6 +1114,7 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
         <BetModal
           market={ticket.market}
           initialOutcome={ticket.outcome}
+          initialAmount={ticket.amount}
           balance={balance}
           onClose={() => setTicket(null)}
           onSuccess={handleBetSuccess}

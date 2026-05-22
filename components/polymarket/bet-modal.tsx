@@ -6,6 +6,7 @@ import type { PolymarketMarket } from "@/lib/polymarket";
 interface Props {
   market:  PolymarketMarket;
   initialOutcome?: string;
+  initialAmount?: number;
   balance: number;
   onClose: () => void;
   onSuccess: () => void;
@@ -13,9 +14,9 @@ interface Props {
 
 const QUICK = [50, 100, 250, 500, 1000];
 
-export function BetModal({ market, initialOutcome, balance, onClose, onSuccess }: Props) {
+export function BetModal({ market, initialOutcome, initialAmount, balance, onClose, onSuccess }: Props) {
   const [outcome,  setOutcome]  = useState<string>(initialOutcome && market.outcomes.includes(initialOutcome) ? initialOutcome : market.outcomes[0]);
-  const [amount,   setAmount]   = useState("100");
+  const [amount,   setAmount]   = useState(String(initialAmount ?? 100));
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
 
