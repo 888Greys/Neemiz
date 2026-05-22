@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, Bookmark, ChevronRight, Flame, Search, TrendingUp, Zap } from "lucide-react";
 import { formatEndDate, formatMarketMoney } from "./market-card";
+import { ProbabilityChart } from "./probability-chart";
 import { BetModal }   from "./bet-modal";
 import { toast }      from "@/lib/toast";
 import type { PolymarketMarket } from "@/lib/polymarket";
@@ -68,43 +69,6 @@ function Countdown({ endDate }: { endDate: string }) {
   return <span className="font-black text-red-400 tabular-nums">{left}</span>;
 }
 
-/* ── Decorative probability chart ───────────────────────────────────────── */
-function ProbChart({ pct }: { pct: number }) {
-  const pts = useMemo(() => {
-    const arr: number[] = [];
-    let v = 50;
-    for (let i = 0; i < 40; i++) {
-      v += (Math.random() - 0.48) * 4;
-      v = Math.max(10, Math.min(90, v));
-      arr.push(v);
-    }
-    arr.push(pct * 100);
-    return arr;
-  }, [pct]);
-
-  const w = 400, h = 100;
-  const path = pts.map((p, i) => {
-    const x = (i / (pts.length - 1)) * w;
-    const y = h - (p / 100) * h;
-    return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-  }).join(" ");
-
-  const targetY = h - (50 / 100) * h;
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-full w-full">
-      {/* Target dashed line */}
-      <line x1="0" y1={targetY} x2={w} y2={targetY} stroke="#6b7280" strokeWidth="1" strokeDasharray="4 4" />
-      {/* Price line */}
-      <path d={path} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      {/* Dot at end */}
-      <circle cx={w} cy={h - (pts[pts.length - 1] / 100) * h} r="4" fill="#f59e0b" />
-      {/* Target label */}
-      <rect x={w - 72} y={targetY - 11} width={68} height={20} rx="4" fill="#374151" />
-      <text x={w - 38} y={targetY + 4} textAnchor="middle" fill="#d1d5db" fontSize="10" fontWeight="700">Target</text>
-    </svg>
-  );
-}
 
 /* ── Hero featured card ─────────────────────────────────────────────────── */
 function HeroCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: PolymarketMarket, o?: string) => void }) {
@@ -188,24 +152,21 @@ function HeroCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: Poly
           </div>
         </div>
 
-        {/* Right: chart */}
-        <div className="relative flex flex-col">
-          <div className="flex items-center justify-between px-5 pt-4 pb-2">
-            <div>
-              <p className="text-[11px] text-white/35">Probability</p>
-              <p className="text-2xl font-black text-amber-400">{(yesP * 100).toFixed(0)}%</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[11px] text-white/35">Baseline</p>
-              <p className="text-xl font-black text-white/50">50%</p>
-            </div>
-          </div>
-          <div className="flex-1 px-3 pb-3" style={{ minHeight: 110 }}>
-            <ProbChart pct={yesP} />
+        {/* Right: real probability chart */}
+        <div className="flex flex-col gap-0">
+          <div className="px-5 pt-4 pb-3">
+            {market.clobTokenIds.length > 0 ? (
+              <ProbabilityChart
+                tokenIds={market.clobTokenIds}
+                outcomes={market.outcomes}
+              />
+            ) : (
+              <p className="py-8 text-center text-[12px] text-white/25">No chart data available</p>
+            )}
           </div>
           <div className="flex items-center justify-between border-t border-white/[0.05] px-5 py-2">
             <span className="flex items-center gap-1.5 text-[11px] text-white/30">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
               LIVE
             </span>
             <span className="text-[11px] font-bold text-white/20">Nezeem Predictions</span>

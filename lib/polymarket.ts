@@ -7,6 +7,7 @@ export interface PolymarketMarket {
   description:   string;
   outcomes:      string[];   // ["Yes","No"]
   outcomePrices: number[];   // [0.65, 0.35]
+  clobTokenIds:  string[];   // token IDs for CLOB price history
   volume:        number;
   liquidity:     number;
   endDate:       string;
@@ -23,6 +24,7 @@ interface GammaMarket {
   description?:  string;
   outcomes:      string;   // JSON string
   outcomePrices: string;   // JSON string
+  clobTokenIds?: string;   // JSON string of token IDs
   volume:        string;
   liquidity:     string;
   endDate:       string;
@@ -33,10 +35,12 @@ interface GammaMarket {
 }
 
 function parseMarket(m: GammaMarket): PolymarketMarket {
-  let outcomes: string[] = [];
-  let prices:   number[] = [];
-  try { outcomes = JSON.parse(m.outcomes);      } catch { outcomes = ["Yes", "No"]; }
-  try { prices   = JSON.parse(m.outcomePrices).map(Number); } catch { prices = [0.5, 0.5]; }
+  let outcomes:      string[] = [];
+  let prices:        number[] = [];
+  let clobTokenIds:  string[] = [];
+  try { outcomes      = JSON.parse(m.outcomes);                      } catch { outcomes     = ["Yes", "No"]; }
+  try { prices        = JSON.parse(m.outcomePrices).map(Number);     } catch { prices       = [0.5, 0.5]; }
+  try { clobTokenIds  = JSON.parse(m.clobTokenIds ?? "[]");          } catch { clobTokenIds = []; }
 
   return {
     id:            m.id,
@@ -45,6 +49,7 @@ function parseMarket(m: GammaMarket): PolymarketMarket {
     description:   m.description ?? "",
     outcomes,
     outcomePrices: prices,
+    clobTokenIds,
     volume:        parseFloat(m.volume ?? "0"),
     liquidity:     parseFloat(m.liquidity ?? "0"),
     endDate:       m.endDate,
