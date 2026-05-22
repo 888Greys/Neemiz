@@ -237,7 +237,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="grid min-h-[calc(100vh-6.5rem)] gap-2 xl:grid-cols-[300px_minmax(0,1fr)_320px] 2xl:grid-cols-[340px_minmax(0,1fr)_360px]">
+    <div className="grid h-[calc(100vh-6.5rem)] min-h-[720px] gap-2 overflow-hidden xl:grid-cols-[300px_minmax(0,1fr)_320px] 2xl:grid-cols-[340px_minmax(0,1fr)_360px]">
       <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-white/10 bg-[#141414] xl:block">
         <AviatorLiveBets
           liveBets={liveBets}
@@ -246,7 +246,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         />
       </aside>
 
-      <section className="min-w-0">
+      <section className="grid min-h-0 min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto]">
         <div className="mb-2 flex items-center justify-between rounded-lg border border-white/10 bg-[#101010] px-3 py-2">
           <div className="flex items-center gap-3">
             <span className="font-[var(--font-pacifico)] text-2xl text-[#ff1838]">Aviator</span>
@@ -269,8 +269,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           <AviatorHistory rounds={history} onVerify={setVerifyRound} />
         </div>
 
-        <div className="overflow-hidden rounded-lg border border-white/10 bg-black">
-          <div className="h-[360px] sm:h-[430px] lg:h-[520px] 2xl:h-[590px]">
+        <div className="min-h-0 overflow-hidden rounded-lg border border-white/10 bg-black">
+          <div className="h-full min-h-[300px]">
             <AviatorCanvas
               state={round?.state ?? "WAITING"}
               multiplier={displayMult}
@@ -281,7 +281,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           </div>
         </div>
 
-        <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
+        <div className="mt-2 grid shrink-0 grid-cols-1 gap-2 lg:grid-cols-2">
           {([0, 1] as const).map((pi) => (
             <AviatorBetPanel
               key={pi}
