@@ -280,19 +280,25 @@ function HeroCarousel({ markets, allMarkets, onBet }: { markets: PolymarketMarke
           ))}
         </div>
 
-        {/* Prev / Next */}
-        <div className="flex items-center gap-1.5">
+        {/* Prev / Next pill buttons */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => goTo((idx - 1 + total) % total)}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/[0.08] text-white/30 transition hover:bg-white/[0.06] hover:text-white/70"
+            className="flex h-8 items-center gap-1.5 rounded-full border border-white/[0.10] bg-white/[0.05] px-3.5 text-[12px] font-semibold text-white/50 transition hover:bg-white/[0.09] hover:text-white/80"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
+            <ArrowLeft className="h-3 w-3 shrink-0" />
+            <span className="max-w-[120px] truncate">
+              {markets[(idx - 1 + total) % total]?.question.split("?")[0].trim().slice(0, 22)}
+            </span>
           </button>
           <button
             onClick={() => goTo((idx + 1) % total)}
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/[0.08] text-white/30 transition hover:bg-white/[0.06] hover:text-white/70"
+            className="flex h-8 items-center gap-1.5 rounded-full border border-white/[0.10] bg-white/[0.05] px-3.5 text-[12px] font-semibold text-white/50 transition hover:bg-white/[0.09] hover:text-white/80"
           >
-            <ArrowRight className="h-3.5 w-3.5" />
+            <span className="max-w-[120px] truncate">
+              {markets[(idx + 1) % total]?.question.split("?")[0].trim().slice(0, 22)}
+            </span>
+            <ArrowRight className="h-3 w-3 shrink-0" />
           </button>
         </div>
       </div>
