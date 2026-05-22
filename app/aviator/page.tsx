@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { AviatorClient } from "@/components/aviator/aviator-client";
+import { AviatorSidePanel } from "@/components/aviator/aviator-side-panel";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
@@ -22,7 +23,7 @@ export default async function AviatorPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell rightPanel={<AviatorSidePanel />}>
       <div className="mx-auto max-w-5xl px-3 py-4 sm:px-4">
         <div className="mb-4 flex items-center gap-3">
           <span className="text-2xl">✈️</span>
