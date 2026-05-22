@@ -22,6 +22,7 @@ export function AviatorCanvas({ state, multiplier, crashPoint, bettingEndsAt }: 
   const starsRef     = useRef<Star[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const crashedRef   = useRef(false);
+  const rayAngleRef  = useRef(0);          // persists across re-renders for smooth spin
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -52,9 +53,11 @@ export function AviatorCanvas({ state, multiplier, crashPoint, bettingEndsAt }: 
     const ctx = canvas.getContext("2d")!;
     let id: number;
     const loop = () => {
+      rayAngleRef.current += 0.004;        // ~0.23°/frame clockwise
       draw(ctx, canvas.width, canvas.height, {
         state, multiplier, crashPoint, bettingEndsAt,
-        stars: starsRef.current, particles: particlesRef.current, crashed: crashedRef.current,
+        stars: starsRef.current, particles: particlesRef.current,
+        crashed: crashedRef.current, rayAngle: rayAngleRef.current,
       });
       id = requestAnimationFrame(loop);
     };
@@ -76,26 +79,35 @@ function genStars(w: number, h: number): Star[] {
   }));
 }
 
-function drawSunburst(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: number, h: number, isCrashed: boolean) {
-  const maxR   = Math.sqrt(w * w + h * h) * 1.3;
-  const rays   = 20;
-  const spread = Math.PI * 0.85;          // fan covers ~153°
-  const base   = -Math.PI * 0.02;         // start just below horizontal
+function drawSunburst(
+  ctx: CanvasRenderingContext2D,
+  ox: number, oy: number,
+  w: number,  h: number,
+  isCrashed: boolean,
+  angle: number,
+) {
+  const maxR      = Math.sqrt(w * w + h * h) * 1.4;
+  const rayCount  = 22;
+  const sliceAngle = (Math.PI * 2) / rayCount;
 
   ctx.save();
-  for (let i = 0; i < rays; i++) {
-    if (i % 2 === 0) continue;            // only every other wedge visible
-    const a1 = base - (i / rays) * spread;
-    const a2 = a1   - (spread / rays);
+  ctx.translate(ox, oy);
+  ctx.rotate(angle);                       // spin clockwise each frame
+
+  for (let i = 0; i < rayCount; i++) {
+    if (i % 2 === 0) continue;            // alternating visible/invisible wedges
+    const a1 = i * sliceAngle;
+    const a2 = a1 + sliceAngle;
     ctx.beginPath();
-    ctx.moveTo(ox, oy);
-    ctx.arc(ox, oy, maxR, a1, a2, true);
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, maxR, a1, a2);
     ctx.closePath();
     ctx.fillStyle = isCrashed
-      ? "rgba(255,24,56,0.05)"
-      : "rgba(255,255,255,0.035)";
+      ? "rgba(255,24,56,0.055)"
+      : "rgba(255,255,255,0.032)";
     ctx.fill();
   }
+
   ctx.restore();
 }
 
@@ -107,10 +119,10 @@ function draw(
   opts: {
     state: AviatorRoundState; multiplier: number; crashPoint?: number;
     bettingEndsAt?: string | null;
-    stars: Star[]; particles: Particle[]; crashed: boolean;
+    stars: Star[]; particles: Particle[]; crashed: boolean; rayAngle: number;
   },
 ) {
-  const { state, multiplier, crashPoint, bettingEndsAt, stars, particles } = opts;
+  const { state, multiplier, crashPoint, bettingEndsAt, stars, particles, rayAngle } = opts;
   const isCrashed = state === "CRASHED";
   const isFlying  = state === "FLYING";
 
@@ -136,8 +148,8 @@ function draw(
   const MAX_X    = w * 0.92;
   const MAX_Y    = 30;
 
-  // ── Sunburst rays ────────────────────────────────────────────────────
-  drawSunburst(ctx, ORIGIN_X, ORIGIN_Y, w, h, isCrashed);
+  // ── Sunburst rays (spinning) ─────────────────────────────────────────
+  drawSunburst(ctx, ORIGIN_X, ORIGIN_Y, w, h, isCrashed, rayAngle);
 
   // ── Ground line ──────────────────────────────────────────────────────
   ctx.strokeStyle = "rgba(255,255,255,0.07)";
@@ -345,30 +357,87 @@ function drawIdleState(
   state: AviatorRoundState,
   bettingEndsAt?: string | null,
 ) {
-  // Idle plane bobbing at origin
-  const bob = Math.sin(Date.now() * 0.002) * 4;
-  drawPlane(ctx, ox + 20, oy - 18 + bob, 1);
-
+  const cx = w / 2;
+  const cy = h / 2;
   const isBetting = state === "BETTING";
-  const label     = isBetting ? "Place your bets" : "Waiting for next round";
 
-  ctx.font      = `900 ${Math.min(w * 0.048, 32)}px Inter,sans-serif`;
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(255,255,255,0.80)";
-  ctx.fillText(label, w / 2, h / 2 - 18);
+  if (isBetting) {
+    // ── BETTING: bobbing plane + countdown ──────────────────────────────
+    const bob = Math.sin(Date.now() * 0.002) * 4;
+    drawPlane(ctx, ox + 20, oy - 18 + bob, 1);
 
-  if (isBetting && bettingEndsAt) {
-    const rem = Math.max(0, Math.ceil((new Date(bettingEndsAt).getTime() - Date.now()) / 1000));
-    ctx.font      = `900 ${Math.min(w * 0.13, 78)}px Inter,sans-serif`;
-    ctx.fillStyle = rem <= 3 ? "#ff4444" : "#00ff88";
-    ctx.shadowColor= rem <= 3 ? "#ff4444" : "#00ff88";
-    ctx.shadowBlur = 28;
-    ctx.fillText(`${rem}`, w / 2, h / 2 + 50);
-    ctx.shadowBlur = 0;
+    ctx.font      = `900 ${Math.min(w * 0.048, 30)}px Inter,sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fillText("Place your bets", cx, cy - 22);
+
+    if (bettingEndsAt) {
+      const rem = Math.max(0, Math.ceil((new Date(bettingEndsAt).getTime() - Date.now()) / 1000));
+      ctx.font      = `900 ${Math.min(w * 0.14, 82)}px Inter,sans-serif`;
+      ctx.fillStyle = rem <= 3 ? "#ff1838" : "#ff1838";
+      ctx.shadowColor= rem <= 3 ? "#ff1838" : "#ff1838";
+      ctx.shadowBlur = 30;
+      ctx.fillText(`${rem}`, cx, cy + 52);
+      ctx.shadowBlur = 0;
+    }
+
   } else {
-    const dots = ".".repeat(Math.floor(Date.now() / 500) % 4);
-    ctx.font      = `bold ${Math.min(w * 0.055, 34)}px Inter,sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
-    ctx.fillText(dots, w / 2, h / 2 + 28);
+    // ── WAITING: spinning broadcast icon + text ─────────────────────────
+    const spin    = Date.now() * 0.0025;   // drives icon rotation
+    const iconR   = Math.min(w * 0.065, 42);
+
+    ctx.save();
+    ctx.translate(cx, cy - iconR * 0.6);
+    ctx.rotate(spin);
+
+    // 3 concentric arc pairs (broadcast / signal icon)
+    const radii  = [iconR * 0.38, iconR * 0.68, iconR];
+    const gap    = Math.PI * 0.38;          // gap angle between arc halves
+    radii.forEach((r, idx) => {
+      const alpha = 0.35 + idx * 0.22;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, gap / 2, Math.PI - gap / 2);
+      ctx.strokeStyle = `rgba(255,24,56,${alpha})`;
+      ctx.lineWidth   = Math.max(1.5, iconR * 0.055);
+      ctx.lineCap     = "round";
+      ctx.shadowColor = "#ff1838";
+      ctx.shadowBlur  = 6;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(0, 0, r, Math.PI + gap / 2, -gap / 2);
+      ctx.stroke();
+    });
+
+    // Center dot
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(0, 0, iconR * 0.12, 0, Math.PI * 2);
+    ctx.fillStyle = "#ff1838";
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.restore();
+
+    // "WAITING FOR NEXT ROUND" text (uppercase, Spribe style)
+    const textY = cy + iconR * 1.1;
+    const fs    = Math.min(w * 0.034, 22);
+    ctx.font        = `900 ${fs}px Inter,sans-serif`;
+    ctx.textAlign   = "center";
+    ctx.fillStyle   = "rgba(255,255,255,0.80)";
+    ctx.letterSpacing = "0.05em";
+    ctx.fillText("WAITING FOR NEXT ROUND", cx, textY);
+
+    // Red underline
+    const lineW = Math.min(w * 0.22, 180);
+    ctx.beginPath();
+    ctx.moveTo(cx - lineW / 2, textY + fs * 0.5);
+    ctx.lineTo(cx + lineW / 2, textY + fs * 0.5);
+    ctx.strokeStyle = "#ff1838";
+    ctx.lineWidth   = 2;
+    ctx.shadowColor = "#ff1838";
+    ctx.shadowBlur  = 6;
+    ctx.stroke();
+    ctx.shadowBlur  = 0;
   }
 }
