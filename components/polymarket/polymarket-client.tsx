@@ -151,7 +151,7 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_360px]">
-            <aside className="hidden rounded-lg border border-white/10 bg-[#11161a] p-4 lg:block">
+            <aside className="hidden self-start rounded-lg border border-white/10 bg-[#11161a] p-4 lg:sticky lg:top-24 lg:block">
               <div className="space-y-2 border-b border-white/10 pb-4">
                 <RailItem icon={<Radio className="h-5 w-5 text-red-400" />} label="Live" value={String(liveCount)} active />
                 <RailItem icon={<CalendarClock className="h-5 w-5" />} label="Upcoming" value={String(Math.max(0, visibleMarkets.length - liveCount))} />
@@ -305,7 +305,7 @@ function MarketDetailPanel({ market, totalLiquidity, onBet }: { market: Polymark
   const topPrice = market.outcomePrices.reduce((best, price, index) => price > best.price ? { price, label: market.outcomes[index] ?? "Outcome" } : best, { price: 0, label: "Outcome" });
 
   return (
-    <aside className="rounded-lg border border-white/10 bg-[#11161a]">
+    <aside className="self-start rounded-lg border border-white/10 bg-[#11161a] lg:sticky lg:top-24">
       <div className="border-b border-white/10 p-5">
         <div className="mb-4 flex items-start justify-between gap-3 text-slate-400">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest">
