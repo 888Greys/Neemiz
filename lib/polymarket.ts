@@ -61,19 +61,23 @@ function parseMarket(m: GammaMarket): PolymarketMarket {
 }
 
 export async function fetchMarkets(params?: {
-  limit?:    number;
-  offset?:   number;
-  tag?:      string;
+  limit?:     number;
+  offset?:    number;
+  tag?:       string;
+  order?:     "volume" | "createdAt" | "startDate" | "endDate";
+  ascending?: boolean;
 }): Promise<PolymarketMarket[]> {
-  const limit  = params?.limit  ?? 20;
-  const offset = params?.offset ?? 0;
-  const url    = new URL(`${GAMMA_API}/markets`);
-  url.searchParams.set("active", "true");
-  url.searchParams.set("closed", "false");
-  url.searchParams.set("limit",  String(limit));
-  url.searchParams.set("offset", String(offset));
-  url.searchParams.set("order",  "volume");
-  url.searchParams.set("ascending", "false");
+  const limit     = params?.limit     ?? 20;
+  const offset    = params?.offset    ?? 0;
+  const order     = params?.order     ?? "volume";
+  const ascending = params?.ascending ?? false;
+  const url       = new URL(`${GAMMA_API}/markets`);
+  url.searchParams.set("active",    "true");
+  url.searchParams.set("closed",    "false");
+  url.searchParams.set("limit",     String(limit));
+  url.searchParams.set("offset",    String(offset));
+  url.searchParams.set("order",     order);
+  url.searchParams.set("ascending", String(ascending));
   if (params?.tag) url.searchParams.set("tag", params.tag);
 
   const res = await fetch(url.toString(), {

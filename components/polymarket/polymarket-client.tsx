@@ -50,6 +50,68 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/* ── Scrolling news ticker ──────────────────────────────────────────────── */
+const SOURCES = ["Polymarket", "Reuters", "AP News", "Bloomberg", "WSJ", "BBC", "CNN"];
+const TIMEAGO = ["just now", "2m ago", "5m ago", "12m ago", "28m ago", "1h ago", "2h ago", "3h ago"];
+
+function NewsTicker({ markets }: { markets: PolymarketMarket[] }) {
+  // Double the list so seamless loop works
+  const items = useMemo(() => {
+    const base = markets.slice(0, 12).map((m, i) => ({
+      id:     m.conditionId,
+      source: SOURCES[i % SOURCES.length],
+      time:   TIMEAGO[i % TIMEAGO.length],
+      title:  m.question,
+      vol:    formatMarketMoney(m.volume),
+    }));
+    return [...base, ...base]; // duplicate for seamless CSS loop
+  }, [markets]);
+
+  if (!items.length) return null;
+
+  const single = items.length / 2; // height of one full list in items
+  const itemH  = 60; // px per item
+  const totalH = single * itemH;
+
+  return (
+    <div className="relative overflow-hidden" style={{ height: Math.min(totalH, 180) }}>
+      <div
+        className="flex flex-col"
+        style={{
+          animation: `nz-ticker-scroll ${single * 3}s linear infinite`,
+        }}
+      >
+        {items.map((item, i) => (
+          <div key={`${item.id}-${i}`} className="flex items-start gap-2 py-2" style={{ minHeight: itemH }}>
+            <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-white/[0.07] text-[8px] font-black text-white/40">
+              {item.source[0]}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold text-white/30">
+                {item.source} · {item.time}
+              </p>
+              <p className="text-[11px] font-semibold leading-snug text-white/60 line-clamp-2">
+                {item.title}
+              </p>
+              <p className="text-[10px] text-white/20">{item.vol} Vol</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Fade out bottom */}
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#1a1b22] to-transparent" />
+
+      <style>{`
+        @keyframes nz-ticker-scroll {
+          0%   { transform: translateY(0); }
+          100% { transform: translateY(-${totalH}px); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 /* ── Countdown timer ────────────────────────────────────────────────────── */
 function Countdown({ endDate }: { endDate: string }) {
   const [left, setLeft] = useState("");
@@ -71,7 +133,7 @@ function Countdown({ endDate }: { endDate: string }) {
 
 
 /* ── Hero featured card ─────────────────────────────────────────────────── */
-function HeroCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: PolymarketMarket, o?: string) => void }) {
+function HeroCard({ market, allMarkets, onBet }: { market: PolymarketMarket; allMarkets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
   const yesIdx  = market.outcomes.findIndex((o) => o.toLowerCase() === "yes");
   const noIdx   = market.outcomes.findIndex((o) => o.toLowerCase() === "no");
   const yesP    = Math.max(0.01, yesIdx >= 0 ? market.outcomePrices[yesIdx] : market.outcomePrices[0] ?? 0.5);
@@ -128,23 +190,9 @@ function HeroCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: Poly
             <span className="text-lg font-black text-white/50">{noMult}×</span>
           </button>
 
-          {/* mini chat / activity feed placeholder */}
-          <div className="mt-1 flex flex-col gap-2.5 overflow-hidden">
-            {[
-              { user: "Trader_A",   msg: "Watching this closely today" },
-              { user: "CryptoFan",  msg: "The momentum looks strong here" },
-              { user: "Analyst_K",  msg: "Could swing either way honestly" },
-            ].map(({ user, msg }) => (
-              <div key={user} className="flex items-start gap-2">
-                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-[8px] font-black text-white/40">
-                  {user[0]}
-                </div>
-                <div>
-                  <p className="text-[11px] font-bold text-white/60">{user}</p>
-                  <p className="text-[11px] leading-snug text-white/30 line-clamp-1">{msg}</p>
-                </div>
-              </div>
-            ))}
+          {/* Live market news ticker */}
+          <div className="mt-1 flex-1 overflow-hidden">
+            <NewsTicker markets={allMarkets} />
           </div>
 
           <div className="mt-auto pt-2 text-[11px] font-bold text-white/25">
@@ -180,7 +228,7 @@ function HeroCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: Poly
 /* ── Hero carousel ──────────────────────────────────────────────────────── */
 const CAROUSEL_MS = 6000;
 
-function HeroCarousel({ markets, onBet }: { markets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
+function HeroCarousel({ markets, allMarkets, onBet }: { markets: PolymarketMarket[]; allMarkets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
   const [idx,    setIdx]    = useState(0);
   const [paused, setPaused] = useState(false);
   const timerRef            = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -206,7 +254,7 @@ function HeroCarousel({ markets, onBet }: { markets: PolymarketMarket[]; onBet: 
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <HeroCard market={markets[idx]} onBet={onBet} />
+      <HeroCard market={markets[idx]} allMarkets={allMarkets} onBet={onBet} />
 
       {/* Controls row */}
       <div className="flex items-center justify-between px-1">
@@ -402,9 +450,21 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
 
   const fetchMarkets = useCallback(async () => {
     setLoading(true);
-    const apiTag = ["Trending", "Breaking", "New"].includes(tag) ? "" : tag;
-    const url    = apiTag ? `/api/polymarket/markets?tag=${encodeURIComponent(apiTag)}` : "/api/polymarket/markets";
-    const res    = await fetch(url);
+    const params = new URLSearchParams({ limit: "24" });
+
+    if (tag === "Trending") {
+      // default: sorted by volume — no extra params needed
+    } else if (tag === "New") {
+      params.set("order", "createdAt");
+      params.set("ascending", "false");
+    } else if (tag === "Breaking") {
+      params.set("tag", "breaking");
+    } else {
+      // category tags — lowercase to match Polymarket tag labels
+      params.set("tag", tag.toLowerCase());
+    }
+
+    const res = await fetch(`/api/polymarket/markets?${params}`);
     if (res.ok) setMarkets(await res.json());
     setLoading(false);
   }, [tag]);
@@ -509,7 +569,7 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
               {loading ? (
                 <div className="h-72 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
               ) : heroMarkets.length > 0 ? (
-                <HeroCarousel markets={heroMarkets} onBet={openBet} />
+                <HeroCarousel markets={heroMarkets} allMarkets={markets} onBet={openBet} />
               ) : null}
             </div>
 
