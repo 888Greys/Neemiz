@@ -92,6 +92,11 @@ export function BinaryClient() {
 
   useEffect(() => {
     const market = DERIV_MARKETS.find((item) => item.symbol === selectedSymbol) ?? DERIV_MARKETS[0];
+    let active = true;
+    let retryCount = 0;
+    let retryTimer: number | undefined;
+    let socket: WebSocket | undefined;
+
     if (!market.derivSymbol) {
       setStreamStatus("fallback");
       setStreamError("Deriv symbol unavailable");
@@ -102,73 +107,98 @@ export function BinaryClient() {
     setStreamStatus("connecting");
     setStreamError(null);
 
-    const socket = new WebSocket(DERIV_WS_URL);
+    function connect() {
+      if (!active) return;
 
-    socket.onopen = () => {
-      socket.send(JSON.stringify({
-        ticks_history: market.derivSymbol,
-        adjust_start_time: 1,
-        count: 120,
-        end: "latest",
-        style: "ticks",
-        subscribe: 1,
-      }));
-    };
+      socket = new WebSocket(DERIV_WS_URL);
 
-    socket.onmessage = (event) => {
-      const response = JSON.parse(event.data) as {
-        error?: { message?: string };
-        history?: { prices?: number[]; times?: number[] };
-        tick?: { epoch: number; quote: number };
+      socket.onopen = () => {
+        if (!active || !socket) return;
+        retryCount = 0;
+        socket.send(JSON.stringify({
+          ticks_history: market.derivSymbol,
+          adjust_start_time: 1,
+          count: 120,
+          end: "latest",
+          style: "ticks",
+          subscribe: 1,
+        }));
       };
 
-      if (response.error) {
+      socket.onmessage = (event) => {
+        if (!active) return;
+
+        let response: {
+          error?: { message?: string };
+          history?: { prices?: number[]; times?: number[] };
+          tick?: { epoch: number; quote: number };
+        };
+
+        try {
+          response = JSON.parse(event.data);
+        } catch {
+          setStreamStatus("fallback");
+          setStreamError("Deriv sent an unreadable market message");
+          return;
+        }
+
+        if (response.error) {
+          setStreamStatus("fallback");
+          setStreamError(response.error.message ?? "Deriv stream error");
+          return;
+        }
+
+        if (response.history?.prices?.length && response.history.times?.length) {
+          const history = response.history.prices.map((close, index) => {
+            const epoch = response.history?.times?.[index] ?? Math.floor(Date.now() / 1000);
+            return {
+              date: new Date(epoch * 1000).toISOString(),
+              close,
+              epoch,
+              source: true,
+            };
+          });
+
+          setLiveTicks(history.slice(-180));
+          setLastTickAt(history[history.length - 1]?.date ?? new Date().toISOString());
+        }
+
+        if (!response.tick) return;
+
+        const tick = {
+          date: new Date(response.tick.epoch * 1000).toISOString(),
+          close: response.tick.quote,
+          epoch: response.tick.epoch,
+          source: true,
+        };
+
+        setStreamStatus("live");
+        setStreamError(null);
+        setLastTickAt(tick.date);
+        setLiveTicks((current) => [...current.slice(-179), tick]);
+      };
+
+      socket.onerror = () => {
+        if (!active) return;
         setStreamStatus("fallback");
-        setStreamError(response.error.message ?? "Deriv stream error");
-        return;
-      }
-
-      if (response.history?.prices?.length && response.history.times?.length) {
-        const history = response.history.prices.map((close, index) => {
-          const epoch = response.history?.times?.[index] ?? Math.floor(Date.now() / 1000);
-          return {
-            date: new Date(epoch * 1000).toISOString(),
-            close,
-            epoch,
-            source: true,
-          };
-        });
-
-        setLiveTicks(history.slice(-180));
-        setLastTickAt(history[history.length - 1]?.date ?? new Date().toISOString());
-      }
-
-      if (!response.tick) return;
-
-      const tick = {
-        date: new Date(response.tick.epoch * 1000).toISOString(),
-        close: response.tick.quote,
-        epoch: response.tick.epoch,
-        source: true,
+        setStreamError("Deriv stream unavailable");
       };
 
-      setStreamStatus("live");
-      setStreamError(null);
-      setLastTickAt(tick.date);
-      setLiveTicks((current) => [...current.slice(-179), tick]);
-    };
+      socket.onclose = () => {
+        if (!active) return;
+        retryCount += 1;
+        setStreamStatus("fallback");
+        setStreamError("Deriv stream disconnected. Reconnecting...");
+        retryTimer = window.setTimeout(connect, Math.min(8000, 1000 * retryCount));
+      };
+    }
 
-    socket.onerror = () => {
-      setStreamStatus("fallback");
-      setStreamError("Deriv stream unavailable");
-    };
-
-    socket.onclose = () => {
-      setStreamStatus((current) => (current === "live" ? "fallback" : current));
-    };
+    connect();
 
     return () => {
-      socket.close();
+      active = false;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      socket?.close();
     };
   }, [selectedSymbol]);
 
