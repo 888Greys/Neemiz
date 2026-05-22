@@ -10,7 +10,7 @@ export const metadata = {
 
 export default function P2PPage() {
   return (
-    <AppShell rightPanel={<P2PMarketPanel />}>
+    <AppShell mainBg="bg-[#050505]" rightPanel={<P2PMarketPanel />}>
       <Suspense>
         <P2PBrowseClient />
       </Suspense>

@@ -276,16 +276,12 @@ function StatsBar() {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 mb-6">
+    <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
       {cells.map((s) => (
         <div
           key={s.label}
-          className="relative overflow-hidden bg-[#0c1118] border border-white/[0.06] rounded-2xl px-4 py-3.5 hover:border-white/[0.10] transition-colors"
+          className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#15191f] px-4 py-3 hover:border-white/[0.12] transition-colors"
         >
-          <div
-            className="absolute top-0 right-0 w-16 h-16 rounded-full opacity-10 blur-xl pointer-events-none"
-            style={{ background: s.accent }}
-          />
           <div className="flex items-center gap-1.5 mb-2">
             {s.live && <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse shrink-0" />}
             <span className="text-[11px] text-slate-500 font-medium">{s.label}</span>
@@ -303,16 +299,16 @@ function DesktopAdRow({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => vo
   const isMerchantSelling = ad.side === "SELL";
 
   return (
-    <div className="grid grid-cols-[2.5fr_1.3fr_1fr_1.3fr_1fr_120px] gap-4 items-center px-5 py-3.5 border border-white/[0.05] rounded-xl bg-[#0a0f1a] hover:bg-[#0d1320] hover:border-white/[0.09] transition-all">
+    <div className="grid grid-cols-[2.4fr_1.1fr_1fr_1.2fr_1fr_118px] gap-4 items-center px-4 py-3 border-b border-white/[0.05] bg-[#15191f] transition hover:bg-[#1b2028]">
 
       {/* Merchant */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="relative shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#6366f1] flex items-center justify-center text-white font-black text-xs shadow-lg shadow-[#3b82f6]/20">
+          <div className="w-8 h-8 rounded-lg bg-[#087cff] flex items-center justify-center text-white font-black text-xs shadow-lg shadow-[#087cff]/15">
             {ad.merchant.displayName.charAt(0).toUpperCase()}
           </div>
           {ad.merchant.isOnline && (
-            <span className="absolute -bottom-px -right-px w-2.5 h-2.5 bg-[#22c55e] border-2 border-[#0a0f1a] rounded-full" />
+            <span className="absolute -bottom-px -right-px w-2.5 h-2.5 bg-[#22c55e] border-2 border-[#15191f] rounded-full" />
           )}
         </div>
         <div className="min-w-0">
@@ -335,8 +331,8 @@ function DesktopAdRow({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => vo
 
       {/* Price */}
       <div>
-        <p className="text-white font-black text-sm">{ad.pricePerUnit.toLocaleString("en-KE")}</p>
-        <p className="text-slate-600 text-[11px]">{ad.fiat}</p>
+        <p className="text-white font-black text-base">{ad.pricePerUnit.toLocaleString("en-KE")}</p>
+        <p className="text-slate-600 text-[11px]">{ad.fiat} / {ad.crypto}</p>
       </div>
 
       {/* Available with mini progress bar */}
@@ -358,7 +354,7 @@ function DesktopAdRow({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => vo
         {ad.paymentMethods.map((m) => (
           <span
             key={m}
-            className="bg-[#3b82f6]/10 border border-[#3b82f6]/15 rounded-md px-2 py-0.5 text-[10px] font-bold text-[#60a5fa]"
+            className="bg-white/[0.05] border border-white/[0.07] rounded-md px-2 py-0.5 text-[10px] font-bold text-slate-300"
           >
             {fmtPm(m)}
           </span>
@@ -389,12 +385,12 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
   const isMerchantSelling = ad.side === "SELL";
 
   return (
-    <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl p-4 hover:border-white/[0.11] transition-colors">
+    <div className="rounded-xl border border-white/[0.07] bg-[#15191f] p-4 transition-colors hover:border-white/[0.12]">
       {/* Top row: merchant info + release time */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2.5">
           <div className="relative shrink-0">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#6366f1] flex items-center justify-center text-white font-black text-sm shadow-lg shadow-[#3b82f6]/20">
+            <div className="w-9 h-9 rounded-lg bg-[#087cff] flex items-center justify-center text-white font-black text-sm shadow-lg shadow-[#087cff]/15">
               {ad.merchant.displayName.charAt(0).toUpperCase()}
             </div>
             {ad.merchant.isOnline && (
@@ -553,20 +549,16 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
 
 function MerchantPromoBanner({ isSignedIn }: { isSignedIn: boolean }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#3b82f6]/15 bg-[#0c1118] p-5 sm:p-6">
-      {/* Subtle glow */}
-      <div className="absolute top-0 left-0 w-64 h-32 rounded-full bg-[#3b82f6]/5 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-48 h-32 rounded-full bg-[#6366f1]/5 blur-3xl pointer-events-none" />
-
+    <div className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#15191f] p-5">
       <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
         {/* Icon */}
-        <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-[#3b82f6]/10 border border-[#3b82f6]/20 shrink-0">
+        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-[#087cff]/15 border border-[#087cff]/25 shrink-0">
           <Icon name="storefront" className="text-[#3b82f6] text-xl" />
         </div>
 
         {/* Text */}
         <div className="flex-1 min-w-0">
-          <h3 className="text-white font-black text-base mb-1">Become a Verified Merchant</h3>
+          <h3 className="text-white font-black text-base mb-1">Open a merchant desk</h3>
           <p className="text-sm text-slate-500 leading-relaxed mb-3 max-w-2xl">
             Post buy &amp; sell ads at your own prices. Accept M-Pesa or bank transfers.
             All trades are escrow-protected — zero counterparty risk.
@@ -589,7 +581,7 @@ function MerchantPromoBanner({ isSignedIn }: { isSignedIn: boolean }) {
         {/* CTA */}
         <Link
           href="/p2p/merchant"
-          className="flex shrink-0 items-center gap-2 rounded-xl bg-[#3b82f6] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-[#3b82f6]/20 hover:bg-[#2563eb] transition-all active:scale-[0.97]"
+          className="flex shrink-0 items-center gap-2 rounded-xl bg-[#087cff] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-[#087cff]/20 hover:bg-[#0068d9] transition-all active:scale-[0.97]"
         >
           {isSignedIn ? "Apply Now" : "Learn More"}
           <Icon name="arrow_forward" className="text-base" />
@@ -715,113 +707,103 @@ export function P2PBrowseClient() {
 
       <P2PSubNav />
 
-      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+      <div className="w-full px-3 py-4 sm:px-4">
 
-        {/* Page heading */}
-        <div className="mb-5 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        {/* Workspace header */}
+        <div className="mb-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_460px]">
+          <div className="rounded-2xl border border-white/[0.07] bg-[#15191f] p-5">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/30">Nezeem P2P</p>
+                <h1 className="mt-1 text-2xl font-black text-white">Local crypto exchange</h1>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  Verified merchants, local payments, escrow-protected orders.
+                </p>
+              </div>
+              <div className="hidden items-center gap-3 text-xs text-slate-500 sm:flex">
+                <span className="flex items-center gap-1.5 rounded-full bg-[#22c55e]/10 px-3 py-1.5 text-[#22c55e]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+                  Escrow active
+                </span>
+                <span className="flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1.5">
+                  <Icon name="shield" className="text-[#8bc3ff] text-xs" />
+                  0% fees
+                </span>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center gap-1 rounded-xl bg-black/25 p-1">
+                {(["BUY", "SELL"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTab(t)}
+                    className={`h-10 rounded-lg px-6 text-sm font-black transition-all ${
+                      tab === t
+                        ? t === "BUY"
+                          ? "bg-[#22c55e] text-white shadow shadow-[#22c55e]/20"
+                          : "bg-red-500 text-white shadow shadow-red-500/20"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {t === "BUY" ? "Buy" : "Sell"}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {CRYPTOS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setCrypto(c)}
+                    className={`flex h-10 items-center gap-1.5 rounded-lg border px-3 text-xs font-black transition-all ${
+                      crypto === c
+                        ? "bg-[#087cff] border-[#087cff] text-white shadow shadow-[#087cff]/20"
+                        : "bg-white/[0.04] border-white/[0.07] text-slate-400 hover:border-white/20 hover:text-white"
+                    }`}
+                  >
+                    {CRYPTO_ICONS[c] && (
+                      <img src={CRYPTO_ICONS[c]} alt={c} width={15} height={15} className="h-[15px] w-[15px] rounded-full" />
+                    )}
+                    {c}
+                  </button>
+                ))}
+              </div>
+
+              <div className="ml-auto flex items-center gap-1.5">
+                {PAYMENTS.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => setPayment(p.value)}
+                    className={`h-9 rounded-lg border px-3 text-xs font-bold transition-all ${
+                      payment === p.value
+                        ? "bg-white/10 border-white/20 text-white"
+                        : "bg-white/[0.04] border-white/[0.05] text-slate-500 hover:border-white/15 hover:text-slate-300"
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+                <button
+                  onClick={fetchAds}
+                  title="Refresh"
+                  className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-white"
+                >
+                  <Icon name="refresh" className={`text-lg ${loading ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div>
-            <h1 className="text-2xl font-black text-white">P2P Trading</h1>
-            <p className="text-slate-500 text-sm mt-0.5">
-              Trade directly with verified merchants — every order is escrow-protected.
-            </p>
+            <StatsBar />
           </div>
-          <div className="flex items-center gap-3 text-xs text-slate-500 shrink-0">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
-              Escrow active
-            </span>
-            <span className="w-px h-3 bg-white/10" />
-            <span className="flex items-center gap-1">
-              <Icon name="shield" className="text-[#3b82f6] text-xs" />
-              0% fees
-            </span>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <StatsBar />
-
-        {/* Controls */}
-        <div className="mb-4 flex flex-wrap items-center gap-2.5">
-
-          {/* Buy / Sell */}
-          <div className="flex items-center gap-1 bg-white/[0.05] rounded-xl p-1">
-            {(["BUY", "SELL"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-5 py-1.5 rounded-lg text-sm font-black transition-all ${
-                  tab === t
-                    ? t === "BUY"
-                      ? "bg-[#22c55e] text-white shadow shadow-[#22c55e]/20"
-                      : "bg-red-500 text-white shadow shadow-red-500/20"
-                    : "text-slate-400 hover:text-white"
-                }`}
-              >
-                {t === "BUY" ? "Buy" : "Sell"}
-              </button>
-            ))}
-          </div>
-
-          {/* Crypto pills */}
-          <div className="flex items-center gap-1.5">
-            {CRYPTOS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCrypto(c)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all border ${
-                  crypto === c
-                    ? "bg-[#3b82f6] border-[#3b82f6] text-white shadow shadow-[#3b82f6]/20"
-                    : "bg-white/[0.04] border-white/[0.07] text-slate-400 hover:border-white/20 hover:text-white"
-                }`}
-              >
-                {CRYPTO_ICONS[c] && (
-                  <img
-                    src={CRYPTO_ICONS[c]}
-                    alt={c}
-                    width={15}
-                    height={15}
-                    className="h-[15px] w-[15px] rounded-full"
-                  />
-                )}
-                {c}
-              </button>
-            ))}
-          </div>
-
-          {/* Divider */}
-          <div className="h-5 w-px bg-white/10 hidden sm:block" />
-
-          {/* Payment filter */}
-          <div className="flex items-center gap-1.5">
-            {PAYMENTS.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPayment(p.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                  payment === p.value
-                    ? "bg-white/10 border-white/20 text-white"
-                    : "bg-white/[0.04] border-white/[0.05] text-slate-500 hover:border-white/15 hover:text-slate-300"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Refresh */}
-          <button
-            onClick={fetchAds}
-            title="Refresh"
-            className="ml-auto p-1.5 rounded-lg text-slate-600 hover:text-white hover:bg-white/[0.06] transition-colors"
-          >
-            <Icon name="refresh" className={`text-lg ${loading ? "animate-spin" : ""}`} />
-          </button>
         </div>
 
         {/* Table header — desktop only, when ads exist */}
         {!loading && ads.length > 0 && (
-          <div className="hidden sm:grid grid-cols-[2.5fr_1.3fr_1fr_1.3fr_1fr_120px] gap-4 px-5 py-2 text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">
+          <div className="hidden sm:grid grid-cols-[2.4fr_1.1fr_1fr_1.2fr_1fr_118px] gap-4 rounded-t-xl border border-b-0 border-white/[0.07] bg-[#101216] px-4 py-2 text-[10px] font-black text-slate-600 uppercase tracking-widest">
             <span>Merchant</span>
             <span>Price</span>
             <span>Available</span>
@@ -846,7 +828,7 @@ export function P2PBrowseClient() {
                 ))}
               </div>
               {/* Desktop rows */}
-              <div className="hidden space-y-1.5 sm:block">
+              <div className="hidden overflow-hidden rounded-b-xl border border-white/[0.07] sm:block">
                 {ads.map((ad) => (
                   <DesktopAdRow key={ad.id} ad={ad} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
                 ))}

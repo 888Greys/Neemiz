@@ -19,9 +19,9 @@ export function P2PSubNav() {
   const effectivePath = pathname.startsWith("/p2p/order/") ? "/p2p/orders" : pathname;
 
   return (
-    <div className="border-b border-white/[0.07] bg-[#0a0b0f]">
-      <div className="flex w-full items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center">
+    <div className="px-3 pt-3 sm:px-4">
+      <div className="flex w-full items-center justify-between rounded-2xl border border-white/[0.07] bg-[#101216] px-2">
+        <div className="no-scrollbar flex items-center overflow-x-auto">
           {TABS.map((t) => {
             const active = t.href === "/p2p"
               ? effectivePath === "/p2p"
@@ -30,10 +30,10 @@ export function P2PSubNav() {
               <Link
                 key={t.href}
                 href={t.href}
-                className={`flex items-center gap-1.5 px-4 py-3.5 text-sm font-bold border-b-2 transition-all ${
+                className={`flex h-12 items-center gap-2 rounded-xl px-4 text-sm font-black transition-all ${
                   active
-                    ? "border-[#087cff] text-white"
-                    : "border-transparent text-slate-500 hover:text-slate-300"
+                    ? "bg-[#087cff] text-white shadow-lg shadow-[#087cff]/20"
+                    : "text-slate-500 hover:bg-white/[0.04] hover:text-slate-300"
                 }`}
               >
                 <Icon name={t.icon} fill={active} className="text-[16px]" />
@@ -47,7 +47,7 @@ export function P2PSubNav() {
         {effectivePath === "/p2p" && isSignedIn && (
           <Link
             href="/p2p/merchant"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#087cff]/10 border border-[#087cff]/20 text-[#087cff] text-xs font-black hover:bg-[#087cff]/20 transition-colors"
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-white/[0.06] px-3 text-xs font-black text-white/70 transition-colors hover:bg-white/[0.1] hover:text-white"
           >
             <Icon name="add_business" className="text-sm" />
             <span className="hidden sm:inline">Post Ad</span>
