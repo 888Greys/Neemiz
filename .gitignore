@@ -15,3 +15,5 @@ npm-debug.log*
 /public/promo-ball.jpeg
 /public/promo-2.avif
 .vercel
+*.tsbuildinfo
+dev-*.log

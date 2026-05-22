@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { AppShell } from "@/components/app-shell";
 import { P2PBrowseClient } from "@/components/p2p-browse-client";
+import { P2PMarketPanel } from "@/components/p2p-market-panel";
 
 export const metadata = {
   title: "P2P Trading · Nezeem",
@@ -8,8 +10,10 @@ export const metadata = {
 
 export default function P2PPage() {
   return (
-    <AppShell>
-      <P2PBrowseClient />
+    <AppShell rightPanel={<P2PMarketPanel />}>
+      <Suspense>
+        <P2PBrowseClient />
+      </Suspense>
     </AppShell>
   );
 }

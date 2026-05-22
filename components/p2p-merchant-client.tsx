@@ -72,9 +72,9 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0d1a2e] via-[#0a1220] to-[#0d1420] border border-[#087cff]/20 p-8 mb-8 text-center">
+      <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#087cff]/20 bg-gradient-to-br from-[#0d1a2e] via-[#0a1220] to-[#0d1420] p-6 text-center sm:p-8">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-40 bg-[#087cff]/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative">
           <div className="w-16 h-16 rounded-2xl bg-[#087cff]/15 border border-[#087cff]/25 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#087cff]/10">
@@ -89,7 +89,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       </div>
 
       {/* Benefits grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { icon: "price_change",   label: "Your Prices",     desc: "Set your own spread and profit per trade" },
           { icon: "lock",           label: "Escrow Safe",     desc: "Crypto secured by Nezeem before any release" },
@@ -107,7 +107,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       </div>
 
       {/* How it works */}
-      <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl p-6 mb-8">
+      <div className="mb-5 rounded-2xl border border-white/[0.06] bg-[#0a0f1a] p-5 sm:p-6">
         <h2 className="text-white font-black text-base mb-4">How it works</h2>
         <div className="flex flex-col sm:flex-row gap-4">
           {[
@@ -136,7 +136,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       </div>
 
       {/* Application form */}
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-lg">
         <div className="bg-[#0a0f1a] border border-white/[0.07] rounded-2xl p-6">
           <h2 className="text-white font-black text-lg mb-1">Start your application</h2>
           <p className="text-slate-500 text-sm mb-5">Takes less than a minute. Reviewed within 24 hours.</p>
@@ -181,8 +181,8 @@ function ApplicationStatus({ status, onRefresh }: { status: MerchantStatus; onRe
   const isPending  = status.kycStatus === "PENDING";
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="max-w-lg mx-auto">
+    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
+      <div className="max-w-lg">
         {/* Status card */}
         <div className={`rounded-2xl border p-6 mb-6 ${
           isRejected ? "bg-red-500/[0.06] border-red-500/20" : "bg-amber-500/[0.06] border-amber-500/20"
@@ -537,11 +537,11 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   useEffect(() => { loadAds(); }, [loadAds]);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
+    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
       {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} />}
 
       {/* Merchant header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#087cff] to-[#6366f1] flex items-center justify-center text-white font-black text-xl shadow-lg shadow-[#087cff]/20">
             {status.displayName?.charAt(0).toUpperCase()}
@@ -580,7 +580,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         const listedKES     = ads.reduce((s, a) => s + Number(a.availableAmount) * Number(a.pricePerUnit), 0);
         const cryptos       = ads.map((a) => a.crypto).filter((c, idx, arr) => arr.indexOf(c) === idx);
         return (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {/* Active Ads */}
             <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-[#087cff]/20 transition-colors">
               <div className="flex items-center justify-between mb-2">
@@ -648,10 +648,12 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             {[1,2].map((i) => <div key={i} className="h-16 bg-white/[0.03] animate-pulse" />)}
           </div>
         ) : ads.length === 0 ? (
-          <div className="text-center py-16">
-            <Icon name="post_add" className="text-4xl text-slate-700 mb-3" />
-            <p className="text-slate-400 font-bold mb-1">No ads yet</p>
-            <p className="text-slate-600 text-sm mb-4">Create your first ad to start trading.</p>
+          <div className="flex min-h-[190px] flex-col items-center justify-center px-6 py-8 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
+              <Icon name="post_add" className="text-xl text-slate-500" />
+            </div>
+            <p className="mb-1 text-base font-black text-white">No ads yet</p>
+            <p className="mb-4 max-w-sm text-sm leading-6 text-slate-500">Create your first ad to start trading.</p>
             <button onClick={() => setCreate(true)} className="px-5 py-2.5 rounded-xl bg-[#087cff] text-white font-black text-sm hover:bg-[#0570e8] transition-colors">
               Create First Ad
             </button>
@@ -751,11 +753,9 @@ export function P2PMerchantClient() {
     <>
       <P2PSubNav />
       {!isSignedIn ? (
-        <div className="max-w-5xl mx-auto px-4 py-8">
-          <ApplyLanding onApplied={check} />
-        </div>
+        <ApplyLanding onApplied={check} />
       ) : loading || !status ? (
-        <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex min-h-[260px] items-center justify-center px-4 py-5 sm:px-6 lg:px-8">
           <div className="w-8 h-8 border-2 border-white/10 border-t-[#087cff] rounded-full animate-spin" />
         </div>
       ) : !status.applied ? (

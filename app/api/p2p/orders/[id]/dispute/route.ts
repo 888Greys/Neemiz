@@ -4,51 +4,66 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 
 // POST /api/p2p/orders/[id]/dispute — either party can raise a dispute after buyer marks paid
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const { id } = await params;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const dbUser = await getOrCreateUser(user.id, { email: user.email });
+    const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
-  const order = await db.p2POrder.findUnique({
-    where: { id },
-    include: { seller: { select: { userId: true } } },
-  });
-
-  if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
-
-  const isBuyer  = order.buyerId === dbUser.id;
-  const isSeller = order.seller.userId === dbUser.id;
-
-  if (!isBuyer && !isSeller) return Response.json({ error: "Forbidden" }, { status: 403 });
-  if (order.status !== "PAID") return Response.json({ error: "Can only dispute after payment is marked" }, { status: 400 });
-
-  const { reason, evidence } = await req.json();
-  if (!reason) return Response.json({ error: "Reason required" }, { status: 400 });
-
-  await db.$transaction(async (tx) => {
-    await tx.p2POrder.update({
+    const order = await db.p2POrder.findUnique({
       where: { id },
-      data: { status: "DISPUTED" },
-    });
-    await tx.p2PDispute.create({
-      data: { orderId: id, raisedById: dbUser.id, reason, evidence: evidence ?? null },
+      include: { seller: { select: { userId: true } } },
     });
 
-    // Notify the other party
-    const notifyUserId = isBuyer ? order.seller.userId : order.buyerId;
-    const raisedBy     = isBuyer ? "Buyer" : "Seller";
-    await tx.notification.create({
-      data: {
-        userId: notifyUserId,
-        type:   "p2p_dispute",
-        title:  `Dispute raised — order #${order.id.slice(0, 8).toUpperCase()}`,
-        body:   `${raisedBy} has opened a dispute. Reason: ${reason}`,
-        link:   `/p2p/order/${order.id}`,
-      },
-    });
-  });
+    if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
 
-  return Response.json({ status: "DISPUTED" });
+    const isBuyer  = order.buyerId === dbUser.id;
+    const isSeller = order.seller.userId === dbUser.id;
+
+    if (!isBuyer && !isSeller) return Response.json({ error: "Forbidden" }, { status: 403 });
+    if (order.status !== "PAID") return Response.json({ error: "Can only dispute after payment is marked" }, { status: 400 });
+
+    let reason: string | undefined;
+    let evidence: string | undefined;
+    try {
+      const body = await req.json();
+      reason   = body.reason;
+      evidence = body.evidence;
+    } catch {
+      return Response.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
+    if (!reason || typeof reason !== "string" || reason.trim().length === 0) {
+      return Response.json({ error: "Reason required" }, { status: 400 });
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.p2POrder.update({
+        where: { id },
+        data: { status: "DISPUTED" },
+      });
+      await tx.p2PDispute.create({
+        data: { orderId: id, raisedById: dbUser.id, reason: reason!.trim(), evidence: evidence ?? null },
+      });
+
+      const notifyUserId = isBuyer ? order.seller.userId : order.buyerId;
+      const raisedBy     = isBuyer ? "Buyer" : "Seller";
+      await tx.notification.create({
+        data: {
+          userId: notifyUserId,
+          type:   "p2p_dispute",
+          title:  `Dispute raised — order #${order.id.slice(0, 8).toUpperCase()}`,
+          body:   `${raisedBy} has opened a dispute. Reason: ${reason!.trim()}`,
+          link:   `/p2p/order/${order.id}`,
+        },
+      });
+    });
+
+    return Response.json({ status: "DISPUTED" });
+  } catch (err) {
+    console.error("POST /api/p2p/orders/[id]/dispute:", err instanceof Error ? err.message : "Unknown error");
+    return Response.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

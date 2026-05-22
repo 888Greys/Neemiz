@@ -91,53 +91,62 @@ export async function POST(req: Request) {
   const potentialWin = stake * totalOdds;
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
-  const result = await db.$transaction(async (tx) => {
-    // Deduct stake
-    const debited = await tx.user.updateMany({
-      where: { id: dbUser.id, walletBalance: { gte: stake } },
-      data: { walletBalance: { decrement: stake } },
-    });
-    if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+  let result: { bet: unknown; newBalance: number };
+  try {
+    result = await db.$transaction(async (tx) => {
+      // Deduct stake
+      const debited = await tx.user.updateMany({
+        where: { id: dbUser.id, walletBalance: { gte: stake } },
+        data: { walletBalance: { decrement: stake } },
+      });
+      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
-    const updated = await tx.user.findUniqueOrThrow({
-      where: { id: dbUser.id },
-      select: { walletBalance: true },
-    });
+      const updated = await tx.user.findUniqueOrThrow({
+        where: { id: dbUser.id },
+        select: { walletBalance: true },
+      });
 
-    // Record transaction
-    await tx.transaction.create({
-      data: {
-        userId: dbUser.id,
-        type: TransactionType.BET_STAKE,
-        amount: stake,
-        currency: "KES",
-        status: TransactionStatus.COMPLETED,
-      },
-    });
-
-    // Create the bet
-    const bet = await tx.bet.create({
-      data: {
-        userId: dbUser.id,
-        betType: type === "MULTI" ? BetType.MULTI : BetType.SINGLE,
-        stake,
-        totalOdds,
-        potentialWin,
-        selections: {
-          create: verifiedSelections.map((s) => ({
-            fixtureId: s.fixtureId,
-            matchName: s.matchName,
-            market: s.market,
-            label: s.label,
-            odds: s.odds,
-          })),
+      // Record transaction
+      await tx.transaction.create({
+        data: {
+          userId: dbUser.id,
+          type: TransactionType.BET_STAKE,
+          amount: stake,
+          currency: "KES",
+          status: TransactionStatus.COMPLETED,
         },
-      },
-      include: { selections: true },
-    });
+      });
 
-    return { bet, newBalance: Number(updated.walletBalance) };
-  });
+      // Create the bet
+      const bet = await tx.bet.create({
+        data: {
+          userId: dbUser.id,
+          betType: type === "MULTI" ? BetType.MULTI : BetType.SINGLE,
+          stake,
+          totalOdds,
+          potentialWin,
+          selections: {
+            create: verifiedSelections.map((s) => ({
+              fixtureId: s.fixtureId,
+              matchName: s.matchName,
+              market: s.market,
+              label: s.label,
+              odds: s.odds,
+            })),
+          },
+        },
+        include: { selections: true },
+      });
+
+      return { bet, newBalance: Number(updated.walletBalance) };
+    });
+  } catch (err) {
+    if ((err as Error).message === "INSUFFICIENT_BALANCE") {
+      return Response.json({ error: "Insufficient balance" }, { status: 400 });
+    }
+    console.error("POST /api/bets:", err instanceof Error ? err.message : "Unknown error");
+    return Response.json({ error: "Internal server error" }, { status: 500 });
+  }
 
   return Response.json(result);
 }

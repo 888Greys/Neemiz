@@ -134,9 +134,9 @@ export async function POST(req: Request) {
       });
     });
 
-    console.error("NOWPayments payout error:", err);
+    console.error("NOWPayments payout error:", err instanceof Error ? err.message : "Unknown error");
     return Response.json(
-      { error: (err as Error).message ?? "Payout failed — funds have been returned to your balance" },
+      { error: "Payout failed — funds have been returned to your balance" },
       { status: 502 },
     );
   }

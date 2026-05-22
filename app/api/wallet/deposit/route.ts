@@ -112,7 +112,7 @@ export async function POST(req: Request) {
 
     if (!providerRequestId) {
       const fallback = mpRaw ? `MegaPay rejected the request: ${mpRaw.slice(0, 180)}` : "MegaPay rejected the request.";
-      console.error("MegaPay deposit rejected:", { status: mpRes.status, body: mpData, raw: mpRaw });
+      console.error("MegaPay deposit rejected: status", mpRes.status);
       return Response.json(
         { error: providerMessage(mpData, fallback) },
         { status: 400 }
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
         },
       });
     } catch (ledgerErr) {
-      console.error("Deposit ledger write failed:", ledgerErr);
+      console.error("Deposit ledger write failed:", ledgerErr instanceof Error ? ledgerErr.message : "Unknown error");
     }
 
     return Response.json({

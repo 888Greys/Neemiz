@@ -20,7 +20,7 @@ export function P2PSubNav() {
 
   return (
     <div className="border-b border-white/[0.07] bg-[#0a0b0f]">
-      <div className="max-w-5xl w-full mx-auto px-4 flex items-center justify-between">
+      <div className="flex w-full items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center">
           {TABS.map((t) => {
             const active = t.href === "/p2p"

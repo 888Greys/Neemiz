@@ -69,13 +69,16 @@ export function P2POrdersClient() {
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
     try {
-      const res = await fetch("/api/p2p/orders");
+      const res = await fetch("/api/p2p/orders", { signal: controller.signal });
       if (res.ok) {
         const data = await res.json();
         setOrders(Array.isArray(data) ? data : []);
       }
     } catch { /* ignore */ } finally {
+      window.clearTimeout(timeout);
       setLoading(false);
     }
   }, []);
@@ -100,15 +103,15 @@ export function P2POrdersClient() {
   return (
     <>
       <P2PSubNav />
-    <div className="max-w-4xl mx-auto px-4 py-6">
+    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
       {/* Header */}
-      <div className="mb-6">
+      <div className="mb-5">
         <h1 className="text-2xl font-black text-white mb-1">My P2P Orders</h1>
         <p className="text-slate-500 text-sm">Track all your buy and sell orders.</p>
       </div>
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-2 mb-5 flex-wrap">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         {([
           { id: "all" as FilterTab,       label: `All (${tabCounts.all})` },
           { id: "pending" as FilterTab,   label: `Pending (${tabCounts.pending})` },
@@ -127,10 +130,12 @@ export function P2POrdersClient() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center bg-[#0f1623] border border-white/[0.06] rounded-2xl">
-          <Icon name="receipt_long" className="text-5xl text-slate-700 mb-4" />
-          <p className="text-white font-black text-lg mb-2">No orders yet</p>
-          <p className="text-slate-500 text-sm mb-4">
+        <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-white/[0.06] bg-[#070a10] px-6 py-8 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
+            <Icon name="receipt_long" className="text-xl text-slate-500" />
+          </div>
+          <p className="mb-1 text-base font-black text-white">No orders yet</p>
+          <p className="mb-4 max-w-sm text-sm leading-6 text-slate-500">
             {filter === "all"
               ? "You haven&apos;t placed any P2P orders yet."
               : `No ${filter} orders found.`}
