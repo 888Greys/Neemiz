@@ -20,7 +20,7 @@ export default async function PolymarketPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1520px] px-3 py-3 sm:px-4">
+      <div className="w-full px-3 py-3 sm:px-4 lg:px-5">
         <PolymarketClient userId={userId} balance={balance} />
       </div>
     </AppShell>
