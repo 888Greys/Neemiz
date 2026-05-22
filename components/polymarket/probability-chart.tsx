@@ -30,13 +30,28 @@ function formatTime(ts: number, interval: string) {
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function CustomTooltip({ active, payload, label, interval }: any) {
+type TooltipPayload = {
+  name: string;
+  value: number;
+  color: string;
+};
+
+function CustomTooltip({
+  active,
+  payload,
+  label,
+  interval,
+}: {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: number;
+  interval: string;
+}) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2.5 shadow-xl">
-      <p className="mb-1.5 text-[11px] font-bold text-white/35">{formatTime(label, interval)}</p>
-      {payload.map((entry: { name: string; value: number; color: string }) => (
+      <p className="mb-1.5 text-[11px] font-bold text-white/35">{formatTime(label ?? 0, interval)}</p>
+      {payload.map((entry) => (
         <div key={entry.name} className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: entry.color }} />
           <span className="text-[12px] font-semibold text-white/70">{entry.name}</span>
@@ -82,7 +97,7 @@ export function ProbabilityChart({ tokenIds, outcomes }: Props) {
     if (!series.length) return [];
     const allTs = new Set<number>();
     series.forEach((s) => s.history.forEach((p) => allTs.add(p.t)));
-    const sorted = [...allTs].sort((a, b) => a - b);
+    const sorted = Array.from(allTs).sort((a, b) => a - b);
 
     return sorted.map((t) => {
       const row: Record<string, number> = { t };

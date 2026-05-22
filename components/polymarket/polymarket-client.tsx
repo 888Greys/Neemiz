@@ -353,7 +353,7 @@ function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTag
   const topics = useMemo(() => {
     const map = new Map<string, number>();
     for (const m of markets) for (const t of m.tags) map.set(t, (map.get(t) ?? 0) + m.volume);
-    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag, vol]) => ({ tag, vol }));
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag, vol]) => ({ tag, vol }));
   }, [markets]);
 
   return (
