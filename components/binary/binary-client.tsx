@@ -24,6 +24,8 @@ type SelectedQuote = ForexQuote & {
 type Candle = {
   date: string;
   close: number;
+  epoch?: number;
+  source?: boolean;
 };
 
 type ForexResponse = {
@@ -50,6 +52,17 @@ type Trade = {
 
 const DEFAULT_SYMBOL = "EUR/USD";
 const SIZES = [1000, 5000, 10000, 25000, 50000];
+const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
+const DERIV_SYMBOLS: Record<string, string> = {
+  "EUR/USD": "frxEURUSD",
+  "GBP/USD": "frxGBPUSD",
+  "USD/JPY": "frxUSDJPY",
+  "USD/CHF": "frxUSDCHF",
+  "AUD/USD": "frxAUDUSD",
+  "USD/CAD": "frxUSDCAD",
+  "NZD/USD": "frxNZDUSD",
+  "EUR/GBP": "frxEURGBP",
+};
 
 const FALLBACK_DATA: ForexResponse = {
   provider: "Fallback",
@@ -113,6 +126,9 @@ export function BinaryClient() {
   const [data, setData] = useState<ForexResponse>(FALLBACK_DATA);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [streamStatus, setStreamStatus] = useState<"connecting" | "live" | "fallback">("connecting");
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const [liveTicks, setLiveTicks] = useState<Candle[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
 
   useEffect(() => {
@@ -145,8 +161,77 @@ export function BinaryClient() {
     };
   }, [selectedSymbol]);
 
-  const selected = data.selected;
-  const chart = data.candles.length > 1 ? data.candles : FALLBACK_DATA.candles;
+  useEffect(() => {
+    const derivSymbol = DERIV_SYMBOLS[selectedSymbol];
+    if (!derivSymbol) {
+      setStreamStatus("fallback");
+      setStreamError("Deriv symbol unavailable");
+      return;
+    }
+
+    setLiveTicks([]);
+    setStreamStatus("connecting");
+    setStreamError(null);
+
+    const socket = new WebSocket(DERIV_WS_URL);
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ ticks: derivSymbol, subscribe: 1 }));
+    };
+
+    socket.onmessage = (event) => {
+      const response = JSON.parse(event.data) as {
+        error?: { message?: string };
+        tick?: { epoch: number; quote: number };
+      };
+
+      if (response.error) {
+        setStreamStatus("fallback");
+        setStreamError(response.error.message ?? "Deriv stream error");
+        return;
+      }
+
+      if (!response.tick) return;
+
+      const tick = {
+        date: new Date(response.tick.epoch * 1000).toISOString(),
+        close: response.tick.quote,
+        epoch: response.tick.epoch,
+        source: true,
+      };
+
+      setStreamStatus("live");
+      setStreamError(null);
+      setLiveTicks((current) => [...current.slice(-179), tick]);
+    };
+
+    socket.onerror = () => {
+      setStreamStatus("fallback");
+      setStreamError("Deriv stream unavailable");
+    };
+
+    socket.onclose = () => {
+      setStreamStatus((current) => (current === "live" ? "fallback" : current));
+    };
+
+    return () => {
+      socket.close();
+    };
+  }, [selectedSymbol]);
+
+  const referenceSelected = data.selected;
+  const latestTick = liveTicks[liveTicks.length - 1];
+  const selected: SelectedQuote = latestTick
+    ? {
+        ...referenceSelected,
+        price: latestTick.close,
+        date: new Date((latestTick.epoch ?? Date.now() / 1000) * 1000).toISOString().slice(0, 10),
+        dayChange: latestTick.close - referenceSelected.price,
+        dayChangePct: referenceSelected.price ? ((latestTick.close - referenceSelected.price) / referenceSelected.price) * 100 : 0,
+      }
+    : referenceSelected;
+  const referenceChart = data.candles.length > 1 ? data.candles : FALLBACK_DATA.candles;
+  const chart = liveTicks.length > 1 ? liveTicks : referenceChart;
   const positive = selected.dayChangePct >= 0;
   const spread = selected.price * 0.00018;
   const bid = selected.price - spread / 2;
@@ -194,7 +279,7 @@ export function BinaryClient() {
 
   return (
     <div className="min-h-screen bg-[#07080a] px-3 pb-10 pt-4 text-white lg:px-6 lg:pt-5">
-      <div className="mb-3 grid gap-3 xl:grid-cols-[1fr_380px]">
+      <div className="mb-3 grid gap-3 xl:grid-cols-[1fr_460px]">
         <section className="flex min-w-0 flex-wrap items-center gap-3 border border-white/[0.08] bg-[#101216] px-4 py-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0d8f62]/15 text-[#33d49b]">
             <Icon name="currency_exchange" className="text-[22px]" />
@@ -205,15 +290,20 @@ export function BinaryClient() {
               <span className="rounded bg-[#33d49b]/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#33d49b]">
                 Real rates
               </span>
+              <span className={`rounded px-2 py-1 text-[10px] font-black uppercase tracking-wider ${
+                streamStatus === "live" ? "bg-sky-400/10 text-sky-300" : streamStatus === "connecting" ? "bg-amber-400/10 text-amber-300" : "bg-red-400/10 text-red-300"
+              }`}>
+                {streamStatus === "live" ? "Deriv live ticks" : streamStatus === "connecting" ? "Connecting stream" : "Stream fallback"}
+              </span>
               {loading && <span className="text-[11px] font-bold text-slate-500">Refreshing feed...</span>}
             </div>
             <p className="truncate text-xs font-bold text-slate-500">
-              Official FX reference data from {data.provider}. Orders are simulated until brokerage execution is connected.
+              Deriv WebSocket drives live ticks. Frankfurter remains the reference/history fallback.
             </p>
           </div>
           <div className="hidden items-center gap-5 md:flex">
-            <Metric label="Updated" value={formatTime(data.updatedAt)} />
-            <Metric label="Rate date" value={selected.date} />
+            <Metric label="Last tick" value={latestTick ? formatTime(latestTick.date) : formatTime(data.updatedAt)} />
+            <Metric label="Deriv ID" value={DERIV_SYMBOLS[selected.symbol] ?? "n/a"} />
             <Metric label="Open" value={String(openTrades.length)} />
           </div>
         </section>
@@ -221,13 +311,13 @@ export function BinaryClient() {
         <section className="grid grid-cols-3 gap-2">
           <MetricCard label="Exposure" value={`${exposure.toLocaleString("en-US")} units`} />
           <MetricCard label="Open P/L" value={`${estimatedPnl >= 0 ? "+" : ""}${estimatedPnl.toFixed(2)} pips`} positive={estimatedPnl >= 0} negative={estimatedPnl < 0} />
-          <MetricCard label="Feed" value={error ? "Fallback" : data.provider} negative={Boolean(error)} />
+          <MetricCard label="Feed" value={streamStatus === "live" ? "Deriv WS" : error ? "Fallback" : data.provider} negative={streamStatus === "fallback" || Boolean(error)} />
         </section>
       </div>
 
-      {error && (
+      {(error || streamError) && (
         <div className="mb-3 border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-xs font-bold text-amber-200">
-          {error}. Showing the last bundled quote while the live provider recovers.
+          {streamError ?? error}. Showing Frankfurter/reference fallback while the live stream recovers.
         </div>
       )}
 
@@ -262,8 +352,8 @@ export function BinaryClient() {
                     </span>
                   </div>
                   <div className="mt-3 flex items-center justify-between text-[11px] font-black text-slate-500">
-                    <span>{formatPrice(quote, quote.price)}</span>
-                    <span>{quote.date}</span>
+                    <span>{formatPrice(quote, quote.symbol === selected.symbol ? selected.price : quote.price)}</span>
+                    <span>{quote.symbol === selected.symbol && streamStatus === "live" ? "live" : quote.date}</span>
                   </div>
                 </button>
               );
@@ -288,7 +378,7 @@ export function BinaryClient() {
                 <QuoteBox label="Ask" value={formatPrice(selected, ask)} tone="buy" />
               </div>
             </div>
-            <ForexChart candles={chart} quote={selected} price={selected.price} />
+            <ForexChart candles={chart} mode={liveTicks.length > 1 ? "live" : "reference"} quote={selected} price={selected.price} />
           </section>
 
           <section className="grid gap-3 md:grid-cols-3">
@@ -386,8 +476,9 @@ export function BinaryClient() {
   );
 }
 
-function buildTradingSeries(candles: Candle[], quote: SelectedQuote) {
+function buildTradingSeries(candles: Candle[], quote: SelectedQuote, mode: "live" | "reference") {
   if (candles.length < 2) return candles.map((item) => ({ ...item, source: true }));
+  if (mode === "live") return candles.map((item) => ({ ...item, source: true }));
 
   const pip = pipSize(quote);
   const dense: Array<Candle & { source?: boolean }> = [];
@@ -413,8 +504,8 @@ function buildTradingSeries(candles: Candle[], quote: SelectedQuote) {
   return dense;
 }
 
-function ForexChart({ candles, price, quote }: { candles: Candle[]; price: number; quote: SelectedQuote }) {
-  const tradingSeries = buildTradingSeries(candles, quote);
+function ForexChart({ candles, mode, price, quote }: { candles: Candle[]; mode: "live" | "reference"; price: number; quote: SelectedQuote }) {
+  const tradingSeries = buildTradingSeries(candles, quote, mode);
   const values = tradingSeries.map((item) => item.close);
   const minValue = Math.min(...values, price);
   const maxValue = Math.max(...values, price);
@@ -436,7 +527,14 @@ function ForexChart({ candles, price, quote }: { candles: Candle[]; price: numbe
   const expiryX = scaleX(Math.floor(tradingSeries.length * 0.64));
   const nowX = scaleX(Math.max(0, tradingSeries.length - 1));
   const priceLevels = Array.from({ length: 5 }, (_, index) => max - (range / 4) * index);
-  const bottomLabels = ["17:56:45", "17:57", "17:57:30", "17:58", "17:58:30", "17:59", "17:59:30"];
+  const firstTime = tradingSeries[0]?.epoch ? new Date((tradingSeries[0].epoch ?? 0) * 1000) : null;
+  const lastTime = tradingSeries[tradingSeries.length - 1]?.epoch ? new Date((tradingSeries[tradingSeries.length - 1].epoch ?? 0) * 1000) : null;
+  const bottomLabels = mode === "live" && firstTime && lastTime
+    ? Array.from({ length: 7 }, (_, index) => {
+        const time = new Date(firstTime.getTime() + ((lastTime.getTime() - firstTime.getTime()) / 6) * index);
+        return time.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      })
+    : ["17:56:45", "17:57", "17:57:30", "17:58", "17:58:30", "17:59", "17:59:30"];
   const expirationTime = new Date(Date.now() + 60_000).toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
@@ -481,9 +579,10 @@ function ForexChart({ candles, price, quote }: { candles: Candle[]; price: numbe
         ))}
         <path d={area} fill="url(#forexArea)" />
         <path d={line} fill="none" stroke={stroke} strokeWidth="2.7" filter="url(#forexLineGlow)" />
-        {tradingSeries.filter((item) => item.source).map((item, index) => (
-          <circle key={item.date} cx={scaleX(index * 4)} cy={scaleY(item.close)} r="2.2" fill={stroke} opacity="0.5" />
-        ))}
+        {tradingSeries.filter((item) => item.source).map((item) => {
+          const pointIndex = tradingSeries.findIndex((point) => point.date === item.date);
+          return <circle key={item.date} cx={scaleX(Math.max(0, pointIndex))} cy={scaleY(item.close)} r={mode === "live" ? "1.8" : "2.2"} fill={stroke} opacity={mode === "live" ? "0.34" : "0.5"} />;
+        })}
         <line x1={chartLeft} x2="826" y1={priceY} y2={priceY} stroke="#66a8e8" strokeWidth="1.2" opacity="0.55" />
         <line x1={expiryX} x2={expiryX} y1="0" y2="390" stroke="rgba(255,255,255,.35)" strokeWidth="1.3" />
         <line x1={nowX} x2={nowX} y1="36" y2="356" stroke="#1ec7ff" strokeWidth="1.2" />
@@ -512,7 +611,7 @@ function ForexChart({ candles, price, quote }: { candles: Candle[]; price: numbe
           M4 <Icon name="expand_more" className="text-[15px]" />
         </button>
         <span className="rounded bg-[#1f2a3f]/90 px-3 py-2 font-mono text-xs font-black text-slate-400">
-          {candles[0]?.date} - {candles[candles.length - 1]?.date}
+          {mode === "live" ? "Deriv tick stream" : `${candles[0]?.date} - ${candles[candles.length - 1]?.date}`}
         </span>
       </div>
     </div>
