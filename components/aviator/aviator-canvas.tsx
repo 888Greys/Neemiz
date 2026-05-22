@@ -53,7 +53,7 @@ export function AviatorCanvas({ state, multiplier, crashPoint, bettingEndsAt }: 
     const ctx = canvas.getContext("2d")!;
     let id: number;
     const loop = () => {
-      rayAngleRef.current += 0.004;        // ~0.23°/frame clockwise
+      rayAngleRef.current += 0.018;        // ~1°/frame clockwise
       draw(ctx, canvas.width, canvas.height, {
         state, multiplier, crashPoint, bettingEndsAt,
         stars: starsRef.current, particles: particlesRef.current,
@@ -383,7 +383,7 @@ function drawIdleState(
 
   } else {
     // ── WAITING: spinning broadcast icon + text ─────────────────────────
-    const spin    = Date.now() * 0.0025;   // drives icon rotation
+    const spin    = Date.now() * 0.006;    // drives icon rotation
     const iconR   = Math.min(w * 0.065, 42);
 
     ctx.save();
