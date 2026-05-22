@@ -28,15 +28,6 @@ type Candle = {
   source?: boolean;
 };
 
-type ForexResponse = {
-  provider: string;
-  providerUrl: string;
-  updatedAt: string;
-  selected: SelectedQuote;
-  quotes: ForexQuote[];
-  candles: Candle[];
-};
-
 type Trade = {
   id: number;
   symbol: string;
@@ -53,47 +44,17 @@ type Trade = {
 const DEFAULT_SYMBOL = "EUR/USD";
 const SIZES = [1000, 5000, 10000, 25000, 50000];
 const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
-const DERIV_SYMBOLS: Record<string, string> = {
-  "EUR/USD": "frxEURUSD",
-  "GBP/USD": "frxGBPUSD",
-  "USD/JPY": "frxUSDJPY",
-  "USD/CHF": "frxUSDCHF",
-  "AUD/USD": "frxAUDUSD",
-  "USD/CAD": "frxUSDCAD",
-  "NZD/USD": "frxNZDUSD",
-  "EUR/GBP": "frxEURGBP",
-};
 
-const FALLBACK_DATA: ForexResponse = {
-  provider: "Fallback",
-  providerUrl: "https://frankfurter.dev",
-  updatedAt: new Date().toISOString(),
-  selected: {
-    symbol: "EUR/USD",
-    name: "Euro / US Dollar",
-    base: "EUR",
-    quote: "USD",
-    price: 1.1595,
-    date: "2026-05-22",
-    precision: 5,
-    dayChange: -0.0004,
-    dayChangePct: -0.034,
-  },
-  quotes: [
-    { symbol: "EUR/USD", name: "Euro / US Dollar", base: "EUR", quote: "USD", price: 1.1595, date: "2026-05-22", precision: 5 },
-    { symbol: "GBP/USD", name: "British Pound / US Dollar", base: "GBP", quote: "USD", price: 1.346, date: "2026-05-22", precision: 5 },
-    { symbol: "USD/JPY", name: "US Dollar / Japanese Yen", base: "USD", quote: "JPY", price: 156.42, date: "2026-05-22", precision: 3 },
-    { symbol: "USD/CHF", name: "US Dollar / Swiss Franc", base: "USD", quote: "CHF", price: 0.8079, date: "2026-05-22", precision: 5 },
-  ],
-  candles: [
-    { date: "2026-05-15", close: 1.1628 },
-    { date: "2026-05-18", close: 1.1648 },
-    { date: "2026-05-19", close: 1.162 },
-    { date: "2026-05-20", close: 1.16 },
-    { date: "2026-05-21", close: 1.1599 },
-    { date: "2026-05-22", close: 1.1595 },
-  ],
-};
+const DERIV_MARKETS: Array<ForexQuote & { derivSymbol: string }> = [
+  { symbol: "EUR/USD", derivSymbol: "frxEURUSD", name: "Euro / US Dollar", base: "EUR", quote: "USD", price: 1.16, date: "Deriv", precision: 5 },
+  { symbol: "GBP/USD", derivSymbol: "frxGBPUSD", name: "British Pound / US Dollar", base: "GBP", quote: "USD", price: 1.34, date: "Deriv", precision: 5 },
+  { symbol: "USD/JPY", derivSymbol: "frxUSDJPY", name: "US Dollar / Japanese Yen", base: "USD", quote: "JPY", price: 159.2, date: "Deriv", precision: 3 },
+  { symbol: "USD/CHF", derivSymbol: "frxUSDCHF", name: "US Dollar / Swiss Franc", base: "USD", quote: "CHF", price: 0.79, date: "Deriv", precision: 5 },
+  { symbol: "AUD/USD", derivSymbol: "frxAUDUSD", name: "Australian Dollar / US Dollar", base: "AUD", quote: "USD", price: 0.71, date: "Deriv", precision: 5 },
+  { symbol: "USD/CAD", derivSymbol: "frxUSDCAD", name: "US Dollar / Canadian Dollar", base: "USD", quote: "CAD", price: 1.38, date: "Deriv", precision: 5 },
+  { symbol: "NZD/USD", derivSymbol: "frxNZDUSD", name: "New Zealand Dollar / US Dollar", base: "NZD", quote: "USD", price: 0.65, date: "Deriv", precision: 5 },
+  { symbol: "EUR/GBP", derivSymbol: "frxEURGBP", name: "Euro / British Pound", base: "EUR", quote: "GBP", price: 0.86, date: "Deriv", precision: 5 },
+];
 
 function formatPrice(quote: Pick<ForexQuote, "precision">, value: number) {
   return value.toLocaleString("en-US", {
@@ -123,47 +84,15 @@ export function BinaryClient() {
   const [size, setSize] = useState(10000);
   const [riskPips, setRiskPips] = useState(25);
   const [targetPips, setTargetPips] = useState(45);
-  const [data, setData] = useState<ForexResponse>(FALLBACK_DATA);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [streamStatus, setStreamStatus] = useState<"connecting" | "live" | "fallback">("connecting");
   const [streamError, setStreamError] = useState<string | null>(null);
   const [liveTicks, setLiveTicks] = useState<Candle[]>([]);
+  const [lastTickAt, setLastTickAt] = useState<string>(new Date().toISOString());
   const [trades, setTrades] = useState<Trade[]>([]);
 
   useEffect(() => {
-    let alive = true;
-
-    async function loadQuotes() {
-      try {
-        setError(null);
-        const response = await fetch(`/api/forex/quotes?symbol=${encodeURIComponent(selectedSymbol)}`, {
-          cache: "no-store",
-        });
-
-        if (!response.ok) throw new Error("Forex feed unavailable");
-        const payload = (await response.json()) as ForexResponse;
-        if (alive) setData(payload);
-      } catch (err) {
-        if (alive) setError(err instanceof Error ? err.message : "Forex feed unavailable");
-      } finally {
-        if (alive) setLoading(false);
-      }
-    }
-
-    setLoading(true);
-    void loadQuotes();
-    const timer = window.setInterval(loadQuotes, 60_000);
-
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [selectedSymbol]);
-
-  useEffect(() => {
-    const derivSymbol = DERIV_SYMBOLS[selectedSymbol];
-    if (!derivSymbol) {
+    const market = DERIV_MARKETS.find((item) => item.symbol === selectedSymbol) ?? DERIV_MARKETS[0];
+    if (!market.derivSymbol) {
       setStreamStatus("fallback");
       setStreamError("Deriv symbol unavailable");
       return;
@@ -176,12 +105,20 @@ export function BinaryClient() {
     const socket = new WebSocket(DERIV_WS_URL);
 
     socket.onopen = () => {
-      socket.send(JSON.stringify({ ticks: derivSymbol, subscribe: 1 }));
+      socket.send(JSON.stringify({
+        ticks_history: market.derivSymbol,
+        adjust_start_time: 1,
+        count: 120,
+        end: "latest",
+        style: "ticks",
+        subscribe: 1,
+      }));
     };
 
     socket.onmessage = (event) => {
       const response = JSON.parse(event.data) as {
         error?: { message?: string };
+        history?: { prices?: number[]; times?: number[] };
         tick?: { epoch: number; quote: number };
       };
 
@@ -189,6 +126,21 @@ export function BinaryClient() {
         setStreamStatus("fallback");
         setStreamError(response.error.message ?? "Deriv stream error");
         return;
+      }
+
+      if (response.history?.prices?.length && response.history.times?.length) {
+        const history = response.history.prices.map((close, index) => {
+          const epoch = response.history?.times?.[index] ?? Math.floor(Date.now() / 1000);
+          return {
+            date: new Date(epoch * 1000).toISOString(),
+            close,
+            epoch,
+            source: true,
+          };
+        });
+
+        setLiveTicks(history.slice(-180));
+        setLastTickAt(history[history.length - 1]?.date ?? new Date().toISOString());
       }
 
       if (!response.tick) return;
@@ -202,6 +154,7 @@ export function BinaryClient() {
 
       setStreamStatus("live");
       setStreamError(null);
+      setLastTickAt(tick.date);
       setLiveTicks((current) => [...current.slice(-179), tick]);
     };
 
@@ -219,19 +172,25 @@ export function BinaryClient() {
     };
   }, [selectedSymbol]);
 
-  const referenceSelected = data.selected;
+  const selectedMarket = DERIV_MARKETS.find((item) => item.symbol === selectedSymbol) ?? DERIV_MARKETS[0];
   const latestTick = liveTicks[liveTicks.length - 1];
+  const firstTick = liveTicks[0];
   const selected: SelectedQuote = latestTick
     ? {
-        ...referenceSelected,
+        ...selectedMarket,
         price: latestTick.close,
         date: new Date((latestTick.epoch ?? Date.now() / 1000) * 1000).toISOString().slice(0, 10),
-        dayChange: latestTick.close - referenceSelected.price,
-        dayChangePct: referenceSelected.price ? ((latestTick.close - referenceSelected.price) / referenceSelected.price) * 100 : 0,
+        dayChange: latestTick.close - (firstTick?.close ?? selectedMarket.price),
+        dayChangePct: (firstTick?.close ?? selectedMarket.price) ? ((latestTick.close - (firstTick?.close ?? selectedMarket.price)) / (firstTick?.close ?? selectedMarket.price)) * 100 : 0,
       }
-    : referenceSelected;
-  const referenceChart = data.candles.length > 1 ? data.candles : FALLBACK_DATA.candles;
-  const chart = liveTicks.length > 1 ? liveTicks : referenceChart;
+    : { ...selectedMarket, dayChange: 0, dayChangePct: 0 };
+  const chart = useMemo(
+    () =>
+      liveTicks.length > 1
+        ? liveTicks
+        : [{ date: lastTickAt, close: selectedMarket.price, epoch: Math.floor(new Date(lastTickAt).getTime() / 1000), source: true }],
+    [lastTickAt, liveTicks, selectedMarket.price],
+  );
   const positive = selected.dayChangePct >= 0;
   const spread = selected.price * 0.00018;
   const bid = selected.price - spread / 2;
@@ -295,15 +254,14 @@ export function BinaryClient() {
               }`}>
                 {streamStatus === "live" ? "Deriv live ticks" : streamStatus === "connecting" ? "Connecting stream" : "Stream fallback"}
               </span>
-              {loading && <span className="text-[11px] font-bold text-slate-500">Refreshing feed...</span>}
             </div>
             <p className="truncate text-xs font-bold text-slate-500">
-              Deriv WebSocket drives live ticks. Frankfurter remains the reference/history fallback.
+              Deriv WebSocket provides tick history and live forex ticks for the chart.
             </p>
           </div>
           <div className="hidden items-center gap-5 md:flex">
-            <Metric label="Last tick" value={latestTick ? formatTime(latestTick.date) : formatTime(data.updatedAt)} />
-            <Metric label="Deriv ID" value={DERIV_SYMBOLS[selected.symbol] ?? "n/a"} />
+            <Metric label="Last tick" value={formatTime(lastTickAt)} />
+            <Metric label="Deriv ID" value={selectedMarket.derivSymbol} />
             <Metric label="Open" value={String(openTrades.length)} />
           </div>
         </section>
@@ -311,13 +269,13 @@ export function BinaryClient() {
         <section className="grid grid-cols-3 gap-2">
           <MetricCard label="Exposure" value={`${exposure.toLocaleString("en-US")} units`} />
           <MetricCard label="Open P/L" value={`${estimatedPnl >= 0 ? "+" : ""}${estimatedPnl.toFixed(2)} pips`} positive={estimatedPnl >= 0} negative={estimatedPnl < 0} />
-          <MetricCard label="Feed" value={streamStatus === "live" ? "Deriv WS" : error ? "Fallback" : data.provider} negative={streamStatus === "fallback" || Boolean(error)} />
+          <MetricCard label="Feed" value={streamStatus === "live" ? "Deriv WS" : streamStatus === "connecting" ? "Connecting" : "Deriv retry"} negative={streamStatus === "fallback"} />
         </section>
       </div>
 
-      {(error || streamError) && (
+      {streamError && (
         <div className="mb-3 border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-xs font-bold text-amber-200">
-          {streamError ?? error}. Showing Frankfurter/reference fallback while the live stream recovers.
+          {streamError}. Waiting for Deriv to reconnect.
         </div>
       )}
 
@@ -329,7 +287,7 @@ export function BinaryClient() {
           </div>
 
           <div className="space-y-2">
-            {data.quotes.map((quote) => {
+            {DERIV_MARKETS.map((quote) => {
               const active = quote.symbol === selected.symbol;
               return (
                 <button
