@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
-import { ArrowRight, ChevronRight, Search, TrendingUp, Zap, Flame } from "lucide-react";
-import { MarketCard, formatEndDate, formatMarketMoney } from "./market-card";
+import { ArrowLeft, ArrowRight, Bookmark, ChevronRight, Flame, Search, TrendingUp, Zap } from "lucide-react";
+import { formatEndDate, formatMarketMoney } from "./market-card";
 import { BetModal }   from "./bet-modal";
 import { toast }      from "@/lib/toast";
 import type { PolymarketMarket } from "@/lib/polymarket";
@@ -11,9 +11,9 @@ import type { PolymarketMarket } from "@/lib/polymarket";
 const TAGS = [
   "Trending", "Breaking", "New",
   "Politics", "Sports", "Crypto",
-  "Esports", "Finance", "Geopolitics",
-  "Tech", "Culture", "Economy",
-  "Weather", "Elections",
+  "Esports", "Iran", "Finance",
+  "Geopolitics", "Tech", "Culture",
+  "Economy", "Weather", "Mentions", "Elections",
 ];
 
 interface MyBet {
@@ -49,171 +49,252 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-/* ── Tiny sparkline bars ───────────────────────────────────────────────── */
-function MiniBar({ pct, up }: { pct: number; up: boolean }) {
+/* ── Countdown timer ────────────────────────────────────────────────────── */
+function Countdown({ endDate }: { endDate: string }) {
+  const [left, setLeft] = useState("");
+  useEffect(() => {
+    function tick() {
+      const ms = new Date(endDate).getTime() - Date.now();
+      if (ms <= 0) { setLeft("Ended"); return; }
+      const h = Math.floor(ms / 3_600_000);
+      const m = Math.floor((ms % 3_600_000) / 60_000);
+      const s = Math.floor((ms % 60_000) / 1_000);
+      setLeft(h > 0 ? `${h}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}` : `${m}:${String(s).padStart(2,"0")}`);
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [endDate]);
+  return <span className="font-black text-red-400 tabular-nums">{left}</span>;
+}
+
+/* ── Decorative probability chart ───────────────────────────────────────── */
+function ProbChart({ pct }: { pct: number }) {
+  const pts = useMemo(() => {
+    const arr: number[] = [];
+    let v = 50;
+    for (let i = 0; i < 40; i++) {
+      v += (Math.random() - 0.48) * 4;
+      v = Math.max(10, Math.min(90, v));
+      arr.push(v);
+    }
+    arr.push(pct * 100);
+    return arr;
+  }, [pct]);
+
+  const w = 400, h = 100;
+  const path = pts.map((p, i) => {
+    const x = (i / (pts.length - 1)) * w;
+    const y = h - (p / 100) * h;
+    return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+
+  const targetY = h - (50 / 100) * h;
+
   return (
-    <div className="flex h-5 items-end gap-px">
-      {[0.4, 0.6, 0.5, 0.8, up ? 1 : 0.3, up ? 0.9 : 0.2].map((h, i) => (
-        <div
-          key={i}
-          className="w-[3px] rounded-sm"
-          style={{
-            height: `${h * 100}%`,
-            background: up ? "#31c45d" : "#ef4444",
-            opacity: 0.6 + h * 0.4,
-          }}
-        />
-      ))}
-    </div>
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="h-full w-full">
+      {/* Target dashed line */}
+      <line x1="0" y1={targetY} x2={w} y2={targetY} stroke="#6b7280" strokeWidth="1" strokeDasharray="4 4" />
+      {/* Price line */}
+      <path d={path} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Dot at end */}
+      <circle cx={w} cy={h - (pts[pts.length - 1] / 100) * h} r="4" fill="#f59e0b" />
+      {/* Target label */}
+      <rect x={w - 72} y={targetY - 11} width={68} height={20} rx="4" fill="#374151" />
+      <text x={w - 38} y={targetY + 4} textAnchor="middle" fill="#d1d5db" fontSize="10" fontWeight="700">Target</text>
+    </svg>
   );
 }
 
-/* ── Hero featured market card ─────────────────────────────────────────── */
-function HeroCard({ market, onBet }: { market: PolymarketMarket; onBet: (market: PolymarketMarket, outcome?: string) => void }) {
+/* ── Hero featured card ─────────────────────────────────────────────────── */
+function HeroCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: PolymarketMarket, o?: string) => void }) {
   const yesIdx  = market.outcomes.findIndex((o) => o.toLowerCase() === "yes");
   const noIdx   = market.outcomes.findIndex((o) => o.toLowerCase() === "no");
-  const yesP    = yesIdx >= 0 ? market.outcomePrices[yesIdx] : market.outcomePrices[0] ?? 0.5;
-  const noP     = noIdx  >= 0 ? market.outcomePrices[noIdx]  : market.outcomePrices[1] ?? (1 - yesP);
+  const yesP    = Math.max(0.01, yesIdx >= 0 ? market.outcomePrices[yesIdx] : market.outcomePrices[0] ?? 0.5);
+  const noP     = Math.max(0.01, noIdx  >= 0 ? market.outcomePrices[noIdx]  : market.outcomePrices[1] ?? 1 - yesP);
   const yesLbl  = yesIdx >= 0 ? market.outcomes[yesIdx] : market.outcomes[0] ?? "Yes";
   const noLbl   = noIdx  >= 0 ? market.outcomes[noIdx]  : market.outcomes[1] ?? "No";
+  const yesMult = yesP > 0 ? (1 / yesP).toFixed(2) : "—";
+  const noMult  = noP  > 0 ? (1 / noP).toFixed(2)  : "—";
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#16171c]">
-      {/* Background image blurred */}
-      {market.image && (
-        <div className="absolute inset-0">
-          <Image
-            src={market.image}
-            alt=""
-            fill
-            unoptimized
-            className="object-cover opacity-[0.07] blur-sm"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#16171c] via-[#16171c]/95 to-[#16171c]/60" />
+    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a1b22]">
+      {/* ── Top header row ── */}
+      <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 pt-4 pb-3">
+        <div className="flex items-center gap-3">
+          {market.image ? (
+            <Image src={market.image} alt="" width={44} height={44} unoptimized className="h-11 w-11 shrink-0 rounded-xl object-cover" />
+          ) : (
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500 text-xl font-black text-white">?</div>
+          )}
+          <div>
+            <p className="text-lg font-black leading-tight text-white">{market.question}</p>
+            <p className="text-[11px] text-white/35">{formatEndDate(market.endDate)} · {market.tags.slice(0,2).join(" · ")}</p>
+          </div>
         </div>
-      )}
+        <div className="hidden items-center gap-8 sm:flex">
+          <div className="text-right">
+            <p className="text-[11px] font-bold text-white/35">Top outcome</p>
+            <p className="text-xl font-black text-white">{(yesP * 100).toFixed(0)}%</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] font-bold text-white/35">Ends in</p>
+            <p className="text-xl"><Countdown endDate={market.endDate} /></p>
+          </div>
+        </div>
+      </div>
 
-      <div className="relative z-10 flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:gap-8">
-        {/* Left: text content */}
-        <div className="flex-1 min-w-0">
-          {/* Tag strip */}
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            {market.tags.slice(0, 2).map((t) => (
-              <span key={t} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-white/40">
-                {t}
-              </span>
+      {/* ── Outcome buttons + chart ── */}
+      <div className="grid grid-cols-1 gap-0 sm:grid-cols-[300px_1fr]">
+        {/* Left: buttons + stats */}
+        <div className="flex flex-col gap-3 border-r border-white/[0.06] p-5">
+          <button
+            onClick={() => onBet(market, yesLbl)}
+            className="flex h-14 items-center justify-between rounded-xl px-5 transition"
+            style={{ background: "rgba(133,77,14,0.55)" }}
+          >
+            <span className="text-sm font-black uppercase tracking-wide text-amber-300">{yesLbl}</span>
+            <span className="text-lg font-black text-white">{yesMult}×</span>
+          </button>
+          <button
+            onClick={() => onBet(market, noLbl)}
+            className="flex h-14 items-center justify-between rounded-xl bg-white/[0.07] px-5 transition hover:bg-white/[0.11]"
+          >
+            <span className="text-sm font-black uppercase tracking-wide text-white/60">{noLbl}</span>
+            <span className="text-lg font-black text-white/50">{noMult}×</span>
+          </button>
+
+          {/* mini chat / activity feed placeholder */}
+          <div className="mt-1 flex flex-col gap-2.5 overflow-hidden">
+            {[
+              { user: "Trader_A",   msg: "Watching this closely today" },
+              { user: "CryptoFan",  msg: "The momentum looks strong here" },
+              { user: "Analyst_K",  msg: "Could swing either way honestly" },
+            ].map(({ user, msg }) => (
+              <div key={user} className="flex items-start gap-2">
+                <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-[8px] font-black text-white/40">
+                  {user[0]}
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-white/60">{user}</p>
+                  <p className="text-[11px] leading-snug text-white/30 line-clamp-1">{msg}</p>
+                </div>
+              </div>
             ))}
-            <span className="text-[11px] text-white/30">Ends {formatEndDate(market.endDate)}</span>
           </div>
 
-          <h2 className="text-2xl font-black leading-snug text-white sm:text-3xl">
-            {market.question}
-          </h2>
-
-          <div className="mt-4 flex items-center gap-5 text-sm text-white/40">
-            <span><span className="font-black text-white/60">{formatMarketMoney(market.volume)}</span> vol.</span>
-            <span><span className="font-black text-white/60">{formatMarketMoney(market.liquidity)}</span> liq.</span>
-          </div>
-
-          {/* Probability bar */}
-          <div className="mt-5">
-            <div className="mb-2 flex items-center justify-between text-xs font-bold">
-              <span className="text-[#31c45d]">{yesLbl} · {(yesP * 100).toFixed(0)}%</span>
-              <span className="text-red-400">{noLbl} · {(noP * 100).toFixed(0)}%</span>
-            </div>
-            <div className="flex h-2 overflow-hidden rounded-full bg-white/10">
-              <div className="rounded-full bg-[#31c45d] transition-all" style={{ width: `${Math.min(100, yesP * 100)}%` }} />
-              <div className="ml-auto rounded-full bg-red-500/60 transition-all" style={{ width: `${Math.min(100, noP * 100)}%` }} />
-            </div>
-          </div>
-
-          {/* Bet buttons */}
-          <div className="mt-5 flex gap-3">
-            <button
-              onClick={() => onBet(market, yesLbl)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#31c45d]/15 py-3 text-sm font-black text-[#31c45d] transition hover:bg-[#31c45d]/25"
-            >
-              {yesLbl}
-              <span className="font-mono text-white">{(yesP * 100).toFixed(0)}¢</span>
-            </button>
-            <button
-              onClick={() => onBet(market, noLbl)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500/15 py-3 text-sm font-black text-red-400 transition hover:bg-red-500/25"
-            >
-              {noLbl}
-              <span className="font-mono text-white">{(noP * 100).toFixed(0)}¢</span>
-            </button>
+          <div className="mt-auto pt-2 text-[11px] font-bold text-white/25">
+            {formatMarketMoney(market.volume)} Vol.
           </div>
         </div>
 
-        {/* Right: market image */}
-        {market.image && (
-          <div className="hidden shrink-0 sm:block">
-            <Image
-              src={market.image}
-              alt=""
-              width={200}
-              height={160}
-              unoptimized
-              className="h-40 w-48 rounded-xl object-cover ring-1 ring-white/10"
-            />
+        {/* Right: chart */}
+        <div className="relative flex flex-col">
+          <div className="flex items-center justify-between px-5 pt-4 pb-2">
+            <div>
+              <p className="text-[11px] text-white/35">Probability</p>
+              <p className="text-2xl font-black text-amber-400">{(yesP * 100).toFixed(0)}%</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-white/35">Baseline</p>
+              <p className="text-xl font-black text-white/50">50%</p>
+            </div>
           </div>
-        )}
+          <div className="flex-1 px-3 pb-3" style={{ minHeight: 110 }}>
+            <ProbChart pct={yesP} />
+          </div>
+          <div className="flex items-center justify-between border-t border-white/[0.05] px-5 py-2">
+            <span className="flex items-center gap-1.5 text-[11px] text-white/30">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" />
+              LIVE
+            </span>
+            <span className="text-[11px] font-bold text-white/20">Nezeem Predictions</span>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ── Right-sidebar: Breaking news ──────────────────────────────────────── */
-function BreakingNews({ markets, onBet }: { markets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
-  const items = markets.slice(0, 4);
+/* ── Hero carousel (wraps multiple hero markets) ───────────────────────── */
+function HeroCarousel({ markets, onBet }: { markets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
+  const [idx, setIdx] = useState(0);
+  const total = Math.min(markets.length, 6);
+
+  if (total === 0) return null;
+  const cur = markets[idx];
+
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-[#16171c] p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Zap className="h-4 w-4 text-amber-400" />
-          <span className="text-sm font-black text-white">Breaking news</span>
+    <div className="flex flex-col gap-3">
+      <HeroCard market={cur} onBet={onBet} />
+      {/* Dot nav + prev/next */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-1.5">
+          {Array.from({ length: total }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setIdx(i)}
+              className={`rounded-full transition-all ${i === idx ? "w-6 h-1.5 bg-white/60" : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"}`}
+            />
+          ))}
         </div>
-        <button className="text-[11px] font-bold text-white/30 hover:text-white/60 flex items-center gap-1">
-          More <ChevronRight className="h-3 w-3" />
+        <div className="flex items-center gap-2">
+          {idx > 0 && (
+            <button
+              onClick={() => setIdx(i => Math.max(0, i - 1))}
+              className="flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] px-3 text-[12px] font-bold text-white/40 hover:bg-white/[0.05] hover:text-white/70"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {markets[idx - 1]?.question.slice(0, 20)}…
+            </button>
+          )}
+          {idx < total - 1 && (
+            <button
+              onClick={() => setIdx(i => Math.min(total - 1, i + 1))}
+              className="flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] px-3 text-[12px] font-bold text-white/40 hover:bg-white/[0.05] hover:text-white/70"
+            >
+              {markets[idx + 1]?.question.slice(0, 20)}…
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Breaking news sidebar ──────────────────────────────────────────────── */
+function BreakingNews({ markets, onBet }: { markets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
+  return (
+    <div className="rounded-2xl border border-white/[0.08] bg-[#1a1b22] p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-[15px] font-black text-white">Breaking news</span>
+        <button className="flex items-center gap-0.5 text-[12px] text-white/35 hover:text-white/60">
+          <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-
-      <div className="space-y-3">
-        {items.map((m) => {
-          const topIdx = m.outcomePrices.reduce((best, p, i) => p > m.outcomePrices[best] ? i : best, 0);
-          const topPct = Math.round((m.outcomePrices[topIdx] ?? 0.5) * 100);
-          const topLbl = m.outcomes[topIdx] ?? "Yes";
-          const up     = (m.outcomePrices[0] ?? 0.5) > 0.5;
-
+      <div className="flex flex-col divide-y divide-white/[0.05]">
+        {markets.slice(0, 3).map((m, i) => {
+          const yesIdx = m.outcomes.findIndex((o) => o.toLowerCase() === "yes");
+          const p1 = Math.round((yesIdx >= 0 ? m.outcomePrices[yesIdx] : m.outcomePrices[0] ?? 0.5) * 100);
+          const p2 = Math.round((m.outcomePrices[1] ?? (1 - p1 / 100)) * 100);
+          const up = p1 > 50;
           return (
             <button
               key={m.conditionId}
               onClick={() => onBet(m)}
-              className="group flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition hover:bg-white/[0.04]"
+              className="flex items-start gap-3 py-3.5 text-left transition hover:opacity-80 first:pt-0 last:pb-0"
             >
-              {m.image && (
-                <Image
-                  src={m.image}
-                  alt=""
-                  width={40}
-                  height={40}
-                  unoptimized
-                  className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                />
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold leading-snug text-white/80 line-clamp-2 group-hover:text-white">
-                  {m.question}
+              <span className="mt-0.5 w-4 shrink-0 text-[12px] font-black text-white/25">{i + 1}</span>
+              <p className="flex-1 text-[13px] font-semibold leading-snug text-white/80 line-clamp-2">
+                {m.question}
+              </p>
+              <div className="shrink-0 text-right">
+                <p className="text-[13px] font-black text-white">{p1}%</p>
+                <p className={`text-[11px] font-bold ${up ? "text-[#31c45d]" : "text-red-400"}`}>
+                  {up ? "↑" : "↓"}{p2}%
                 </p>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <span className={`text-[11px] font-black ${up ? "text-[#31c45d]" : "text-red-400"}`}>
-                    {topLbl} {topPct}%
-                  </span>
-                  <span className="text-[10px] text-white/25">{formatMarketMoney(m.volume)} vol</span>
-                </div>
               </div>
-              <MiniBar pct={topPct} up={up} />
             </button>
           );
         })}
@@ -222,53 +303,101 @@ function BreakingNews({ markets, onBet }: { markets: PolymarketMarket[]; onBet: 
   );
 }
 
-/* ── Right-sidebar: Hot topics ─────────────────────────────────────────── */
-function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTagClick: (tag: string) => void }) {
+/* ── Hot topics sidebar ─────────────────────────────────────────────────── */
+function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTagClick: (t: string) => void }) {
   const topics = useMemo(() => {
     const map = new Map<string, number>();
-    for (const m of markets) {
-      for (const tag of m.tags) {
-        map.set(tag, (map.get(tag) ?? 0) + m.volume);
-      }
-    }
-    return [...map.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([tag, vol]) => ({ tag, vol }));
+    for (const m of markets) for (const t of m.tags) map.set(t, (map.get(t) ?? 0) + m.volume);
+    return [...map.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag, vol]) => ({ tag, vol }));
   }, [markets]);
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-[#16171c] p-5">
-      <div className="mb-4 flex items-center gap-2">
-        <Flame className="h-4 w-4 text-orange-400" />
-        <span className="text-sm font-black text-white">Hot topics</span>
+    <div className="rounded-2xl border border-white/[0.08] bg-[#1a1b22] p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-[15px] font-black text-white">Hot topics</span>
+        <button className="flex items-center gap-0.5 text-[12px] text-white/35 hover:text-white/60">
+          <ChevronRight className="h-4 w-4" />
+        </button>
       </div>
-
-      <div className="space-y-1">
+      <div className="flex flex-col divide-y divide-white/[0.05]">
         {topics.map(({ tag, vol }, i) => (
           <button
             key={tag}
             onClick={() => onTagClick(tag)}
-            className="flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left transition hover:bg-white/[0.04]"
+            className="flex items-center gap-3 py-3 text-left transition hover:opacity-80 first:pt-0 last:pb-0"
           >
-            <div className="flex items-center gap-3">
-              <span className="w-4 text-center text-[11px] font-black text-white/20">{i + 1}</span>
-              <span className="text-[13px] font-semibold text-white/70">{tag}</span>
-            </div>
-            <span className="text-[11px] font-bold text-white/35">{formatMarketMoney(vol)} today</span>
+            <span className="w-4 shrink-0 text-[12px] font-black text-white/25">{i + 1}</span>
+            <span className="flex-1 text-[14px] font-bold text-white/80">{tag}</span>
+            <span className="text-[12px] text-white/35">{formatMarketMoney(vol)} today</span>
+            <Flame className="h-4 w-4 shrink-0 text-orange-400" />
+            <ChevronRight className="h-4 w-4 shrink-0 text-white/20" />
           </button>
         ))}
       </div>
-
-      <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] py-2.5 text-sm font-black text-white/50 transition hover:border-white/15 hover:text-white/80">
+      <button className="mt-4 w-full rounded-xl border border-white/[0.08] py-2.5 text-[13px] font-black text-white/40 transition hover:bg-white/[0.04] hover:text-white/70">
         Explore all
-        <ArrowRight className="h-4 w-4" />
       </button>
     </div>
   );
 }
 
-/* ── Main component ────────────────────────────────────────────────────── */
+/* ── Compact 4-col market card ──────────────────────────────────────────── */
+function CompactCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: PolymarketMarket, o?: string) => void }) {
+  const outcomes = market.outcomes.slice(0, 3);
+  const prices   = market.outcomePrices;
+
+  return (
+    <div className="flex flex-col rounded-2xl border border-white/[0.07] bg-[#1a1b22] p-4 transition hover:border-white/[0.14] hover:bg-[#1f2029]">
+      {/* Header */}
+      <div className="mb-3 flex items-start gap-2.5">
+        {market.image ? (
+          <Image src={market.image} alt="" width={36} height={36} unoptimized className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+        ) : (
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-[10px] font-black text-white/30">?</div>
+        )}
+        <p className="text-[13px] font-semibold leading-snug text-white/85 line-clamp-2">{market.question}</p>
+      </div>
+
+      {/* Outcome rows */}
+      <div className="flex flex-col gap-1.5 flex-1">
+        {outcomes.map((outcome, i) => {
+          const p = Math.round((prices[i] ?? 0.5) * 100);
+          return (
+            <div key={`${outcome}-${i}`} className="flex items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-[12px] text-white/50">{outcome}</span>
+              <span className="w-9 shrink-0 text-right text-[12px] font-black text-white/70">{p}%</span>
+              <button
+                onClick={() => onBet(market, outcome)}
+                className="h-6 rounded-md bg-[#31c45d]/15 px-2 text-[11px] font-black text-[#31c45d] transition hover:bg-[#31c45d]/25"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => onBet(market, `No — ${outcome}`)}
+                className="h-6 rounded-md bg-red-500/15 px-2 text-[11px] font-black text-red-400 transition hover:bg-red-500/25"
+              >
+                No
+              </button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div className="mt-3 flex items-center justify-between border-t border-white/[0.05] pt-2.5">
+        <span className="text-[11px] font-bold text-white/25">{formatMarketMoney(market.volume)} Vol.</span>
+        <div className="flex items-center gap-2">
+          <button className="text-white/15 hover:text-white/40 transition">
+            <Bookmark className="h-3.5 w-3.5" />
+          </button>
+          <span className="text-[10px] text-white/20">{formatEndDate(market.endDate)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Main component ─────────────────────────────────────────────────────── */
 export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   const [markets,  setMarkets]  = useState<PolymarketMarket[]>([]);
   const [myBets,   setMyBets]   = useState<MyBet[]>([]);
@@ -278,6 +407,7 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   const [ticket,   setTicket]   = useState<{ market: PolymarketMarket; outcome?: string } | null>(null);
   const [balance,  setBalance]  = useState(initialBalance);
   const [search,   setSearch]   = useState("");
+  const tagBarRef = useRef<HTMLDivElement>(null);
 
   const fetchMarkets = useCallback(async () => {
     setLoading(true);
@@ -318,58 +448,55 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
     return markets.filter((m) => m.question.toLowerCase().includes(q) || m.tags.some((t) => t.toLowerCase().includes(q)));
   }, [markets, search]);
 
-  const hero        = filtered[0] ?? null;
-  const gridMarkets = filtered.slice(1);
+  // Top markets by volume for hero carousel
+  const heroMarkets = useMemo(() => [...markets].sort((a, b) => b.volume - a.volume).slice(0, 6), [markets]);
+  // Breaking news = highest volume after hero
+  const breakingMarkets = useMemo(() => [...markets].sort((a, b) => b.volume - a.volume), [markets]);
+  // Grid = all filtered except the hero (first in filtered)
+  const gridMarkets = filtered;
+
+  const openBet = (market: PolymarketMarket, outcome?: string) => setTicket({ market, outcome });
 
   return (
     <div className="flex flex-col gap-0 text-white">
 
-      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      {/* ── Search + balance bar ─────────────────────────────────────────── */}
       <div className="mb-4 flex items-center gap-3">
-        {/* Search */}
-        <div className="flex h-11 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#16171c] px-4">
+        <div className="flex h-10 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#1a1b22] px-4">
           <Search className="h-4 w-4 shrink-0 text-white/25" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search markets…"
-            className="flex-1 bg-transparent text-[14px] font-semibold text-white outline-none placeholder:text-white/25"
+            className="flex-1 bg-transparent text-[13px] font-semibold text-white outline-none placeholder:text-white/25"
           />
-          {search && (
-            <button onClick={() => setSearch("")} className="text-white/30 hover:text-white/60 text-xs">✕</button>
-          )}
+          {search && <button onClick={() => setSearch("")} className="text-[11px] text-white/30 hover:text-white/60">✕</button>}
         </div>
-
-        {/* Balance */}
-        <div className="hidden h-11 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#16171c] px-4 sm:flex">
+        <div className="hidden h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#1a1b22] px-4 sm:flex">
           <span className="text-[11px] font-black uppercase tracking-widest text-white/25">Balance</span>
           <span className="font-black text-white">KSh {Math.floor(balance).toLocaleString()}</span>
         </div>
-
-        {/* My Bets toggle */}
         <button
           onClick={() => setTab(tab === "browse" ? "my-bets" : "browse")}
-          className={`h-11 rounded-xl px-4 text-sm font-black transition ${
-            tab === "my-bets"
-              ? "bg-[#087cff] text-white"
-              : "border border-white/[0.08] bg-[#16171c] text-white/50 hover:text-white"
+          className={`h-10 rounded-xl px-4 text-[13px] font-black transition ${
+            tab === "my-bets" ? "bg-[#087cff] text-white" : "border border-white/[0.08] bg-[#1a1b22] text-white/50 hover:text-white"
           }`}
         >
-          My Bets {myBets.length > 0 && tab === "my-bets" && `(${myBets.length})`}
+          My Bets
         </button>
       </div>
 
-      {/* ── Category nav strip ──────────────────────────────────────────── */}
+      {/* ── Category nav strip ───────────────────────────────────────────── */}
       {tab === "browse" && (
-        <div className="no-scrollbar mb-5 flex gap-1 overflow-x-auto">
+        <div ref={tagBarRef} className="no-scrollbar mb-5 flex gap-0 overflow-x-auto border-b border-white/[0.06] pb-0">
           {TAGS.map((t) => (
             <button
               key={t}
               onClick={() => setTag(t)}
-              className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-bold transition ${
+              className={`flex h-10 shrink-0 items-center gap-1.5 border-b-2 px-4 text-[13px] font-bold transition ${
                 tag === t
-                  ? "bg-white text-black"
-                  : "bg-[#1e1f26] text-white/50 hover:bg-white/[0.08] hover:text-white/80"
+                  ? "border-white text-white"
+                  : "border-transparent text-white/45 hover:text-white/75"
               }`}
             >
               {t === "Trending" && <TrendingUp className="h-3.5 w-3.5" />}
@@ -380,74 +507,61 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
         </div>
       )}
 
-      {/* ── Browse layout ────────────────────────────────────────────────── */}
+      {/* ── Browse ───────────────────────────────────────────────────────── */}
       {tab === "browse" && (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="flex flex-col gap-8">
 
-          {/* ── Left: hero + grid ──────────────────────────────────────── */}
-          <div className="flex flex-col gap-5 min-w-0">
+          {/* Hero + sidebar row */}
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
+            {/* Hero carousel */}
+            <div>
+              {loading ? (
+                <div className="h-72 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+              ) : heroMarkets.length > 0 ? (
+                <HeroCarousel markets={heroMarkets} onBet={openBet} />
+              ) : null}
+            </div>
 
-            {/* Hero card */}
+            {/* Right sidebar */}
+            <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
+              {loading ? (
+                <>
+                  <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                  <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                </>
+              ) : (
+                <>
+                  <BreakingNews markets={breakingMarkets} onBet={openBet} />
+                  <HotTopics markets={markets} onTagClick={(t) => { setTag(t); setSearch(""); }} />
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* All markets grid (4 col) */}
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-black text-white">
+                {search ? `Results for "${search}"` : "All markets"}
+              </h3>
+              <span className="text-[12px] text-white/25">{filtered.length} markets</span>
+            </div>
             {loading ? (
-              <div className="h-56 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
-            ) : hero ? (
-              <HeroCard market={hero} onBet={(m, o) => setTicket({ market: m, outcome: o })} />
-            ) : null}
-
-            {/* Section label */}
-            {!loading && gridMarkets.length > 0 && (
-              <div className="flex items-center justify-between">
-                <h3 className="text-[13px] font-black uppercase tracking-widest text-white/30">
-                  {search ? `Results for "${search}"` : "All markets"}
-                </h3>
-                <span className="text-[11px] text-white/20">{filtered.length} markets</span>
-              </div>
-            )}
-
-            {/* Markets grid */}
-            {loading ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                {Array.from({ length: 6 }).map((_, i) => (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="h-44 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
                 ))}
               </div>
-            ) : gridMarkets.length === 0 && !hero ? (
-              <div className="rounded-2xl border border-white/[0.06] bg-[#16171c] py-20 text-center">
+            ) : gridMarkets.length === 0 ? (
+              <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
                 <p className="text-sm text-white/25">No markets found</p>
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {gridMarkets.map((m) => (
-                  <MarketCard
-                    key={m.conditionId}
-                    market={m}
-                    active={false}
-                    onSelect={(market) => setTicket({ market })}
-                    onBet={(market, outcome) => setTicket({ market, outcome })}
-                  />
+                  <CompactCard key={m.conditionId} market={m} onBet={openBet} />
                 ))}
               </div>
-            )}
-          </div>
-
-          {/* ── Right: sidebar ─────────────────────────────────────────── */}
-          <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
-            {loading ? (
-              <>
-                <div className="h-64 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
-                <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
-              </>
-            ) : (
-              <>
-                <BreakingNews
-                  markets={[...markets].sort((a, b) => b.volume - a.volume).slice(0, 4)}
-                  onBet={(m, o) => setTicket({ market: m, outcome: o })}
-                />
-                <HotTopics
-                  markets={markets}
-                  onTagClick={(t) => { setTag(t); setSearch(""); }}
-                />
-              </>
             )}
           </div>
         </div>
@@ -457,12 +571,12 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
       {tab === "my-bets" && (
         <div>
           {!userId ? (
-            <div className="rounded-2xl border border-white/[0.06] bg-[#16171c] py-20 text-center">
+            <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
               <p className="text-sm text-white/30">Sign in to see your bets</p>
             </div>
           ) : myBets.length === 0 ? (
-            <div className="rounded-2xl border border-white/[0.06] bg-[#16171c] py-20 text-center">
-              <p className="text-sm text-white/30">No bets yet — browse markets to place your first!</p>
+            <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
+              <p className="text-sm text-white/30">No bets yet</p>
               <button
                 onClick={() => setTab("browse")}
                 className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-5 py-2.5 text-sm font-bold text-white/60 hover:bg-white/10 hover:text-white transition"
@@ -473,18 +587,14 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
           ) : (
             <div className="flex flex-col gap-3">
               {myBets.map((b) => (
-                <div key={b.id} className="rounded-2xl border border-white/[0.06] bg-[#16171c] p-5">
+                <div key={b.id} className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] p-5">
                   <div className="mb-3 flex items-start justify-between gap-3">
-                    <p className="flex-1 text-[15px] font-semibold leading-snug text-white line-clamp-2">
-                      {b.question}
-                    </p>
+                    <p className="flex-1 text-[15px] font-semibold leading-snug text-white line-clamp-2">{b.question}</p>
                     <StatusBadge status={b.status} />
                   </div>
                   <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-white/40">
                     <span>
-                      <span className={b.outcome.toLowerCase() === "yes" ? "text-[#31c45d]" : "text-red-400"}>
-                        {b.outcome}
-                      </span>
+                      <span className={b.outcome.toLowerCase() === "yes" ? "text-[#31c45d]" : "text-red-400"}>{b.outcome}</span>
                       {" "}@ {(b.price * 100).toFixed(0)}¢ ({(1 / b.price).toFixed(2)}×)
                     </span>
                     <span>Stake: <span className="font-black text-white">KSh {b.stake.toLocaleString()}</span></span>
