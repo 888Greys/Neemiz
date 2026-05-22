@@ -237,63 +237,156 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-2.5">
-
-      {/* ── Round info strip ───────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between rounded-xl border border-white/[0.05] bg-[#0d0e12] px-3 py-1.5 text-xs text-white/40">
-        <span className="flex items-center gap-2">
-          {round ? `Round #${round.roundNumber}` : "—"}
-          {round && (
-            <span className="hidden font-mono text-[10px] text-white/15 sm:inline">
-              {round.serverSeedHash.slice(0, 16)}…
-            </span>
-          )}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#31c45d]" />
-          <span className="text-[10px] font-black">Provably Fair</span>
-        </span>
-      </div>
-
-      {/* ── History chip strip ─────────────────────────────────────────────── */}
-      <AviatorHistory rounds={history} onVerify={setVerifyRound} />
-
-      {/* ── Canvas — full width ────────────────────────────────────────────── */}
-      <div className="h-64 overflow-hidden rounded-2xl border border-white/[0.07] sm:h-72 md:h-80 lg:h-[22rem]">
-        <AviatorCanvas
-          state={round?.state ?? "WAITING"}
-          multiplier={displayMult}
-          crashPoint={round?.crashPoint ?? undefined}
-          bettingEndsAt={round?.bettingEndsAt ?? null}
-          flyingStartedAt={round?.flyingStartedAt ?? null}
-        />
-      </div>
-
-      {/* ── Bet panels — 2 col ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-        {([0, 1] as const).map((pi) => (
-          <AviatorBetPanel
-            key={pi}
-            panelIndex={pi}
-            round={round}
-            myBet={myBets[pi]}
-            currentMultiplier={displayMult}
-            balance={balance}
-            onBet={handleBet}
-            onCashout={handleCashout}
-          />
-        ))}
-      </div>
-
-      {/* ── Live bets table ────────────────────────────────────────────────── */}
-      <div className="max-h-72 overflow-hidden">
+    <div className="grid min-h-[calc(100vh-6.5rem)] gap-2 xl:grid-cols-[300px_minmax(0,1fr)_320px] 2xl:grid-cols-[340px_minmax(0,1fr)_360px]">
+      <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-white/10 bg-[#141414] xl:block">
         <AviatorLiveBets
           liveBets={liveBets}
           myHistory={myHistory}
           userId={userId}
         />
+      </aside>
+
+      <section className="min-w-0">
+        <div className="mb-2 flex items-center justify-between rounded-lg border border-white/10 bg-[#101010] px-3 py-2">
+          <div className="flex items-center gap-3">
+            <span className="font-[var(--font-pacifico)] text-2xl text-[#ff1838]">Aviator</span>
+            <span className="hidden text-[11px] font-black uppercase tracking-widest text-white/35 sm:inline">
+              Round #{round?.roundNumber ?? "--"}
+            </span>
+            {round && (
+              <span className="hidden font-mono text-[10px] text-white/20 md:inline">
+                {round.serverSeedHash.slice(0, 18)}...
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-[#f6a400] px-3 py-1 text-xs font-black text-black">How to play?</span>
+            <span className="hidden text-xs font-black text-[#20d15a] sm:inline">Provably fair</span>
+          </div>
+        </div>
+
+        <div className="mb-2 rounded-lg border border-white/10 bg-[#0d0d0d] px-2 py-1">
+          <AviatorHistory rounds={history} onVerify={setVerifyRound} />
+        </div>
+
+        <div className="overflow-hidden rounded-lg border border-white/10 bg-black">
+          <div className="h-[360px] sm:h-[430px] lg:h-[520px] 2xl:h-[590px]">
+            <AviatorCanvas
+              state={round?.state ?? "WAITING"}
+              multiplier={displayMult}
+              crashPoint={round?.crashPoint ?? undefined}
+              bettingEndsAt={round?.bettingEndsAt ?? null}
+              flyingStartedAt={round?.flyingStartedAt ?? null}
+            />
+          </div>
+        </div>
+
+        <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
+          {([0, 1] as const).map((pi) => (
+            <AviatorBetPanel
+              key={pi}
+              panelIndex={pi}
+              round={round}
+              myBet={myBets[pi]}
+              currentMultiplier={displayMult}
+              balance={balance}
+              onBet={handleBet}
+              onCashout={handleCashout}
+            />
+          ))}
+        </div>
+
+        <div className="mt-2 xl:hidden">
+          <AviatorLiveBets
+            liveBets={liveBets}
+            myHistory={myHistory}
+            userId={userId}
+          />
+        </div>
+      </section>
+
+      <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-white/10 bg-[#080d16] xl:block">
+        <AviatorChatPanel liveBets={liveBets} roundNumber={round?.roundNumber ?? null} />
+      </aside>
+
+      {verifyRound && (
+        <VerifyModal round={verifyRound} onClose={() => setVerifyRound(null)} />
+      )}
+
+    </div>
+  );
+}
+
+function AviatorChatPanel({ liveBets, roundNumber }: { liveBets: AviatorBetPublic[]; roundNumber: number | null }) {
+  const winners = liveBets.filter((b) => b.status === "CASHEDOUT").slice(-6).reverse();
+  const feed = winners.length > 0 ? winners : liveBets.slice(-6).reverse();
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 bg-[#0b0b0c] px-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-black uppercase tracking-widest text-white/70">Chat</span>
+          <span className="flex items-center gap-1 text-xs font-bold text-white/35">
+            Online <span className="h-2 w-2 rounded-full bg-[#24d463]" /> {Math.max(2, liveBets.length + 2)}
+          </span>
+        </div>
+        <span className="text-lg text-white/35">x</span>
       </div>
 
+      <div className="border-b border-white/10 bg-[#102f60] px-4 py-3">
+        <div className="grid grid-cols-2 text-xs font-bold text-blue-100">
+          <span>Round</span>
+          <span className="text-right">Bet</span>
+          <span className="font-mono text-white">{roundNumber ? `#${roundNumber}` : "--"}</span>
+          <span className="text-right font-mono text-white">{liveBets.length.toLocaleString()} active</span>
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#07101f] p-3">
+        {feed.length === 0 ? (
+          <ChatCard username="robo" message="Waiting for the next cashout..." mult="--" win="--" />
+        ) : feed.map((bet, index) => (
+          <ChatCard
+            key={bet.id}
+            username={bet.username ?? `demo${4100 + index}`}
+            message={bet.status === "CASHEDOUT" ? "Awesome cashout!" : "Good luck!"}
+            mult={bet.cashoutAt ? `${bet.cashoutAt.toFixed(2)}x` : "Flying"}
+            win={bet.winAmount ? `KSh ${bet.winAmount.toLocaleString("en-KE", { maximumFractionDigits: 0 })}` : `KSh ${bet.betAmount.toLocaleString("en-KE")}`}
+          />
+        ))}
+      </div>
+
+      <div className="shrink-0 border-t border-white/10 bg-[#0b0b0c] p-3">
+        <div className="flex h-10 items-center gap-2 rounded-full bg-white/10 px-3 text-xs text-white/35">
+          <span>Reply</span>
+          <span className="ml-auto rounded-full bg-[#0d47a1] px-2 py-0.5 text-[10px] font-black text-blue-100">Rain</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChatCard({ username, message, mult, win }: { username: string; message: string; mult: string; win: string }) {
+  return (
+    <div className="overflow-hidden rounded-lg bg-[#11356c] shadow-lg shadow-black/20">
+      <div className="flex items-center gap-2 bg-[#0f4fa2] px-3 py-2 text-sm font-bold text-blue-100">
+        <span className="grid h-6 w-6 place-items-center rounded-full bg-[#1478ff] text-xs text-white">B</span>
+        <span className="truncate">{username}</span>
+        <span className="rounded bg-[#1478ff] px-1 text-[10px]">Bot</span>
+      </div>
+      <div className="px-4 py-3">
+        <p className="mb-2 text-xs font-bold text-blue-100/85">{message}</p>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <p className="text-blue-200/40">Cashed out</p>
+            <span className="inline-flex rounded-md bg-fuchsia-600 px-2 py-1 font-black text-white">{mult}</span>
+          </div>
+          <div>
+            <p className="text-blue-200/40">Win</p>
+            <p className="font-black text-white">{win}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

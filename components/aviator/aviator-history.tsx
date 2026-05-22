@@ -17,11 +17,11 @@ interface Props {
 }
 
 function chipColor(cp: number) {
-  if (cp < 1.5) return "bg-red-600/80 text-red-100 border-red-500/30";
-  if (cp < 2)   return "bg-red-500/70 text-red-100 border-red-400/30";
-  if (cp < 5)   return "bg-orange-500/70 text-orange-100 border-orange-400/30";
-  if (cp < 10)  return "bg-blue-500/70 text-blue-100 border-blue-400/30";
-  return              "bg-purple-500/70 text-purple-100 border-purple-400/30";
+  if (cp < 1.5) return "bg-sky-700 text-sky-100 border-sky-500/30";
+  if (cp < 2)   return "bg-blue-700 text-blue-100 border-blue-500/30";
+  if (cp < 5)   return "bg-violet-700 text-violet-100 border-violet-500/30";
+  if (cp < 10)  return "bg-purple-700 text-purple-100 border-purple-500/30";
+  return              "bg-fuchsia-800 text-fuchsia-100 border-fuchsia-500/30";
 }
 
 function chipGlow(cp: number) {
@@ -46,7 +46,7 @@ export function AviatorHistory({ rounds, onVerify }: Props) {
     <div className="relative">
       <div
         ref={scrollRef}
-        className="flex items-center gap-1.5 overflow-x-auto pb-1"
+        className="flex items-center gap-1.5 overflow-x-auto"
         style={{ scrollBehavior: "smooth", scrollbarWidth: "none" } as React.CSSProperties}
       >
         {rounds.length === 0 && (
@@ -58,7 +58,7 @@ export function AviatorHistory({ rounds, onVerify }: Props) {
             onClick={() => onVerify?.(r)}
             onMouseEnter={(e) => setTooltip({ r, x: e.clientX })}
             onMouseLeave={() => setTooltip(null)}
-            className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold shadow-sm transition-transform hover:scale-110 ${chipColor(r.crashPoint)} ${chipGlow(r.crashPoint)}`}
+            className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black shadow-sm transition-transform hover:scale-105 ${chipColor(r.crashPoint)} ${chipGlow(r.crashPoint)}`}
           >
             {r.crashPoint.toFixed(2)}x
           </button>

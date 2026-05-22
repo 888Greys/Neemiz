@@ -43,9 +43,9 @@ export function AviatorLiveBets({ liveBets, myHistory, userId }: Props) {
     .slice(0, 20);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0d0e12]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-[#141414]">
       {/* Tab bar */}
-      <div className="flex shrink-0 border-b border-white/[0.07]">
+      <div className="flex shrink-0 gap-1 border-b border-white/[0.07] bg-[#101010] p-2">
         {([
           { id: "live" as const, label: `All Bets`, count: liveBets.length },
           { id: "my"   as const, label: "My Bets",  count: myHistory.length },
@@ -54,10 +54,10 @@ export function AviatorLiveBets({ liveBets, myHistory, userId }: Props) {
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[11px] font-black transition-colors ${
               tab === id
-                ? "border-b-2 border-[#087cff] text-[#087cff]"
-                : "text-white/30 hover:text-white/60"
+                ? "bg-white/10 text-white"
+                : "text-white/40 hover:bg-white/5 hover:text-white/70"
             }`}
           >
             {label}
@@ -71,7 +71,7 @@ export function AviatorLiveBets({ liveBets, myHistory, userId }: Props) {
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-[1fr_70px_56px_72px] gap-0 border-b border-white/[0.05] px-3 py-1.5">
+      <div className="grid grid-cols-[1fr_78px_56px_72px] gap-0 border-b border-white/[0.05] px-3 py-2">
         {["User", "Bet (KSh)", "@", "Win (KSh)"].map((h) => (
           <span key={h} className="text-[9px] font-black uppercase tracking-widest text-white/20 last:text-right [&:nth-child(2)]:text-right [&:nth-child(3)]:text-right">
             {h}
@@ -80,7 +80,7 @@ export function AviatorLiveBets({ liveBets, myHistory, userId }: Props) {
       </div>
 
       {/* Rows */}
-      <div className="no-scrollbar flex-1 divide-y divide-white/[0.035] overflow-y-auto">
+      <div className="no-scrollbar min-h-0 flex-1 divide-y divide-white/[0.035] overflow-y-auto">
         {tab === "live" && (
           <>
             {liveBets.length === 0 && <EmptyRow text="No bets placed yet this round" />}
@@ -125,7 +125,7 @@ function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
   const cashed = bet.status === "CASHEDOUT";
   const lost   = bet.status === "LOST";
   return (
-    <div className={`grid grid-cols-[1fr_70px_56px_72px] items-center gap-0 px-3 py-2 ${isMe ? "bg-[#087cff]/5" : ""}`}>
+    <div className={`grid grid-cols-[1fr_78px_56px_72px] items-center gap-0 px-3 py-2 ${isMe ? "bg-[#087cff]/5" : ""}`}>
       {/* User */}
       <div className="flex min-w-0 items-center gap-2">
         <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white ${avatarColor(bet.username)}`}>
@@ -167,7 +167,7 @@ function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
 function HistoryRow({ bet }: { bet: MyHistoryBet }) {
   const won = bet.status === "CASHEDOUT";
   return (
-    <div className="grid grid-cols-[1fr_70px_56px_72px] items-center gap-0 px-3 py-2">
+    <div className="grid grid-cols-[1fr_78px_56px_72px] items-center gap-0 px-3 py-2">
       {/* Round */}
       <div className="flex min-w-0 items-center gap-2">
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-[8px] font-black text-white/40">

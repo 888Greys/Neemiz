@@ -92,8 +92,8 @@ function drawSunburst(ctx: CanvasRenderingContext2D, ox: number, oy: number, w: 
     ctx.arc(ox, oy, maxR, a1, a2, true);
     ctx.closePath();
     ctx.fillStyle = isCrashed
-      ? "rgba(255,40,40,0.028)"
-      : "rgba(255,255,255,0.022)";
+      ? "rgba(255,24,56,0.05)"
+      : "rgba(255,255,255,0.035)";
     ctx.fill();
   }
   ctx.restore();
@@ -116,8 +116,8 @@ function draw(
 
   // ── Background ──────────────────────────────────────────────────────
   const bg = ctx.createLinearGradient(0, 0, 0, h);
-  bg.addColorStop(0, "#080b14");
-  bg.addColorStop(1, "#050709");
+  bg.addColorStop(0, "#101010");
+  bg.addColorStop(1, "#030303");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
@@ -150,7 +150,7 @@ function draw(
   // ── Origin dot ───────────────────────────────────────────────────────
   ctx.beginPath();
   ctx.arc(ORIGIN_X, ORIGIN_Y, 3, 0, Math.PI * 2);
-  ctx.fillStyle = isCrashed ? "#ff3030" : "#00ff88";
+  ctx.fillStyle = "#ff1838";
   ctx.fill();
 
   // ── Betting / waiting state ──────────────────────────────────────────
@@ -178,7 +178,7 @@ function draw(
   ctx.lineTo(normX(totalElapsed), ORIGIN_Y);
   ctx.closePath();
   const fillGrad = ctx.createLinearGradient(ORIGIN_X, ORIGIN_Y, ORIGIN_X, MAX_Y);
-  fillGrad.addColorStop(0, isCrashed ? "rgba(255,40,40,0.22)" : "rgba(0,255,136,0.18)");
+  fillGrad.addColorStop(0, "rgba(255,24,56,0.42)");
   fillGrad.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = fillGrad;
   ctx.fill();
@@ -190,10 +190,10 @@ function draw(
     const t = i / STEPS;
     ctx.lineTo(normX(t * totalElapsed), normY(Math.exp(GROWTH_RATE * t * totalElapsed)));
   }
-  ctx.strokeStyle = isCrashed ? "#ff3030" : "#00ff88";
+  ctx.strokeStyle = "#ff1838";
   ctx.lineWidth   = 2.5;
-  ctx.shadowColor = isCrashed ? "#ff3030" : "#00ff88";
-  ctx.shadowBlur  = 12;
+  ctx.shadowColor = "#ff1838";
+  ctx.shadowBlur  = 18;
   ctx.stroke();
   ctx.shadowBlur  = 0;
 
@@ -241,9 +241,9 @@ function draw(
 
   // ── Multiplier display ────────────────────────────────────────────────
   const multColor = isCrashed    ? "#ff4444"
-    : displayMult >= 10          ? "#c084fc"
-    : displayMult >= 5           ? "#fb923c"
-    : displayMult >= 2           ? "#facc15"
+    : displayMult >= 10          ? "#ff2aa8"
+    : displayMult >= 5           ? "#8b5cf6"
+    : displayMult >= 2           ? "#ffffff"
     :                              "#ffffff";
 
   const fs = Math.min(w * 0.10, 64);
@@ -268,11 +268,11 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, mult: nu
   ctx.translate(x, y);
   ctx.rotate(angle);
 
-  ctx.shadowColor = "#00ff88";
+  ctx.shadowColor = "#ff1838";
   ctx.shadowBlur  = 18;
 
   // Body
-  ctx.fillStyle = "#f0f0f0";
+  ctx.fillStyle = "#ff1838";
   ctx.beginPath();
   ctx.moveTo(24, 0);
   ctx.lineTo(-10, -5);
@@ -282,29 +282,29 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, mult: nu
   ctx.fill();
 
   // Window
-  ctx.fillStyle = "#00ccff";
+  ctx.fillStyle = "#ffffff";
   ctx.beginPath();
   ctx.ellipse(8, -2, 4, 3, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Wing
-  ctx.fillStyle = mult >= 3 ? "#facc15" : "#7dd3fc";
+  ctx.fillStyle = "#ff4d63";
   ctx.beginPath();
   ctx.moveTo(2, 0); ctx.lineTo(-7, -16); ctx.lineTo(-13, -2);
   ctx.closePath();
   ctx.fill();
 
   // Tail
-  ctx.fillStyle = mult >= 3 ? "#facc15" : "#7dd3fc";
+  ctx.fillStyle = "#ff4d63";
   ctx.beginPath();
   ctx.moveTo(-10, 0); ctx.lineTo(-19, -9); ctx.lineTo(-14, 0);
   ctx.closePath();
   ctx.fill();
 
   // Engine glow
-  ctx.shadowColor = "#ff6600";
+  ctx.shadowColor = "#ff1838";
   ctx.shadowBlur  = 14;
-  ctx.fillStyle   = "#ff8833";
+  ctx.fillStyle   = "#ffffff";
   ctx.beginPath();
   ctx.ellipse(-15, 0, 6, 3, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -321,16 +321,16 @@ function drawTrail(ctx: CanvasRenderingContext2D, x: number, y: number) {
   const ex    = x + Math.cos(Math.PI + angle) * len;
   const ey    = y + Math.sin(Math.PI + angle) * len;
   const grad  = ctx.createLinearGradient(x, y, ex, ey);
-  grad.addColorStop(0, "rgba(255,160,60,0.8)");
-  grad.addColorStop(0.4, "rgba(255,80,0,0.4)");
-  grad.addColorStop(1, "rgba(255,80,0,0)");
+  grad.addColorStop(0, "rgba(255,24,56,0.9)");
+  grad.addColorStop(0.4, "rgba(255,24,56,0.5)");
+  grad.addColorStop(1, "rgba(255,24,56,0)");
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.lineTo(ex, ey);
   ctx.strokeStyle = grad;
   ctx.lineWidth   = 5;
   ctx.lineCap     = "round";
-  ctx.shadowColor = "#ff6600";
+  ctx.shadowColor = "#ff1838";
   ctx.shadowBlur  = 10;
   ctx.stroke();
   ctx.shadowBlur  = 0;
