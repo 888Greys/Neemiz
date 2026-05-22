@@ -177,49 +177,79 @@ function HeroCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: Poly
   );
 }
 
-/* ── Hero carousel (wraps multiple hero markets) ───────────────────────── */
+/* ── Hero carousel ──────────────────────────────────────────────────────── */
+const CAROUSEL_MS = 6000;
+
 function HeroCarousel({ markets, onBet }: { markets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
-  const [idx, setIdx] = useState(0);
-  const total = Math.min(markets.length, 6);
+  const [idx,    setIdx]    = useState(0);
+  const [paused, setPaused] = useState(false);
+  const timerRef            = useRef<ReturnType<typeof setInterval> | null>(null);
+  const total               = Math.min(markets.length, 6);
+
+  // Auto-advance
+  useEffect(() => {
+    if (paused || total <= 1) return;
+    timerRef.current = setInterval(() => setIdx((i) => (i + 1) % total), CAROUSEL_MS);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [paused, total, idx]); // restart timer on every idx change so progress bar resets
+
+  function goTo(i: number) {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setIdx(i);
+  }
 
   if (total === 0) return null;
-  const cur = markets[idx];
 
   return (
-    <div className="flex flex-col gap-3">
-      <HeroCard market={cur} onBet={onBet} />
-      {/* Dot nav + prev/next */}
+    <div
+      className="flex flex-col gap-3"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+    >
+      <HeroCard market={markets[idx]} onBet={onBet} />
+
+      {/* Controls row */}
       <div className="flex items-center justify-between px-1">
+        {/* Progress dots */}
         <div className="flex items-center gap-1.5">
           {Array.from({ length: total }).map((_, i) => (
             <button
               key={i}
-              onClick={() => setIdx(i)}
-              className={`rounded-full transition-all ${i === idx ? "w-6 h-1.5 bg-white/60" : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"}`}
-            />
+              onClick={() => goTo(i)}
+              aria-label={`Slide ${i + 1}`}
+              className={`relative overflow-hidden rounded-full transition-all duration-300 ${
+                i === idx ? "h-1.5 w-7 bg-white/15" : "h-1.5 w-1.5 bg-white/15 hover:bg-white/35"
+              }`}
+            >
+              {i === idx && (
+                <span
+                  key={idx} // remount = restart animation
+                  className="absolute inset-y-0 left-0 rounded-full bg-white/60"
+                  style={{ animation: paused ? "none" : `nz-dot-fill ${CAROUSEL_MS}ms linear forwards` }}
+                />
+              )}
+            </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
-          {idx > 0 && (
-            <button
-              onClick={() => setIdx(i => Math.max(0, i - 1))}
-              className="flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] px-3 text-[12px] font-bold text-white/40 hover:bg-white/[0.05] hover:text-white/70"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              {markets[idx - 1]?.question.slice(0, 20)}…
-            </button>
-          )}
-          {idx < total - 1 && (
-            <button
-              onClick={() => setIdx(i => Math.min(total - 1, i + 1))}
-              className="flex h-8 items-center gap-1.5 rounded-full border border-white/[0.08] px-3 text-[12px] font-bold text-white/40 hover:bg-white/[0.05] hover:text-white/70"
-            >
-              {markets[idx + 1]?.question.slice(0, 20)}…
-              <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          )}
+
+        {/* Prev / Next */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => goTo((idx - 1 + total) % total)}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/[0.08] text-white/30 transition hover:bg-white/[0.06] hover:text-white/70"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => goTo((idx + 1) % total)}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/[0.08] text-white/30 transition hover:bg-white/[0.06] hover:text-white/70"
+          >
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
+
+      <style>{`@keyframes nz-dot-fill { from { width:0% } to { width:100% } }`}</style>
     </div>
   );
 }
