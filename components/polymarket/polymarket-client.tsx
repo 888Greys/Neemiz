@@ -1,28 +1,33 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import type { ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Image from "next/image";
-import { Activity, BarChart3, Bell, Bookmark, CalendarClock, Code2, Link2, Radio, Search, SlidersHorizontal, TrendingUp } from "lucide-react";
+import { ArrowRight, ChevronRight, Search, TrendingUp, Zap, Flame } from "lucide-react";
 import { MarketCard, formatEndDate, formatMarketMoney } from "./market-card";
 import { BetModal }   from "./bet-modal";
 import { toast }      from "@/lib/toast";
 import type { PolymarketMarket } from "@/lib/polymarket";
 
-const TAGS = ["All", "Trending", "Breaking", "New", "Politics", "Sports", "Crypto", "Esports", "Finance", "Geopolitics", "Tech", "Culture", "Economy", "Weather", "Elections"];
+const TAGS = [
+  "Trending", "Breaking", "New",
+  "Politics", "Sports", "Crypto",
+  "Esports", "Finance", "Geopolitics",
+  "Tech", "Culture", "Economy",
+  "Weather", "Elections",
+];
 
 interface MyBet {
-  id:          string;
-  marketId:    string;
-  question:    string;
-  outcome:     string;
-  price:       number;
-  stake:       number;
-  potentialWin:number;
-  status:      string;
-  winAmount:   number | null;
-  settledAt:   string | null;
-  createdAt:   string;
+  id:           string;
+  marketId:     string;
+  question:     string;
+  outcome:      string;
+  price:        number;
+  stake:        number;
+  potentialWin: number;
+  status:       string;
+  winAmount:    number | null;
+  settledAt:    string | null;
+  createdAt:    string;
 }
 
 interface Props {
@@ -44,21 +49,241 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/* ── Tiny sparkline bars ───────────────────────────────────────────────── */
+function MiniBar({ pct, up }: { pct: number; up: boolean }) {
+  return (
+    <div className="flex h-5 items-end gap-px">
+      {[0.4, 0.6, 0.5, 0.8, up ? 1 : 0.3, up ? 0.9 : 0.2].map((h, i) => (
+        <div
+          key={i}
+          className="w-[3px] rounded-sm"
+          style={{
+            height: `${h * 100}%`,
+            background: up ? "#31c45d" : "#ef4444",
+            opacity: 0.6 + h * 0.4,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ── Hero featured market card ─────────────────────────────────────────── */
+function HeroCard({ market, onBet }: { market: PolymarketMarket; onBet: (market: PolymarketMarket, outcome?: string) => void }) {
+  const yesIdx  = market.outcomes.findIndex((o) => o.toLowerCase() === "yes");
+  const noIdx   = market.outcomes.findIndex((o) => o.toLowerCase() === "no");
+  const yesP    = yesIdx >= 0 ? market.outcomePrices[yesIdx] : market.outcomePrices[0] ?? 0.5;
+  const noP     = noIdx  >= 0 ? market.outcomePrices[noIdx]  : market.outcomePrices[1] ?? (1 - yesP);
+  const yesLbl  = yesIdx >= 0 ? market.outcomes[yesIdx] : market.outcomes[0] ?? "Yes";
+  const noLbl   = noIdx  >= 0 ? market.outcomes[noIdx]  : market.outcomes[1] ?? "No";
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#16171c]">
+      {/* Background image blurred */}
+      {market.image && (
+        <div className="absolute inset-0">
+          <Image
+            src={market.image}
+            alt=""
+            fill
+            unoptimized
+            className="object-cover opacity-[0.07] blur-sm"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#16171c] via-[#16171c]/95 to-[#16171c]/60" />
+        </div>
+      )}
+
+      <div className="relative z-10 flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:gap-8">
+        {/* Left: text content */}
+        <div className="flex-1 min-w-0">
+          {/* Tag strip */}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {market.tags.slice(0, 2).map((t) => (
+              <span key={t} className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest text-white/40">
+                {t}
+              </span>
+            ))}
+            <span className="text-[11px] text-white/30">Ends {formatEndDate(market.endDate)}</span>
+          </div>
+
+          <h2 className="text-2xl font-black leading-snug text-white sm:text-3xl">
+            {market.question}
+          </h2>
+
+          <div className="mt-4 flex items-center gap-5 text-sm text-white/40">
+            <span><span className="font-black text-white/60">{formatMarketMoney(market.volume)}</span> vol.</span>
+            <span><span className="font-black text-white/60">{formatMarketMoney(market.liquidity)}</span> liq.</span>
+          </div>
+
+          {/* Probability bar */}
+          <div className="mt-5">
+            <div className="mb-2 flex items-center justify-between text-xs font-bold">
+              <span className="text-[#31c45d]">{yesLbl} · {(yesP * 100).toFixed(0)}%</span>
+              <span className="text-red-400">{noLbl} · {(noP * 100).toFixed(0)}%</span>
+            </div>
+            <div className="flex h-2 overflow-hidden rounded-full bg-white/10">
+              <div className="rounded-full bg-[#31c45d] transition-all" style={{ width: `${Math.min(100, yesP * 100)}%` }} />
+              <div className="ml-auto rounded-full bg-red-500/60 transition-all" style={{ width: `${Math.min(100, noP * 100)}%` }} />
+            </div>
+          </div>
+
+          {/* Bet buttons */}
+          <div className="mt-5 flex gap-3">
+            <button
+              onClick={() => onBet(market, yesLbl)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#31c45d]/15 py-3 text-sm font-black text-[#31c45d] transition hover:bg-[#31c45d]/25"
+            >
+              {yesLbl}
+              <span className="font-mono text-white">{(yesP * 100).toFixed(0)}¢</span>
+            </button>
+            <button
+              onClick={() => onBet(market, noLbl)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500/15 py-3 text-sm font-black text-red-400 transition hover:bg-red-500/25"
+            >
+              {noLbl}
+              <span className="font-mono text-white">{(noP * 100).toFixed(0)}¢</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Right: market image */}
+        {market.image && (
+          <div className="hidden shrink-0 sm:block">
+            <Image
+              src={market.image}
+              alt=""
+              width={200}
+              height={160}
+              unoptimized
+              className="h-40 w-48 rounded-xl object-cover ring-1 ring-white/10"
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Right-sidebar: Breaking news ──────────────────────────────────────── */
+function BreakingNews({ markets, onBet }: { markets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
+  const items = markets.slice(0, 4);
+  return (
+    <div className="rounded-2xl border border-white/[0.08] bg-[#16171c] p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-amber-400" />
+          <span className="text-sm font-black text-white">Breaking news</span>
+        </div>
+        <button className="text-[11px] font-bold text-white/30 hover:text-white/60 flex items-center gap-1">
+          More <ChevronRight className="h-3 w-3" />
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {items.map((m) => {
+          const topIdx = m.outcomePrices.reduce((best, p, i) => p > m.outcomePrices[best] ? i : best, 0);
+          const topPct = Math.round((m.outcomePrices[topIdx] ?? 0.5) * 100);
+          const topLbl = m.outcomes[topIdx] ?? "Yes";
+          const up     = (m.outcomePrices[0] ?? 0.5) > 0.5;
+
+          return (
+            <button
+              key={m.conditionId}
+              onClick={() => onBet(m)}
+              className="group flex w-full items-start gap-3 rounded-xl p-2.5 text-left transition hover:bg-white/[0.04]"
+            >
+              {m.image && (
+                <Image
+                  src={m.image}
+                  alt=""
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold leading-snug text-white/80 line-clamp-2 group-hover:text-white">
+                  {m.question}
+                </p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <span className={`text-[11px] font-black ${up ? "text-[#31c45d]" : "text-red-400"}`}>
+                    {topLbl} {topPct}%
+                  </span>
+                  <span className="text-[10px] text-white/25">{formatMarketMoney(m.volume)} vol</span>
+                </div>
+              </div>
+              <MiniBar pct={topPct} up={up} />
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ── Right-sidebar: Hot topics ─────────────────────────────────────────── */
+function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTagClick: (tag: string) => void }) {
+  const topics = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of markets) {
+      for (const tag of m.tags) {
+        map.set(tag, (map.get(tag) ?? 0) + m.volume);
+      }
+    }
+    return [...map.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([tag, vol]) => ({ tag, vol }));
+  }, [markets]);
+
+  return (
+    <div className="rounded-2xl border border-white/[0.08] bg-[#16171c] p-5">
+      <div className="mb-4 flex items-center gap-2">
+        <Flame className="h-4 w-4 text-orange-400" />
+        <span className="text-sm font-black text-white">Hot topics</span>
+      </div>
+
+      <div className="space-y-1">
+        {topics.map(({ tag, vol }, i) => (
+          <button
+            key={tag}
+            onClick={() => onTagClick(tag)}
+            className="flex w-full items-center justify-between rounded-lg px-2 py-2.5 text-left transition hover:bg-white/[0.04]"
+          >
+            <div className="flex items-center gap-3">
+              <span className="w-4 text-center text-[11px] font-black text-white/20">{i + 1}</span>
+              <span className="text-[13px] font-semibold text-white/70">{tag}</span>
+            </div>
+            <span className="text-[11px] font-bold text-white/35">{formatMarketMoney(vol)} today</span>
+          </button>
+        ))}
+      </div>
+
+      <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.08] py-2.5 text-sm font-black text-white/50 transition hover:border-white/15 hover:text-white/80">
+        Explore all
+        <ArrowRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+/* ── Main component ────────────────────────────────────────────────────── */
 export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   const [markets,  setMarkets]  = useState<PolymarketMarket[]>([]);
   const [myBets,   setMyBets]   = useState<MyBet[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [tab,      setTab]      = useState<"browse" | "my-bets">("browse");
-  const [tag,      setTag]      = useState("All");
-  const [detail,   setDetail]   = useState<PolymarketMarket | null>(null);
+  const [tag,      setTag]      = useState("Trending");
   const [ticket,   setTicket]   = useState<{ market: PolymarketMarket; outcome?: string } | null>(null);
   const [balance,  setBalance]  = useState(initialBalance);
+  const [search,   setSearch]   = useState("");
 
   const fetchMarkets = useCallback(async () => {
     setLoading(true);
-    const apiTag = ["All", "Trending", "Breaking", "New"].includes(tag) ? "" : tag;
-    const url = apiTag ? `/api/polymarket/markets?tag=${encodeURIComponent(apiTag)}` : "/api/polymarket/markets";
-    const res = await fetch(url);
+    const apiTag = ["Trending", "Breaking", "New"].includes(tag) ? "" : tag;
+    const url    = apiTag ? `/api/polymarket/markets?tag=${encodeURIComponent(apiTag)}` : "/api/polymarket/markets";
+    const res    = await fetch(url);
     if (res.ok) setMarkets(await res.json());
     setLoading(false);
   }, [tag]);
@@ -79,9 +304,6 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   }, [userId]);
 
   useEffect(() => { fetchMarkets(); }, [fetchMarkets]);
-  useEffect(() => {
-    if (!detail && markets.length > 0) setDetail(markets[0]);
-  }, [detail, markets]);
   useEffect(() => { if (tab === "my-bets") fetchMyBets(); }, [tab, fetchMyBets]);
 
   function handleBetSuccess() {
@@ -90,149 +312,188 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
     if (tab === "my-bets") fetchMyBets();
   }
 
-  const visibleMarkets = markets;
-  const totalVolume = visibleMarkets.reduce((sum, m) => sum + m.volume, 0);
-  const totalLiquidity = visibleMarkets.reduce((sum, m) => sum + m.liquidity, 0);
-  const liveCount = visibleMarkets.filter((m) => new Date(m.endDate).getTime() - Date.now() < 3 * 86_400_000).length;
+  const filtered = useMemo(() => {
+    if (!search.trim()) return markets;
+    const q = search.toLowerCase();
+    return markets.filter((m) => m.question.toLowerCase().includes(q) || m.tags.some((t) => t.toLowerCase().includes(q)));
+  }, [markets, search]);
+
+  const hero        = filtered[0] ?? null;
+  const gridMarkets = filtered.slice(1);
 
   return (
-    <div className="flex flex-col gap-4 text-slate-200">
-      <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(320px,760px)_minmax(280px,420px)]">
-        <div className="hidden items-center gap-2 rounded-lg border border-white/10 bg-[#151a1f] px-3 py-3 text-lg font-black text-white lg:flex">
-          <span className="grid h-8 w-8 place-items-center rounded-md border border-white/20 text-sm">N</span>
-          Polymarket
-        </div>
-        <div className="flex h-14 items-center gap-3 rounded-lg border border-white/10 bg-[#151a1f] px-4">
-          <Search className="h-5 w-5 text-slate-500" />
+    <div className="flex flex-col gap-0 text-white">
+
+      {/* ── Top bar ─────────────────────────────────────────────────────── */}
+      <div className="mb-4 flex items-center gap-3">
+        {/* Search */}
+        <div className="flex h-11 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#16171c] px-4">
+          <Search className="h-4 w-4 shrink-0 text-white/25" />
           <input
-            placeholder="Search polymarkets..."
-            className="h-full flex-1 bg-transparent text-sm font-semibold text-white outline-none placeholder:text-slate-500"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search markets…"
+            className="flex-1 bg-transparent text-[14px] font-semibold text-white outline-none placeholder:text-white/25"
           />
-          <span className="font-mono text-slate-500">/</span>
+          {search && (
+            <button onClick={() => setSearch("")} className="text-white/30 hover:text-white/60 text-xs">✕</button>
+          )}
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          <StatPill label="Markets" value={String(visibleMarkets.length)} />
-          <StatPill label="Volume" value={formatMarketMoney(totalVolume)} />
-          <StatPill label="Wallet" value={`KSh ${Math.floor(balance).toLocaleString()}`} />
+
+        {/* Balance */}
+        <div className="hidden h-11 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#16171c] px-4 sm:flex">
+          <span className="text-[11px] font-black uppercase tracking-widest text-white/25">Balance</span>
+          <span className="font-black text-white">KSh {Math.floor(balance).toLocaleString()}</span>
         </div>
+
+        {/* My Bets toggle */}
+        <button
+          onClick={() => setTab(tab === "browse" ? "my-bets" : "browse")}
+          className={`h-11 rounded-xl px-4 text-sm font-black transition ${
+            tab === "my-bets"
+              ? "bg-[#087cff] text-white"
+              : "border border-white/[0.08] bg-[#16171c] text-white/50 hover:text-white"
+          }`}
+        >
+          My Bets {myBets.length > 0 && tab === "my-bets" && `(${myBets.length})`}
+        </button>
       </div>
 
-      <div className="flex gap-1 rounded-lg border border-white/10 bg-[#11161a] p-1">
-        {(["browse", "my-bets"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 rounded-md py-2 text-xs font-black uppercase tracking-wide transition ${
-              tab === t ? "bg-[#087cff] text-white" : "text-white/40 hover:text-white/70"
-            }`}
-          >
-            {t === "browse" ? "Markets" : "My Bets"}
-          </button>
-        ))}
-      </div>
-
+      {/* ── Category nav strip ──────────────────────────────────────────── */}
       {tab === "browse" && (
-        <>
-          <div className="flex gap-2 overflow-x-auto border-b border-white/10 pb-3 no-scrollbar">
-            {TAGS.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTag(t)}
-                className={`flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-bold transition ${
-                  tag === t
-                    ? "bg-[#1f2a35] text-white"
-                    : "text-slate-500 hover:bg-white/5 hover:text-slate-300"
-                }`}
-              >
-                {t === "Trending" && <TrendingUp className="h-4 w-4" />}
-                {t}
-              </button>
-            ))}
-          </div>
+        <div className="no-scrollbar mb-5 flex gap-1 overflow-x-auto">
+          {TAGS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTag(t)}
+              className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13px] font-bold transition ${
+                tag === t
+                  ? "bg-white text-black"
+                  : "bg-[#1e1f26] text-white/50 hover:bg-white/[0.08] hover:text-white/80"
+              }`}
+            >
+              {t === "Trending" && <TrendingUp className="h-3.5 w-3.5" />}
+              {t === "Breaking" && <Zap className="h-3.5 w-3.5" />}
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
 
-          <div className="grid gap-4 lg:grid-cols-[240px_minmax(0,1fr)_360px]">
-            <aside className="hidden self-start rounded-lg border border-white/10 bg-[#11161a] p-4 lg:sticky lg:top-24 lg:block">
-              <div className="space-y-2 border-b border-white/10 pb-4">
-                <RailItem icon={<Radio className="h-5 w-5 text-red-400" />} label="Live" value={String(liveCount)} active />
-                <RailItem icon={<CalendarClock className="h-5 w-5" />} label="Upcoming" value={String(Math.max(0, visibleMarkets.length - liveCount))} />
+      {/* ── Browse layout ────────────────────────────────────────────────── */}
+      {tab === "browse" && (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
+
+          {/* ── Left: hero + grid ──────────────────────────────────────── */}
+          <div className="flex flex-col gap-5 min-w-0">
+
+            {/* Hero card */}
+            {loading ? (
+              <div className="h-56 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+            ) : hero ? (
+              <HeroCard market={hero} onBet={(m, o) => setTicket({ market: m, outcome: o })} />
+            ) : null}
+
+            {/* Section label */}
+            {!loading && gridMarkets.length > 0 && (
+              <div className="flex items-center justify-between">
+                <h3 className="text-[13px] font-black uppercase tracking-widest text-white/30">
+                  {search ? `Results for "${search}"` : "All markets"}
+                </h3>
+                <span className="text-[11px] text-white/20">{filtered.length} markets</span>
               </div>
-              <div className="pt-5">
-                <p className="mb-3 text-[11px] font-black uppercase tracking-widest text-slate-600">Markets</p>
-                {["Politics", "Sports", "Crypto", "Finance", "Culture", "Tech", "Weather", "Elections"].map((item, index) => (
-                  <RailItem
-                    key={item}
-                    label={item}
-                    value={String(Math.max(1, Math.floor((visibleMarkets.length + index) / 3)))}
-                    active={tag === item}
-                    onClick={() => setTag(item)}
+            )}
+
+            {/* Markets grid */}
+            {loading ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-44 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                ))}
+              </div>
+            ) : gridMarkets.length === 0 && !hero ? (
+              <div className="rounded-2xl border border-white/[0.06] bg-[#16171c] py-20 text-center">
+                <p className="text-sm text-white/25">No markets found</p>
+              </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {gridMarkets.map((m) => (
+                  <MarketCard
+                    key={m.conditionId}
+                    market={m}
+                    active={false}
+                    onSelect={(market) => setTicket({ market })}
+                    onBet={(market, outcome) => setTicket({ market, outcome })}
                   />
                 ))}
               </div>
-            </aside>
-
-            <section className="min-w-0">
-              {loading ? (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {Array.from({ length: 9 }).map((_, i) => (
-                    <div key={i} className="h-44 animate-pulse rounded-lg border border-white/10 bg-white/5" />
-                  ))}
-                </div>
-              ) : markets.length === 0 ? (
-                <p className="rounded-lg border border-white/10 bg-[#151a1f] py-16 text-center text-sm text-white/30">No markets found</p>
-              ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {markets.map((m) => (
-                    <MarketCard
-                      key={m.conditionId}
-                      market={m}
-                      active={detail?.conditionId === m.conditionId}
-                      onSelect={setDetail}
-                      onBet={(market, outcome) => setTicket({ market, outcome })}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <MarketDetailPanel
-              market={detail ?? markets[0] ?? null}
-              totalLiquidity={totalLiquidity}
-              onBet={(market, outcome) => setTicket({ market, outcome })}
-            />
+            )}
           </div>
-        </>
+
+          {/* ── Right: sidebar ─────────────────────────────────────────── */}
+          <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
+            {loading ? (
+              <>
+                <div className="h-64 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+              </>
+            ) : (
+              <>
+                <BreakingNews
+                  markets={[...markets].sort((a, b) => b.volume - a.volume).slice(0, 4)}
+                  onBet={(m, o) => setTicket({ market: m, outcome: o })}
+                />
+                <HotTopics
+                  markets={markets}
+                  onTagClick={(t) => { setTag(t); setSearch(""); }}
+                />
+              </>
+            )}
+          </div>
+        </div>
       )}
 
+      {/* ── My Bets ──────────────────────────────────────────────────────── */}
       {tab === "my-bets" && (
-        <>
+        <div>
           {!userId ? (
-            <p className="py-16 text-center text-sm text-white/40">Sign in to see your bets</p>
+            <div className="rounded-2xl border border-white/[0.06] bg-[#16171c] py-20 text-center">
+              <p className="text-sm text-white/30">Sign in to see your bets</p>
+            </div>
           ) : myBets.length === 0 ? (
-            <p className="py-16 text-center text-sm text-white/30">No bets yet</p>
+            <div className="rounded-2xl border border-white/[0.06] bg-[#16171c] py-20 text-center">
+              <p className="text-sm text-white/30">No bets yet — browse markets to place your first!</p>
+              <button
+                onClick={() => setTab("browse")}
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-5 py-2.5 text-sm font-bold text-white/60 hover:bg-white/10 hover:text-white transition"
+              >
+                Browse Markets <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
           ) : (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {myBets.map((b) => (
-                <div key={b.id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                  <div className="mb-2 flex items-start justify-between gap-3">
-                    <p className="flex-1 text-sm font-semibold leading-snug text-white line-clamp-2">
+                <div key={b.id} className="rounded-2xl border border-white/[0.06] bg-[#16171c] p-5">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <p className="flex-1 text-[15px] font-semibold leading-snug text-white line-clamp-2">
                       {b.question}
                     </p>
                     <StatusBadge status={b.status} />
                   </div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-white/40">
+                  <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-white/40">
                     <span>
                       <span className={b.outcome.toLowerCase() === "yes" ? "text-[#31c45d]" : "text-red-400"}>
                         {b.outcome}
                       </span>
-                      {" "}@ {(b.price * 100).toFixed(0)}% ({(1/b.price).toFixed(2)}x)
+                      {" "}@ {(b.price * 100).toFixed(0)}¢ ({(1 / b.price).toFixed(2)}×)
                     </span>
-                    <span>Stake: <span className="text-white">KSh {b.stake.toLocaleString()}</span></span>
+                    <span>Stake: <span className="font-black text-white">KSh {b.stake.toLocaleString()}</span></span>
                     <span>
                       {b.status === "WON"
-                        ? <span className="text-[#31c45d]">Won KSh {b.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        ? <span className="font-black text-[#31c45d]">Won KSh {b.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         : b.status === "LOST"
-                        ? <span className="text-red-400">Lost</span>
-                        : <span>To win: KSh {b.potentialWin.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        ? <span className="font-black text-red-400">Lost</span>
+                        : <span>To win: <span className="font-black text-white">KSh {b.potentialWin.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></span>
                       }
                     </span>
                   </div>
@@ -240,10 +501,10 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
 
-      {/* Bet modal */}
+      {/* ── Bet modal ────────────────────────────────────────────────────── */}
       {ticket && (
         <BetModal
           market={ticket.market}
@@ -253,155 +514,6 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
           onSuccess={handleBetSuccess}
         />
       )}
-    </div>
-  );
-}
-
-function StatPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-white/10 bg-[#151a1f] px-3 py-2">
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">{label}</p>
-      <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
-    </div>
-  );
-}
-
-function RailItem({ icon, label, value, active, onClick }: { icon?: ReactNode; label: string; value: string; active?: boolean; onClick?: () => void }) {
-  const className = `flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-bold transition ${
-    active ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
-  }`;
-
-  const content = (
-    <>
-      <span className="flex items-center gap-3">
-        {icon}
-        {label}
-      </span>
-      <span className="text-xs text-slate-500">{value}</span>
-    </>
-  );
-
-  if (onClick) {
-    return (
-      <button onClick={onClick} className={className}>
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <div className={className}>
-      {content}
-    </div>
-  );
-}
-
-function MarketDetailPanel({ market, totalLiquidity, onBet }: { market: PolymarketMarket | null; totalLiquidity: number; onBet: (market: PolymarketMarket, outcome?: string) => void }) {
-  if (!market) {
-    return <aside className="hidden rounded-lg border border-white/10 bg-[#11161a] p-5 lg:block" />;
-  }
-
-  const end = formatEndDate(market.endDate);
-  const topPrice = market.outcomePrices.reduce((best, price, index) => price > best.price ? { price, label: market.outcomes[index] ?? "Outcome" } : best, { price: 0, label: "Outcome" });
-
-  return (
-    <aside className="self-start rounded-lg border border-white/10 bg-[#11161a] lg:sticky lg:top-24">
-      <div className="border-b border-white/10 p-5">
-        <div className="mb-4 flex items-start justify-between gap-3 text-slate-400">
-          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest">
-            <BarChart3 className="h-4 w-4" />
-            Market
-          </div>
-          <div className="flex gap-3">
-            <SlidersHorizontal className="h-4 w-4" />
-            <Code2 className="h-4 w-4" />
-            <Bookmark className="h-4 w-4" />
-            <Link2 className="h-4 w-4" />
-          </div>
-        </div>
-        <h2 className="text-xl font-black leading-tight text-white">{market.question}</h2>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-slate-500">
-          {market.tags.slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}
-          <span>Ends {end}</span>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 border-b border-white/10 text-center">
-        <Metric label="Vol." value={formatMarketMoney(market.volume)} />
-        <Metric label="Liq." value={formatMarketMoney(market.liquidity)} />
-        <Metric label="Share" value={`${Math.round((market.liquidity / Math.max(totalLiquidity, 1)) * 100)}%`} />
-      </div>
-
-      <div className="p-5">
-        {market.image && (
-          <Image
-            src={market.image}
-            alt=""
-            width={640}
-            height={256}
-            unoptimized
-            className="mb-5 h-40 w-full rounded-lg object-cover opacity-90"
-          />
-        )}
-        <div className="mb-5 rounded-lg border border-white/10 bg-[#151a1f] p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-black text-white">{topPrice.label}</span>
-            <span className="font-mono text-lg font-black text-white">{(topPrice.price * 100).toFixed(0)}%</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-red-500/25">
-            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, Math.max(0, topPrice.price * 100))}%` }} />
-          </div>
-        </div>
-
-        <div className="grid gap-2">
-          {market.outcomes.slice(0, 6).map((outcome, index) => {
-            const price = Math.max(0.01, market.outcomePrices[index] ?? 0.5);
-            const isYes = outcome.toLowerCase() === "yes" || index === 0;
-            return (
-              <button
-                key={`${outcome}-${index}`}
-                onClick={() => onBet(market, outcome)}
-                className={`flex h-12 items-center justify-between rounded-md px-4 text-sm font-black transition ${
-                  isYes ? "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25" : "bg-red-500/15 text-red-300 hover:bg-red-500/25"
-                }`}
-              >
-                <span>{outcome}</span>
-                <span className="font-mono text-white">{(price * 100).toFixed(0)}%</span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-5 flex gap-5 border-b border-white/10 text-sm font-black text-slate-500">
-          {["Series Lines", "Game 1", "Game 2", "Game 3"].map((item, index) => (
-            <button key={item} className={`pb-3 ${index === 0 ? "border-b-2 border-sky-400 text-slate-200" : ""}`}>{item}</button>
-          ))}
-        </div>
-
-        {market.description && (
-          <p className="mt-4 line-clamp-4 text-sm leading-6 text-slate-400">{market.description}</p>
-        )}
-
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <button className="rounded-md border border-white/10 bg-white/5 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/10">
-            <Bell className="mr-2 inline h-4 w-4" />
-            Alert
-          </button>
-          <button className="rounded-md border border-white/10 bg-white/5 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/10">
-            <Activity className="mr-2 inline h-4 w-4" />
-            Activity
-          </button>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border-r border-white/10 px-3 py-3 last:border-r-0">
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">{label}</p>
-      <p className="mt-1 truncate text-sm font-black text-white">{value}</p>
     </div>
   );
 }
