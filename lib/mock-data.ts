@@ -13,10 +13,10 @@ export const navItems = [
 ];
 
 export const mobileNav = [
-  { href: "#", label: "Menu", icon: "menu" },
   { href: "/dashboard", label: "Home", icon: "home", activePath: "/dashboard" },
   { href: "/sports", label: "Sports", icon: "sports_soccer" },
-  { href: "/aviator", label: "Casino", icon: "casino" },
+  { href: "/aviator", label: "Aviator", icon: "rocket_launch" },
+  { href: "/p2p", label: "P2P", icon: "swap_horiz" },
   { href: "/wallet", label: "Wallet", icon: "account_balance_wallet" },
 ];
 
