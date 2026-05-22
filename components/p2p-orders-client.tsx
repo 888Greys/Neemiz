@@ -137,7 +137,7 @@ export function P2POrdersClient() {
           <p className="mb-1 text-base font-black text-white">No orders yet</p>
           <p className="mb-4 max-w-sm text-sm leading-6 text-slate-500">
             {filter === "all"
-              ? "You haven&apos;t placed any P2P orders yet."
+              ? "You haven't placed any P2P orders yet."
               : `No ${filter} orders found.`}
           </p>
           {filter === "all" && (

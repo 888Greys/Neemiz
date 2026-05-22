@@ -417,7 +417,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               {order.status === "PAID" && order.isBuyer && (
                 <p className="text-slate-400 text-sm leading-relaxed">
                   Your payment has been recorded. The merchant is verifying it now.
-                  If they don&apos;t release within a reasonable time, you can raise a dispute.
+                  If they don't release within a reasonable time, you can raise a dispute.
                 </p>
               )}
 
