@@ -16,164 +16,183 @@ interface MyHistoryBet {
 }
 
 interface Props {
-  liveBets:    AviatorBetPublic[];
-  myHistory:   MyHistoryBet[];
-  userId?:     string;
+  liveBets:  AviatorBetPublic[];
+  myHistory: MyHistoryBet[];
+  userId?:   string;
 }
 
-function StatusChip({ status, cashoutAt }: { status: string; cashoutAt: number | null }) {
-  if (status === "CASHEDOUT") {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-bold text-green-400">
-        ✓ {cashoutAt?.toFixed(2)}x
-      </span>
-    );
-  }
-  if (status === "LOST") {
-    return (
-      <span className="inline-flex items-center rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-400">
-        ✕ Lost
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-400">
-      <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-400" />
-      Flying
-    </span>
-  );
+function avatarColor(name: string | null) {
+  const cs = ["bg-violet-600","bg-blue-600","bg-green-600","bg-orange-500","bg-pink-600","bg-teal-600","bg-rose-600","bg-indigo-600"];
+  return cs[((name ?? "?").charCodeAt(0)) % cs.length];
 }
+function initials(name: string | null) { return (name ?? "?").slice(0, 2).toUpperCase(); }
 
-function avatar(username: string | null) {
-  const name = username ?? "?";
-  return name.slice(0, 2).toUpperCase();
-}
-
-function avatarColor(username: string | null) {
-  const colors = [
-    "bg-purple-600", "bg-blue-600", "bg-green-600",
-    "bg-orange-600", "bg-pink-600", "bg-teal-600",
-  ];
-  const seed = (username ?? "?").charCodeAt(0);
-  return colors[seed % colors.length];
+function MultChip({ v }: { v: number | null }) {
+  if (v === null) return <span className="text-white/20">—</span>;
+  const cls = v >= 10 ? "text-purple-400" : v >= 5 ? "text-blue-400" : v >= 2 ? "text-yellow-400" : "text-white/60";
+  return <span className={`font-black ${cls}`}>{v.toFixed(2)}×</span>;
 }
 
 export function AviatorLiveBets({ liveBets, myHistory, userId }: Props) {
-  const [tab, setTab] = useState<"live" | "my">("live");
+  const [tab, setTab] = useState<"live" | "my" | "top">("live");
+
+  // top = highest cashout multiplier from live bets this round
+  const topBets = [...liveBets]
+    .filter((b) => b.status === "CASHEDOUT")
+    .sort((a, b) => (b.cashoutAt ?? 0) - (a.cashoutAt ?? 0))
+    .slice(0, 20);
 
   return (
-    <div className="flex h-full flex-col rounded-xl border border-white/10 bg-black/30">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0d0e12]">
       {/* Tab bar */}
-      <div className="flex shrink-0 border-b border-white/10">
-        {(["live", "my"] as const).map((t) => (
+      <div className="flex shrink-0 border-b border-white/[0.07]">
+        {([
+          { id: "live" as const, label: `All Bets`, count: liveBets.length },
+          { id: "my"   as const, label: "My Bets",  count: myHistory.length },
+          { id: "top"  as const, label: "Top",       count: topBets.length },
+        ]).map(({ id, label, count }) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wide transition-colors ${
-              tab === t
-                ? "border-b-2 border-green-500 text-green-400"
-                : "text-white/40 hover:text-white/70"
+            key={id}
+            onClick={() => setTab(id)}
+            className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 text-[11px] font-black uppercase tracking-widest transition-colors ${
+              tab === id
+                ? "border-b-2 border-[#087cff] text-[#087cff]"
+                : "text-white/30 hover:text-white/60"
             }`}
           >
-            {t === "live" ? `Live Bets (${liveBets.length})` : "My Bets"}
+            {label}
+            {count > 0 && (
+              <span className={`rounded-full px-1.5 py-px text-[9px] font-black ${tab === id ? "bg-[#087cff]/20 text-[#087cff]" : "bg-white/10 text-white/30"}`}>
+                {count}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
-      {/* Content */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Column headers */}
+      <div className="grid grid-cols-[1fr_70px_56px_72px] gap-0 border-b border-white/[0.05] px-3 py-1.5">
+        {["User", "Bet (KSh)", "@", "Win (KSh)"].map((h) => (
+          <span key={h} className="text-[9px] font-black uppercase tracking-widest text-white/20 last:text-right [&:nth-child(2)]:text-right [&:nth-child(3)]:text-right">
+            {h}
+          </span>
+        ))}
+      </div>
+
+      {/* Rows */}
+      <div className="no-scrollbar flex-1 divide-y divide-white/[0.035] overflow-y-auto">
         {tab === "live" && (
-          <div className="divide-y divide-white/5">
-            {liveBets.length === 0 && (
-              <p className="px-4 py-8 text-center text-xs text-white/30 italic">
-                No bets placed yet this round
-              </p>
-            )}
-            {liveBets.map((bet) => (
-              <div key={bet.id} className="flex items-center gap-3 px-3 py-2.5">
-                {/* Avatar */}
-                <div
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${avatarColor(bet.username)}`}
-                >
-                  {avatar(bet.username)}
-                </div>
-
-                {/* Username + panel */}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-semibold text-white/80">
-                    {bet.username ?? "Anonymous"}
-                    {bet.panelIndex === 1 && (
-                      <span className="ml-1 rounded bg-white/10 px-1 text-[9px] text-white/40">2</span>
-                    )}
-                  </p>
-                  <p className="text-[10px] text-white/40">
-                    KSh {bet.betAmount.toLocaleString()}
-                    {bet.autoCashout && (
-                      <span className="ml-1 text-yellow-500/70">@ {bet.autoCashout.toFixed(2)}x</span>
-                    )}
-                  </p>
-                </div>
-
-                {/* Status */}
-                <StatusChip status={bet.status} cashoutAt={bet.cashoutAt} />
-
-                {/* Win amount */}
-                {bet.status === "CASHEDOUT" && bet.winAmount && (
-                  <span className="shrink-0 text-[11px] font-bold text-green-400">
-                    +{bet.winAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </span>
-                )}
-              </div>
+          <>
+            {liveBets.length === 0 && <EmptyRow text="No bets placed yet this round" />}
+            {liveBets.map((b) => (
+              <LiveRow key={b.id} bet={b} isMe={b.userId === userId} />
             ))}
-          </div>
+          </>
         )}
 
         {tab === "my" && (
-          <div className="divide-y divide-white/5">
-            {!userId && (
-              <p className="px-4 py-8 text-center text-xs text-white/30 italic">
-                Sign in to see your bet history
-              </p>
-            )}
-            {userId && myHistory.length === 0 && (
-              <p className="px-4 py-8 text-center text-xs text-white/30 italic">
-                No bets yet — place your first bet!
-              </p>
-            )}
-            {myHistory.map((bet) => (
-              <div key={bet.id} className="flex items-center gap-3 px-3 py-2.5">
-                {/* Round number */}
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/5 text-[10px] font-bold text-white/40">
-                  #{bet.roundNumber}
-                </div>
-
-                {/* Amount + panel */}
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold text-white/80">
-                    KSh {bet.betAmount.toLocaleString()}
-                    {bet.panelIndex === 1 && (
-                      <span className="ml-1 rounded bg-white/10 px-1 text-[9px] text-white/40">Panel 2</span>
-                    )}
-                  </p>
-                  <p className="text-[10px] text-white/40">
-                    Crash: {bet.crashPoint.toFixed(2)}x
-                  </p>
-                </div>
-
-                {/* Outcome */}
-                <div className="text-right">
-                  <StatusChip status={bet.status} cashoutAt={bet.cashoutAt} />
-                  {bet.winAmount != null && (
-                    <p className={`mt-0.5 text-[11px] font-bold ${bet.status === "CASHEDOUT" ? "text-green-400" : "text-red-400"}`}>
-                      {bet.status === "CASHEDOUT"
-                        ? `+KSh ${bet.winAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-                        : `-KSh ${bet.betAmount.toLocaleString()}`}
-                    </p>
-                  )}
-                </div>
-              </div>
+          <>
+            {!userId && <EmptyRow text="Sign in to see your bets" />}
+            {userId && myHistory.length === 0 && <EmptyRow text="No bets yet — place your first!" />}
+            {myHistory.map((b) => (
+              <HistoryRow key={b.id} bet={b} />
             ))}
-          </div>
+          </>
+        )}
+
+        {tab === "top" && (
+          <>
+            {topBets.length === 0 && <EmptyRow text="No cashouts this round yet" />}
+            {topBets.map((b) => (
+              <LiveRow key={b.id} bet={b} isMe={b.userId === userId} />
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmptyRow({ text }: { text: string }) {
+  return (
+    <div className="px-3 py-6 text-center">
+      <p className="text-[11px] italic text-white/20">{text}</p>
+    </div>
+  );
+}
+
+function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
+  const cashed = bet.status === "CASHEDOUT";
+  const lost   = bet.status === "LOST";
+  return (
+    <div className={`grid grid-cols-[1fr_70px_56px_72px] items-center gap-0 px-3 py-2 ${isMe ? "bg-[#087cff]/5" : ""}`}>
+      {/* User */}
+      <div className="flex min-w-0 items-center gap-2">
+        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white ${avatarColor(bet.username)}`}>
+          {initials(bet.username)}
+        </div>
+        <span className={`truncate text-[11px] font-bold ${isMe ? "text-[#087cff]" : "text-white/70"}`}>
+          {bet.username ?? "anon"}
+          {bet.panelIndex === 1 && <span className="ml-1 text-[8px] text-white/25">②</span>}
+        </span>
+      </div>
+      {/* Bet */}
+      <div className="text-right">
+        <span className="text-[11px] font-black text-white/80">
+          {bet.betAmount.toLocaleString("en-KE")}
+        </span>
+      </div>
+      {/* @ multiplier */}
+      <div className="text-right text-[11px]">
+        {cashed ? <MultChip v={bet.cashoutAt} /> : lost ? <span className="text-red-400/60 text-[10px]">lost</span> : <span className="text-[10px] text-white/25 animate-pulse">…</span>}
+      </div>
+      {/* Win */}
+      <div className="text-right">
+        {cashed && bet.winAmount != null ? (
+          <span className="text-[11px] font-black text-[#31c45d]">
+            {bet.winAmount.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+          </span>
+        ) : lost ? (
+          <span className="text-[11px] font-black text-red-400/60">
+            -{bet.betAmount.toLocaleString("en-KE")}
+          </span>
+        ) : (
+          <span className="text-white/15 text-[11px]">—</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HistoryRow({ bet }: { bet: MyHistoryBet }) {
+  const won = bet.status === "CASHEDOUT";
+  return (
+    <div className="grid grid-cols-[1fr_70px_56px_72px] items-center gap-0 px-3 py-2">
+      {/* Round */}
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-[8px] font-black text-white/40">
+          #{bet.roundNumber}
+        </div>
+        <span className="text-[10px] text-white/35">crash {bet.crashPoint.toFixed(2)}×</span>
+      </div>
+      {/* Bet */}
+      <div className="text-right text-[11px] font-black text-white/70">
+        {bet.betAmount.toLocaleString("en-KE")}
+      </div>
+      {/* @ */}
+      <div className="text-right text-[11px]">
+        <MultChip v={bet.cashoutAt} />
+      </div>
+      {/* Win/Loss */}
+      <div className="text-right">
+        {won && bet.winAmount != null ? (
+          <span className="text-[11px] font-black text-[#31c45d]">
+            +{bet.winAmount.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+          </span>
+        ) : (
+          <span className="text-[11px] font-black text-red-400/60">
+            -{bet.betAmount.toLocaleString("en-KE")}
+          </span>
         )}
       </div>
     </div>
