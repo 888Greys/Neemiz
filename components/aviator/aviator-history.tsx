@@ -43,10 +43,10 @@ export function AviatorHistory({ rounds, onVerify }: Props) {
   }, [rounds.length]);
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0 overflow-hidden">
       <div
         ref={scrollRef}
-        className="flex items-center gap-1.5 overflow-x-auto"
+        className="no-scrollbar flex w-full min-w-0 max-w-full items-center gap-1.5 overflow-x-auto"
         style={{ scrollBehavior: "smooth", scrollbarWidth: "none" } as React.CSSProperties}
       >
         {rounds.length === 0 && (

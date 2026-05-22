@@ -157,9 +157,9 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (isFlying && myBet?.status === "ACTIVE") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12]">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12]">
         {TabBar}
-        <div className="flex flex-col gap-3 p-4">
+        <div className="flex flex-col gap-2.5 p-3">
           {myBet.autoCashout && (
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-white/40">Auto cashout at</span>
@@ -208,7 +208,7 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (isFlying && myBet?.status === "CASHEDOUT") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-[#31c45d]/20 bg-[#0a1a0f]">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#31c45d]/20 bg-[#0a1a0f]">
         {TabBar}
         <div className="flex flex-col items-center gap-2 p-5 text-center">
           <span className="text-3xl">✅</span>
@@ -226,7 +226,7 @@ export function AviatorBetPanel({
   if (isCrashed && myBet) {
     const won = myBet.status === "CASHEDOUT";
     return (
-      <div className={`flex flex-col overflow-hidden rounded-2xl border ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
+      <div className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
         {TabBar}
         <div className="flex flex-col items-center gap-2 p-5 text-center">
           <span className="text-3xl">{won ? "🏆" : "💥"}</span>
@@ -245,7 +245,7 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (bettingOpen && myBet?.status === "ACTIVE") {
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-yellow-500/20 bg-[#1a1500]">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-yellow-500/20 bg-[#1a1500]">
         {TabBar}
         <div className="flex flex-col items-center gap-2 p-5 text-center">
           <span className="text-3xl">✈️</span>
@@ -267,7 +267,7 @@ export function AviatorBetPanel({
       : isFlying  ? "Round in progress"
       : `Ended at ${round?.crashPoint?.toFixed(2)}×`;
     return (
-      <div className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0d0e12]">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0d0e12]">
         {TabBar}
         <div className="flex flex-col items-center gap-2.5 p-5 text-center">
           {icon
@@ -290,7 +290,7 @@ export function AviatorBetPanel({
   // BETTING — main form (Bet tab or Auto tab)
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0d0e12]">
+    <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0d0e12]">
       {TabBar}
 
       {tab === "bet" ? (
@@ -303,18 +303,18 @@ export function AviatorBetPanel({
             <div className="flex items-center gap-2">
               <button
                 onClick={() => adj(-snapStep(amount))}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
               >−</button>
               <input
                 type="number"
                 value={amount}
                 min={10} max={50000}
                 onChange={(e) => { setAmount(clampAmt(Number(e.target.value))); setError(null); }}
-                className="flex-1 rounded-xl border border-white/[0.08] bg-black/30 py-2.5 text-center font-mono text-base font-black text-white outline-none focus:border-[#087cff]/50"
+                className="min-w-0 flex-1 rounded-xl border border-white/[0.08] bg-black/30 py-2 text-center font-mono text-base font-black text-white outline-none focus:border-[#087cff]/50"
               />
               <button
                 onClick={() => adj(snapStep(amount))}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
               >+</button>
             </div>
             {/* Multiplier chips */}
@@ -338,7 +338,7 @@ export function AviatorBetPanel({
           </div>
 
           {/* Auto-cashout */}
-          <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
             <label className="flex items-center gap-2 text-[11px] font-black text-white/50">
               Auto Cashout
               {acEnabled && (
@@ -370,7 +370,7 @@ export function AviatorBetPanel({
           <button
             onClick={handleBet}
             disabled={loading || !bettingOpen}
-            className="w-full rounded-xl py-3.5 text-sm font-black text-black transition-all disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-xl py-3 text-sm font-black text-black transition-all disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: bettingOpen ? "linear-gradient(135deg, #31c45d, #22a34a)" : "#1f2937" }}
           >
             {loading ? "Placing…" : bettingOpen

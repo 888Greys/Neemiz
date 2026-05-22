@@ -237,7 +237,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="grid h-[calc(100vh-6.5rem)] min-h-[720px] gap-2 overflow-hidden xl:grid-cols-[300px_minmax(0,1fr)_320px] 2xl:grid-cols-[340px_minmax(0,1fr)_360px]">
+    <div className="grid h-full min-h-0 min-w-0 gap-2 overflow-hidden xl:grid-cols-[300px_minmax(0,1fr)_320px] 2xl:grid-cols-[320px_minmax(0,1fr)_340px]">
       <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-white/10 bg-[#141414] xl:block">
         <AviatorLiveBets
           liveBets={liveBets}
@@ -246,7 +246,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         />
       </aside>
 
-      <section className="grid min-h-0 min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto]">
+      <section className="grid min-h-0 min-w-0 overflow-hidden grid-rows-[auto_auto_minmax(0,1fr)_auto]">
         <div className="mb-2 flex items-center justify-between rounded-lg border border-white/10 bg-[#101010] px-3 py-2">
           <div className="flex items-center gap-3">
             <span className="font-[var(--font-pacifico)] text-2xl text-[#ff1838]">Aviator</span>
@@ -265,12 +265,12 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           </div>
         </div>
 
-        <div className="mb-2 rounded-lg border border-white/10 bg-[#0d0d0d] px-2 py-1">
+        <div className="mb-2 min-w-0 overflow-hidden rounded-lg border border-white/10 bg-[#0d0d0d] px-2 py-1">
           <AviatorHistory rounds={history} onVerify={setVerifyRound} />
         </div>
 
         <div className="min-h-0 overflow-hidden rounded-lg border border-white/10 bg-black">
-          <div className="h-full min-h-[300px]">
+          <div className="h-full min-h-[240px]">
             <AviatorCanvas
               state={round?.state ?? "WAITING"}
               multiplier={displayMult}
@@ -281,18 +281,19 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           </div>
         </div>
 
-        <div className="mt-2 grid shrink-0 grid-cols-1 gap-2 lg:grid-cols-2">
+        <div className="mt-2 grid min-w-0 shrink-0 grid-cols-1 gap-2 lg:grid-cols-2">
           {([0, 1] as const).map((pi) => (
-            <AviatorBetPanel
-              key={pi}
-              panelIndex={pi}
-              round={round}
-              myBet={myBets[pi]}
-              currentMultiplier={displayMult}
-              balance={balance}
-              onBet={handleBet}
-              onCashout={handleCashout}
-            />
+            <div key={pi} className="min-w-0">
+              <AviatorBetPanel
+                panelIndex={pi}
+                round={round}
+                myBet={myBets[pi]}
+                currentMultiplier={displayMult}
+                balance={balance}
+                onBet={handleBet}
+                onCashout={handleCashout}
+              />
+            </div>
           ))}
         </div>
 
