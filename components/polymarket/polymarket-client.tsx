@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
-import { ArrowLeft, ArrowRight, Bookmark, ChevronRight, Flame, Search, TrendingUp, Zap } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bookmark, ChevronDown, ChevronRight, Code2, Flame, Link2, MessageCircle, Search, Settings, Trophy, TrendingUp, Zap } from "lucide-react";
 import { formatEndDate, formatMarketMoney } from "./market-card";
 import { ProbabilityChart } from "./probability-chart";
 import { BetModal }   from "./bet-modal";
@@ -309,7 +309,7 @@ function HeroCarousel({ markets, allMarkets, onBet }: { markets: PolymarketMarke
 }
 
 /* ── Breaking news sidebar ──────────────────────────────────────────────── */
-function BreakingNews({ markets, onBet }: { markets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
+function BreakingNews({ markets, onOpen }: { markets: PolymarketMarket[]; onOpen: (m: PolymarketMarket) => void }) {
   return (
     <div className="rounded-2xl border border-white/[0.08] bg-[#1a1b22] p-5">
       <div className="mb-4 flex items-center justify-between">
@@ -327,7 +327,7 @@ function BreakingNews({ markets, onBet }: { markets: PolymarketMarket[]; onBet: 
           return (
             <button
               key={m.conditionId}
-              onClick={() => onBet(m)}
+              onClick={() => onOpen(m)}
               className="flex items-start gap-3 py-3.5 text-left transition hover:opacity-80 first:pt-0 last:pb-0"
             >
               <span className="mt-0.5 w-4 shrink-0 text-[12px] font-black text-white/25">{i + 1}</span>
@@ -387,12 +387,20 @@ function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTag
 }
 
 /* ── Compact 4-col market card ──────────────────────────────────────────── */
-function CompactCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: PolymarketMarket, o?: string) => void }) {
+function CompactCard({ market, onBet, onOpen }: { market: PolymarketMarket; onBet: (m: PolymarketMarket, o?: string) => void; onOpen: (m: PolymarketMarket) => void }) {
   const outcomes = market.outcomes.slice(0, 3);
   const prices   = market.outcomePrices;
 
   return (
-    <div className="flex flex-col rounded-2xl border border-white/[0.07] bg-[#1a1b22] p-4 transition hover:border-white/[0.14] hover:bg-[#1f2029]">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(market)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen(market);
+      }}
+      className="flex flex-col rounded-2xl border border-white/[0.07] bg-[#1a1b22] p-4 text-left transition hover:border-white/[0.14] hover:bg-[#1f2029]"
+    >
       {/* Header */}
       <div className="mb-3 flex items-start gap-2.5">
         {market.image ? (
@@ -412,13 +420,13 @@ function CompactCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: P
               <span className="min-w-0 flex-1 truncate text-[12px] text-white/50">{outcome}</span>
               <span className="w-9 shrink-0 text-right text-[12px] font-black text-white/70">{p}%</span>
               <button
-                onClick={() => onBet(market, outcome)}
+                onClick={(e) => { e.stopPropagation(); onBet(market, outcome); }}
                 className="h-6 rounded-md bg-[#31c45d]/15 px-2 text-[11px] font-black text-[#31c45d] transition hover:bg-[#31c45d]/25"
               >
                 Yes
               </button>
               <button
-                onClick={() => onBet(market, `No — ${outcome}`)}
+                onClick={(e) => { e.stopPropagation(); onBet(market, `No — ${outcome}`); }}
                 className="h-6 rounded-md bg-red-500/15 px-2 text-[11px] font-black text-red-400 transition hover:bg-red-500/25"
               >
                 No
@@ -442,6 +450,266 @@ function CompactCard({ market, onBet }: { market: PolymarketMarket; onBet: (m: P
   );
 }
 
+function marketPrice(market: PolymarketMarket, index: number) {
+  return Math.max(0.01, Math.min(0.99, market.outcomePrices[index] ?? 0.5));
+}
+
+function DetailTradeTicket({
+  market,
+  selectedOutcome,
+  balance,
+  onBet,
+}: {
+  market: PolymarketMarket;
+  selectedOutcome: string;
+  balance: number;
+  onBet: (m: PolymarketMarket, o?: string) => void;
+}) {
+  const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
+  const price = marketPrice(market, selectedIndex);
+  const noPrice = 1 - price;
+
+  return (
+    <aside className="lg:sticky lg:top-24 lg:self-start">
+      <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a1b22] shadow-2xl shadow-black/25">
+        <div className="flex items-center gap-3 border-b border-white/[0.06] p-4">
+          {market.image ? (
+            <Image src={market.image} alt="" width={44} height={44} unoptimized className="h-11 w-11 shrink-0 rounded-xl object-cover" />
+          ) : (
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-white/40">?</div>
+          )}
+          <div className="min-w-0">
+            <p className="text-[12px] font-bold text-white/35 line-clamp-1">{market.question}</p>
+            <p className="text-[15px] font-black leading-tight text-white">
+              {selectedOutcome} <span className="text-white/30">·</span> <span className="text-[#31c45d]">Yes</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between border-b border-white/[0.06] px-4">
+          <div className="flex gap-4">
+            <button className="border-b-2 border-white py-3 text-sm font-black text-white">Buy</button>
+            <button className="border-b-2 border-transparent py-3 text-sm font-black text-white/35">Sell</button>
+          </div>
+          <button className="flex items-center gap-1 text-[12px] font-black text-white/70">
+            Market <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="p-4">
+          <div className="mb-5 grid grid-cols-2 gap-3">
+            <button
+              onClick={() => onBet(market, selectedOutcome)}
+              className="h-14 rounded-xl bg-[#31c45d]/80 text-sm font-black text-white transition hover:bg-[#31c45d]"
+            >
+              Yes {(price * 100).toFixed(0)}¢
+            </button>
+            <button
+              onClick={() => onBet(market, `No — ${selectedOutcome}`)}
+              className="h-14 rounded-xl bg-white/[0.07] text-sm font-black text-white/40 transition hover:bg-red-500/15 hover:text-red-300"
+            >
+              No {(noPrice * 100).toFixed(0)}¢
+            </button>
+          </div>
+
+          <div className="mb-4 flex items-end justify-between">
+            <span className="text-sm font-black text-white/70">Amount</span>
+            <span className="text-5xl font-black text-white/35">$0</span>
+          </div>
+          <div className="mb-5 flex justify-end gap-2">
+            {["+1", "+5", "+10", "+100"].map((v) => (
+              <button key={v} className="rounded-lg bg-white/[0.06] px-3 py-2 text-[12px] font-black text-white/35">{v}</button>
+            ))}
+          </div>
+          <button
+            onClick={() => onBet(market, selectedOutcome)}
+            className="h-14 w-full rounded-xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-[#087cff]/20"
+          >
+            Trade
+          </button>
+          <p className="mt-4 text-center text-[11px] text-white/30">Balance: KSh {Math.floor(balance).toLocaleString()}</p>
+        </div>
+      </div>
+
+      <p className="px-5 py-4 text-[12px] font-semibold text-white/35">By trading, you agree to the <span className="underline">Terms of Use</span>.</p>
+      <div className="border-t border-dashed border-white/[0.08] pt-4">
+        <div className="mb-3 flex gap-2">
+          {["All", ...(market.tags.slice(0, 2).length ? market.tags.slice(0, 2) : ["Market"])].map((t, i) => (
+            <span key={`${t}-${i}`} className={`rounded-full px-4 py-2 text-[12px] font-black ${i === 0 ? "bg-white/[0.08] text-white" : "text-white/40"}`}>{t}</span>
+          ))}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function MarketDetailView({
+  market,
+  related,
+  balance,
+  onBack,
+  onBet,
+  onOpen,
+}: {
+  market: PolymarketMarket;
+  related: PolymarketMarket[];
+  balance: number;
+  onBack: () => void;
+  onBet: (m: PolymarketMarket, o?: string) => void;
+  onOpen: (m: PolymarketMarket) => void;
+}) {
+  const topIndex = market.outcomePrices.reduce((best, price, index) => price > (market.outcomePrices[best] ?? 0) ? index : best, 0);
+  const [selectedOutcome, setSelectedOutcome] = useState(market.outcomes[topIndex] ?? market.outcomes[0] ?? "Yes");
+  const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
+  useEffect(() => {
+    setSelectedOutcome(market.outcomes[topIndex] ?? market.outcomes[0] ?? "Yes");
+  }, [market.conditionId, market.outcomes, topIndex]);
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_420px]">
+      <main className="min-w-0">
+        <button onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[13px] font-black text-white/45 hover:text-white">
+          <ArrowLeft className="h-4 w-4" /> Markets
+        </button>
+
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-start gap-4">
+            {market.image ? (
+              <Image src={market.image} alt="" width={80} height={80} unoptimized className="h-20 w-20 shrink-0 rounded-xl bg-white object-cover" />
+            ) : (
+              <div className="grid h-20 w-20 shrink-0 place-items-center rounded-xl bg-white/[0.08] text-white/40">?</div>
+            )}
+            <div className="min-w-0">
+              <p className="mb-1 text-[14px] font-bold text-white/40">{market.tags.slice(0, 2).join(" · ") || "Market"}</p>
+              <h1 className="text-3xl font-black leading-tight text-white">{market.question}</h1>
+              <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2">
+                {market.outcomes.slice(0, 4).map((outcome, i) => (
+                  <button
+                    key={outcome}
+                    onClick={() => setSelectedOutcome(outcome)}
+                    className={`flex items-center gap-1.5 text-[13px] font-semibold ${selectedOutcome === outcome ? "text-white" : "text-white/45 hover:text-white/70"}`}
+                  >
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: ["#8bc3ff", "#2997ff", "#facc15", "#f97316"][i % 4] }} />
+                    {outcome} <span className="font-black">{(marketPrice(market, i) * 100).toFixed(i === 0 ? 0 : 1)}%</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="hidden items-center gap-5 pt-8 text-white/70 md:flex">
+            <Code2 className="h-5 w-5" />
+            <Link2 className="h-5 w-5" />
+            <Bookmark className="h-5 w-5" />
+          </div>
+        </div>
+
+        <section className="mb-6 rounded-2xl border border-white/[0.06] bg-[#15191f] p-5">
+          {market.clobTokenIds.length > 0 ? (
+            <ProbabilityChart tokenIds={market.clobTokenIds} outcomes={market.outcomes} />
+          ) : (
+            <div className="grid h-72 place-items-center text-sm text-white/30">No chart data available</div>
+          )}
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
+            <div className="flex items-center gap-4 text-[13px] font-bold text-white/80">
+              <span className="flex items-center gap-1.5"><Trophy className="h-4 w-4" /> {formatMarketMoney(market.volume)} Vol.</span>
+              <span className="text-white/40">{formatEndDate(market.endDate)}</span>
+            </div>
+            <div className="flex items-center gap-4 text-[12px] font-black text-white/45">
+              {["1H", "6H", "1D", "1W", "1M", "ALL"].map((range) => <span key={range} className={range === "ALL" ? "text-white" : ""}>{range}</span>)}
+              <Settings className="h-4 w-4" />
+            </div>
+          </div>
+        </section>
+
+        <section className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
+          {market.outcomes.map((outcome, i) => {
+            const price = marketPrice(market, i);
+            return (
+              <div key={outcome} className="grid grid-cols-[minmax(0,1fr)_90px_170px_170px] items-center gap-3 py-3 max-xl:grid-cols-[minmax(0,1fr)_80px]">
+                <div className="min-w-0">
+                  <p className="truncate text-[16px] font-black text-white/85">{outcome}</p>
+                  <p className="text-[12px] font-semibold text-white/35">{formatMarketMoney(market.volume * price)} Vol.</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-black text-white">{(price * 100).toFixed(0)}%</p>
+                  <p className={`text-[11px] font-black ${i === selectedIndex ? "text-[#31c45d]" : "text-red-400"}`}>{i === selectedIndex ? "▲" : "▼"} {Math.max(1, Math.round(price * 28))}%</p>
+                </div>
+                <button onClick={() => onBet(market, outcome)} className="hidden h-14 rounded-xl bg-[#31c45d]/80 text-sm font-black text-white xl:block">
+                  Buy Yes {(price * 100).toFixed(1)}¢
+                </button>
+                <button onClick={() => onBet(market, `No — ${outcome}`)} className="hidden h-14 rounded-xl bg-red-500/15 text-sm font-black text-red-400 xl:block">
+                  Buy No {((1 - price) * 100).toFixed(1)}¢
+                </button>
+              </div>
+            );
+          })}
+        </section>
+
+        <section className="mt-10">
+          <div className="mb-5 flex gap-5">
+            <button className="text-[15px] font-black text-white">Rules</button>
+            <button className="text-[15px] font-black text-white/45">Market Context</button>
+          </div>
+          <div className="space-y-4 text-[14px] font-semibold leading-relaxed text-white">
+            <p>This market will resolve to “Yes” if <span className="font-black">{selectedOutcome}</span> wins before the market close. Otherwise, this market will resolve to “No”.</p>
+            <p>This market may resolve to “No” if it becomes impossible for this outcome to occur based on the official rules.</p>
+            <p>The resolution source for this market will be official reporting and information from the event organizer.</p>
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <div className="mb-5 flex flex-wrap gap-5">
+            <button className="text-[15px] font-black text-white">Comments (471)</button>
+            <button className="text-[15px] font-black text-white/45">Top Holders</button>
+            <button className="text-[15px] font-black text-white/45">Positions</button>
+            <button className="text-[15px] font-black text-white/45">Activity</button>
+          </div>
+          <div className="mb-6 flex h-12 items-center rounded-xl border border-white/[0.08] bg-[#15191f] px-4 text-[13px] font-semibold text-white/35">
+            Add a comment...
+            <MessageCircle className="ml-auto h-4 w-4" />
+          </div>
+          <div className="space-y-6">
+            {["Lee35-076", "Oto1b", "MarketWatcher"].map((name, i) => (
+              <div key={name} className="flex gap-3">
+                <div className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-amber-300" />
+                <div>
+                  <p className="text-[13px] font-black text-white">{name} <span className="ml-2 font-semibold text-white/35">{8 + i}h ago</span></p>
+                  <p className="mt-1 text-[14px] font-semibold text-white/85">{i === 0 ? "watching this one" : i === 1 ? "Price moved fast after the latest update." : "Liquidity looks clean here."}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      <div className="min-w-0">
+        <DetailTradeTicket
+          market={market}
+          selectedOutcome={selectedOutcome}
+          balance={balance}
+          onBet={onBet}
+        />
+        <div className="mt-5 space-y-3">
+          {related.filter((m) => m.conditionId !== market.conditionId).slice(0, 3).map((m) => {
+            const p = Math.round(marketPrice(m, 0) * 100);
+            return (
+              <button
+                key={m.conditionId}
+                onClick={() => { onOpen(m); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-white/[0.04]"
+              >
+                {m.image ? <Image src={m.image} alt="" width={38} height={38} unoptimized className="h-10 w-10 rounded-lg object-cover" /> : <div className="h-10 w-10 rounded-lg bg-white/[0.06]" />}
+                <p className="min-w-0 flex-1 text-[12px] font-black leading-tight text-white/80 line-clamp-2">{m.question}</p>
+                <span className="text-lg font-black text-white">{p}%</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Main component ─────────────────────────────────────────────────────── */
 export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   const [markets,  setMarkets]  = useState<PolymarketMarket[]>([]);
@@ -452,6 +720,7 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   const [ticket,   setTicket]   = useState<{ market: PolymarketMarket; outcome?: string } | null>(null);
   const [balance,  setBalance]  = useState(initialBalance);
   const [search,   setSearch]   = useState("");
+  const [selectedMarket, setSelectedMarket] = useState<PolymarketMarket | null>(null);
   const tagBarRef = useRef<HTMLDivElement>(null);
 
   const fetchMarkets = useCallback(async () => {
@@ -513,12 +782,18 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   const gridMarkets = filtered;
 
   const openBet = (market: PolymarketMarket, outcome?: string) => setTicket({ market, outcome });
+  const openMarket = (market: PolymarketMarket) => {
+    setSelectedMarket(market);
+    setTab("browse");
+    setSearch("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div className="flex flex-col gap-0 text-white">
 
       {/* ── Search + balance bar ─────────────────────────────────────────── */}
-      <div className="mb-4 flex items-center gap-3">
+      {!selectedMarket && <div className="mb-4 flex items-center gap-3">
         <div className="flex h-10 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#1a1b22] px-4">
           <Search className="h-4 w-4 shrink-0 text-white/25" />
           <input
@@ -541,10 +816,10 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
         >
           My Bets
         </button>
-      </div>
+      </div>}
 
       {/* ── Category nav strip ───────────────────────────────────────────── */}
-      {tab === "browse" && (
+      {tab === "browse" && !selectedMarket && (
         <div ref={tagBarRef} className="no-scrollbar mb-5 flex gap-0 overflow-x-auto border-b border-white/[0.06] pb-0">
           {TAGS.map((t) => (
             <button
@@ -564,8 +839,19 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
         </div>
       )}
 
+      {tab === "browse" && selectedMarket && (
+        <MarketDetailView
+          market={selectedMarket}
+          related={markets}
+          balance={balance}
+          onBack={() => setSelectedMarket(null)}
+          onBet={openBet}
+          onOpen={openMarket}
+        />
+      )}
+
       {/* ── Browse ───────────────────────────────────────────────────────── */}
-      {tab === "browse" && (
+      {tab === "browse" && !selectedMarket && (
         <div className="flex flex-col gap-8">
 
           {/* Hero + sidebar row */}
@@ -588,7 +874,7 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
                 </>
               ) : (
                 <>
-                  <BreakingNews markets={breakingMarkets} onBet={openBet} />
+                  <BreakingNews markets={breakingMarkets} onOpen={openMarket} />
                   <HotTopics markets={markets} onTagClick={(t) => { setTag(t); setSearch(""); }} />
                 </>
               )}
@@ -616,7 +902,7 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {gridMarkets.map((m) => (
-                  <CompactCard key={m.conditionId} market={m} onBet={openBet} />
+                  <CompactCard key={m.conditionId} market={m} onBet={openBet} onOpen={openMarket} />
                 ))}
               </div>
             )}
