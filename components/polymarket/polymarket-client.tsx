@@ -305,7 +305,7 @@ function MarketDetailPanel({ market, totalLiquidity, onBet }: { market: Polymark
   const topPrice = market.outcomePrices.reduce((best, price, index) => price > best.price ? { price, label: market.outcomes[index] ?? "Outcome" } : best, { price: 0, label: "Outcome" });
 
   return (
-    <aside className="rounded-lg border border-white/10 bg-[#11161a] lg:sticky lg:top-4 lg:max-h-[calc(100vh-120px)] lg:overflow-auto">
+    <aside className="rounded-lg border border-white/10 bg-[#11161a]">
       <div className="border-b border-white/10 p-5">
         <div className="mb-4 flex items-start justify-between gap-3 text-slate-400">
           <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest">
@@ -340,7 +340,7 @@ function MarketDetailPanel({ market, totalLiquidity, onBet }: { market: Polymark
             width={640}
             height={256}
             unoptimized
-            className="mb-5 h-32 w-full rounded-lg object-cover opacity-90"
+            className="mb-5 h-40 w-full rounded-lg object-cover opacity-90"
           />
         )}
         <div className="mb-5 rounded-lg border border-white/10 bg-[#151a1f] p-4">
