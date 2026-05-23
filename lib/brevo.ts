@@ -181,6 +181,32 @@ export async function sendKycApprovedEmail(to: string, displayName: string) {
   );
 }
 
+// One-off notice to a specific user during testing phase
+export async function sendTestingNoticeEmail(to: string, firstName?: string) {
+  await sendEmail(
+    to,
+    firstName || "User",
+    "Important Notice — Nezeem is Still in Testing",
+    emailWrapper(`
+      <h2 style="margin:0 0 16px;font-size:20px;font-weight:800;color:#fff;">Hi${firstName ? ` ${firstName}` : ""},</h2>
+      <p style="margin:0 0 20px;color:#94a3b8;line-height:1.7;">
+        Thank you for your interest in Nezeem and for making a deposit on the platform.
+      </p>
+      <p style="margin:0 0 20px;color:#94a3b8;line-height:1.7;">
+        We are currently conducting thorough testing to ensure everything works perfectly before our official launch.
+        During this period, <strong style="color:#fff;">please do not place any bets or play any games</strong> on the platform.
+      </p>
+      <p style="margin:0 0 20px;color:#94a3b8;line-height:1.7;">
+        Your funds are safe and your account will be fully ready once we go live. We will notify you as soon as the platform is open for use.
+      </p>
+      <p style="margin:0;color:#94a3b8;line-height:1.7;">
+        We appreciate your patience and understanding.<br/>
+        — The Nezeem Team
+      </p>
+    `)
+  );
+}
+
 // Notify merchant when their KYC is rejected
 export async function sendKycRejectedEmail(to: string, displayName: string, reason?: string) {
   await sendEmail(
