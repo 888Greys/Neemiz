@@ -129,7 +129,8 @@ function WheelOfFortune({
       setSpinning(false);
       setAnimating(false);
       setResult(data);
-      refreshBalance(); // update header balance display
+      refreshBalance();
+      window.dispatchEvent(new Event("wallet-refresh"));
     }, 4200);
   }
 
@@ -445,7 +446,7 @@ export function SportsBetSlip() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Failed");
-        clearBets(); refreshBalance();
+        clearBets(); refreshBalance(); window.dispatchEvent(new Event("wallet-refresh"));
         await fetchMyBets(); setTab("mybets");
       } else {
         const results = await Promise.all(
@@ -472,7 +473,7 @@ export function SportsBetSlip() {
         );
         const placed = results.filter((r) => r.ok).length;
         if (placed > 0) {
-          clearBets(); refreshBalance();
+          clearBets(); refreshBalance(); window.dispatchEvent(new Event("wallet-refresh"));
           await fetchMyBets(); setTab("mybets");
         } else {
           setPlacedMsg({ ok: false, text: results[0]?.error ?? "Failed to place bets" });

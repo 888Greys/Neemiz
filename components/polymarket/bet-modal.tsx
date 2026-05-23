@@ -29,7 +29,7 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
   const profit       = potentialWin - stake;
 
   async function handleBet() {
-    if (stake < 10)     { setError("Minimum bet is KSh 10"); return; }
+    if (stake < 10)     { setError("Minimum bet is $10"); return; }
     if (stake > balance){ setError("Insufficient balance");  return; }
     setError(null);
     setLoading(true);
@@ -89,7 +89,7 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
         {/* Amount */}
         <div className="mb-3">
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-white/50">
-            Stake (KSh)
+            Stake ($)
           </label>
           <div className="relative">
             <input
@@ -124,7 +124,7 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
           <div className="mb-4 rounded-lg border border-white/5 bg-white/5 p-3 text-xs">
             <div className="flex justify-between text-white/50">
               <span>Stake</span>
-              <span className="font-mono text-white">KSh {stake.toLocaleString()}</span>
+              <span className="font-mono text-white">$ {stake.toLocaleString()}</span>
             </div>
             <div className="mt-1 flex justify-between text-white/50">
               <span>Odds</span>
@@ -132,11 +132,11 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
             </div>
             <div className="mt-2 flex justify-between border-t border-white/10 pt-2 font-semibold">
               <span className="text-white/60">Potential win</span>
-              <span className="font-mono text-[#31c45d]">KSh {potentialWin.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="font-mono text-[#31c45d]">$ {potentialWin.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/40">Profit</span>
-              <span className="font-mono text-[#31c45d]/70">+KSh {profit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="font-mono text-[#31c45d]/70">+$ {profit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
         )}
@@ -148,11 +148,11 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
           disabled={loading || stake < 10}
           className="w-full rounded-lg bg-[#087cff] py-3 text-sm font-black text-white transition hover:bg-[#0068d9] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Placing…" : `Bet ${outcome} · KSh ${stake > 0 ? stake.toLocaleString() : "—"}`}
+          {loading ? "Placing…" : `Bet ${outcome} · $${stake > 0 ? stake.toLocaleString() : "—"}`}
         </button>
 
         <p className="mt-2 text-center text-xs text-white/30">
-          Balance: KSh {balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          Balance: $ {balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
         </p>
       </div>
     </div>

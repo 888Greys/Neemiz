@@ -31,5 +31,12 @@ export function useWalletBalance() {
     refresh();
   }, [refresh]);
 
+  // Any component can dispatch this event to make every balance display re-fetch
+  useEffect(() => {
+    const handler = () => refresh();
+    window.addEventListener("wallet-refresh", handler);
+    return () => window.removeEventListener("wallet-refresh", handler);
+  }, [refresh]);
+
   return { ...state, refresh };
 }

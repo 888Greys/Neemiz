@@ -89,12 +89,12 @@ export async function fetchMarkets(params?: {
 }
 
 export async function fetchMarket(conditionId: string): Promise<PolymarketMarket | null> {
-  const res = await fetch(`${GAMMA_API}/markets/${conditionId}`, {
-    next: { revalidate: 30 },
-  });
+  const url = `${GAMMA_API}/markets?conditionId=${encodeURIComponent(conditionId)}&limit=1`;
+  const res = await fetch(url, { next: { revalidate: 30 } });
   if (!res.ok) return null;
-  const data: GammaMarket = await res.json();
-  return parseMarket(data);
+  const data: GammaMarket[] = await res.json();
+  if (!data[0]) return null;
+  return parseMarket(data[0]);
 }
 
 /** Returns the resolved winning outcome string, or null if not resolved */

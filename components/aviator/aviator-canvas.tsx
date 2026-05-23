@@ -176,7 +176,8 @@ function draw(
   const totalElapsed = multToElapsed(displayMult);
 
   const normX = (ms: number) => ORIGIN_X + (ms / totalElapsed) * (MAX_X - ORIGIN_X);
-  const normY = (m: number)  => ORIGIN_Y - (Math.log(m) / Math.log(displayMult)) * (ORIGIN_Y - MAX_Y);
+  const logDenom = Math.log(Math.max(displayMult, 1.0001));
+  const normY = (m: number)  => ORIGIN_Y - (Math.log(Math.max(m, 1)) / logDenom) * (ORIGIN_Y - MAX_Y);
 
   const STEPS = 80;
 
@@ -382,51 +383,61 @@ function drawIdleState(
     }
 
   } else {
-    // ── WAITING: spinning broadcast icon + text ─────────────────────────
-    const spin    = Date.now() * 0.006;    // drives icon rotation
-    const iconR   = Math.min(w * 0.065, 42);
+    // ── WAITING: spinning plane + text ─────────────────────────────────
+    const spin  = Date.now() * 0.0015;   // full rotation every ~4s
+    const planeR = Math.min(w * 0.07, 48);
 
+    // Circular orbit path (faint)
     ctx.save();
-    ctx.translate(cx, cy - iconR * 0.6);
-    ctx.rotate(spin);
-
-    // 3 concentric arc pairs (broadcast / signal icon)
-    const radii  = [iconR * 0.38, iconR * 0.68, iconR];
-    const gap    = Math.PI * 0.38;          // gap angle between arc halves
-    radii.forEach((r, idx) => {
-      const alpha = 0.35 + idx * 0.22;
-      ctx.beginPath();
-      ctx.arc(0, 0, r, gap / 2, Math.PI - gap / 2);
-      ctx.strokeStyle = `rgba(255,24,56,${alpha})`;
-      ctx.lineWidth   = Math.max(1.5, iconR * 0.055);
-      ctx.lineCap     = "round";
-      ctx.shadowColor = "#ff1838";
-      ctx.shadowBlur  = 6;
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.arc(0, 0, r, Math.PI + gap / 2, -gap / 2);
-      ctx.stroke();
-    });
-
-    // Center dot
-    ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.arc(0, 0, iconR * 0.12, 0, Math.PI * 2);
-    ctx.fillStyle = "#ff1838";
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
+    ctx.arc(cx, cy - planeR * 0.3, planeR, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255,24,56,0.12)";
+    ctx.lineWidth   = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.stroke();
+    ctx.setLineDash([]);
     ctx.restore();
 
-    // "WAITING FOR NEXT ROUND" text (uppercase, Spribe style)
-    const textY = cy + iconR * 1.1;
+    // Plane orbiting the circle
+    const orbitX = cx + Math.cos(spin) * planeR;
+    const orbitY = (cy - planeR * 0.3) + Math.sin(spin) * planeR * 0.5;
+    ctx.save();
+    ctx.translate(orbitX, orbitY);
+    ctx.rotate(spin + Math.PI * 0.1);
+    ctx.scale(0.85, 0.85);
+    // inline plane draw (same shape as drawPlane, different context origin)
+    ctx.shadowColor = "#ff1838";
+    ctx.shadowBlur  = 14;
+    ctx.fillStyle   = "#ff1838";
+    ctx.beginPath();
+    ctx.moveTo(24, 0); ctx.lineTo(-10, -5); ctx.lineTo(-15, 0); ctx.lineTo(-10, 5);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath(); ctx.ellipse(8, -2, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#ff4d63";
+    ctx.beginPath(); ctx.moveTo(2, 0); ctx.lineTo(-7, -16); ctx.lineTo(-13, -2); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-10, 0); ctx.lineTo(-19, -9); ctx.lineTo(-14, 0); ctx.closePath(); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+
+    // Engine trail dots
+    for (let i = 1; i <= 4; i++) {
+      const trailAngle = spin - i * 0.18;
+      const tx = cx + Math.cos(trailAngle) * planeR;
+      const ty = (cy - planeR * 0.3) + Math.sin(trailAngle) * planeR * 0.5;
+      ctx.beginPath();
+      ctx.arc(tx, ty, Math.max(1, 3.5 - i * 0.7), 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,24,56,${0.5 - i * 0.1})`;
+      ctx.fill();
+    }
+
+    // "STARTING NEXT ROUND" text
+    const textY = cy + planeR * 1.45;
     const fs    = Math.min(w * 0.034, 22);
     ctx.font        = `900 ${fs}px Inter,sans-serif`;
     ctx.textAlign   = "center";
     ctx.fillStyle   = "rgba(255,255,255,0.80)";
-    ctx.letterSpacing = "0.05em";
-    ctx.fillText("WAITING FOR NEXT ROUND", cx, textY);
+    ctx.fillText("STARTING NEXT ROUND", cx, textY);
 
     // Red underline
     const lineW = Math.min(w * 0.22, 180);

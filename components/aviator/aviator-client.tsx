@@ -138,7 +138,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   // ── Supabase realtime ──────────────────────────────────────────────────────
   useEffect(() => {
     const ch = supabase
-      .channel("aviator-game")
+      .channel("aviator")
       .on("broadcast", { event: "round:state" }, ({ payload }) => {
         setRound((prev) => prev ? { ...prev, ...payload } : prev);
         if (payload.state === "FLYING") setMultiplier(1.0);
@@ -181,7 +181,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   useEffect(() => {
     fetchState();
     fetchHistory();
-    tickRef.current = setInterval(tick, 500);
+    tickRef.current = setInterval(tick, 5000);
     return () => { if (tickRef.current) clearInterval(tickRef.current); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -199,6 +199,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       [panelIndex]: { id: data.betId, roundId: data.roundId, userId: userId ?? "", username: username ?? null, panelIndex, betAmount: amount, autoCashout: autoCashout ?? null, cashoutAt: null, winAmount: null, status: "ACTIVE", placedAt: new Date().toISOString() },
     }));
     setBalance((b) => b - amount);
+    window.dispatchEvent(new Event("wallet-refresh"));
   }, [userId, username]);
 
   const handleCashout = useCallback(async (panelIndex: 0 | 1) => {
@@ -214,6 +215,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       return { ...prev, [panelIndex]: { ...existing, status: "CASHEDOUT", cashoutAt: data.cashoutAt, winAmount: data.winAmount } };
     });
     setBalance((b) => b + data.winAmount);
+    window.dispatchEvent(new Event("wallet-refresh"));
   }, []);
 
   const displayMult = round?.state === "CRASHED" ? (round.crashPoint ?? multiplier) : multiplier;
@@ -307,7 +309,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       </section>
 
       <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-white/10 bg-[#080d16] xl:block">
-        <AviatorChatPanel liveBets={liveBets} roundNumber={round?.roundNumber ?? null} />
+        <AviatorChatPanel liveBets={liveBets} roundNumber={round?.roundNumber ?? null} userId={userId} username={username} />
       </aside>
 
       {verifyRound && (
@@ -318,76 +320,129 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   );
 }
 
-function AviatorChatPanel({ liveBets, roundNumber }: { liveBets: AviatorBetPublic[]; roundNumber: number | null }) {
-  const winners = liveBets.filter((b) => b.status === "CASHEDOUT").slice(-6).reverse();
-  const feed = winners.length > 0 ? winners : liveBets.slice(-6).reverse();
+interface ChatMessage {
+  id:       string;
+  userId:   string;
+  username: string;
+  text:     string;
+  ts:       number;
+}
+
+function AviatorChatPanel({
+  liveBets, roundNumber, userId, username,
+}: {
+  liveBets: AviatorBetPublic[];
+  roundNumber: number | null;
+  userId?: string;
+  username?: string;
+}) {
+  const supabase   = createClient();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [draft,    setDraft]    = useState("");
+  const [sending,  setSending]  = useState(false);
+  const bottomRef  = useRef<HTMLDivElement>(null);
+  const chRef      = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("aviator-chat", { config: { broadcast: { self: true } } })
+      .on("broadcast", { event: "chat:message" }, ({ payload }: { payload: ChatMessage }) => {
+        setMessages((prev) => {
+          if (prev.find((m) => m.id === payload.id)) return prev;
+          return [...prev.slice(-199), payload];
+        });
+      })
+      .subscribe();
+    chRef.current = ch;
+    return () => { supabase.removeChannel(ch); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const send = useCallback(async () => {
+    const text = draft.trim();
+    if (!text || !userId || !username || sending) return;
+    setSending(true);
+    const msg: ChatMessage = {
+      id: `${userId}-${Date.now()}`,
+      userId, username, text,
+      ts: Date.now(),
+    };
+    await chRef.current?.send({ type: "broadcast", event: "chat:message", payload: msg });
+    setDraft("");
+    setSending(false);
+  }, [draft, userId, username, sending]);
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 bg-[#0b0b0c] px-4">
         <div className="flex items-center gap-2">
           <span className="text-xs font-black uppercase tracking-widest text-white/70">Chat</span>
           <span className="flex items-center gap-1 text-xs font-bold text-white/35">
-            Online <span className="h-2 w-2 rounded-full bg-[#24d463]" /> {Math.max(2, liveBets.length + 2)}
+            <span className="h-2 w-2 rounded-full bg-[#24d463]" />
+            {Math.max(2, liveBets.length + 2)} online
           </span>
         </div>
-        <span className="text-lg text-white/35">x</span>
+        <span className="font-mono text-xs text-white/25">#{roundNumber ?? "--"}</span>
       </div>
 
-      <div className="border-b border-white/10 bg-[#102f60] px-4 py-3">
-        <div className="grid grid-cols-2 text-xs font-bold text-blue-100">
-          <span>Round</span>
-          <span className="text-right">Bet</span>
-          <span className="font-mono text-white">{roundNumber ? `#${roundNumber}` : "--"}</span>
-          <span className="text-right font-mono text-white">{liveBets.length.toLocaleString()} active</span>
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-[#07101f] p-3">
-        {feed.length === 0 ? (
-          <ChatCard username="robo" message="Waiting for the next cashout..." mult="--" win="--" />
-        ) : feed.map((bet, index) => (
-          <ChatCard
-            key={bet.id}
-            username={bet.username ?? `demo${4100 + index}`}
-            message={bet.status === "CASHEDOUT" ? "Awesome cashout!" : "Good luck!"}
-            mult={bet.cashoutAt ? `${bet.cashoutAt.toFixed(2)}x` : "Flying"}
-            win={bet.winAmount ? `KSh ${bet.winAmount.toLocaleString("en-KE", { maximumFractionDigits: 0 })}` : `KSh ${bet.betAmount.toLocaleString("en-KE")}`}
-          />
+      {/* Messages */}
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[#07101f] p-3">
+        {messages.length === 0 ? (
+          <p className="mt-8 text-center text-xs text-white/25">No messages yet — say hi!</p>
+        ) : messages.map((m) => (
+          <div key={m.id} className={`mb-2 flex items-start gap-2 ${m.userId === userId ? "flex-row-reverse" : ""}`}>
+            <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-black text-white ${avatarColor(m.username)}`}>
+              {m.username.slice(0, 1).toUpperCase()}
+            </span>
+            <div className={`max-w-[75%] ${m.userId === userId ? "items-end" : "items-start"} flex flex-col`}>
+              <span className="mb-0.5 text-[10px] text-white/35">{m.username}</span>
+              <span className={`rounded-2xl px-3 py-2 text-xs text-white ${m.userId === userId ? "rounded-tr-sm bg-[#0d47a1]" : "rounded-tl-sm bg-[#11356c]"}`}>
+                {m.text}
+              </span>
+            </div>
+          </div>
         ))}
+        <div ref={bottomRef} />
       </div>
 
+      {/* Input */}
       <div className="shrink-0 border-t border-white/10 bg-[#0b0b0c] p-3">
-        <div className="flex h-10 items-center gap-2 rounded-full bg-white/10 px-3 text-xs text-white/35">
-          <span>Reply</span>
-          <span className="ml-auto rounded-full bg-[#0d47a1] px-2 py-0.5 text-[10px] font-black text-blue-100">Rain</span>
-        </div>
+        {userId ? (
+          <div className="flex items-center gap-2">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={onKey}
+              placeholder="Say something…"
+              maxLength={200}
+              className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 text-xs text-white placeholder-white/30 outline-none focus:bg-white/[0.15]"
+            />
+            <button
+              onClick={send}
+              disabled={!draft.trim() || sending}
+              className="shrink-0 rounded-full bg-[#0d47a1] px-4 py-2 text-[11px] font-black text-white disabled:opacity-40 hover:bg-[#1565c0]"
+            >
+              Send
+            </button>
+          </div>
+        ) : (
+          <p className="text-center text-xs text-white/30">Sign in to chat</p>
+        )}
       </div>
     </div>
   );
 }
 
-function ChatCard({ username, message, mult, win }: { username: string; message: string; mult: string; win: string }) {
-  return (
-    <div className="overflow-hidden rounded-lg bg-[#11356c] shadow-lg shadow-black/20">
-      <div className="flex items-center gap-2 bg-[#0f4fa2] px-3 py-2 text-sm font-bold text-blue-100">
-        <span className="grid h-6 w-6 place-items-center rounded-full bg-[#1478ff] text-xs text-white">B</span>
-        <span className="truncate">{username}</span>
-        <span className="rounded bg-[#1478ff] px-1 text-[10px]">Bot</span>
-      </div>
-      <div className="px-4 py-3">
-        <p className="mb-2 text-xs font-bold text-blue-100/85">{message}</p>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div>
-            <p className="text-blue-200/40">Cashed out</p>
-            <span className="inline-flex rounded-md bg-fuchsia-600 px-2 py-1 font-black text-white">{mult}</span>
-          </div>
-          <div>
-            <p className="text-blue-200/40">Win</p>
-            <p className="font-black text-white">{win}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+function avatarColor(name: string) {
+  const colors = ["bg-violet-600","bg-blue-600","bg-green-600","bg-orange-500","bg-pink-600","bg-teal-600","bg-rose-600","bg-indigo-600"];
+  return colors[name.charCodeAt(0) % colors.length];
 }

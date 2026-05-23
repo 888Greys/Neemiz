@@ -390,7 +390,7 @@ export function AviatorSidePanel() {
   // Supabase realtime
   useEffect(() => {
     const ch = supabase
-      .channel("aviator-side-panel")
+      .channel("aviator")
       .on("broadcast", { event: "round:state" }, ({ payload }) => {
         const s = payload.state as RoundState;
         setRoundState(s);
