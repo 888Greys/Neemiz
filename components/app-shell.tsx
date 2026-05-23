@@ -212,7 +212,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
           }
 
           return (
-            <Link key={item.label} href={item.href} className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}>
+            <Link key={item.label} href={item.href ?? "/"} className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}>
               <Icon name={item.icon} fill={active} className="text-[20px]" />
               <span className="mt-0.5 max-w-full truncate font-bold leading-none">{item.label}</span>
             </Link>
