@@ -192,7 +192,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
-          const activePath = "activePath" in item ? item.activePath : item.href.split("?")[0].split("#")[0];
+          const activePath = "activePath" in item ? item.activePath : (item.href ?? "").split("?")[0].split("#")[0];
           const active = activePath === pathname;
           if (item.label === "Menu") {
             return (
