@@ -237,7 +237,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="grid h-full min-h-0 min-w-0 gap-2 overflow-hidden xl:grid-cols-[300px_minmax(0,1fr)_320px] 2xl:grid-cols-[320px_minmax(0,1fr)_340px]">
+    <div className="grid min-w-0 gap-2 lg:h-full lg:min-h-0 lg:overflow-hidden xl:grid-cols-[300px_minmax(0,1fr)_320px] 2xl:grid-cols-[320px_minmax(0,1fr)_340px]">
       <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-white/10 bg-[#141414] xl:block">
         <AviatorLiveBets
           liveBets={liveBets}
@@ -246,7 +246,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         />
       </aside>
 
-      <section className="grid min-h-0 min-w-0 overflow-hidden grid-rows-[auto_auto_minmax(0,1fr)_auto]">
+      <section className="grid min-w-0 grid-rows-[auto_auto_auto_auto] lg:min-h-0 lg:overflow-hidden lg:grid-rows-[auto_auto_minmax(0,1fr)_auto]">
         <div className="mb-2 flex items-center justify-between rounded-lg border border-white/10 bg-[#101010] px-3 py-2">
           <div className="flex items-center gap-3">
             <span className="font-[var(--font-pacifico)] text-2xl text-[#ff1838]">Aviator</span>
@@ -269,8 +269,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           <AviatorHistory rounds={history} onVerify={setVerifyRound} />
         </div>
 
-        <div className="min-h-0 overflow-hidden rounded-lg border border-white/10 bg-black">
-          <div className="h-full min-h-[240px]">
+        <div className="overflow-hidden rounded-lg border border-white/10 bg-black lg:min-h-0">
+          <div className="h-[240px] lg:h-full">
             <AviatorCanvas
               state={round?.state ?? "WAITING"}
               multiplier={displayMult}
@@ -281,7 +281,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           </div>
         </div>
 
-        <div className="mt-2 grid min-w-0 shrink-0 grid-cols-1 gap-2 lg:grid-cols-2">
+        <div className="mt-2 grid min-w-0 shrink-0 grid-cols-2 gap-2">
           {([0, 1] as const).map((pi) => (
             <div key={pi} className="min-w-0">
               <AviatorBetPanel

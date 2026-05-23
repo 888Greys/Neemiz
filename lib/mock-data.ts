@@ -13,7 +13,7 @@ export const navItems = [
 ];
 
 export const mobileNav = [
-  { href: "/dashboard", label: "Home", icon: "home", activePath: "/dashboard" },
+  { label: "Menu", icon: "menu" },
   { href: "/sports", label: "Sports", icon: "sports_soccer" },
   { href: "/aviator", label: "Aviator", icon: "rocket_launch" },
   { href: "/p2p", label: "P2P", icon: "swap_horiz" },
