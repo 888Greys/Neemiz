@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
@@ -224,7 +223,6 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
 
 export function P2POrderClient({ orderId }: { orderId: string }) {
   const router = useRouter();
-  const { user } = useSupabaseAuth();
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -282,7 +280,8 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
   if (!order) return null;
 
   const isClosed = ["RELEASED", "CANCELLED", "EXPIRED"].includes(order.status);
-  const currentUserId = user?.id ?? ""; // supabase user id — note: may differ from dbUser.id
+  // Use dbUser IDs (CUIDs) — not the Supabase auth UUID — so the Chat "mine" check matches sender.id
+  const currentUserId = order.isBuyer ? order.buyer.id : order.seller.userId;
 
   return (
     <>
