@@ -16,9 +16,9 @@ const SEGMENTS = [
   { label: "×3",   mult: 3   },
 ];
 
-// Weighted random: ×0 and ×5 are rare; ×1.5 and ×2 are common
-const WEIGHTS = [25, 22, 8, 15, 25, 22, 3, 15]; // out of 135 total weight
-// Segment indices:  0   1   2   3   4   5  6   7
+// Weighted random: 70% loss (×0), 30% win across the rest
+// Segment indices:   0   1    2   3   4   5  6  7
+const WEIGHTS =     [ 5,  5,  70,  5,  5,  5, 2, 3]; // out of 100 total
 
 function weightedRandom(): number {
   const total = WEIGHTS.reduce((a, b) => a + b, 0);
