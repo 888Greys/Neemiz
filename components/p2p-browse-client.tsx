@@ -280,13 +280,13 @@ function StatsBar() {
       {cells.map((s) => (
         <div
           key={s.label}
-          className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#15191f] px-4 py-3 hover:border-white/[0.12] transition-colors"
+          className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#15191f] px-3 py-2.5 transition-colors hover:border-white/[0.12]"
         >
-          <div className="flex items-center gap-1.5 mb-2">
+          <div className="mb-1 flex items-center gap-1.5">
             {s.live && <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse shrink-0" />}
             <span className="text-[11px] text-slate-500 font-medium">{s.label}</span>
           </div>
-          <p className={`text-xl font-black ${stats ? "text-white" : "text-slate-700"}`}>{s.value}</p>
+          <p className={`text-lg font-black leading-tight ${stats ? "text-white" : "text-slate-700"}`}>{s.value}</p>
         </div>
       ))}
     </div>
@@ -657,22 +657,22 @@ export function P2PBrowseClient() {
       <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 lg:h-full lg:overflow-hidden">
 
         {/* Workspace header */}
-        <div className="mb-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_460px]">
-          <div className="rounded-2xl border border-white/[0.07] bg-[#15191f] p-4">
-            <div className="mb-4 flex items-start justify-between gap-4">
+        <div className="mb-2 grid gap-2 xl:grid-cols-[minmax(0,1fr)_575px]">
+          <div className="rounded-xl border border-white/[0.07] bg-[#15191f] px-3 py-2.5">
+            <div className="mb-2 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/30">Nezeem P2P</p>
-                <h1 className="mt-1 text-[22px] font-black leading-tight text-white">Local crypto exchange</h1>
-                <p className="mt-1 max-w-md text-sm font-semibold leading-6 text-slate-500">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">Nezeem P2P</p>
+                <h1 className="text-lg font-black leading-tight text-white">Local crypto exchange</h1>
+                <p className="max-w-md text-xs font-semibold leading-5 text-slate-500">
                   Verified merchants, local payments, escrow-protected orders.
                 </p>
               </div>
-              <div className="hidden items-center gap-3 text-xs text-slate-500 sm:flex">
-                <span className="flex items-center gap-1.5 rounded-full bg-[#22c55e]/10 px-3 py-1.5 text-[#22c55e]">
+              <div className="hidden shrink-0 items-center gap-2 text-xs text-slate-500 sm:flex">
+                <span className="flex items-center gap-1.5 rounded-full bg-[#22c55e]/10 px-2.5 py-1 text-[#22c55e]">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
                   Escrow active
                 </span>
-                <span className="flex items-center gap-1 rounded-full bg-white/[0.05] px-3 py-1.5">
+                <span className="flex items-center gap-1 rounded-full bg-white/[0.05] px-2.5 py-1">
                   <Icon name="shield" className="text-[#8bc3ff] text-xs" />
                   0% fees
                 </span>
@@ -680,13 +680,13 @@ export function P2PBrowseClient() {
             </div>
 
             {/* Controls */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              <div className="flex items-center gap-1 rounded-xl bg-black/25 p-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 rounded-lg bg-black/25 p-1">
                 {(["BUY", "SELL"] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
-                    className={`h-10 rounded-lg px-6 text-sm font-black transition-all ${
+                    className={`h-8 rounded-md px-5 text-xs font-black transition-all ${
                       tab === t
                         ? t === "BUY"
                           ? "bg-[#22c55e] text-white shadow shadow-[#22c55e]/20"
@@ -704,7 +704,7 @@ export function P2PBrowseClient() {
                   <button
                     key={c}
                     onClick={() => setCrypto(c)}
-                    className={`flex h-10 items-center gap-1.5 rounded-lg border px-3 text-xs font-black transition-all ${
+                    className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-black transition-all ${
                       crypto === c
                         ? "bg-[#087cff] border-[#087cff] text-white shadow shadow-[#087cff]/20"
                         : "bg-white/[0.04] border-white/[0.07] text-slate-400 hover:border-white/20 hover:text-white"
@@ -723,7 +723,7 @@ export function P2PBrowseClient() {
                   <button
                     key={p.value}
                     onClick={() => setPayment(p.value)}
-                    className={`h-9 rounded-lg border px-3 text-xs font-bold transition-all ${
+                    className={`h-8 rounded-md border px-3 text-xs font-bold transition-all ${
                       payment === p.value
                         ? "bg-white/10 border-white/20 text-white"
                         : "bg-white/[0.04] border-white/[0.05] text-slate-500 hover:border-white/15 hover:text-slate-300"
@@ -735,7 +735,7 @@ export function P2PBrowseClient() {
                 <button
                   onClick={fetchAds}
                   title="Refresh"
-                  className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-white"
+                  className="grid h-8 w-8 place-items-center rounded-md text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-white"
                 >
                   <Icon name="refresh" className={`text-lg ${loading ? "animate-spin" : ""}`} />
                 </button>
