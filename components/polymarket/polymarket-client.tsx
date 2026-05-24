@@ -27,6 +27,9 @@ interface MyBet {
   potentialWin: number;
   status:       string;
   winAmount:    number | null;
+  executionMode: string;
+  clobOrderId:  string | null;
+  clobStatus:   string | null;
   settledAt:    string | null;
   createdAt:    string;
 }
@@ -34,6 +37,7 @@ interface MyBet {
 interface Props {
   userId?:  string;
   balance:  number;
+  initialMarkets?: PolymarketMarket[];
 }
 
 interface DetailComment {
@@ -855,10 +859,10 @@ function seedComments(market: PolymarketMarket): DetailComment[] {
 }
 
 /* ── Main component ─────────────────────────────────────────────────────── */
-export function PolymarketClient({ userId, balance: initialBalance }: Props) {
-  const [markets,  setMarkets]  = useState<PolymarketMarket[]>([]);
+export function PolymarketClient({ userId, balance: initialBalance, initialMarkets = [] }: Props) {
+  const [markets,  setMarkets]  = useState<PolymarketMarket[]>(initialMarkets);
   const [myBets,   setMyBets]   = useState<MyBet[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [loading,  setLoading]  = useState(initialMarkets.length === 0);
   const [tab,      setTab]      = useState<"browse" | "my-bets">("browse");
   const [tag,      setTag]      = useState("Trending");
   const [ticket,   setTicket]   = useState<{ market: PolymarketMarket; outcome?: string; amount?: number } | null>(null);
@@ -869,7 +873,7 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
   const tagBarRef = useRef<HTMLDivElement>(null);
 
   const fetchMarkets = useCallback(async () => {
-    setLoading(true);
+    setLoading(markets.length === 0);
     const params = new URLSearchParams({ limit: "24" });
 
     if (tag === "Trending") {
@@ -887,7 +891,7 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
     const res = await fetch(`/api/polymarket/markets?${params}`);
     if (res.ok) setMarkets(await res.json());
     setLoading(false);
-  }, [tag]);
+  }, [tag, markets.length]);
 
   const fetchMyBets = useCallback(async () => {
     if (!userId) return;
@@ -1119,6 +1123,18 @@ export function PolymarketClient({ userId, balance: initialBalance }: Props) {
                       }
                     </span>
                   </div>
+                  {b.executionMode === "clob" && (
+                    <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/35">
+                      <span className="rounded-md border border-white/[0.06] bg-black/20 px-2 py-1 uppercase tracking-wide">
+                        CLOB {b.clobStatus ?? "PLACED"}
+                      </span>
+                      {b.clobOrderId && (
+                        <span className="rounded-md border border-white/[0.06] bg-black/20 px-2 py-1 font-mono">
+                          {b.clobOrderId.slice(0, 10)}...{b.clobOrderId.slice(-6)}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

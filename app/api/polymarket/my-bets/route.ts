@@ -25,6 +25,9 @@ export async function GET() {
     potentialWin:Number(b.potentialWin),
     status:      b.status,
     winAmount:   b.winAmount ? Number(b.winAmount) : null,
+    executionMode: b.executionMode,
+    clobOrderId: b.clobOrderId,
+    clobStatus:  b.clobStatus,
     settledAt:   b.settledAt?.toISOString() ?? null,
     createdAt:   b.createdAt.toISOString(),
   })));

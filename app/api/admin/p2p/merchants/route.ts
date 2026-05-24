@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/admin/p2p/merchants — list merchant profiles by KYC status
 // Query param: ?status=PENDING|APPROVED|REJECTED (defaults to PENDING)
 export async function GET(req: Request) {

@@ -12,8 +12,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser   = await getOrCreateUser(user.id, { email: user.email });
-    const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
-    if (!merchant) return Response.json({ error: "Merchant account required" }, { status: 403 });
+    const merchant = await db.merchantProfile.findFirst({
+      where: { OR: [{ userId: dbUser.id }, { sellOrders: { some: { id } } }] },
+    });
 
     const order = await db.p2POrder.findUnique({
       where: { id },
@@ -21,7 +22,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     });
 
     if (!order)                         return Response.json({ error: "Order not found" }, { status: 404 });
-    if (order.sellerId !== merchant.id) return Response.json({ error: "Forbidden" }, { status: 403 });
+    const isMerchantSell = order.ad.side === "SELL";
+    const canRelease = isMerchantSell
+      ? merchant?.userId === dbUser.id && order.sellerId === merchant.id
+      : order.buyerId === dbUser.id;
+    if (!canRelease) return Response.json({ error: "Forbidden" }, { status: 403 });
     if (order.status !== "PAID")        return Response.json({ error: "Order is not in PAID state" }, { status: 400 });
 
     const cryptoAmt   = Number(order.cryptoAmount);
@@ -38,16 +43,32 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         },
       });
 
-      await tx.p2PCryptoBalance.update({
-        where: { merchantId_crypto: { merchantId: merchant.id, crypto: order.crypto } },
-        data: {
-          locked: { decrement: cryptoAmt },
-          total:  { decrement: cryptoAmt },
-        },
-      });
+      if (isMerchantSell) {
+        if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
+        await tx.p2PCryptoBalance.update({
+          where: { merchantId_crypto: { merchantId: merchant.id, crypto: order.crypto } },
+          data: {
+            locked: { decrement: cryptoAmt },
+            total:  { decrement: cryptoAmt },
+          },
+        });
 
-      await creditUserCrypto(tx, order.buyerId, order.crypto, network, cryptoAmt);
+        await creditUserCrypto(tx, order.buyerId, order.crypto, network, cryptoAmt);
+      } else {
+        if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
+        const unlocked = await tx.userCryptoBalance.updateMany({
+          where: { userId: order.buyerId, crypto: order.crypto, network, locked: { gte: cryptoAmt } },
+          data:  { locked: { decrement: cryptoAmt } },
+        });
+        if (unlocked.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
+        await tx.p2PCryptoBalance.upsert({
+          where:  { merchantId_crypto: { merchantId: merchant.id, crypto: order.crypto } },
+          create: { merchantId: merchant.id, crypto: order.crypto, total: cryptoAmt, available: cryptoAmt, locked: 0 },
+          update: { total: { increment: cryptoAmt }, available: { increment: cryptoAmt } },
+        });
+      }
 
+      if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
       const newTotal     = merchant.totalTrades + 1;
       const newCompleted = merchant.completedTrades + 1;
       const newAvgRelease = Math.round(
@@ -64,13 +85,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       });
     });
 
-    // Notify buyer (outside transaction — non-critical)
+    // Notify counterparty (outside transaction — non-critical)
     await db.notification.create({
       data: {
-        userId: order.buyerId,
+        userId: isMerchantSell ? order.buyerId : merchant!.userId,
         type:   "p2p_released",
-        title:  `${order.crypto} credited to your account`,
-        body:   `${cryptoAmt.toFixed(6)} ${order.crypto} from order #${order.id.slice(0, 8).toUpperCase()} is now in your Nezeem wallet.`,
+        title:  isMerchantSell ? `${order.crypto} credited to your account` : `${order.crypto} received from seller`,
+        body:   `${cryptoAmt.toFixed(6)} ${order.crypto} from order #${order.id.slice(0, 8).toUpperCase()} is complete.`,
         link:   `/p2p/order/${order.id}`,
       },
     }).catch(() => {});

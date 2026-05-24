@@ -1,5 +1,7 @@
 import { db } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/p2p/stats — public platform stats for the P2P browse page
 export async function GET() {
   try {

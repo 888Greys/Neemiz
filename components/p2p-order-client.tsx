@@ -25,6 +25,7 @@ interface OrderData {
   buyer: { id: string; firstName: string | null; lastName: string | null; username: string | null };
   seller: { displayName: string; userId: string };
   ad: { fiat: string; paymentMethods: string[] };
+  side: "BUY" | "SELL";
   isBuyer: boolean;
   isSeller: boolean;
 }
@@ -280,6 +281,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
   if (!order) return null;
 
   const isClosed = ["RELEASED", "CANCELLED", "EXPIRED"].includes(order.status);
+  const merchantIsSelling = order.side === "SELL";
   // Use dbUser IDs (CUIDs) — not the Supabase auth UUID — so the Chat "mine" check matches sender.id
   const currentUserId = order.isBuyer ? order.buyer.id : order.seller.userId;
 
@@ -369,14 +371,18 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           {!isClosed && (
             <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl p-5">
               <h2 className="text-white font-black mb-3">
-                {order.status === "PENDING" && order.isBuyer && "How to complete your order"}
-                {order.status === "PENDING" && order.isSeller && "Waiting for buyer to pay"}
-                {order.status === "PAID" && order.isBuyer && "Payment sent — waiting for release"}
-                {order.status === "PAID" && order.isSeller && "Verify the payment and release"}
+                {order.status === "PENDING" && order.isBuyer && merchantIsSelling && "How to complete your order"}
+                {order.status === "PENDING" && order.isBuyer && !merchantIsSelling && "Waiting for merchant payment"}
+                {order.status === "PENDING" && order.isSeller && merchantIsSelling && "Waiting for buyer to pay"}
+                {order.status === "PENDING" && order.isSeller && !merchantIsSelling && "Pay the seller"}
+                {order.status === "PAID" && order.isBuyer && merchantIsSelling && "Payment sent — waiting for release"}
+                {order.status === "PAID" && order.isBuyer && !merchantIsSelling && "Verify payment and release crypto"}
+                {order.status === "PAID" && order.isSeller && merchantIsSelling && "Verify the payment and release"}
+                {order.status === "PAID" && order.isSeller && !merchantIsSelling && "Payment marked sent"}
                 {order.status === "DISPUTED" && "Dispute in progress"}
               </h2>
 
-              {order.status === "PENDING" && order.isBuyer && (
+              {order.status === "PENDING" && order.isBuyer && merchantIsSelling && (
                 <ol className="space-y-3 text-sm text-slate-400">
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">1</span>
@@ -393,14 +399,33 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 </ol>
               )}
 
-              {order.status === "PENDING" && order.isSeller && (
+              {order.status === "PENDING" && order.isBuyer && !merchantIsSelling && (
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  Your {order.crypto} is locked in escrow. Wait for the merchant to send KSh {Number(order.fiatAmount).toLocaleString("en-KE")} by {order.paymentMethod === "MPESA" ? "M-Pesa" : "bank transfer"}, then release crypto after you confirm the payment.
+                </p>
+              )}
+
+              {order.status === "PENDING" && order.isSeller && merchantIsSelling && (
                 <p className="text-slate-400 text-sm leading-relaxed">
                   Wait for the buyer to complete payment. You will be notified when they mark it as paid.
                   Do <strong className="text-white">not</strong> release crypto until you verify the payment in your account.
                 </p>
               )}
 
-              {order.status === "PAID" && order.isSeller && (
+              {order.status === "PENDING" && order.isSeller && !merchantIsSelling && (
+                <ol className="space-y-3 text-sm text-slate-400">
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">1</span>
+                    <span>Send <span className="text-white font-bold">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</span> to the seller using the selected payment method.</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
+                    <span>After sending fiat, mark the order as paid. The seller will release {order.crypto} from escrow.</span>
+                  </li>
+                </ol>
+              )}
+
+              {order.status === "PAID" && order.isSeller && merchantIsSelling && (
                 <ol className="space-y-3 text-sm text-slate-400">
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#31c45d]/20 text-[#31c45d] text-xs font-black flex items-center justify-center shrink-0">1</span>
@@ -413,10 +438,22 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 </ol>
               )}
 
-              {order.status === "PAID" && order.isBuyer && (
+              {order.status === "PAID" && order.isBuyer && merchantIsSelling && (
                 <p className="text-slate-400 text-sm leading-relaxed">
                   Your payment has been recorded. The merchant is verifying it now.
                   If they don&apos;t release within a reasonable time, you can raise a dispute.
+                </p>
+              )}
+
+              {order.status === "PAID" && order.isBuyer && !merchantIsSelling && (
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  The merchant marked fiat as paid. Verify the payment in your account before releasing crypto.
+                </p>
+              )}
+
+              {order.status === "PAID" && order.isSeller && !merchantIsSelling && (
+                <p className="text-slate-400 text-sm leading-relaxed">
+                  You marked fiat as paid. The seller must verify payment and release crypto from escrow.
                 </p>
               )}
 
@@ -461,7 +498,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
             <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl p-5 space-y-4">
 
               {/* Buyer: I've Paid */}
-              {order.isBuyer && order.status === "PENDING" && (
+              {order.isBuyer && order.status === "PENDING" && merchantIsSelling && (
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-bold text-slate-400 mb-1.5 block">
@@ -487,8 +524,32 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 </div>
               )}
 
+              {order.isSeller && order.status === "PENDING" && !merchantIsSelling && (
+                <button
+                  onClick={() => doAction("paid", { paymentRef: paidRef || null }, "paid")}
+                  disabled={!!actionLoading}
+                  className="w-full py-3 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] disabled:opacity-50 transition-all active:scale-[0.98]"
+                >
+                  {actionLoading === "paid"
+                    ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Confirming…</span>
+                    : "I've Paid the Seller"}
+                </button>
+              )}
+
               {/* Seller: Release */}
-              {order.isSeller && order.status === "PAID" && (
+              {order.isSeller && order.status === "PAID" && merchantIsSelling && (
+                <button
+                  onClick={() => doAction("release", {}, "release")}
+                  disabled={!!actionLoading}
+                  className="w-full py-3 rounded-xl font-black text-white bg-[#31c45d] hover:bg-[#28af52] disabled:opacity-50 transition-all active:scale-[0.98]"
+                >
+                  {actionLoading === "release"
+                    ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Releasing…</span>
+                    : `Release ${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}`}
+                </button>
+              )}
+
+              {order.isBuyer && order.status === "PAID" && !merchantIsSelling && (
                 <button
                   onClick={() => doAction("release", {}, "release")}
                   disabled={!!actionLoading}

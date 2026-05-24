@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { defaultNetwork, unlockUserCrypto } from "@/lib/p2p/crypto-balance";
 
 // GET /api/p2p/orders/[id] — fetch single order (buyer or seller only)
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +17,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     include: {
       seller: { select: { displayName: true, userId: true } },
       buyer: { select: { id: true, firstName: true, lastName: true, username: true } },
-      ad: { select: { fiat: true, paymentMethods: true } },
+      ad: { select: { fiat: true, paymentMethods: true, side: true } },
     },
   });
 
@@ -37,6 +38,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         where: { id: order.adId },
         data:  { availableAmount: { increment: Number(order.cryptoAmount) } },
       });
+      if (order.ad.side === "BUY") {
+        await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), Number(order.cryptoAmount));
+      }
     });
     order.status = "EXPIRED" as typeof order.status;
   }
@@ -57,6 +61,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     buyer:           order.buyer,
     seller:          order.seller,
     ad:              order.ad,
+    side:            order.ad.side,
     isBuyer,
     isSeller,
   });

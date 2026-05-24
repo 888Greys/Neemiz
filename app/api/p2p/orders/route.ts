@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { defaultNetwork, lockUserCrypto, unlockUserCrypto } from "@/lib/p2p/crypto-balance";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
 export async function GET() {
@@ -26,7 +27,7 @@ export async function GET() {
           ...(merchant ? [{ sellerId: merchant.id }] : []),
         ],
       },
-      select: { id: true, adId: true, cryptoAmount: true },
+      select: { id: true, adId: true, buyerId: true, crypto: true, cryptoAmount: true, ad: { select: { side: true } } },
     });
     if (expiredOrders.length > 0) {
       await db.$transaction(async (tx) => {
@@ -40,6 +41,9 @@ export async function GET() {
             where: { id: order.adId },
             data:  { availableAmount: { increment: Number(order.cryptoAmount) } },
           });
+          if (order.ad.side === "BUY") {
+            await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), Number(order.cryptoAmount));
+          }
         }
       });
     }
@@ -70,6 +74,9 @@ export async function GET() {
             displayName: true,
           },
         },
+        ad: {
+          select: { side: true },
+        },
         buyer: {
           select: {
             firstName: true,
@@ -82,6 +89,7 @@ export async function GET() {
 
     const result = orders.map((o) => ({
       ...o,
+      side:     o.ad.side,
       isBuyer:  o.buyerId === dbUser.id,
       isSeller: merchant ? o.sellerId === merchant.id : false,
     }));
@@ -142,13 +150,19 @@ export async function POST(req: Request) {
       return Response.json({ error: "Payment method not supported by this ad" }, { status: 400 });
     }
 
-    // Create order + reduce available amount atomically
+    // Create order + reserve liquidity atomically.
+    // SELL ad: merchant crypto is already locked when the ad is created.
+    // BUY ad: taker is selling crypto to the merchant, so lock taker's crypto now.
     const order = await db.$transaction(async (tx) => {
       const reserved = await tx.p2PAd.updateMany({
         where: { id: adId as string, isActive: true, availableAmount: { gte: cryptoAmountNum } },
         data: { availableAmount: { decrement: cryptoAmountNum } },
       });
       if (reserved.count === 0) throw new Error("INSUFFICIENT_AD_LIQUIDITY");
+
+      if (ad.side === "BUY") {
+        await lockUserCrypto(tx, dbUser.id, ad.crypto, defaultNetwork(ad.crypto), cryptoAmountNum);
+      }
 
       return tx.p2POrder.create({
         data: {
@@ -165,9 +179,13 @@ export async function POST(req: Request) {
       });
     }).catch((err: unknown) => {
       if ((err as Error).message === "INSUFFICIENT_AD_LIQUIDITY") return null;
+      if ((err as Error).message === "INSUFFICIENT_CRYPTO_BALANCE") return "INSUFFICIENT_CRYPTO_BALANCE" as const;
       throw err;
     });
 
+    if (order === "INSUFFICIENT_CRYPTO_BALANCE") {
+      return Response.json({ error: `Insufficient ${ad.crypto} balance to sell.` }, { status: 400 });
+    }
     if (!order) return Response.json({ error: "Insufficient ad liquidity" }, { status: 400 });
 
     return Response.json({ orderId: order.id }, { status: 201 });
