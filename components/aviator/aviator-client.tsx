@@ -188,18 +188,33 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleBet = useCallback(async (amount: number, panelIndex: 0 | 1, autoCashout?: number) => {
-    const res  = await fetch("/api/aviator/bet", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ betAmount: amount, panelIndex, autoCashout }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Failed to place bet");
-    setMyBets((prev) => ({
-      ...prev,
-      [panelIndex]: { id: data.betId, roundId: data.roundId, userId: userId ?? "", username: username ?? null, panelIndex, betAmount: amount, autoCashout: autoCashout ?? null, cashoutAt: null, winAmount: null, status: "ACTIVE", placedAt: new Date().toISOString() },
-    }));
+    // Optimistic update — UI responds instantly; rollback if server rejects
+    const tempBet: AviatorBetPublic = {
+      id: `temp-${Date.now()}`, roundId: roundRef.current?.roundId ?? "",
+      userId: userId ?? "", username: username ?? null, panelIndex,
+      betAmount: amount, autoCashout: autoCashout ?? null,
+      cashoutAt: null, winAmount: null, status: "ACTIVE",
+      placedAt: new Date().toISOString(),
+    };
+    setMyBets((prev) => ({ ...prev, [panelIndex]: tempBet }));
     setBalance((b) => b - amount);
-    window.dispatchEvent(new Event("wallet-refresh"));
+
+    try {
+      const res  = await fetch("/api/aviator/bet", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ betAmount: amount, panelIndex, autoCashout }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMyBets((prev) => { const next = { ...prev }; delete next[panelIndex]; return next; });
+        setBalance((b) => b + amount);
+        throw new Error(data.error ?? "Failed to place bet");
+      }
+      setMyBets((prev) => ({ ...prev, [panelIndex]: { ...tempBet, id: data.betId, roundId: data.roundId } }));
+      window.dispatchEvent(new Event("wallet-refresh"));
+    } catch (e) {
+      throw e;
+    }
   }, [userId, username]);
 
   const handleCashout = useCallback(async (panelIndex: 0 | 1) => {
@@ -244,6 +259,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         <AviatorLiveBets
           liveBets={liveBets}
           myHistory={myHistory}
+          myCurrentBets={Object.values(myBets)}
           userId={userId}
         />
       </aside>
@@ -303,6 +319,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           <AviatorLiveBets
             liveBets={liveBets}
             myHistory={myHistory}
+            myCurrentBets={Object.values(myBets)}
             userId={userId}
           />
         </div>

@@ -16,9 +16,10 @@ interface MyHistoryBet {
 }
 
 interface Props {
-  liveBets:  AviatorBetPublic[];
-  myHistory: MyHistoryBet[];
-  userId?:   string;
+  liveBets:       AviatorBetPublic[];
+  myHistory:      MyHistoryBet[];
+  myCurrentBets?: AviatorBetPublic[];
+  userId?:        string;
 }
 
 function avatarColor(name: string | null) {
@@ -33,7 +34,7 @@ function MultChip({ v }: { v: number | null }) {
   return <span className={`font-black ${cls}`}>{v.toFixed(2)}×</span>;
 }
 
-export function AviatorLiveBets({ liveBets, myHistory, userId }: Props) {
+export function AviatorLiveBets({ liveBets, myHistory, myCurrentBets = [], userId }: Props) {
   const [tab, setTab] = useState<"live" | "my" | "top">("live");
 
   // top = highest cashout multiplier from live bets this round
@@ -48,7 +49,7 @@ export function AviatorLiveBets({ liveBets, myHistory, userId }: Props) {
       <div className="flex shrink-0 gap-1 border-b border-white/[0.07] bg-[#101010] p-2">
         {([
           { id: "live" as const, label: `All Bets`, count: liveBets.length },
-          { id: "my"   as const, label: "My Bets",  count: myHistory.length },
+          { id: "my"   as const, label: "My Bets",  count: myCurrentBets.length + myHistory.length },
           { id: "top"  as const, label: "Top",       count: topBets.length },
         ]).map(({ id, label, count }) => (
           <button
@@ -93,7 +94,10 @@ export function AviatorLiveBets({ liveBets, myHistory, userId }: Props) {
         {tab === "my" && (
           <>
             {!userId && <EmptyRow text="Sign in to see your bets" />}
-            {userId && myHistory.length === 0 && <EmptyRow text="No bets yet — place your first!" />}
+            {userId && myCurrentBets.length === 0 && myHistory.length === 0 && <EmptyRow text="No bets yet — place your first!" />}
+            {myCurrentBets.map((b) => (
+              <LiveRow key={b.id} bet={b} isMe={true} />
+            ))}
             {myHistory.map((b) => (
               <HistoryRow key={b.id} bet={b} />
             ))}
