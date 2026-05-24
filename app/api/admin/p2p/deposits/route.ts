@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/admin/p2p/deposits?status=PENDING|APPROVED|REJECTED  (omit for all)
 export async function GET(req: Request) {
   const supabase = await createClient();

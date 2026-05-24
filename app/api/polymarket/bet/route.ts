@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { fetchMarket } from "@/lib/polymarket";
-import { TransactionType, TransactionStatus } from "@prisma/client";
+import { isClobTradingEnabled, placePolymarketBuyOrder } from "@/lib/polymarket-clob";
+import { Prisma, TransactionType, TransactionStatus } from "@prisma/client";
 
 const MIN_BET = 10;
 const MAX_BET = 100_000;
@@ -40,8 +41,23 @@ export async function POST(req: Request) {
 
   const price       = market.outcomePrices[outcomeIdx];
   const potentialWin = parseFloat((stake / price).toFixed(2));
+  const tokenId = market.clobTokenIds[outcomeIdx];
+  const useClob = isClobTradingEnabled();
+
+  if (useClob && !tokenId) {
+    return Response.json({ error: "This outcome is missing a Polymarket CLOB token id" }, { status: 400 });
+  }
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
+  let clobOrder: Awaited<ReturnType<typeof placePolymarketBuyOrder>> | null = null;
+  try {
+    clobOrder = useClob
+      ? await placePolymarketBuyOrder({ tokenId: tokenId!, usdcAmount: stake, price })
+      : null;
+  } catch (err) {
+    console.error("Polymarket CLOB order error:", err);
+    return Response.json({ error: (err as Error).message || "Failed to place Polymarket order" }, { status: 502 });
+  }
 
   // Atomic: deduct balance + create bet + log transaction
   try {
@@ -65,7 +81,15 @@ export async function POST(req: Request) {
           currency:  "KES",
           status:    TransactionStatus.COMPLETED,
           reference: `poly-stake-${dbUser.id}-${conditionId}-${Date.now()}`,
-          metadata:  { game: "polymarket", conditionId, outcome, price },
+          metadata:  {
+            game: "polymarket",
+            conditionId,
+            outcome,
+            price,
+            executionMode: useClob ? "clob" : "internal",
+            clobOrderId: clobOrder?.orderId,
+            clobStatus: clobOrder?.status,
+          },
         },
       });
 
@@ -78,6 +102,13 @@ export async function POST(req: Request) {
           price,
           stake,
           potentialWin,
+          executionMode: useClob ? "clob" : "internal",
+          clobOrderId: clobOrder?.orderId,
+          clobStatus: clobOrder?.status,
+          clobTokenId: tokenId,
+          clobTradeIds: clobOrder?.tradeIds ?? [],
+          clobTxHashes: clobOrder?.transactionHashes ?? [],
+          clobRaw: clobOrder?.raw as Prisma.InputJsonValue | undefined,
         },
       });
     });
@@ -85,7 +116,7 @@ export async function POST(req: Request) {
     if ((err as Error).message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
     }
-    console.error("Polymarket bet error:", err);
+    console.error("Polymarket bet error:", err, clobOrder ? { clobOrder } : undefined);
     return Response.json({ error: "Failed to place bet" }, { status: 500 });
   }
 
@@ -96,5 +127,8 @@ export async function POST(req: Request) {
     price,
     stake,
     potentialWin,
+    executionMode: useClob ? "clob" : "internal",
+    clobOrderId: clobOrder?.orderId ?? null,
+    clobStatus: clobOrder?.status ?? null,
   }, { status: 201 });
 }

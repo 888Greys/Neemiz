@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { DisputeStatus } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/admin/p2p/disputes?status=OPEN|RESOLVED  (omit for all)
 export async function GET(req: Request) {
   try {

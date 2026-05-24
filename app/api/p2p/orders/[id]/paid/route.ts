@@ -11,10 +11,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
-    const order  = await db.p2POrder.findUnique({ where: { id } });
+    const order  = await db.p2POrder.findUnique({
+      where: { id },
+      include: { ad: true, seller: { select: { userId: true, displayName: true } } },
+    });
 
     if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
-    if (order.buyerId !== dbUser.id) return Response.json({ error: "Forbidden" }, { status: 403 });
+    const isMerchantBuy = order.ad.side === "BUY";
+    const canMarkPaid = isMerchantBuy ? order.seller.userId === dbUser.id : order.buyerId === dbUser.id;
+    if (!canMarkPaid) return Response.json({ error: "Forbidden" }, { status: 403 });
     if (order.status !== "PENDING") return Response.json({ error: "Order is not in PENDING state" }, { status: 400 });
     if (new Date() > order.expiresAt) return Response.json({ error: "Order has expired" }, { status: 400 });
 
@@ -32,14 +37,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         },
       });
 
-      const merchantUser = await tx.merchantProfile.findUnique({
-        where: { id: order.sellerId },
-        select: { userId: true, displayName: true },
-      });
-      if (merchantUser) {
+      if (isMerchantBuy) {
         await tx.notification.create({
           data: {
-            userId: merchantUser.userId,
+            userId: order.buyerId,
+            type:   "p2p_paid",
+            title:  "Merchant marked fiat as paid",
+            body:   `${order.seller.displayName} marked KSh ${Number(order.fiatAmount).toLocaleString()} as paid for order #${order.id.slice(0, 8).toUpperCase()}. Verify and release crypto.`,
+            link:   `/p2p/order/${order.id}`,
+          },
+        });
+      } else {
+        await tx.notification.create({
+          data: {
+            userId: order.seller.userId,
             type:   "p2p_paid",
             title:  "Payment received — release crypto",
             body:   `Buyer has marked payment of KSh ${Number(order.fiatAmount).toLocaleString()} for order #${order.id.slice(0, 8).toUpperCase()}. Verify and release.`,

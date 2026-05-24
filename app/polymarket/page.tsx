@@ -2,6 +2,7 @@ import { AppShell } from "@/components/app-shell";
 import { PolymarketClient } from "@/components/polymarket/polymarket-client";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { fetchMarkets } from "@/lib/polymarket";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,12 @@ export default async function PolymarketPage() {
     balance = Number(dbUser.walletBalance);
   }
 
+  const initialMarkets = await fetchMarkets({ limit: 24 });
+
   return (
     <AppShell>
       <div className="w-full px-3 py-3 sm:px-4 lg:px-5">
-        <PolymarketClient userId={userId} balance={balance} />
+        <PolymarketClient userId={userId} balance={balance} initialMarkets={initialMarkets} />
       </div>
     </AppShell>
   );

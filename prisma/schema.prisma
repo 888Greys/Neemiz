@@ -442,6 +442,13 @@ model PolymarketBet {
   status       PolymarketBetStatus  @default(PENDING)
   settledAt    DateTime?            @map("settled_at")
   winAmount    Decimal?             @db.Decimal(18, 2) @map("win_amount")
+  executionMode String              @default("internal") @map("execution_mode")
+  clobOrderId  String?              @map("clob_order_id")
+  clobStatus   String?              @map("clob_status")
+  clobTokenId  String?              @map("clob_token_id")
+  clobTradeIds String[]             @default([]) @map("clob_trade_ids")
+  clobTxHashes String[]             @default([]) @map("clob_tx_hashes")
+  clobRaw      Json?                @map("clob_raw")
 
   createdAt    DateTime             @default(now()) @map("created_at")
 

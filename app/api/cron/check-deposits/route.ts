@@ -26,7 +26,10 @@ function toKes(amount: number, crypto: string): number {
 export async function GET(req: Request) {
   const auth   = req.headers.get("authorization") ?? "";
   const secret = process.env.CRON_SECRET;
-  if (secret && auth !== `Bearer ${secret}`) {
+  if (!secret) {
+    return Response.json({ error: "CRON_SECRET is not configured" }, { status: 503 });
+  }
+  if (auth !== `Bearer ${secret}`) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 

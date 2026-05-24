@@ -123,6 +123,23 @@ MASTER_WALLET_MNEMONIC
 
 Update these regularly in Vercel → Redeploy to keep rates accurate.
 
+### Polymarket CLOB trading
+
+Prediction markets load from the real Polymarket Gamma API. By default, bet placement uses the internal app ledger only. To place real Polymarket CLOB buy orders, set:
+
+```env
+POLYMARKET_TRADING_MODE=clob
+POLYMARKET_PRIVATE_KEY=0x...
+POLYMARKET_API_KEY=...
+POLYMARKET_API_SECRET=...
+POLYMARKET_API_PASSPHRASE=...
+POLYMARKET_CHAIN_ID=137
+POLYMARKET_SIGNATURE_TYPE=0
+POLYMARKET_ORDER_TYPE=FOK
+```
+
+The trading wallet or proxy wallet must already be funded and approved on Polymarket. When CLOB mode is enabled, `/api/polymarket/bet` posts a real market buy order first, then stores the returned order id, status, trade ids, and transaction hashes with the internal bet record.
+
 ### Sweeping funds (moving coins to your main wallet)
 
 Coins sit in the individual deposit addresses until you sweep them. To access funds:
@@ -139,7 +156,7 @@ Sweep regularly to a cold wallet after large deposits.
 ```bash
 # /opt/neemiz/settle.env
 CRON_SECRET=...
-MASTER_WALLET_MNEMONIC="bonus judge economy vast finish nest tank tornado ceiling spell kingdom stumble"
+MASTER_WALLET_MNEMONIC="word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
 ETHERSCAN_API_KEY=...
 TRONGRID_API_KEY=...
 ```

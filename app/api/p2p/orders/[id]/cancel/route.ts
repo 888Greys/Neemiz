@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { defaultNetwork, unlockUserCrypto } from "@/lib/p2p/crypto-balance";
 
 // POST /api/p2p/orders/[id]/cancel
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -11,7 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser   = await getOrCreateUser(user.id, { email: user.email });
-    const order    = await db.p2POrder.findUnique({ where: { id } });
+    const order    = await db.p2POrder.findUnique({ where: { id }, include: { ad: true } });
     if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
 
     const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
@@ -41,6 +42,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         where: { id: order.adId },
         data:  { availableAmount: { increment: cryptoAmt } },
       });
+      if (order.ad.side === "BUY") {
+        await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), cryptoAmt);
+      }
     });
 
     // Notify the other party (outside transaction — non-critical)
