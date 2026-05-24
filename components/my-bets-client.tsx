@@ -32,7 +32,7 @@ function statusColors(s: string) {
   if (s === "WON") return { badge: "bg-emerald-500/15 text-emerald-400", text: "text-emerald-400" };
   if (s === "LOST") return { badge: "bg-red-500/15 text-red-400", text: "text-red-400" };
   if (s === "VOID") return { badge: "bg-white/[0.07] text-slate-400", text: "text-slate-400" };
-  return { badge: "bg-amber-500/15 text-amber-400", text: "text-amber-400" };
+  return { badge: "bg-emerald-500/15 text-emerald-400", text: "text-emerald-400" };
 }
 
 function fmt(n: number) {
@@ -54,8 +54,8 @@ function BetCard({ bet }: { bet: Bet }) {
         {/* Pulsing dot for pending */}
         {bet.status === "PENDING" ? (
           <span className="relative flex h-2.5 w-2.5 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-400" />
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
           </span>
         ) : (
           <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${bet.status === "WON" ? "bg-emerald-400" : bet.status === "LOST" ? "bg-red-400" : "bg-slate-500"}`} />
@@ -198,7 +198,7 @@ export function MyBetsClient() {
       {/* Stats */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Pending", value: stats.pending, color: "text-amber-400" },
+          { label: "Running", value: stats.pending, color: "text-emerald-400" },
           { label: "Won", value: stats.won, color: "text-emerald-400" },
           { label: "Lost", value: stats.lost, color: "text-red-400" },
           { label: "Total staked", value: `KSh ${stats.totalStaked.toLocaleString()}`, color: "text-white", small: true },
@@ -221,7 +221,7 @@ export function MyBetsClient() {
               filter === f ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-500 hover:text-white"
             }`}
           >
-            {f === "ALL" ? `All (${stats.total})` : f === "PENDING" ? `Pending (${stats.pending})` : f === "WON" ? `Won (${stats.won})` : `Lost (${stats.lost})`}
+            {f === "ALL" ? `All (${stats.total})` : f === "PENDING" ? `Running (${stats.pending})` : f === "WON" ? `Won (${stats.won})` : `Lost (${stats.lost})`}
           </button>
         ))}
       </div>

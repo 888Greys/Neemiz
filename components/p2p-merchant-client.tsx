@@ -267,13 +267,34 @@ function Badge({ status }: { status: "PENDING" | "APPROVED" | "REJECTED" }) {
 
 // ─── Deposit Section ──────────────────────────────────────────────────────────
 
+// Network options per crypto
+const NETWORK_OPTIONS: Record<string, string[]> = {
+  USDT: ["TRC20", "ERC20", "BEP20"],
+  ETH:  ["ERC20"],
+  BNB:  ["BEP20"],
+};
+
+const NETWORK_LABELS: Record<string, string> = {
+  TRC20: "Tron (TRC20)",
+  ERC20: "Ethereum (ERC20)",
+  BEP20: "BNB Smart Chain (BEP20)",
+};
+
+const NETWORK_WARN: Record<string, string> = {
+  TRC20: "Only send USDT on the Tron network to this address.",
+  ERC20: "Only send tokens on the Ethereum network to this address.",
+  BEP20: "Only send tokens on the BNB Smart Chain to this address.",
+};
+
 function DepositSection() {
-  const [open, setOpen]         = useState(false);
-  const [submitting, setSubmit] = useState(false);
-  const [deposits, setDeposits] = useState<Deposit[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [form, setForm] = useState({ crypto: "USDT", amount: "", txHash: "", network: "TRC20" });
-  const f = (k: string, v: string) => setForm((p) => ({ ...p, [k]: v }));
+  const [open, setOpen]           = useState(false);
+  const [deposits, setDeposits]   = useState<Deposit[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [crypto, setCrypto]       = useState("USDT");
+  const [network, setNetwork]     = useState("TRC20");
+  const [addrLoading, setAddrLoading] = useState(false);
+  const [address, setAddress]     = useState<string | null>(null);
+  const [copied, setCopied]       = useState(false);
 
   const load = useCallback(async () => {
     try { const r = await fetch("/api/p2p/merchant/deposit"); if (r.ok) setDeposits(await r.json()); }
@@ -282,25 +303,39 @@ function DepositSection() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function submit() {
-    if (!form.amount || !form.txHash) return toast.error("Amount and TX hash are required");
-    setSubmit(true);
+  // When crypto changes, reset network to first valid option
+  function handleCryptoChange(c: string) {
+    setCrypto(c);
+    setNetwork(NETWORK_OPTIONS[c][0]);
+    setAddress(null);
+  }
+
+  async function fetchAddress() {
+    setAddrLoading(true);
+    setAddress(null);
     try {
-      const r = await fetch("/api/p2p/merchant/deposit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ crypto: form.crypto, amount: Number(form.amount), txHash: form.txHash.trim(), network: form.network }),
-      });
+      const r = await fetch(`/api/p2p/merchant/deposit-address?crypto=${crypto}&network=${network}`);
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed");
-      toast.success("Deposit submitted for review.");
-      setOpen(false);
-      setForm({ crypto: "USDT", amount: "", txHash: "", network: "TRC20" });
-      load();
+      setAddress(d.address);
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed");
-    } finally { setSubmit(false); }
+      toast.error(err instanceof Error ? err.message : "Failed to get address");
+    } finally {
+      setAddrLoading(false);
+    }
   }
+
+  function copyAddress() {
+    if (!address) return;
+    navigator.clipboard.writeText(address).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  const qrUrl = address
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(address)}&bgcolor=0a0f1a&color=ffffff&margin=2`
+    : null;
 
   return (
     <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl overflow-hidden mb-6">
@@ -308,10 +343,10 @@ function DepositSection() {
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
         <div>
           <h2 className="text-white font-black text-base">Escrow Balance</h2>
-          <p className="text-slate-500 text-xs mt-0.5">Deposit crypto to fund your sell ads</p>
+          <p className="text-slate-500 text-xs mt-0.5">Deposit crypto to fund your sell ads — auto-detected on-chain</p>
         </div>
         <button
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => { setOpen((v) => !v); setAddress(null); }}
           className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#31c45d] text-white font-black text-sm hover:bg-[#28af52] transition-colors shadow-lg shadow-[#31c45d]/20"
         >
           <Icon name="add" className="text-base" />
@@ -319,48 +354,120 @@ function DepositSection() {
         </button>
       </div>
 
-      {/* Inline form */}
+      {/* Deposit address panel */}
       {open && (
         <div className="p-5 bg-white/[0.02] border-b border-white/[0.06]">
-          <p className="text-slate-400 text-sm mb-4">Submit your TX hash — admin will approve within 1 hour.</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            {[
-              { label: "Crypto", type: "select", key: "crypto",  options: ["USDT","BTC","ETH"], value: form.crypto },
-              { label: "Network", type: "select", key: "network", options: ["TRC20","ERC20","BEP20"], value: form.network },
-            ].map(({ label, key, options, value }) => (
-              <div key={key}>
-                <label className="text-xs font-bold text-slate-500 mb-1.5 block">{label}</label>
-                <select
-                  value={value}
-                  onChange={(e) => f(key, e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm outline-none"
-                >
-                  {options.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
+          {/* Crypto + Network selectors */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            <div className="flex-1 min-w-[120px]">
+              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
+              <div className="flex gap-1.5">
+                {["USDT", "ETH", "BNB"].map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => handleCryptoChange(c)}
+                    className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${
+                      crypto === c
+                        ? "bg-[#31c45d]/15 border-[#31c45d] text-[#31c45d]"
+                        : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
               </div>
-            ))}
-            <div>
-              <label className="text-xs font-bold text-slate-500 mb-1.5 block">Amount</label>
-              <input type="number" value={form.amount} onChange={(e) => f("amount", e.target.value)} placeholder="0.00"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder:text-slate-700 outline-none focus:border-[#31c45d]/40" />
             </div>
-            <div>
-              <label className="text-xs font-bold text-slate-500 mb-1.5 block">TX Hash</label>
-              <input type="text" value={form.txHash} onChange={(e) => f("txHash", e.target.value)} placeholder="0x…"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder:text-slate-700 outline-none focus:border-[#31c45d]/40 font-mono text-xs" />
+            <div className="flex-1 min-w-[160px]">
+              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Network</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {NETWORK_OPTIONS[crypto].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => { setNetwork(n); setAddress(null); }}
+                    className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${
+                      network === n
+                        ? "bg-[#087cff]/15 border-[#087cff] text-[#087cff]"
+                        : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button onClick={() => setOpen(false)} className="flex-1 py-2.5 rounded-xl font-bold text-slate-400 bg-white/5 hover:bg-white/10 text-sm transition-colors">Cancel</button>
-            <button onClick={submit} disabled={submitting || !form.amount || !form.txHash}
-              className="flex-1 py-2.5 rounded-xl font-black text-white bg-[#31c45d] hover:bg-[#28af52] disabled:opacity-40 text-sm transition-all flex items-center justify-center gap-2">
-              {submitting ? <><span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Submitting…</> : "Submit Deposit"}
+
+          {/* Get address button */}
+          {!address && (
+            <button
+              onClick={fetchAddress}
+              disabled={addrLoading}
+              className="w-full py-3 rounded-xl font-black text-white bg-[#31c45d] hover:bg-[#28af52] disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-sm"
+            >
+              {addrLoading
+                ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Generating address…</>
+                : <><Icon name="qr_code" className="text-base" /> Get Deposit Address</>}
             </button>
-          </div>
+          )}
+
+          {/* Address display */}
+          {address && (
+            <div className="space-y-4">
+              {/* Warning */}
+              <div className="flex items-start gap-2 bg-amber-500/8 border border-amber-500/20 rounded-xl px-4 py-3">
+                <Icon name="warning" className="text-amber-400 text-sm shrink-0 mt-0.5" />
+                <p className="text-amber-300 text-xs leading-relaxed">{NETWORK_WARN[network]}</p>
+              </div>
+
+              {/* QR + Address */}
+              <div className="flex flex-col sm:flex-row items-center gap-5 bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+                {/* QR code */}
+                {qrUrl && (
+                  <div className="shrink-0 w-[120px] h-[120px] rounded-xl overflow-hidden border border-white/10 bg-white p-1.5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qrUrl} alt="Deposit QR" width={120} height={120} className="w-full h-full" />
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0 text-center sm:text-left">
+                  <p className="text-slate-500 text-xs mb-2 font-bold uppercase tracking-wide">
+                    Your {crypto} ({network}) deposit address
+                  </p>
+                  <p className="font-mono text-white text-xs sm:text-sm break-all leading-relaxed mb-3">
+                    {address}
+                  </p>
+                  <button
+                    onClick={copyAddress}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all mx-auto sm:mx-0 ${
+                      copied
+                        ? "bg-[#31c45d]/20 border border-[#31c45d] text-[#31c45d]"
+                        : "bg-white/[0.07] border border-white/10 text-white hover:bg-white/[0.12]"
+                    }`}
+                  >
+                    <Icon name={copied ? "check" : "content_copy"} className="text-sm" />
+                    {copied ? "Copied!" : "Copy Address"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Auto-detect notice */}
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#31c45d] animate-pulse shrink-0" />
+                Deposits are detected automatically on-chain. Credit appears within 1–5 minutes of confirmation.
+              </div>
+
+              <button
+                onClick={() => { setAddress(null); setOpen(false); }}
+                className="w-full py-2 text-xs text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Table */}
+      {/* Deposit history table */}
       {loading ? (
         <div className="flex items-center justify-center py-8">
           <div className="w-5 h-5 border-2 border-white/10 border-t-[#31c45d] rounded-full animate-spin" />
@@ -369,14 +476,14 @@ function DepositSection() {
         <div className="text-center py-10">
           <Icon name="account_balance_wallet" className="text-3xl text-slate-700 mb-2" />
           <p className="text-slate-500 text-sm">No deposits yet</p>
-          <p className="text-slate-600 text-xs mt-1">Deposit crypto to start posting sell ads</p>
+          <p className="text-slate-600 text-xs mt-1">Click Deposit above to get your unique crypto address</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.05]">
-                {["Date","Crypto","Amount","Network","TX Hash","Status"].map((h) => (
+                {["Date", "Crypto", "Amount", "Network", "TX Hash", "Status"].map((h) => (
                   <th key={h} className="px-5 py-3 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest">{h}</th>
                 ))}
               </tr>
@@ -389,7 +496,11 @@ function DepositSection() {
                   <td className="px-5 py-3 text-white font-black">{Number(d.amount).toFixed(6)}</td>
                   <td className="px-5 py-3 text-slate-400 text-xs">{d.network}</td>
                   <td className="px-5 py-3 font-mono text-slate-500 text-xs">
-                    <span title={d.txHash}>{d.txHash.length > 14 ? `${d.txHash.slice(0,7)}…${d.txHash.slice(-7)}` : d.txHash}</span>
+                    {d.txHash ? (
+                      <span title={d.txHash}>{d.txHash.length > 14 ? `${d.txHash.slice(0, 7)}…${d.txHash.slice(-7)}` : d.txHash}</span>
+                    ) : (
+                      <span className="text-slate-700">—</span>
+                    )}
                   </td>
                   <td className="px-5 py-3"><Badge status={d.status} /></td>
                 </tr>
