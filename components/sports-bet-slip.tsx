@@ -86,6 +86,7 @@ function WheelOfFortune({
   refreshBalance: () => void;
 }) {
   const [rotation, setRotation]   = useState(0);
+  const [loading,  setLoading]    = useState(false);
   const [spinning, setSpinning]   = useState(false);
   const [animating, setAnimating] = useState(false);
   const [result, setResult]       = useState<WheelResult | null>(null);
@@ -97,9 +98,10 @@ function WheelOfFortune({
 
   async function spin() {
     if (!isSignedIn) { openLogin(); return; }
-    if (spinning || animating) return;
+    if (spinning || animating || loading) return;
     setError(null);
     setResult(null);
+    setLoading(true);
 
     // Call the server — it decides the winner and deducts/credits balance
     let data: WheelResult;
@@ -110,12 +112,14 @@ function WheelOfFortune({
         body: JSON.stringify({ amount: amt }),
       });
       const json = await res.json();
-      if (!res.ok) { setError(json.error ?? "Spin failed"); return; }
+      if (!res.ok) { setError(json.error ?? "Spin failed"); setLoading(false); return; }
       data = json as WheelResult;
     } catch {
       setError("Network error — please try again");
+      setLoading(false);
       return;
     }
+    setLoading(false);
 
     // Animate wheel to land on the server-determined segment
     const segMid = data.segmentIndex * DEG + DEG / 2;
@@ -279,15 +283,15 @@ function WheelOfFortune({
         </Link>
       ) : (
         <button type="button" onClick={spin}
-          disabled={spinning || !amt || amt < 12.96}
+          disabled={spinning || loading || !amt || amt < 12.96}
           className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-[0_4px_20px_rgba(8,124,255,.35)] hover:bg-[#0570e8] active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-          {spinning ? (
+          {(spinning || loading) ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
-              Spinning…
+              {loading ? "Placing…" : "Spinning…"}
             </span>
           ) : "Spin"}
         </button>
