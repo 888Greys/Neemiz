@@ -103,7 +103,7 @@ export function P2POrdersClient() {
   return (
     <>
       <P2PSubNav />
-    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mb-5">
         <h1 className="text-2xl font-black text-white mb-1">My P2P Orders</h1>
@@ -151,15 +151,15 @@ export function P2POrdersClient() {
           )}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 lg:grid-cols-2">
           {filtered.map((order) => (
             <div
               key={order.id}
-              className="bg-[#0f1623] border border-white/[0.06] rounded-2xl px-5 py-4 hover:border-white/[0.1] transition-colors"
+              className="rounded-2xl border border-white/[0.06] bg-[#0f1623] px-4 py-4 transition-colors hover:border-white/[0.1]"
             >
-              <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-col gap-4">
                 {/* Left: status + crypto */}
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center ${
                     order.isBuyer ? "bg-[#31c45d]/10" : "bg-red-500/10"
                   }`}>
@@ -180,7 +180,7 @@ export function P2POrdersClient() {
                 </div>
 
                 {/* Middle: amounts + counterparty */}
-                <div className="flex items-center gap-6">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   <div>
                     <p className="text-slate-600 text-xs mb-0.5">Amount</p>
                     <p className="text-white font-black text-sm">{Number(order.cryptoAmount).toFixed(6)} {order.crypto}</p>
@@ -189,11 +189,11 @@ export function P2POrdersClient() {
                     <p className="text-slate-600 text-xs mb-0.5">You {order.isBuyer ? "paid" : "received"}</p>
                     <p className="text-[#31c45d] font-black text-sm">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</p>
                   </div>
-                  <div className="hidden sm:block">
+                  <div>
                     <p className="text-slate-600 text-xs mb-0.5">{order.isBuyer ? "Merchant" : "Buyer"}</p>
                     <p className="text-slate-300 font-bold text-sm">{order.counterparty}</p>
                   </div>
-                  <div className="hidden md:block">
+                  <div>
                     <p className="text-slate-600 text-xs mb-0.5">Date</p>
                     <p className="text-slate-400 text-xs whitespace-nowrap">
                       {new Date(order.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
@@ -204,7 +204,7 @@ export function P2POrdersClient() {
                 {/* Right: View link */}
                 <Link
                   href={`/p2p/order/${order.id}`}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 text-slate-400 text-xs font-black hover:bg-white/10 hover:text-white transition-colors whitespace-nowrap shrink-0"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-white/5 px-3.5 py-2 text-xs font-black text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
                 >
                   View Order
                   <Icon name="arrow_forward" className="text-[13px]" />

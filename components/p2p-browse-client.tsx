@@ -309,11 +309,11 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
   const fillPct = Math.min(100, maxQty > 0 ? (ad.availableAmount / maxQty) * 100 : 0);
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#16171c] transition hover:border-white/[0.14] hover:bg-[#1c1d24] cursor-pointer">
+    <div className="group flex min-h-[265px] flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-[#16171c] transition hover:border-white/[0.14] hover:bg-[#1c1d24] cursor-pointer">
 
       {/* Header strip — mirrors Polymarket's image strip */}
       <div
-        className="relative h-[72px] flex items-end px-4 pb-3 overflow-hidden"
+        className="relative flex h-14 items-end overflow-hidden px-3 pb-2.5"
         style={{ background: `linear-gradient(135deg, ${color}28 0%, transparent 70%)` }}
       >
         <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 90% 10%, ${color}18, transparent 65%)` }} />
@@ -335,7 +335,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col p-4">
+        <div className="flex flex-1 flex-col p-3.5">
         {/* Merchant row */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -367,8 +367,8 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
         </div>
 
         {/* Price — mirrors "question" text in Polymarket */}
-        <div className="mb-3 flex-1">
-          <p className="text-[22px] font-black text-white leading-none">
+        <div className="mb-3">
+          <p className="text-xl font-black leading-none text-white">
             {ad.pricePerUnit.toLocaleString("en-KE")}
           </p>
           <p className="text-white/30 text-[11px] mt-0.5">{ad.fiat} per {ad.crypto}</p>
@@ -389,7 +389,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
         </div>
 
         {/* Payment pills — mirrors Polymarket tags */}
-        <div className="flex flex-wrap gap-1 mb-3">
+        <div className="mb-3 flex flex-wrap gap-1">
           {ad.paymentMethods.map((m) => (
             <span key={m} className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/35">
               {fmtPm(m)}
@@ -658,7 +658,7 @@ export function P2PBrowseClient() {
 
       <P2PSubNav />
 
-      <div className="w-full px-3 py-4 sm:px-4">
+      <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-4">
 
         {/* Workspace header */}
         <div className="mb-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_460px]">
@@ -759,7 +759,7 @@ export function P2PBrowseClient() {
           ) : ads.length === 0 ? (
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {ads.map((ad) => (
                 <AdCard key={ad.id} ad={ad} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
               ))}

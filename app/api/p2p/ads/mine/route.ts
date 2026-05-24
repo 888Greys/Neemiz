@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { validateP2PAd } from "@/lib/p2p/ad-guards";
 
 // GET /api/p2p/ads/mine — merchant's own ads
 export async function GET() {
@@ -17,19 +18,28 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  return Response.json(ads.map((ad) => ({
-    id:              ad.id,
-    side:            ad.side,
-    crypto:          ad.crypto,
-    fiat:            ad.fiat,
-    pricePerUnit:    Number(ad.pricePerUnit),
-    totalAmount:     Number(ad.totalAmount),
-    availableAmount: Number(ad.availableAmount),
-    minLimit:        Number(ad.minLimit),
-    maxLimit:        Number(ad.maxLimit),
-    paymentMethods:  ad.paymentMethods,
-    paymentWindow:   ad.paymentWindow,
-    isActive:        ad.isActive,
-    createdAt:       ad.createdAt,
-  })));
+  return Response.json(ads.map((ad) => {
+    const pricePerUnit = Number(ad.pricePerUnit);
+    const totalAmount = Number(ad.totalAmount);
+    const availableAmount = Number(ad.availableAmount);
+    const minLimit = Number(ad.minLimit);
+    const maxLimit = Number(ad.maxLimit);
+
+    return {
+      id:              ad.id,
+      side:            ad.side,
+      crypto:          ad.crypto,
+      fiat:            ad.fiat,
+      pricePerUnit,
+      totalAmount,
+      availableAmount,
+      minLimit,
+      maxLimit,
+      paymentMethods:  ad.paymentMethods,
+      paymentWindow:   ad.paymentWindow,
+      isActive:        ad.isActive,
+      createdAt:       ad.createdAt,
+      validationError: validateP2PAd({ crypto: ad.crypto, pricePerUnit, totalAmount, availableAmount, minLimit, maxLimit }),
+    };
+  }));
 }

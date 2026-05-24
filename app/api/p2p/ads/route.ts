@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
 import { AdSide } from "@prisma/client";
 
 const VALID_CRYPTOS = ["USDT", "BTC", "ETH", "BNB"];
@@ -37,7 +38,16 @@ export async function GET(req: Request) {
       take: 50,
     });
 
-    return Response.json(ads.map((ad) => ({
+    const tradableAds = ads.filter((ad) => isP2PAdTradable({
+      crypto: ad.crypto,
+      pricePerUnit: Number(ad.pricePerUnit),
+      availableAmount: Number(ad.availableAmount),
+      totalAmount: Number(ad.totalAmount),
+      minLimit: Number(ad.minLimit),
+      maxLimit: Number(ad.maxLimit),
+    }));
+
+    return Response.json(tradableAds.map((ad) => ({
       id:              ad.id,
       side:            ad.side,
       crypto:          ad.crypto,
@@ -109,6 +119,16 @@ export async function POST(req: Request) {
       return Response.json({ error: "Maximum limit must be greater than or equal to minimum" }, { status: 400 });
     if (!Number.isFinite(paymentWindowNum) || paymentWindowNum < 5 || paymentWindowNum > 180)
       return Response.json({ error: "Payment window must be 5–180 minutes" }, { status: 400 });
+
+    const guardError = validateP2PAd({
+      crypto: crypto as string,
+      pricePerUnit: pricePerUnitNum,
+      availableAmount: totalAmountNum,
+      totalAmount: totalAmountNum,
+      minLimit: minLimitNum,
+      maxLimit: maxLimitNum,
+    });
+    if (guardError) return Response.json({ error: guardError }, { status: 400 });
 
     const adData = {
       merchantId:      merchant.id,
