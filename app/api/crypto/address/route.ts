@@ -1,19 +1,25 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { createPayment, toNpCurrency, getPaymentStatus } from "@/lib/nowpayments";
-import { TransactionType, TransactionStatus } from "@prisma/client";
-import { defaultNetwork } from "@/lib/p2p/crypto-balance";
+import { getOrCreateDepositAddress } from "@/lib/crypto/hd-wallet";
+
+const VALID: Record<string, string[]> = {
+  USDT: ["TRC20", "ERC20", "BEP20"],
+  ETH:  ["ERC20"],
+  BNB:  ["BEP20"],
+};
+
+function defaultNetwork(crypto: string): string {
+  return VALID[crypto]?.[0] ?? "TRC20";
+}
 
 /**
  * GET /api/crypto/address?crypto=USDT&network=TRC20
- *   Returns the user's most-recent pending deposit address for this crypto/network,
- *   or null if none exists.
+ * Returns the user's existing deposit address for this crypto/network.
  *
  * POST /api/crypto/address
- *   Body: { crypto: "USDT", network: "TRC20", amount: 100 }
- *   Creates a new NOWPayments deposit payment and stores the address.
- *   Returns: { address, paymentId, amount, expiresAt }
+ * Body: { crypto: "USDT", network: "TRC20" }
+ * Generates (or returns) the user's unique HD wallet deposit address.
  */
 
 export async function GET(req: Request) {
@@ -21,46 +27,17 @@ export async function GET(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const dbUser  = await getOrCreateUser(user.id, { email: user.email });
+  const dbUser   = await getOrCreateUser(user.id, { email: user.email });
   const { searchParams } = new URL(req.url);
-  const crypto  = (searchParams.get("crypto") ?? "USDT").toUpperCase();
-  const network = (searchParams.get("network") ?? defaultNetwork(crypto)).toUpperCase();
+  const crypto   = (searchParams.get("crypto")  ?? "USDT").toUpperCase();
+  const network  = (searchParams.get("network") ?? defaultNetwork(crypto)).toUpperCase();
 
-  // Find the most recent pending deposit transaction for this user/crypto/network
-  const pending = await db.transaction.findFirst({
-    where: {
-      userId:   dbUser.id,
-      type:     TransactionType.DEPOSIT,
-      status:   TransactionStatus.PENDING,
-      provider: "nowpayments",
-      currency: crypto,
-    },
-    orderBy: { createdAt: "desc" },
+  const existing = await db.cryptoDepositAddress.findUnique({
+    where: { userId_crypto_network: { userId: dbUser.id, crypto, network } },
   });
 
-  if (!pending) return Response.json(null);
-
-  const meta = (pending.metadata ?? {}) as Record<string, unknown>;
-
-  // Check if the payment has expired at NOWPayments side
-  const expiresAt = meta.expiresAt as string | undefined;
-  if (expiresAt && new Date(expiresAt) < new Date()) {
-    // Mark expired in our DB
-    await db.transaction.update({
-      where: { id: pending.id },
-      data:  { status: TransactionStatus.CANCELLED },
-    });
-    return Response.json(null);
-  }
-
-  return Response.json({
-    address:   meta.address,
-    paymentId: pending.reference,
-    network,
-    amount:    Number(pending.amount),
-    expiresAt: meta.expiresAt,
-    createdAt: pending.createdAt,
-  });
+  if (!existing) return Response.json(null);
+  return Response.json({ address: existing.address, crypto, network, createdAt: existing.createdAt });
 }
 
 export async function POST(req: Request) {
@@ -70,71 +47,21 @@ export async function POST(req: Request) {
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
-  let body: { crypto: string; network?: string; amount: number };
+  let body: { crypto?: string; network?: string };
   try   { body = await req.json(); }
-  catch { return Response.json({ error: "Invalid request body" }, { status: 400 }); }
+  catch { body = {}; }
 
-  const crypto  = (body.crypto ?? "USDT").toUpperCase();
+  const crypto  = (body.crypto  ?? "USDT").toUpperCase();
   const network = (body.network ?? defaultNetwork(crypto)).toUpperCase();
-  const amount  = Number(body.amount);
 
-  if (!amount || amount <= 0) {
-    return Response.json({ error: "Amount must be greater than 0" }, { status: 400 });
-  }
-
-  const payCurrency = toNpCurrency(crypto, network);
-
-  let payment;
-  try {
-    payment = await createPayment({
-      payCurrency,
-      priceAmount: amount,
-      orderId:     dbUser.id,
-    });
-  } catch (err: unknown) {
-    console.error("NOWPayments createPayment error:", err);
+  if (!VALID[crypto] || !VALID[crypto].includes(network)) {
     return Response.json(
-      { error: (err as Error).message ?? "Failed to create deposit address" },
-      { status: 502 },
+      { error: "Invalid crypto/network. Supported: USDT(TRC20/ERC20/BEP20), ETH(ERC20), BNB(BEP20)" },
+      { status: 400 },
     );
   }
 
-  // Persist the address and payment reference
-  await db.$transaction(async (tx) => {
-    // Store/update the deposit address for quick lookup
-    await tx.cryptoDepositAddress.upsert({
-      where:  { userId_crypto_network: { userId: dbUser.id, crypto, network } },
-      update: { address: payment.pay_address },
-      create: { userId: dbUser.id, crypto, network, address: payment.pay_address },
-    });
+  const address = await getOrCreateDepositAddress(dbUser.id, crypto, network);
 
-    // Create a pending transaction to track this deposit
-    await tx.transaction.create({
-      data: {
-        userId:    dbUser.id,
-        type:      TransactionType.DEPOSIT,
-        amount,
-        currency:  crypto,
-        status:    TransactionStatus.PENDING,
-        reference: payment.payment_id,
-        provider:  "nowpayments",
-        metadata:  {
-          address:     payment.pay_address,
-          network,
-          payCurrency,
-          payAmount:   payment.pay_amount,
-          expiresAt:   payment.expiration_estimate_date,
-        },
-      },
-    });
-  });
-
-  return Response.json({
-    address:   payment.pay_address,
-    paymentId: payment.payment_id,
-    network,
-    crypto,
-    amount,
-    expiresAt: payment.expiration_estimate_date,
-  }, { status: 201 });
+  return Response.json({ address, crypto, network }, { status: 201 });
 }

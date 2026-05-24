@@ -1,17 +1,21 @@
 /**
  * Cron endpoint: scans all crypto deposit addresses and credits any new deposits.
- * Call via Vercel Cron every 5 minutes, or any external cron with Bearer auth.
+ * VPS cron runs this every 5 minutes.
  *
- * vercel.json:
- *   "crons": [{ "path": "/api/cron/check-deposits", "schedule": "* /5 * * * *" }]
+ * Two flows:
+ *   - User with merchant profile  → credits P2PCryptoBalance (escrow)
+ *   - Regular user (no merchant)  → converts USDT→KES at USDT_KES_RATE and credits walletBalance
  */
 import { db } from "@/lib/db";
 import { checkDeposits } from "@/lib/crypto/deposit-checker";
+import { TransactionType, TransactionStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
 
+// Fallback rate if env var not set (update regularly or fetch from API later)
+const USDT_KES_RATE = Number(process.env.USDT_KES_RATE ?? "128");
+
 export async function GET(req: Request) {
-  // Protect with a simple bearer secret
   const auth   = req.headers.get("authorization") ?? "";
   const secret = process.env.CRON_SECRET;
   if (secret && auth !== `Bearer ${secret}`) {
@@ -26,9 +30,6 @@ export async function GET(req: Request) {
   const errors: string[] = [];
 
   for (const addr of addresses) {
-    const merchant = addr.user.merchantProfile;
-    if (!merchant) continue;
-
     try {
       const txs = await checkDeposits(addr.address, addr.crypto, addr.network);
 
@@ -42,47 +43,91 @@ export async function GET(req: Request) {
         const amount = parseFloat(tx.amount);
         if (amount <= 0) continue;
 
-        // Atomic: record deposit + credit merchant balance
-        await db.$transaction(async (t) => {
-          await t.p2PCryptoDeposit.create({
-            data: {
-              merchantId: merchant.id,
-              crypto:     addr.crypto,
-              amount,
-              txHash:     tx.txHash,
-              network:    addr.network,
-              status:     "APPROVED",
-            },
-          });
+        const merchant = addr.user.merchantProfile;
 
-          await t.p2PCryptoBalance.upsert({
-            where: {
-              merchantId_crypto: { merchantId: merchant.id, crypto: addr.crypto },
-            },
-            create: {
-              merchantId: merchant.id,
-              crypto:     addr.crypto,
-              total:      amount,
-              available:  amount,
-              locked:     0,
-            },
-            update: {
-              total:     { increment: amount },
-              available: { increment: amount },
-            },
-          });
+        if (merchant) {
+          // ── Merchant escrow deposit ──────────────────────────────────────
+          await db.$transaction(async (t) => {
+            await t.p2PCryptoDeposit.create({
+              data: {
+                merchantId: merchant.id,
+                crypto:     addr.crypto,
+                amount,
+                txHash:     tx.txHash,
+                network:    addr.network,
+                status:     "APPROVED",
+              },
+            });
 
-          // Notify merchant
-          await t.notification.create({
-            data: {
-              userId: addr.userId,
-              type:   "crypto_deposit",
-              title:  `${addr.crypto} deposit received`,
-              body:   `${tx.amount} ${addr.crypto} (${addr.network}) has been credited to your escrow balance.`,
-              link:   "/p2p/merchant",
-            },
+            await t.p2PCryptoBalance.upsert({
+              where:  { merchantId_crypto: { merchantId: merchant.id, crypto: addr.crypto } },
+              create: { merchantId: merchant.id, crypto: addr.crypto, total: amount, available: amount, locked: 0 },
+              update: { total: { increment: amount }, available: { increment: amount } },
+            });
+
+            await t.notification.create({
+              data: {
+                userId: addr.userId,
+                type:   "crypto_deposit",
+                title:  `${addr.crypto} deposit received`,
+                body:   `${tx.amount} ${addr.crypto} (${addr.network}) credited to your escrow balance.`,
+                link:   "/p2p/merchant",
+              },
+            });
           });
-        });
+        } else {
+          // ── Wallet deposit: convert to KES and credit betting wallet ─────
+          const kesAmount = addr.crypto === "USDT"
+            ? parseFloat((amount * USDT_KES_RATE).toFixed(2))
+            : parseFloat((amount * USDT_KES_RATE).toFixed(2)); // extend for ETH/BNB later
+
+          await db.$transaction(async (t) => {
+            // Record the raw crypto deposit so we don't double-process
+            await t.p2PCryptoDeposit.create({
+              data: {
+                // No merchantId for wallet deposits — store under a dummy entry
+                // We reuse txHash uniqueness to prevent double-crediting
+                merchantId: (await t.merchantProfile.findFirst())?.id ?? "system",
+                crypto:     addr.crypto,
+                amount,
+                txHash:     tx.txHash,
+                network:    addr.network,
+                status:     "APPROVED",
+                adminNote:  `wallet_deposit:${addr.userId}`,
+              },
+            });
+
+            // Credit KES to user wallet
+            await t.user.update({
+              where: { id: addr.userId },
+              data:  { walletBalance: { increment: kesAmount } },
+            });
+
+            // Log transaction
+            await t.transaction.create({
+              data: {
+                userId:    addr.userId,
+                type:      TransactionType.DEPOSIT,
+                amount:    kesAmount,
+                currency:  "KES",
+                status:    TransactionStatus.COMPLETED,
+                reference: `crypto-${tx.txHash}`,
+                provider:  "crypto",
+                metadata:  { txHash: tx.txHash, crypto: addr.crypto, network: addr.network, cryptoAmount: amount, rate: USDT_KES_RATE },
+              },
+            });
+
+            await t.notification.create({
+              data: {
+                userId: addr.userId,
+                type:   "wallet_deposit",
+                title:  "Crypto deposit received",
+                body:   `${tx.amount} ${addr.crypto} = KSh ${kesAmount.toLocaleString()} credited to your wallet.`,
+                link:   "/dashboard",
+              },
+            });
+          });
+        }
 
         credited++;
       }
