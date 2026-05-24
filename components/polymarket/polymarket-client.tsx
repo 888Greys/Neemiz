@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, Bookmark, ChevronDown, ChevronRight, Code2, Flame, Link2, MessageCircle, Search, Settings, Trophy, TrendingUp, Zap } from "lucide-react";
-import { formatEndDate, formatMarketMoney } from "./market-card";
+import { formatEndDate, formatMarketMoney, formatMarketMoneyKes } from "./market-card";
 import { ProbabilityChart } from "./probability-chart";
 import { BetModal }   from "./bet-modal";
 import { toast }      from "@/lib/toast";
@@ -75,7 +75,7 @@ function NewsTicker({ markets }: { markets: PolymarketMarket[] }) {
       source: SOURCES[i % SOURCES.length],
       time:   TIMEAGO[i % TIMEAGO.length],
       title:  m.question,
-      vol:    formatMarketMoney(m.volume),
+      vol:    `${formatMarketMoney(m.volume)} / ${formatMarketMoneyKes(m.volume)}`,
     }));
     return [...base, ...base]; // duplicate for seamless CSS loop
   }, [markets]);
@@ -209,7 +209,7 @@ function HeroCard({ market, allMarkets, onBet }: { market: PolymarketMarket; all
           </div>
 
           <div className="mt-auto pt-2 text-[11px] font-bold text-white/25">
-            {formatMarketMoney(market.volume)} Vol.
+            {formatMarketMoney(market.volume)} / {formatMarketMoneyKes(market.volume)} Vol.
           </div>
         </div>
 
@@ -239,7 +239,7 @@ function HeroCard({ market, allMarkets, onBet }: { market: PolymarketMarket; all
 }
 
 /* ── Hero carousel ──────────────────────────────────────────────────────── */
-const CAROUSEL_MS = 6000;
+const CAROUSEL_MS = 9500;
 
 function HeroCarousel({ markets, allMarkets, onBet }: { markets: PolymarketMarket[]; allMarkets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
   const [idx,    setIdx]    = useState(0);
@@ -386,7 +386,7 @@ function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTag
           >
             <span className="w-4 shrink-0 text-[12px] font-black text-white/25">{i + 1}</span>
             <span className="flex-1 text-[14px] font-bold text-white/80">{tag}</span>
-            <span className="text-[12px] text-white/35">{formatMarketMoney(vol)} today</span>
+            <span className="text-[12px] text-white/35">{formatMarketMoney(vol)} / {formatMarketMoneyKes(vol)} today</span>
             <Flame className="h-4 w-4 shrink-0 text-orange-400" />
             <ChevronRight className="h-4 w-4 shrink-0 text-white/20" />
           </button>
@@ -451,7 +451,7 @@ function CompactCard({ market, onBet, onOpen }: { market: PolymarketMarket; onBe
 
       {/* Footer */}
       <div className="mt-3 flex items-center justify-between border-t border-white/[0.05] pt-2.5">
-        <span className="text-[11px] font-bold text-white/25">{formatMarketMoney(market.volume)} Vol.</span>
+        <span className="text-[11px] font-bold text-white/25">{formatMarketMoney(market.volume)} / {formatMarketMoneyKes(market.volume)} Vol.</span>
         <div className="flex items-center gap-2">
           <button className="text-white/15 hover:text-white/40 transition">
             <Bookmark className="h-3.5 w-3.5" />
@@ -672,7 +672,7 @@ function MarketDetailView({
           )}
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.05] pt-4">
             <div className="flex items-center gap-4 text-[13px] font-bold text-white/80">
-              <span className="flex items-center gap-1.5"><Trophy className="h-4 w-4" /> {formatMarketMoney(market.volume)} Vol.</span>
+              <span className="flex items-center gap-1.5"><Trophy className="h-4 w-4" /> {formatMarketMoney(market.volume)} / {formatMarketMoneyKes(market.volume)} Vol.</span>
               <span className="text-white/40">{formatEndDate(market.endDate)}</span>
             </div>
             <div className="flex items-center gap-4 text-[12px] font-black text-white/45">
@@ -689,7 +689,7 @@ function MarketDetailView({
               <div key={outcome} className="grid grid-cols-[minmax(0,1fr)_90px_170px_170px] items-center gap-3 py-3 max-xl:grid-cols-[minmax(0,1fr)_80px]">
                 <div className="min-w-0">
                   <p className="truncate text-[16px] font-black text-white/85">{outcome}</p>
-                  <p className="text-[12px] font-semibold text-white/35">{formatMarketMoney(market.volume * price)} Vol.</p>
+                  <p className="text-[12px] font-semibold text-white/35">{formatMarketMoney(market.volume * price)} / {formatMarketMoneyKes(market.volume * price)} Vol.</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xl font-black text-white">{(price * 100).toFixed(0)}%</p>
@@ -889,7 +889,15 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
     }
 
     const res = await fetch(`/api/polymarket/markets?${params}`);
-    if (res.ok) setMarkets(await res.json());
+    if (res.ok) {
+      const data: PolymarketMarket[] = await res.json();
+      const now = Date.now();
+      setMarkets(data.filter((m) => {
+        const end = new Date(m.endDate).getTime();
+        return m.active && !m.closed && (!Number.isFinite(end) || end > now) &&
+          !m.outcomePrices.some((p) => p <= 0.001 || p >= 0.999);
+      }));
+    }
     setLoading(false);
   }, [tag, markets.length]);
 
