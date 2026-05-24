@@ -941,7 +941,10 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
     setSelectedMarket(market);
     setTab("browse");
     setSearch("");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>("[data-app-scroll='true']")?.scrollTo({ top: 0, behavior: "instant" });
+      window.scrollTo({ top: 0, behavior: "instant" });
+    });
   };
   const selectedComments = selectedMarket ? commentsByMarket[selectedMarket.conditionId] ?? seedComments(selectedMarket) : [];
   const addComment = (body: string) => {
