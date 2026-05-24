@@ -12,8 +12,16 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
 
-// Fallback rate if env var not set (update regularly or fetch from API later)
-const USDT_KES_RATE = Number(process.env.USDT_KES_RATE ?? "128");
+// KES conversion rates — update env vars regularly or fetch from API later
+const USDT_KES_RATE = Number(process.env.USDT_KES_RATE  ?? "128");
+const ETH_KES_RATE  = Number(process.env.ETH_KES_RATE   ?? "420000"); // ~$3,200 × 130
+const BNB_KES_RATE  = Number(process.env.BNB_KES_RATE   ?? "84000");  // ~$650 × 130
+
+function toKes(amount: number, crypto: string): number {
+  if (crypto === "ETH") return parseFloat((amount * ETH_KES_RATE).toFixed(2));
+  if (crypto === "BNB") return parseFloat((amount * BNB_KES_RATE).toFixed(2));
+  return parseFloat((amount * USDT_KES_RATE).toFixed(2)); // USDT default
+}
 
 export async function GET(req: Request) {
   const auth   = req.headers.get("authorization") ?? "";
@@ -77,9 +85,7 @@ export async function GET(req: Request) {
           });
         } else {
           // ── Wallet deposit: convert to KES and credit betting wallet ─────
-          const kesAmount = addr.crypto === "USDT"
-            ? parseFloat((amount * USDT_KES_RATE).toFixed(2))
-            : parseFloat((amount * USDT_KES_RATE).toFixed(2)); // extend for ETH/BNB later
+          const kesAmount = toKes(amount, addr.crypto);
 
           await db.$transaction(async (t) => {
             // Record the raw crypto deposit so we don't double-process

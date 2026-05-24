@@ -5,12 +5,12 @@
 const ETHERSCAN = "https://api.etherscan.io/v2/api";
 const TRONGRID  = "https://api.trongrid.io";
 
-// ERC-20 / BEP-20 token contracts
+// ERC-20 / BEP-20 token contracts (empty contract = native coin)
 const EVM_TOKENS: Record<string, { chainId: number; contract: string }> = {
   "USDT:ERC20": { chainId: 1,  contract: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
   "USDT:BEP20": { chainId: 56, contract: "0x55d398326f99059fF775485246999027B3197955" },
-  "ETH:ERC20":  { chainId: 1,  contract: "" }, // native — handled separately if needed
-  "BNB:BEP20":  { chainId: 56, contract: "" }, // native — handled separately if needed
+  "ETH:ERC20":  { chainId: 1,  contract: "" }, // native ETH
+  "BNB:BEP20":  { chainId: 56, contract: "" }, // native BNB
 };
 
 // TRC-20 USDT contract on Tron mainnet
@@ -31,25 +31,51 @@ export async function checkEVMDeposits(
   network: string,
 ): Promise<DepositTx[]> {
   const token = EVM_TOKENS[`${crypto}:${network}`];
-  if (!token?.contract) return []; // native coins not yet supported
+  if (!token) return [];
 
   const apiKey = process.env.ETHERSCAN_API_KEY;
   if (!apiKey) throw new Error("ETHERSCAN_API_KEY not set");
 
   const url = new URL(ETHERSCAN);
-  url.searchParams.set("chainid",         String(token.chainId));
-  url.searchParams.set("module",          "account");
-  url.searchParams.set("action",          "tokentx");
-  url.searchParams.set("address",         address);
-  url.searchParams.set("contractaddress", token.contract);
-  url.searchParams.set("sort",            "desc");
-  url.searchParams.set("apikey",          apiKey);
+  url.searchParams.set("chainid", String(token.chainId));
+  url.searchParams.set("module",  "account");
+  url.searchParams.set("address", address);
+  url.searchParams.set("sort",    "desc");
+  url.searchParams.set("apikey",  apiKey);
+
+  const isNative = !token.contract;
+
+  if (isNative) {
+    // Native ETH / BNB: use normal transaction list
+    url.searchParams.set("action", "txlist");
+  } else {
+    // ERC-20 / BEP-20 token transfer
+    url.searchParams.set("action",          "tokentx");
+    url.searchParams.set("contractaddress", token.contract);
+  }
 
   const res  = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) return [];
   const data = await res.json();
   if (data.status !== "1" || !Array.isArray(data.result)) return [];
 
+  if (isNative) {
+    // txlist: filter successful inbound txs, value in wei (18 decimals)
+    return (data.result as Record<string, string>[])
+      .filter((tx) =>
+        tx.to?.toLowerCase() === address.toLowerCase() &&
+        tx.isError === "0" &&
+        Number(tx.value) > 0,
+      )
+      .map((tx) => ({
+        txHash:    tx.hash,
+        amount:    (Number(BigInt(tx.value)) / 1e18).toFixed(8),
+        from:      tx.from,
+        timestamp: Number(tx.timeStamp) * 1000,
+      }));
+  }
+
+  // tokentx: ERC-20 / BEP-20
   return (data.result as Record<string, string>[])
     .filter((tx) => tx.to?.toLowerCase() === address.toLowerCase())
     .map((tx) => ({
