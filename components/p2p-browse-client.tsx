@@ -307,9 +307,20 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
   const color   = CRYPTO_COLOR[ad.crypto] ?? "#087cff";
   const maxQty  = ad.maxLimit / ad.pricePerUnit;
   const fillPct = Math.min(100, maxQty > 0 ? (ad.availableAmount / maxQty) * 100 : 0);
+  const openOrder = () => {
+    if (!isSignedIn) {
+      toast.error("Please sign in to trade");
+      return;
+    }
+    onBuy(ad);
+  };
 
   return (
-    <div className="group flex min-h-[265px] flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-[#16171c] transition hover:border-white/[0.14] hover:bg-[#1c1d24] cursor-pointer">
+    <button
+      type="button"
+      onClick={openOrder}
+      className="group flex min-h-[265px] cursor-pointer flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-[#16171c] text-left transition hover:border-white/[0.14] hover:bg-[#1c1d24] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/60"
+    >
 
       {/* Header strip — mirrors Polymarket's image strip */}
       <div
@@ -398,21 +409,17 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
         </div>
 
         {/* Action buttons — mirrors "Buy Yes / Buy No" */}
-        <button
-          onClick={() => {
-            if (!isSignedIn) { toast.error("Please sign in to trade"); return; }
-            onBuy(ad);
-          }}
+        <span
           className={`h-9 w-full rounded-xl font-black text-[13px] transition hover:opacity-90 active:scale-[0.98] ${
             isMerchantSelling
               ? "bg-[#22c55e]/12 text-[#22c55e] hover:bg-[#22c55e]/22"
               : "bg-red-500/12 text-red-400 hover:bg-red-500/22"
-          }`}
+          } grid place-items-center`}
         >
           {isMerchantSelling ? `Buy ${ad.crypto}` : `Sell ${ad.crypto}`}
-        </button>
+        </span>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -654,7 +661,7 @@ export function P2PBrowseClient() {
 
       <P2PSubNav />
 
-      <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 lg:h-full lg:overflow-hidden">
+      <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4">
 
         {/* Workspace header */}
         <div className="mb-2 grid gap-2 xl:grid-cols-[minmax(0,1fr)_575px]">
@@ -749,7 +756,7 @@ export function P2PBrowseClient() {
         </div>
 
         {/* Ad grid */}
-        <div className="space-y-3 lg:max-h-[calc(100dvh-20rem)] lg:overflow-y-auto lg:pr-1">
+        <div className="space-y-3">
           {loading ? (
             <AdSkeleton />
           ) : ads.length === 0 ? (
