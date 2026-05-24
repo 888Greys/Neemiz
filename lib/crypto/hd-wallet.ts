@@ -1,9 +1,14 @@
 /**
- * HD wallet address derivation for EVM (ETH / BSC) and Tron (TRC20).
- * Uses the MASTER_WALLET_MNEMONIC env var as the root seed.
+ * Deterministic deposit address derivation.
+ * Uses HMAC-SHA256(MASTER_WALLET_MNEMONIC, userId:crypto:network) as a
+ * private key, then derives the EVM/Tron address from it.
+ *
+ * No BIP39 mnemonic validation — the env var is used as a raw HMAC secret.
+ * Same inputs always produce the same address, and addresses never collide
+ * across different user × crypto × network combinations.
  */
-import { HDNodeWallet, Mnemonic } from "ethers";
-import { createHash } from "crypto";
+import { Wallet } from "ethers";
+import { createHash, createHmac } from "crypto";
 import { db } from "@/lib/db";
 
 // ─── Base58 encoder (for Tron addresses) ─────────────────────────────────────
@@ -29,42 +34,35 @@ function base58Encode(buf: Buffer): string {
   return "1".repeat(leading) + digits.reverse().map((d) => B58[d]).join("");
 }
 
-// ─── Address derivation ───────────────────────────────────────────────────────
-
-function getRoot(): HDNodeWallet {
-  const phrase = process.env.MASTER_WALLET_MNEMONIC;
-  if (!phrase) throw new Error("MASTER_WALLET_MNEMONIC is not set");
-  return HDNodeWallet.fromMnemonic(Mnemonic.fromPhrase(phrase));
-}
-
-/** Derives a checksummed EVM address (0x…). Works for ETH (ERC20) and BSC (BEP20). */
-function deriveEVMAddress(index: number): string {
-  return getRoot().derivePath(`m/44'/60'/0'/0/${index}`).address;
-}
-
 /** Converts an EVM 0x… address to a Tron T… address. */
 function evmToTron(evm: string): string {
-  const raw  = Buffer.from("41" + evm.slice(2).toLowerCase(), "hex"); // 21 bytes
-  const h1   = createHash("sha256").update(raw).digest();
-  const h2   = createHash("sha256").update(h1).digest();
+  const raw = Buffer.from("41" + evm.slice(2).toLowerCase(), "hex"); // 21 bytes
+  const h1  = createHash("sha256").update(raw).digest();
+  const h2  = createHash("sha256").update(h1).digest();
   return base58Encode(Buffer.concat([raw, h2.slice(0, 4)]));
 }
 
-/** Derives a Tron T… address using the Tron derivation path m/44'/195'/… */
-function deriveTronAddress(index: number): string {
-  const child = getRoot().derivePath(`m/44'/195'/0'/0/${index}`);
-  return evmToTron(child.address);
-}
+// ─── Key derivation ───────────────────────────────────────────────────────────
 
-function deriveForNetwork(network: string, index: number): string {
-  return network === "TRC20" ? deriveTronAddress(index) : deriveEVMAddress(index);
+/**
+ * Derives a deterministic 32-byte private key using HMAC-SHA256.
+ * The MASTER_WALLET_MNEMONIC is used as the HMAC secret (raw string, no
+ * BIP39 parsing), and `${userId}:${crypto}:${network}` as the message.
+ */
+function derivePrivateKey(userId: string, crypto: string, network: string): string {
+  const secret = process.env.MASTER_WALLET_MNEMONIC;
+  if (!secret) throw new Error("MASTER_WALLET_MNEMONIC is not set");
+  const hex = createHmac("sha256", secret)
+    .update(`${userId}:${crypto}:${network}`)
+    .digest("hex");
+  return "0x" + hex;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * Returns the existing deposit address for userId × crypto × network,
- * or derives and stores a new one if none exists yet.
+ * or derives and stores a new one deterministically.
  */
 export async function getOrCreateDepositAddress(
   userId:  string,
@@ -76,9 +74,11 @@ export async function getOrCreateDepositAddress(
   });
   if (existing) return existing.address;
 
-  // Next derivation index for this network (global, so no two users share an address)
-  const count = await db.cryptoDepositAddress.count({ where: { network } });
-  const address = deriveForNetwork(network, count);
+  const privateKey = derivePrivateKey(userId, crypto, network);
+  const wallet     = new Wallet(privateKey);
+  const evmAddress = wallet.address; // checksummed 0x… EVM address
+
+  const address = network === "TRC20" ? evmToTron(evmAddress) : evmAddress;
 
   await db.cryptoDepositAddress.create({
     data: { userId, crypto, network, address },
