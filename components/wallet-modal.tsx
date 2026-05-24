@@ -18,14 +18,11 @@ const COIN_ICON_URL: Record<string, string> = {
 };
 
 const CRYPTO_ASSETS = [
-  { name: "Tether USD",  code: "USDT", network: "TRC20",   displayNet: "TRC-20",  min: 10     },
-  { name: "Tether USD",  code: "USDT", network: "ERC20",   displayNet: "ERC-20",  min: 10     },
-  { name: "Tether USD",  code: "USDT", network: "BEP20",   displayNet: "BEP-20",  min: 10     },
-  { name: "USD Coin",    code: "USDC", network: "ERC20",   displayNet: "ERC-20",  min: 10     },
-  { name: "USD Coin",    code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 10     },
-  { name: "Bitcoin",     code: "BTC",  network: "BTC",     displayNet: "Bitcoin", min: 0.0001 },
-  { name: "Ethereum",    code: "ETH",  network: "ERC20",   displayNet: "ERC-20",  min: 0.005  },
-  { name: "BNB",         code: "BNB",  network: "BEP20",   displayNet: "BEP-20",  min: 0.01   },
+  { name: "Tether USD",  code: "USDT", network: "TRC20",   displayNet: "TRC-20",  min: 10    },
+  { name: "Tether USD",  code: "USDT", network: "ERC20",   displayNet: "ERC-20",  min: 10    },
+  { name: "Tether USD",  code: "USDT", network: "BEP20",   displayNet: "BEP-20",  min: 10    },
+  { name: "Ethereum",    code: "ETH",  network: "ERC20",   displayNet: "ERC-20",  min: 0.005 },
+  { name: "BNB",         code: "BNB",  network: "BEP20",   displayNet: "BEP-20",  min: 0.01  },
 ];
 
 type DepositState =
@@ -38,7 +35,7 @@ type CryptoAddrState =
   | { phase: "checking" }
   | { phase: "form"; error?: string }
   | { phase: "generating" }
-  | { phase: "ready"; address: string; paymentId: string; expiresAt?: string };
+  | { phase: "ready"; address: string };
 
 type CryptoAsset = (typeof CRYPTO_ASSETS)[number];
 type Props = { onClose: () => void; onDepositConfirmed?: () => void };
@@ -183,8 +180,6 @@ function CryptoDepositPanel({
   setOpen,
   onSelect,
   addrState,
-  amount,
-  setAmount,
   onGenerate,
   onCopy,
   copied,
@@ -196,8 +191,6 @@ function CryptoDepositPanel({
   setOpen: (v: boolean) => void;
   onSelect: (a: CryptoAsset) => void;
   addrState: CryptoAddrState;
-  amount: string;
-  setAmount: (v: string) => void;
   onGenerate: () => void;
   onCopy: () => void;
   copied: boolean;
@@ -243,20 +236,6 @@ function CryptoDepositPanel({
             </div>
           ) : addrState.phase === "form" || addrState.phase === "generating" ? (
             <div className="space-y-4 rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/[0.08]">
-              <div>
-                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-                  Expected deposit amount ({asset.code})
-                </p>
-                <input
-                  type="number"
-                  min={asset.min}
-                  step="any"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder={`Min. ${asset.min}`}
-                  className="w-full rounded-xl bg-white/[0.06] px-4 py-3 text-base font-bold text-white outline-none ring-1 ring-white/[0.08] transition placeholder:text-slate-600 focus:ring-[#087cff]/50"
-                />
-              </div>
               {addrState.phase === "form" && addrState.error && (
                 <p className="text-xs font-bold text-red-400">{addrState.error}</p>
               )}
@@ -274,7 +253,7 @@ function CryptoDepositPanel({
                 ) : (
                   <>
                     <Icon name="qr_code" className="text-[18px]" />
-                    Generate deposit address
+                    Get deposit address
                   </>
                 )}
               </button>
@@ -296,15 +275,10 @@ function CryptoDepositPanel({
                   {addrState.address.slice(6, -5)}
                   <span className="font-black text-white">{addrState.address.slice(-5)}</span>
                 </p>
-                {addrState.expiresAt && (
-                  <p className="mt-1.5 text-[11px] font-bold text-slate-600">
-                    Expires{" "}
-                    {new Date(addrState.expiresAt).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                )}
+                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-bold text-emerald-400/70">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Detected automatically · credited within 1–5 min
+                </p>
                 <button
                   type="button"
                   onClick={onCopy}
@@ -342,7 +316,6 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoAsset>(CRYPTO_ASSETS[0]);
   const [cryptoOpen, setCryptoOpen] = useState(false);
   const [cryptoSearch, setCryptoSearch] = useState("");
-  const [cryptoAmount, setCryptoAmount] = useState("");
   const [cryptoAddr, setCryptoAddr] = useState<CryptoAddrState>({ phase: "checking" });
   const [copiedAddr, setCopiedAddr] = useState(false);
 
@@ -365,17 +338,11 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   // Check for an existing pending deposit address whenever coin changes
   const checkCryptoAddr = useCallback(async (crypto: string, network: string) => {
     setCryptoAddr({ phase: "checking" });
-    setCryptoAmount("");
     try {
       const res  = await fetch(`/api/crypto/address?crypto=${crypto}&network=${network}`);
       const data = await res.json();
       if (data?.address) {
-        setCryptoAddr({
-          phase:     "ready",
-          address:   data.address as string,
-          paymentId: data.paymentId as string,
-          expiresAt: data.expiresAt as string | undefined,
-        });
+        setCryptoAddr({ phase: "ready", address: data.address as string });
       } else {
         setCryptoAddr({ phase: "form" });
       }
@@ -389,33 +356,16 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   }, [selectedCrypto.code, selectedCrypto.network, checkCryptoAddr]);
 
   async function generateCryptoAddress() {
-    const amt = Number(cryptoAmount);
-    if (!amt || amt < selectedCrypto.min) {
-      setCryptoAddr({
-        phase: "form",
-        error: `Minimum deposit is ${selectedCrypto.min} ${selectedCrypto.code}`,
-      });
-      return;
-    }
     setCryptoAddr({ phase: "generating" });
     try {
       const res  = await fetch("/api/crypto/address", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          crypto:  selectedCrypto.code,
-          network: selectedCrypto.network,
-          amount:  amt,
-        }),
+        body:    JSON.stringify({ crypto: selectedCrypto.code, network: selectedCrypto.network }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to generate address");
-      setCryptoAddr({
-        phase:     "ready",
-        address:   data.address as string,
-        paymentId: data.paymentId as string,
-        expiresAt: data.expiresAt as string | undefined,
-      });
+      setCryptoAddr({ phase: "ready", address: data.address as string });
     } catch (err: unknown) {
       setCryptoAddr({
         phase: "form",
@@ -509,8 +459,6 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
     setOpen:    setCryptoOpen,
     onSelect:   (a: CryptoAsset) => { setSelectedCrypto(a); setCryptoOpen(false); },
     addrState:  cryptoAddr,
-    amount:     cryptoAmount,
-    setAmount:  setCryptoAmount,
     onGenerate: generateCryptoAddress,
     onCopy:     copyCryptoAddress,
     copied:     copiedAddr,
