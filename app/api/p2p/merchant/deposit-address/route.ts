@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { getOrCreateDepositAddress } from "@/lib/crypto/hd-wallet";
 
+export const dynamic = "force-dynamic";
+
 const VALID: Record<string, string[]> = {
   USDT: ["TRC20", "ERC20", "BEP20"],
   ETH:  ["ERC20"],

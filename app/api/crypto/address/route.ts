@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { getOrCreateDepositAddress } from "@/lib/crypto/hd-wallet";
 
+export const dynamic = "force-dynamic";
+
 const VALID: Record<string, string[]> = {
   USDT: ["TRC20", "ERC20", "BEP20"],
   ETH:  ["ERC20"],
@@ -41,27 +43,32 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const dbUser = await getOrCreateUser(user.id, { email: user.email });
+    const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
-  let body: { crypto?: string; network?: string };
-  try   { body = await req.json(); }
-  catch { body = {}; }
+    let body: { crypto?: string; network?: string };
+    try   { body = await req.json(); }
+    catch { body = {}; }
 
-  const crypto  = (body.crypto  ?? "USDT").toUpperCase();
-  const network = (body.network ?? defaultNetwork(crypto)).toUpperCase();
+    const crypto  = (body.crypto  ?? "USDT").toUpperCase();
+    const network = (body.network ?? defaultNetwork(crypto)).toUpperCase();
 
-  if (!VALID[crypto] || !VALID[crypto].includes(network)) {
-    return Response.json(
-      { error: "Invalid crypto/network. Supported: USDT(TRC20/ERC20/BEP20), ETH(ERC20), BNB(BEP20)" },
-      { status: 400 },
-    );
+    if (!VALID[crypto] || !VALID[crypto].includes(network)) {
+      return Response.json(
+        { error: "Invalid crypto/network. Supported: USDT(TRC20/ERC20/BEP20), ETH(ERC20), BNB(BEP20)" },
+        { status: 400 },
+      );
+    }
+
+    const address = await getOrCreateDepositAddress(dbUser.id, crypto, network);
+
+    return Response.json({ address, crypto, network }, { status: 201 });
+  } catch (err) {
+    console.error("crypto/address POST:", err instanceof Error ? err.message : err);
+    return Response.json({ error: "Failed to generate address" }, { status: 500 });
   }
-
-  const address = await getOrCreateDepositAddress(dbUser.id, crypto, network);
-
-  return Response.json({ address, crypto, network }, { status: 201 });
 }

@@ -362,19 +362,18 @@ model UserCryptoBalance {
 
 // ─── Crypto Deposit Addresses ─────────────────────────────────────────────────
 // One unique blockchain address per user × crypto × network.
-// Generated via HD wallet derivation (NOWPayments / own node — phase 2).
+// Generated via HD wallet derivation from MASTER_WALLET_MNEMONIC.
 
 model CryptoDepositAddress {
-  id             String   @id @default(cuid())
-  userId         String   @map("user_id")
-  user           User     @relation(fields: [userId], references: [id])
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
 
-  crypto         String   // "USDT", "BTC", "ETH" …
-  network        String   // "TRC20", "ERC20", "BTC", "BEP20" …
-  address        String   @unique // the blockchain address
-  derivationIndex Int?    @map("derivation_index") // for HD wallet (phase 2)
+  crypto    String   // "USDT", "ETH", "BNB"
+  network   String   // "TRC20", "ERC20", "BEP20"
+  address   String   @unique // the blockchain address
 
-  createdAt      DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([userId, crypto, network])
   @@map("crypto_deposit_addresses")

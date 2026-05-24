@@ -81,7 +81,7 @@ export async function getOrCreateDepositAddress(
   const address = deriveForNetwork(network, count);
 
   await db.cryptoDepositAddress.create({
-    data: { userId, crypto, network, address, derivationIndex: count },
+    data: { userId, crypto, network, address },
   });
 
   return address;
