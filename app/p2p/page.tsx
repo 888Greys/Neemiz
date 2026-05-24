@@ -10,8 +10,8 @@ export const metadata = {
 
 export default function P2PPage() {
   return (
-    <AppShell mainBg="bg-[#050505]" rightPanel={<P2PMarketPanel />}>
-      <div className="lg:h-[calc(100dvh-5rem)] lg:overflow-hidden">
+    <AppShell mainBg="bg-[#050505]" rightPanel={<P2PMarketPanel />} hideFooter>
+      <div>
         <Suspense>
           <P2PBrowseClient />
         </Suspense>

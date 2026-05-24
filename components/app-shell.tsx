@@ -27,9 +27,10 @@ type AppShellProps = {
   children: React.ReactNode;
   rightPanel?: React.ReactNode;
   mainBg?: string;
+  hideFooter?: boolean;
 };
 
-export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
+export function AppShell({ children, rightPanel, mainBg, hideFooter = false }: AppShellProps) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
   const { isSignedIn, user } = useSupabaseAuth();
@@ -174,7 +175,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
         <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar flex-1 overflow-y-auto pb-32 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
           <div className="flex min-h-screen flex-col">
             <div className="flex-1">{children}</div>
-            <AppFooter />
+            {!hideFooter && <AppFooter />}
           </div>
         </main>
 
