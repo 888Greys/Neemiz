@@ -171,7 +171,7 @@ export function AppShell({ children, rightPanel, mainBg }: AppShellProps) {
           <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => setWalletOpen(true)} onOpenBonuses={() => openProfile("bonuses")} onOpenSupport={() => openProfile("support")} />
         </aside>
 
-        <main ref={mainRef} className={`no-scrollbar flex-1 overflow-y-auto pb-32 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
+        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar flex-1 overflow-y-auto pb-32 lg:pl-3 lg:pb-0 ${mainBg ?? "bg-background"}`}>
           <div className="flex min-h-screen flex-col">
             <div className="flex-1">{children}</div>
             <AppFooter />
