@@ -10,6 +10,14 @@ export async function GET(req: Request) {
   const order     = (searchParams.get("order") ?? "volume") as "volume" | "createdAt";
   const ascending = searchParams.get("ascending") === "true";
 
-  const markets = await fetchMarkets({ limit, offset, tag, order, ascending });
-  return Response.json(markets);
+  const markets = await fetchMarkets({ limit: tag ? Math.max(limit, 100) : limit, offset, order, ascending });
+  const filtered = tag
+    ? markets.filter((m) => {
+        const needle = tag.toLowerCase();
+        return m.tags.some((t) => t.toLowerCase().includes(needle)) ||
+          m.question.toLowerCase().includes(needle) ||
+          m.description.toLowerCase().includes(needle);
+      }).slice(0, limit)
+    : markets;
+  return Response.json(filtered);
 }

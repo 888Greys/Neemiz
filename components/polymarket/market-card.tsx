@@ -18,6 +18,17 @@ export function formatMarketMoney(value: number) {
   return `$${value.toFixed(0)}`;
 }
 
+const USD_KES_RATE = Number(process.env.NEXT_PUBLIC_USD_KES_RATE ?? 129.5);
+
+export function formatMarketMoneyKes(value: number) {
+  const kes = value * USD_KES_RATE;
+  if (!Number.isFinite(kes) || kes <= 0) return "KSh 0";
+  if (kes >= 1_000_000_000) return `KSh ${(kes / 1_000_000_000).toFixed(1)}B`;
+  if (kes >= 1_000_000) return `KSh ${(kes / 1_000_000).toFixed(1)}M`;
+  if (kes >= 1_000) return `KSh ${(kes / 1_000).toFixed(0)}K`;
+  return `KSh ${kes.toFixed(0)}`;
+}
+
 export function formatEndDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "TBD";
@@ -39,7 +50,7 @@ function getBinaryPrices(outcomes: string[], prices: number[]) {
 
 export function MarketCard({ market, onBet, onSelect, active }: Props) {
   const binary     = getBinaryPrices(market.outcomes, market.outcomePrices);
-  const volumeStr  = formatMarketMoney(market.volume);
+  const volumeStr  = `${formatMarketMoney(market.volume)} / ${formatMarketMoneyKes(market.volume)}`;
 
   return (
     <div

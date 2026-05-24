@@ -60,6 +60,13 @@ function parseMarket(m: GammaMarket): PolymarketMarket {
   };
 }
 
+function isOpenMarket(m: PolymarketMarket) {
+  const endTime = new Date(m.endDate).getTime();
+  const hasEnded = Number.isFinite(endTime) && endTime <= Date.now();
+  const isResolvedPrice = m.outcomePrices.some((p) => p <= 0.001 || p >= 0.999);
+  return m.active && !m.closed && !hasEnded && !isResolvedPrice;
+}
+
 export async function fetchMarkets(params?: {
   limit?:     number;
   offset?:    number;
@@ -68,13 +75,14 @@ export async function fetchMarkets(params?: {
   ascending?: boolean;
 }): Promise<PolymarketMarket[]> {
   const limit     = params?.limit     ?? 20;
+  const fetchLimit = Math.max(limit, 100);
   const offset    = params?.offset    ?? 0;
   const order     = params?.order     ?? "volume";
   const ascending = params?.ascending ?? false;
   const url       = new URL(`${GAMMA_API}/markets`);
   url.searchParams.set("active",    "true");
   url.searchParams.set("closed",    "false");
-  url.searchParams.set("limit",     String(limit));
+  url.searchParams.set("limit",     String(fetchLimit));
   url.searchParams.set("offset",    String(offset));
   url.searchParams.set("order",     order);
   url.searchParams.set("ascending", String(ascending));
@@ -85,7 +93,7 @@ export async function fetchMarkets(params?: {
   });
   if (!res.ok) return [];
   const data: GammaMarket[] = await res.json();
-  return data.map(parseMarket);
+  return data.map(parseMarket).filter(isOpenMarket).slice(0, limit);
 }
 
 export async function fetchMarket(conditionId: string): Promise<PolymarketMarket | null> {
@@ -94,7 +102,8 @@ export async function fetchMarket(conditionId: string): Promise<PolymarketMarket
   if (!res.ok) return null;
   const data: GammaMarket[] = await res.json();
   if (!data[0]) return null;
-  return parseMarket(data[0]);
+  const market = parseMarket(data[0]);
+  return isOpenMarket(market) ? market : null;
 }
 
 /** Returns the resolved winning outcome string, or null if not resolved */
