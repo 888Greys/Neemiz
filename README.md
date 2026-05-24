@@ -123,9 +123,17 @@ MASTER_WALLET_MNEMONIC
 
 Update these regularly in Vercel → Redeploy to keep rates accurate.
 
-### Polymarket CLOB trading
+### Polymarket prediction mode
 
-Prediction markets load from the real Polymarket Gamma API. By default, bet placement uses the internal app ledger only. To place real Polymarket CLOB buy orders, set:
+Prediction markets load from the real Polymarket Gamma API. The recommended production mode for the current app is internal settlement:
+
+```env
+POLYMARKET_TRADING_MODE=internal
+```
+
+In this mode, users see real Polymarket markets, prices, charts, and outcomes, but their positions are Nezeem ledger entries. Nezeem deducts the stake internally, stores the entry price, and settles/pays out internally from Polymarket resolution data. No funded Polymarket account or CLOB API credentials are required.
+
+To place real Polymarket CLOB buy orders later, switch deliberately to:
 
 ```env
 POLYMARKET_TRADING_MODE=clob
@@ -138,7 +146,7 @@ POLYMARKET_SIGNATURE_TYPE=0
 POLYMARKET_ORDER_TYPE=FOK
 ```
 
-The trading wallet or proxy wallet must already be funded and approved on Polymarket. When CLOB mode is enabled, `/api/polymarket/bet` posts a real market buy order first, then stores the returned order id, status, trade ids, and transaction hashes with the internal bet record.
+The trading wallet or proxy wallet must already be funded and approved on Polymarket before CLOB mode is enabled. When CLOB mode is enabled, `/api/polymarket/bet` posts a real market buy order first, then stores the returned order id, status, trade ids, and transaction hashes with the internal bet record.
 
 ### Sweeping funds (moving coins to your main wallet)
 
