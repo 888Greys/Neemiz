@@ -24,7 +24,15 @@ export function hashServerSeed(seed: string): string {
 
 /**
  * Deterministic crash point from serverSeed + roundId.
- * House edge: ~3% (1 in 33 rounds crashes at 1.00x instantly).
+ *
+ * Distribution targets:
+ *   ~5%  of rounds crash instantly at 1.00×  (h % 20 === 0)
+ *   P(crash > 2×) ≈ 28–30%  →  70% loss rate for players cashing out at 2×
+ *
+ * Math: base Pareto(1,1) = e/(e−h) compressed by exponent 1/1.74 ≈ 0.575
+ *   P(X > x) = 1 / x^1.74
+ *   P(X > 2) ≈ 30%  →  total win rate ≈ 0.95 × 0.30 ≈ 28.5% at 2× cashout
+ *
  * Returns a value ≥ 1.00.
  */
 export function generateCrashPoint(serverSeed: string, roundId: string): number {
@@ -32,10 +40,13 @@ export function generateCrashPoint(serverSeed: string, roundId: string): number 
   const h    = parseInt(hmac.slice(0, 8), 16); // 32-bit integer
   const e    = 2 ** 32;
 
-  // ~3% instant-crash house edge
-  if (h % 33 === 0) return 1.00;
+  // ~5% instant-crash house edge (1 in 20 rounds)
+  if (h % 20 === 0) return 1.00;
 
-  const raw = (100 * e) / (e - h) / 100;
+  // Compress the Pareto distribution so high multipliers are rarer
+  // Exponent 0.575 ≈ 1/1.74 → P(crash > x) = 1/x^1.74
+  const pareto = e / (e - h);
+  const raw    = Math.pow(pareto, 0.575);
   return Math.min(1000.00, Math.max(1.00, Math.floor(raw * 100) / 100));
 }
 
