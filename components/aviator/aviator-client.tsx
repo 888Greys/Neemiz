@@ -190,7 +190,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const handleBet = useCallback(async (amount: number, panelIndex: 0 | 1, autoCashout?: number) => {
     // Optimistic update — UI responds instantly; rollback if server rejects
     const tempBet: AviatorBetPublic = {
-      id: `temp-${Date.now()}`, roundId: roundRef.current?.roundId ?? "",
+      id: `temp-${Date.now()}`, roundId: roundRef.current?.id ?? "",
       userId: userId ?? "", username: username ?? null, panelIndex,
       betAmount: amount, autoCashout: autoCashout ?? null,
       cashoutAt: null, winAmount: null, status: "ACTIVE",

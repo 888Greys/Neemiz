@@ -293,174 +293,125 @@ function StatsBar() {
   );
 }
 
-// ─── Desktop Ad Row ───────────────────────────────────────────────────────────
+// ─── Ad Card (Polymarket-style, used for all screen sizes) ───────────────────
 
-function DesktopAdRow({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; isSignedIn: boolean }) {
-  const isMerchantSelling = ad.side === "SELL";
-
-  return (
-    <div className="grid grid-cols-[2.4fr_1.1fr_1fr_1.2fr_1fr_118px] gap-4 items-center px-4 py-3 border-b border-white/[0.05] bg-[#15191f] transition hover:bg-[#1b2028]">
-
-      {/* Merchant */}
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="relative shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-[#087cff] flex items-center justify-center text-white font-black text-xs shadow-lg shadow-[#087cff]/15">
-            {ad.merchant.displayName.charAt(0).toUpperCase()}
-          </div>
-          {ad.merchant.isOnline && (
-            <span className="absolute -bottom-px -right-px w-2.5 h-2.5 bg-[#22c55e] border-2 border-[#15191f] rounded-full" />
-          )}
-        </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="text-white font-bold text-sm truncate">{ad.merchant.displayName}</p>
-            <Icon name="verified" className="text-[#3b82f6] text-xs shrink-0" />
-          </div>
-          <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-0.5">
-            <span>{ad.merchant.completedTrades} trades</span>
-            <span className="text-slate-700">·</span>
-            <span className={ad.merchant.completionRate >= 95 ? "text-[#22c55e]" : "text-slate-500"}>
-              {ad.merchant.completionRate.toFixed(1)}%
-            </span>
-            <span className="text-slate-700">·</span>
-            <Icon name="timer" className="text-[10px]" />
-            <span>~{ad.merchant.avgReleaseTime || "<1"}m</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Price */}
-      <div>
-        <p className="text-white font-black text-base">{ad.pricePerUnit.toLocaleString("en-KE")}</p>
-        <p className="text-slate-600 text-[11px]">{ad.fiat} / {ad.crypto}</p>
-      </div>
-
-      {/* Available with mini progress bar */}
-      <div>
-        <p className="text-slate-200 font-bold text-sm">{ad.availableAmount.toFixed(4)}</p>
-        <p className="text-slate-600 text-[11px]">{ad.crypto}</p>
-      </div>
-
-      {/* Limit */}
-      <div>
-        <p className="text-slate-200 font-bold text-sm">
-          {(ad.minLimit / 1000).toFixed(0)}K – {(ad.maxLimit / 1000).toFixed(0)}K
-        </p>
-        <p className="text-slate-600 text-[11px]">{ad.fiat}</p>
-      </div>
-
-      {/* Payment */}
-      <div className="flex flex-wrap gap-1">
-        {ad.paymentMethods.map((m) => (
-          <span
-            key={m}
-            className="bg-white/[0.05] border border-white/[0.07] rounded-md px-2 py-0.5 text-[10px] font-bold text-slate-300"
-          >
-            {fmtPm(m)}
-          </span>
-        ))}
-      </div>
-
-      {/* Action */}
-      <button
-        onClick={() => {
-          if (!isSignedIn) { toast.error("Please sign in to trade"); return; }
-          onBuy(ad);
-        }}
-        className={`py-2 rounded-lg font-black text-xs transition-all active:scale-[0.97] ${
-          isMerchantSelling
-            ? "bg-[#22c55e]/15 border border-[#22c55e]/30 text-[#22c55e] hover:bg-[#22c55e] hover:text-white hover:border-[#22c55e]"
-            : "bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500"
-        }`}
-      >
-        {isMerchantSelling ? `Buy ${ad.crypto}` : `Sell ${ad.crypto}`}
-      </button>
-    </div>
-  );
-}
-
-// ─── Mobile Ad Card ───────────────────────────────────────────────────────────
+const CRYPTO_COLOR: Record<string, string> = {
+  USDT: "#26a17b",
+  BTC:  "#f7931a",
+  ETH:  "#627eea",
+  BNB:  "#f0b90b",
+};
 
 function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; isSignedIn: boolean }) {
   const isMerchantSelling = ad.side === "SELL";
+  const color   = CRYPTO_COLOR[ad.crypto] ?? "#087cff";
+  const maxQty  = ad.maxLimit / ad.pricePerUnit;
+  const fillPct = Math.min(100, maxQty > 0 ? (ad.availableAmount / maxQty) * 100 : 0);
 
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-[#15191f] p-4 transition-colors hover:border-white/[0.12]">
-      {/* Top row: merchant info + release time */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="relative shrink-0">
-            <div className="w-9 h-9 rounded-lg bg-[#087cff] flex items-center justify-center text-white font-black text-sm shadow-lg shadow-[#087cff]/15">
-              {ad.merchant.displayName.charAt(0).toUpperCase()}
-            </div>
-            {ad.merchant.isOnline && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-[#22c55e] border-2 border-[#0a0f1a] rounded-full" />
-            )}
-          </div>
-          <div>
-            <div className="flex items-center gap-1">
-              <p className="text-white font-bold text-sm">{ad.merchant.displayName}</p>
-              <Icon name="verified" className="text-[#3b82f6] text-xs" />
-            </div>
-            <p className="text-slate-500 text-[11px]">
-              {ad.merchant.completedTrades} trades
-              <span className={`ml-1 ${ad.merchant.completionRate >= 95 ? "text-[#22c55e]" : "text-slate-500"}`}>
-                · {ad.merchant.completionRate.toFixed(1)}%
-              </span>
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 bg-white/[0.04] px-2 py-1 rounded-lg">
-          <Icon name="timer" className="text-xs" />
-          ~{ad.merchant.avgReleaseTime || "<1"}m
-        </div>
-      </div>
+    <div className="group flex flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#16171c] transition hover:border-white/[0.14] hover:bg-[#1c1d24] cursor-pointer">
 
-      {/* Price */}
-      <div className="flex items-baseline gap-1.5 mb-3">
-        <span className="text-2xl font-black text-white">{ad.pricePerUnit.toLocaleString("en-KE")}</span>
-        <span className="text-slate-500 text-sm font-bold">{ad.fiat}</span>
-        <span className="text-slate-700 text-xs ml-1">per {ad.crypto}</span>
-      </div>
-
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
-        <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2">
-          <p className="text-slate-600 mb-0.5">Available</p>
-          <p className="text-slate-200 font-bold">{ad.availableAmount.toFixed(4)} {ad.crypto}</p>
-        </div>
-        <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2">
-          <p className="text-slate-600 mb-0.5">Order limit</p>
-          <p className="text-slate-200 font-bold">{(ad.minLimit / 1000).toFixed(0)}K–{(ad.maxLimit / 1000).toFixed(0)}K {ad.fiat}</p>
-        </div>
-      </div>
-
-      {/* Payment pills */}
-      <div className="flex flex-wrap gap-1.5 mb-3">
-        {ad.paymentMethods.map((m) => (
-          <span
-            key={m}
-            className="bg-[#3b82f6]/10 border border-[#3b82f6]/15 rounded-md px-2 py-0.5 text-[10px] font-bold text-[#60a5fa]"
-          >
-            {fmtPm(m)}
-          </span>
-        ))}
-      </div>
-
-      {/* Action */}
-      <button
-        onClick={() => {
-          if (!isSignedIn) { toast.error("Please sign in to trade"); return; }
-          onBuy(ad);
-        }}
-        className={`w-full py-2.5 rounded-xl font-black text-sm transition-all active:scale-[0.98] ${
-          isMerchantSelling
-            ? "bg-[#22c55e]/15 border border-[#22c55e]/30 text-[#22c55e] hover:bg-[#22c55e] hover:text-white"
-            : "bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white"
-        }`}
+      {/* Header strip — mirrors Polymarket's image strip */}
+      <div
+        className="relative h-[72px] flex items-end px-4 pb-3 overflow-hidden"
+        style={{ background: `linear-gradient(135deg, ${color}28 0%, transparent 70%)` }}
       >
-        {isMerchantSelling ? `Buy ${ad.crypto}` : `Sell ${ad.crypto}`}
-      </button>
+        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 90% 10%, ${color}18, transparent 65%)` }} />
+        <div className="relative flex w-full items-end justify-between">
+          <div className="flex items-center gap-2.5">
+            {CRYPTO_ICONS[ad.crypto] && (
+              <img src={CRYPTO_ICONS[ad.crypto]} alt={ad.crypto} className="h-8 w-8 rounded-full shadow-lg" />
+            )}
+            <div>
+              <p className="text-white font-black text-sm leading-none">{ad.crypto}</p>
+              <p className="text-white/35 text-[10px] font-bold mt-0.5">{ad.fiat} / {ad.crypto}</p>
+            </div>
+          </div>
+          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black ${
+            isMerchantSelling ? "bg-[#22c55e]/15 text-[#22c55e]" : "bg-red-500/15 text-red-400"
+          }`}>
+            {isMerchantSelling ? "BUY" : "SELL"}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col p-4">
+        {/* Merchant row */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="relative shrink-0">
+              <div className="w-7 h-7 rounded-full bg-[#087cff] flex items-center justify-center text-white font-black text-xs">
+                {ad.merchant.displayName.charAt(0).toUpperCase()}
+              </div>
+              {ad.merchant.isOnline && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#22c55e] border border-[#16171c] rounded-full" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-1">
+                <span className="text-white text-xs font-bold">{ad.merchant.displayName}</span>
+                <Icon name="verified" className="text-[#3b82f6] text-[10px]" />
+              </div>
+              <p className="text-white/30 text-[10px]">
+                {ad.merchant.completedTrades} trades
+                <span className={`ml-1 ${ad.merchant.completionRate >= 95 ? "text-[#22c55e]" : "text-white/30"}`}>
+                  · {ad.merchant.completionRate.toFixed(0)}%
+                </span>
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 text-[10px] text-white/25 font-bold">
+            <Icon name="timer" className="text-[10px]" />
+            ~{ad.merchant.avgReleaseTime || "<1"}m
+          </div>
+        </div>
+
+        {/* Price — mirrors "question" text in Polymarket */}
+        <div className="mb-3 flex-1">
+          <p className="text-[22px] font-black text-white leading-none">
+            {ad.pricePerUnit.toLocaleString("en-KE")}
+          </p>
+          <p className="text-white/30 text-[11px] mt-0.5">{ad.fiat} per {ad.crypto}</p>
+        </div>
+
+        {/* Depth bar — mirrors Polymarket's probability bar */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between text-[10px] font-bold mb-1.5">
+            <span className="text-white/40">Available</span>
+            <span className="text-white/55">{ad.availableAmount.toFixed(4)} {ad.crypto}</span>
+          </div>
+          <div className="flex h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
+            <div className="rounded-full" style={{ width: `${fillPct}%`, background: color }} />
+          </div>
+          <p className="text-white/25 text-[10px] mt-1">
+            Limit: {(ad.minLimit / 1000).toFixed(0)}K – {(ad.maxLimit / 1000).toFixed(0)}K {ad.fiat}
+          </p>
+        </div>
+
+        {/* Payment pills — mirrors Polymarket tags */}
+        <div className="flex flex-wrap gap-1 mb-3">
+          {ad.paymentMethods.map((m) => (
+            <span key={m} className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/35">
+              {fmtPm(m)}
+            </span>
+          ))}
+        </div>
+
+        {/* Action buttons — mirrors "Buy Yes / Buy No" */}
+        <button
+          onClick={() => {
+            if (!isSignedIn) { toast.error("Please sign in to trade"); return; }
+            onBuy(ad);
+          }}
+          className={`h-9 w-full rounded-xl font-black text-[13px] transition hover:opacity-90 active:scale-[0.98] ${
+            isMerchantSelling
+              ? "bg-[#22c55e]/12 text-[#22c55e] hover:bg-[#22c55e]/22"
+              : "bg-red-500/12 text-red-400 hover:bg-red-500/22"
+          }`}
+        >
+          {isMerchantSelling ? `Buy ${ad.crypto}` : `Sell ${ad.crypto}`}
+        </button>
+      </div>
     </div>
   );
 }
@@ -801,39 +752,18 @@ export function P2PBrowseClient() {
           </div>
         </div>
 
-        {/* Table header — desktop only, when ads exist */}
-        {!loading && ads.length > 0 && (
-          <div className="hidden sm:grid grid-cols-[2.4fr_1.1fr_1fr_1.2fr_1fr_118px] gap-4 rounded-t-xl border border-b-0 border-white/[0.07] bg-[#101216] px-4 py-2 text-[10px] font-black text-slate-600 uppercase tracking-widest">
-            <span>Merchant</span>
-            <span>Price</span>
-            <span>Available</span>
-            <span>Order limit</span>
-            <span>Payment</span>
-            <span />
-          </div>
-        )}
-
-        {/* Ad list */}
+        {/* Ad grid */}
         <div className="space-y-5">
           {loading ? (
             <AdSkeleton />
           ) : ads.length === 0 ? (
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
-            <>
-              {/* Mobile cards */}
-              <div className="space-y-3 sm:hidden">
-                {ads.map((ad) => (
-                  <AdCard key={ad.id} ad={ad} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
-                ))}
-              </div>
-              {/* Desktop rows */}
-              <div className="hidden overflow-hidden rounded-b-xl border border-white/[0.07] sm:block">
-                {ads.map((ad) => (
-                  <DesktopAdRow key={ad.id} ad={ad} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
-                ))}
-              </div>
-            </>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {ads.map((ad) => (
+                <AdCard key={ad.id} ad={ad} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
+              ))}
+            </div>
           )}
 
           {/* Merchant CTA */}
