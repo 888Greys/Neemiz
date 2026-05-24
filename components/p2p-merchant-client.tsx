@@ -568,15 +568,15 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-md bg-[#0d1420] border border-white/10 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 bg-[#0d1420] flex items-center justify-between px-6 py-4 border-b border-white/[0.07] rounded-t-2xl">
+      <div className="no-scrollbar w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0d1420] shadow-2xl max-h-[calc(100dvh-3rem)]" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 flex items-center justify-between rounded-t-2xl border-b border-white/[0.07] bg-[#0d1420] px-6 py-3">
           <h3 className="text-white font-black text-lg">{isEditing ? "Edit Ad" : "Create New Ad"}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all">
             <Icon name="close" className="text-lg" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="space-y-3 p-5">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">I want to</label>
@@ -584,7 +584,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                 {["BUY","SELL"].map((s) => (
                   <button key={s} onClick={() => !isEditing && f("side", s)}
                     disabled={isEditing}
-                    className={`flex-1 py-2 rounded-lg text-xs font-black transition-all ${form.side === s ? "bg-[#087cff] text-white shadow shadow-[#087cff]/30" : "text-slate-500 hover:text-white"}`}>
+                    className={`flex-1 rounded-lg py-1.5 text-xs font-black transition-all ${form.side === s ? "bg-[#087cff] text-white shadow shadow-[#087cff]/30" : "text-slate-500 hover:text-white"}`}>
                     {s}
                   </button>
                 ))}
@@ -593,7 +593,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             <div>
               <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
               <select value={form.crypto} onChange={(e) => f("crypto", e.target.value)} disabled={isEditing}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-white text-sm outline-none">
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none">
                 {["USDT"].map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
@@ -606,7 +606,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             <div key={key}>
               <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">{label}</label>
               <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-white placeholder:text-slate-700 outline-none focus:border-[#087cff]/40 text-sm transition-colors" />
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
             </div>
           ))}
 
@@ -615,7 +615,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               <div key={key}>
                 <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">{label}</label>
                 <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-white placeholder:text-slate-700 outline-none focus:border-[#087cff]/40 text-sm transition-colors" />
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
               </div>
             ))}
           </div>
@@ -625,7 +625,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             <div className="flex gap-2">
               {[{ v: "MPESA", l: "M-Pesa" }, { v: "BANK", l: "Bank Transfer" }].map(({ v, l }) => (
                 <button key={v} onClick={() => togglePm(v)}
-                  className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${form.paymentMethods.includes(v) ? "bg-[#087cff]/20 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"}`}>
+                  className={`flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${form.paymentMethods.includes(v) ? "bg-[#087cff]/20 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"}`}>
                   {l}
                 </button>
               ))}
@@ -635,7 +635,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           <div>
             <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Payment window</label>
             <select value={form.paymentWindow} onChange={(e) => f("paymentWindow", e.target.value)}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-white text-sm outline-none">
+              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none">
               {[10,15,20,30].map((w) => <option key={w} value={w}>{w} minutes</option>)}
             </select>
           </div>
@@ -643,11 +643,11 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           <div>
             <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Trade terms <span className="normal-case text-slate-600">(optional)</span></label>
             <textarea value={form.terms} onChange={(e) => f("terms", e.target.value)} placeholder="Any specific requirements for buyers…" rows={2}
-              className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-700 outline-none resize-none focus:border-[#087cff]/40 transition-colors" />
+              className="w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
           </div>
 
           <button onClick={submit} disabled={submitting}
-            className="w-full py-3.5 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] disabled:opacity-50 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-[#087cff]/20">
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] py-3 font-black text-white shadow-lg shadow-[#087cff]/20 transition-all hover:bg-[#0570e8] active:scale-[0.98] disabled:opacity-50">
             {submitting
               ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {isEditing ? "Saving..." : "Creating..."}</>
               : <><Icon name={isEditing ? "edit" : "add"} className="text-base" /> {isEditing ? "Save Changes" : "Create Ad"}</>}
