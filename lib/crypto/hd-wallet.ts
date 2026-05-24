@@ -80,6 +80,22 @@ export async function getOrCreateDepositAddress(
   });
   if (existing) return existing.address;
 
+  if (network !== "TRC20") {
+    const evmAddress = await db.cryptoDepositAddress.findFirst({
+      where: {
+        userId,
+        network: { in: ["ERC20", "BEP20"] },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    if (evmAddress) {
+      await db.cryptoDepositAddress.create({
+        data: { userId, crypto, network, address: evmAddress.address },
+      });
+      return evmAddress.address;
+    }
+  }
+
   // Global sequential index — each address gets the next slot
   const index   = await db.cryptoDepositAddress.count();
   const address = network === "TRC20"
