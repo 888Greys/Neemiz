@@ -11,9 +11,11 @@ export const metadata = {
 export default function P2PPage() {
   return (
     <AppShell mainBg="bg-[#050505]" rightPanel={<P2PMarketPanel />}>
-      <Suspense>
-        <P2PBrowseClient />
-      </Suspense>
+      <div className="lg:h-[calc(100dvh-5rem)] lg:overflow-hidden">
+        <Suspense>
+          <P2PBrowseClient />
+        </Suspense>
+      </div>
     </AppShell>
   );
 }

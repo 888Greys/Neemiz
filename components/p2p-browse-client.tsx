@@ -438,60 +438,56 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
   ];
 
   return (
-    <div className="py-8">
+    <div className="py-2">
       {/* No ads message */}
-      <div className="text-center mb-10">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.07] mb-4">
-          <Icon name="swap_horiz" className="text-2xl text-slate-500" />
+      <div className="mb-5 rounded-2xl border border-white/[0.06] bg-[#090d14] px-5 py-5 text-center">
+        <div className="mx-auto mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.04]">
+          <Icon name="swap_horiz" className="text-xl text-slate-500" />
         </div>
-        <p className="text-lg font-black text-white mb-1">
+        <p className="mb-1 text-lg font-black text-white">
           No {side === "SELL" ? "buy" : "sell"} ads right now
         </p>
         <p className="text-sm text-slate-500">
           Try a different crypto or payment filter — or be the first to post.
         </p>
+        {isSignedIn && (
+          <Link
+            href="/p2p/merchant"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#3b82f6]/20 bg-[#3b82f6]/10 px-5 py-2.5 text-sm font-black text-[#3b82f6] transition-colors hover:bg-[#3b82f6]/20"
+          >
+            <Icon name="add_business" className="text-base" />
+            Post an ad
+          </Link>
+        )}
       </div>
 
       {/* How it works */}
-      <div className="mb-8">
-        <p className="text-xs font-black text-slate-600 uppercase tracking-widest text-center mb-4">
+      <div>
+        <p className="mb-3 text-center text-xs font-black uppercase tracking-widest text-slate-600">
           How P2P trading works
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl mx-auto">
+        <div className="mx-auto grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
           {steps.map((step, i) => (
             <div
               key={i}
-              className="relative bg-[#0c1118] border border-white/[0.06] rounded-2xl p-5 text-center"
+              className="relative rounded-xl border border-white/[0.06] bg-[#0c1118] p-4 text-center"
             >
               {/* Connector line */}
               {i < 2 && (
                 <div className="hidden sm:block absolute top-1/2 -right-1.5 w-3 h-px bg-white/[0.08] z-10" />
               )}
-              <div className="w-10 h-10 rounded-xl bg-[#3b82f6]/10 border border-[#3b82f6]/20 flex items-center justify-center mx-auto mb-3">
-                <Icon name={step.icon} className="text-[#3b82f6] text-lg" />
+              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg border border-[#3b82f6]/20 bg-[#3b82f6]/10">
+                <Icon name={step.icon} className="text-base text-[#3b82f6]" />
               </div>
-              <div className="inline-flex items-center gap-1 bg-white/[0.04] rounded-full px-2.5 py-0.5 mb-2">
+              <div className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-white/[0.04] px-2 py-0.5">
                 <span className="text-[10px] font-black text-slate-500">Step {i + 1}</span>
               </div>
-              <p className="text-sm font-black text-white mb-1">{step.title}</p>
-              <p className="text-xs text-slate-600 leading-relaxed">{step.desc}</p>
+              <p className="mb-1 text-sm font-black text-white">{step.title}</p>
+              <p className="text-xs leading-5 text-slate-600">{step.desc}</p>
             </div>
           ))}
         </div>
       </div>
-
-      {/* CTA */}
-      {isSignedIn && (
-        <div className="text-center">
-          <Link
-            href="/p2p/merchant"
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#3b82f6]/10 border border-[#3b82f6]/20 text-[#3b82f6] text-sm font-black hover:bg-[#3b82f6]/20 transition-colors"
-          >
-            <Icon name="add_business" className="text-base" />
-            Post the first ad
-          </Link>
-        </div>
-      )}
     </div>
   );
 }
@@ -658,16 +654,16 @@ export function P2PBrowseClient() {
 
       <P2PSubNav />
 
-      <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-4">
+      <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 lg:h-full lg:overflow-hidden">
 
         {/* Workspace header */}
-        <div className="mb-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_460px]">
-          <div className="rounded-2xl border border-white/[0.07] bg-[#15191f] p-5">
-            <div className="mb-5 flex items-start justify-between gap-4">
+        <div className="mb-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_460px]">
+          <div className="rounded-2xl border border-white/[0.07] bg-[#15191f] p-4">
+            <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/30">Nezeem P2P</p>
-                <h1 className="mt-1 text-2xl font-black text-white">Local crypto exchange</h1>
-                <p className="mt-1 text-sm font-semibold text-slate-500">
+                <h1 className="mt-1 text-[22px] font-black leading-tight text-white">Local crypto exchange</h1>
+                <p className="mt-1 max-w-md text-sm font-semibold leading-6 text-slate-500">
                   Verified merchants, local payments, escrow-protected orders.
                 </p>
               </div>
@@ -753,7 +749,7 @@ export function P2PBrowseClient() {
         </div>
 
         {/* Ad grid */}
-        <div className="space-y-5">
+        <div className="space-y-3 lg:max-h-[calc(100dvh-20rem)] lg:overflow-y-auto lg:pr-1">
           {loading ? (
             <AdSkeleton />
           ) : ads.length === 0 ? (
@@ -766,8 +762,7 @@ export function P2PBrowseClient() {
             </div>
           )}
 
-          {/* Merchant CTA */}
-          <MerchantPromoBanner isSignedIn={!!isSignedIn} />
+          {ads.length > 0 && <MerchantPromoBanner isSignedIn={!!isSignedIn} />}
         </div>
       </div>
     </>
