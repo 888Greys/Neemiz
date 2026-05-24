@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { validateP2PAd } from "@/lib/p2p/ad-guards";
 import { defaultNetwork, lockUserCrypto, unlockUserCrypto } from "@/lib/p2p/crypto-balance";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
@@ -130,6 +131,16 @@ export async function POST(req: Request) {
 
     if (!ad || !ad.isActive) return Response.json({ error: "Ad not found or inactive" }, { status: 404 });
     if (ad.merchant.userId === dbUser.id) return Response.json({ error: "Cannot trade with yourself" }, { status: 400 });
+
+    const adGuardError = validateP2PAd({
+      crypto: ad.crypto,
+      pricePerUnit: Number(ad.pricePerUnit),
+      availableAmount: Number(ad.availableAmount),
+      totalAmount: Number(ad.totalAmount),
+      minLimit: Number(ad.minLimit),
+      maxLimit: Number(ad.maxLimit),
+    });
+    if (adGuardError) return Response.json({ error: "This ad is no longer tradable. Ask the merchant to update it." }, { status: 409 });
 
     const cryptoAmountNum = Number(cryptoAmount);
     if (!Number.isFinite(cryptoAmountNum) || cryptoAmountNum <= 0) {

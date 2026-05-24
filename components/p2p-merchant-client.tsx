@@ -43,6 +43,7 @@ interface Ad {
   paymentWindow: number;
   isActive: boolean;
   createdAt: string;
+  validationError?: string | null;
 }
 
 // ─── Apply Landing Page ───────────────────────────────────────────────────────
@@ -72,7 +73,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
   }
 
   return (
-    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
       {/* Hero */}
       <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#087cff]/20 bg-gradient-to-br from-[#0d1a2e] via-[#0a1220] to-[#0d1420] p-6 text-center sm:p-8">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-40 bg-[#087cff]/10 rounded-full blur-3xl pointer-events-none" />
@@ -575,7 +576,7 @@ function CreateAdModal({ onClose, onCreated }: { onClose: () => void; onCreated:
           </div>
 
           {[
-            { label: `Price per ${form.crypto} (KES)`, key: "pricePerUnit", ph: "e.g. 135000" },
+            { label: `Price per ${form.crypto} (KES)`, key: "pricePerUnit", ph: "e.g. 135" },
             { label: `Total ${form.crypto} to ${form.side === "SELL" ? "sell" : "buy"}`, key: "totalAmount", ph: "e.g. 0.5" },
           ].map(({ label, key, ph }) => (
             <div key={key}>
@@ -689,7 +690,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         const listedKES     = ads.reduce((s, a) => s + Number(a.availableAmount) * Number(a.pricePerUnit), 0);
         const cryptos       = ads.map((a) => a.crypto).filter((c, idx, arr) => arr.indexOf(c) === idx);
         return (
-          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {/* Active Ads */}
             <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-[#087cff]/20 transition-colors">
               <div className="flex items-center justify-between mb-2">
@@ -768,15 +769,15 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </button>
           </div>
         ) : (
-          <div>
-            {ads.map((ad, i) => {
+          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+            {ads.map((ad) => {
               const pmLabel = (m: string) => m === "MPESA" ? "M-Pesa" : m === "BANK" ? "Bank" : m;
               const filled = Number(ad.totalAmount) - Number(ad.availableAmount);
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
               return (
-                <div key={ad.id} className={`px-5 py-4 hover:bg-white/[0.02] transition-colors ${i < ads.length - 1 ? "border-b border-white/[0.04]" : ""}`}>
+                <div key={ad.id} className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4 transition-colors hover:border-white/[0.12]">
                   {/* Row 1: side badge + crypto + price + status */}
-                  <div className="flex items-center justify-between gap-3 mb-3">
+                  <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className={`shrink-0 px-2.5 py-0.5 rounded-lg text-[10px] font-black border ${
                         ad.side === "SELL" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-[#31c45d] bg-[#31c45d]/10 border-[#31c45d]/20"
@@ -790,12 +791,17 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                     <div className="flex items-center gap-1.5 shrink-0">
                       <span className={`w-1.5 h-1.5 rounded-full ${ad.isActive ? "bg-[#31c45d] animate-pulse" : "bg-slate-600"}`} />
                       <span className={`text-[11px] font-bold ${ad.isActive ? "text-[#31c45d]" : "text-slate-500"}`}>{ad.isActive ? "Active" : "Paused"}</span>
-                      <span className="text-slate-700 text-xs ml-1">· {new Date(ad.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short" })}</span>
                     </div>
                   </div>
 
+                  {ad.validationError && (
+                    <div className="mb-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] font-semibold leading-5 text-amber-300">
+                      {ad.validationError}
+                    </div>
+                  )}
+
                   {/* Row 2: stats grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1.5 text-xs mb-3">
+                  <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                     <div>
                       <p className="text-slate-600 mb-0.5">Available</p>
                       <p className="text-slate-200 font-bold">{Number(ad.availableAmount).toFixed(4)} {ad.crypto}</p>
