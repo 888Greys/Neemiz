@@ -41,6 +41,7 @@ interface Ad {
   maxLimit: number;
   paymentMethods: string[];
   paymentWindow: number;
+  terms: string | null;
   isActive: boolean;
   createdAt: string;
   validationError?: string | null;
@@ -514,8 +515,19 @@ function DepositSection() {
 
 // ─── Create Ad Modal ──────────────────────────────────────────────────────────
 
-function CreateAdModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const [form, setForm] = useState({ side: "SELL", crypto: "USDT", pricePerUnit: "", totalAmount: "", minLimit: "", maxLimit: "", paymentMethods: [] as string[], paymentWindow: "15", terms: "" });
+function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: () => void; onCreated: () => void }) {
+  const isEditing = !!ad;
+  const [form, setForm] = useState({
+    side: ad?.side ?? "SELL",
+    crypto: ad?.crypto ?? "USDT",
+    pricePerUnit: ad ? String(ad.pricePerUnit) : "",
+    totalAmount: ad ? String(ad.totalAmount) : "",
+    minLimit: ad ? String(ad.minLimit) : "",
+    maxLimit: ad ? String(ad.maxLimit) : "",
+    paymentMethods: ad?.paymentMethods ?? [] as string[],
+    paymentWindow: ad ? String(ad.paymentWindow) : "15",
+    terms: ad?.terms ?? "",
+  });
   const [submitting, setSubmitting] = useState(false);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -528,14 +540,25 @@ function CreateAdModal({ onClose, onCreated }: { onClose: () => void; onCreated:
       return toast.error("Please fill all required fields");
     setSubmitting(true);
     try {
-      const r = await fetch("/api/p2p/ads", {
-        method: "POST",
+      const r = await fetch(isEditing ? "/api/p2p/ads/mine" : "/api/p2p/ads", {
+        method: isEditing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ side: form.side, crypto: form.crypto, pricePerUnit: Number(form.pricePerUnit), totalAmount: Number(form.totalAmount), minLimit: Number(form.minLimit), maxLimit: Number(form.maxLimit), paymentMethods: form.paymentMethods, paymentWindow: Number(form.paymentWindow), terms: form.terms || null }),
+        body: JSON.stringify({
+          id: ad?.id,
+          side: form.side,
+          crypto: form.crypto,
+          pricePerUnit: Number(form.pricePerUnit),
+          totalAmount: Number(form.totalAmount),
+          minLimit: Number(form.minLimit),
+          maxLimit: Number(form.maxLimit),
+          paymentMethods: form.paymentMethods,
+          paymentWindow: Number(form.paymentWindow),
+          terms: form.terms || null,
+        }),
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed");
-      toast.success("Ad created successfully!");
+      toast.success(isEditing ? "Ad updated successfully!" : "Ad created successfully!");
       onCreated();
       onClose();
     } catch (err: unknown) {
@@ -547,7 +570,7 @@ function CreateAdModal({ onClose, onCreated }: { onClose: () => void; onCreated:
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="w-full max-w-md bg-[#0d1420] border border-white/10 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 bg-[#0d1420] flex items-center justify-between px-6 py-4 border-b border-white/[0.07] rounded-t-2xl">
-          <h3 className="text-white font-black text-lg">Create New Ad</h3>
+          <h3 className="text-white font-black text-lg">{isEditing ? "Edit Ad" : "Create New Ad"}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all">
             <Icon name="close" className="text-lg" />
           </button>
@@ -559,7 +582,8 @@ function CreateAdModal({ onClose, onCreated }: { onClose: () => void; onCreated:
               <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">I want to</label>
               <div className="flex gap-1 bg-white/[0.04] rounded-xl p-1">
                 {["BUY","SELL"].map((s) => (
-                  <button key={s} onClick={() => f("side", s)}
+                  <button key={s} onClick={() => !isEditing && f("side", s)}
+                    disabled={isEditing}
                     className={`flex-1 py-2 rounded-lg text-xs font-black transition-all ${form.side === s ? "bg-[#087cff] text-white shadow shadow-[#087cff]/30" : "text-slate-500 hover:text-white"}`}>
                     {s}
                   </button>
@@ -568,7 +592,7 @@ function CreateAdModal({ onClose, onCreated }: { onClose: () => void; onCreated:
             </div>
             <div>
               <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
-              <select value={form.crypto} onChange={(e) => f("crypto", e.target.value)}
+              <select value={form.crypto} onChange={(e) => f("crypto", e.target.value)} disabled={isEditing}
                 className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-white text-sm outline-none">
                 {["USDT"].map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
@@ -577,7 +601,7 @@ function CreateAdModal({ onClose, onCreated }: { onClose: () => void; onCreated:
 
           {[
             { label: `Price per ${form.crypto} (KES)`, key: "pricePerUnit", ph: "e.g. 135" },
-            { label: `Total ${form.crypto} to ${form.side === "SELL" ? "sell" : "buy"}`, key: "totalAmount", ph: "e.g. 0.5" },
+            ...(!isEditing ? [{ label: `Total ${form.crypto} to ${form.side === "SELL" ? "sell" : "buy"}`, key: "totalAmount", ph: "e.g. 0.5" }] : []),
           ].map(({ label, key, ph }) => (
             <div key={key}>
               <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">{label}</label>
@@ -624,7 +648,9 @@ function CreateAdModal({ onClose, onCreated }: { onClose: () => void; onCreated:
 
           <button onClick={submit} disabled={submitting}
             className="w-full py-3.5 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] disabled:opacity-50 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-[#087cff]/20">
-            {submitting ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creating…</> : <><Icon name="add" className="text-base" /> Create Ad</>}
+            {submitting
+              ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {isEditing ? "Saving..." : "Creating..."}</>
+              : <><Icon name={isEditing ? "edit" : "add"} className="text-base" /> {isEditing ? "Save Changes" : "Create Ad"}</>}
           </button>
         </div>
       </div>
@@ -638,6 +664,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const [ads, setAds]           = useState<Ad[]>([]);
   const [loading, setLoading]   = useState(true);
   const [createOpen, setCreate] = useState(false);
+  const [editingAd, setEditingAd] = useState<Ad | null>(null);
 
   const loadAds = useCallback(async () => {
     try { const r = await fetch("/api/p2p/ads/mine"); if (r.ok) setAds(await r.json()); }
@@ -646,9 +673,26 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
   useEffect(() => { loadAds(); }, [loadAds]);
 
+  async function toggleActive(ad: Ad) {
+    try {
+      const r = await fetch("/api/p2p/ads/mine", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: ad.id, isActive: !ad.isActive }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed");
+      toast.success(!ad.isActive ? "Ad reactivated" : "Ad paused");
+      loadAds();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
   return (
     <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
       {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} />}
+      {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} />}
 
       {/* Merchant header */}
       <div className="mb-5 flex items-center justify-between">
@@ -821,7 +865,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                   </div>
 
                   {/* Row 3: payment methods + fill bar */}
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
                     <div className="flex flex-wrap gap-1.5">
                       {ad.paymentMethods.map((m) => (
                         <span key={m} className="bg-[#087cff]/10 border border-[#087cff]/15 rounded-md px-2 py-0.5 text-[10px] font-bold text-[#4da3ff]">
@@ -836,6 +880,27 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                         <div className="h-full bg-[#087cff] rounded-full transition-all" style={{ width: `${fillPct}%` }} />
                       </div>
                     </div>
+                  </div>
+
+                  <div className="flex gap-2 border-t border-white/[0.05] pt-3">
+                    <button
+                      onClick={() => setEditingAd(ad)}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#087cff]/20 bg-[#087cff]/10 px-3 py-2 text-xs font-black text-[#4da3ff] transition-colors hover:bg-[#087cff]/20"
+                    >
+                      <Icon name="edit" className="text-sm" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => toggleActive(ad)}
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-black transition-colors ${
+                        ad.isActive
+                          ? "border-amber-500/20 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                          : "border-[#31c45d]/20 bg-[#31c45d]/10 text-[#31c45d] hover:bg-[#31c45d]/20"
+                      }`}
+                    >
+                      <Icon name={ad.isActive ? "pause" : "play_arrow"} className="text-sm" />
+                      {ad.isActive ? "Pause" : "Reactivate"}
+                    </button>
                   </div>
                 </div>
               );
