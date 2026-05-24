@@ -338,9 +338,9 @@ function DepositSection() {
     : null;
 
   return (
-    <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl overflow-hidden mb-6">
+    <div className="mb-5 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0f1a]">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+      <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-4">
         <div>
           <h2 className="text-white font-black text-base">Escrow Balance</h2>
           <p className="text-slate-500 text-xs mt-0.5">Deposit crypto to fund your sell ads — auto-detected on-chain</p>
@@ -356,17 +356,17 @@ function DepositSection() {
 
       {/* Deposit address panel */}
       {open && (
-        <div className="p-5 bg-white/[0.02] border-b border-white/[0.06]">
+        <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
           {/* Crypto + Network selectors */}
-          <div className="flex flex-wrap gap-3 mb-4">
-            <div className="flex-1 min-w-[120px]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)_220px] lg:items-end">
+            <div>
               <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
               <div className="flex gap-1.5">
                 {["USDT"].map((c) => (
                   <button
                     key={c}
                     onClick={() => handleCryptoChange(c)}
-                    className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${
+                    className={`flex-1 rounded-xl border py-2 text-xs font-black transition-all ${
                       crypto === c
                         ? "bg-[#31c45d]/15 border-[#31c45d] text-[#31c45d]"
                         : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
@@ -377,14 +377,14 @@ function DepositSection() {
                 ))}
               </div>
             </div>
-            <div className="flex-1 min-w-[160px]">
+            <div>
               <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Network</label>
               <div className="flex gap-1.5 flex-wrap">
                 {NETWORK_OPTIONS[crypto].map((n) => (
                   <button
                     key={n}
                     onClick={() => { setNetwork(n); setAddress(null); }}
-                    className={`px-3 py-2 rounded-xl text-xs font-black border transition-all ${
+                    className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${
                       network === n
                         ? "bg-[#087cff]/15 border-[#087cff] text-[#087cff]"
                         : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
@@ -395,24 +395,24 @@ function DepositSection() {
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* Get address button */}
-          {!address && (
-            <button
-              onClick={fetchAddress}
-              disabled={addrLoading}
-              className="w-full py-3 rounded-xl font-black text-white bg-[#31c45d] hover:bg-[#28af52] disabled:opacity-50 transition-all flex items-center justify-center gap-2 text-sm"
-            >
-              {addrLoading
-                ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Generating address…</>
-                : <><Icon name="qr_code" className="text-base" /> Get Deposit Address</>}
-            </button>
-          )}
+            {/* Get address button */}
+            {!address && (
+              <button
+                onClick={fetchAddress}
+                disabled={addrLoading}
+                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#31c45d] px-4 text-sm font-black text-white transition-all hover:bg-[#28af52] disabled:opacity-50"
+              >
+                {addrLoading
+                  ? <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Generating...</>
+                  : <><Icon name="qr_code" className="text-base" /> Get Address</>}
+              </button>
+            )}
+          </div>
 
           {/* Address display */}
           {address && (
-            <div className="space-y-4">
+            <div className="mt-4 space-y-3">
               {/* Warning */}
               <div className="flex items-start gap-2 bg-amber-500/8 border border-amber-500/20 rounded-xl px-4 py-3">
                 <Icon name="warning" className="text-amber-400 text-sm shrink-0 mt-0.5" />
@@ -420,7 +420,7 @@ function DepositSection() {
               </div>
 
               {/* QR + Address */}
-              <div className="flex flex-col sm:flex-row items-center gap-5 bg-white/[0.03] border border-white/[0.06] rounded-2xl p-5">
+              <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 sm:flex-row">
                 {/* QR code */}
                 {qrUrl && (
                   <div className="shrink-0 w-[120px] h-[120px] rounded-xl overflow-hidden border border-white/10 bg-white p-1.5">
@@ -473,8 +473,8 @@ function DepositSection() {
           <div className="w-5 h-5 border-2 border-white/10 border-t-[#31c45d] rounded-full animate-spin" />
         </div>
       ) : deposits.length === 0 ? (
-        <div className="text-center py-10">
-          <Icon name="account_balance_wallet" className="text-3xl text-slate-700 mb-2" />
+        <div className="flex min-h-[120px] flex-col items-center justify-center px-4 py-5 text-center">
+          <Icon name="account_balance_wallet" className="mb-2 text-2xl text-slate-700" />
           <p className="text-slate-500 text-sm">No deposits yet</p>
           <p className="text-slate-600 text-xs mt-1">Click Deposit above to get your unique crypto address</p>
         </div>
