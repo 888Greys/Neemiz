@@ -371,7 +371,7 @@ model CryptoDepositAddress {
 
   crypto    String   // "USDT", "ETH", "BNB"
   network   String   // "TRC20", "ERC20", "BEP20"
-  address   String   @unique // the blockchain address
+  address   String   // the blockchain address
 
   createdAt DateTime @default(now()) @map("created_at")
 
