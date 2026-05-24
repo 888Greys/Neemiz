@@ -18,11 +18,9 @@ const COIN_ICON_URL: Record<string, string> = {
 };
 
 const CRYPTO_ASSETS = [
-  { name: "Tether USD",  code: "USDT", network: "TRC20",   displayNet: "TRC-20",  min: 10    },
-  { name: "Tether USD",  code: "USDT", network: "ERC20",   displayNet: "ERC-20",  min: 10    },
-  { name: "Tether USD",  code: "USDT", network: "BEP20",   displayNet: "BEP-20",  min: 10    },
-  { name: "Ethereum",    code: "ETH",  network: "ERC20",   displayNet: "ERC-20",  min: 0.005 },
-  { name: "BNB",         code: "BNB",  network: "BEP20",   displayNet: "BEP-20",  min: 0.01  },
+  { name: "Tether USD", code: "USDT", network: "TRC20", displayNet: "TRC-20 (Tron)", min: 10 },
+  { name: "Tether USD", code: "USDT", network: "ERC20", displayNet: "ERC-20 (ETH)",  min: 10 },
+  { name: "Tether USD", code: "USDT", network: "BEP20", displayNet: "BEP-20 (BSC)",  min: 10 },
 ];
 
 type DepositState =

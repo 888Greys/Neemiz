@@ -270,8 +270,6 @@ function Badge({ status }: { status: "PENDING" | "APPROVED" | "REJECTED" }) {
 // Network options per crypto
 const NETWORK_OPTIONS: Record<string, string[]> = {
   USDT: ["TRC20", "ERC20", "BEP20"],
-  ETH:  ["ERC20"],
-  BNB:  ["BEP20"],
 };
 
 const NETWORK_LABELS: Record<string, string> = {
@@ -362,7 +360,7 @@ function DepositSection() {
             <div className="flex-1 min-w-[120px]">
               <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
               <div className="flex gap-1.5">
-                {["USDT", "ETH", "BNB"].map((c) => (
+                {["USDT"].map((c) => (
                   <button
                     key={c}
                     onClick={() => handleCryptoChange(c)}
@@ -571,7 +569,7 @@ function CreateAdModal({ onClose, onCreated }: { onClose: () => void; onCreated:
               <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
               <select value={form.crypto} onChange={(e) => f("crypto", e.target.value)}
                 className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2.5 text-white text-sm outline-none">
-                {["USDT","BTC","ETH","BNB"].map((c) => <option key={c} value={c}>{c}</option>)}
+                {["USDT"].map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
