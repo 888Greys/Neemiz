@@ -35,7 +35,7 @@ export async function POST(req: Request) {
     (o) => o.toLowerCase() === outcome.toLowerCase()
   );
   if (outcomeIdx === -1) {
-    return Response.json({ error: "Invalid outcome" }, { status: 400 });
+    return Response.json({ error: "This outcome is no longer available — market may be near resolution" }, { status: 400 });
   }
 
   const price       = market.outcomePrices[outcomeIdx];

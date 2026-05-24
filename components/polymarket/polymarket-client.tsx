@@ -479,10 +479,19 @@ function DetailTradeTicket({
   const [amount, setAmount] = useState(100);
   const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
   const price = marketPrice(market, selectedIndex);
-  const noPrice = 1 - price;
-  const activePrice = orderSide === "yes" ? price : noPrice;
-  const noOutcome = market.outcomes.find((o) => o.toLowerCase() === "no");
-  const tradeOutcome = orderSide === "yes" ? selectedOutcome : (noOutcome ?? selectedOutcome);
+
+  // For non-Yes/No markets (e.g. Over/Under), "No" = the other outcome
+  const yesOutcomeStr = market.outcomes.find((o) => o.toLowerCase() === "yes") ?? selectedOutcome;
+  const noOutcomeStr  = market.outcomes.find((o) => o.toLowerCase() === "no")
+    ?? market.outcomes.find((o) => o !== selectedOutcome)
+    ?? market.outcomes[1]
+    ?? selectedOutcome;
+  const noOutcomeIdx  = Math.max(0, market.outcomes.findIndex((o) => o === noOutcomeStr));
+  const noPrice       = marketPrice(market, noOutcomeIdx);
+
+  const activePrice  = orderSide === "yes" ? price : noPrice;
+  const tradeOutcome = orderSide === "yes" ? selectedOutcome : noOutcomeStr;
+  const isUnavailable = activePrice < 0.01;
   const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0;
 
   return (
@@ -528,13 +537,14 @@ function DetailTradeTicket({
               onClick={() => setOrderSide("yes")}
               className={`h-10 rounded-xl text-sm font-black transition ${orderSide === "yes" ? "bg-[#31c45d]/80 text-white" : "bg-[#31c45d]/15 text-[#31c45d]"}`}
             >
-              Yes {(price * 100).toFixed(0)}¢
+              {yesOutcomeStr === selectedOutcome ? "Yes" : yesOutcomeStr} {(price * 100).toFixed(0)}¢
             </button>
             <button
               onClick={() => setOrderSide("no")}
-              className={`h-10 rounded-xl text-sm font-black transition ${orderSide === "no" ? "bg-red-500/25 text-red-200" : "bg-white/[0.07] text-white/40 hover:bg-red-500/15 hover:text-red-300"}`}
+              disabled={noPrice < 0.01}
+              className={`h-10 rounded-xl text-sm font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${orderSide === "no" ? "bg-red-500/25 text-red-200" : "bg-white/[0.07] text-white/40 hover:bg-red-500/15 hover:text-red-300"}`}
             >
-              No {(noPrice * 100).toFixed(0)}¢
+              {noOutcomeStr === market.outcomes.find((o) => o.toLowerCase() === "no") ? "No" : noOutcomeStr} {(noPrice * 100).toFixed(0)}¢
             </button>
           </div>
 
@@ -557,12 +567,19 @@ function DetailTradeTicket({
             <div className="flex justify-between text-white/45"><span>Odds</span><span className="font-mono text-white">{(1 / activePrice).toFixed(2)}x</span></div>
             <div className="mt-1 flex justify-between text-white/45"><span>Potential win</span><span className="font-mono text-[#31c45d]">${potentialWin.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
           </div>
-          <button
-            onClick={() => onBet(market, tradeOutcome, amount)}
-            className="h-11 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-[#087cff]/20"
-          >
-            {side === "buy" ? "Trade" : "Create Sell Order"}
-          </button>
+          {isUnavailable ? (
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-center">
+              <p className="text-xs font-black text-amber-400">Market near resolution</p>
+              <p className="text-[10px] text-amber-300/60 mt-0.5">This outcome is no longer available for trading</p>
+            </div>
+          ) : (
+            <button
+              onClick={() => onBet(market, tradeOutcome, amount)}
+              className="h-11 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-[#087cff]/20"
+            >
+              {side === "buy" ? "Trade" : "Create Sell Order"}
+            </button>
+          )}
           <p className="mt-3 text-center text-[11px] text-white/30">Balance: ${Math.floor(balance).toLocaleString()}</p>
         </div>
       </div>
