@@ -501,7 +501,7 @@ export function SportsBetSlip() {
     <>
       {showShare && <ShareBetModal onClose={() => setShowShare(false)} />}
 
-      <div className="flex h-full w-full flex-col bg-[#0d0e11]">
+      <div className="flex h-full min-h-0 w-full flex-col bg-[#0d0e11]">
         {/* ── Header ── */}
         <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3">
           <div className="flex items-center gap-2">
@@ -543,7 +543,7 @@ export function SportsBetSlip() {
           ))}
         </div>
 
-        <div className="no-scrollbar flex-1 overflow-y-auto">
+        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
           {/* Flash message */}
           {placedMsg && (
             <div className={`mx-3 mt-3 flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-bold ${
@@ -752,7 +752,7 @@ export function SportsBetSlip() {
 
         {/* ── Footer ── */}
         {bets.length > 0 && tab !== "mybets" && (
-          <div className="shrink-0 border-t border-white/[0.07] p-3">
+          <div className="sticky bottom-0 z-10 shrink-0 border-t border-white/[0.07] bg-[#0d0e11] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             {notEnoughFunds ? (
               <div className="mb-3 flex flex-col items-center gap-2 rounded-2xl bg-[#16171d] px-4 py-4 text-center ring-1 ring-white/[0.07]">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/15">
