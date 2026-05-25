@@ -804,7 +804,7 @@ function MobileBetslipSheet({ children }: { children: React.ReactNode }) {
             onClick={() => setOpen(false)}
           />
           {/* Sheet */}
-          <div className="animate-sheet-in absolute bottom-0 left-0 right-0 flex h-[calc(100dvh-3.5rem)] max-h-[calc(88dvh-3.5rem)] flex-col rounded-t-3xl bg-[#0d0e11] shadow-2xl">
+          <div className="animate-sheet-in absolute bottom-0 left-0 right-0 flex h-[calc(100dvh-3.5rem)] max-h-[calc(93dvh-3.5rem)] flex-col rounded-t-3xl bg-[#0d0e11] shadow-2xl">
             {/* Handle bar */}
             <div className="flex shrink-0 items-center justify-between px-4 pt-3 pb-1">
               <div className="mx-auto h-1 w-10 rounded-full bg-white/[0.15]" />
