@@ -457,7 +457,7 @@ function AutoBetSection({
           <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${autoBetOn ? "translate-x-4" : "translate-x-0.5"}`} />
         </button>
       </div>
-      <div className="mt-2.5 flex gap-4">
+      <div className="mt-2.5 grid grid-cols-1 gap-2 sm:flex sm:gap-4">
         <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-white/40">
           <input type="checkbox" checked={stopOnWin} onChange={(e) => setStopOnWin(e.target.checked)} className="h-3 w-3 cursor-pointer accent-green-500" />
           Stop on win

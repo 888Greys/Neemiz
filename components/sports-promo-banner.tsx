@@ -37,7 +37,7 @@ export function SportPromoBanner() {
 
   return (
     <div
-      className="relative mx-3 mt-3 overflow-hidden rounded-3xl min-h-[270px]"
+      className="relative mx-3 mt-3 min-h-[168px] overflow-hidden rounded-2xl sm:min-h-[230px] sm:rounded-3xl lg:min-h-[270px]"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
@@ -65,16 +65,16 @@ export function SportPromoBanner() {
           </svg>
 
           {/* Real photo — right half */}
-          <div className="absolute right-0 top-0 h-full w-[52%] overflow-hidden">
+          <div className="absolute right-0 top-0 h-full w-[58%] overflow-hidden sm:w-[52%]">
             <Image
               src={slide.img}
               alt=""
               fill
-              className="object-cover object-left"
+              className="object-cover object-center sm:object-left"
               priority={i === 0}
             />
             <div
-              className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r to-transparent"
+              className="absolute inset-y-0 left-0 w-14 bg-gradient-to-r to-transparent sm:w-24"
               style={{ backgroundImage: `linear-gradient(to right, ${slide.fadeSrc}, transparent)` }}
             />
           </div>
@@ -82,14 +82,14 @@ export function SportPromoBanner() {
           {/* Text content */}
           <div
             key={i === active ? "active" : `idle-${i}`}
-            className={`relative z-10 px-6 py-8 pr-44 ${i === active ? "animate-fade-up" : ""}`}
+            className={`relative z-10 max-w-[62%] px-4 py-5 pr-2 sm:max-w-none sm:px-6 sm:py-8 sm:pr-44 ${i === active ? "animate-fade-up" : ""}`}
             style={i === active ? { animationDuration: "0.3s" } : undefined}
           >
             <div className="mb-1 flex items-baseline gap-2">
-              <span className="text-4xl font-black text-white">{slide.badge}</span>
-              <span className="text-xl font-black text-white">{slide.title}</span>
+              <span className="text-3xl font-black text-white sm:text-4xl">{slide.badge}</span>
+              <span className="text-base font-black leading-tight text-white sm:text-xl">{slide.title}</span>
             </div>
-            <p className="text-[13px] leading-5 text-white/60">{slide.subtitle}</p>
+            <p className="text-[12px] leading-4 text-white/65 sm:text-[13px] sm:leading-5">{slide.subtitle}</p>
           </div>
         </div>
       ))}
@@ -98,7 +98,7 @@ export function SportPromoBanner() {
       <button
         type="button"
         aria-label="Info"
-        className="absolute right-4 top-4 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-white/60 text-sm font-black transition hover:bg-white/20"
+        className="absolute right-3 top-3 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white/10 text-sm font-black text-white/60 transition hover:bg-white/20 sm:right-4 sm:top-4"
       >
         ?
       </button>
@@ -107,20 +107,20 @@ export function SportPromoBanner() {
       <button
         type="button"
         onClick={prev}
-        className="absolute bottom-4 right-14 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+        className="absolute bottom-3 right-12 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:bottom-4 sm:right-14"
       >
         ‹
       </button>
       <button
         type="button"
         onClick={next}
-        className="absolute bottom-4 right-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+        className="absolute bottom-3 right-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 sm:bottom-4 sm:right-4"
       >
         ›
       </button>
 
       {/* Dots */}
-      <div className="absolute bottom-5 left-6 z-20 flex gap-1.5">
+      <div className="absolute bottom-4 left-4 z-20 flex gap-1.5 sm:bottom-5 sm:left-6">
         {SLIDES.map((_, i) => (
           <button
             key={i}
