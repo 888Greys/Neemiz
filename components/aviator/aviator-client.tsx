@@ -43,7 +43,7 @@ interface Props {
 const GROWTH_RATE = 0.00006;
 function computeMultiplier(flyingStartedAt: string | null): number {
   if (!flyingStartedAt) return 1.0;
-  const elapsed = Date.now() - new Date(flyingStartedAt).getTime();
+  const elapsed = Math.max(0, Date.now() - new Date(flyingStartedAt).getTime());
   return Math.round(Math.exp(GROWTH_RATE * elapsed) * 100) / 100;
 }
 
@@ -119,6 +119,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     const loop = () => {
       const r = roundRef.current;
       if (r?.state === "FLYING" && r.flyingStartedAt) setMultiplier(computeMultiplier(r.flyingStartedAt));
+      if (r?.state === "CRASHED" && r.crashPoint) setMultiplier(r.crashPoint);
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
@@ -130,8 +131,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     try {
       const res  = await fetch("/api/aviator/tick", { method: "POST" });
       if (!res.ok) return;
-      const data = await res.json();
-      if (data.state !== roundRef.current?.state) await fetchState();
+      await res.json();
+      await fetchState();
     } catch { /* non-critical */ }
   }, [fetchState]);
 
@@ -148,6 +149,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       })
       .on("broadcast", { event: "round:crashed" }, ({ payload }) => {
         setRound((prev) => prev ? { ...prev, state: "CRASHED", crashPoint: payload.crashPoint, serverSeed: payload.serverSeed, crashedAt: payload.crashedAt } : prev);
+        if (payload.crashPoint) setMultiplier(payload.crashPoint);
         setTimeout(fetchHistory, 500);
         setTimeout(fetchBalance, 1000);
       })
@@ -223,7 +225,11 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       body: JSON.stringify({ panelIndex }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "Cashout failed");
+    if (!res.ok) {
+      await fetchState();
+      await fetchHistory();
+      throw new Error(data.error ?? "Cashout failed");
+    }
     setMyBets((prev) => {
       const existing = prev[panelIndex];
       if (!existing) return prev;
@@ -231,7 +237,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     });
     setBalance((b) => b + data.winAmount);
     window.dispatchEvent(new Event("wallet-refresh"));
-  }, []);
+  }, [fetchHistory, fetchState]);
 
   const displayMult = round?.state === "CRASHED" ? (round.crashPoint ?? multiplier) : multiplier;
 
