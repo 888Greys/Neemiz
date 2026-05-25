@@ -170,7 +170,7 @@ function HeroCard({ market, allMarkets, onBet, onOpen }: { market: PolymarketMar
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-sm font-black text-white">?</div>
           )}
           <div>
-            <p className="text-base font-black leading-tight text-white">{market.question}</p>
+            <p className="text-sm font-black leading-tight text-white sm:text-base">{market.question}</p>
             <p className="text-[11px] text-white/35">{formatEndDate(market.endDate)} · {market.tags.slice(0,2).join(" · ")}</p>
           </div>
         </div>
@@ -206,8 +206,8 @@ function HeroCard({ market, allMarkets, onBet, onOpen }: { market: PolymarketMar
             <span className="text-base font-black text-white/50">{noMult}×</span>
           </button>
 
-          {/* Live market news ticker */}
-          <div className="mt-1 flex-1 overflow-hidden">
+          {/* Live market news ticker — desktop only */}
+          <div className="mt-1 hidden flex-1 overflow-hidden sm:block">
             <NewsTicker markets={allMarkets} />
           </div>
 
@@ -216,8 +216,8 @@ function HeroCard({ market, allMarkets, onBet, onOpen }: { market: PolymarketMar
           </div>
         </div>
 
-        {/* Right: real probability chart */}
-        <div className="flex flex-col gap-0">
+        {/* Right: real probability chart — hidden on mobile */}
+        <div className="hidden flex-col gap-0 sm:flex">
           <div className="px-5 pt-4 pb-3">
             {market.clobTokenIds.length > 0 ? (
               <ProbabilityChart
@@ -645,7 +645,7 @@ function MarketDetailView({
             )}
             <div className="min-w-0">
               <p className="mb-1 text-[12px] font-bold text-white/40">{market.tags.slice(0, 2).join(" · ") || "Market"}</p>
-              <h1 className="text-xl font-black leading-tight text-white">{market.question}</h1>
+              <h1 className="text-base font-black leading-tight text-white sm:text-lg">{market.question}</h1>
               <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2">
                 {market.outcomes.slice(0, 4).map((outcome, i) => (
                   <button
