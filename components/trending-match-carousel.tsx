@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { useBetslip } from "@/lib/betslip-context";
+import { MOCK_LIVE } from "@/lib/sportmonks";
 import type { Match } from "@/lib/sportmonks";
 
 export function TrendingMatchCarousel() {
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [matches, setMatches] = useState<Match[]>(MOCK_LIVE.slice(0, 8));
   const [index, setIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const { toggleBet, hasBet } = useBetslip();

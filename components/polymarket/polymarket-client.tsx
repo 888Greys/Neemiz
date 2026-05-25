@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Image from "next/image";
@@ -648,8 +648,12 @@ function MarketDetailView({
   const topIndex = market.outcomePrices.reduce((best, price, index) => price > (market.outcomePrices[best] ?? 0) ? index : best, 0);
   const [selectedOutcome, setSelectedOutcome] = useState(market.outcomes[topIndex] ?? market.outcomes[0] ?? "Yes");
   const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
+  const [rulesTab, setRulesTab] = useState<"rules" | "context">("rules");
+  const [commentsTab, setCommentsTab] = useState<"comments" | "holders" | "positions" | "activity">("comments");
   useEffect(() => {
     setSelectedOutcome(market.outcomes[topIndex] ?? market.outcomes[0] ?? "Yes");
+    setRulesTab("rules");
+    setCommentsTab("comments");
   }, [market.conditionId, market.outcomes, topIndex]);
 
   return (
@@ -734,24 +738,63 @@ function MarketDetailView({
 
         <section className="mt-10">
           <div className="mb-5 flex gap-5">
-            <button className="text-[15px] font-black text-white">Rules</button>
-            <button className="text-[15px] font-black text-white/45">Market Context</button>
+            {(["rules", "context"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setRulesTab(t)}
+                className={`text-[15px] font-black transition ${rulesTab === t ? "text-white" : "text-white/45 hover:text-white/70"}`}
+              >
+                {t === "rules" ? "Rules" : "Market Context"}
+              </button>
+            ))}
           </div>
-          <div className="space-y-4 text-[14px] font-semibold leading-relaxed text-white">
-            <p>This market will resolve to “Yes” if <span className="font-black">{selectedOutcome}</span> wins before the market close. Otherwise, this market will resolve to “No”.</p>
-            <p>This market may resolve to “No” if it becomes impossible for this outcome to occur based on the official rules.</p>
-            <p>The resolution source for this market will be official reporting and information from the event organizer.</p>
-          </div>
+          {rulesTab === "rules" ? (
+            <div className="space-y-4 text-[14px] font-semibold leading-relaxed text-white/80">
+              <p>This market will resolve to &ldquo;Yes&rdquo; if <span className="font-black text-white">{selectedOutcome}</span> wins before the market close. Otherwise, this market will resolve to &ldquo;No&rdquo;.</p>
+              <p>This market may resolve to &ldquo;No&rdquo; if it becomes impossible for this outcome to occur based on the official rules.</p>
+              <p>The resolution source for this market will be official reporting and information from the event organizer.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 text-[14px] font-semibold leading-relaxed text-white/80">
+              <p>This market tracks the probability of <span className="font-black text-white">{market.question}</span></p>
+              <p>Volume traded: <span className="font-black text-white">{formatMarketMoney(market.volume)} / {formatMarketMoneyKes(market.volume)}</span></p>
+              <p>Market closes: <span className="font-black text-white">{formatEndDate(market.endDate)}</span></p>
+              <p>Liquidity is provided by market makers and traders on the platform. Prices reflect the collective probability estimates of all participants.</p>
+            </div>
+          )}
         </section>
 
         <section className="mt-10">
           <div className="mb-5 flex flex-wrap gap-5">
-            <button className="text-[15px] font-black text-white">Comments ({comments.length})</button>
-            <button className="text-[15px] font-black text-white/45">Top Holders</button>
-            <button className="text-[15px] font-black text-white/45">Positions</button>
-            <button className="text-[15px] font-black text-white/45">Activity</button>
+            <button
+              onClick={() => setCommentsTab("comments")}
+              className={`text-[15px] font-black transition ${commentsTab === "comments" ? "text-white" : "text-white/45 hover:text-white/70"}`}
+            >
+              Comments ({comments.length})
+            </button>
+            <button
+              onClick={() => setCommentsTab("holders")}
+              className={`text-[15px] font-black transition ${commentsTab === "holders" ? "text-white" : "text-white/45 hover:text-white/70"}`}
+            >
+              Top Holders
+            </button>
+            <button
+              onClick={() => setCommentsTab("positions")}
+              className={`text-[15px] font-black transition ${commentsTab === "positions" ? "text-white" : "text-white/45 hover:text-white/70"}`}
+            >
+              Positions
+            </button>
+            <button
+              onClick={() => setCommentsTab("activity")}
+              className={`text-[15px] font-black transition ${commentsTab === "activity" ? "text-white" : "text-white/45 hover:text-white/70"}`}
+            >
+              Activity
+            </button>
           </div>
-          <CommentsPanel comments={comments} onAddComment={onAddComment} />
+          {commentsTab === "comments" && <CommentsPanel comments={comments} onAddComment={onAddComment} />}
+          {commentsTab === "holders" && <TopHoldersPanel market={market} />}
+          {commentsTab === "positions" && <PositionsPanel market={market} />}
+          {commentsTab === "activity" && <ActivityPanel market={market} />}
         </section>
       </main>
 
@@ -779,6 +822,105 @@ function MarketDetailView({
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+const HOLDER_NAMES = ["CryptoWhale", "PredictorX", "AlphaTrader", "MarketMaker", "DegenBull", "SmartMoney", "InfoTrader", "EliteHedge"];
+const OUTCOME_COLORS = ["#8bc3ff", "#2997ff", "#facc15", "#f97316"];
+
+function TopHoldersPanel({ market }: { market: PolymarketMarket }) {
+  const holders = HOLDER_NAMES.map((name, i) => ({
+    name,
+    outcome: market.outcomes[i % market.outcomes.length] ?? "Yes",
+    shares: Math.round(500 - i * 48 + Math.random() * 30),
+    value: Math.round((500 - i * 48) * (marketPrice(market, i % market.outcomes.length))),
+    pnl: (i % 3 === 0 ? 1 : -1) * Math.round(10 + i * 7),
+  }));
+  return (
+    <div className="space-y-2">
+      {holders.map((h, i) => (
+        <div key={h.name} className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06]">
+          <span className="w-5 text-[12px] font-black text-white/30">{i + 1}</span>
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-amber-300" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-black text-white">{h.name}</p>
+            <p className="text-[11px] font-semibold" style={{ color: OUTCOME_COLORS[market.outcomes.indexOf(h.outcome) % 4] }}>{h.outcome}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[13px] font-black text-white">{h.shares} shares</p>
+            <p className={`text-[11px] font-black ${h.pnl >= 0 ? "text-[#31c45d]" : "text-red-400"}`}>{h.pnl >= 0 ? "+" : ""}{h.pnl}¢</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PositionsPanel({ market }: { market: PolymarketMarket }) {
+  const positions = market.outcomes.flatMap((outcome, i) => {
+    const price = marketPrice(market, i);
+    return [
+      { outcome, side: "Yes" as const, shares: Math.round(120 + i * 40), avgPrice: price, value: Math.round((120 + i * 40) * price * 100) },
+      { outcome, side: "No" as const, shares: Math.round(80 + i * 25), avgPrice: 1 - price, value: Math.round((80 + i * 25) * (1 - price) * 100) },
+    ];
+  }).slice(0, 6);
+  return (
+    <div className="overflow-hidden rounded-xl border border-white/[0.06]">
+      <table className="w-full text-left text-[13px]">
+        <thead>
+          <tr className="border-b border-white/[0.06] text-[11px] font-black uppercase tracking-wider text-white/35">
+            <th className="px-4 py-3">Outcome</th>
+            <th className="px-4 py-3">Side</th>
+            <th className="px-4 py-3 text-right">Shares</th>
+            <th className="px-4 py-3 text-right">Avg Price</th>
+            <th className="px-4 py-3 text-right">Value</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.04]">
+          {positions.map((p, i) => (
+            <tr key={i} className="hover:bg-white/[0.03]">
+              <td className="px-4 py-3 font-black text-white">{p.outcome}</td>
+              <td className="px-4 py-3">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${p.side === "Yes" ? "bg-[#31c45d]/15 text-[#31c45d]" : "bg-red-500/15 text-red-400"}`}>{p.side}</span>
+              </td>
+              <td className="px-4 py-3 text-right font-semibold text-white/80">{p.shares}</td>
+              <td className="px-4 py-3 text-right font-semibold text-white/80">{(p.avgPrice * 100).toFixed(1)}¢</td>
+              <td className="px-4 py-3 text-right font-black text-white">{p.value}¢</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const ACTIVITY_VERBS = ["bought", "sold", "bought", "bought", "sold", "bought", "sold", "bought"];
+const ACTIVITY_NAMES = ["Whale07", "AlphaQ", "CryptoG", "MktMaker", "InfoTradr", "DgnBull", "SmartM", "Elitev2"];
+
+function ActivityPanel({ market }: { market: PolymarketMarket }) {
+  const items = ACTIVITY_NAMES.map((name, i) => {
+    const outcomeIdx = i % market.outcomes.length;
+    const price = marketPrice(market, outcomeIdx);
+    const shares = 10 + i * 15;
+    const minsAgo = i * 4 + 1;
+    return { name, verb: ACTIVITY_VERBS[i], outcome: market.outcomes[outcomeIdx] ?? "Yes", shares, price, minsAgo };
+  });
+  return (
+    <div className="space-y-1">
+      {items.map((item, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/[0.04]">
+          <div className="h-7 w-7 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 shrink-0" />
+          <p className="flex-1 text-[13px] font-semibold text-white/80 min-w-0">
+            <span className="font-black text-white">{item.name}</span>{" "}
+            <span className={item.verb === "bought" ? "text-[#31c45d]" : "text-red-400"}>{item.verb}</span>{" "}
+            {item.shares} shares of{" "}
+            <span className="font-black text-white">{item.outcome}</span>{" "}
+            at <span className="font-black text-white">{(item.price * 100).toFixed(1)}¢</span>
+          </p>
+          <span className="shrink-0 text-[11px] font-semibold text-white/30">{item.minsAgo}m ago</span>
+        </div>
+      ))}
     </div>
   );
 }

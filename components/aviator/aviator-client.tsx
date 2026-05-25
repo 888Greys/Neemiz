@@ -7,11 +7,14 @@ import { AviatorBetPanel } from "./aviator-bet-panel";
 import { AviatorHistory, VerifyModal } from "./aviator-history";
 import { AviatorLiveBets } from "./aviator-live-bets";
 import type {
-  AviatorGameState,
+  AviatorRoundState,
   AviatorRound,
   AviatorBetPublic,
   MyBets,
 } from "@/lib/aviator/types";
+
+const WS_URL = process.env.NEXT_PUBLIC_AVIATOR_WS_URL ?? "wss://aviator.nezeem.com/ws";
+const GROWTH_RATE = 0.00006;
 
 interface HistoryRound {
   roundId:        string;
@@ -40,220 +43,310 @@ interface Props {
   balance:   number;
 }
 
-const GROWTH_RATE = 0.00006;
-function computeMultiplier(flyingStartedAt: string | null): number {
-  if (!flyingStartedAt) return 1.0;
-  const elapsed = Math.max(0, Date.now() - new Date(flyingStartedAt).getTime());
-  return Math.round(Math.exp(GROWTH_RATE * elapsed) * 100) / 100;
+function mapStatus(s: string): AviatorRoundState {
+  if (s === "RUNNING") return "FLYING";
+  if (s === "CRASHED") return "CRASHED";
+  if (s === "BETTING") return "BETTING";
+  return "WAITING";
 }
 
 export function AviatorClient({ userId, username, balance: initialBalance }: Props) {
-  const [round,       setRound]       = useState<AviatorRound | null>(null);
-  const [liveBets,    setLiveBets]    = useState<AviatorBetPublic[]>([]);
-  const [myBets,      setMyBets]      = useState<MyBets>({});
-  const [multiplier,  setMultiplier]  = useState(1.0);
-  const [history,     setHistory]     = useState<HistoryRound[]>([]);
-  const [myHistory,   setMyHistory]   = useState<MyHistoryBet[]>([]);
-  const [balance,     setBalance]     = useState(initialBalance);
+  const [round,      setRound]      = useState<AviatorRound | null>(null);
+  const [liveBets,   setLiveBets]   = useState<AviatorBetPublic[]>([]);
+  const [myBets,     setMyBets]     = useState<MyBets>({});
+  const [multiplier, setMultiplier] = useState(1.0);
+  const [history,    setHistory]    = useState<HistoryRound[]>([]);
+  const [myHistory,  setMyHistory]  = useState<MyHistoryBet[]>([]);
+  const [balance,    setBalance]    = useState(initialBalance);
   const [verifyRound, setVerifyRound] = useState<HistoryRound | null>(null);
-  const [loading,     setLoading]     = useState(true);
-  const [error,       setError]       = useState<string | null>(null);
+  const [loading,    setLoading]    = useState(true);
 
-  const tickRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const rafRef    = useRef<number>(0);
-  const roundRef  = useRef<AviatorRound | null>(null);
-  const supabase  = createClient();
+  const wsRef          = useRef<WebSocket | null>(null);
+  const rafRef         = useRef<number>(0);
+  const roundRef       = useRef<AviatorRound | null>(null);
+  const roundCountRef  = useRef(0);
+  // tracks which panel index has a pending bet awaiting a bet_id response
+  const pendingBetRef  = useRef<{ panelIndex: 0 | 1; amount: number } | null>(null);
+  const supabase       = createClient();
 
   useEffect(() => { roundRef.current = round; }, [round]);
 
-  // ── Fetch state ────────────────────────────────────────────────────────────
-  const fetchState = useCallback(async () => {
-    try {
-      const res  = await fetch("/api/aviator/state");
-      if (!res.ok) throw new Error("Failed to load game state");
-      const data: AviatorGameState = await res.json();
-      setRound(data.round);
-      setLiveBets(data.bets);
-      if (userId) {
-        const mine: MyBets = {};
-        data.bets.filter((b) => b.userId === userId).forEach((b) => { mine[b.panelIndex as 0 | 1] = b; });
-        setMyBets(mine);
-      }
-      setLoading(false);
-    } catch (e: unknown) {
-      setError((e as Error).message);
-      setLoading(false);
-    }
-  }, [userId]);
-
-  // ── Fetch history ──────────────────────────────────────────────────────────
-  const fetchHistory = useCallback(async () => {
-    const url = userId ? `/api/aviator/history?userId=${userId}` : "/api/aviator/history";
-    const res  = await fetch(url);
-    if (!res.ok) return;
-    const data = await res.json() as Array<{
-      roundId: string; roundNumber: number; crashPoint: number;
-      crashedAt: string | null; serverSeed: string; serverSeedHash: string;
-      myBets?: Array<{ id: string; panelIndex: number; betAmount: number; cashoutAt: number | null; winAmount: number | null; status: string; placedAt: string }>;
-    }>;
-    setHistory(data);
-    if (userId) {
-      const flat: MyHistoryBet[] = [];
-      data.forEach((r) => (r.myBets ?? []).forEach((b) => flat.push({ ...b, roundNumber: r.roundNumber, crashPoint: r.crashPoint })));
-      flat.sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
-      setMyHistory(flat);
-    }
-  }, [userId]);
-
-  // ── Fetch balance ──────────────────────────────────────────────────────────
+  // ── Balance ────────────────────────────────────────────────────────────────
   const fetchBalance = useCallback(async () => {
     if (!userId) return;
-    const res  = await fetch("/api/wallet/balance");
-    if (!res.ok) return;
-    const data = await res.json();
-    if (typeof data.balance === "number") setBalance(data.balance);
+    try {
+      const res  = await fetch("/api/wallet/balance");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (typeof data.balance === "number") setBalance(data.balance);
+    } catch { /* ignore */ }
+  }, [userId]);
+
+  // ── History ────────────────────────────────────────────────────────────────
+  const fetchHistory = useCallback(async () => {
+    try {
+      const url  = userId ? `/api/aviator/history?userId=${userId}` : "/api/aviator/history";
+      const res  = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json() as Array<{
+        roundId: string; roundNumber: number; crashPoint: number;
+        crashedAt: string | null; serverSeed: string; serverSeedHash: string;
+        myBets?: Array<{ id: string; panelIndex: number; betAmount: number; cashoutAt: number | null; winAmount: number | null; status: string; placedAt: string }>;
+      }>;
+      setHistory(data);
+      if (userId) {
+        const flat: MyHistoryBet[] = [];
+        data.forEach((r) => (r.myBets ?? []).forEach((b) => flat.push({ ...b, roundNumber: r.roundNumber, crashPoint: r.crashPoint })));
+        flat.sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
+        setMyHistory(flat);
+      }
+    } catch { /* ignore */ }
+  }, [userId]);
+
+  // ── WS message handler ─────────────────────────────────────────────────────
+  const handleMessage = useCallback((msg: Record<string, unknown>) => {
+    const type = msg.type as string | undefined;
+
+    // ── Bet response (no type field, has success + bet_id) ──────────────────
+    if (!type && typeof msg.success === "boolean" && msg.bet_id) {
+      if (msg.success) {
+        const betId     = msg.bet_id as string;
+        const pending   = pendingBetRef.current;
+        if (pending) {
+          setMyBets((prev) => {
+            const existing = prev[pending.panelIndex];
+            if (!existing) return prev;
+            return { ...prev, [pending.panelIndex]: { ...existing, id: betId, roundId: roundRef.current?.id ?? "" } };
+          });
+          pendingBetRef.current = null;
+        }
+      } else {
+        // Bet rejected — roll back optimistic update
+        const pending = pendingBetRef.current;
+        if (pending) {
+          setMyBets((prev) => { const next = { ...prev }; delete next[pending.panelIndex]; return next; });
+          setBalance((b) => b + pending.amount);
+          pendingBetRef.current = null;
+        }
+      }
+      return;
+    }
+
+    // ── Cashout response ───────────────────────────────────────────────────
+    if (!type && typeof msg.success === "boolean" && msg.payout !== undefined) {
+      if (msg.success) {
+        const payout = msg.payout as number;
+        setBalance((b) => b + payout);
+        window.dispatchEvent(new Event("wallet-refresh"));
+      }
+      return;
+    }
+
+    switch (type) {
+      case "initial_state": {
+        const d = msg.data as Record<string, unknown> | undefined;
+        if (!d) break;
+        roundCountRef.current++;
+        const status  = mapStatus((d.status as string) ?? "BETTING");
+        const now     = new Date().toISOString();
+        setRound({
+          id:              (d.round_id as string) ?? "",
+          roundNumber:     roundCountRef.current,
+          serverSeedHash:  (d.hash_commitment as string) ?? "",
+          state:           status,
+          bettingEndsAt:   status === "BETTING" ? new Date(Date.now() + 5000).toISOString() : null,
+          flyingStartedAt: status === "FLYING"  ? now : null,
+          crashedAt:       null,
+          createdAt:       (d.start_time as string) ?? now,
+        });
+        if (status === "FLYING") setMultiplier((d.current_multiplier as number) ?? 1.0);
+        setLoading(false);
+        break;
+      }
+
+      case "round_start": {
+        roundCountRef.current++;
+        setLiveBets([]);
+        setMyBets({});
+        pendingBetRef.current = null;
+        setMultiplier(1.0);
+        setRound({
+          id:              (msg.round_id as string) ?? "",
+          roundNumber:     roundCountRef.current,
+          serverSeedHash:  (msg.commitment as string) ?? "",
+          state:           "BETTING",
+          bettingEndsAt:   new Date(Date.now() + 5000).toISOString(),
+          flyingStartedAt: null,
+          crashedAt:       null,
+          createdAt:       new Date().toISOString(),
+        });
+        break;
+      }
+
+      case "round_running": {
+        const flyingStartedAt = new Date().toISOString();
+        setRound((prev) => prev ? { ...prev, state: "FLYING", flyingStartedAt, bettingEndsAt: null } : prev);
+        setMultiplier(1.0);
+        break;
+      }
+
+      case "update":
+        setMultiplier((msg.multiplier as number) ?? 1.0);
+        break;
+
+      case "crash": {
+        const crashPoint = (msg.multiplier as number) ?? 1.0;
+        setRound((prev) => prev ? {
+          ...prev, state: "CRASHED", crashPoint,
+          serverSeed: (msg.server_seed as string) ?? undefined,
+          crashedAt:  new Date().toISOString(),
+        } : prev);
+        setMultiplier(crashPoint);
+        setMyBets((prev) => {
+          const next = { ...prev } as MyBets;
+          (Object.keys(next) as unknown as Array<0 | 1>).forEach((k) => {
+            if (next[k]?.status === "ACTIVE") next[k] = { ...next[k]!, status: "LOST" };
+          });
+          return next;
+        });
+        setTimeout(fetchHistory, 500);
+        setTimeout(fetchBalance, 800);
+        break;
+      }
+
+      case "bet_placed": {
+        const d = msg.data as Record<string, unknown> | undefined;
+        if (!d) break;
+        const bet: AviatorBetPublic = {
+          id:          (d.bet_id as string) ?? `${d.user_id}-${Date.now()}`,
+          roundId:     roundRef.current?.id ?? "",
+          userId:      (d.user_id as string) ?? "",
+          username:    (d.user_id as string) ?? null,
+          panelIndex:  0,
+          betAmount:   (d.amount as number) ?? 0,
+          autoCashout: null,
+          cashoutAt:   null,
+          winAmount:   null,
+          status:      "ACTIVE",
+          placedAt:    new Date().toISOString(),
+        };
+        setLiveBets((prev) => [...prev.filter((b) => b.userId !== bet.userId || b.roundId !== bet.roundId), bet]);
+        break;
+      }
+
+      case "cashout": {
+        const d = msg.data as Record<string, unknown> | undefined;
+        if (!d) break;
+        setLiveBets((prev) => prev.map((b) =>
+          b.userId === (d.user_id as string)
+            ? { ...b, status: "CASHEDOUT", cashoutAt: d.multiplier as number, winAmount: d.payout as number }
+            : b,
+        ));
+        break;
+      }
+    }
+  }, [fetchHistory, fetchBalance]);
+
+  // ── WebSocket connection ───────────────────────────────────────────────────
+  useEffect(() => {
+    const uid = encodeURIComponent(userId ?? "guest");
+    let closed = false;
+
+    function connect() {
+      if (closed) return;
+      const ws = new WebSocket(`${WS_URL}?user_id=${uid}`);
+      wsRef.current = ws;
+
+      ws.onopen = () => setLoading(false);
+
+      ws.onmessage = (e) => {
+        try { handleMessage(JSON.parse(e.data as string)); } catch { /* ignore */ }
+      };
+
+      ws.onclose = () => {
+        if (!closed) setTimeout(connect, 2000);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    connect();
+    fetchHistory();
+
+    return () => {
+      closed = true;
+      wsRef.current?.close();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   // ── Multiplier RAF ─────────────────────────────────────────────────────────
   useEffect(() => {
     const loop = () => {
       const r = roundRef.current;
-      if (r?.state === "FLYING" && r.flyingStartedAt) setMultiplier(computeMultiplier(r.flyingStartedAt));
-      if (r?.state === "CRASHED" && r.crashPoint) setMultiplier(r.crashPoint);
+      if (r?.state === "FLYING" && r.flyingStartedAt) {
+        const elapsed = Math.max(0, Date.now() - new Date(r.flyingStartedAt).getTime());
+        setMultiplier(Math.round(Math.exp(GROWTH_RATE * elapsed) * 100) / 100);
+      }
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
-  // ── Tick ───────────────────────────────────────────────────────────────────
-  const tick = useCallback(async () => {
-    try {
-      const res  = await fetch("/api/aviator/tick", { method: "POST" });
-      if (!res.ok) return;
-      await res.json();
-      await fetchState();
-    } catch { /* non-critical */ }
-  }, [fetchState]);
-
-  // ── Supabase realtime ──────────────────────────────────────────────────────
-  useEffect(() => {
-    const ch = supabase
-      .channel("aviator")
-      .on("broadcast", { event: "round:state" }, ({ payload }) => {
-        setRound((prev) => prev ? { ...prev, ...payload } : prev);
-        if (payload.state === "FLYING") setMultiplier(1.0);
-        if (payload.state === "WAITING" || payload.state === "BETTING") {
-          setLiveBets([]); setMyBets({}); fetchState();
-        }
-      })
-      .on("broadcast", { event: "round:crashed" }, ({ payload }) => {
-        setRound((prev) => prev ? { ...prev, state: "CRASHED", crashPoint: payload.crashPoint, serverSeed: payload.serverSeed, crashedAt: payload.crashedAt } : prev);
-        if (payload.crashPoint) setMultiplier(payload.crashPoint);
-        setTimeout(fetchHistory, 500);
-        setTimeout(fetchBalance, 1000);
-      })
-      .on("broadcast", { event: "bet:placed" }, ({ payload }: { payload: AviatorBetPublic }) => {
-        setLiveBets((prev) => {
-          const filtered = prev.filter((b) => !(b.userId === payload.userId && b.panelIndex === payload.panelIndex));
-          return [...filtered, payload];
-        });
-        if (payload.userId === userId) { setMyBets((prev) => ({ ...prev, [payload.panelIndex as 0 | 1]: payload })); fetchBalance(); }
-      })
-      .on("broadcast", { event: "bet:cashedout" }, ({ payload }) => {
-        setLiveBets((prev) => prev.map((b) =>
-          b.userId === payload.userId && b.panelIndex === payload.panelIndex
-            ? { ...b, status: "CASHEDOUT", cashoutAt: payload.cashoutAt, winAmount: payload.winAmount } : b,
-        ));
-        if (payload.userId === userId) {
-          setMyBets((prev) => {
-            const existing = prev[payload.panelIndex as 0 | 1];
-            if (!existing) return prev;
-            return { ...prev, [payload.panelIndex as 0 | 1]: { ...existing, status: "CASHEDOUT", cashoutAt: payload.cashoutAt, winAmount: payload.winAmount } };
-          });
-          fetchBalance();
-        }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
-
-  // ── Bootstrap ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    fetchState();
-    fetchHistory();
-    tickRef.current = setInterval(tick, 5000);
-    return () => { if (tickRef.current) clearInterval(tickRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleBet = useCallback(async (amount: number, panelIndex: 0 | 1, autoCashout?: number) => {
-    // Optimistic update — UI responds instantly; rollback if server rejects
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error("Not connected");
+
     const tempBet: AviatorBetPublic = {
-      id: `temp-${Date.now()}`, roundId: roundRef.current?.id ?? "",
-      userId: userId ?? "", username: username ?? null, panelIndex,
-      betAmount: amount, autoCashout: autoCashout ?? null,
-      cashoutAt: null, winAmount: null, status: "ACTIVE",
-      placedAt: new Date().toISOString(),
+      id:          `temp-${panelIndex}-${Date.now()}`,
+      roundId:     roundRef.current?.id ?? "",
+      userId:      userId ?? "",
+      username:    username ?? null,
+      panelIndex,
+      betAmount:   amount,
+      autoCashout: autoCashout ?? null,
+      cashoutAt:   null,
+      winAmount:   null,
+      status:      "ACTIVE",
+      placedAt:    new Date().toISOString(),
     };
+
+    pendingBetRef.current = { panelIndex, amount };
     setMyBets((prev) => ({ ...prev, [panelIndex]: tempBet }));
     setBalance((b) => b - amount);
 
-    try {
-      const res  = await fetch("/api/aviator/bet", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ betAmount: amount, panelIndex, autoCashout }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setMyBets((prev) => { const next = { ...prev }; delete next[panelIndex]; return next; });
-        setBalance((b) => b + amount);
-        throw new Error(data.error ?? "Failed to place bet");
-      }
-      setMyBets((prev) => ({ ...prev, [panelIndex]: { ...tempBet, id: data.betId, roundId: data.roundId } }));
-      window.dispatchEvent(new Event("wallet-refresh"));
-    } catch (e) {
-      throw e;
-    }
+    ws.send(JSON.stringify({
+      type:         "place_bet",
+      amount,
+      auto_cashout: autoCashout ?? 0,
+    }));
+
+    window.dispatchEvent(new Event("wallet-refresh"));
   }, [userId, username]);
 
   const handleCashout = useCallback(async (panelIndex: 0 | 1) => {
-    const res  = await fetch("/api/aviator/cashout", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ panelIndex }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      await fetchState();
-      await fetchHistory();
-      throw new Error(data.error ?? "Cashout failed");
-    }
+    const ws  = wsRef.current;
+    const bet = myBets[panelIndex];
+    if (!ws || ws.readyState !== WebSocket.OPEN || !bet) return;
+
+    ws.send(JSON.stringify({ type: "cashout", bet_id: bet.id }));
+
     setMyBets((prev) => {
       const existing = prev[panelIndex];
       if (!existing) return prev;
-      return { ...prev, [panelIndex]: { ...existing, status: "CASHEDOUT", cashoutAt: data.cashoutAt, winAmount: data.winAmount } };
+      return { ...prev, [panelIndex]: { ...existing, status: "CASHEDOUT", cashoutAt: multiplier } };
     });
-    setBalance((b) => b + data.winAmount);
-    window.dispatchEvent(new Event("wallet-refresh"));
-  }, [fetchHistory, fetchState]);
+  }, [myBets, multiplier]);
 
   const displayMult = round?.state === "CRASHED" ? (round.crashPoint ?? multiplier) : multiplier;
 
-  // ── Loading / error ────────────────────────────────────────────────────────
+  // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="flex h-72 items-center justify-center">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-[#31c45d]" />
-      </div>
-    );
-  }
-  if (error) {
-    return (
-      <div className="flex h-72 flex-col items-center justify-center gap-3">
-        <p className="text-red-400">{error}</p>
-        <button onClick={fetchState} className="rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">Retry</button>
       </div>
     );
   }
@@ -338,7 +431,6 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       {verifyRound && (
         <VerifyModal round={verifyRound} onClose={() => setVerifyRound(null)} />
       )}
-
     </div>
   );
 }
@@ -389,11 +481,7 @@ function AviatorChatPanel({
     const text = draft.trim();
     if (!text || !userId || !username || sending) return;
     setSending(true);
-    const msg: ChatMessage = {
-      id: `${userId}-${Date.now()}`,
-      userId, username, text,
-      ts: Date.now(),
-    };
+    const msg: ChatMessage = { id: `${userId}-${Date.now()}`, userId, username, text, ts: Date.now() };
     await chRef.current?.send({ type: "broadcast", event: "chat:message", payload: msg });
     setDraft("");
     setSending(false);
@@ -405,7 +493,6 @@ function AviatorChatPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/10 bg-[#0b0b0c] px-4">
         <div className="flex items-center gap-2">
           <span className="text-xs font-black uppercase tracking-widest text-white/70">Chat</span>
@@ -417,7 +504,6 @@ function AviatorChatPanel({
         <span className="font-mono text-xs text-white/25">#{roundNumber ?? "--"}</span>
       </div>
 
-      {/* Messages */}
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#07101f] p-3">
         {messages.length === 0 ? (
           <p className="mt-8 text-center text-xs text-white/25">No messages yet — say hi!</p>
@@ -437,7 +523,6 @@ function AviatorChatPanel({
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <div className="shrink-0 border-t border-white/10 bg-[#0b0b0c] p-3">
         {userId ? (
           <div className="flex items-center gap-2">
@@ -445,7 +530,7 @@ function AviatorChatPanel({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={onKey}
-              placeholder="Say something…"
+              placeholder="Say something..."
               maxLength={200}
               className="min-w-0 flex-1 rounded-full bg-white/10 px-4 py-2 text-xs text-white placeholder-white/30 outline-none focus:bg-white/[0.15]"
             />
