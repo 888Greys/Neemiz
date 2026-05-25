@@ -553,8 +553,8 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     <span className="h-2 w-2 rounded-full bg-emerald-400" />
                     M-Pesa
                   </div>
-                  <h2 className="mt-3 text-3xl font-black tracking-tight text-white">Deposit by phone</h2>
-                  <p className="mt-1 text-sm font-bold text-slate-500">
+                  <h2 className="mt-3 text-xl font-black tracking-tight text-white">Deposit by phone</h2>
+                  <p className="mt-1 text-xs font-bold text-slate-500">
                     Enter your Safaricom number and approve the STK prompt.
                   </p>
                 </div>
@@ -616,6 +616,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                 <>
                   <input
                     type="tel"
+                    autoFocus
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="Phone number"
@@ -627,7 +628,6 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     <input
                       type="number"
                       min="150"
-                      autoFocus
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0"
@@ -635,24 +635,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     />
                   </label>
 
-                  <p className="-mt-2 text-sm font-bold text-slate-500">KES 150 - KES 150,000</p>
-
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {QUICK_AMOUNTS.map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => setAmount(String(q))}
-                        className={`h-10 rounded-xl px-3 text-sm font-black transition ${
-                          amount === String(q)
-                            ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/18"
-                            : "bg-white/[0.065] text-slate-300 hover:bg-white/[0.10]"
-                        }`}
-                      >
-                        KES {q.toLocaleString()}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="-mt-2 text-xs font-bold text-slate-500">KES 150 – KES 150,000</p>
 
                   {error && (
                     <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 ring-1 ring-red-500/20">
