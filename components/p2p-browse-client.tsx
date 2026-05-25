@@ -51,9 +51,10 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
   const fiatNum    = inputMode === "fiat"   ? Number(rawInput) : Number(rawInput) * ad.pricePerUnit;
   const cryptoAmount = inputMode === "crypto" ? Number(rawInput) : (Number(rawInput) ? Number(rawInput) / ad.pricePerUnit : 0);
 
-  const belowMin       = !!rawInput && fiatNum < ad.minLimit;
-  const aboveMax       = !!rawInput && fiatNum > ad.maxLimit;
-  const valid          = fiatNum >= ad.minLimit && fiatNum <= ad.maxLimit && cryptoAmount > 0 && cryptoAmount <= ad.availableAmount;
+  const belowMin          = !!rawInput && fiatNum < ad.minLimit;
+  const aboveMax          = !!rawInput && fiatNum > ad.maxLimit;
+  const exceedsAvailable  = !!rawInput && cryptoAmount > 0 && cryptoAmount > ad.availableAmount;
+  const valid             = fiatNum >= ad.minLimit && fiatNum <= ad.maxLimit && cryptoAmount > 0 && !exceedsAvailable;
   const isBuyingCrypto = ad.side === "SELL";
   const actionTone = isBuyingCrypto ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-600";
 
@@ -156,17 +157,32 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
                   onChange={(e) => setRawInput(e.target.value)}
                 />
               <span className="text-sm font-black text-white">{inputMode === "fiat" ? ad.fiat : ad.crypto}</span>
-              <button type="button" onClick={() => setRawInput(String(inputMode === "fiat" ? Math.floor(ad.maxLimit) : ad.availableAmount.toFixed(6)))} className="text-sm font-black text-[#f59e0b]">
+              <button
+                type="button"
+                onClick={() => {
+                  if (inputMode === "fiat") {
+                    const maxFiat = Math.min(Math.floor(ad.maxLimit), Math.floor(ad.availableAmount * ad.pricePerUnit));
+                    setRawInput(String(maxFiat));
+                  } else {
+                    setRawInput(ad.availableAmount.toFixed(6));
+                  }
+                }}
+                className="text-sm font-black text-[#f59e0b]"
+              >
                 Max
-                </button>
+              </button>
               </div>
             <p className="mt-3 text-[11px] text-slate-500">Limits: {ad.minLimit.toLocaleString("en-KE")} - {ad.maxLimit.toLocaleString("en-KE")} {ad.fiat}</p>
             <p className="mt-2 text-[12px] text-slate-500">
               I will receive <span className="text-white">{cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "--"} {ad.crypto}</span>
             </p>
-            {(belowMin || aboveMax) && (
+            {(belowMin || aboveMax || exceedsAvailable) && (
               <p className="mt-2 text-[11px] font-bold text-red-400">
-                {belowMin ? `Minimum is ${ad.fiat} ${ad.minLimit.toLocaleString("en-KE")}` : `Maximum is ${ad.fiat} ${ad.maxLimit.toLocaleString("en-KE")}`}
+                {belowMin
+                  ? `Minimum is ${ad.fiat} ${ad.minLimit.toLocaleString("en-KE")}`
+                  : aboveMax
+                  ? `Maximum is ${ad.fiat} ${ad.maxLimit.toLocaleString("en-KE")}`
+                  : `Only ${ad.availableAmount.toLocaleString("en-KE", { maximumFractionDigits: 4 })} ${ad.crypto} available`}
               </p>
             )}
           </section>
