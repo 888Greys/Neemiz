@@ -692,24 +692,6 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
         </div>
 
         <div className="border-t border-white/10 p-2">
-          <button
-            type="button"
-            onClick={() => { onClose(); toast.info("Nezeem App", "The mobile app is coming soon!"); }}
-            className="mb-2 flex w-full items-center gap-2 rounded-xl bg-[#32343b] p-2 text-left transition hover:bg-white/[0.06]"
-          >
-            <span
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500 bg-cover bg-center"
-              style={{ backgroundImage: `url(${tempAssets.appInstall})` }}
-            >
-              <Icon name="phone_iphone" fill className="text-[17px]" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[10px] font-black">Nezeem Mobile App</span>
-              <span className="block text-[9px] leading-3 text-slate-300">Android & iOS — coming soon</span>
-            </span>
-            <Icon name="chevron_right" className="text-[17px]" />
-          </button>
-
           <div className="mb-2 flex items-center gap-1">
             <a href="https://wa.me/254700000000" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35] text-white transition hover:bg-white/[0.08]">
               <Icon name="chat" fill className="text-[17px]" />
