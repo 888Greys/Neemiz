@@ -202,7 +202,7 @@ export function NotificationsDropdown({ onClose }: Props) {
   return (
     <div
       ref={ref}
-      className="absolute right-0 top-full z-[300] mt-2 w-[340px] overflow-hidden rounded-2xl bg-[#111316] shadow-[0_8px_48px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.09] animate-in fade-in slide-in-from-top-2 duration-200"
+      className="fixed right-3 top-14 z-[500] w-[calc(100vw-1.5rem)] max-w-[340px] overflow-hidden rounded-2xl bg-[#111316] shadow-[0_8px_48px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.09] animate-in fade-in slide-in-from-top-2 duration-200 sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:w-[340px]"
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3.5">
