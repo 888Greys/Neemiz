@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 
-// GET /api/p2p/merchant/balance — returns the user's on-platform crypto balances
+// GET /api/p2p/merchant/balance — returns the merchant's escrow crypto balances (P2PCryptoBalance)
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -11,9 +11,16 @@ export async function GET() {
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
-    const balances = await db.userCryptoBalance.findMany({
+    const merchant = await db.merchantProfile.findUnique({
       where: { userId: dbUser.id },
-      select: { crypto: true, network: true, available: true, locked: true },
+      select: { id: true },
+    });
+
+    if (!merchant) return Response.json([]);
+
+    const balances = await db.p2PCryptoBalance.findMany({
+      where: { merchantId: merchant.id },
+      select: { crypto: true, total: true, available: true, locked: true },
       orderBy: { crypto: "asc" },
     });
 

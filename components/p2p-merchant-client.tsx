@@ -288,7 +288,7 @@ const NETWORK_WARN: Record<string, string> = {
 
 interface CryptoBalance {
   crypto: string;
-  network: string;
+  total: number;
   available: number;
   locked: number;
 }
@@ -373,7 +373,7 @@ function DepositSection() {
       {balances.length > 0 && (
         <div className="flex flex-wrap gap-4 px-5 py-3 border-b border-white/[0.06] bg-white/[0.01]">
           {balances.map((b) => (
-            <div key={`${b.crypto}-${b.network}`} className="flex items-center gap-3">
+            <div key={b.crypto} className="flex items-center gap-3">
               <div>
                 <p className="text-[10px] text-slate-600 uppercase tracking-wide font-bold">{b.crypto} Available</p>
                 <p className="text-white font-black text-sm">{Number(b.available).toFixed(6)}</p>
