@@ -81,23 +81,23 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm sm:p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-[#0d1420] border border-white/10 shadow-2xl"
+        className="w-full max-w-md max-h-[92dvh] sm:max-h-[90dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#0d1420] border border-white/10 shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className={`px-6 pt-5 pb-4 border-b border-white/[0.07] rounded-t-2xl ${
+        {/* Header — sticky */}
+        <div className={`shrink-0 px-5 pt-4 pb-3 border-b border-white/[0.07] rounded-t-2xl ${
           isBuyingCrypto ? "bg-gradient-to-r from-[#22c55e]/10 to-transparent" : "bg-gradient-to-r from-red-500/10 to-transparent"
         }`}>
           <div className="flex items-start justify-between">
             <div>
-              <span className={`text-xl font-black ${isBuyingCrypto ? "text-[#22c55e]" : "text-red-400"}`}>
+              <span className={`text-lg font-black ${isBuyingCrypto ? "text-[#22c55e]" : "text-red-400"}`}>
                 {isBuyingCrypto ? "Buy" : "Sell"} {ad.crypto}
               </span>
-              <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+              <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                 <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#6366f1] flex items-center justify-center text-white font-black text-[9px]">
                   {ad.merchant.displayName.charAt(0).toUpperCase()}
                 </div>
@@ -116,7 +116,8 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
           </div>
         </div>
 
-        <div className="p-6 space-y-4">
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 p-4 sm:p-6 space-y-3 sm:space-y-4">
           {/* Price info */}
           <div className="flex items-center justify-between bg-white/[0.04] rounded-xl px-4 py-3">
             <div>
