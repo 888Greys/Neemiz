@@ -875,8 +875,10 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   const [commentsByMarket, setCommentsByMarket] = useState<Record<string, DetailComment[]>>({});
   const tagBarRef = useRef<HTMLDivElement>(null);
 
+  const hasLoadedRef = useRef(initialMarkets.length > 0);
+
   const fetchMarkets = useCallback(async () => {
-    setLoading(markets.length === 0);
+    if (!hasLoadedRef.current) setLoading(true);
     const params = new URLSearchParams({ limit: "24" });
 
     if (tag === "Trending") {
@@ -887,7 +889,6 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
     } else if (tag === "Breaking") {
       params.set("tag", "breaking");
     } else {
-      // category tags — lowercase to match Polymarket tag labels
       params.set("tag", tag.toLowerCase());
     }
 
@@ -900,9 +901,10 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
         return m.active && !m.closed && (!Number.isFinite(end) || end > now) &&
           !m.outcomePrices.some((p) => p <= 0.001 || p >= 0.999);
       }));
+      hasLoadedRef.current = true;
     }
     setLoading(false);
-  }, [tag, markets.length]);
+  }, [tag]);
 
   const fetchMyBets = useCallback(async () => {
     if (!userId) return;
@@ -919,7 +921,12 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
     }
   }, [userId]);
 
-  useEffect(() => { fetchMarkets(); }, [fetchMarkets]);
+  useEffect(() => {
+    fetchMarkets();
+    // Refresh breaking news / hot topics every 2 minutes
+    const id = setInterval(fetchMarkets, 2 * 60 * 1000);
+    return () => clearInterval(id);
+  }, [fetchMarkets]);
   useEffect(() => { if (tab === "my-bets") fetchMyBets(); }, [tab, fetchMyBets]);
 
   function handleBetSuccess() {
