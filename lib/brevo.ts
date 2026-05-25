@@ -207,6 +207,56 @@ export async function sendTestingNoticeEmail(to: string, firstName?: string) {
   );
 }
 
+// Notify both parties when a trade is completed (crypto released)
+export async function sendTradeCompletedEmail(
+  to: string,
+  recipientName: string,
+  opts: {
+    role: "buyer" | "seller";
+    crypto: string;
+    cryptoAmount: number;
+    fiatAmount: number;
+    fiat: string;
+    orderId: string;
+  }
+) {
+  const { role, crypto, cryptoAmount, fiatAmount, fiat, orderId } = opts;
+  const isBuyer = role === "buyer";
+  await sendEmail(
+    to,
+    recipientName,
+    `Trade Completed — ${cryptoAmount.toFixed(6)} ${crypto}`,
+    emailWrapper(`
+      <div style="text-align:center;margin-bottom:28px;">
+        <div style="width:56px;height:56px;background:#31c45d20;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;">
+          <span style="font-size:24px;">✓</span>
+        </div>
+        <h2 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#31c45d;">Trade Completed!</h2>
+        <p style="margin:0;color:#94a3b8;font-size:14px;">
+          ${isBuyer
+            ? `<strong style="color:#fff;">${cryptoAmount.toFixed(6)} ${crypto}</strong> has been released to your account.`
+            : `You have released <strong style="color:#fff;">${cryptoAmount.toFixed(6)} ${crypto}</strong> and received fiat.`}
+        </p>
+      </div>
+      <table cellpadding="0" cellspacing="0" style="width:100%;background:rgba(255,255,255,0.04);border-radius:12px;margin-bottom:28px;">
+        <tr><td style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">${isBuyer ? "You received" : "You released"}</p>
+          <p style="margin:4px 0 0;font-size:18px;font-weight:800;color:#31c45d;">${cryptoAmount.toFixed(6)} ${crypto}</p>
+        </td></tr>
+        <tr><td style="padding:14px 20px;">
+          <p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">${isBuyer ? "You paid" : "You received"}</p>
+          <p style="margin:4px 0 0;font-size:18px;font-weight:800;color:#fff;">${fiat} ${fiatAmount.toLocaleString("en-KE")}</p>
+        </td></tr>
+      </table>
+      <div style="text-align:center;">
+        <a href="${APP_URL}/p2p/order/${orderId}" style="display:inline-block;background:#31c45d;color:#fff;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;">
+          View Order →
+        </a>
+      </div>
+    `)
+  );
+}
+
 // Notify merchant when they successfully create a new ad
 export async function sendAdCreatedEmail(
   to: string,
