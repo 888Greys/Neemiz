@@ -13,7 +13,6 @@ interface Props {
   onCashout:         (panelIndex: 0 | 1) => Promise<void>;
 }
 
-const STEPS   = [10, 25, 50, 100, 500, 1000];   // step for ± buttons per amount range
 const MULT_CHIPS = [{ label: "½×", fn: (v: number) => v * 0.5 }, { label: "2×", fn: (v: number) => v * 2 }, { label: "5×", fn: (v: number) => v * 5 }];
 
 function snapStep(v: number) {
@@ -56,6 +55,9 @@ export function AviatorBetPanel({
   useEffect(() => { stopWinRef.current     = stopOnWin;    }, [stopOnWin]);
   useEffect(() => { stopLossRef.current    = stopOnLoss;   }, [stopOnLoss]);
   useEffect(() => { myBetRef.current       = myBet;        }, [myBet]);
+  useEffect(() => {
+    if (round?.state !== "FLYING" || myBet?.status !== "ACTIVE") setLoading(false);
+  }, [myBet?.status, round?.state]);
 
   const state       = round?.state ?? "WAITING";
   const bettingOpen = state === "BETTING";
@@ -87,11 +89,12 @@ export function AviatorBetPanel({
   }, [amount, balance, acEnabled, autoCashout, placeBet]);
 
   const handleCashout = useCallback(async () => {
+    if (loading) return;
     setLoading(true);
     try   { await onCashout(panelIndex); }
     catch (e: unknown) { setError((e as Error).message ?? "Cashout failed"); }
     finally { setLoading(false); }
-  }, [onCashout, panelIndex]);
+  }, [loading, onCashout, panelIndex]);
 
   // ── Auto-bet engine ────────────────────────────────────────────────────────
   const placeAutoBet = useCallback(async () => {
@@ -157,9 +160,9 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (isFlying && myBet?.status === "ACTIVE") {
     return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12]">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12] sm:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col gap-2.5 p-3">
+        <div className="flex flex-col gap-2.5 p-3 sm:p-3.5">
           {myBet.autoCashout && (
             <div className="flex items-center justify-between text-[11px]">
               <span className="text-white/40">Auto cashout at</span>
@@ -181,11 +184,11 @@ export function AviatorBetPanel({
           <button
             onClick={handleCashout}
             disabled={loading}
-            className="relative overflow-hidden rounded-xl py-3.5 text-sm font-black text-black transition-all disabled:opacity-60"
+            className="relative overflow-hidden rounded-xl py-3.5 text-sm font-black text-black transition-all disabled:opacity-80"
             style={{ background: "linear-gradient(135deg, #f59e0b, #ef8c00)" }}
           >
             <span className="relative z-10 flex items-center justify-center gap-2">
-              {loading ? "Processing…" : (
+              {loading ? "CASHING OUT..." : (
                 <>
                   CASHOUT
                   <span className="rounded-lg bg-black/20 px-2.5 py-1 text-sm font-black">
@@ -194,7 +197,7 @@ export function AviatorBetPanel({
                 </>
               )}
             </span>
-            <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-15" />
+            {!loading && <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-15" />}
           </button>
           <p className="text-center text-[11px] font-black text-[#f59e0b]">{currentMultiplier.toFixed(2)}×</p>
           {error && <p className="text-center text-xs text-red-400">{error}</p>}
@@ -208,10 +211,9 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (isFlying && myBet?.status === "CASHEDOUT") {
     return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-[#31c45d]/20 bg-[#0a1a0f]">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#31c45d]/20 bg-[#0a1a0f] sm:rounded-2xl">
         {TabBar}
         <div className="flex flex-col items-center gap-2 p-5 text-center">
-          <span className="text-3xl">✅</span>
           <p className="text-sm font-black text-[#31c45d]">Cashed out!</p>
           <p className="text-xl font-black text-white">KSh {myBet.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—"}</p>
           <p className="text-xs text-white/30">at {myBet.cashoutAt?.toFixed(2)}×</p>
@@ -226,10 +228,9 @@ export function AviatorBetPanel({
   if (isCrashed && myBet) {
     const won = myBet.status === "CASHEDOUT";
     return (
-      <div className={`flex min-w-0 flex-col overflow-hidden rounded-2xl border ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
+      <div className={`flex min-w-0 flex-col overflow-hidden rounded-xl border sm:rounded-2xl ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
         {TabBar}
         <div className="flex flex-col items-center gap-2 p-5 text-center">
-          <span className="text-3xl">{won ? "🏆" : "💥"}</span>
           <p className={`text-sm font-black ${won ? "text-[#31c45d]" : "text-red-400"}`}>{won ? "You won!" : "Flew away!"}</p>
           <p className="text-xl font-black text-white">
             {won ? `KSh ${myBet.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—"}` : `-KSh ${myBet.betAmount.toLocaleString()}`}
@@ -245,10 +246,9 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (bettingOpen && myBet?.status === "ACTIVE") {
     return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-yellow-500/20 bg-[#1a1500]">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-yellow-500/20 bg-[#1a1500] sm:rounded-2xl">
         {TabBar}
         <div className="flex flex-col items-center gap-2 p-5 text-center">
-          <span className="text-3xl">✈️</span>
           <p className="text-sm font-black text-yellow-400">Bet confirmed</p>
           <p className="text-xl font-black text-white">KSh {myBet.betAmount.toLocaleString()}</p>
           {myBet.autoCashout && <p className="text-xs text-white/40">Auto cashout at {myBet.autoCashout.toFixed(2)}×</p>}
@@ -262,17 +262,14 @@ export function AviatorBetPanel({
   // WAITING / FLYING (no bet) / CRASHED (no bet)
   // ─────────────────────────────────────────────────────────────────────────
   if (state === "WAITING" || (isFlying && !myBet) || (isCrashed && !myBet)) {
-    const icon  = state === "WAITING" ? null : isFlying ? "🛫" : "💨";
     const label = state === "WAITING" ? "Next round loading…"
       : isFlying  ? "Round in progress"
       : `Ended at ${round?.crashPoint?.toFixed(2)}×`;
     return (
       <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0d0e12]">
         {TabBar}
-        <div className="flex flex-col items-center gap-2.5 p-5 text-center">
-          {icon
-            ? <span className="text-3xl">{icon}</span>
-            : <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-white/50" />}
+        <div className="flex flex-col items-center gap-2.5 p-4 text-center sm:p-5">
+          {state === "WAITING" && <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-white/50" />}
           <p className="text-sm text-white/40">{label}</p>
         </div>
         {/* Still show auto-bet controls */}
@@ -290,31 +287,31 @@ export function AviatorBetPanel({
   // BETTING — main form (Bet tab or Auto tab)
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-[#0d0e12]">
+    <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-[#0d0e12] sm:rounded-2xl">
       {TabBar}
 
       {tab === "bet" ? (
-        <div className="flex flex-col gap-3 p-4">
+        <div className="flex flex-col gap-2.5 p-3 sm:gap-3 sm:p-4">
           {error && <p className="rounded-lg bg-red-900/30 px-3 py-2 text-[11px] text-red-400">{error}</p>}
 
           {/* Amount row */}
           <div>
             <p className="mb-1.5 text-[9px] font-black uppercase tracking-widest text-white/30">Bet Amount (KSh)</p>
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] items-center gap-2">
               <button
                 onClick={() => adj(-snapStep(amount))}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
               >−</button>
               <input
                 type="number"
                 value={amount}
                 min={10} max={50000}
                 onChange={(e) => { setAmount(clampAmt(Number(e.target.value))); setError(null); }}
-                className="min-w-0 flex-1 rounded-xl border border-white/[0.08] bg-black/30 py-2 text-center font-mono text-base font-black text-white outline-none focus:border-[#087cff]/50"
+                className="min-w-0 rounded-xl border border-white/[0.08] bg-black/40 py-2.5 text-center font-mono text-base font-black text-white outline-none focus:border-[#087cff]/50"
               />
               <button
                 onClick={() => adj(snapStep(amount))}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
               >+</button>
             </div>
             {/* Multiplier chips */}
@@ -338,7 +335,7 @@ export function AviatorBetPanel({
           </div>
 
           {/* Auto-cashout */}
-          <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+          <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
             <label className="flex items-center gap-2 text-[11px] font-black text-white/50">
               Auto Cashout
               {acEnabled && (
@@ -370,7 +367,7 @@ export function AviatorBetPanel({
           <button
             onClick={handleBet}
             disabled={loading || !bettingOpen}
-            className="w-full rounded-xl py-3 text-sm font-black text-black transition-all disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-xl py-3.5 text-sm font-black text-black shadow-[0_10px_30px_rgba(34,197,94,.16)] transition-all disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: bettingOpen ? "linear-gradient(135deg, #31c45d, #22a34a)" : "#1f2937" }}
           >
             {loading ? "Placing…" : bettingOpen

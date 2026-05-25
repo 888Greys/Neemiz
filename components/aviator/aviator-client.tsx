@@ -14,7 +14,6 @@ import type {
 } from "@/lib/aviator/types";
 
 const WS_URL = process.env.NEXT_PUBLIC_AVIATOR_WS_URL ?? "wss://aviator.nezeem.com/ws";
-const GROWTH_RATE = 0.00006;
 
 interface HistoryRound {
   roundId:        string;
@@ -60,6 +59,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [balance,    setBalance]    = useState(initialBalance);
   const [verifyRound, setVerifyRound] = useState<HistoryRound | null>(null);
   const [loading,    setLoading]    = useState(true);
+  const [activePanel, setActivePanel] = useState<0 | 1>(0);
 
   const wsRef          = useRef<WebSocket | null>(null);
   const rafRef         = useRef<number>(0);
@@ -285,8 +285,9 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     const loop = () => {
       const r = roundRef.current;
       if (r?.state === "FLYING" && r.flyingStartedAt) {
-        const elapsed = Math.max(0, Date.now() - new Date(r.flyingStartedAt).getTime());
-        setMultiplier(Math.round(Math.exp(GROWTH_RATE * elapsed) * 100) / 100);
+        const elapsed = Math.max(0, Date.now() - new Date(r.flyingStartedAt).getTime()) / 1000;
+        const value = 1 + elapsed / 1.5 + elapsed * elapsed * 0.005;
+        setMultiplier(Math.floor(value * 100) / 100);
       }
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -296,9 +297,6 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleBet = useCallback(async (amount: number, panelIndex: 0 | 1, autoCashout?: number) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) throw new Error("Not connected");
-
     const tempBet: AviatorBetPublic = {
       id:          `temp-${panelIndex}-${Date.now()}`,
       roundId:     roundRef.current?.id ?? "",
@@ -313,32 +311,77 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       placedAt:    new Date().toISOString(),
     };
 
-    pendingBetRef.current = { panelIndex, amount };
     setMyBets((prev) => ({ ...prev, [panelIndex]: tempBet }));
     setBalance((b) => b - amount);
 
-    ws.send(JSON.stringify({
-      type:         "place_bet",
-      amount,
-      auto_cashout: autoCashout ?? 0,
-    }));
+    const res = await fetch("/api/aviator/bet", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ betAmount: amount, panelIndex, autoCashout }),
+    });
+    const data = await res.json();
 
+    if (!res.ok) {
+      setMyBets((prev) => { const next = { ...prev }; delete next[panelIndex]; return next; });
+      setBalance((b) => b + amount);
+      throw new Error(data.error ?? "Failed to place bet");
+    }
+
+    setMyBets((prev) => ({
+      ...prev,
+      [panelIndex]: {
+        ...tempBet,
+        id: data.betId,
+        roundId: data.roundId,
+        autoCashout: data.autoCashout,
+      },
+    }));
+    await fetchBalance();
     window.dispatchEvent(new Event("wallet-refresh"));
   }, [userId, username]);
 
   const handleCashout = useCallback(async (panelIndex: 0 | 1) => {
-    const ws  = wsRef.current;
     const bet = myBets[panelIndex];
-    if (!ws || ws.readyState !== WebSocket.OPEN || !bet) return;
+    if (!bet) return;
 
-    ws.send(JSON.stringify({ type: "cashout", bet_id: bet.id }));
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 1400);
+    try {
+      const res = await fetch("/api/aviator/cashout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ panelIndex, betId: bet.id }),
+        signal: controller.signal,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Cashout failed");
+      }
 
-    setMyBets((prev) => {
-      const existing = prev[panelIndex];
-      if (!existing) return prev;
-      return { ...prev, [panelIndex]: { ...existing, status: "CASHEDOUT", cashoutAt: multiplier } };
-    });
-  }, [myBets, multiplier]);
+      setMyBets((prev) => {
+        const existing = prev[panelIndex];
+        if (!existing) return prev;
+        return {
+          ...prev,
+          [panelIndex]: {
+            ...existing,
+            status: "CASHEDOUT",
+            cashoutAt: data.cashoutAt,
+            winAmount: data.winAmount,
+          },
+        };
+      });
+      await fetchBalance();
+      window.dispatchEvent(new Event("wallet-refresh"));
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        throw new Error("Cashout took too long. Try again before the plane leaves.");
+      }
+      throw err;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }, [fetchBalance, myBets]);
 
   const displayMult = round?.state === "CRASHED" ? (round.crashPoint ?? multiplier) : multiplier;
 
@@ -353,7 +396,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="grid min-w-0 gap-2 lg:h-full lg:min-h-0 lg:overflow-hidden xl:grid-cols-[300px_minmax(0,1fr)_320px] 2xl:grid-cols-[320px_minmax(0,1fr)_340px]">
+    <div className="mx-auto grid w-full min-w-0 max-w-[1680px] gap-2 lg:h-full lg:min-h-0 lg:overflow-hidden xl:grid-cols-[280px_minmax(0,1fr)_300px] 2xl:grid-cols-[320px_minmax(0,1fr)_340px]">
       <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-white/10 bg-[#141414] xl:block">
         <AviatorLiveBets
           liveBets={liveBets}
@@ -364,9 +407,9 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       </aside>
 
       <section className="grid min-w-0 grid-rows-[auto_auto_auto_auto] lg:min-h-0 lg:overflow-hidden lg:grid-rows-[auto_auto_minmax(0,1fr)_auto]">
-        <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#101010] px-3 py-2">
+        <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#101010] px-2.5 py-2 sm:px-3">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <span className="font-[var(--font-pacifico)] text-xl text-[#ff1838] sm:text-2xl">Aviator</span>
+            <span className="font-[var(--font-pacifico)] text-lg text-[#ff1838] sm:text-2xl">Aviator</span>
             <span className="hidden text-[11px] font-black uppercase tracking-widest text-white/35 sm:inline">
               Round #{round?.roundNumber ?? "--"}
             </span>
@@ -377,7 +420,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="rounded-full bg-[#f6a400] px-2.5 py-1 text-[11px] font-black text-black sm:px-3 sm:text-xs">How to play?</span>
+            <span className="hidden rounded-full bg-[#f6a400] px-2.5 py-1 text-[11px] font-black text-black sm:inline sm:px-3 sm:text-xs">How to play?</span>
             <span className="hidden text-xs font-black text-[#20d15a] sm:inline">Provably fair</span>
           </div>
         </div>
@@ -387,7 +430,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         </div>
 
         <div className="overflow-hidden rounded-lg border border-white/10 bg-black lg:min-h-0">
-          <div className="h-[220px] sm:h-[280px] lg:h-full">
+          <div className="h-[240px] sm:h-[300px] md:h-[380px] lg:h-full">
             <AviatorCanvas
               state={round?.state ?? "WAITING"}
               multiplier={displayMult}
@@ -398,9 +441,26 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           </div>
         </div>
 
-        <div className="mt-2 grid min-w-0 shrink-0 grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl border border-white/[0.07] bg-[#0b0c0f] p-1 md:hidden">
           {([0, 1] as const).map((pi) => (
-            <div key={pi} className="min-w-0">
+            <button
+              key={pi}
+              type="button"
+              onClick={() => setActivePanel(pi)}
+              className={`rounded-lg py-2 text-[11px] font-black uppercase tracking-widest transition ${
+                activePanel === pi
+                  ? "bg-[#087cff] text-white shadow-[0_8px_22px_rgba(8,124,255,.25)]"
+                  : "text-white/35"
+              }`}
+            >
+              Bet {pi + 1}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-2 grid min-w-0 shrink-0 grid-cols-1 gap-2 md:grid-cols-2">
+          {([0, 1] as const).map((pi) => (
+            <div key={pi} className={`${activePanel === pi ? "block" : "hidden"} min-w-0 md:block`}>
               <AviatorBetPanel
                 panelIndex={pi}
                 round={round}

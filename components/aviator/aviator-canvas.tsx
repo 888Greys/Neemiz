@@ -14,8 +14,16 @@ interface Props {
 interface Star     { x: number; y: number; r: number; alpha: number; speed: number }
 interface Particle { x: number; y: number; vx: number; vy: number; alpha: number; r: number; color: string }
 
-const GROWTH_RATE = 0.00006;
-function multToElapsed(m: number) { return Math.log(Math.max(m, 1.001)) / GROWTH_RATE; }
+function calculateMultiplier(elapsed: number) {
+  return 1 + elapsed / 1.5 + elapsed * elapsed * 0.005;
+}
+
+function multToElapsed(m: number) {
+  const target = Math.max(m, 1.001) - 1;
+  const a = 0.005;
+  const b = 1 / 1.5;
+  return (-b + Math.sqrt(b * b + 4 * a * target)) / (2 * a);
+}
 
 export function AviatorCanvas({ state, multiplier, crashPoint, bettingEndsAt }: Props) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
@@ -126,11 +134,21 @@ function draw(
   const isCrashed = state === "CRASHED";
   const isFlying  = state === "FLYING";
 
+  const compact = w < 520;
+
   // ── Background ──────────────────────────────────────────────────────
-  const bg = ctx.createLinearGradient(0, 0, 0, h);
-  bg.addColorStop(0, "#101010");
+  const bg = ctx.createRadialGradient(w * 0.72, h * 0.12, 0, w * 0.5, h * 0.5, Math.max(w, h));
+  bg.addColorStop(0, "#1d1320");
+  bg.addColorStop(0.42, "#0d0d10");
   bg.addColorStop(1, "#030303");
   ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+
+  const vignette = ctx.createLinearGradient(0, 0, 0, h);
+  vignette.addColorStop(0, "rgba(255,24,56,0.08)");
+  vignette.addColorStop(0.5, "rgba(0,0,0,0)");
+  vignette.addColorStop(1, "rgba(0,0,0,0.52)");
+  ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, w, h);
 
   // ── Stars ───────────────────────────────────────────────────────────
@@ -143,16 +161,16 @@ function draw(
     ctx.fill();
   });
 
-  const ORIGIN_X = w * 0.08;
-  const ORIGIN_Y = h - 30;
-  const MAX_X    = w * 0.92;
-  const MAX_Y    = 30;
+  const ORIGIN_X = compact ? w * 0.11 : w * 0.08;
+  const ORIGIN_Y = h - (compact ? 36 : 30);
+  const MAX_X    = compact ? w * 0.88 : w * 0.92;
+  const MAX_Y    = compact ? 34 : 30;
 
   // ── Sunburst rays (spinning) ─────────────────────────────────────────
   drawSunburst(ctx, ORIGIN_X, ORIGIN_Y, w, h, isCrashed, rayAngle);
 
   // ── Ground line ──────────────────────────────────────────────────────
-  ctx.strokeStyle = "rgba(255,255,255,0.07)";
+  ctx.strokeStyle = "rgba(255,255,255,0.09)";
   ctx.lineWidth   = 1;
   ctx.beginPath();
   ctx.moveTo(0, ORIGIN_Y);
@@ -173,9 +191,9 @@ function draw(
 
   // ── Curve ────────────────────────────────────────────────────────────
   const displayMult  = isCrashed ? (crashPoint ?? multiplier) : multiplier;
-  const totalElapsed = multToElapsed(displayMult);
+  const totalElapsed = Math.max(0.1, multToElapsed(displayMult));
 
-  const normX = (ms: number) => ORIGIN_X + (ms / totalElapsed) * (MAX_X - ORIGIN_X);
+  const normX = (seconds: number) => ORIGIN_X + (seconds / totalElapsed) * (MAX_X - ORIGIN_X);
   const logDenom = Math.log(Math.max(displayMult, 1.0001));
   const normY = (m: number)  => ORIGIN_Y - (Math.log(Math.max(m, 1)) / logDenom) * (ORIGIN_Y - MAX_Y);
 
@@ -186,12 +204,13 @@ function draw(
   ctx.moveTo(ORIGIN_X, ORIGIN_Y);
   for (let i = 1; i <= STEPS; i++) {
     const t = i / STEPS;
-    ctx.lineTo(normX(t * totalElapsed), normY(Math.exp(GROWTH_RATE * t * totalElapsed)));
+    ctx.lineTo(normX(t * totalElapsed), normY(calculateMultiplier(t * totalElapsed)));
   }
   ctx.lineTo(normX(totalElapsed), ORIGIN_Y);
   ctx.closePath();
-  const fillGrad = ctx.createLinearGradient(ORIGIN_X, ORIGIN_Y, ORIGIN_X, MAX_Y);
-  fillGrad.addColorStop(0, "rgba(255,24,56,0.42)");
+  const fillGrad = ctx.createLinearGradient(ORIGIN_X, ORIGIN_Y, MAX_X, MAX_Y);
+  fillGrad.addColorStop(0, "rgba(255,24,56,0.38)");
+  fillGrad.addColorStop(0.45, "rgba(255,24,56,0.22)");
   fillGrad.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = fillGrad;
   ctx.fill();
@@ -201,10 +220,10 @@ function draw(
   ctx.moveTo(ORIGIN_X, ORIGIN_Y);
   for (let i = 1; i <= STEPS; i++) {
     const t = i / STEPS;
-    ctx.lineTo(normX(t * totalElapsed), normY(Math.exp(GROWTH_RATE * t * totalElapsed)));
+    ctx.lineTo(normX(t * totalElapsed), normY(calculateMultiplier(t * totalElapsed)));
   }
   ctx.strokeStyle = "#ff1838";
-  ctx.lineWidth   = 2.5;
+  ctx.lineWidth   = compact ? 2 : 2.5;
   ctx.shadowColor = "#ff1838";
   ctx.shadowBlur  = 18;
   ctx.stroke();
@@ -238,16 +257,16 @@ function draw(
       ctx.globalAlpha = 1;
     });
     // "FLEW AWAY!" text
-    const fs = Math.min(w * 0.065, 40);
+    const fs = Math.min(w * (compact ? 0.075 : 0.065), compact ? 30 : 40);
     ctx.font      = `900 ${fs}px Inter,sans-serif`;
     ctx.textAlign = "center";
     ctx.fillStyle = "#ff3030";
     ctx.shadowColor= "#ff3030";
     ctx.shadowBlur = 22;
-    ctx.fillText("FLEW AWAY!", w / 2, h / 2 - 14);
+    ctx.fillText("FLEW AWAY!", w / 2, h * (compact ? 0.36 : 0.42));
     ctx.shadowBlur = 0;
   } else {
-    drawPlane(ctx, tipX, tipY, displayMult);
+    drawPlane(ctx, tipX, tipY, displayMult, compact ? 0.82 : 1);
     // Plane trail
     drawTrail(ctx, tipX, tipY);
   }
@@ -259,58 +278,59 @@ function draw(
     : displayMult >= 2           ? "#ffffff"
     :                              "#ffffff";
 
-  const fs = Math.min(w * 0.10, 64);
+  const fs = Math.min(w * (compact ? 0.16 : 0.10), compact ? 54 : 64);
   ctx.font        = `900 ${fs}px Inter,sans-serif`;
   ctx.textAlign   = "center";
   ctx.shadowColor = multColor;
   ctx.shadowBlur  = 28;
   ctx.fillStyle   = multColor;
-  ctx.fillText(`${displayMult.toFixed(2)}x`, w / 2, h / 2 + fs * 0.38);
+  ctx.fillText(`${displayMult.toFixed(2)}x`, w / 2, h * (compact ? 0.52 : 0.5) + fs * 0.18);
   ctx.shadowBlur  = 0;
 
   ctx.font      = `bold ${fs * 0.28}px Inter,sans-serif`;
   ctx.fillStyle = "rgba(255,255,255,0.35)";
-  ctx.fillText(isCrashed ? "CRASHED" : "Current Multiplier", w / 2, h / 2 + fs * 0.82);
+  ctx.fillText(isCrashed ? "CRASHED" : "Current Multiplier", w / 2, h * (compact ? 0.52 : 0.5) + fs * 0.58);
 }
 
 // ─── Plane ───────────────────────────────────────────────────────────────────
 
-function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, mult: number) {
+function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, mult: number, scale = 1) {
   const angle = -Math.PI / 5;
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
+  ctx.scale(scale, scale);
 
   ctx.shadowColor = "#ff1838";
-  ctx.shadowBlur  = 18;
+  ctx.shadowBlur  = 20;
 
   // Body
   ctx.fillStyle = "#ff1838";
   ctx.beginPath();
-  ctx.moveTo(24, 0);
-  ctx.lineTo(-10, -5);
-  ctx.lineTo(-15, 0);
-  ctx.lineTo(-10, 5);
+  ctx.moveTo(30, 0);
+  ctx.lineTo(-12, -7);
+  ctx.lineTo(-18, 0);
+  ctx.lineTo(-12, 7);
   ctx.closePath();
   ctx.fill();
 
   // Window
   ctx.fillStyle = "#ffffff";
   ctx.beginPath();
-  ctx.ellipse(8, -2, 4, 3, 0, 0, Math.PI * 2);
+  ctx.ellipse(11, -2, 4.5, 3.2, 0, 0, Math.PI * 2);
   ctx.fill();
 
   // Wing
   ctx.fillStyle = "#ff4d63";
   ctx.beginPath();
-  ctx.moveTo(2, 0); ctx.lineTo(-7, -16); ctx.lineTo(-13, -2);
+  ctx.moveTo(4, 0); ctx.lineTo(-7, -18); ctx.lineTo(-15, -2);
   ctx.closePath();
   ctx.fill();
 
   // Tail
   ctx.fillStyle = "#ff4d63";
   ctx.beginPath();
-  ctx.moveTo(-10, 0); ctx.lineTo(-19, -9); ctx.lineTo(-14, 0);
+  ctx.moveTo(-11, 0); ctx.lineTo(-21, -10); ctx.lineTo(-15, 0);
   ctx.closePath();
   ctx.fill();
 
