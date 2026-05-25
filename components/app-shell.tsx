@@ -12,7 +12,6 @@ import { RegisterModal } from "@/components/register-modal";
 import { ProfileModal } from "@/components/profile-modal";
 import { WalletModal } from "@/components/wallet-modal";
 import { toast } from "@/lib/toast";
-import { SupportWidget } from "@/components/support-widget";
 import { NotificationsBell } from "@/components/notifications-dropdown";
 import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
@@ -34,6 +33,7 @@ type AppShellProps = {
 export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false }: AppShellProps) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
+  const isSportsPage = pathname.startsWith("/sports");
   const { isSignedIn, user } = useSupabaseAuth();
   const meta = user?.user_metadata ?? {};
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
@@ -194,9 +194,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {walletOpen && <WalletModal onClose={() => setWalletOpen(false)} onDepositConfirmed={refreshWalletBalance} />}
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} onOpenBonuses={() => { setMobileMenuOpen(false); openProfile("bonuses"); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} />}
 
-      {rightPanel && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
-      <SupportWidget />
-
+      {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
           const activePath = "activePath" in item ? item.activePath : (item.href ?? "").split("?")[0].split("#")[0];
@@ -802,7 +800,7 @@ function MobileBetslipSheet({ children }: { children: React.ReactNode }) {
   return (
     <>
       {/* FAB — sits just above the bottom nav */}
-      <div className="fixed bottom-[64px] left-0 right-0 z-40 flex justify-center lg:hidden pointer-events-none">
+      <div className="fixed bottom-[84px] left-0 right-0 z-40 flex justify-center lg:hidden pointer-events-none">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -824,14 +822,14 @@ function MobileBetslipSheet({ children }: { children: React.ReactNode }) {
 
       {/* Bottom sheet */}
       {open && (
-        <div className="fixed inset-0 z-[70] lg:hidden">
+        <div className="fixed bottom-14 left-0 right-0 top-0 z-[45] lg:hidden">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/70 animate-fade-in"
             onClick={() => setOpen(false)}
           />
           {/* Sheet */}
-          <div className="animate-sheet-in absolute bottom-0 left-0 right-0 flex max-h-[88vh] flex-col rounded-t-3xl bg-[#0d0e11] shadow-2xl">
+          <div className="animate-sheet-in absolute bottom-0 left-0 right-0 flex h-[calc(100dvh-3.5rem)] max-h-[calc(88dvh-3.5rem)] flex-col rounded-t-3xl bg-[#0d0e11] shadow-2xl">
             {/* Handle bar */}
             <div className="flex shrink-0 items-center justify-between px-4 pt-3 pb-1">
               <div className="mx-auto h-1 w-10 rounded-full bg-white/[0.15]" />
