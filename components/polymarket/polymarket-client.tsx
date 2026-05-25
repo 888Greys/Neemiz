@@ -1069,62 +1069,82 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
 
       {/* ── Browse ───────────────────────────────────────────────────────── */}
       {tab === "browse" && !selectedMarket && (
-        <div className="flex flex-col gap-8">
-
-          {/* Hero + sidebar row */}
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
-            {/* Hero carousel */}
-            <div>
-              {loading ? (
-                <div className="h-72 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
-              ) : heroMarkets.length > 0 ? (
-                <HeroCarousel markets={heroMarkets} allMarkets={markets} onBet={openBet} onOpen={openMarket} />
-              ) : null}
-            </div>
-
-            {/* Right sidebar — hidden on mobile (Breaking News + Hot Topics stack messily) */}
-            <div className="hidden flex-col gap-4 lg:flex lg:sticky lg:top-24 lg:self-start">
-              {loading ? (
-                <>
-                  <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
-                  <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
-                </>
-              ) : (
-                <>
-                  <BreakingNews markets={breakingMarkets} onOpen={openMarket} />
-                  <HotTopics markets={markets} onTagClick={(t) => { setTag(t); setSearch(""); }} />
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* All markets grid (4 col) */}
-          <div>
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xl font-black text-white">
-                {search ? `Results for "${search}"` : "All markets"}
-              </h3>
-              <span className="text-[12px] text-white/25">{filtered.length} markets</span>
-            </div>
+        <>
+          {/* ── Mobile: flat card list (Polymarket style) ── */}
+          <div className="flex flex-col lg:hidden">
             {loading ? (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="h-44 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+              <div className="flex flex-col gap-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="h-28 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
                 ))}
               </div>
-            ) : gridMarkets.length === 0 ? (
+            ) : filtered.length === 0 ? (
               <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
                 <p className="text-sm text-white/25">No markets found</p>
               </div>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {gridMarkets.map((m) => (
+              <div className="flex flex-col gap-3">
+                {filtered.map((m) => (
                   <CompactCard key={m.conditionId} market={m} onBet={openBet} onOpen={openMarket} />
                 ))}
               </div>
             )}
           </div>
-        </div>
+
+          {/* ── Desktop: hero + sidebar + grid ── */}
+          <div className="hidden lg:flex lg:flex-col lg:gap-8">
+            {/* Hero + sidebar row */}
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
+              <div>
+                {loading ? (
+                  <div className="h-72 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                ) : heroMarkets.length > 0 ? (
+                  <HeroCarousel markets={heroMarkets} allMarkets={markets} onBet={openBet} onOpen={openMarket} />
+                ) : null}
+              </div>
+              <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
+                {loading ? (
+                  <>
+                    <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                    <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                  </>
+                ) : (
+                  <>
+                    <BreakingNews markets={breakingMarkets} onOpen={openMarket} />
+                    <HotTopics markets={markets} onTagClick={(t) => { setTag(t); setSearch(""); }} />
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* All markets grid */}
+            <div>
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-xl font-black text-white">
+                  {search ? `Results for "${search}"` : "All markets"}
+                </h3>
+                <span className="text-[12px] text-white/25">{filtered.length} markets</span>
+              </div>
+              {loading ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="h-44 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                  ))}
+                </div>
+              ) : gridMarkets.length === 0 ? (
+                <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
+                  <p className="text-sm text-white/25">No markets found</p>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {gridMarkets.map((m) => (
+                    <CompactCard key={m.conditionId} market={m} onBet={openBet} onOpen={openMarket} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── My Bets ──────────────────────────────────────────────────────── */}
