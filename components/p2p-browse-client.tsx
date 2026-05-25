@@ -55,7 +55,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
   const aboveMax       = !!rawInput && fiatNum > ad.maxLimit;
   const valid          = fiatNum >= ad.minLimit && fiatNum <= ad.maxLimit && cryptoAmount > 0 && cryptoAmount <= ad.availableAmount;
   const isBuyingCrypto = ad.side === "SELL";
-  const actionTone = isBuyingCrypto ? "bg-[#8a571a] hover:bg-[#a7681f]" : "bg-red-500 hover:bg-red-600";
+  const actionTone = isBuyingCrypto ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-600";
 
   function toggleMode() {
     setInputMode((m) => m === "fiat" ? "crypto" : "fiat");
@@ -86,7 +86,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-black text-white shadow-2xl sm:h-auto sm:max-h-[90dvh] sm:rounded-2xl"
+        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-[#0e0e14] text-white shadow-2xl sm:h-auto sm:max-h-[90dvh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 border-b border-white/[0.06] px-4 py-3">
@@ -111,33 +111,33 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
           <div className="mb-2 flex items-center justify-between text-[11px]">
             <div className="flex items-center gap-1.5">
               <span className="text-slate-400">Price</span>
-              <span className="font-black text-[#20d15a]">{ad.pricePerUnit.toLocaleString("en-KE", { maximumFractionDigits: 2 })} {ad.fiat}</span>
+              <span className="font-black text-[#05b957]">{ad.pricePerUnit.toLocaleString("en-KE", { maximumFractionDigits: 2 })} {ad.fiat}</span>
               <span className="text-slate-600">38s</span>
             </div>
             <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-slate-400">
-              <Icon name="verified_user" className="text-[11px] text-[#20d15a]" />
+              <Icon name="verified_user" className="text-[11px] text-[#05b957]" />
               Security Protection
             </span>
           </div>
 
-          <div className="mb-5 rounded bg-[#211700] px-3 py-2 text-[11px] font-semibold text-[#d79a2a]">
+          <div className="mb-5 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.08] px-3 py-2 text-[11px] font-semibold text-[#f59e0b]">
             The price is higher than 0.41% of the reference price.
           </div>
 
-          <section className="mb-3 rounded-2xl bg-[#111] p-3 ring-1 ring-white/[0.04]">
+          <section className="mb-3 rounded-2xl bg-[#16161f] p-3 ring-1 ring-white/[0.04]">
             <div className="mb-6 flex items-center justify-between border-b border-white/[0.06]">
               <div className="flex gap-6">
                 <button
                   type="button"
                   onClick={() => { setInputMode("fiat"); setRawInput(""); }}
-                  className={`pb-2 text-[12px] font-black ${inputMode === "fiat" ? "border-b-2 border-white text-white" : "text-slate-600"}`}
+                  className={`pb-2 text-[12px] font-black ${inputMode === "fiat" ? "border-b-2 border-[#087cff] text-[#087cff]" : "text-slate-600"}`}
                 >
                   With Fiat
                 </button>
                 <button
                   type="button"
                   onClick={() => { setInputMode("crypto"); setRawInput(""); }}
-                  className={`pb-2 text-[12px] font-black ${inputMode === "crypto" ? "border-b-2 border-white text-white" : "text-slate-600"}`}
+                  className={`pb-2 text-[12px] font-black ${inputMode === "crypto" ? "border-b-2 border-[#087cff] text-[#087cff]" : "text-slate-600"}`}
                 >
                   With Crypto
                 </button>
@@ -175,7 +175,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
           </section>
 
           {/* Payment method */}
-          <section className="mb-5 rounded-2xl bg-[#111] p-3 ring-1 ring-white/[0.04]">
+          <section className="mb-5 rounded-2xl bg-[#16161f] p-3 ring-1 ring-white/[0.04]">
             <div className="flex flex-wrap gap-2">
                 {ad.paymentMethods.map((m) => (
                   <button
@@ -183,7 +183,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
                     onClick={() => setSelectedPayment(m)}
                   className={`rounded-lg border-l-2 px-3 py-2 text-xs font-black transition-colors ${
                       selectedPayment === m
-                      ? "border-[#f59e0b] bg-white/[0.04] text-white"
+                      ? "border-[#087cff] bg-[#087cff]/[0.08] text-white"
                       : "border-white/10 bg-white/[0.02] text-slate-500"
                     }`}
                   >
@@ -209,12 +209,12 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
               {ad.terms || "Merchants may include additional terms in their advertiser terms. Please review them carefully before placing an order."}
             </p>
             <p className="mt-2 text-[12px] leading-5 text-slate-500">
-              In the event of any conflict, the <span className="font-black text-[#f59e0b]">P2P Taker Terms of Use</span> and <span className="font-black text-[#f59e0b]">P2P Privacy Agreement</span> prevail. Violations are not protected under platform protection.
+              In the event of any conflict, the <span className="font-black text-[#087cff]">P2P Taker Terms of Use</span> and <span className="font-black text-[#087cff]">P2P Privacy Agreement</span> prevail. Violations are not protected under platform protection.
             </p>
           </section>
         </div>
 
-        <div className="shrink-0 border-t border-white/[0.06] bg-black px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+        <div className="shrink-0 border-t border-[#1e1e30] bg-[#0e0e14] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
           <div className="grid grid-cols-[minmax(0,1fr)_118px] items-center gap-3">
             <div>
               <p className="text-[16px] font-black text-white">{fiatNum > 0 ? fiatNum.toLocaleString("en-KE", { maximumFractionDigits: 2 }) : "0"} {ad.fiat}</p>
@@ -304,10 +304,10 @@ function StatsBar() {
       {cells.map((s) => (
         <div
           key={s.label}
-          className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#15191f] px-3 py-2.5 transition-colors hover:border-white/[0.12]"
+          className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#111118] px-3 py-2.5 transition-colors hover:border-white/[0.12]"
         >
           <div className="mb-1 flex items-center gap-1.5">
-            {s.live && <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse shrink-0" />}
+            {s.live && <span className="w-1.5 h-1.5 rounded-full bg-[#05b957] animate-pulse shrink-0" />}
             <span className="text-[11px] text-slate-500 font-medium">{s.label}</span>
           </div>
           <p className={`text-lg font-black leading-tight ${stats ? "text-white" : "text-slate-700"}`}>{s.value}</p>
@@ -341,7 +341,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
     <button
       type="button"
       onClick={openOrder}
-      className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_84px] gap-3 border-b border-white/[0.07] bg-black px-3 py-3 text-left transition hover:bg-white/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#087cff]/60 sm:grid-cols-[minmax(0,1fr)_118px] sm:px-4"
+      className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_84px] gap-3 border-b border-[#1e1e30] bg-[#0e0e14] px-3 py-3 text-left transition hover:bg-[#111118] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#087cff]/60 sm:grid-cols-[minmax(0,1fr)_118px] sm:px-4"
     >
       <div className="min-w-0">
         <div className="mb-1.5 flex min-w-0 items-center gap-2">
@@ -353,7 +353,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
               {ad.merchant.displayName.charAt(0).toUpperCase()}
             </div>
             {ad.merchant.isOnline && (
-              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full border border-black bg-[#22c55e]" />
+              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full border border-black bg-[#05b957]" />
             )}
           </div>
           <span className="truncate text-[12px] font-black text-white">{ad.merchant.displayName}</span>
@@ -363,7 +363,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
             {ad.merchant.avgReleaseTime || "<1"}m
           </span>
           <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
-            isMerchantSelling ? "bg-[#22c55e]/12 text-[#22c55e]" : "bg-red-500/12 text-red-400"
+            isMerchantSelling ? "bg-[#05b957]/12 text-[#05b957]" : "bg-red-500/12 text-red-400"
           }`}>
             Fast release
           </span>
@@ -393,7 +393,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
         <div className="mt-1.5 flex min-w-0 flex-wrap gap-x-2 gap-y-1">
           {ad.paymentMethods.map((m) => (
             <span key={m} className="flex items-center gap-1 text-[10px] font-semibold text-white/45">
-              <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" ? "bg-[#22c55e]" : "bg-[#f59e0b]"}`} />
+              <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
               {fmtPm(m)}
             </span>
           ))}
@@ -407,7 +407,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
         <span
           className={`grid h-8 w-[72px] place-items-center rounded-full text-[12px] font-black text-white shadow-[0_6px_16px_rgba(5,196,107,0.18)] transition group-active:scale-[0.98] sm:w-[86px] ${
             isMerchantSelling
-              ? "bg-[#05c46b] group-hover:bg-[#07d977]"
+              ? "bg-[#05b957] group-hover:bg-[#06d169]"
               : "bg-red-500 group-hover:bg-red-400"
           }`}
         >
@@ -442,7 +442,7 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
   return (
     <div className="py-2">
       {/* No ads message */}
-      <div className="mb-5 rounded-2xl border border-white/[0.06] bg-[#090d14] px-5 py-5 text-center">
+      <div className="mb-5 rounded-2xl border border-white/[0.06] bg-[#0e0e14] px-5 py-5 text-center">
         <div className="mx-auto mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.04]">
           <Icon name="swap_horiz" className="text-xl text-slate-500" />
         </div>
@@ -472,7 +472,7 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
           {steps.map((step, i) => (
             <div
               key={i}
-              className="relative rounded-xl border border-white/[0.06] bg-[#0c1118] p-4 text-center"
+              className="relative rounded-xl border border-white/[0.06] bg-[#111118] p-4 text-center"
             >
               {/* Connector line */}
               {i < 2 && (
@@ -498,7 +498,7 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
 
 function MerchantPromoBanner({ isSignedIn }: { isSignedIn: boolean }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#15191f] p-5">
+    <div className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#111118] p-5">
       <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
         {/* Icon */}
         <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-[#087cff]/15 border border-[#087cff]/25 shrink-0">
@@ -660,7 +660,7 @@ export function P2PBrowseClient() {
 
         {/* Workspace header */}
         <div className="mb-2 grid min-w-0 gap-2 xl:grid-cols-[minmax(0,1fr)_575px]">
-          <div className="min-w-0 rounded-xl border border-white/[0.07] bg-[#15191f] px-3 py-2.5">
+          <div className="min-w-0 rounded-xl border border-[#1e1e30] bg-[#111118] px-3 py-2.5">
             <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">Nezeem P2P</p>
@@ -670,8 +670,8 @@ export function P2PBrowseClient() {
                 </p>
               </div>
               <div className="hidden shrink-0 items-center gap-2 text-xs text-slate-500 sm:flex">
-                <span className="flex items-center gap-1.5 rounded-full bg-[#22c55e]/10 px-2.5 py-1 text-[#22c55e]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+                <span className="flex items-center gap-1.5 rounded-full bg-[#05b957]/10 px-2.5 py-1 text-[#05b957]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#05b957] animate-pulse" />
                   Escrow active
                 </span>
                 <span className="flex items-center gap-1 rounded-full bg-white/[0.05] px-2.5 py-1">
@@ -683,7 +683,7 @@ export function P2PBrowseClient() {
 
             {/* Controls */}
             <div className="grid min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-              <div className="grid grid-cols-2 gap-1 rounded-lg bg-black/25 p-1 sm:flex sm:items-center">
+              <div className="grid grid-cols-2 gap-1 rounded-lg bg-[#08080c]/60 p-1 sm:flex sm:items-center">
                 {(["BUY", "SELL"] as const).map((t) => (
                   <button
                     key={t}
@@ -691,7 +691,7 @@ export function P2PBrowseClient() {
                     className={`h-8 rounded-md px-3 text-xs font-black transition-all sm:px-5 ${
                       tab === t
                         ? t === "BUY"
-                          ? "bg-[#22c55e] text-white shadow shadow-[#22c55e]/20"
+                          ? "bg-[#05b957] text-white shadow shadow-[#05b957]/20"
                           : "bg-red-500 text-white shadow shadow-red-500/20"
                         : "text-slate-400 hover:text-white"
                     }`}
@@ -757,7 +757,7 @@ export function P2PBrowseClient() {
           ) : ads.length === 0 ? (
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-black">
+            <div className="overflow-hidden rounded-2xl border border-[#1e1e30] bg-[#0e0e14]">
               {ads.map((ad) => (
                 <AdCard key={ad.id} ad={ad} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
               ))}

@@ -76,7 +76,7 @@ function StatusBadge({ status }: { status: OrderData["status"] }) {
   const map: Record<OrderData["status"], { label: string; color: string }> = {
     PENDING:   { label: "Awaiting Payment", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
     PAID:      { label: "Payment Sent",     color: "text-[#087cff] bg-[#087cff]/10 border-[#087cff]/20" },
-    RELEASED:  { label: "Completed",        color: "text-[#31c45d] bg-[#31c45d]/10 border-[#31c45d]/20" },
+    RELEASED:  { label: "Completed",        color: "text-[#05b957] bg-[#05b957]/10 border-[#05b957]/20" },
     DISPUTED:  { label: "In Dispute",       color: "text-red-400 bg-red-500/10 border-red-500/20" },
     CANCELLED: { label: "Cancelled",        color: "text-slate-400 bg-white/5 border-white/10" },
     EXPIRED:   { label: "Expired",          color: "text-slate-500 bg-white/5 border-white/10" },
@@ -176,7 +176,7 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
           const mine = m.sender.id === currentUserId;
           return (
             <div key={m.id} className={`flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#087cff] to-[#31c45d] flex items-center justify-center text-white text-[10px] font-black shrink-0">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#087cff] to-[#05b957] flex items-center justify-center text-white text-[10px] font-black shrink-0">
                 {senderName(m.sender).charAt(0).toUpperCase()}
               </div>
               <div className={`max-w-[70%] ${mine ? "items-end" : "items-start"} flex flex-col gap-1`}>
@@ -246,7 +246,7 @@ function MobileP2POrderView({
   const canMarkPaid = order.isBuyer && order.status === "PENDING" && merchantIsSelling;
 
   return (
-    <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-black px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
+    <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-[#08080c] px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
       <div className="mb-4 grid grid-cols-[36px_minmax(0,1fr)_auto] items-center border-b border-white/[0.08] pb-3">
         <button type="button" onClick={onBack} className="grid h-9 w-9 place-items-center rounded-full text-white">
           <Icon name="arrow_back" className="text-[21px]" />
@@ -269,19 +269,19 @@ function MobileP2POrderView({
         </div>
       )}
 
-      <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#111] px-4 py-3">
+      <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3">
         <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
           {order.seller.displayName}
           <Icon name="chevron_right" className="text-[16px] text-slate-500" />
         </button>
-        <button type="button" className="rounded-full bg-[#9a621c] px-4 py-2 text-xs font-black text-black">
+        <button type="button" className="rounded-full bg-[#087cff] px-4 py-2 text-xs font-black text-white">
           Contact Seller
         </button>
       </div>
 
       <section className="mb-5">
         <div className="mb-3 flex items-center gap-2">
-          <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[11px] font-black text-black">1</span>
+          <span className="grid h-5 w-5 place-items-center rounded-full border border-[#087cff]/30 bg-[#087cff]/15 text-[11px] font-black text-[#087cff]">1</span>
           <h2 className="text-sm font-black">Transfer via {paymentName}</h2>
         </div>
         <div className="ml-2 border-l border-white/[0.10] pl-4">
@@ -301,7 +301,7 @@ function MobileP2POrderView({
 
       <section className="mb-5">
         <div className="mb-3 flex items-start gap-2">
-          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-black">2</span>
+          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-[#087cff]/30 bg-[#087cff]/15 text-[11px] font-black text-[#087cff]">2</span>
           <h2 className="text-sm font-black">After payment, click the button below so the seller can release the crypto.</h2>
         </div>
         <div className="ml-7 space-y-1 text-[11px] leading-4 text-slate-500">
@@ -318,12 +318,12 @@ function MobileP2POrderView({
             value={paidRef}
             onChange={(e) => setPaidRef(e.target.value)}
             placeholder="M-Pesa confirmation code"
-            className="h-11 w-full rounded-xl border border-white/[0.08] bg-[#111] px-3 text-sm text-white outline-none placeholder:text-slate-700"
+            className="h-11 w-full rounded-xl border border-white/[0.08] bg-[#16161f] px-3 text-sm text-white outline-none placeholder:text-slate-700"
           />
         </div>
       )}
 
-      <button type="button" className="mb-5 flex w-full items-center justify-between rounded-2xl bg-[#111] px-4 py-3 text-left">
+      <button type="button" className="mb-5 flex w-full items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3 text-left">
         <span className="flex items-center gap-2 text-xs text-white">
           <Icon name="tips_and_updates" className="text-[16px] text-[#f59e0b]" />
           Encountered an issue?
@@ -331,12 +331,12 @@ function MobileP2POrderView({
         <Icon name="chevron_right" className="text-[16px] text-slate-500" />
       </button>
 
-      <div className="fixed bottom-14 left-0 right-0 z-40 bg-black px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+      <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-[#1e1e30] bg-[#08080c] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
         <button
           type="button"
           disabled={!canMarkPaid || !!actionLoading}
           onClick={() => onAction("paid", { paymentRef: paidRef || null }, "paid")}
-          className="h-12 w-full rounded-full bg-[#ff9f2d] text-sm font-black text-black disabled:opacity-50"
+          className="h-12 w-full rounded-full bg-[#087cff] text-sm font-black text-white disabled:opacity-50 hover:bg-[#0570e8] transition-colors"
         >
           {actionLoading === "paid" ? "Confirming..." : "Payment Completed"}
         </button>
@@ -445,7 +445,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
       </button>
 
       {/* Order header */}
-      <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl p-5 mb-4">
+      <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-5 mb-4">
         <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
@@ -480,7 +480,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           </div>
           <div>
             <p className="text-slate-600 text-xs mb-0.5">You {order.isBuyer ? "pay" : "receive"}</p>
-            <p className="text-[#31c45d] font-black text-base">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</p>
+            <p className="text-[#05b957] font-black text-base">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</p>
           </div>
           <div>
             <p className="text-slate-600 text-xs mb-0.5">Payment</p>
@@ -515,7 +515,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
 
           {/* Instructions card */}
           {!isClosed && (
-            <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl p-5">
+            <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-5">
               <h2 className="text-white font-black mb-3">
                 {order.status === "PENDING" && order.isBuyer && merchantIsSelling && "How to complete your order"}
                 {order.status === "PENDING" && order.isBuyer && !merchantIsSelling && "Waiting for merchant payment"}
@@ -581,11 +581,11 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               {order.status === "PAID" && order.isSeller && merchantIsSelling && (
                 <ol className="space-y-3 text-sm text-slate-400">
                   <li className="flex gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#31c45d]/20 text-[#31c45d] text-xs font-black flex items-center justify-center shrink-0">1</span>
+                    <span className="w-6 h-6 rounded-full bg-[#05b957]/20 text-[#05b957] text-xs font-black flex items-center justify-center shrink-0">1</span>
                     <span>Check your <strong className="text-white">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank"}</strong> for a payment of <strong className="text-white">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</strong>.</span>
                   </li>
                   <li className="flex gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#31c45d]/20 text-[#31c45d] text-xs font-black flex items-center justify-center shrink-0">2</span>
+                    <span className="w-6 h-6 rounded-full bg-[#05b957]/20 text-[#05b957] text-xs font-black flex items-center justify-center shrink-0">2</span>
                     <span>Once confirmed, click <strong className="text-white">Release Crypto</strong> to complete the trade.</span>
                   </li>
                 </ol>
@@ -623,13 +623,13 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           {isClosed && (
             <div className={`rounded-2xl p-5 border ${
               order.status === "RELEASED"
-                ? "bg-[#31c45d]/5 border-[#31c45d]/20"
+                ? "bg-[#05b957]/5 border-[#05b957]/20"
                 : "bg-white/5 border-white/10"
             }`}>
               <div className="flex items-center gap-3 mb-2">
                 <Icon
                   name={order.status === "RELEASED" ? "check_circle" : "cancel"}
-                  className={`text-2xl ${order.status === "RELEASED" ? "text-[#31c45d]" : "text-slate-500"}`}
+                  className={`text-2xl ${order.status === "RELEASED" ? "text-[#05b957]" : "text-slate-500"}`}
                 />
                 <h2 className="text-white font-black text-lg">
                   {order.status === "RELEASED" ? "Trade Completed!" : order.status === "CANCELLED" ? "Order Cancelled" : "Order Expired"}
@@ -637,7 +637,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               </div>
               {order.status === "RELEASED" && (
                 <p className="text-slate-400 text-sm">
-                  <strong className="text-[#31c45d]">{Number(order.cryptoAmount).toFixed(6)} {order.crypto}</strong> has been released successfully.
+                  <strong className="text-[#05b957]">{Number(order.cryptoAmount).toFixed(6)} {order.crypto}</strong> has been released successfully.
                 </p>
               )}
               {order.cancelReason && (
@@ -648,7 +648,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
 
           {/* Action buttons */}
           {!isClosed && (
-            <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl p-5 space-y-4">
+            <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-5 space-y-4">
 
               {/* Buyer: I've Paid */}
               {order.isBuyer && order.status === "PENDING" && merchantIsSelling && (
@@ -694,7 +694,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 <button
                   onClick={() => doAction("release", {}, "release")}
                   disabled={!!actionLoading}
-                  className="w-full py-3 rounded-xl font-black text-white bg-[#31c45d] hover:bg-[#28af52] disabled:opacity-50 transition-all active:scale-[0.98]"
+                  className="w-full py-3 rounded-xl font-black text-white bg-[#05b957] hover:bg-[#28af52] disabled:opacity-50 transition-all active:scale-[0.98]"
                 >
                   {actionLoading === "release"
                     ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Releasing…</span>
@@ -706,7 +706,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 <button
                   onClick={() => doAction("release", {}, "release")}
                   disabled={!!actionLoading}
-                  className="w-full py-3 rounded-xl font-black text-white bg-[#31c45d] hover:bg-[#28af52] disabled:opacity-50 transition-all active:scale-[0.98]"
+                  className="w-full py-3 rounded-xl font-black text-white bg-[#05b957] hover:bg-[#28af52] disabled:opacity-50 transition-all active:scale-[0.98]"
                 >
                   {actionLoading === "release"
                     ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Releasing…</span>
@@ -799,12 +799,12 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
         </div>
 
         {/* RIGHT: Chat */}
-        <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col" style={{ minHeight: "420px" }}>
+        <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col" style={{ minHeight: "420px" }}>
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
             <Icon name="chat" className="text-slate-500 text-base" />
             <span className="text-slate-300 font-bold text-sm">Order Chat</span>
             {!isClosed && (
-              <span className="ml-auto w-2 h-2 rounded-full bg-[#31c45d] animate-pulse" title="Live" />
+              <span className="ml-auto w-2 h-2 rounded-full bg-[#05b957] animate-pulse" title="Live" />
             )}
           </div>
           <div className="flex-1 min-h-0">

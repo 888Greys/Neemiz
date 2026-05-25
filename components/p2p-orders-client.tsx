@@ -29,7 +29,7 @@ function StatusBadge({ status }: { status: OrderStatus }) {
   const map: Record<OrderStatus, { label: string; color: string }> = {
     PENDING:   { label: "Pending",    color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
     PAID:      { label: "Paid",       color: "text-[#087cff] bg-[#087cff]/10 border-[#087cff]/20" },
-    RELEASED:  { label: "Completed",  color: "text-[#31c45d] bg-[#31c45d]/10 border-[#31c45d]/20" },
+    RELEASED:  { label: "Completed",  color: "text-[#05b957] bg-[#05b957]/10 border-[#05b957]/20" },
     DISPUTED:  { label: "Disputed",   color: "text-red-400 bg-red-500/10 border-red-500/20" },
     CANCELLED: { label: "Cancelled",  color: "text-slate-400 bg-white/5 border-white/10" },
     EXPIRED:   { label: "Expired",    color: "text-slate-500 bg-white/5 border-white/10" },
@@ -133,7 +133,7 @@ export function P2POrdersClient() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-white/[0.06] bg-[#070a10] px-6 py-8 text-center">
+        <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-6 py-8 text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
             <Icon name="receipt_long" className="text-xl text-slate-500" />
           </div>
@@ -158,17 +158,17 @@ export function P2POrdersClient() {
           {filtered.map((order) => (
             <div
               key={order.id}
-              className="rounded-2xl border border-white/[0.06] bg-[#101722] px-4 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-colors hover:border-white/[0.1]"
+              className="rounded-2xl border border-white/[0.06] bg-[#16161f] px-4 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-colors hover:border-white/[0.1]"
             >
               <div className="flex flex-col gap-4">
                 {/* Left: status + crypto */}
                 <div className="flex min-w-0 items-center gap-3">
                   <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center ${
-                    order.isBuyer ? "bg-[#0b3326]" : "bg-[#351b24]"
+                    order.isBuyer ? "bg-[#05b957]/10" : "bg-red-500/10"
                   }`}>
                     <Icon
                       name={order.isBuyer ? "arrow_downward" : "arrow_upward"}
-                      className={`text-base ${order.isBuyer ? "text-[#31c45d]" : "text-red-400"}`}
+                      className={`text-base ${order.isBuyer ? "text-[#05b957]" : "text-red-400"}`}
                     />
                   </div>
                   <div className="min-w-0">
@@ -190,7 +190,7 @@ export function P2POrdersClient() {
                   </div>
                   <div>
                     <p className="text-slate-600 text-xs mb-0.5">You {order.isBuyer ? "paid" : "received"}</p>
-                    <p className="text-[#31c45d] font-black text-sm">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</p>
+                    <p className="text-[#05b957] font-black text-sm">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</p>
                   </div>
                   <div>
                     <p className="text-slate-600 text-xs mb-0.5">{order.isBuyer ? "Merchant" : "Buyer"}</p>

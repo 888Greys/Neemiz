@@ -76,7 +76,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
       {/* Hero */}
-      <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#087cff]/20 bg-gradient-to-br from-[#0d1a2e] via-[#0a1220] to-[#0d1420] p-6 text-center sm:p-8">
+      <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#1e1e30] bg-gradient-to-br from-[#111118] to-[#0e0e14] p-6 text-center sm:p-8">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-40 bg-[#087cff]/10 rounded-full blur-3xl pointer-events-none" />
         <div className="relative">
           <div className="w-16 h-16 rounded-2xl bg-[#087cff]/15 border border-[#087cff]/25 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#087cff]/10">
@@ -98,7 +98,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
           { icon: "verified",       label: "Trust Badge",     desc: "Verified badge builds buyer confidence" },
           { icon: "payments",       label: "Local Payments",  desc: "M-Pesa and bank transfers supported" },
         ].map(({ icon, label, desc }) => (
-          <div key={label} className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-[#087cff]/20 transition-colors">
+          <div key={label} className="bg-[#111118] border border-white/[0.06] rounded-xl p-4 hover:border-[#087cff]/20 transition-colors">
             <div className="w-8 h-8 rounded-lg bg-[#087cff]/10 flex items-center justify-center mb-3">
               <Icon name={icon} className="text-[#087cff] text-sm" />
             </div>
@@ -109,7 +109,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       </div>
 
       {/* How it works */}
-      <div className="mb-5 rounded-2xl border border-white/[0.06] bg-[#0a0f1a] p-5 sm:p-6">
+      <div className="mb-5 rounded-2xl border border-white/[0.06] bg-[#111118] p-5 sm:p-6">
         <h2 className="text-white font-black text-base mb-4">How it works</h2>
         <div className="flex flex-col sm:flex-row gap-4">
           {[
@@ -139,7 +139,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
 
       {/* Application form */}
       <div className="max-w-lg">
-        <div className="bg-[#0a0f1a] border border-white/[0.07] rounded-2xl p-6">
+        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-6">
           <h2 className="text-white font-black text-lg mb-1">Start your application</h2>
           <p className="text-slate-500 text-sm mb-5">Takes less than a minute. Reviewed within 24 hours.</p>
 
@@ -229,7 +229,7 @@ function ApplicationStatus({ status, onRefresh }: { status: MerchantStatus; onRe
         </div>
 
         {isRejected && (
-          <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl p-5">
+          <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-5">
             <p className="text-slate-400 text-sm mb-4">
               You can re-apply with updated information. Make sure your display name follows our guidelines.
             </p>
@@ -257,7 +257,7 @@ function ApplicationStatus({ status, onRefresh }: { status: MerchantStatus; onRe
 function Badge({ status }: { status: "PENDING" | "APPROVED" | "REJECTED" }) {
   const styles = {
     PENDING:  "bg-amber-500/10 text-amber-400 border-amber-500/20",
-    APPROVED: "bg-[#31c45d]/10 text-[#31c45d] border-[#31c45d]/20",
+    APPROVED: "bg-[#05b957]/10 text-[#05b957] border-[#05b957]/20",
     REJECTED: "bg-red-500/10 text-red-400 border-red-500/20",
   };
   return (
@@ -353,7 +353,7 @@ function DepositSection() {
     : null;
 
   return (
-    <div className="mb-5 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0f1a]">
+    <div className="mb-5 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#111118]">
       {/* Header */}
       <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-4">
         <div>
@@ -362,7 +362,7 @@ function DepositSection() {
         </div>
         <button
           onClick={() => { setOpen((v) => !v); setAddress(null); }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#31c45d] text-white font-black text-sm hover:bg-[#28af52] transition-colors shadow-lg shadow-[#31c45d]/20"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#05b957] text-white font-black text-sm hover:bg-[#28af52] transition-colors shadow-lg shadow-[#05b957]/20"
         >
           <Icon name="add" className="text-base" />
           Deposit
@@ -403,7 +403,7 @@ function DepositSection() {
                     onClick={() => handleCryptoChange(c)}
                     className={`flex-1 rounded-xl border py-2 text-xs font-black transition-all ${
                       crypto === c
-                        ? "bg-[#31c45d]/15 border-[#31c45d] text-[#31c45d]"
+                        ? "bg-[#05b957]/15 border-[#05b957] text-[#05b957]"
                         : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
                     }`}
                   >
@@ -436,7 +436,7 @@ function DepositSection() {
               <button
                 onClick={fetchAddress}
                 disabled={addrLoading}
-                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#31c45d] px-4 text-sm font-black text-white transition-all hover:bg-[#28af52] disabled:opacity-50"
+                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#05b957] px-4 text-sm font-black text-white transition-all hover:bg-[#28af52] disabled:opacity-50"
               >
                 {addrLoading
                   ? <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Generating...</>
@@ -475,7 +475,7 @@ function DepositSection() {
                     onClick={copyAddress}
                     className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all mx-auto sm:mx-0 ${
                       copied
-                        ? "bg-[#31c45d]/20 border border-[#31c45d] text-[#31c45d]"
+                        ? "bg-[#05b957]/20 border border-[#05b957] text-[#05b957]"
                         : "bg-white/[0.07] border border-white/10 text-white hover:bg-white/[0.12]"
                     }`}
                   >
@@ -487,7 +487,7 @@ function DepositSection() {
 
               {/* Auto-detect notice */}
               <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#31c45d] animate-pulse shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#05b957] animate-pulse shrink-0" />
                 Deposits are detected automatically on-chain. Credit appears within 1–5 minutes of confirmation.
               </div>
 
@@ -505,7 +505,7 @@ function DepositSection() {
       {/* Deposit history table */}
       {loading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="w-5 h-5 border-2 border-white/10 border-t-[#31c45d] rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-white/10 border-t-[#05b957] rounded-full animate-spin" />
         </div>
       ) : deposits.length === 0 ? (
         <div className="flex min-h-[120px] flex-col items-center justify-center px-4 py-5 text-center">
@@ -603,8 +603,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="no-scrollbar w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0d1420] shadow-2xl max-h-[calc(100dvh-3rem)]" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 flex items-center justify-between rounded-t-2xl border-b border-white/[0.07] bg-[#0d1420] px-6 py-3">
+      <div className="no-scrollbar w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0e0e14] shadow-2xl max-h-[calc(100dvh-3rem)]" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 flex items-center justify-between rounded-t-2xl border-b border-white/[0.07] bg-[#0e0e14] px-6 py-3">
           <h3 className="text-white font-black text-lg">{isEditing ? "Edit Ad" : "Create New Ad"}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all">
             <Icon name="close" className="text-lg" />
@@ -738,9 +738,9 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-black text-white">{status.displayName}</h1>
-              <div className="flex items-center gap-1 bg-[#31c45d]/10 border border-[#31c45d]/20 rounded-full px-2 py-0.5">
-                <Icon name="verified" className="text-[#31c45d] text-xs" />
-                <span className="text-[#31c45d] text-[10px] font-black">Verified</span>
+              <div className="flex items-center gap-1 bg-[#05b957]/10 border border-[#05b957]/20 rounded-full px-2 py-0.5">
+                <Icon name="verified" className="text-[#05b957] text-xs" />
+                <span className="text-[#05b957] text-[10px] font-black">Verified</span>
               </div>
             </div>
             <p className="text-slate-500 text-xs mt-0.5">
@@ -771,7 +771,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         return (
           <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             {/* Active Ads */}
-            <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-[#087cff]/20 transition-colors">
+            <div className="bg-[#111118] border border-white/[0.06] rounded-xl p-4 hover:border-[#087cff]/20 transition-colors">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-slate-500 text-xs">Active Ads</p>
                 <Icon name="campaign" className="text-[#087cff] text-sm opacity-60" />
@@ -781,17 +781,17 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </div>
 
             {/* Listed crypto */}
-            <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-[#31c45d]/20 transition-colors">
+            <div className="bg-[#111118] border border-white/[0.06] rounded-xl p-4 hover:border-[#05b957]/20 transition-colors">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-slate-500 text-xs">Listed Crypto</p>
-                <Icon name="currency_bitcoin" className="text-[#31c45d] text-sm opacity-60" />
+                <Icon name="currency_bitcoin" className="text-[#05b957] text-sm opacity-60" />
               </div>
-              <p className="font-black text-2xl text-[#31c45d]">{totalAvail.toFixed(4)}</p>
+              <p className="font-black text-2xl text-[#05b957]">{totalAvail.toFixed(4)}</p>
               <p className="text-slate-600 text-[11px] mt-1">{totalListed.toFixed(4)} total · {cryptos.join(", ") || "—"}</p>
             </div>
 
             {/* KES value */}
-            <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-amber-500/20 transition-colors">
+            <div className="bg-[#111118] border border-white/[0.06] rounded-xl p-4 hover:border-amber-500/20 transition-colors">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-slate-500 text-xs">Est. KES Value</p>
                 <Icon name="payments" className="text-amber-400 text-sm opacity-60" />
@@ -803,14 +803,14 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </div>
 
             {/* Account */}
-            <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-xl p-4 hover:border-[#31c45d]/20 transition-colors">
+            <div className="bg-[#111118] border border-white/[0.06] rounded-xl p-4 hover:border-[#05b957]/20 transition-colors">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-slate-500 text-xs">Account</p>
-                <Icon name="shield" className="text-[#31c45d] text-sm opacity-60" />
+                <Icon name="shield" className="text-[#05b957] text-sm opacity-60" />
               </div>
               <div className="flex items-center gap-1.5 mb-1">
-                <Icon name="verified" className="text-[#31c45d] text-sm" />
-                <p className="font-black text-sm text-[#31c45d]">Verified</p>
+                <Icon name="verified" className="text-[#05b957] text-sm" />
+                <p className="font-black text-sm text-[#05b957]">Verified</p>
               </div>
               <p className="text-slate-600 text-[11px]">
                 {status.createdAt ? `Since ${new Date(status.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}` : "Active"}
@@ -824,7 +824,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       <DepositSection />
 
       {/* Ads list */}
-      <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
           <div>
             <h2 className="text-white font-black text-base">My Ads</h2>
@@ -854,12 +854,12 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               const filled = Number(ad.totalAmount) - Number(ad.availableAmount);
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
               return (
-                <div key={ad.id} className="rounded-2xl border border-white/[0.06] bg-[#101722] p-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-colors hover:border-white/[0.12]">
+                <div key={ad.id} className="rounded-2xl border border-white/[0.06] bg-[#16161f] p-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-colors hover:border-white/[0.12]">
                   {/* Row 1: side badge + crypto + price + status */}
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className={`shrink-0 px-2.5 py-0.5 rounded-md text-[10px] font-black ${
-                        ad.side === "SELL" ? "text-red-400 bg-red-500/15" : "text-[#31c45d] bg-[#31c45d]/15"
+                        ad.side === "SELL" ? "text-red-400 bg-red-500/15" : "text-[#05b957] bg-[#05b957]/15"
                       }`}>{ad.side}</span>
                       <div className="min-w-0">
                         <span className="text-white font-black text-sm">{ad.crypto}</span>
@@ -868,13 +868,13 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={`w-1.5 h-1.5 rounded-full ${ad.isActive ? "bg-[#31c45d] animate-pulse" : "bg-slate-600"}`} />
-                      <span className={`text-[11px] font-bold ${ad.isActive ? "text-[#31c45d]" : "text-slate-500"}`}>{ad.isActive ? "Active" : "Paused"}</span>
+                      <span className={`w-1.5 h-1.5 rounded-full ${ad.isActive ? "bg-[#05b957] animate-pulse" : "bg-slate-600"}`} />
+                      <span className={`text-[11px] font-bold ${ad.isActive ? "text-[#05b957]" : "text-slate-500"}`}>{ad.isActive ? "Active" : "Paused"}</span>
                     </div>
                   </div>
 
                   {ad.validationError && (
-                    <div className="mb-3 rounded-lg border border-[#9a621c]/30 bg-[#211700] px-3 py-2 text-[11px] font-semibold leading-5 text-[#f6a32d]">
+                    <div className="mb-3 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.08] px-3 py-2 text-[11px] font-semibold leading-5 text-[#f59e0b]">
                       {ad.validationError}
                     </div>
                   )}
@@ -930,7 +930,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                       className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-black transition-colors ${
                         ad.isActive
                           ? "bg-[#2a200d] text-amber-300 hover:bg-[#392b10]"
-                          : "bg-[#0d3522] text-[#31c45d] hover:bg-[#10462c]"
+                          : "bg-[#0d3522] text-[#05b957] hover:bg-[#10462c]"
                       }`}
                     >
                       <Icon name={ad.isActive ? "pause" : "play_arrow"} className="text-sm" />
