@@ -1,44 +1,41 @@
-import { db } from "@/lib/db";
-import { serializeRound, createNewRound } from "@/lib/aviator/round";
+import {
+  callAviatorService,
+  mapGoStatus,
+  roundNumberFromState,
+  type GoAviatorState,
+} from "@/lib/aviator/service";
 
 export const dynamic = "force-dynamic";
 
-/**
- * GET /api/aviator/state
- *
- * Returns the current round state + all bets for the live panel.
- * If no round exists (first load), creates the first WAITING round.
- * Safe to poll — no auth required.
- */
+const BETTING_MS = 5_000;
+
 export async function GET() {
-  let round = await db.aviatorRound.findFirst({
-    where:   { state: { not: "CRASHED" } },
-    orderBy: { createdAt: "desc" },
-    include: {
-      bets: {
-        include: { user: { select: { id: true, username: true } } },
-        orderBy: { placedAt: "asc" },
-      },
+  const state = await callAviatorService<GoAviatorState>("/api/v1/game/state");
+  const mappedState = mapGoStatus(state.status);
+  const start = new Date(state.start_time);
+
+  return Response.json({
+    round: {
+      id: state.round_id,
+      roundNumber: roundNumberFromState(state),
+      serverSeedHash: state.hash_commitment,
+      serverSeed: undefined,
+      crashPoint: mappedState === "CRASHED" ? state.current_multiplier : undefined,
+      state: mappedState,
+      bettingEndsAt:
+        mappedState === "BETTING" && !Number.isNaN(start.getTime())
+          ? new Date(start.getTime() + BETTING_MS).toISOString()
+          : null,
+      flyingStartedAt:
+        mappedState === "FLYING" && !Number.isNaN(start.getTime())
+          ? new Date(start.getTime() + BETTING_MS).toISOString()
+          : null,
+      crashedAt:
+        mappedState === "CRASHED" && state.crash_time && !state.crash_time.startsWith("0001-")
+          ? state.crash_time
+          : null,
+      createdAt: state.start_time,
     },
+    bets: [],
   });
-
-  if (!round) {
-    const lastCrashed = await db.aviatorRound.findFirst({
-      orderBy: { createdAt: "desc" },
-      include: {
-        bets: {
-          include: { user: { select: { id: true, username: true } } },
-          orderBy: { placedAt: "asc" },
-        },
-      },
-    });
-
-    if (!lastCrashed) {
-      round = await createNewRound();
-    } else {
-      round = lastCrashed as unknown as typeof round;
-    }
-  }
-
-  return Response.json(serializeRound(round!));
 }

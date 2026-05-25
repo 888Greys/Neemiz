@@ -1,32 +1,30 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { TransactionType, TransactionStatus } from "@prisma/client";
-import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { TransactionStatus, TransactionType } from "@prisma/client";
+import {
+  callAviatorService,
+  type GoAviatorState,
+  type GoBetResponse,
+} from "@/lib/aviator/service";
 
-const MIN_BET = 10;  // KES
-const MAX_BET = 50_000; // KES
+const MIN_BET = 10;
+const MAX_BET = 10_000;
 
-/**
- * POST /api/aviator/bet
- * Body: { betAmount, panelIndex, autoCashout? }
- *
- * Places a bet for the current BETTING round.
- * Atomically deducts balance + creates BET_STAKE transaction + creates AviatorBet.
- */
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: { betAmount: number; panelIndex: 0 | 1; autoCashout?: number };
-  try   { body = await req.json(); }
-  catch { return Response.json({ error: "Invalid request body" }, { status: 400 }); }
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "Invalid request body" }, { status: 400 });
+  }
 
   const { betAmount, panelIndex, autoCashout } = body;
-
-  // ── Validation ─────────────────────────────────────────────────────────────
-  if (!betAmount || betAmount < MIN_BET) {
+  if (!Number.isFinite(betAmount) || betAmount < MIN_BET) {
     return Response.json({ error: `Minimum bet is KSh ${MIN_BET}` }, { status: 400 });
   }
   if (betAmount > MAX_BET) {
@@ -35,104 +33,94 @@ export async function POST(req: Request) {
   if (panelIndex !== 0 && panelIndex !== 1) {
     return Response.json({ error: "panelIndex must be 0 or 1" }, { status: 400 });
   }
-  if (autoCashout !== undefined && autoCashout < 1.01) {
-    return Response.json({ error: "Auto-cashout must be at least 1.01x" }, { status: 400 });
+  if (autoCashout !== undefined && autoCashout !== null) {
+    return Response.json({ error: "Auto-cashout is temporarily disabled while Aviator uses the new engine" }, { status: 400 });
+  }
+
+  const state = await callAviatorService<GoAviatorState>("/api/v1/game/state");
+  if (state.status !== "BETTING") {
+    return Response.json({ error: "Betting is not open right now" }, { status: 409 });
   }
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
-  // ── Find current BETTING round ─────────────────────────────────────────────
-  const round = await db.aviatorRound.findFirst({
-    where:   { state: "BETTING" },
-    orderBy: { createdAt: "desc" },
-  });
-
-  if (!round) {
-    return Response.json({ error: "Betting is not open right now" }, { status: 409 });
-  }
-
-  // Check if already bet on this panel for this round
-  const existing = await db.aviatorBet.findUnique({
-    where: { roundId_userId_panelIndex: { roundId: round.id, userId: dbUser.id, panelIndex } },
-  });
-  if (existing) {
-    return Response.json({ error: "Already placed a bet on this panel" }, { status: 409 });
-  }
-
-  // ── Atomic: deduct balance + create bet ───────────────────────────────────
-  let bet;
   try {
-    bet = await db.$transaction(async (tx) => {
-      const currentUser = await tx.user.findUnique({ where: { id: dbUser.id } });
-      if (!currentUser || Number(currentUser.walletBalance) < betAmount) {
-        throw new Error("INSUFFICIENT_BALANCE");
-      }
-
+    await db.$transaction(async (tx) => {
       const debited = await tx.user.updateMany({
         where: { id: dbUser.id, walletBalance: { gte: betAmount } },
-        data:  { walletBalance: { decrement: betAmount } },
+        data: { walletBalance: { decrement: betAmount } },
       });
       if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
       await tx.transaction.create({
         data: {
-          userId:    dbUser.id,
-          type:      TransactionType.BET_STAKE,
-          amount:    betAmount,
-          currency:  "KES",
-          status:    TransactionStatus.COMPLETED,
-          reference: `aviator-stake-${dbUser.id}-${round.id}-${panelIndex}`,
-          metadata:  { game: "aviator", roundId: round.id, panelIndex },
-        },
-      });
-
-      return tx.aviatorBet.create({
-        data: {
-          roundId:    round.id,
-          userId:     dbUser.id,
-          panelIndex,
-          betAmount,
-          autoCashout: autoCashout ?? null,
+          userId: dbUser.id,
+          type: TransactionType.BET_STAKE,
+          amount: betAmount,
+          currency: "KES",
+          status: TransactionStatus.COMPLETED,
+          reference: `aviator-stake-${dbUser.id}-${state.round_id}-${panelIndex}-${Date.now()}`,
+          provider: "aviator-service",
+          metadata: { game: "aviator", roundId: state.round_id, panelIndex },
         },
       });
     });
-  } catch (err: unknown) {
-    if ((err as Error).message === "INSUFFICIENT_BALANCE") {
+  } catch (err) {
+    if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
     }
-    console.error("Aviator bet error:", err);
+    console.error("Aviator wallet debit failed:", err);
     return Response.json({ error: "Failed to place bet" }, { status: 500 });
   }
 
-  // ── Broadcast bet to live panel ────────────────────────────────────────────
   try {
-    const supabaseAdmin = createSupabaseAdmin(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
-    await supabaseAdmin.channel("aviator").send({
-      type:    "broadcast",
-      event:   "bet:placed",
-      payload: {
-        betId:       bet.id,
-        roundId:     round.id,
-        userId:      dbUser.id,
-        username:    dbUser.username,
-        panelIndex,
-        betAmount,
-        autoCashout: autoCashout ?? null,
-        status:      "ACTIVE",
-        placedAt:    bet.placedAt.toISOString(),
-      },
+    await callAviatorService(`/api/v1/user/${encodeURIComponent(dbUser.id)}/balance`, {
+      method: "POST",
+      body: JSON.stringify({ balance: betAmount }),
     });
-  } catch { /* non-critical */ }
 
-  return Response.json({
-    ok:         true,
-    betId:      bet.id,
-    roundId:    round.id,
-    betAmount,
-    panelIndex,
-    autoCashout: autoCashout ?? null,
-  }, { status: 201 });
+    const placed = await callAviatorService<GoBetResponse>("/api/v1/game/bet", {
+      method: "POST",
+      body: JSON.stringify({
+        user_id: dbUser.id,
+        amount: betAmount,
+        round_id: state.round_id,
+      }),
+    });
+
+    if (!placed.success || !placed.bet_id) {
+      throw new Error(placed.message || "Aviator service rejected bet");
+    }
+
+    return Response.json({
+      ok: true,
+      betId: placed.bet_id,
+      roundId: state.round_id,
+      betAmount,
+      panelIndex,
+      autoCashout: null,
+    }, { status: 201 });
+  } catch (err) {
+    await db.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: dbUser.id },
+        data: { walletBalance: { increment: betAmount } },
+      });
+      await tx.transaction.create({
+        data: {
+          userId: dbUser.id,
+          type: TransactionType.REFUND,
+          amount: betAmount,
+          currency: "KES",
+          status: TransactionStatus.COMPLETED,
+          reference: `aviator-refund-${dbUser.id}-${state.round_id}-${panelIndex}-${Date.now()}`,
+          provider: "aviator-service",
+          metadata: { game: "aviator", roundId: state.round_id, panelIndex, reason: "service_rejected_bet" },
+        },
+      });
+    });
+
+    console.error("Aviator service bet failed:", err);
+    return Response.json({ error: err instanceof Error ? err.message : "Aviator service rejected bet" }, { status: 502 });
+  }
 }
