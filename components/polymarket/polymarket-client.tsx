@@ -188,8 +188,30 @@ function HeroCard({ market, allMarkets, onBet, onOpen }: { market: PolymarketMar
 
       {/* ── Outcome buttons + chart ── */}
       <div className="grid grid-cols-1 gap-0 sm:grid-cols-[300px_1fr]">
-        {/* Left: buttons + stats */}
-        <div className="flex flex-col gap-3 border-r border-white/[0.06] p-5">
+        {/* Mobile: compact inline YES/NO row */}
+        <div className="flex items-center gap-2 border-r border-white/[0.06] px-4 py-3 sm:hidden">
+          <button
+            onClick={() => onBet(market, yesLbl)}
+            className="flex flex-1 items-center justify-between rounded-xl px-3 py-2 transition active:scale-95"
+            style={{ background: "rgba(133,77,14,0.55)" }}
+          >
+            <span className="text-xs font-black uppercase tracking-wide text-amber-300">{yesLbl}</span>
+            <span className="text-sm font-black text-white">{yesMult}×</span>
+          </button>
+          <button
+            onClick={() => onBet(market, noLbl)}
+            className="flex flex-1 items-center justify-between rounded-xl bg-white/[0.07] px-3 py-2 transition hover:bg-white/[0.11] active:scale-95"
+          >
+            <span className="text-xs font-black uppercase tracking-wide text-white/60">{noLbl}</span>
+            <span className="text-sm font-black text-white/50">{noMult}×</span>
+          </button>
+          <span className="ml-1 shrink-0 text-[10px] font-bold text-white/20">
+            {formatMarketMoney(market.volume)}
+          </span>
+        </div>
+
+        {/* Desktop: full-width stacked buttons + ticker + vol */}
+        <div className="hidden flex-col gap-3 border-r border-white/[0.06] p-5 sm:flex">
           <button
             onClick={() => onBet(market, yesLbl)}
             className="flex h-10 items-center justify-between rounded-xl px-4 transition"
@@ -205,18 +227,15 @@ function HeroCard({ market, allMarkets, onBet, onOpen }: { market: PolymarketMar
             <span className="text-sm font-black uppercase tracking-wide text-white/60">{noLbl}</span>
             <span className="text-base font-black text-white/50">{noMult}×</span>
           </button>
-
-          {/* Live market news ticker — desktop only */}
-          <div className="mt-1 hidden flex-1 overflow-hidden sm:block">
+          <div className="mt-1 flex-1 overflow-hidden">
             <NewsTicker markets={allMarkets} />
           </div>
-
           <div className="mt-auto pt-2 text-[11px] font-bold text-white/25">
             {formatMarketMoney(market.volume)} / {formatMarketMoneyKes(market.volume)} Vol.
           </div>
         </div>
 
-        {/* Right: real probability chart — hidden on mobile */}
+        {/* Chart — hidden on mobile */}
         <div className="hidden flex-col gap-0 sm:flex">
           <div className="px-5 pt-4 pb-3">
             {market.clobTokenIds.length > 0 ? (
@@ -326,6 +345,8 @@ function HeroCarousel({ markets, allMarkets, onBet, onOpen }: { markets: Polymar
 
 /* ── Breaking news sidebar ──────────────────────────────────────────────── */
 function BreakingNews({ markets, onOpen }: { markets: PolymarketMarket[]; onOpen: (m: PolymarketMarket) => void }) {
+  if (markets.length === 0) return null;
+
   return (
     <div className="rounded-2xl border border-white/[0.08] bg-[#1a1b22] p-5">
       <div className="mb-4 flex items-center justify-between">
@@ -371,6 +392,8 @@ function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTag
     for (const m of markets) for (const t of m.tags) map.set(t, (map.get(t) ?? 0) + m.volume);
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag, vol]) => ({ tag, vol }));
   }, [markets]);
+
+  if (topics.length === 0) return null;
 
   return (
     <div className="rounded-2xl border border-white/[0.08] bg-[#1a1b22] p-5">
@@ -1059,8 +1082,8 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
               ) : null}
             </div>
 
-            {/* Right sidebar */}
-            <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
+            {/* Right sidebar — hidden on mobile (Breaking News + Hot Topics stack messily) */}
+            <div className="hidden flex-col gap-4 lg:flex lg:sticky lg:top-24 lg:self-start">
               {loading ? (
                 <>
                   <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
