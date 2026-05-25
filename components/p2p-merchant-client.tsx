@@ -848,93 +848,90 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </button>
           </div>
         ) : (
-          <div className="grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-3">
+          <div>
             {ads.map((ad) => {
               const pmLabel = (m: string) => m === "MPESA" ? "M-Pesa" : m === "BANK" ? "Bank" : m;
               const filled = Number(ad.totalAmount) - Number(ad.availableAmount);
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
+              const cryptoColor: Record<string, string> = { USDT: "#26a17b", BTC: "#f7931a", ETH: "#627eea", BNB: "#f0b90b" };
+              const dotColor = cryptoColor[ad.crypto] ?? "#087cff";
               return (
-                <div key={ad.id} className="rounded-2xl border border-white/[0.06] bg-[#16161f] p-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-colors hover:border-white/[0.12]">
-                  {/* Row 1: side badge + crypto + price + status */}
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`shrink-0 px-2.5 py-0.5 rounded-md text-[10px] font-black ${
-                        ad.side === "SELL" ? "text-red-400 bg-red-500/15" : "text-[#05b957] bg-[#05b957]/15"
-                      }`}>{ad.side}</span>
-                      <div className="min-w-0">
-                        <span className="text-white font-black text-sm">{ad.crypto}</span>
-                        <span className="text-slate-500 text-xs ml-1.5">at</span>
-                        <span className="text-[#2f9bff] font-black text-sm ml-1.5">{ad.pricePerUnit.toLocaleString("en-KE")} KES</span>
+                <div key={ad.id} className="grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_90px] gap-3 border-b border-[#1e1e30] bg-[#0e0e14] px-3 py-3 last:border-b-0 transition hover:bg-[#111118] sm:px-4">
+                  <div className="min-w-0">
+                    {/* Row 1: crypto dot + name + side badge + status */}
+                    <div className="mb-1.5 flex min-w-0 items-center gap-2">
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-black" style={{ backgroundColor: dotColor }}>
+                        {ad.crypto.charAt(0)}
                       </div>
+                      <span className="text-[12px] font-black text-white">{ad.crypto}</span>
+                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+                        ad.side === "SELL" ? "bg-red-500/12 text-red-400" : "bg-[#05b957]/12 text-[#05b957]"
+                      }`}>{ad.side}</span>
+                      <span className={`ml-auto flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+                        ad.isActive ? "bg-[#05b957]/10 text-[#05b957]" : "bg-white/[0.05] text-slate-500"
+                      }`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${ad.isActive ? "bg-[#05b957] animate-pulse" : "bg-slate-600"}`} />
+                        {ad.isActive ? "Active" : "Paused"}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={`w-1.5 h-1.5 rounded-full ${ad.isActive ? "bg-[#05b957] animate-pulse" : "bg-slate-600"}`} />
-                      <span className={`text-[11px] font-bold ${ad.isActive ? "text-[#05b957]" : "text-slate-500"}`}>{ad.isActive ? "Active" : "Paused"}</span>
-                    </div>
-                  </div>
 
-                  {ad.validationError && (
-                    <div className="mb-3 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.08] px-3 py-2 text-[11px] font-semibold leading-5 text-[#f59e0b]">
-                      {ad.validationError}
+                    {/* Row 2: large price */}
+                    <div className="mb-2.5">
+                      <p className="text-[10px] font-semibold leading-3 text-white/45">KES</p>
+                      <p className="text-[21px] font-black leading-tight text-white tabular-nums">
+                        {ad.pricePerUnit.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
                     </div>
-                  )}
 
-                  {/* Row 2: stats grid */}
-                  <div className="mb-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                    <div>
-                      <p className="text-slate-600 mb-0.5">Available</p>
-                      <p className="text-slate-200 font-bold">{Number(ad.availableAmount).toFixed(4)} {ad.crypto}</p>
+                    {/* Row 3: limits + quantity */}
+                    <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40">
+                      <p>Limits <span className="text-white/65">{ad.minLimit.toLocaleString("en-KE")} – {ad.maxLimit.toLocaleString("en-KE")} KES</span></p>
+                      <p>Quantity <span className="text-white/65">{Number(ad.availableAmount).toLocaleString("en-KE", { maximumFractionDigits: 4 })} {ad.crypto}</span></p>
                     </div>
-                    <div>
-                      <p className="text-slate-600 mb-0.5">Total listed</p>
-                      <p className="text-slate-200 font-bold">{Number(ad.totalAmount).toFixed(4)} {ad.crypto}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-600 mb-0.5">Order limit</p>
-                      <p className="text-slate-200 font-bold">KSh {ad.minLimit.toLocaleString()} – {ad.maxLimit.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-600 mb-0.5">Pay window</p>
-                      <p className="text-slate-200 font-bold">{ad.paymentWindow} min</p>
-                    </div>
-                  </div>
 
-                  {/* Row 3: payment methods + fill bar */}
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div className="flex flex-wrap gap-1.5">
+                    {/* Row 4: payment methods */}
+                    <div className="mt-1.5 flex min-w-0 flex-wrap gap-x-2 gap-y-1">
                       {ad.paymentMethods.map((m) => (
-                        <span key={m} className="rounded-md bg-[#087cff]/15 px-2 py-0.5 text-[10px] font-bold text-[#4da3ff]">
+                        <span key={m} className="flex items-center gap-1 text-[10px] font-semibold text-white/45">
+                          <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
                           {pmLabel(m)}
                         </span>
                       ))}
                     </div>
-                    {/* Fill progress */}
-                    <div className="shrink-0 text-right min-w-[80px]">
-                      <p className="text-slate-600 text-[10px] mb-1">{fillPct.toFixed(0)}% filled</p>
-                      <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden w-20">
-                        <div className="h-full bg-[#087cff] rounded-full transition-all" style={{ width: `${fillPct}%` }} />
+
+                    {/* Fill bar */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="h-1 w-20 overflow-hidden rounded-full bg-white/[0.06]">
+                        <div className="h-full rounded-full bg-[#087cff] transition-all" style={{ width: `${fillPct}%` }} />
                       </div>
+                      <span className="text-[10px] text-white/30">{fillPct.toFixed(0)}% filled</span>
                     </div>
+
+                    {/* Validation error */}
+                    {ad.validationError && (
+                      <div className="mt-2 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.08] px-2 py-1.5 text-[10px] font-semibold text-[#f59e0b]">
+                        {ad.validationError}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex gap-2 border-t border-white/[0.05] pt-3">
+                  {/* Right: action buttons */}
+                  <div className="flex flex-col items-stretch justify-center gap-2">
                     <button
                       onClick={() => setEditingAd(ad)}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#062345] px-3 py-2.5 text-xs font-black text-[#4da3ff] transition-colors hover:bg-[#08305d]"
+                      className="grid h-8 place-items-center rounded-full bg-[#087cff]/15 text-[11px] font-black text-[#4da3ff] transition hover:bg-[#087cff]/25"
                     >
-                      <Icon name="edit" className="text-sm" />
                       Edit
                     </button>
                     <button
                       onClick={() => toggleActive(ad)}
-                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-black transition-colors ${
+                      className={`grid h-8 place-items-center rounded-full text-[11px] font-black transition ${
                         ad.isActive
-                          ? "bg-[#2a200d] text-amber-300 hover:bg-[#392b10]"
-                          : "bg-[#0d3522] text-[#05b957] hover:bg-[#10462c]"
+                          ? "bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                          : "bg-[#05b957]/10 text-[#05b957] hover:bg-[#05b957]/20"
                       }`}
                     >
-                      <Icon name={ad.isActive ? "pause" : "play_arrow"} className="text-sm" />
-                      {ad.isActive ? "Pause" : "Reactivate"}
+                      {ad.isActive ? "Pause" : "Resume"}
                     </button>
                   </div>
                 </div>
