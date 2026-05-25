@@ -207,6 +207,56 @@ export async function sendTestingNoticeEmail(to: string, firstName?: string) {
   );
 }
 
+// Notify merchant when they successfully create a new ad
+export async function sendAdCreatedEmail(
+  to: string,
+  merchantName: string,
+  opts: {
+    side: "BUY" | "SELL";
+    crypto: string;
+    totalAmount: number;
+    pricePerUnit: number;
+    fiat: string;
+    minLimit: number;
+    maxLimit: number;
+    adId: string;
+  }
+) {
+  const { side, crypto, totalAmount, pricePerUnit, fiat, minLimit, maxLimit, adId } = opts;
+  const action = side === "SELL" ? "Sell" : "Buy";
+  const sideColor = side === "SELL" ? "#ef4444" : "#31c45d";
+  await sendEmail(
+    to,
+    merchantName,
+    `Your ${action} ${crypto} Ad is Live`,
+    emailWrapper(`
+      <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#fff;">Ad Created Successfully</h2>
+      <p style="margin:0 0 24px;color:#94a3b8;line-height:1.6;">
+        Your <strong style="color:${sideColor};">${action} ${crypto}</strong> ad is now live on Nezeem P2P.
+      </p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;background:rgba(255,255,255,0.04);border-radius:12px;margin-bottom:28px;">
+        <tr><td style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Total ${crypto}</p>
+          <p style="margin:4px 0 0;font-size:18px;font-weight:800;color:#fff;">${totalAmount.toFixed(6)} ${crypto}</p>
+        </td></tr>
+        <tr><td style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Price per ${crypto}</p>
+          <p style="margin:4px 0 0;font-size:18px;font-weight:800;color:#087cff;">${pricePerUnit.toLocaleString("en-KE")} ${fiat}</p>
+        </td></tr>
+        <tr><td style="padding:14px 20px;">
+          <p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Order limit</p>
+          <p style="margin:4px 0 0;font-size:15px;font-weight:700;color:#fff;">${fiat} ${minLimit.toLocaleString("en-KE")} – ${maxLimit.toLocaleString("en-KE")}</p>
+        </td></tr>
+      </table>
+      <div style="text-align:center;">
+        <a href="${APP_URL}/p2p/merchant" style="display:inline-block;background:#087cff;color:#fff;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;">
+          View Merchant Center →
+        </a>
+      </div>
+    `)
+  );
+}
+
 // Notify merchant when a buyer places a new order on their ad
 export async function sendNewP2POrderEmail(
   to: string,

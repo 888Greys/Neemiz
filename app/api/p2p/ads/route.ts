@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
 import { AdSide } from "@prisma/client";
+import { sendAdCreatedEmail } from "@/lib/brevo";
 
 const VALID_CRYPTOS = ["USDT", "BTC", "ETH", "BNB"];
 const VALID_SIDES: AdSide[] = ["BUY", "SELL"];
@@ -167,10 +168,34 @@ export async function POST(req: Request) {
       });
 
       if (!ad) return Response.json({ error: `Insufficient ${crypto} balance. Deposit first.` }, { status: 400 });
+      if (dbUser.email) {
+        sendAdCreatedEmail(dbUser.email, merchant.displayName, {
+          side: side as "BUY" | "SELL",
+          crypto: crypto as string,
+          totalAmount: totalAmountNum,
+          pricePerUnit: pricePerUnitNum,
+          fiat: "KES",
+          minLimit: minLimitNum,
+          maxLimit: maxLimitNum,
+          adId: ad.id,
+        }).catch((e) => console.error("Ad created email failed:", e));
+      }
       return Response.json(ad, { status: 201 });
     }
 
     const ad = await db.p2PAd.create({ data: adData });
+    if (dbUser.email) {
+      sendAdCreatedEmail(dbUser.email, merchant.displayName, {
+        side: side as "BUY" | "SELL",
+        crypto: crypto as string,
+        totalAmount: totalAmountNum,
+        pricePerUnit: pricePerUnitNum,
+        fiat: "KES",
+        minLimit: minLimitNum,
+        maxLimit: maxLimitNum,
+        adId: ad.id,
+      }).catch((e) => console.error("Ad created email failed:", e));
+    }
     return Response.json(ad, { status: 201 });
   } catch (err) {
     console.error("POST /api/p2p/ads:", err instanceof Error ? err.message : "Unknown error");
