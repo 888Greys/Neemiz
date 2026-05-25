@@ -20,8 +20,6 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState<string | null>(null);
 
-  const yesIdx     = market.outcomes.findIndex((o) => o.toLowerCase() === "yes");
-  const noIdx      = market.outcomes.findIndex((o) => o.toLowerCase() === "no");
   const outcomeIdx = market.outcomes.findIndex((o) => o === outcome);
   const price      = market.outcomePrices[outcomeIdx] ?? 0.5;
   const stake      = parseFloat(amount) || 0;
@@ -33,19 +31,23 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
     if (stake > balance){ setError("Insufficient balance");  return; }
     setError(null);
     setLoading(true);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
     try {
       const res = await fetch("/api/polymarket/bet", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ conditionId: market.conditionId, outcome, stake }),
+        signal:  controller.signal,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to place bet");
       onSuccess();
       onClose();
     } catch (e: unknown) {
-      setError((e as Error).message);
+      setError((e as Error).name === "AbortError" ? "Bet request timed out. Please try again." : (e as Error).message);
     } finally {
+      window.clearTimeout(timeout);
       setLoading(false);
     }
   }

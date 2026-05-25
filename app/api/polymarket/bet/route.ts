@@ -87,11 +87,23 @@ export async function POST(req: Request) {
             outcome,
             price,
             executionMode: useClob ? "clob" : "internal",
-            clobOrderId: clobOrder?.orderId,
-            clobStatus: clobOrder?.status,
+            ...(useClob ? {
+              clobOrderId: clobOrder?.orderId,
+              clobStatus: clobOrder?.status,
+            } : {}),
           },
         },
       });
+
+      const clobBetFields = useClob ? {
+        executionMode: "clob",
+        clobOrderId: clobOrder?.orderId,
+        clobStatus: clobOrder?.status,
+        clobTokenId: tokenId,
+        clobTradeIds: clobOrder?.tradeIds ?? [],
+        clobTxHashes: clobOrder?.transactionHashes ?? [],
+        clobRaw: clobOrder?.raw as Prisma.InputJsonValue | undefined,
+      } : {};
 
       await tx.polymarketBet.create({
         data: {
@@ -102,13 +114,7 @@ export async function POST(req: Request) {
           price,
           stake,
           potentialWin,
-          executionMode: useClob ? "clob" : "internal",
-          clobOrderId: clobOrder?.orderId,
-          clobStatus: clobOrder?.status,
-          clobTokenId: tokenId,
-          clobTradeIds: clobOrder?.tradeIds ?? [],
-          clobTxHashes: clobOrder?.transactionHashes ?? [],
-          clobRaw: clobOrder?.raw as Prisma.InputJsonValue | undefined,
+          ...clobBetFields,
         },
       });
     });
