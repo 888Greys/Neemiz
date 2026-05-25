@@ -207,33 +207,26 @@ function CryptoDepositPanel({
       {!open && (
         <>
           {/* Network badge */}
-          <div className="flex h-14 w-full items-center justify-between rounded-2xl bg-white/[0.06] px-5 ring-1 ring-white/[0.08]">
-            <span className="text-base font-black text-white">{asset.displayNet}</span>
-            <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-400">
+          <div className="flex h-11 w-full items-center justify-between rounded-xl bg-white/[0.06] px-4 ring-1 ring-white/[0.08]">
+            <span className="text-sm font-black text-white">{asset.displayNet}</span>
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-400">
               {asset.network}
             </span>
           </div>
 
-          <div className="text-center">
-            <p className="text-sm font-bold text-slate-400">
-              Minimum deposit:{" "}
-              <span className="font-black text-white">
-                {asset.min} {asset.code}
-              </span>
-            </p>
-            <p className="mt-1 text-xs font-bold text-slate-600">
-              Amounts below this will not be credited.
-            </p>
-          </div>
+          <p className="-mt-2 text-xs font-bold text-slate-500">
+            Minimum deposit: <span className="text-white">{asset.min} {asset.code}</span>
+            <span className="ml-1 text-slate-600">· amounts below will not be credited</span>
+          </p>
 
           {/* Address panel */}
           {addrState.phase === "checking" ? (
-            <div className="flex items-center justify-center gap-3 rounded-2xl bg-white/[0.06] py-8 ring-1 ring-white/[0.08]">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-[#087cff]" />
-              <span className="text-sm font-bold text-slate-500">Checking for existing address…</span>
+            <div className="flex items-center justify-center gap-3 rounded-2xl bg-white/[0.06] py-6 ring-1 ring-white/[0.08]">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-[#087cff]" />
+              <span className="text-xs font-bold text-slate-500">Checking for existing address…</span>
             </div>
           ) : addrState.phase === "form" || addrState.phase === "generating" ? (
-            <div className="space-y-4 rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/[0.08]">
+            <div className="space-y-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/[0.08]">
               {addrState.phase === "form" && addrState.error && (
                 <p className="text-xs font-bold text-red-400">{addrState.error}</p>
               )}
@@ -241,7 +234,7 @@ function CryptoDepositPanel({
                 type="button"
                 onClick={onGenerate}
                 disabled={addrState.phase === "generating"}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:opacity-60"
+                className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:opacity-60"
               >
                 {addrState.phase === "generating" ? (
                   <>
@@ -250,7 +243,7 @@ function CryptoDepositPanel({
                   </>
                 ) : (
                   <>
-                    <Icon name="qr_code" className="text-[18px]" />
+                    <Icon name="qr_code" className="text-[16px]" />
                     Get deposit address
                   </>
                 )}
@@ -258,31 +251,31 @@ function CryptoDepositPanel({
             </div>
           ) : (
             /* ready */
-            <div className="flex flex-col gap-4 rounded-2xl bg-white/[0.06] p-5 ring-1 ring-white/[0.08] sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/[0.08] sm:flex-row sm:items-center">
               <img
                 src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(addrState.address)}&bgcolor=ffffff&color=000000&margin=8&qzone=1`}
                 alt="Deposit QR code"
-                width={112}
-                height={112}
-                className="h-28 w-28 shrink-0 self-center rounded-xl"
+                width={88}
+                height={88}
+                className="h-22 w-22 shrink-0 self-center rounded-lg"
               />
               <div className="min-w-0 flex-1 text-center sm:text-left">
-                <p className="text-base font-black text-white">Deposit address</p>
-                <p className="mt-2 break-all font-mono text-[13px] leading-relaxed text-slate-400">
+                <p className="text-sm font-black text-white">Deposit address</p>
+                <p className="mt-1.5 break-all font-mono text-[11px] leading-relaxed text-slate-400">
                   <span className="font-black text-white">{addrState.address.slice(0, 6)}</span>
                   {addrState.address.slice(6, -5)}
                   <span className="font-black text-white">{addrState.address.slice(-5)}</span>
                 </p>
-                <p className="mt-1.5 flex items-center gap-1.5 text-[11px] font-bold text-emerald-400/70">
+                <p className="mt-1 flex items-center gap-1 text-[10px] font-bold text-emerald-400/70">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                   Detected automatically · credited within 1–5 min
                 </p>
                 <button
                   type="button"
                   onClick={onCopy}
-                  className="mt-3 inline-flex h-10 items-center gap-2 rounded-xl bg-[#087cff] px-5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff]"
+                  className="mt-2.5 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#087cff] px-4 text-xs font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff]"
                 >
-                  <Icon name={copied ? "check" : "content_copy"} className="text-[19px]" />
+                  <Icon name={copied ? "check" : "content_copy"} className="text-[16px]" />
                   {copied ? "Copied!" : "Copy address"}
                 </button>
               </div>
