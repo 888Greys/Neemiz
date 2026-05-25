@@ -241,10 +241,90 @@ function MobileP2POrderView({
   onBack: () => void;
   onAction: (endpoint: string, body: object, label: string) => Promise<void>;
 }) {
+  const [showChat, setShowChat] = useState(false);
+  const [showCancelForm, setShowCancelForm] = useState(false);
+  const [mobileCancelReason, setMobileCancelReason] = useState("");
+
   const merchantIsSelling = order.side === "SELL";
   const paymentName = order.paymentMethod === "MPESA" ? "M-pesa Paybill" : order.paymentMethod === "BANK" ? "Bank Transfer" : order.paymentMethod;
   const canMarkPaid = order.isBuyer && order.status === "PENDING" && merchantIsSelling;
+  const currentUserId = order.isBuyer ? order.buyer.id : order.seller.userId;
+  const orderClosed = ["RELEASED", "CANCELLED", "EXPIRED", "DISPUTED"].includes(order.status);
 
+  // ── Chat overlay ──────────────────────────────────────────────────────────
+  if (showChat) {
+    return (
+      <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-[#08080c] text-white">
+        {/* Header */}
+        <div className="flex items-center gap-3 border-b border-[#1e1e30] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+          <button
+            type="button"
+            onClick={() => setShowChat(false)}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white"
+          >
+            <Icon name="arrow_back" className="text-[21px]" />
+          </button>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black">{order.seller.displayName}</p>
+            <p className="text-[11px] text-slate-500">Order #{orderId.slice(0, 8).toUpperCase()}</p>
+          </div>
+        </div>
+        {/* Chat body */}
+        <div className="flex-1 min-h-0">
+          <Chat orderId={orderId} currentUserId={currentUserId} closed={orderClosed} />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Cancel confirmation screen ────────────────────────────────────────────
+  if (showCancelForm) {
+    return (
+      <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-[#08080c] px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
+        <div className="mb-6 flex items-center gap-3 border-b border-white/[0.08] pb-3">
+          <button
+            type="button"
+            onClick={() => setShowCancelForm(false)}
+            className="grid h-9 w-9 place-items-center rounded-full text-white"
+          >
+            <Icon name="arrow_back" className="text-[21px]" />
+          </button>
+          <h1 className="text-[18px] font-black">Cancel Order</h1>
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+          <p className="text-[12px] font-bold leading-5 text-red-400">
+            Are you sure you want to cancel this order? This action cannot be undone.
+          </p>
+        </div>
+
+        <div className="mb-6">
+          <label className="mb-2 block text-[11px] font-bold text-slate-500">Reason for cancellation (optional)</label>
+          <textarea
+            value={mobileCancelReason}
+            onChange={(e) => setMobileCancelReason(e.target.value)}
+            placeholder="e.g. Payment method not supported, changed my mind…"
+            rows={4}
+            className="w-full rounded-xl border border-white/[0.08] bg-[#16161f] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-700 resize-none"
+          />
+        </div>
+
+        <button
+          type="button"
+          disabled={!!actionLoading}
+          onClick={async () => {
+            await onAction("cancel", { reason: mobileCancelReason || null }, "cancel");
+            setShowCancelForm(false);
+          }}
+          className="h-12 w-full rounded-full bg-red-500 text-sm font-black text-white disabled:opacity-50 hover:bg-red-600 transition-colors"
+        >
+          {actionLoading === "cancel" ? "Cancelling…" : "Confirm Cancel"}
+        </button>
+      </div>
+    );
+  }
+
+  // ── Main view ─────────────────────────────────────────────────────────────
   return (
     <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-[#08080c] px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
       <div className="mb-4 grid grid-cols-[36px_minmax(0,1fr)_auto] items-center border-b border-white/[0.08] pb-3">
@@ -253,7 +333,13 @@ function MobileP2POrderView({
         </button>
         <div />
         {order.status === "PENDING" && (
-          <button type="button" className="text-xs font-semibold text-slate-400">Cancel Order</button>
+          <button
+            type="button"
+            onClick={() => setShowCancelForm(true)}
+            className="text-xs font-semibold text-slate-400 hover:text-red-400 transition-colors"
+          >
+            Cancel Order
+          </button>
         )}
       </div>
 
@@ -274,7 +360,11 @@ function MobileP2POrderView({
           {order.seller.displayName}
           <Icon name="chevron_right" className="text-[16px] text-slate-500" />
         </button>
-        <button type="button" className="rounded-full bg-[#087cff] px-4 py-2 text-xs font-black text-white">
+        <button
+          type="button"
+          onClick={() => setShowChat(true)}
+          className="rounded-full bg-[#087cff] px-4 py-2 text-xs font-black text-white hover:bg-[#0570e8] transition-colors"
+        >
           Contact Seller
         </button>
       </div>
