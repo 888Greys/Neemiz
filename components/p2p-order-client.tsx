@@ -374,7 +374,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 {order.status === "PENDING" && order.isBuyer && merchantIsSelling && "How to complete your order"}
                 {order.status === "PENDING" && order.isBuyer && !merchantIsSelling && "Waiting for merchant payment"}
                 {order.status === "PENDING" && order.isSeller && merchantIsSelling && "Waiting for buyer to pay"}
-                {order.status === "PENDING" && order.isSeller && !merchantIsSelling && "Pay the seller"}
+                {order.status === "PENDING" && order.isSeller && !merchantIsSelling && "Send payment to trader"}
                 {order.status === "PAID" && order.isBuyer && merchantIsSelling && "Payment sent — waiting for release"}
                 {order.status === "PAID" && order.isBuyer && !merchantIsSelling && "Verify payment and release crypto"}
                 {order.status === "PAID" && order.isSeller && merchantIsSelling && "Verify the payment and release"}
@@ -400,9 +400,16 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               )}
 
               {order.status === "PENDING" && order.isBuyer && !merchantIsSelling && (
-                <p className="text-slate-400 text-sm leading-relaxed">
-                  Your {order.crypto} is locked in escrow. Wait for the merchant to send KSh {Number(order.fiatAmount).toLocaleString("en-KE")} by {order.paymentMethod === "MPESA" ? "M-Pesa" : "bank transfer"}, then release crypto after you confirm the payment.
-                </p>
+                <ol className="space-y-3 text-sm text-slate-400">
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">1</span>
+                    <span>Your <span className="text-white font-bold">{order.crypto}</span> is locked in escrow. Wait for the merchant to send you <span className="text-white font-bold">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</span> via {order.paymentMethod === "MPESA" ? "M-Pesa" : "bank transfer"}.</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
+                    <span>Once you receive the payment, click <strong className="text-white">Release Crypto</strong> to complete the trade.</span>
+                  </li>
+                </ol>
               )}
 
               {order.status === "PENDING" && order.isSeller && merchantIsSelling && (
@@ -416,11 +423,11 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 <ol className="space-y-3 text-sm text-slate-400">
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">1</span>
-                    <span>Send <span className="text-white font-bold">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</span> to the seller using the selected payment method.</span>
+                    <span>Send <span className="text-white font-bold">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</span> to the trader via <span className="text-white font-bold">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank Transfer"}</span>.</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
-                    <span>After sending fiat, mark the order as paid. The seller will release {order.crypto} from escrow.</span>
+                    <span>After sending payment, click <strong className="text-white">Payment Sent</strong>. The trader will then release {order.crypto} from escrow.</span>
                   </li>
                 </ol>
               )}
@@ -532,7 +539,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 >
                   {actionLoading === "paid"
                     ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Confirming…</span>
-                    : "I've Paid the Seller"}
+                    : "Payment Sent"}
                 </button>
               )}
 

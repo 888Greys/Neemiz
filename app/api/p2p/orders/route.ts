@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
 import { defaultNetwork, lockUserCrypto, unlockUserCrypto } from "@/lib/p2p/crypto-balance";
+import { sendNewP2POrderEmail } from "@/lib/brevo";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
 export async function GET() {
@@ -126,7 +127,7 @@ export async function POST(req: Request) {
 
     const ad = await db.p2PAd.findUnique({
       where: { id: adId as string },
-      include: { merchant: true },
+      include: { merchant: { include: { user: { select: { email: true, firstName: true, username: true } } } } },
     });
 
     if (!ad || !ad.isActive) return Response.json({ error: "Ad not found or inactive" }, { status: 404 });
@@ -198,6 +199,23 @@ export async function POST(req: Request) {
       return Response.json({ error: `Insufficient ${ad.crypto} balance to sell.` }, { status: 400 });
     }
     if (!order) return Response.json({ error: "Insufficient ad liquidity" }, { status: 400 });
+
+    // Notify merchant — fire-and-forget (don't let email failure block the response)
+    const merchantEmail = ad.merchant.user.email;
+    if (merchantEmail) {
+      const buyerName = dbUser.firstName
+        ? `${dbUser.firstName}${dbUser.lastName ? ` ${dbUser.lastName}` : ""}`.trim()
+        : dbUser.username ?? "A trader";
+      sendNewP2POrderEmail(merchantEmail, ad.merchant.displayName, {
+        orderId: order.id,
+        buyerName,
+        crypto: ad.crypto,
+        cryptoAmount: cryptoAmountNum,
+        fiatAmount,
+        fiat: ad.fiat,
+        paymentMethod: paymentMethod as string,
+      }).catch((e) => console.error("P2P order email failed:", e));
+    }
 
     return Response.json({ orderId: order.id }, { status: 201 });
   } catch (err) {

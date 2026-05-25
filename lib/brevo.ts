@@ -207,6 +207,54 @@ export async function sendTestingNoticeEmail(to: string, firstName?: string) {
   );
 }
 
+// Notify merchant when a buyer places a new order on their ad
+export async function sendNewP2POrderEmail(
+  to: string,
+  merchantName: string,
+  opts: {
+    orderId: string;
+    buyerName: string;
+    crypto: string;
+    cryptoAmount: number;
+    fiatAmount: number;
+    fiat: string;
+    paymentMethod: string;
+  }
+) {
+  const { orderId, buyerName, crypto, cryptoAmount, fiatAmount, fiat, paymentMethod } = opts;
+  const method = paymentMethod === "MPESA" ? "M-Pesa" : paymentMethod === "BANK" ? "Bank Transfer" : paymentMethod;
+  await sendEmail(
+    to,
+    merchantName,
+    `New P2P Order — ${cryptoAmount.toFixed(6)} ${crypto}`,
+    emailWrapper(`
+      <h2 style="margin:0 0 8px;font-size:20px;font-weight:800;color:#fff;">New Order Received</h2>
+      <p style="margin:0 0 24px;color:#94a3b8;line-height:1.6;">
+        <strong style="color:#fff;">${buyerName}</strong> has placed an order on your ad.
+      </p>
+      <table cellpadding="0" cellspacing="0" style="width:100%;background:rgba(255,255,255,0.04);border-radius:12px;margin-bottom:28px;">
+        <tr><td style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Amount</p>
+          <p style="margin:4px 0 0;font-size:18px;font-weight:800;color:#fff;">${cryptoAmount.toFixed(6)} ${crypto}</p>
+        </td></tr>
+        <tr><td style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.06);">
+          <p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">You receive</p>
+          <p style="margin:4px 0 0;font-size:18px;font-weight:800;color:#31c45d;">${fiat} ${fiatAmount.toLocaleString("en-KE")}</p>
+        </td></tr>
+        <tr><td style="padding:14px 20px;">
+          <p style="margin:0;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:1px;">Payment method</p>
+          <p style="margin:4px 0 0;font-size:15px;font-weight:700;color:#fff;">${method}</p>
+        </td></tr>
+      </table>
+      <div style="text-align:center;">
+        <a href="${APP_URL}/p2p/orders/${orderId}" style="display:inline-block;background:#087cff;color:#fff;font-weight:700;padding:14px 32px;border-radius:10px;text-decoration:none;font-size:15px;">
+          View Order →
+        </a>
+      </div>
+    `)
+  );
+}
+
 // Notify merchant when their KYC is rejected
 export async function sendKycRejectedEmail(to: string, displayName: string, reason?: string) {
   await sendEmail(
