@@ -224,6 +224,139 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
   );
 }
 
+function MobileP2POrderView({
+  order,
+  orderId,
+  paidRef,
+  setPaidRef,
+  actionLoading,
+  onBack,
+  onAction,
+}: {
+  order: OrderData;
+  orderId: string;
+  paidRef: string;
+  setPaidRef: (value: string) => void;
+  actionLoading: string | null;
+  onBack: () => void;
+  onAction: (endpoint: string, body: object, label: string) => Promise<void>;
+}) {
+  const merchantIsSelling = order.side === "SELL";
+  const paymentName = order.paymentMethod === "MPESA" ? "M-pesa Paybill" : order.paymentMethod === "BANK" ? "Bank Transfer" : order.paymentMethod;
+  const canMarkPaid = order.isBuyer && order.status === "PENDING" && merchantIsSelling;
+
+  return (
+    <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-black px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
+      <div className="mb-4 grid grid-cols-[36px_minmax(0,1fr)_auto] items-center border-b border-white/[0.08] pb-3">
+        <button type="button" onClick={onBack} className="grid h-9 w-9 place-items-center rounded-full text-white">
+          <Icon name="arrow_back" className="text-[21px]" />
+        </button>
+        <div />
+        {order.status === "PENDING" && (
+          <button type="button" className="text-xs font-semibold text-slate-400">Cancel Order</button>
+        )}
+      </div>
+
+      <h1 className="mb-2 text-[20px] font-black">
+        {order.status === "PENDING" ? "Pending for Payment" : order.status === "PAID" ? "Payment Sent" : order.status}
+      </h1>
+      {order.status === "PENDING" && (
+        <div className="mb-5 text-[12px] font-bold leading-4 text-red-500">
+          <p>Note: The order will be automatically cancelled if the button is not clicked by the deadline.</p>
+          <div className="mt-1 scale-75 origin-left">
+            <Countdown expiresAt={order.expiresAt} onExpire={() => {}} />
+          </div>
+        </div>
+      )}
+
+      <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#111] px-4 py-3">
+        <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
+          {order.seller.displayName}
+          <Icon name="chevron_right" className="text-[16px] text-slate-500" />
+        </button>
+        <button type="button" className="rounded-full bg-[#9a621c] px-4 py-2 text-xs font-black text-black">
+          Contact Seller
+        </button>
+      </div>
+
+      <section className="mb-5">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="grid h-5 w-5 place-items-center rounded-full bg-white text-[11px] font-black text-black">1</span>
+          <h2 className="text-sm font-black">Transfer via {paymentName}</h2>
+        </div>
+        <div className="ml-2 border-l border-white/[0.10] pl-4">
+          <InfoRow label="Fiat Amount" value={`${Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${order.ad.fiat}`} copy />
+          <InfoRow label="Name" value={order.seller.displayName.toUpperCase()} copy />
+          <InfoRow label={order.paymentMethod === "MPESA" ? "Paybill Number" : "Account Number/Card No"} value="400200" copy />
+          <InfoRow label="Order No." value={orderId.slice(0, 24).toUpperCase()} copy />
+          <button type="button" className="mt-2 flex items-center gap-1 text-xs text-slate-500">
+            Order details
+            <Icon name="chevron_right" className="text-[14px]" />
+          </button>
+          <p className="mt-3 text-[11px] leading-4 text-slate-500">
+            Follow the payment instructions displayed on the order page. If any payment details appear unclear, do not proceed with the payment and cancel the order instead.
+          </p>
+        </div>
+      </section>
+
+      <section className="mb-5">
+        <div className="mb-3 flex items-start gap-2">
+          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-black">2</span>
+          <h2 className="text-sm font-black">After payment, click the button below so the seller can release the crypto.</h2>
+        </div>
+        <div className="ml-7 space-y-1 text-[11px] leading-4 text-slate-500">
+          <p>1. Always use a payment account that matches your verified name.</p>
+          <p>2. Do not split the payment into multiple transactions unless requested by the seller.</p>
+          <p>3. Real-time payment is strongly recommended.</p>
+        </div>
+      </section>
+
+      {canMarkPaid && (
+        <div className="mb-4">
+          <label className="mb-1.5 block text-[11px] font-bold text-slate-500">Transaction reference optional</label>
+          <input
+            value={paidRef}
+            onChange={(e) => setPaidRef(e.target.value)}
+            placeholder="M-Pesa confirmation code"
+            className="h-11 w-full rounded-xl border border-white/[0.08] bg-[#111] px-3 text-sm text-white outline-none placeholder:text-slate-700"
+          />
+        </div>
+      )}
+
+      <button type="button" className="mb-5 flex w-full items-center justify-between rounded-2xl bg-[#111] px-4 py-3 text-left">
+        <span className="flex items-center gap-2 text-xs text-white">
+          <Icon name="tips_and_updates" className="text-[16px] text-[#f59e0b]" />
+          Encountered an issue?
+        </span>
+        <Icon name="chevron_right" className="text-[16px] text-slate-500" />
+      </button>
+
+      <div className="fixed bottom-14 left-0 right-0 z-40 bg-black px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+        <button
+          type="button"
+          disabled={!canMarkPaid || !!actionLoading}
+          onClick={() => onAction("paid", { paymentRef: paidRef || null }, "paid")}
+          className="h-12 w-full rounded-full bg-[#ff9f2d] text-sm font-black text-black disabled:opacity-50"
+        >
+          {actionLoading === "paid" ? "Confirming..." : "Payment Completed"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value, copy = false }: { label: string; value: string; copy?: boolean }) {
+  return (
+    <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+      <span className="text-[12px] text-slate-500">{label}</span>
+      <span className="flex items-center gap-1 text-right text-[12px] font-bold text-white">
+        {value}
+        {copy && <Icon name="content_copy" className="text-[13px] text-slate-400" />}
+      </span>
+    </div>
+  );
+}
+
 // ─── Main Order Page ──────────────────────────────────────────────────────────
 
 export function P2POrderClient({ orderId }: { orderId: string }) {
@@ -292,7 +425,16 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
   return (
     <>
       <P2PSubNav />
-    <div className="max-w-5xl mx-auto px-4 py-6">
+      <MobileP2POrderView
+        order={order}
+        orderId={orderId}
+        paidRef={paidRef}
+        setPaidRef={setPaidRef}
+        actionLoading={actionLoading}
+        onBack={() => router.push("/p2p/orders")}
+        onAction={doAction}
+      />
+    <div className="hidden max-w-5xl mx-auto px-4 py-6 lg:block">
       {/* Back */}
       <button
         onClick={() => router.push("/p2p/orders")}
