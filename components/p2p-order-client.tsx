@@ -111,6 +111,9 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
   useEffect(() => {
     fetchMessages();
 
+    // Poll every 4s as a reliable fallback (realtime requires DB replication enabled)
+    const poll = setInterval(fetchMessages, 4000);
+
     const supabase = createClient();
     const channel = supabase
       .channel(`p2p-order-${orderId}`)
@@ -122,13 +125,14 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
           table: "p2p_messages",
           filter: `order_id=eq.${orderId}`,
         },
-        () => {
-          fetchMessages();
-        }
+        () => { fetchMessages(); }
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearInterval(poll);
+      supabase.removeChannel(channel);
+    };
   }, [fetchMessages, orderId]);
 
   useEffect(() => {
