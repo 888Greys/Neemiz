@@ -24,8 +24,7 @@ export function SupportWidget() {
   }
 
   return (
-    /* sits above bottom nav on mobile (h-14 = 56px) + betslip FAB area */
-    <div className="fixed bottom-[72px] right-4 z-[150] flex flex-col items-end gap-3 lg:bottom-6 lg:right-6">
+    <div className="fixed bottom-6 right-6 z-[150] hidden flex-col items-end gap-3 lg:flex">
 
       {/* ── Chat panel ── */}
       {open && (

@@ -324,7 +324,7 @@ function StatsBar() {
   );
 }
 
-// ─── Ad Card (Polymarket-style, used for all screen sizes) ───────────────────
+// ─── Ad Row ──────────────────────────────────────────────────────────────────
 
 const CRYPTO_COLOR: Record<string, string> = {
   USDT: "#26a17b",
@@ -336,8 +336,6 @@ const CRYPTO_COLOR: Record<string, string> = {
 function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; isSignedIn: boolean }) {
   const isMerchantSelling = ad.side === "SELL";
   const color   = CRYPTO_COLOR[ad.crypto] ?? "#087cff";
-  const maxQty  = ad.maxLimit / ad.pricePerUnit;
-  const fillPct = Math.min(100, maxQty > 0 ? (ad.availableAmount / maxQty) * 100 : 0);
   const openOrder = () => {
     if (!isSignedIn) {
       toast.error("Please sign in to trade");
@@ -350,104 +348,77 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
     <button
       type="button"
       onClick={openOrder}
-      className="group flex min-h-[265px] cursor-pointer flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-[#16171c] text-left transition hover:border-white/[0.14] hover:bg-[#1c1d24] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/60"
+      className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_84px] gap-3 border-b border-white/[0.07] bg-black px-3 py-3 text-left transition hover:bg-white/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#087cff]/60 sm:grid-cols-[minmax(0,1fr)_118px] sm:px-4"
     >
-
-      {/* Header strip — mirrors Polymarket's image strip */}
-      <div
-        className="relative flex h-14 items-end overflow-hidden px-3 pb-2.5"
-        style={{ background: `linear-gradient(135deg, ${color}28 0%, transparent 70%)` }}
-      >
-        <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 90% 10%, ${color}18, transparent 65%)` }} />
-        <div className="relative flex w-full items-end justify-between">
-          <div className="flex items-center gap-2.5">
-            {CRYPTO_ICONS[ad.crypto] && (
-              <img src={CRYPTO_ICONS[ad.crypto]} alt={ad.crypto} className="h-8 w-8 rounded-full shadow-lg" />
-            )}
-            <div>
-              <p className="text-white font-black text-sm leading-none">{ad.crypto}</p>
-              <p className="text-white/35 text-[10px] font-bold mt-0.5">{ad.fiat} / {ad.crypto}</p>
+      <div className="min-w-0">
+        <div className="mb-1.5 flex min-w-0 items-center gap-2">
+          <div className="relative shrink-0">
+            <div
+              className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-black"
+              style={{ backgroundColor: color }}
+            >
+              {ad.merchant.displayName.charAt(0).toUpperCase()}
             </div>
+            {ad.merchant.isOnline && (
+              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full border border-black bg-[#22c55e]" />
+            )}
           </div>
-          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black ${
-            isMerchantSelling ? "bg-[#22c55e]/15 text-[#22c55e]" : "bg-red-500/15 text-red-400"
+          <span className="truncate text-[12px] font-black text-white">{ad.merchant.displayName}</span>
+          <Icon name="verified" className="shrink-0 text-[12px] text-white/55" />
+          <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold text-white/35">
+            <Icon name="schedule" className="text-[11px]" />
+            {ad.merchant.avgReleaseTime || "<1"}m
+          </span>
+          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+            isMerchantSelling ? "bg-[#22c55e]/12 text-[#22c55e]" : "bg-red-500/12 text-red-400"
           }`}>
-            {isMerchantSelling ? "BUY" : "SELL"}
+            Fast release
           </span>
         </div>
-      </div>
 
-        <div className="flex flex-1 flex-col p-3.5">
-        {/* Merchant row */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="relative shrink-0">
-              <div className="w-7 h-7 rounded-full bg-[#087cff] flex items-center justify-center text-white font-black text-xs">
-                {ad.merchant.displayName.charAt(0).toUpperCase()}
-              </div>
-              {ad.merchant.isOnline && (
-                <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-[#22c55e] border border-[#16171c] rounded-full" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-1">
-                <span className="text-white text-xs font-bold">{ad.merchant.displayName}</span>
-                <Icon name="verified" className="text-[#3b82f6] text-[10px]" />
-              </div>
-              <p className="text-white/30 text-[10px]">
-                {ad.merchant.completedTrades} trades
-                <span className={`ml-1 ${ad.merchant.completionRate >= 95 ? "text-[#22c55e]" : "text-white/30"}`}>
-                  · {ad.merchant.completionRate.toFixed(0)}%
-                </span>
-              </p>
-            </div>
+        <div className="mb-2.5 flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold leading-3 text-white/45">{ad.fiat}</p>
+            <p className="text-[21px] font-black leading-tight text-white tabular-nums">
+              {ad.pricePerUnit.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
           </div>
-          <div className="flex items-center gap-1 text-[10px] text-white/25 font-bold">
-            <Icon name="timer" className="text-[10px]" />
-            ~{ad.merchant.avgReleaseTime || "<1"}m
+          <div className="hidden shrink-0 pt-1 text-right text-[10px] font-semibold text-white/35 sm:block">
+            {ad.merchant.completedTrades} Orders ({ad.merchant.completionRate.toFixed(0)}%)
           </div>
         </div>
 
-        {/* Price — mirrors "question" text in Polymarket */}
-        <div className="mb-3">
-          <p className="text-xl font-black leading-none text-white">
-            {ad.pricePerUnit.toLocaleString("en-KE")}
+        <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40">
+          <p>
+            Limits <span className="text-white/65">{ad.minLimit.toLocaleString("en-KE")} - {ad.maxLimit.toLocaleString("en-KE")} {ad.fiat}</span>
           </p>
-          <p className="text-white/30 text-[11px] mt-0.5">{ad.fiat} per {ad.crypto}</p>
-        </div>
-
-        {/* Depth bar — mirrors Polymarket's probability bar */}
-        <div className="mb-3">
-          <div className="flex items-center justify-between text-[10px] font-bold mb-1.5">
-            <span className="text-white/40">Available</span>
-            <span className="text-white/55">{ad.availableAmount.toFixed(4)} {ad.crypto}</span>
-          </div>
-          <div className="flex h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
-            <div className="rounded-full" style={{ width: `${fillPct}%`, background: color }} />
-          </div>
-          <p className="text-white/25 text-[10px] mt-1">
-            Limit: {(ad.minLimit / 1000).toFixed(0)}K – {(ad.maxLimit / 1000).toFixed(0)}K {ad.fiat}
+          <p>
+            Quantity <span className="text-white/65">{ad.availableAmount.toLocaleString("en-KE", { maximumFractionDigits: 4 })} {ad.crypto}</span>
           </p>
         </div>
 
-        {/* Payment pills — mirrors Polymarket tags */}
-        <div className="mb-3 flex flex-wrap gap-1">
+        <div className="mt-1.5 flex min-w-0 flex-wrap gap-x-2 gap-y-1">
           {ad.paymentMethods.map((m) => (
-            <span key={m} className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-bold text-white/35">
+            <span key={m} className="flex items-center gap-1 text-[10px] font-semibold text-white/45">
+              <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" ? "bg-[#22c55e]" : "bg-[#f59e0b]"}`} />
               {fmtPm(m)}
             </span>
           ))}
         </div>
+      </div>
 
-        {/* Action buttons — mirrors "Buy Yes / Buy No" */}
+      <div className="flex min-w-0 flex-col items-end justify-center gap-4">
+        <span className="text-right text-[10px] font-semibold leading-3 text-white/35 sm:hidden">
+          {ad.merchant.completedTrades} Orders ({ad.merchant.completionRate.toFixed(0)}%)
+        </span>
         <span
-          className={`h-9 w-full rounded-xl font-black text-[13px] transition hover:opacity-90 active:scale-[0.98] ${
+          className={`grid h-8 w-[72px] place-items-center rounded-full text-[12px] font-black text-white shadow-[0_6px_16px_rgba(5,196,107,0.18)] transition group-active:scale-[0.98] sm:w-[86px] ${
             isMerchantSelling
-              ? "bg-[#22c55e]/12 text-[#22c55e] hover:bg-[#22c55e]/22"
-              : "bg-red-500/12 text-red-400 hover:bg-red-500/22"
-          } grid place-items-center`}
+              ? "bg-[#05c46b] group-hover:bg-[#07d977]"
+              : "bg-red-500 group-hover:bg-red-400"
+          }`}
         >
-          {isMerchantSelling ? `Buy ${ad.crypto}` : `Sell ${ad.crypto}`}
+          {isMerchantSelling ? "Buy" : "Sell"}
         </span>
       </div>
     </button>
@@ -793,7 +764,7 @@ export function P2PBrowseClient() {
           ) : ads.length === 0 ? (
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-black">
               {ads.map((ad) => (
                 <AdCard key={ad.id} ad={ad} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
               ))}
