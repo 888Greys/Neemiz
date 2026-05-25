@@ -4,7 +4,7 @@
  */
 
 export type AviatorRoundState = "WAITING" | "BETTING" | "FLYING" | "CRASHED";
-export type AviatorBetStatus  = "ACTIVE" | "CASHEDOUT" | "LOST";
+export type AviatorBetStatus  = "ACTIVE" | "CASHING_OUT" | "CASHEDOUT" | "LOST";
 
 export interface AviatorRound {
   id:              string;

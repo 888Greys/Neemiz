@@ -56,7 +56,7 @@ export function AviatorBetPanel({
   useEffect(() => { stopLossRef.current    = stopOnLoss;   }, [stopOnLoss]);
   useEffect(() => { myBetRef.current       = myBet;        }, [myBet]);
   useEffect(() => {
-    if (round?.state !== "FLYING" || myBet?.status !== "ACTIVE") setLoading(false);
+    if (myBet?.status !== "CASHING_OUT" && (round?.state !== "FLYING" || myBet?.status !== "ACTIVE")) setLoading(false);
   }, [myBet?.status, round?.state]);
 
   const state       = round?.state ?? "WAITING";
@@ -156,9 +156,9 @@ export function AviatorBetPanel({
   );
 
   // ─────────────────────────────────────────────────────────────────────────
-  // FLYING + active bet → CASHOUT
+  // FLYING + active bet -> CASHOUT
   // ─────────────────────────────────────────────────────────────────────────
-  if (isFlying && myBet?.status === "ACTIVE") {
+  if (isFlying && (myBet?.status === "ACTIVE" || myBet?.status === "CASHING_OUT")) {
     return (
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12] sm:rounded-2xl">
         {TabBar}
@@ -183,12 +183,12 @@ export function AviatorBetPanel({
           </div>
           <button
             onClick={handleCashout}
-            disabled={loading}
+            disabled={loading || myBet.status === "CASHING_OUT"}
             className="relative overflow-hidden rounded-xl py-3.5 text-sm font-black text-black transition-all disabled:opacity-80"
             style={{ background: "linear-gradient(135deg, #f59e0b, #ef8c00)" }}
           >
             <span className="relative z-10 flex items-center justify-center gap-2">
-              {loading ? "CASHING OUT..." : (
+              {loading || myBet.status === "CASHING_OUT" ? "CASHING OUT..." : (
                 <>
                   CASHOUT
                   <span className="rounded-lg bg-black/20 px-2.5 py-1 text-sm font-black">
@@ -197,7 +197,7 @@ export function AviatorBetPanel({
                 </>
               )}
             </span>
-            {!loading && <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-15" />}
+            {!loading && myBet.status !== "CASHING_OUT" && <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-15" />}
           </button>
           <p className="text-center text-[11px] font-black text-[#f59e0b]">{currentMultiplier.toFixed(2)}×</p>
           {error && <p className="text-center text-xs text-red-400">{error}</p>}
@@ -227,15 +227,20 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (isCrashed && myBet) {
     const won = myBet.status === "CASHEDOUT";
+    const pending = myBet.status === "CASHING_OUT";
     return (
-      <div className={`flex min-w-0 flex-col overflow-hidden rounded-xl border sm:rounded-2xl ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
+      <div className={`flex min-w-0 flex-col overflow-hidden rounded-xl border sm:rounded-2xl ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : pending ? "border-[#f59e0b]/20 bg-[#17100a]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
         {TabBar}
         <div className="flex flex-col items-center gap-2 p-5 text-center">
-          <p className={`text-sm font-black ${won ? "text-[#31c45d]" : "text-red-400"}`}>{won ? "You won!" : "Flew away!"}</p>
-          <p className="text-xl font-black text-white">
-            {won ? `KSh ${myBet.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—"}` : `-KSh ${myBet.betAmount.toLocaleString()}`}
+          <p className={`text-sm font-black ${won ? "text-[#31c45d]" : pending ? "text-[#f59e0b]" : "text-red-400"}`}>
+            {won ? "You won!" : pending ? "Cashout pending..." : "Flew away!"}
           </p>
-          {won && <p className="text-xs text-white/30">at {myBet.cashoutAt?.toFixed(2)}×</p>}
+          <p className="text-xl font-black text-white">
+            {won || pending
+              ? `KSh ${myBet.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—"}`
+              : `-KSh ${myBet.betAmount.toLocaleString()}`}
+          </p>
+          {(won || pending) && <p className="text-xs text-white/30">at {myBet.cashoutAt?.toFixed(2)}×</p>}
         </div>
       </div>
     );

@@ -344,14 +344,27 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     const bet = myBets[panelIndex];
     if (!bet) return;
 
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 1400);
+    const clickedMultiplier = Math.max(1, multiplier);
+    const pendingWin = Number((bet.betAmount * clickedMultiplier).toFixed(2));
+    setMyBets((prev) => {
+      const existing = prev[panelIndex];
+      if (!existing || existing.status !== "ACTIVE") return prev;
+      return {
+        ...prev,
+        [panelIndex]: {
+          ...existing,
+          status: "CASHING_OUT",
+          cashoutAt: clickedMultiplier,
+          winAmount: pendingWin,
+        },
+      };
+    });
+
     try {
       const res = await fetch("/api/aviator/cashout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ panelIndex, betId: bet.id }),
-        signal: controller.signal,
       });
       const data = await res.json();
       if (!res.ok) {
@@ -374,14 +387,22 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       await fetchBalance();
       window.dispatchEvent(new Event("wallet-refresh"));
     } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") {
-        throw new Error("Cashout took too long. Try again before the plane leaves.");
-      }
+      setMyBets((prev) => {
+        const existing = prev[panelIndex];
+        if (!existing || existing.status !== "CASHING_OUT") return prev;
+        return {
+          ...prev,
+          [panelIndex]: {
+            ...existing,
+            status: roundRef.current?.state === "FLYING" ? "ACTIVE" : "LOST",
+            cashoutAt: null,
+            winAmount: null,
+          },
+        };
+      });
       throw err;
-    } finally {
-      window.clearTimeout(timeout);
     }
-  }, [fetchBalance, myBets]);
+  }, [fetchBalance, multiplier, myBets]);
 
   const displayMult = round?.state === "CRASHED" ? (round.crashPoint ?? multiplier) : multiplier;
 
