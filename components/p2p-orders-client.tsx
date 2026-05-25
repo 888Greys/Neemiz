@@ -9,7 +9,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 
 type OrderStatus = "PENDING" | "PAID" | "RELEASED" | "DISPUTED" | "CANCELLED" | "EXPIRED";
 
-type FilterTab = "all" | "pending" | "completed" | "cancelled";
+type FilterTab = "all" | "pending" | "completed" | "cancelled" | "expired";
 
 interface OrderSummary {
   id: string;
@@ -89,7 +89,8 @@ export function P2POrdersClient() {
     if (filter === "all")       return true;
     if (filter === "pending")   return o.status === "PENDING" || o.status === "PAID";
     if (filter === "completed") return o.status === "RELEASED";
-    if (filter === "cancelled") return o.status === "CANCELLED" || o.status === "EXPIRED" || o.status === "DISPUTED";
+    if (filter === "cancelled") return o.status === "CANCELLED" || o.status === "DISPUTED";
+    if (filter === "expired")   return o.status === "EXPIRED";
     return true;
   });
 
@@ -97,7 +98,8 @@ export function P2POrdersClient() {
     all:       orders.length,
     pending:   orders.filter((o) => o.status === "PENDING" || o.status === "PAID").length,
     completed: orders.filter((o) => o.status === "RELEASED").length,
-    cancelled: orders.filter((o) => ["CANCELLED", "EXPIRED", "DISPUTED"].includes(o.status)).length,
+    cancelled: orders.filter((o) => ["CANCELLED", "DISPUTED"].includes(o.status)).length,
+    expired:   orders.filter((o) => o.status === "EXPIRED").length,
   };
 
   return (
@@ -116,7 +118,8 @@ export function P2POrdersClient() {
           { id: "all" as FilterTab,       label: `All (${tabCounts.all})` },
           { id: "pending" as FilterTab,   label: `Pending (${tabCounts.pending})` },
           { id: "completed" as FilterTab, label: `Completed (${tabCounts.completed})` },
-          { id: "cancelled" as FilterTab, label: `Cancelled / Disputed (${tabCounts.cancelled})` },
+          { id: "cancelled" as FilterTab, label: `Cancelled (${tabCounts.cancelled})` },
+          ...(tabCounts.expired > 0 ? [{ id: "expired" as FilterTab, label: `Expired (${tabCounts.expired})` }] : []),
         ] as const).map(({ id, label }) => (
           <FilterButton key={id} active={filter === id} label={label} onClick={() => setFilter(id)} />
         ))}
