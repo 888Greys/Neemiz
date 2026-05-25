@@ -324,6 +324,96 @@ function MobileP2POrderView({
     );
   }
 
+  // ── Terminal state screen (Completed / Cancelled / Expired) ─────────────
+  if (["RELEASED", "CANCELLED", "EXPIRED"].includes(order.status)) {
+    const isSuccess = order.status === "RELEASED";
+    const isCancelled = order.status === "CANCELLED";
+    return (
+      <div className="lg:hidden flex flex-col min-h-[calc(100dvh-7rem)] bg-[#08080c] px-4 pt-3 pb-[calc(2rem+env(safe-area-inset-bottom))] text-white">
+        {/* Back nav */}
+        <div className="mb-6 flex items-center gap-3 border-b border-white/[0.08] pb-3">
+          <button type="button" onClick={onBack} className="grid h-9 w-9 place-items-center rounded-full text-white">
+            <Icon name="arrow_back" className="text-[21px]" />
+          </button>
+          <span className="text-sm font-black text-slate-400">Order #{orderId.slice(0, 8).toUpperCase()}</span>
+        </div>
+
+        {/* Hero icon + status */}
+        <div className="flex flex-col items-center pt-6 pb-8">
+          <div className={`mb-4 grid h-20 w-20 place-items-center rounded-full ${
+            isSuccess ? "bg-[#05b957]/15" : "bg-white/5"
+          }`}>
+            <Icon
+              name={isSuccess ? "check_circle" : isCancelled ? "cancel" : "schedule"}
+              className={`text-[48px] ${isSuccess ? "text-[#05b957]" : "text-slate-500"}`}
+            />
+          </div>
+          <h1 className={`mb-1 text-[22px] font-black ${isSuccess ? "text-white" : "text-slate-400"}`}>
+            {isSuccess ? "Trade Completed!" : isCancelled ? "Order Cancelled" : "Order Expired"}
+          </h1>
+          <p className="text-sm text-slate-500">
+            {isSuccess
+              ? `You ${order.isBuyer ? "bought" : "sold"} ${order.crypto} successfully`
+              : isCancelled
+              ? "This order was cancelled"
+              : "This order has expired"}
+          </p>
+        </div>
+
+        {/* Amount card */}
+        {isSuccess && (
+          <div className="mb-4 rounded-2xl border border-[#05b957]/20 bg-[#05b957]/5 px-5 py-4">
+            <p className="mb-0.5 text-[11px] font-semibold text-slate-500">{order.isBuyer ? "You received" : "You sent"}</p>
+            <p className="text-[28px] font-black leading-tight text-[#05b957] tabular-nums">
+              {Number(order.cryptoAmount).toFixed(6)}
+              <span className="ml-1.5 text-[16px] text-[#05b957]/70">{order.crypto}</span>
+            </p>
+            <p className="mt-1 text-[12px] font-semibold text-slate-500">
+              ≈ {order.ad.fiat} {Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+        )}
+
+        {/* Order details */}
+        <div className="mb-6 rounded-2xl border border-[#1e1e30] bg-[#111118] px-4 py-3 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-slate-500">Order ID</span>
+            <span className="font-mono text-[12px] font-bold text-white">{orderId.slice(0, 16).toUpperCase()}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-slate-500">Type</span>
+            <span className="text-[12px] font-bold text-white">{order.isBuyer ? "Buy" : "Sell"} {order.crypto}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-slate-500">Merchant</span>
+            <span className="text-[12px] font-bold text-white">{order.seller.displayName}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] text-slate-500">Price</span>
+            <span className="text-[12px] font-bold text-white">
+              {Number(order.pricePerUnit).toLocaleString("en-KE")} {order.ad.fiat}
+            </span>
+          </div>
+          {order.cancelReason && (
+            <div className="flex items-start justify-between gap-3 border-t border-white/[0.06] pt-2.5">
+              <span className="text-[12px] text-slate-500 shrink-0">Reason</span>
+              <span className="text-right text-[12px] text-slate-400">{order.cancelReason}</span>
+            </div>
+          )}
+        </div>
+
+        {/* CTA */}
+        <button
+          type="button"
+          onClick={onBack}
+          className="h-12 w-full rounded-full bg-[#087cff] text-sm font-black text-white hover:bg-[#0570e8] transition-colors"
+        >
+          Back to P2P
+        </button>
+      </div>
+    );
+  }
+
   // ── Main view ─────────────────────────────────────────────────────────────
   return (
     <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-[#08080c] px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
