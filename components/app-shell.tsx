@@ -78,7 +78,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     <BetslipProvider>
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
-      <header className="fixed left-0 right-0 top-0 z-50 flex h-14 max-w-[100vw] items-center overflow-hidden bg-[#111113] px-3 lg:h-20 lg:px-0">
+      <header className="fixed left-0 right-0 top-0 z-50 flex h-14 max-w-[100vw] items-center overflow-visible bg-[#111113] px-3 lg:h-20 lg:px-0">
         <div
           className={`hidden h-full shrink-0 items-center border-r border-white/10 px-4 transition-[width] duration-300 ease-out lg:flex ${
             sidebarCollapsed ? "w-[78px] justify-center" : "w-[280px]"

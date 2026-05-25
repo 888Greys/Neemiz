@@ -81,11 +81,11 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm sm:p-4"
+      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 backdrop-blur-sm pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md max-h-[92dvh] sm:max-h-[90dvh] flex flex-col rounded-t-2xl sm:rounded-2xl bg-[#0d1420] border border-white/10 shadow-2xl overflow-hidden"
+        className="flex max-h-[calc(100dvh-5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0d1420] shadow-2xl sm:max-h-[90dvh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header — sticky */}
