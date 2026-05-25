@@ -286,10 +286,18 @@ const NETWORK_WARN: Record<string, string> = {
   BEP20: "Only send tokens on the BNB Smart Chain to this address.",
 };
 
+interface CryptoBalance {
+  crypto: string;
+  network: string;
+  available: number;
+  locked: number;
+}
+
 function DepositSection() {
   const [open, setOpen]           = useState(false);
   const [deposits, setDeposits]   = useState<Deposit[]>([]);
   const [loading, setLoading]     = useState(true);
+  const [balances, setBalances]   = useState<CryptoBalance[]>([]);
   const [crypto, setCrypto]       = useState("USDT");
   const [network, setNetwork]     = useState("TRC20");
   const [addrLoading, setAddrLoading] = useState(false);
@@ -297,7 +305,14 @@ function DepositSection() {
   const [copied, setCopied]       = useState(false);
 
   const load = useCallback(async () => {
-    try { const r = await fetch("/api/p2p/merchant/deposit"); if (r.ok) setDeposits(await r.json()); }
+    try {
+      const [depRes, balRes] = await Promise.all([
+        fetch("/api/p2p/merchant/deposit"),
+        fetch("/api/p2p/merchant/balance"),
+      ]);
+      if (depRes.ok) setDeposits(await depRes.json());
+      if (balRes.ok) setBalances(await balRes.json());
+    }
     catch { /* ignore */ } finally { setLoading(false); }
   }, []);
 
@@ -353,6 +368,26 @@ function DepositSection() {
           Deposit
         </button>
       </div>
+
+      {/* Available balance row */}
+      {balances.length > 0 && (
+        <div className="flex flex-wrap gap-4 px-5 py-3 border-b border-white/[0.06] bg-white/[0.01]">
+          {balances.map((b) => (
+            <div key={`${b.crypto}-${b.network}`} className="flex items-center gap-3">
+              <div>
+                <p className="text-[10px] text-slate-600 uppercase tracking-wide font-bold">{b.crypto} Available</p>
+                <p className="text-white font-black text-sm">{Number(b.available).toFixed(6)}</p>
+              </div>
+              {Number(b.locked) > 0 && (
+                <div>
+                  <p className="text-[10px] text-slate-600 uppercase tracking-wide font-bold">Locked</p>
+                  <p className="text-amber-400 font-black text-sm">{Number(b.locked).toFixed(6)}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Deposit address panel */}
       {open && (
