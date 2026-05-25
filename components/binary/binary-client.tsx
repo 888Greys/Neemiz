@@ -1,31 +1,29 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  CandlestickSeries,
+  ColorType,
+  createChart,
+  type CandlestickData,
+  type IChartApi,
+  type ISeriesApi,
+  type Time,
+  type UTCTimestamp,
+} from "lightweight-charts";
 import { Icon } from "@/components/icon";
 
 type Direction = "buy" | "sell";
-type TradeStatus = "open" | "closed";
+type StreamStatus = "connecting" | "live" | "fallback";
 
-type ForexQuote = {
+type ForexMarket = {
   symbol: string;
+  derivSymbol: string;
   name: string;
   base: string;
   quote: string;
-  price: number;
-  date: string;
+  fallbackPrice: number;
   precision: number;
-};
-
-type SelectedQuote = ForexQuote & {
-  dayChange: number;
-  dayChangePct: number;
-};
-
-type Candle = {
-  date: string;
-  close: number;
-  epoch?: number;
-  source?: boolean;
 };
 
 type Trade = {
@@ -36,89 +34,218 @@ type Trade = {
   entry: number;
   stopLoss: number;
   takeProfit: number;
-  status: TradeStatus;
   openedAt: number;
   precision: number;
 };
 
-const DEFAULT_SYMBOL = "EUR/USD";
-const SIZES = [1000, 5000, 10000, 25000, 50000];
-const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
+type Candle = CandlestickData<Time> & {
+  time: UTCTimestamp;
+};
 
-const DERIV_MARKETS: Array<ForexQuote & { derivSymbol: string }> = [
-  { symbol: "EUR/USD", derivSymbol: "frxEURUSD", name: "Euro / US Dollar", base: "EUR", quote: "USD", price: 1.16, date: "Deriv", precision: 5 },
-  { symbol: "GBP/USD", derivSymbol: "frxGBPUSD", name: "British Pound / US Dollar", base: "GBP", quote: "USD", price: 1.34, date: "Deriv", precision: 5 },
-  { symbol: "USD/JPY", derivSymbol: "frxUSDJPY", name: "US Dollar / Japanese Yen", base: "USD", quote: "JPY", price: 159.2, date: "Deriv", precision: 3 },
-  { symbol: "USD/CHF", derivSymbol: "frxUSDCHF", name: "US Dollar / Swiss Franc", base: "USD", quote: "CHF", price: 0.79, date: "Deriv", precision: 5 },
-  { symbol: "AUD/USD", derivSymbol: "frxAUDUSD", name: "Australian Dollar / US Dollar", base: "AUD", quote: "USD", price: 0.71, date: "Deriv", precision: 5 },
-  { symbol: "USD/CAD", derivSymbol: "frxUSDCAD", name: "US Dollar / Canadian Dollar", base: "USD", quote: "CAD", price: 1.38, date: "Deriv", precision: 5 },
-  { symbol: "NZD/USD", derivSymbol: "frxNZDUSD", name: "New Zealand Dollar / US Dollar", base: "NZD", quote: "USD", price: 0.65, date: "Deriv", precision: 5 },
-  { symbol: "EUR/GBP", derivSymbol: "frxEURGBP", name: "Euro / British Pound", base: "EUR", quote: "GBP", price: 0.86, date: "Deriv", precision: 5 },
+const DEFAULT_SYMBOL = "EUR/USD";
+const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
+const CANDLE_SECONDS = 60;
+const SIZES = [1000, 5000, 10000, 25000, 50000];
+
+const MARKETS: ForexMarket[] = [
+  { symbol: "EUR/USD", derivSymbol: "frxEURUSD", name: "Euro / US Dollar", base: "EUR", quote: "USD", fallbackPrice: 1.16, precision: 5 },
+  { symbol: "GBP/USD", derivSymbol: "frxGBPUSD", name: "British Pound / US Dollar", base: "GBP", quote: "USD", fallbackPrice: 1.34, precision: 5 },
+  { symbol: "USD/JPY", derivSymbol: "frxUSDJPY", name: "US Dollar / Japanese Yen", base: "USD", quote: "JPY", fallbackPrice: 159.2, precision: 3 },
+  { symbol: "USD/CHF", derivSymbol: "frxUSDCHF", name: "US Dollar / Swiss Franc", base: "USD", quote: "CHF", fallbackPrice: 0.79, precision: 5 },
+  { symbol: "AUD/USD", derivSymbol: "frxAUDUSD", name: "Australian Dollar / US Dollar", base: "AUD", quote: "USD", fallbackPrice: 0.71, precision: 5 },
+  { symbol: "USD/CAD", derivSymbol: "frxUSDCAD", name: "US Dollar / Canadian Dollar", base: "USD", quote: "CAD", fallbackPrice: 1.38, precision: 5 },
+  { symbol: "NZD/USD", derivSymbol: "frxNZDUSD", name: "New Zealand Dollar / US Dollar", base: "NZD", quote: "USD", fallbackPrice: 0.65, precision: 5 },
+  { symbol: "EUR/GBP", derivSymbol: "frxEURGBP", name: "Euro / British Pound", base: "EUR", quote: "GBP", fallbackPrice: 0.86, precision: 5 },
 ];
 
-function formatPrice(quote: Pick<ForexQuote, "precision">, value: number) {
+function formatPrice(market: Pick<ForexMarket, "precision">, value: number) {
   return value.toLocaleString("en-US", {
-    minimumFractionDigits: quote.precision,
-    maximumFractionDigits: quote.precision,
+    minimumFractionDigits: market.precision,
+    maximumFractionDigits: market.precision,
   });
 }
 
-function formatTime(value: string) {
+function formatTime(value: number) {
   return new Intl.DateTimeFormat("en-KE", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+    timeStyle: "medium",
+  }).format(new Date(value * 1000));
 }
 
-function pipSize(quote: Pick<ForexQuote, "precision">) {
-  return quote.precision === 3 ? 0.01 : 0.0001;
+function pipSize(market: Pick<ForexMarket, "precision">) {
+  return market.precision === 3 ? 0.01 : 0.0001;
 }
 
-function getPips(entry: number, price: number, quote: Pick<ForexQuote, "precision">) {
-  return (price - entry) / pipSize(quote);
+function getPips(entry: number, price: number, market: Pick<ForexMarket, "precision">) {
+  return (price - entry) / pipSize(market);
+}
+
+function bucketTime(epoch: number) {
+  return (Math.floor(epoch / CANDLE_SECONDS) * CANDLE_SECONDS) as UTCTimestamp;
+}
+
+function upsertCandle(candles: Candle[], epoch: number, price: number) {
+  const time = bucketTime(epoch);
+  const last = candles[candles.length - 1];
+
+  if (last?.time === time) {
+    return [
+      ...candles.slice(0, -1),
+      {
+        ...last,
+        high: Math.max(last.high, price),
+        low: Math.min(last.low, price),
+        close: price,
+      },
+    ].slice(-180);
+  }
+
+  const open = last?.close ?? price;
+  return [
+    ...candles,
+    { time, open, high: Math.max(open, price), low: Math.min(open, price), close: price },
+  ].slice(-180);
+}
+
+function buildFallbackCandles(market: ForexMarket): Candle[] {
+  const now = bucketTime(Math.floor(Date.now() / 1000));
+  const pip = pipSize(market);
+  let previous = market.fallbackPrice;
+
+  return Array.from({ length: 90 }, (_, index) => {
+    const time = (now - (90 - index) * CANDLE_SECONDS) as UTCTimestamp;
+    const drift = Math.sin(index / 8) * pip * 7 + Math.cos(index / 5) * pip * 4;
+    const open = previous;
+    const close = market.fallbackPrice + drift;
+    const high = Math.max(open, close) + pip * (2 + (index % 4));
+    const low = Math.min(open, close) - pip * (1.5 + (index % 3));
+    previous = close;
+    return { time, open, high, low, close };
+  });
+}
+
+function TradingViewCandles({ candles, market }: { candles: Candle[]; market: ForexMarket }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const container = containerRef.current;
+
+    const chart = createChart(container, {
+      width: container.clientWidth,
+      height: container.clientHeight,
+      layout: {
+        background: { type: ColorType.Solid, color: "#0b0f18" },
+        textColor: "#7f8ca7",
+        fontFamily: "var(--font-jakarta), sans-serif",
+      },
+      grid: {
+        vertLines: { color: "rgba(148,163,184,0.08)" },
+        horzLines: { color: "rgba(148,163,184,0.08)" },
+      },
+      rightPriceScale: {
+        borderColor: "rgba(255,255,255,0.08)",
+        scaleMargins: { top: 0.12, bottom: 0.12 },
+      },
+      timeScale: {
+        borderColor: "rgba(255,255,255,0.08)",
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      crosshair: {
+        vertLine: { color: "rgba(8,124,255,0.65)", labelBackgroundColor: "#087cff" },
+        horzLine: { color: "rgba(8,124,255,0.65)", labelBackgroundColor: "#087cff" },
+      },
+      localization: {
+        priceFormatter: (price: number) => formatPrice(market, price),
+      },
+    });
+
+    const series = chart.addSeries(CandlestickSeries, {
+      upColor: "#22c55e",
+      downColor: "#ef4444",
+      borderVisible: false,
+      wickUpColor: "#22c55e",
+      wickDownColor: "#ef4444",
+      priceFormat: {
+        type: "price",
+        precision: market.precision,
+        minMove: pipSize(market),
+      },
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = series;
+    chart.timeScale().fitContent();
+
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      if (!entry) return;
+      chart.applyOptions({
+        width: Math.floor(entry.contentRect.width),
+        height: Math.floor(entry.contentRect.height),
+      });
+    });
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+      chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
+    };
+  }, [market]);
+
+  useEffect(() => {
+    if (!seriesRef.current || !chartRef.current || candles.length === 0) return;
+    seriesRef.current.setData(candles);
+    chartRef.current.timeScale().fitContent();
+  }, [candles]);
+
+  return <div ref={containerRef} className="h-[420px] min-h-0 w-full sm:h-[520px] xl:h-[560px]" />;
 }
 
 export function BinaryClient() {
+  const [mounted, setMounted] = useState(false);
   const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
   const [direction, setDirection] = useState<Direction>("buy");
   const [size, setSize] = useState(10000);
   const [riskPips, setRiskPips] = useState(25);
   const [targetPips, setTargetPips] = useState(45);
-  const [streamStatus, setStreamStatus] = useState<"connecting" | "live" | "fallback">("connecting");
+  const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
   const [streamError, setStreamError] = useState<string | null>(null);
-  const [liveTicks, setLiveTicks] = useState<Candle[]>([]);
-  const [lastTickAt, setLastTickAt] = useState<string>(new Date().toISOString());
+  const [candles, setCandles] = useState<Candle[]>([]);
+  const [lastTickAt, setLastTickAt] = useState(0);
   const [trades, setTrades] = useState<Trade[]>([]);
 
+  const selectedMarket = MARKETS.find((item) => item.symbol === selectedSymbol) ?? MARKETS[0];
+
   useEffect(() => {
-    const market = DERIV_MARKETS.find((item) => item.symbol === selectedSymbol) ?? DERIV_MARKETS[0];
+    setMounted(true);
+    setLastTickAt(Math.floor(Date.now() / 1000));
+  }, []);
+
+  useEffect(() => {
     let active = true;
     let retryCount = 0;
     let retryTimer: number | undefined;
     let socket: WebSocket | undefined;
 
-    if (!market.derivSymbol) {
-      setStreamStatus("fallback");
-      setStreamError("Deriv symbol unavailable");
-      return;
-    }
-
-    setLiveTicks([]);
+    setCandles([]);
     setStreamStatus("connecting");
     setStreamError(null);
 
     function connect() {
       if (!active) return;
-
       socket = new WebSocket(DERIV_WS_URL);
 
       socket.onopen = () => {
         if (!active || !socket) return;
         retryCount = 0;
         socket.send(JSON.stringify({
-          ticks_history: market.derivSymbol,
+          ticks_history: selectedMarket.derivSymbol,
           adjust_start_time: 1,
-          count: 120,
+          count: 500,
           end: "latest",
           style: "ticks",
           subscribe: 1,
@@ -149,39 +276,29 @@ export function BinaryClient() {
         }
 
         if (response.history?.prices?.length && response.history.times?.length) {
-          const history = response.history.prices.map((close, index) => {
+          const historyCandles = response.history.prices.reduce<Candle[]>((result, price, index) => {
             const epoch = response.history?.times?.[index] ?? Math.floor(Date.now() / 1000);
-            return {
-              date: new Date(epoch * 1000).toISOString(),
-              close,
-              epoch,
-              source: true,
-            };
-          });
-
-          setLiveTicks(history.slice(-180));
-          setLastTickAt(history[history.length - 1]?.date ?? new Date().toISOString());
+            return upsertCandle(result, epoch, price);
+          }, []);
+          setCandles(historyCandles);
+          setLastTickAt(historyCandles[historyCandles.length - 1]?.time ?? Math.floor(Date.now() / 1000));
+          setStreamStatus("live");
+          setStreamError(null);
         }
 
-        if (!response.tick) return;
-
-        const tick = {
-          date: new Date(response.tick.epoch * 1000).toISOString(),
-          close: response.tick.quote,
-          epoch: response.tick.epoch,
-          source: true,
-        };
-
-        setStreamStatus("live");
-        setStreamError(null);
-        setLastTickAt(tick.date);
-        setLiveTicks((current) => [...current.slice(-179), tick]);
+        if (response.tick) {
+          setCandles((current) => upsertCandle(current, response.tick!.epoch, response.tick!.quote));
+          setLastTickAt(response.tick.epoch);
+          setStreamStatus("live");
+          setStreamError(null);
+        }
       };
 
       socket.onerror = () => {
         if (!active) return;
         setStreamStatus("fallback");
         setStreamError("Deriv stream unavailable");
+        setCandles((current) => current.length ? current : buildFallbackCandles(selectedMarket));
       };
 
       socket.onclose = () => {
@@ -189,6 +306,7 @@ export function BinaryClient() {
         retryCount += 1;
         setStreamStatus("fallback");
         setStreamError("Deriv stream disconnected. Reconnecting...");
+        setCandles((current) => current.length ? current : buildFallbackCandles(selectedMarket));
         retryTimer = window.setTimeout(connect, Math.min(8000, 1000 * retryCount));
       };
     }
@@ -198,99 +316,84 @@ export function BinaryClient() {
     return () => {
       active = false;
       if (retryTimer) window.clearTimeout(retryTimer);
-      socket?.close();
-    };
-  }, [selectedSymbol]);
-
-  const selectedMarket = DERIV_MARKETS.find((item) => item.symbol === selectedSymbol) ?? DERIV_MARKETS[0];
-  const latestTick = liveTicks[liveTicks.length - 1];
-  const firstTick = liveTicks[0];
-  const selected: SelectedQuote = latestTick
-    ? {
-        ...selectedMarket,
-        price: latestTick.close,
-        date: new Date((latestTick.epoch ?? Date.now() / 1000) * 1000).toISOString().slice(0, 10),
-        dayChange: latestTick.close - (firstTick?.close ?? selectedMarket.price),
-        dayChangePct: (firstTick?.close ?? selectedMarket.price) ? ((latestTick.close - (firstTick?.close ?? selectedMarket.price)) / (firstTick?.close ?? selectedMarket.price)) * 100 : 0,
+      if (socket) {
+        socket.onopen = null;
+        socket.onmessage = null;
+        socket.onerror = null;
+        socket.onclose = null;
+        if (socket.readyState === WebSocket.OPEN) socket.close();
       }
-    : { ...selectedMarket, dayChange: 0, dayChangePct: 0 };
-  const chart = useMemo(
-    () =>
-      liveTicks.length > 1
-        ? liveTicks
-        : [{ date: lastTickAt, close: selectedMarket.price, epoch: Math.floor(new Date(lastTickAt).getTime() / 1000), source: true }],
-    [lastTickAt, liveTicks, selectedMarket.price],
-  );
-  const positive = selected.dayChangePct >= 0;
-  const spread = selected.price * 0.00018;
-  const bid = selected.price - spread / 2;
-  const ask = selected.price + spread / 2;
-  const unit = pipSize(selected);
-  const stopLoss = direction === "buy" ? selected.price - riskPips * unit : selected.price + riskPips * unit;
-  const takeProfit = direction === "buy" ? selected.price + targetPips * unit : selected.price - targetPips * unit;
-  const openTrades = trades.filter((trade) => trade.status === "open");
+    };
+  }, [selectedMarket]);
+
+  const chartCandles = candles.length ? candles : buildFallbackCandles(selectedMarket);
+  const latest = chartCandles[chartCandles.length - 1];
+  const first = chartCandles[0];
+  const price = latest?.close ?? selectedMarket.fallbackPrice;
+  const change = price - (first?.open ?? selectedMarket.fallbackPrice);
+  const changePct = first?.open ? (change / first.open) * 100 : 0;
+  const spread = price * 0.00018;
+  const bid = price - spread / 2;
+  const ask = price + spread / 2;
+  const unit = pipSize(selectedMarket);
+  const stopLoss = direction === "buy" ? price - riskPips * unit : price + riskPips * unit;
+  const takeProfit = direction === "buy" ? price + targetPips * unit : price - targetPips * unit;
+  const openTrades = trades;
   const exposure = openTrades.reduce((total, trade) => total + trade.size, 0);
   const estimatedPnl = openTrades.reduce((total, trade) => {
-    const pips = getPips(trade.entry, selected.price, trade);
+    const pips = getPips(trade.entry, price, trade);
     return total + (trade.direction === "buy" ? pips : -pips) * (trade.size / 10000);
   }, 0);
-
   const levels = useMemo(() => {
-    const closes = chart.map((item) => item.close);
+    const highs = chartCandles.map((item) => item.high);
+    const lows = chartCandles.map((item) => item.low);
+    const closes = chartCandles.map((item) => item.close);
     return {
-      high: Math.max(...closes),
-      low: Math.min(...closes),
+      high: Math.max(...highs),
+      low: Math.min(...lows),
       average: closes.reduce((total, item) => total + item, 0) / closes.length,
     };
-  }, [chart]);
+  }, [chartCandles]);
 
   function openTrade() {
     setTrades((current) => [
       {
         id: Date.now(),
-        symbol: selected.symbol,
+        symbol: selectedMarket.symbol,
         direction,
         size,
-        entry: selected.price,
+        entry: price,
         stopLoss,
         takeProfit,
-        status: "open",
         openedAt: Date.now(),
-        precision: selected.precision,
+        precision: selectedMarket.precision,
       },
       ...current,
     ]);
   }
 
   function closeTrade(id: number) {
-    setTrades((current) => current.map((trade) => (trade.id === id ? { ...trade, status: "closed" } : trade)));
+    setTrades((current) => current.filter((trade) => trade.id !== id));
   }
 
   return (
-    <div className="min-h-screen bg-[#07080a] px-3 pb-10 pt-4 text-white lg:px-6 lg:pt-5">
-      <div className="mb-3 grid gap-3 xl:grid-cols-[1fr_460px]">
-        <section className="flex min-w-0 flex-wrap items-center gap-3 border border-white/[0.08] bg-[#101216] px-4 py-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0d8f62]/15 text-[#33d49b]">
-            <Icon name="currency_exchange" className="text-[22px]" />
-          </div>
+    <div className="min-h-screen bg-[#050506] px-3 pb-10 pt-4 text-white lg:px-5">
+      <div className="mb-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <section className="flex min-w-0 items-center gap-3 rounded-lg border border-white/[0.08] bg-[#101216] px-4 py-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded bg-[#087cff]/15 text-[#8bc3ff]">
+            <Icon name="candlestick_chart" className="text-[22px]" />
+          </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-black tracking-tight text-white">Forex Trading</h1>
-              <span className="rounded bg-[#33d49b]/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-[#33d49b]">
-                Real rates
-              </span>
-              <span className={`rounded px-2 py-1 text-[10px] font-black uppercase tracking-wider ${
-                streamStatus === "live" ? "bg-sky-400/10 text-sky-300" : streamStatus === "connecting" ? "bg-amber-400/10 text-amber-300" : "bg-red-400/10 text-red-300"
-              }`}>
-                {streamStatus === "live" ? "Deriv live ticks" : streamStatus === "connecting" ? "Connecting stream" : "Stream fallback"}
-              </span>
+              <h1 className="text-xl font-black tracking-tight text-white sm:text-2xl">Binary & Forex</h1>
+              <StatusPill status={streamStatus} />
             </div>
             <p className="truncate text-xs font-bold text-slate-500">
-              Deriv WebSocket provides tick history and live forex ticks for the chart.
+              TradingView Lightweight Charts candlesticks with Deriv live forex ticks.
             </p>
           </div>
           <div className="hidden items-center gap-5 md:flex">
-            <Metric label="Last tick" value={formatTime(lastTickAt)} />
+            <Metric label="Last tick" value={mounted && lastTickAt ? formatTime(lastTickAt) : "--"} />
             <Metric label="Deriv ID" value={selectedMarket.derivSymbol} />
             <Metric label="Open" value={String(openTrades.length)} />
           </div>
@@ -299,96 +402,87 @@ export function BinaryClient() {
         <section className="grid grid-cols-3 gap-2">
           <MetricCard label="Exposure" value={`${exposure.toLocaleString("en-US")} units`} />
           <MetricCard label="Open P/L" value={`${estimatedPnl >= 0 ? "+" : ""}${estimatedPnl.toFixed(2)} pips`} positive={estimatedPnl >= 0} negative={estimatedPnl < 0} />
-          <MetricCard label="Feed" value={streamStatus === "live" ? "Deriv WS" : streamStatus === "connecting" ? "Connecting" : "Deriv retry"} negative={streamStatus === "fallback"} />
+          <MetricCard label="Feed" value={streamStatus === "live" ? "Deriv WS" : streamStatus === "connecting" ? "Connecting" : "Retrying"} negative={streamStatus === "fallback"} />
         </section>
       </div>
 
       {streamError && (
-        <div className="mb-3 border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-xs font-bold text-amber-200">
-          {streamError}. Waiting for Deriv to reconnect.
+        <div className="mb-3 rounded-lg border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-xs font-bold text-amber-200">
+          {streamError}
         </div>
       )}
 
-      <div className="grid gap-3 xl:grid-cols-[300px_minmax(0,1fr)_380px]">
-        <aside className="border border-white/[0.08] bg-[#101216] p-3">
-          <div className="mb-3 flex items-center gap-2 border border-white/[0.07] bg-black/20 px-3 py-2">
+      <div className="grid min-w-0 gap-3 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
+        <aside className="order-2 min-w-0 rounded-lg border border-white/[0.08] bg-[#101216] p-3 xl:order-none">
+          <div className="mb-3 flex items-center gap-2 rounded border border-white/[0.07] bg-black/20 px-3 py-2">
             <Icon name="search" className="text-[16px] text-slate-500" />
             <span className="text-xs font-bold text-slate-500">Major forex pairs</span>
           </div>
-
-          <div className="space-y-2">
-            {DERIV_MARKETS.map((quote) => {
-              const active = quote.symbol === selected.symbol;
-              return (
-                <button
-                  key={quote.symbol}
-                  type="button"
-                  onClick={() => setSelectedSymbol(quote.symbol)}
-                  className={`w-full border p-3 text-left transition ${
-                    active
-                      ? "border-[#33d49b]/70 bg-[#33d49b]/10"
-                      : "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.12] hover:bg-white/[0.05]"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-black text-white">{quote.symbol}</div>
-                      <div className="text-[11px] font-bold text-slate-500">{quote.name}</div>
-                    </div>
-                    <span className="rounded bg-white/[0.05] px-2 py-1 text-[10px] font-black text-slate-400">
-                      FX
-                    </span>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+            {MARKETS.map((market) => (
+              <button
+                key={market.symbol}
+                type="button"
+                onClick={() => setSelectedSymbol(market.symbol)}
+                className={`rounded border p-3 text-left transition ${
+                  market.symbol === selectedSymbol
+                    ? "border-[#087cff]/70 bg-[#087cff]/10"
+                    : "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.12] hover:bg-white/[0.05]"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-black text-white">{market.symbol}</div>
+                    <div className="text-[11px] font-bold text-slate-500">{market.name}</div>
                   </div>
-                  <div className="mt-3 flex items-center justify-between text-[11px] font-black text-slate-500">
-                    <span>{formatPrice(quote, quote.symbol === selected.symbol ? selected.price : quote.price)}</span>
-                    <span>{quote.symbol === selected.symbol && streamStatus === "live" ? "live" : quote.date}</span>
-                  </div>
-                </button>
-              );
-            })}
+                  <span className="rounded bg-white/[0.05] px-2 py-1 text-[10px] font-black text-slate-400">FX</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between text-[11px] font-black text-slate-500">
+                  <span>{formatPrice(market, market.symbol === selectedSymbol ? price : market.fallbackPrice)}</span>
+                  <span>{market.symbol === selectedSymbol && streamStatus === "live" ? "live" : "Deriv"}</span>
+                </div>
+              </button>
+            ))}
           </div>
         </aside>
 
-        <main className="min-w-0 space-y-3">
-          <section className="border border-white/[0.08] bg-[#101216]">
+        <main className="order-1 min-w-0 space-y-3 xl:order-none">
+          <section className="min-w-0 overflow-hidden rounded-lg border border-white/[0.08] bg-[#101216]">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-black text-white">{selected.symbol}</h2>
-                  <span className={`rounded px-2 py-1 text-[10px] font-black ${positive ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
-                    {positive ? "+" : ""}{selected.dayChangePct.toFixed(3)}%
+                  <h2 className="text-xl font-black text-white">{selectedMarket.symbol}</h2>
+                  <span className={`rounded px-2 py-1 text-[10px] font-black ${changePct >= 0 ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
+                    {changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%
                   </span>
                 </div>
-                <div className="text-xs font-bold text-slate-500">{selected.name}</div>
+                <div className="text-xs font-bold text-slate-500">{selectedMarket.name}</div>
               </div>
               <div className="grid grid-cols-2 gap-2 text-right">
-                <QuoteBox label="Bid" value={formatPrice(selected, bid)} tone="sell" />
-                <QuoteBox label="Ask" value={formatPrice(selected, ask)} tone="buy" />
+                <QuoteBox label="Bid" value={formatPrice(selectedMarket, bid)} tone="sell" />
+                <QuoteBox label="Ask" value={formatPrice(selectedMarket, ask)} tone="buy" />
               </div>
             </div>
-            <ForexChart candles={chart} mode={liveTicks.length > 1 ? "live" : "reference"} quote={selected} price={selected.price} />
+            <TradingViewCandles candles={chartCandles} market={selectedMarket} />
           </section>
 
           <section className="grid gap-3 md:grid-cols-3">
-            <LevelCard label="30D high" value={formatPrice(selected, levels.high)} />
-            <LevelCard label="30D average" value={formatPrice(selected, levels.average)} />
-            <LevelCard label="30D low" value={formatPrice(selected, levels.low)} />
+            <LevelCard label="Session high" value={formatPrice(selectedMarket, levels.high)} />
+            <LevelCard label="Session average" value={formatPrice(selectedMarket, levels.average)} />
+            <LevelCard label="Session low" value={formatPrice(selectedMarket, levels.low)} />
           </section>
         </main>
 
-        <aside className="space-y-3">
-          <section className="border border-white/[0.08] bg-[#101216]">
+        <aside className="order-3 min-w-0 space-y-3 xl:order-none">
+          <section className="rounded-lg border border-white/[0.08] bg-[#101216]">
             <div className="border-b border-white/[0.07] px-4 py-3">
               <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Order ticket</div>
-              <div className="mt-1 text-lg font-black text-white">{selected.symbol} {direction.toUpperCase()}</div>
+              <div className="mt-1 text-lg font-black text-white">{selectedMarket.symbol} {direction.toUpperCase()}</div>
             </div>
             <div className="space-y-4 p-4">
-              <div>
-                <div className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-500">Side</div>
-                <div className="grid grid-cols-2 gap-2">
-                  <TradeButton active={direction === "buy"} label="Buy" onClick={() => setDirection("buy")} tone="buy" />
-                  <TradeButton active={direction === "sell"} label="Sell" onClick={() => setDirection("sell")} tone="sell" />
-                </div>
+              <div className="grid grid-cols-2 gap-2">
+                <TradeButton active={direction === "buy"} label="Buy" onClick={() => setDirection("buy")} tone="buy" />
+                <TradeButton active={direction === "sell"} label="Sell" onClick={() => setDirection("sell")} tone="sell" />
               </div>
 
               <div>
@@ -402,7 +496,7 @@ export function BinaryClient() {
                   step={1000}
                   value={size}
                   onChange={(event) => setSize(Math.max(1000, Number(event.target.value) || 1000))}
-                  className="h-12 w-full border border-white/[0.08] bg-black/25 px-4 font-mono text-lg font-black text-white outline-none transition focus:border-[#33d49b]/70"
+                  className="h-12 w-full rounded border border-white/[0.08] bg-black/25 px-4 font-mono text-lg font-black text-white outline-none transition focus:border-[#087cff]/70"
                 />
                 <div className="mt-2 grid grid-cols-5 gap-2">
                   {SIZES.map((item) => (
@@ -410,7 +504,7 @@ export function BinaryClient() {
                       key={item}
                       type="button"
                       onClick={() => setSize(item)}
-                      className="bg-white/[0.06] px-2 py-2 text-[11px] font-black text-slate-400 transition hover:bg-white/[0.1] hover:text-white"
+                      className="rounded bg-white/[0.06] px-2 py-2 text-[11px] font-black text-slate-400 transition hover:bg-white/[0.1] hover:text-white"
                     >
                       {item / 1000}K
                     </button>
@@ -423,37 +517,37 @@ export function BinaryClient() {
                 <NumberField id="target-pips" label="Take profit" suffix="pips" value={targetPips} onChange={setTargetPips} />
               </div>
 
-              <div className="border border-white/[0.07] bg-black/20 p-3">
-                <Row label="Entry" value={formatPrice(selected, selected.price)} />
-                <Row label="Stop loss" value={formatPrice(selected, stopLoss)} negative />
-                <Row label="Take profit" value={formatPrice(selected, takeProfit)} positive />
+              <div className="rounded border border-white/[0.07] bg-black/20 p-3">
+                <Row label="Entry" value={formatPrice(selectedMarket, price)} />
+                <Row label="Stop loss" value={formatPrice(selectedMarket, stopLoss)} negative />
+                <Row label="Take profit" value={formatPrice(selectedMarket, takeProfit)} positive />
               </div>
 
               <button
                 type="button"
                 onClick={openTrade}
-                className={`w-full py-4 text-sm font-black text-white transition active:scale-[0.98] ${
+                className={`w-full rounded py-4 text-sm font-black text-white transition active:scale-[0.98] ${
                   direction === "buy" ? "bg-[#0f9f68] hover:bg-[#13ae73]" : "bg-[#d33d4b] hover:bg-[#e24755]"
                 }`}
               >
-                Open {direction.toUpperCase()} {selected.symbol}
+                Open {direction.toUpperCase()} {selectedMarket.symbol}
               </button>
             </div>
           </section>
 
-          <section className="border border-white/[0.08] bg-[#101216] p-4">
+          <section className="rounded-lg border border-white/[0.08] bg-[#101216] p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-black text-white">Open positions</h3>
-              <span className="rounded bg-[#33d49b]/10 px-2 py-1 text-[10px] font-black text-[#92f1cc]">{openTrades.length}</span>
+              <span className="rounded bg-[#087cff]/10 px-2 py-1 text-[10px] font-black text-[#8bc3ff]">{openTrades.length}</span>
             </div>
             <div className="space-y-2">
               {openTrades.length === 0 ? (
-                <div className="border border-dashed border-white/[0.08] py-8 text-center text-xs font-bold text-slate-600">
+                <div className="rounded border border-dashed border-white/[0.08] py-8 text-center text-xs font-bold text-slate-600">
                   No open positions
                 </div>
               ) : (
                 openTrades.map((trade) => (
-                  <PositionRow key={trade.id} currentPrice={selected.price} onClose={() => closeTrade(trade.id)} trade={trade} />
+                  <PositionRow key={trade.id} currentPrice={price} onClose={() => closeTrade(trade.id)} trade={trade} />
                 ))
               )}
             </div>
@@ -464,145 +558,13 @@ export function BinaryClient() {
   );
 }
 
-function buildTradingSeries(candles: Candle[], quote: SelectedQuote, mode: "live" | "reference") {
-  if (candles.length < 2) return candles.map((item) => ({ ...item, source: true }));
-  if (mode === "live") return candles.map((item) => ({ ...item, source: true }));
-
-  const pip = pipSize(quote);
-  const dense: Array<Candle & { source?: boolean }> = [];
-
-  for (let index = 0; index < candles.length - 1; index += 1) {
-    const current = candles[index];
-    const next = candles[index + 1];
-    const steps = 4;
-
-    for (let step = 0; step < steps; step += 1) {
-      const progress = step / steps;
-      const wave = Math.sin((index * steps + step) * 1.7) * pip * 3.2;
-      const chop = Math.cos((index * 5 + step) * 2.3) * pip * 1.7;
-      dense.push({
-        date: step === 0 ? current.date : `${current.date}.${step}`,
-        close: current.close + (next.close - current.close) * progress + wave + chop,
-        source: step === 0,
-      });
-    }
-  }
-
-  dense.push({ ...candles[candles.length - 1], source: true });
-  return dense;
-}
-
-function ForexChart({ candles, mode, price, quote }: { candles: Candle[]; mode: "live" | "reference"; price: number; quote: SelectedQuote }) {
-  const tradingSeries = buildTradingSeries(candles, quote, mode);
-  const values = tradingSeries.map((item) => item.close);
-  const minValue = Math.min(...values, price);
-  const maxValue = Math.max(...values, price);
-  const padding = Math.max((maxValue - minValue) * 0.18, pipSize(quote) * 8);
-  const min = minValue - padding;
-  const max = maxValue + padding;
-  const range = max - min || 1;
-  const chartLeft = 36;
-  const chartRight = 780;
-  const chartTop = 44;
-  const chartBottom = 334;
-  const scaleY = (value: number) => chartBottom - ((value - min) / range) * (chartBottom - chartTop);
-  const scaleX = (index: number) => chartLeft + (index / Math.max(1, tradingSeries.length - 1)) * (chartRight - chartLeft);
-  const line = tradingSeries.map((item, index) => `${index === 0 ? "M" : "L"} ${scaleX(index)} ${scaleY(item.close)}`).join(" ");
-  const area = `${line} L ${chartRight} ${chartBottom} L ${chartLeft} ${chartBottom} Z`;
-  const positive = tradingSeries[tradingSeries.length - 1]?.close >= tradingSeries[0]?.close;
-  const stroke = positive ? "#3d8ed9" : "#ff5d6c";
-  const priceY = scaleY(price);
-  const expiryX = scaleX(Math.floor(tradingSeries.length * 0.64));
-  const nowX = scaleX(Math.max(0, tradingSeries.length - 1));
-  const priceLevels = Array.from({ length: 5 }, (_, index) => max - (range / 4) * index);
-  const firstTime = tradingSeries[0]?.epoch ? new Date((tradingSeries[0].epoch ?? 0) * 1000) : null;
-  const lastTime = tradingSeries[tradingSeries.length - 1]?.epoch ? new Date((tradingSeries[tradingSeries.length - 1].epoch ?? 0) * 1000) : null;
-  const bottomLabels = mode === "live" && firstTime && lastTime
-    ? Array.from({ length: 7 }, (_, index) => {
-        const time = new Date(firstTime.getTime() + ((lastTime.getTime() - firstTime.getTime()) / 6) * index);
-        return time.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      })
-    : ["17:56:45", "17:57", "17:57:30", "17:58", "17:58:30", "17:59", "17:59:30"];
-  const expirationTime = new Date(Date.now() + 60_000).toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-
+function StatusPill({ status }: { status: StreamStatus }) {
   return (
-    <div className="relative h-[500px] overflow-hidden bg-[#111625] sm:h-[570px]">
-      <div className="absolute inset-0 opacity-[0.18] [background-image:linear-gradient(rgba(255,255,255,.08)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.08)_1px,transparent_1px)] [background-size:65px_56px]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_36%_42%,rgba(65,105,160,.18),transparent_38%),linear-gradient(180deg,rgba(18,22,35,.16),rgba(7,9,15,.82))]" />
-
-      <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
-        <button type="button" className="flex h-11 items-center gap-2 bg-[#273044] px-4 text-sm font-black text-white">
-          {quote.symbol} <Icon name="expand_more" className="text-[16px] text-slate-400" />
-        </button>
-        {["bar_chart", "settings", "edit_note", "grid_view"].map((icon) => (
-          <button key={icon} type="button" className="flex h-10 w-10 items-center justify-center bg-[#273044] text-slate-200">
-            <Icon name={icon} className="text-[18px]" />
-          </button>
-        ))}
-      </div>
-
-      <svg className="relative z-[1] h-full w-full" viewBox="0 0 860 390" preserveAspectRatio="none" role="img" aria-label={`${quote.symbol} trading-style reference chart`}>
-        <defs>
-          <linearGradient id="forexArea" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor={stroke} stopOpacity="0.25" />
-            <stop offset="1" stopColor={stroke} stopOpacity="0" />
-          </linearGradient>
-          <filter id="forexLineGlow">
-            <feGaussianBlur stdDeviation="1.4" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        {Array.from({ length: 7 }, (_, index) => (
-          <line key={`h-${index}`} x1={chartLeft} x2="826" y1={chartTop + index * 48} y2={chartTop + index * 48} stroke="rgba(160,180,215,.12)" strokeWidth="1" />
-        ))}
-        {Array.from({ length: 13 }, (_, index) => (
-          <line key={`v-${index}`} x1={chartLeft + index * 62} x2={chartLeft + index * 62} y1="34" y2="356" stroke="rgba(160,180,215,.10)" strokeWidth="1" />
-        ))}
-        <path d={area} fill="url(#forexArea)" />
-        <path d={line} fill="none" stroke={stroke} strokeWidth="2.7" filter="url(#forexLineGlow)" />
-        {tradingSeries.filter((item) => item.source).map((item) => {
-          const pointIndex = tradingSeries.findIndex((point) => point.date === item.date);
-          return <circle key={item.date} cx={scaleX(Math.max(0, pointIndex))} cy={scaleY(item.close)} r={mode === "live" ? "1.8" : "2.2"} fill={stroke} opacity={mode === "live" ? "0.34" : "0.5"} />;
-        })}
-        <line x1={chartLeft} x2="826" y1={priceY} y2={priceY} stroke="#66a8e8" strokeWidth="1.2" opacity="0.55" />
-        <line x1={expiryX} x2={expiryX} y1="0" y2="390" stroke="rgba(255,255,255,.35)" strokeWidth="1.3" />
-        <line x1={nowX} x2={nowX} y1="36" y2="356" stroke="#1ec7ff" strokeWidth="1.2" />
-        <circle cx={nowX} cy={priceY} r="5.5" fill="#1ec7ff" />
-        <rect x="782" y={priceY - 16} width="70" height="30" rx="4" fill="#4075a8" />
-        <text x="817" y={priceY + 5} fill="#ffffff" fontSize="13" fontWeight="900" textAnchor="middle">
-          {formatPrice(quote, price)}
-        </text>
-        <rect x={expiryX - 12} y="0" width="24" height="11" fill="#e6edf7" />
-        <path d={`M ${expiryX - 7} 11 L ${expiryX + 7} 11 L ${expiryX} 19 Z`} fill="#e6edf7" />
-        <text x={expiryX + 7} y="39" fill="#8fa0be" fontSize="12" fontWeight="800">Expiration time</text>
-        <text x={expiryX + 7} y="62" fill="#7b879f" fontSize="12" fontWeight="800">{expirationTime}</text>
-        {priceLevels.map((level, index) => (
-          <text key={level} x="828" y={scaleY(level) + 4} fill="#7d8aa3" fontSize="12" fontWeight="800" textAnchor="end" opacity={index === 0 || index === priceLevels.length - 1 ? 0.55 : 0.85}>
-            {formatPrice(quote, level)}
-          </text>
-        ))}
-      </svg>
-      <div className="pointer-events-none absolute bottom-9 left-7 right-14 z-10 flex justify-between text-[12px] font-black text-slate-500">
-        {bottomLabels.map((label) => (
-          <span key={label}>{label}</span>
-        ))}
-      </div>
-      <div className="absolute bottom-4 left-7 z-10 flex items-center gap-2">
-        <button type="button" className="flex h-9 min-w-20 items-center justify-center gap-2 border border-white/15 bg-[#1c2537] px-4 text-sm font-black text-slate-300">
-          M4 <Icon name="expand_more" className="text-[15px]" />
-        </button>
-        <span className="rounded bg-[#1f2a3f]/90 px-3 py-2 font-mono text-xs font-black text-slate-400">
-          {mode === "live" ? "Deriv tick stream" : `${candles[0]?.date} - ${candles[candles.length - 1]?.date}`}
-        </span>
-      </div>
-    </div>
+    <span className={`rounded px-2 py-1 text-[10px] font-black uppercase tracking-wider ${
+      status === "live" ? "bg-sky-400/10 text-sky-300" : status === "connecting" ? "bg-amber-400/10 text-amber-300" : "bg-red-400/10 text-red-300"
+    }`}>
+      {status === "live" ? "Deriv live" : status === "connecting" ? "Connecting" : "Fallback"}
+    </span>
   );
 }
 
@@ -617,7 +579,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function MetricCard({ label, negative, positive, value }: { label: string; negative?: boolean; positive?: boolean; value: string }) {
   return (
-    <div className="border border-white/[0.08] bg-[#101216] px-3 py-3">
+    <div className="rounded border border-white/[0.08] bg-[#101216] px-3 py-3">
       <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{label}</div>
       <div className={`mt-1 truncate font-mono text-sm font-black ${positive ? "text-[#33d49b]" : negative ? "text-[#ff6171]" : "text-white"}`}>{value}</div>
     </div>
@@ -626,16 +588,16 @@ function MetricCard({ label, negative, positive, value }: { label: string; negat
 
 function QuoteBox({ label, tone, value }: { label: string; tone: "buy" | "sell"; value: string }) {
   return (
-    <div className={`min-w-[118px] border px-3 py-2 ${tone === "buy" ? "border-[#33d49b]/30 bg-[#33d49b]/8" : "border-[#ff6171]/30 bg-[#ff6171]/8"}`}>
+    <div className={`min-w-[112px] rounded border px-3 py-2 ${tone === "buy" ? "border-[#33d49b]/30 bg-[#33d49b]/8" : "border-[#ff6171]/30 bg-[#ff6171]/8"}`}>
       <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="font-mono text-lg font-black text-white">{value}</div>
+      <div className="font-mono text-base font-black text-white sm:text-lg">{value}</div>
     </div>
   );
 }
 
 function LevelCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-white/[0.08] bg-[#101216] p-4">
+    <div className="rounded border border-white/[0.08] bg-[#101216] p-4">
       <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{label}</div>
       <div className="mt-1 font-mono text-lg font-black text-white">{value}</div>
     </div>
@@ -647,7 +609,7 @@ function TradeButton({ active, label, onClick, tone }: { active: boolean; label:
     <button
       type="button"
       onClick={onClick}
-      className={`px-4 py-3 text-sm font-black transition ${
+      className={`rounded px-4 py-3 text-sm font-black transition ${
         active
           ? tone === "buy"
             ? "bg-[#0f9f68] text-white"
@@ -666,7 +628,7 @@ function NumberField({ id, label, onChange, suffix, value }: { id: string; label
       <label className="mb-2 block text-[11px] font-black uppercase tracking-wider text-slate-500" htmlFor={id}>
         {label}
       </label>
-      <div className="flex h-11 items-center border border-white/[0.08] bg-black/25 focus-within:border-[#33d49b]/70">
+      <div className="flex h-11 items-center rounded border border-white/[0.08] bg-black/25 focus-within:border-[#087cff]/70">
         <input
           id={id}
           type="number"
@@ -695,7 +657,7 @@ function PositionRow({ currentPrice, onClose, trade }: { currentPrice: number; o
   const pips = trade.direction === "buy" ? rawPips : -rawPips;
 
   return (
-    <div className="border border-white/[0.07] bg-black/20 p-3">
+    <div className="rounded border border-white/[0.07] bg-black/20 p-3">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="text-sm font-black text-white">{trade.symbol}</div>
@@ -710,7 +672,7 @@ function PositionRow({ currentPrice, onClose, trade }: { currentPrice: number; o
       <button
         type="button"
         onClick={onClose}
-        className="mt-3 w-full bg-white/[0.06] py-2 text-xs font-black text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
+        className="mt-3 w-full rounded bg-white/[0.06] py-2 text-xs font-black text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
       >
         Close position
       </button>
