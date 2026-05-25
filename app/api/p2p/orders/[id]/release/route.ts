@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { creditUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
+import { sendTradeCompletedEmail } from "@/lib/brevo";
 
 // POST /api/p2p/orders/[id]/release — merchant confirms fiat received & releases crypto
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -18,7 +19,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     const order = await db.p2POrder.findUnique({
       where: { id },
-      include: { ad: true },
+      include: {
+        ad: true,
+        buyer: { select: { email: true, firstName: true, username: true } },
+      },
     });
 
     if (!order)                         return Response.json({ error: "Order not found" }, { status: 404 });
@@ -84,6 +88,31 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         },
       });
     });
+
+    // Email both parties — fire-and-forget
+    const emailOpts = {
+      crypto:      order.crypto,
+      cryptoAmount: cryptoAmt,
+      fiatAmount:  Number(order.fiatAmount),
+      fiat:        "KSh",
+      orderId:     order.id,
+    };
+    const buyerName = order.buyer.firstName ?? order.buyer.username ?? "Trader";
+    if (order.buyer.email) {
+      sendTradeCompletedEmail(order.buyer.email, buyerName, { ...emailOpts, role: "buyer" })
+        .catch((e) => console.error("Trade completed email (buyer) failed:", e));
+    }
+    // Fetch merchant user email
+    if (merchant) {
+      db.user.findUnique({ where: { id: merchant.userId }, select: { email: true, firstName: true, username: true } })
+        .then((mu) => {
+          if (mu?.email) {
+            const mName = mu.firstName ?? mu.username ?? merchant.displayName;
+            sendTradeCompletedEmail(mu.email, mName, { ...emailOpts, role: "seller" })
+              .catch((e) => console.error("Trade completed email (merchant) failed:", e));
+          }
+        }).catch(() => {});
+    }
 
     // Notify counterparty (outside transaction — non-critical)
     await db.notification.create({
