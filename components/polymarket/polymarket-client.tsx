@@ -427,8 +427,16 @@ function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTag
 
 /* ── Compact 4-col market card ──────────────────────────────────────────── */
 function CompactCard({ market, onBet, onOpen }: { market: PolymarketMarket; onBet: (m: PolymarketMarket, o?: string) => void; onOpen: (m: PolymarketMarket) => void }) {
-  const outcomes = market.outcomes.slice(0, 3);
-  const prices   = market.outcomePrices;
+  const ranked = market.outcomes
+    .map((outcome, i) => ({ outcome, price: marketPrice(market, i), index: i }))
+    .sort((a, b) => b.price - a.price);
+  const leader = ranked[0] ?? { outcome: "Yes", price: 0.5, index: 0 };
+  const runner = ranked[1] ?? { outcome: "No", price: Math.max(0.01, 1 - leader.price), index: 1 };
+  const hasYesNo = market.outcomes.some((o) => o.toLowerCase() === "yes") && market.outcomes.some((o) => o.toLowerCase() === "no");
+  const noOutcome = market.outcomes.find((o) => o.toLowerCase() === "no") ?? runner.outcome;
+  const noPrice = hasYesNo ? marketPrice(market, market.outcomes.indexOf(noOutcome)) : runner.price;
+  const yesLabel = hasYesNo ? "Yes" : leader.outcome;
+  const noLabel = hasYesNo ? "No" : runner.outcome;
 
   return (
     <div
@@ -438,48 +446,64 @@ function CompactCard({ market, onBet, onOpen }: { market: PolymarketMarket; onBe
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onOpen(market);
       }}
-      className="flex flex-col rounded-2xl border border-white/[0.07] bg-[#1a1b22] p-4 text-left transition cursor-pointer hover:border-white/[0.14] hover:bg-[#1f2029]"
+      className="flex min-h-[216px] cursor-pointer flex-col rounded-2xl border border-white/[0.07] bg-[#1a1b22] p-4 text-left transition hover:border-white/[0.14] hover:bg-[#1f2029]"
     >
-      {/* Header */}
-      <div className="mb-3 flex items-start gap-2.5">
+      <div className="mb-4 flex items-start gap-3">
         {market.image ? (
-          <Image src={market.image} alt="" width={36} height={36} unoptimized className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+          <Image src={market.image} alt="" width={42} height={42} unoptimized className="h-10 w-10 shrink-0 rounded-xl bg-white object-cover" />
         ) : (
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-[10px] font-black text-white/30">?</div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-[10px] font-black text-white/30">?</div>
         )}
-        <p className="text-[13px] font-semibold leading-snug text-white/85 line-clamp-2">{market.question}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-black leading-snug text-white/90 line-clamp-2">{market.question}</p>
+          <p className="mt-1 truncate text-[11px] font-bold text-white/30">{market.tags.slice(0, 2).join(" · ") || "Market"}</p>
+        </div>
       </div>
 
-      {/* Outcome rows */}
-      <div className="flex flex-col gap-1.5 flex-1">
-        {outcomes.map((outcome, i) => {
-          const p = Math.round((prices[i] ?? 0.5) * 100);
-          return (
-            <div key={`${outcome}-${i}`} className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-[12px] text-white/50">{outcome}</span>
-              <span className="w-9 shrink-0 text-right text-[12px] font-black text-white/70">{p}%</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); onBet(market, outcome); }}
-                className="h-6 rounded-md bg-[#31c45d]/15 px-2 text-[11px] font-black text-[#31c45d] transition hover:bg-[#31c45d]/25"
-              >
-                Yes
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onBet(market, `No — ${outcome}`); }}
-                className="h-6 rounded-md bg-red-500/15 px-2 text-[11px] font-black text-red-400 transition hover:bg-red-500/25"
-              >
-                No
-              </button>
+      <div className="flex-1">
+        <div className="mb-2 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-[12px] font-bold text-white/45">{leader.outcome}</p>
+            <p className="text-[24px] font-black leading-none text-white">{(leader.price * 100).toFixed(0)}%</p>
+          </div>
+          <div className="min-w-0 text-right">
+            <p className="truncate text-[12px] font-bold text-white/35">{runner.outcome}</p>
+            <p className="text-[18px] font-black leading-none text-white/55">{(runner.price * 100).toFixed(0)}%</p>
+          </div>
+        </div>
+        <div className="mb-3 flex h-2 overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="bg-[#31c45d]" style={{ width: `${Math.max(3, Math.min(97, leader.price * 100))}%` }} />
+          <div className="flex-1 bg-[#087cff]/70" />
+        </div>
+        <div className="space-y-1.5">
+          {ranked.slice(0, 3).map(({ outcome, price }) => (
+            <div key={outcome} className="flex items-center gap-2 text-[12px] font-bold">
+              <span className="min-w-0 flex-1 truncate text-white/45">{outcome}</span>
+              <span className="font-mono text-white/70">{(price * 100).toFixed(0)}¢</span>
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
-      {/* Footer */}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          onClick={(e) => { e.stopPropagation(); onBet(market, leader.outcome); }}
+          className="h-9 min-w-0 rounded-xl bg-[#31c45d]/15 px-2 text-[12px] font-black text-[#31c45d] transition hover:bg-[#31c45d]/25"
+        >
+          <span className="truncate">{yesLabel}</span> <span className="font-mono text-white/70">{(leader.price * 100).toFixed(0)}¢</span>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onBet(market, hasYesNo ? noOutcome : runner.outcome); }}
+          className="h-9 min-w-0 rounded-xl bg-red-500/12 px-2 text-[12px] font-black text-red-300 transition hover:bg-red-500/20"
+        >
+          <span className="truncate">{noLabel}</span> <span className="font-mono text-white/70">{(noPrice * 100).toFixed(0)}¢</span>
+        </button>
+      </div>
+
       <div className="mt-3 flex items-center justify-between border-t border-white/[0.05] pt-2.5">
-        <span className="text-[11px] font-bold text-white/25">{formatMarketMoney(market.volume)} / {formatMarketMoneyKes(market.volume)} Vol.</span>
-        <div className="flex items-center gap-2">
-          <button className="text-white/15 hover:text-white/40 transition">
+        <span className="min-w-0 truncate text-[11px] font-bold text-white/25">{formatMarketMoney(market.volume)} / {formatMarketMoneyKes(market.volume)} Vol.</span>
+        <div className="ml-3 flex shrink-0 items-center gap-2">
+          <button className="text-white/15 transition hover:text-white/40">
             <Bookmark className="h-3.5 w-3.5" />
           </button>
           <span className="text-[10px] text-white/20">{formatEndDate(market.endDate)}</span>
@@ -498,11 +522,13 @@ function DetailTradeTicket({
   selectedOutcome,
   balance,
   onBet,
+  compact = false,
 }: {
   market: PolymarketMarket;
   selectedOutcome: string;
   balance: number;
   onBet: (m: PolymarketMarket, o?: string, amount?: number) => void;
+  compact?: boolean;
 }) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [orderSide, setOrderSide] = useState<"yes" | "no">("yes");
@@ -523,11 +549,12 @@ function DetailTradeTicket({
   const tradeOutcome = orderSide === "yes" ? selectedOutcome : noOutcomeStr;
   const isUnavailable = activePrice < 0.01;
   const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0;
+  const amountOptions = compact ? [50, 100, 250] : [50, 100, 250, 500];
 
   return (
-    <aside className="lg:sticky lg:top-24 lg:self-start">
-      <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a1b22] shadow-2xl shadow-black/25">
-        <div className="flex items-center gap-3 border-b border-white/[0.06] p-4">
+    <aside className={compact ? "" : "lg:sticky lg:top-24 lg:self-start"}>
+      <div className={`overflow-hidden border border-white/[0.08] bg-[#1a1b22] shadow-2xl shadow-black/25 ${compact ? "rounded-t-3xl" : "rounded-2xl"}`}>
+        {!compact && <div className="flex items-center gap-3 border-b border-white/[0.06] p-4">
           {market.image ? (
             <Image src={market.image} alt="" width={44} height={44} unoptimized className="h-11 w-11 shrink-0 rounded-xl object-cover" />
           ) : (
@@ -539,9 +566,9 @@ function DetailTradeTicket({
               {selectedOutcome} <span className="text-white/30">·</span> <span className="text-[#31c45d]">Yes</span>
             </p>
           </div>
-        </div>
+        </div>}
 
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-4">
+        <div className={`flex items-center justify-between border-b border-white/[0.06] ${compact ? "px-3" : "px-4"}`}>
           <div className="flex gap-4">
             <button
               onClick={() => setSide("buy")}
@@ -556,38 +583,47 @@ function DetailTradeTicket({
               Sell
             </button>
           </div>
-          <button className="flex items-center gap-1 text-[12px] font-black text-white/70">
+          <button className="flex items-center gap-1 text-[12px] font-black text-white/60">
             Market <ChevronDown className="h-3.5 w-3.5" />
           </button>
         </div>
 
-        <div className="p-4">
-          <div className="mb-4 grid grid-cols-2 gap-2">
+        <div className={compact ? "p-3" : "p-4"}>
+          {compact && (
+            <div className="mb-3 min-w-0">
+              <p className="truncate text-[12px] font-bold text-white/35">{market.question}</p>
+              <p className="text-[15px] font-black text-white">{selectedOutcome}</p>
+            </div>
+          )}
+
+          <div className={`mb-4 grid grid-cols-2 rounded-2xl bg-black/25 p-1 ${compact ? "gap-1" : "gap-2"}`}>
             <button
               onClick={() => setOrderSide("yes")}
-              className={`h-10 rounded-xl text-sm font-black transition ${orderSide === "yes" ? "bg-[#31c45d]/80 text-white" : "bg-[#31c45d]/15 text-[#31c45d]"}`}
+              className={`min-h-11 rounded-xl px-2 text-left transition ${orderSide === "yes" ? "bg-[#31c45d] text-white" : "bg-transparent text-white/45 hover:bg-white/[0.04]"}`}
             >
-              {yesOutcomeStr === selectedOutcome ? "Yes" : yesOutcomeStr} {(price * 100).toFixed(0)}¢
+              <span className="block truncate text-[12px] font-black">{yesOutcomeStr === selectedOutcome ? "Yes" : yesOutcomeStr}</span>
+              <span className="block font-mono text-[15px] font-black">{(price * 100).toFixed(0)}¢</span>
             </button>
             <button
               onClick={() => setOrderSide("no")}
               disabled={noPrice < 0.01}
-              className={`h-10 rounded-xl text-sm font-black transition disabled:opacity-30 disabled:cursor-not-allowed ${orderSide === "no" ? "bg-red-500/25 text-red-200" : "bg-white/[0.07] text-white/40 hover:bg-red-500/15 hover:text-red-300"}`}
+              className={`min-h-11 rounded-xl px-2 text-left transition disabled:cursor-not-allowed disabled:opacity-30 ${orderSide === "no" ? "bg-red-500/85 text-white" : "bg-transparent text-white/45 hover:bg-white/[0.04]"}`}
             >
-              {noOutcomeStr === market.outcomes.find((o) => o.toLowerCase() === "no") ? "No" : noOutcomeStr} {(noPrice * 100).toFixed(0)}¢
+              <span className="block truncate text-[12px] font-black">{noOutcomeStr === market.outcomes.find((o) => o.toLowerCase() === "no") ? "No" : noOutcomeStr}</span>
+              <span className="block font-mono text-[15px] font-black">{(noPrice * 100).toFixed(0)}¢</span>
             </button>
           </div>
 
-          <div className="mb-4 flex items-end justify-between">
+          <div className="mb-3 flex items-end justify-between">
             <span className="text-sm font-black text-white/70">Amount</span>
-            <span className="text-3xl font-black text-white/35">${amount.toLocaleString()}</span>
+            <span className={`${compact ? "text-2xl" : "text-3xl"} font-black text-white/55`}>${amount.toLocaleString()}</span>
           </div>
-          <div className="mb-5 flex justify-end gap-2">
-            {[50, 100, 250, 500].map((v) => (
+          <div className={`mb-4 grid gap-2 ${compact ? "grid-cols-3" : "grid-cols-4"}`}>
+            {amountOptions.map((v) => (
               <button
                 key={v}
                 onClick={() => setAmount(v)}
-                className={`rounded-lg px-3 py-2 text-[12px] font-black ${amount === v ? "bg-[#087cff]/25 text-[#8bc3ff]" : "bg-white/[0.06] text-white/35"}`}
+                className={`rounded-xl px-3 py-2 text-[12px] font-black ${amount === v ? "bg-[#087cff]/30 text-[#8bc3ff]" : "bg-white/[0.06] text-white/40"}`}
               >
                 {v >= 1000 ? `${v / 1000}K` : v}
               </button>
@@ -605,23 +641,23 @@ function DetailTradeTicket({
           ) : (
             <button
               onClick={() => onBet(market, tradeOutcome, amount)}
-              className="h-11 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-[#087cff]/20"
+              className="h-11 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-[#087cff]/20 transition hover:bg-[#1c8aff]"
             >
-              {side === "buy" ? "Trade" : "Create Sell Order"}
+              {side === "buy" ? "Place trade" : "Create sell order"}
             </button>
           )}
           <p className="mt-3 text-center text-[11px] text-white/30">Balance: ${Math.floor(balance).toLocaleString()}</p>
         </div>
       </div>
 
-      <p className="px-5 py-4 text-[12px] font-semibold text-white/35">By trading, you agree to the <span className="underline">Terms of Use</span>.</p>
-      <div className="border-t border-dashed border-white/[0.08] pt-4">
+      {!compact && <p className="px-5 py-4 text-[12px] font-semibold text-white/35">By trading, you agree to the <span className="underline">Terms of Use</span>.</p>}
+      {!compact && <div className="border-t border-dashed border-white/[0.08] pt-4">
         <div className="mb-3 flex gap-2">
           {["All", ...(market.tags.slice(0, 2).length ? market.tags.slice(0, 2) : ["Market"])].map((t, i) => (
             <span key={`${t}-${i}`} className={`rounded-full px-4 py-2 text-[12px] font-black ${i === 0 ? "bg-white/[0.08] text-white" : "text-white/40"}`}>{t}</span>
           ))}
         </div>
-      </div>
+      </div>}
     </aside>
   );
 }
@@ -657,7 +693,7 @@ function MarketDetailView({
   }, [market.conditionId, market.outcomes, topIndex]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_420px]">
+    <div className="grid gap-6 pb-72 lg:grid-cols-[minmax(0,1fr)_360px] lg:pb-0 xl:grid-cols-[minmax(0,1fr)_420px]">
       <main className="min-w-0">
         <button onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[13px] font-black text-white/45 hover:text-white">
           <ArrowLeft className="h-4 w-4" /> Markets
@@ -694,7 +730,7 @@ function MarketDetailView({
           </div>
         </div>
 
-        <section className="mb-6 rounded-2xl border border-white/[0.06] bg-[#15191f] p-5">
+        <section className="mb-6 rounded-2xl border border-white/[0.06] bg-[#15191f] p-4 sm:p-5">
           {market.clobTokenIds.length > 0 ? (
             <ProbabilityChart tokenIds={market.clobTokenIds} outcomes={market.outcomes} />
           ) : (
@@ -716,7 +752,7 @@ function MarketDetailView({
           {market.outcomes.map((outcome, i) => {
             const price = marketPrice(market, i);
             return (
-              <div key={outcome} className="grid grid-cols-[minmax(0,1fr)_90px_170px_170px] items-center gap-3 py-3 max-xl:grid-cols-[minmax(0,1fr)_80px]">
+              <div key={outcome} className="grid grid-cols-[minmax(0,1fr)_74px] items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_90px] xl:grid-cols-[minmax(0,1fr)_90px_170px_170px]">
                 <div className="min-w-0">
                   <p className="truncate text-[16px] font-black text-white/85">{outcome}</p>
                   <p className="text-[12px] font-semibold text-white/35">{formatMarketMoney(market.volume * price)} / {formatMarketMoneyKes(market.volume * price)} Vol.</p>
@@ -798,7 +834,7 @@ function MarketDetailView({
         </section>
       </main>
 
-      <div className="min-w-0">
+      <div className="hidden min-w-0 lg:block">
         <DetailTradeTicket
           market={market}
           selectedOutcome={selectedOutcome}
@@ -821,6 +857,16 @@ function MarketDetailView({
             );
           })}
         </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-14 z-40 border-t border-white/[0.08] bg-[#090a0d]/95 px-3 pt-2 shadow-2xl shadow-black/60 backdrop-blur lg:hidden">
+        <DetailTradeTicket
+          market={market}
+          selectedOutcome={selectedOutcome}
+          balance={balance}
+          onBet={onBet}
+          compact
+        />
       </div>
     </div>
   );
