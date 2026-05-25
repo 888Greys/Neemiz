@@ -105,7 +105,7 @@ export function P2POrdersClient() {
   return (
     <>
       <P2PSubNav />
-    <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="mb-5">
         <h1 className="text-2xl font-black text-white mb-1">My P2P Orders</h1>
@@ -158,13 +158,13 @@ export function P2POrdersClient() {
           {filtered.map((order) => (
             <div
               key={order.id}
-              className="rounded-2xl border border-white/[0.06] bg-[#0f1623] px-4 py-4 transition-colors hover:border-white/[0.1]"
+              className="rounded-2xl border border-white/[0.06] bg-[#101722] px-4 py-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-colors hover:border-white/[0.1]"
             >
               <div className="flex flex-col gap-4">
                 {/* Left: status + crypto */}
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center ${
-                    order.isBuyer ? "bg-[#31c45d]/10" : "bg-red-500/10"
+                  <div className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center ${
+                    order.isBuyer ? "bg-[#0b3326]" : "bg-[#351b24]"
                   }`}>
                     <Icon
                       name={order.isBuyer ? "arrow_downward" : "arrow_upward"}
@@ -183,7 +183,7 @@ export function P2POrdersClient() {
                 </div>
 
                 {/* Middle: amounts + counterparty */}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-slate-600 text-xs mb-0.5">Amount</p>
                     <p className="text-white font-black text-sm">{Number(order.cryptoAmount).toFixed(6)} {order.crypto}</p>
@@ -207,7 +207,7 @@ export function P2POrdersClient() {
                 {/* Right: View link */}
                 <Link
                   href={`/p2p/order/${order.id}`}
-                  className="flex items-center justify-center gap-1.5 rounded-xl bg-white/5 px-3.5 py-2 text-xs font-black text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-white/[0.06] px-3.5 py-2.5 text-xs font-black text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
                 >
                   View Order
                   <Icon name="arrow_forward" className="text-[13px]" />

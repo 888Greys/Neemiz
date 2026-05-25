@@ -848,23 +848,23 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </button>
           </div>
         ) : (
-          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-3">
             {ads.map((ad) => {
               const pmLabel = (m: string) => m === "MPESA" ? "M-Pesa" : m === "BANK" ? "Bank" : m;
               const filled = Number(ad.totalAmount) - Number(ad.availableAmount);
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
               return (
-                <div key={ad.id} className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-4 transition-colors hover:border-white/[0.12]">
+                <div key={ad.id} className="rounded-2xl border border-white/[0.06] bg-[#101722] p-4 shadow-[0_10px_24px_rgba(0,0,0,0.18)] transition-colors hover:border-white/[0.12]">
                   {/* Row 1: side badge + crypto + price + status */}
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`shrink-0 px-2.5 py-0.5 rounded-lg text-[10px] font-black border ${
-                        ad.side === "SELL" ? "text-red-400 bg-red-500/10 border-red-500/20" : "text-[#31c45d] bg-[#31c45d]/10 border-[#31c45d]/20"
+                      <span className={`shrink-0 px-2.5 py-0.5 rounded-md text-[10px] font-black ${
+                        ad.side === "SELL" ? "text-red-400 bg-red-500/15" : "text-[#31c45d] bg-[#31c45d]/15"
                       }`}>{ad.side}</span>
                       <div className="min-w-0">
-                        <span className="text-white font-bold text-sm">{ad.crypto}</span>
+                        <span className="text-white font-black text-sm">{ad.crypto}</span>
                         <span className="text-slate-500 text-xs ml-1.5">at</span>
-                        <span className="text-[#087cff] font-black text-sm ml-1.5">{ad.pricePerUnit.toLocaleString("en-KE")} KES</span>
+                        <span className="text-[#2f9bff] font-black text-sm ml-1.5">{ad.pricePerUnit.toLocaleString("en-KE")} KES</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -874,7 +874,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                   </div>
 
                   {ad.validationError && (
-                    <div className="mb-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[11px] font-semibold leading-5 text-amber-300">
+                    <div className="mb-3 rounded-lg border border-[#9a621c]/30 bg-[#211700] px-3 py-2 text-[11px] font-semibold leading-5 text-[#f6a32d]">
                       {ad.validationError}
                     </div>
                   )}
@@ -903,7 +903,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div className="flex flex-wrap gap-1.5">
                       {ad.paymentMethods.map((m) => (
-                        <span key={m} className="bg-[#087cff]/10 border border-[#087cff]/15 rounded-md px-2 py-0.5 text-[10px] font-bold text-[#4da3ff]">
+                        <span key={m} className="rounded-md bg-[#087cff]/15 px-2 py-0.5 text-[10px] font-bold text-[#4da3ff]">
                           {pmLabel(m)}
                         </span>
                       ))}
@@ -920,17 +920,17 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                   <div className="flex gap-2 border-t border-white/[0.05] pt-3">
                     <button
                       onClick={() => setEditingAd(ad)}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-[#087cff]/20 bg-[#087cff]/10 px-3 py-2 text-xs font-black text-[#4da3ff] transition-colors hover:bg-[#087cff]/20"
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#062345] px-3 py-2.5 text-xs font-black text-[#4da3ff] transition-colors hover:bg-[#08305d]"
                     >
                       <Icon name="edit" className="text-sm" />
                       Edit
                     </button>
                     <button
                       onClick={() => toggleActive(ad)}
-                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-black transition-colors ${
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-black transition-colors ${
                         ad.isActive
-                          ? "border-amber-500/20 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-                          : "border-[#31c45d]/20 bg-[#31c45d]/10 text-[#31c45d] hover:bg-[#31c45d]/20"
+                          ? "bg-[#2a200d] text-amber-300 hover:bg-[#392b10]"
+                          : "bg-[#0d3522] text-[#31c45d] hover:bg-[#10462c]"
                       }`}
                     >
                       <Icon name={ad.isActive ? "pause" : "play_arrow"} className="text-sm" />
