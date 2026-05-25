@@ -139,7 +139,7 @@ function WheelOfFortune({
   }
 
   return (
-    <div className="flex flex-col items-center px-4 py-4">
+    <div className="flex flex-col items-center px-4 pb-4 pt-2">
       {/* Wheel container */}
       <div className="relative mb-3" style={{ width: 200, height: 200 }}>
         {/* Pointer */}
