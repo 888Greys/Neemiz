@@ -42,16 +42,24 @@ const fmtPm = (m: string) =>
 
 function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
   const router = useRouter();
-  const [fiatInput, setFiatInput]         = useState("");
+  const [inputMode, setInputMode]         = useState<"fiat" | "crypto">("fiat");
+  const [rawInput, setRawInput]           = useState("");
   const [selectedPayment, setSelectedPayment] = useState(ad.paymentMethods[0] ?? "");
   const [submitting, setSubmitting]       = useState(false);
 
-  const cryptoAmount   = fiatInput ? Number(fiatInput) / ad.pricePerUnit : 0;
-  const fiatNum        = Number(fiatInput);
-  const belowMin       = !!fiatInput && fiatNum < ad.minLimit;
-  const aboveMax       = !!fiatInput && fiatNum > ad.maxLimit;
+  // Derive fiat and crypto amounts from whichever field is active
+  const fiatNum    = inputMode === "fiat"   ? Number(rawInput) : Number(rawInput) * ad.pricePerUnit;
+  const cryptoAmount = inputMode === "crypto" ? Number(rawInput) : (Number(rawInput) ? Number(rawInput) / ad.pricePerUnit : 0);
+
+  const belowMin       = !!rawInput && fiatNum < ad.minLimit;
+  const aboveMax       = !!rawInput && fiatNum > ad.maxLimit;
   const valid          = fiatNum >= ad.minLimit && fiatNum <= ad.maxLimit && cryptoAmount > 0 && cryptoAmount <= ad.availableAmount;
   const isBuyingCrypto = ad.side === "SELL";
+
+  function toggleMode() {
+    setInputMode((m) => m === "fiat" ? "crypto" : "fiat");
+    setRawInput("");
+  }
 
   async function submit() {
     if (!valid) return;
@@ -125,33 +133,55 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
             </div>
           </div>
 
-          {/* You pay */}
-          <div>
-            <label className="text-xs font-bold text-slate-400 mb-1.5 block">You pay ({ad.fiat})</label>
-            <div className={`flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border transition-colors ${
-              belowMin || aboveMax ? "border-red-500/50" : fiatInput ? "border-[#3b82f6]/40" : "border-transparent"
-            }`}>
-              <input
-                autoFocus
-                type="number"
-                inputMode="decimal"
-                className="flex-1 bg-transparent text-white text-xl font-black outline-none placeholder:text-slate-700"
-                placeholder="0.00"
-                value={fiatInput}
-                onChange={(e) => setFiatInput(e.target.value)}
-              />
-              <span className="text-slate-400 text-sm font-black shrink-0 bg-white/[0.06] px-2.5 py-1 rounded-lg">{ad.fiat}</span>
+          {/* You pay / You receive — with KSh ⇄ USDT toggle */}
+          <div className="space-y-2">
+            {/* Primary input (editable) */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 mb-1.5 block">
+                {inputMode === "fiat" ? `You pay (${ad.fiat})` : `You receive (${ad.crypto})`}
+              </label>
+              <div className={`flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border transition-colors ${
+                belowMin || aboveMax ? "border-red-500/50" : rawInput ? "border-[#3b82f6]/40" : "border-transparent"
+              }`}>
+                <input
+                  autoFocus
+                  type="number"
+                  inputMode="decimal"
+                  className="flex-1 bg-transparent text-white text-xl font-black outline-none placeholder:text-slate-700"
+                  placeholder="0.00"
+                  value={rawInput}
+                  onChange={(e) => setRawInput(e.target.value)}
+                />
+                <button
+                  onClick={toggleMode}
+                  title="Switch between KSh and USDT input"
+                  className="flex items-center gap-1.5 shrink-0 bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  <span className="text-slate-300 text-xs font-black">
+                    {inputMode === "fiat" ? ad.fiat : ad.crypto}
+                  </span>
+                  <Icon name="swap_vert" className="text-slate-400 text-sm" />
+                </button>
+              </div>
+              {belowMin && <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1"><Icon name="error" className="text-sm" />Minimum is {ad.fiat} {ad.minLimit.toLocaleString()}</p>}
+              {aboveMax && <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1"><Icon name="error" className="text-sm" />Maximum is {ad.fiat} {ad.maxLimit.toLocaleString()}</p>}
             </div>
-            {belowMin && <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1"><Icon name="error" className="text-sm" />Minimum is {ad.fiat} {ad.minLimit.toLocaleString()}</p>}
-            {aboveMax && <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1"><Icon name="error" className="text-sm" />Maximum is {ad.fiat} {ad.maxLimit.toLocaleString()}</p>}
-          </div>
 
-          {/* You receive */}
-          <div>
-            <label className="text-xs font-bold text-slate-400 mb-1.5 block">You receive ({ad.crypto})</label>
-            <div className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.05] rounded-xl px-4 py-3">
-              <span className="flex-1 text-white text-xl font-black">{cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "—"}</span>
-              <span className="text-slate-400 text-sm font-black shrink-0 bg-white/[0.06] px-2.5 py-1 rounded-lg">{ad.crypto}</span>
+            {/* Derived output (read-only) */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 mb-1.5 block">
+                {inputMode === "fiat" ? `You receive (${ad.crypto})` : `You pay (${ad.fiat})`}
+              </label>
+              <div className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.05] rounded-xl px-4 py-3">
+                <span className="flex-1 text-white text-xl font-black">
+                  {inputMode === "fiat"
+                    ? (cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "—")
+                    : (fiatNum > 0 ? fiatNum.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—")}
+                </span>
+                <span className="text-slate-400 text-sm font-black shrink-0 bg-white/[0.06] px-2.5 py-1 rounded-lg">
+                  {inputMode === "fiat" ? ad.crypto : ad.fiat}
+                </span>
+              </div>
             </div>
           </div>
 
