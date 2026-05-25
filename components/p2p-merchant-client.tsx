@@ -696,6 +696,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 // ─── Merchant Dashboard ───────────────────────────────────────────────────────
 
 function MerchantDashboard({ status }: { status: MerchantStatus }) {
+  const { user } = useSupabaseAuth();
   const [ads, setAds]           = useState<Ad[]>([]);
   const [loading, setLoading]   = useState(true);
   const [createOpen, setCreate] = useState(false);
@@ -732,9 +733,17 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       {/* Merchant header */}
       <div className="mb-5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#087cff] to-[#6366f1] flex items-center justify-center text-white font-black text-xl shadow-lg shadow-[#087cff]/20">
-            {status.displayName?.charAt(0).toUpperCase()}
-          </div>
+          {user?.user_metadata?.avatar_url ? (
+            <img
+              src={user.user_metadata.avatar_url}
+              alt={status.displayName ?? "avatar"}
+              className="w-12 h-12 rounded-xl object-cover shadow-lg shadow-black/30"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#087cff] to-[#6366f1] flex items-center justify-center text-white font-black text-xl shadow-lg shadow-[#087cff]/20">
+              {status.displayName?.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-black text-white">{status.displayName}</h1>
@@ -947,7 +956,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function P2PMerchantClient() {
-  const { isSignedIn } = useSupabaseAuth();
+  const { isSignedIn, user } = useSupabaseAuth();
   const [status, setStatus] = useState<MerchantStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
