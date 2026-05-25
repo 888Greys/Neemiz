@@ -120,9 +120,6 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
             </span>
           </div>
 
-          <div className="mb-5 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.08] px-3 py-2 text-[11px] font-semibold text-[#f59e0b]">
-            The price is higher than 0.41% of the reference price.
-          </div>
 
           <section className="mb-3 rounded-2xl bg-[#16161f] p-3 ring-1 ring-white/[0.04]">
             <div className="mb-6 flex items-center justify-between border-b border-white/[0.06]">
@@ -223,7 +220,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
           <button
             onClick={submit}
             disabled={!valid || submitting}
-              className={`h-11 rounded-full text-sm font-black text-black transition-all disabled:opacity-45 disabled:cursor-not-allowed active:scale-[0.98] ${actionTone}`}
+              className={`h-11 rounded-full text-sm font-black text-white transition-all disabled:opacity-45 disabled:cursor-not-allowed active:scale-[0.98] ${actionTone}`}
           >
             {submitting ? (
               <span className="flex items-center justify-center gap-2">
