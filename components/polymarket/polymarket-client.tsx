@@ -146,7 +146,7 @@ function Countdown({ endDate }: { endDate: string }) {
 
 
 /* ── Hero featured card ─────────────────────────────────────────────────── */
-function HeroCard({ market, allMarkets, onBet }: { market: PolymarketMarket; allMarkets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
+function HeroCard({ market, allMarkets, onBet, onOpen }: { market: PolymarketMarket; allMarkets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void; onOpen: (m: PolymarketMarket) => void }) {
   const yesIdx  = market.outcomes.findIndex((o) => o.toLowerCase() === "yes");
   const noIdx   = market.outcomes.findIndex((o) => o.toLowerCase() === "no");
   const yesP    = Math.max(0.01, yesIdx >= 0 ? market.outcomePrices[yesIdx] : market.outcomePrices[0] ?? 0.5);
@@ -159,7 +159,10 @@ function HeroCard({ market, allMarkets, onBet }: { market: PolymarketMarket; all
   return (
     <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a1b22]">
       {/* ── Top header row ── */}
-      <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 pt-4 pb-3">
+      <div
+        onClick={() => onOpen(market)}
+        className="flex cursor-pointer items-center justify-between gap-4 border-b border-white/[0.06] px-5 pt-4 pb-3 hover:bg-white/[0.03] transition"
+      >
         <div className="flex items-center gap-3">
           {market.image ? (
             <Image src={market.image} alt="" width={36} height={36} unoptimized className="h-9 w-9 shrink-0 rounded-xl object-cover" />
@@ -241,7 +244,7 @@ function HeroCard({ market, allMarkets, onBet }: { market: PolymarketMarket; all
 /* ── Hero carousel ──────────────────────────────────────────────────────── */
 const CAROUSEL_MS = 9500;
 
-function HeroCarousel({ markets, allMarkets, onBet }: { markets: PolymarketMarket[]; allMarkets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void }) {
+function HeroCarousel({ markets, allMarkets, onBet, onOpen }: { markets: PolymarketMarket[]; allMarkets: PolymarketMarket[]; onBet: (m: PolymarketMarket, o?: string) => void; onOpen: (m: PolymarketMarket) => void }) {
   const [idx,    setIdx]    = useState(0);
   const [paused, setPaused] = useState(false);
   const timerRef            = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -267,7 +270,7 @@ function HeroCarousel({ markets, allMarkets, onBet }: { markets: PolymarketMarke
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <HeroCard market={markets[idx]} allMarkets={allMarkets} onBet={onBet} />
+      <HeroCard market={markets[idx]} allMarkets={allMarkets} onBet={onBet} onOpen={onOpen} />
 
       {/* Controls row */}
       <div className="flex items-center justify-between px-1">
@@ -412,7 +415,7 @@ function CompactCard({ market, onBet, onOpen }: { market: PolymarketMarket; onBe
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onOpen(market);
       }}
-      className="flex flex-col rounded-2xl border border-white/[0.07] bg-[#1a1b22] p-4 text-left transition hover:border-white/[0.14] hover:bg-[#1f2029]"
+      className="flex flex-col rounded-2xl border border-white/[0.07] bg-[#1a1b22] p-4 text-left transition cursor-pointer hover:border-white/[0.14] hover:bg-[#1f2029]"
     >
       {/* Header */}
       <div className="mb-3 flex items-start gap-2.5">
@@ -1045,7 +1048,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
               {loading ? (
                 <div className="h-72 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
               ) : heroMarkets.length > 0 ? (
-                <HeroCarousel markets={heroMarkets} allMarkets={markets} onBet={openBet} />
+                <HeroCarousel markets={heroMarkets} allMarkets={markets} onBet={openBet} onOpen={openMarket} />
               ) : null}
             </div>
 
