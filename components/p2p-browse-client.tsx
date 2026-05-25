@@ -55,6 +55,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
   const aboveMax       = !!rawInput && fiatNum > ad.maxLimit;
   const valid          = fiatNum >= ad.minLimit && fiatNum <= ad.maxLimit && cryptoAmount > 0 && cryptoAmount <= ad.availableAmount;
   const isBuyingCrypto = ad.side === "SELL";
+  const actionTone = isBuyingCrypto ? "bg-[#8a571a] hover:bg-[#a7681f]" : "bg-red-500 hover:bg-red-600";
 
   function toggleMode() {
     setInputMode((m) => m === "fiat" ? "crypto" : "fiat");
@@ -81,165 +82,157 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 backdrop-blur-sm pb-[calc(4.25rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
+      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/85 backdrop-blur-sm pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[calc(100dvh-5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0d1420] shadow-2xl sm:max-h-[90dvh] sm:rounded-2xl"
+        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-black text-white shadow-2xl sm:h-auto sm:max-h-[90dvh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header — sticky */}
-        <div className={`shrink-0 px-5 pt-4 pb-3 border-b border-white/[0.07] rounded-t-2xl ${
-          isBuyingCrypto ? "bg-gradient-to-r from-[#22c55e]/10 to-transparent" : "bg-gradient-to-r from-red-500/10 to-transparent"
-        }`}>
-          <div className="flex items-start justify-between">
-            <div>
-              <span className={`text-lg font-black ${isBuyingCrypto ? "text-[#22c55e]" : "text-red-400"}`}>
-                {isBuyingCrypto ? "Buy" : "Sell"} {ad.crypto}
-              </span>
-              <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-                <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#6366f1] flex items-center justify-center text-white font-black text-[9px]">
-                  {ad.merchant.displayName.charAt(0).toUpperCase()}
-                </div>
-                {ad.merchant.displayName}
-                <Icon name="verified" className="text-[#3b82f6] text-xs" />
-                <span className="text-slate-700">·</span>
-                <span>{ad.merchant.completedTrades} trades</span>
-              </div>
-            </div>
+        <div className="shrink-0 border-b border-white/[0.06] px-4 py-3">
+          <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] items-center">
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all"
+              className="grid h-9 w-9 place-items-center rounded-full text-white hover:bg-white/[0.06]"
             >
-              <Icon name="close" className="text-lg" />
+              <Icon name="arrow_back" className="text-[20px]" />
+            </button>
+            <h2 className="truncate text-center text-[15px] font-black">{isBuyingCrypto ? "Buy" : "Sell"} {ad.crypto}</h2>
+            <button
+              onClick={onClose}
+              className="grid h-9 w-9 place-items-center rounded-full text-slate-500 hover:bg-white/[0.06] hover:text-white"
+            >
+              <Icon name="close" className="text-[18px]" />
             </button>
           </div>
         </div>
 
-        {/* Scrollable body */}
-        <div className="overflow-y-auto flex-1 p-4 sm:p-6 space-y-3 sm:space-y-4">
-          {/* Price info */}
-          <div className="flex items-center justify-between bg-white/[0.04] rounded-xl px-4 py-3">
-            <div>
-              <p className="text-xs text-slate-500 mb-0.5">Price per {ad.crypto}</p>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-xl font-black text-white">{ad.pricePerUnit.toLocaleString("en-KE")}</span>
-                <span className="text-slate-400 text-sm font-bold">{ad.fiat}</span>
-              </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 pb-5">
+          <div className="mb-2 flex items-center justify-between text-[11px]">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400">Price</span>
+              <span className="font-black text-[#20d15a]">{ad.pricePerUnit.toLocaleString("en-KE", { maximumFractionDigits: 2 })} {ad.fiat}</span>
+              <span className="text-slate-600">38s</span>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-500 mb-0.5">Available</p>
-              <p className="text-white font-bold text-sm">{ad.availableAmount.toFixed(4)} {ad.crypto}</p>
-              <p className="text-slate-500 text-xs">Limit: {ad.minLimit.toLocaleString()}–{ad.maxLimit.toLocaleString()} {ad.fiat}</p>
-            </div>
+            <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-slate-400">
+              <Icon name="verified_user" className="text-[11px] text-[#20d15a]" />
+              Security Protection
+            </span>
           </div>
 
-          {/* You pay / You receive — with KSh ⇄ USDT toggle */}
-          <div className="space-y-2">
-            {/* Primary input (editable) */}
-            <div>
-              <label className="text-xs font-bold text-slate-400 mb-1.5 block">
-                {inputMode === "fiat" ? `You pay (${ad.fiat})` : `You receive (${ad.crypto})`}
-              </label>
-              <div className={`flex items-center gap-3 bg-white/5 rounded-xl px-4 py-3 border transition-colors ${
-                belowMin || aboveMax ? "border-red-500/50" : rawInput ? "border-[#3b82f6]/40" : "border-transparent"
-              }`}>
+          <div className="mb-5 rounded bg-[#211700] px-3 py-2 text-[11px] font-semibold text-[#d79a2a]">
+            The price is higher than 0.41% of the reference price.
+          </div>
+
+          <section className="mb-3 rounded-2xl bg-[#111] p-3 ring-1 ring-white/[0.04]">
+            <div className="mb-6 flex items-center justify-between border-b border-white/[0.06]">
+              <div className="flex gap-6">
+                <button
+                  type="button"
+                  onClick={() => { setInputMode("fiat"); setRawInput(""); }}
+                  className={`pb-2 text-[12px] font-black ${inputMode === "fiat" ? "border-b-2 border-white text-white" : "text-slate-600"}`}
+                >
+                  With Fiat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setInputMode("crypto"); setRawInput(""); }}
+                  className={`pb-2 text-[12px] font-black ${inputMode === "crypto" ? "border-b-2 border-white text-white" : "text-slate-600"}`}
+                >
+                  With Crypto
+                </button>
+              </div>
+              <span className="flex items-center gap-1 text-[10px] text-slate-600">
+                <Icon name="schedule" className="text-[11px]" />
+                {ad.paymentWindow}m
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
                 <input
                   autoFocus
                   type="number"
                   inputMode="decimal"
-                  className="flex-1 bg-transparent text-white text-xl font-black outline-none placeholder:text-slate-700"
-                  placeholder="0.00"
+                className="min-w-0 flex-1 bg-transparent text-[28px] font-light text-white outline-none placeholder:text-slate-700"
+                placeholder="0"
                   value={rawInput}
                   onChange={(e) => setRawInput(e.target.value)}
                 />
-                <button
-                  onClick={toggleMode}
-                  title="Switch between KSh and USDT input"
-                  className="flex items-center gap-1.5 shrink-0 bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 px-2.5 py-1 rounded-lg transition-colors"
-                >
-                  <span className="text-slate-300 text-xs font-black">
-                    {inputMode === "fiat" ? ad.fiat : ad.crypto}
-                  </span>
-                  <Icon name="swap_vert" className="text-slate-400 text-sm" />
+              <span className="text-sm font-black text-white">{inputMode === "fiat" ? ad.fiat : ad.crypto}</span>
+              <button type="button" onClick={() => setRawInput(String(inputMode === "fiat" ? Math.floor(ad.maxLimit) : ad.availableAmount.toFixed(6)))} className="text-sm font-black text-[#f59e0b]">
+                Max
                 </button>
               </div>
-              {belowMin && <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1"><Icon name="error" className="text-sm" />Minimum is {ad.fiat} {ad.minLimit.toLocaleString()}</p>}
-              {aboveMax && <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1"><Icon name="error" className="text-sm" />Maximum is {ad.fiat} {ad.maxLimit.toLocaleString()}</p>}
-            </div>
-
-            {/* Derived output (read-only) */}
-            <div>
-              <label className="text-xs font-bold text-slate-400 mb-1.5 block">
-                {inputMode === "fiat" ? `You receive (${ad.crypto})` : `You pay (${ad.fiat})`}
-              </label>
-              <div className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.05] rounded-xl px-4 py-3">
-                <span className="flex-1 text-white text-xl font-black">
-                  {inputMode === "fiat"
-                    ? (cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "—")
-                    : (fiatNum > 0 ? fiatNum.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—")}
-                </span>
-                <span className="text-slate-400 text-sm font-black shrink-0 bg-white/[0.06] px-2.5 py-1 rounded-lg">
-                  {inputMode === "fiat" ? ad.crypto : ad.fiat}
-                </span>
-              </div>
-            </div>
-          </div>
+            <p className="mt-3 text-[11px] text-slate-500">Limits: {ad.minLimit.toLocaleString("en-KE")} - {ad.maxLimit.toLocaleString("en-KE")} {ad.fiat}</p>
+            <p className="mt-2 text-[12px] text-slate-500">
+              I will receive <span className="text-white">{cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "--"} {ad.crypto}</span>
+            </p>
+            {(belowMin || aboveMax) && (
+              <p className="mt-2 text-[11px] font-bold text-red-400">
+                {belowMin ? `Minimum is ${ad.fiat} ${ad.minLimit.toLocaleString("en-KE")}` : `Maximum is ${ad.fiat} ${ad.maxLimit.toLocaleString("en-KE")}`}
+              </p>
+            )}
+          </section>
 
           {/* Payment method */}
-          {ad.paymentMethods.length > 1 && (
-            <div>
-              <label className="text-xs font-bold text-slate-400 mb-2 block">Payment method</label>
-              <div className="flex flex-wrap gap-2">
+          <section className="mb-5 rounded-2xl bg-[#111] p-3 ring-1 ring-white/[0.04]">
+            <div className="flex flex-wrap gap-2">
                 {ad.paymentMethods.map((m) => (
                   <button
                     key={m}
                     onClick={() => setSelectedPayment(m)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                  className={`rounded-lg border-l-2 px-3 py-2 text-xs font-black transition-colors ${
                       selectedPayment === m
-                        ? "bg-[#3b82f6]/20 border-[#3b82f6] text-[#3b82f6]"
-                        : "bg-white/5 border-white/10 text-slate-400 hover:border-white/20"
+                      ? "border-[#f59e0b] bg-white/[0.04] text-white"
+                      : "border-white/10 bg-white/[0.02] text-slate-500"
                     }`}
                   >
                     {fmtPm(m)}
                   </button>
                 ))}
               </div>
+          </section>
+
+          <section className="border-t border-white/[0.05] pt-4">
+            <div className="mb-4 flex items-center justify-between">
+              <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
+                {ad.merchant.displayName}
+                <Icon name="chevron_right" className="text-[15px] text-slate-500" />
+              </button>
+              <div className="text-right text-[11px] text-slate-500">
+                <span className="text-slate-300">{ad.merchant.completedTrades}</span> Orders | Completion Rate <span className="text-slate-300">{ad.merchant.completionRate.toFixed(0)}%</span>
+              </div>
             </div>
-          )}
 
-          {/* Terms */}
-          {ad.terms && (
-            <div className="bg-amber-500/8 border border-amber-500/20 rounded-xl px-4 py-3 flex gap-2">
-              <Icon name="info" className="text-amber-400 text-sm shrink-0 mt-0.5" />
-              <p className="text-amber-300 text-xs leading-relaxed">{ad.terms}</p>
+            <h3 className="mb-2 text-sm font-black text-white">Advertiser Terms</h3>
+            <p className="text-[12px] leading-5 text-slate-500">
+              {ad.terms || "Merchants may include additional terms in their advertiser terms. Please review them carefully before placing an order."}
+            </p>
+            <p className="mt-2 text-[12px] leading-5 text-slate-500">
+              In the event of any conflict, the <span className="font-black text-[#f59e0b]">P2P Taker Terms of Use</span> and <span className="font-black text-[#f59e0b]">P2P Privacy Agreement</span> prevail. Violations are not protected under platform protection.
+            </p>
+          </section>
+        </div>
+
+        <div className="shrink-0 border-t border-white/[0.06] bg-black px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_118px] items-center gap-3">
+            <div>
+              <p className="text-[16px] font-black text-white">{fiatNum > 0 ? fiatNum.toLocaleString("en-KE", { maximumFractionDigits: 2 }) : "0"} {ad.fiat}</p>
+              <p className="text-[11px] text-slate-500">Total Payable</p>
             </div>
-          )}
-
-          {/* Window */}
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <Icon name="timer" className="text-sm" />
-            Payment window: <span className="text-slate-300 font-bold">{ad.paymentWindow} min</span>
-            <span className="ml-auto flex items-center gap-1 text-[#22c55e]">
-              <Icon name="lock" className="text-xs" />
-              Escrow protected
-            </span>
-          </div>
-
           <button
             onClick={submit}
             disabled={!valid || submitting}
-            className={`w-full py-3.5 rounded-xl font-black text-white transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] ${
-              isBuyingCrypto ? "bg-[#22c55e] hover:bg-[#16a34a]" : "bg-red-500 hover:bg-red-600"
-            }`}
+              className={`h-11 rounded-full text-sm font-black text-black transition-all disabled:opacity-45 disabled:cursor-not-allowed active:scale-[0.98] ${actionTone}`}
           >
             {submitting ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 Placing order…
               </span>
-            ) : `${isBuyingCrypto ? "Buy" : "Sell"} ${ad.crypto}`}
+              ) : isBuyingCrypto ? "Buy" : "Sell"}
           </button>
+          </div>
         </div>
       </div>
     </div>
