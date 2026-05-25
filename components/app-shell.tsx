@@ -77,8 +77,8 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   return (
     <BetslipProvider>
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
-    <div className="min-h-screen bg-background text-on-surface">
-      <header className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center bg-[#111113] px-3 lg:h-20 lg:px-0">
+    <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
+      <header className="fixed left-0 right-0 top-0 z-50 flex h-14 max-w-[100vw] items-center overflow-hidden bg-[#111113] px-3 lg:h-20 lg:px-0">
         <div
           className={`hidden h-full shrink-0 items-center border-r border-white/10 px-4 transition-[width] duration-300 ease-out lg:flex ${
             sidebarCollapsed ? "w-[78px] justify-center" : "w-[280px]"
@@ -116,7 +116,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           )}
         </div>
 
-        <div className="flex min-w-0 flex-1 items-center justify-between gap-3 lg:gap-5 lg:px-6">
+        <div className="flex min-w-0 flex-1 items-center justify-between gap-2 lg:gap-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-6">
             <BrandLogo href="/dashboard" size="sm" />
             <nav className="hidden items-center gap-0.5 rounded-2xl bg-[#18191d] p-1 ring-1 ring-white/[0.06] text-sm font-black md:flex">
@@ -144,20 +144,21 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
               <NotificationsBell />
             </div>
           ) : (
-            <div className="flex shrink-0 items-center gap-2 md:gap-3">
+            <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
               <button
                 onClick={() => setLoginOpen(true)}
-                className="rounded-lg bg-[#28292d] px-3 py-2 text-xs font-black text-white transition hover:bg-[#34353b] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] md:rounded-2xl md:px-6 md:py-3 md:text-base"
+                className="rounded-lg bg-[#28292d] px-2.5 py-2 text-[11px] font-black text-white transition hover:bg-[#34353b] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"
                 type="button"
               >
                 Login
               </button>
               <button
                 onClick={() => setRegisterOpen(true)}
-                className="rounded-lg bg-[#05b957] px-3 py-2 text-xs font-black text-white transition hover:bg-[#08c963] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05b957]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] md:rounded-2xl md:px-6 md:py-3 md:text-base"
+                className="rounded-lg bg-[#05b957] px-2.5 py-2 text-[11px] font-black text-white transition hover:bg-[#08c963] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05b957]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"
                 type="button"
               >
-                Registration
+                <span className="sm:hidden">Join</span>
+                <span className="hidden sm:inline">Registration</span>
               </button>
             </div>
           )}
@@ -173,12 +174,12 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => setWalletOpen(true)} onOpenBonuses={() => openProfile("bonuses")} onOpenSupport={() => openProfile("support")} />
         </aside>
 
-        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar flex-1 overflow-y-auto pb-32 lg:pl-3 lg:pb-0 ${fullHeight ? "lg:overflow-hidden" : ""} ${mainBg ?? "bg-background"}`}>
+        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto pb-32 lg:pl-3 lg:pb-0 ${fullHeight ? "lg:overflow-hidden" : ""} ${mainBg ?? "bg-background"}`}>
           {fullHeight ? (
-            <div className="h-full lg:h-[calc(100vh-5rem)]">{children}</div>
+            <div className="h-full min-w-0 max-w-full overflow-x-hidden lg:h-[calc(100vh-5rem)]">{children}</div>
           ) : (
-            <div className="flex min-h-screen flex-col">
-              <div className="flex-1">{children}</div>
+            <div className="flex min-h-screen min-w-0 max-w-full flex-col overflow-x-hidden">
+              <div className="min-w-0 flex-1">{children}</div>
               {!hideFooter && <AppFooter />}
             </div>
           )}

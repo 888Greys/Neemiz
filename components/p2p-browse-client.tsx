@@ -307,7 +307,7 @@ function StatsBar() {
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+    <div className="grid min-w-0 grid-cols-[repeat(2,minmax(0,1fr))] gap-2 xl:grid-cols-4">
       {cells.map((s) => (
         <div
           key={s.label}
@@ -695,9 +695,9 @@ export function P2PBrowseClient() {
       <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4">
 
         {/* Workspace header */}
-        <div className="mb-2 grid gap-2 xl:grid-cols-[minmax(0,1fr)_575px]">
-          <div className="rounded-xl border border-white/[0.07] bg-[#15191f] px-3 py-2.5">
-            <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="mb-2 grid min-w-0 gap-2 xl:grid-cols-[minmax(0,1fr)_575px]">
+          <div className="min-w-0 rounded-xl border border-white/[0.07] bg-[#15191f] px-3 py-2.5">
+            <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">Nezeem P2P</p>
                 <h1 className="text-lg font-black leading-tight text-white">Local crypto exchange</h1>
@@ -718,13 +718,13 @@ export function P2PBrowseClient() {
             </div>
 
             {/* Controls */}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 rounded-lg bg-black/25 p-1">
+            <div className="grid min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+              <div className="grid grid-cols-2 gap-1 rounded-lg bg-black/25 p-1 sm:flex sm:items-center">
                 {(["BUY", "SELL"] as const).map((t) => (
                   <button
                     key={t}
                     onClick={() => setTab(t)}
-                    className={`h-8 rounded-md px-5 text-xs font-black transition-all ${
+                    className={`h-8 rounded-md px-3 text-xs font-black transition-all sm:px-5 ${
                       tab === t
                         ? t === "BUY"
                           ? "bg-[#22c55e] text-white shadow shadow-[#22c55e]/20"
@@ -737,12 +737,12 @@ export function P2PBrowseClient() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="grid min-w-0 grid-cols-[repeat(4,minmax(0,1fr))] gap-1.5 sm:flex sm:items-center">
                 {CRYPTOS.map((c) => (
                   <button
                     key={c}
                     onClick={() => setCrypto(c)}
-                    className={`flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-black transition-all ${
+                    className={`flex h-8 min-w-0 items-center justify-center gap-1 rounded-md border px-1.5 text-[11px] font-black transition-all sm:gap-1.5 sm:px-2.5 sm:text-xs ${
                       crypto === c
                         ? "bg-[#087cff] border-[#087cff] text-white shadow shadow-[#087cff]/20"
                         : "bg-white/[0.04] border-white/[0.07] text-slate-400 hover:border-white/20 hover:text-white"
@@ -756,12 +756,12 @@ export function P2PBrowseClient() {
                 ))}
               </div>
 
-              <div className="ml-auto flex items-center gap-1.5">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5 sm:ml-auto sm:flex sm:items-center">
                 {PAYMENTS.map((p) => (
                   <button
                     key={p.value}
                     onClick={() => setPayment(p.value)}
-                    className={`h-8 rounded-md border px-3 text-xs font-bold transition-all ${
+                    className={`h-8 rounded-md border px-2 text-xs font-bold transition-all sm:px-3 ${
                       payment === p.value
                         ? "bg-white/10 border-white/20 text-white"
                         : "bg-white/[0.04] border-white/[0.05] text-slate-500 hover:border-white/15 hover:text-slate-300"

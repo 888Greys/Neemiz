@@ -72,7 +72,7 @@ export function AviatorLiveBets({ liveBets, myHistory, myCurrentBets = [], userI
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-[1fr_78px_56px_72px] gap-0 border-b border-white/[0.05] px-3 py-2">
+      <div className="grid grid-cols-[minmax(0,1fr)_64px_42px_58px] gap-0 border-b border-white/[0.05] px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3">
         {["User", "Bet (KSh)", "@", "Win (KSh)"].map((h) => (
           <span key={h} className="text-[9px] font-black uppercase tracking-widest text-white/20 last:text-right [&:nth-child(2)]:text-right [&:nth-child(3)]:text-right">
             {h}
@@ -129,9 +129,9 @@ function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
   const cashed = bet.status === "CASHEDOUT";
   const lost   = bet.status === "LOST";
   return (
-    <div className={`grid grid-cols-[1fr_78px_56px_72px] items-center gap-0 px-3 py-2 ${isMe ? "bg-[#087cff]/5" : ""}`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)_64px_42px_58px] items-center gap-0 px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3 ${isMe ? "bg-[#087cff]/5" : ""}`}>
       {/* User */}
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
         <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white ${avatarColor(bet.username)}`}>
           {initials(bet.username)}
         </div>
@@ -171,7 +171,7 @@ function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
 function HistoryRow({ bet }: { bet: MyHistoryBet }) {
   const won = bet.status === "CASHEDOUT";
   return (
-    <div className="grid grid-cols-[1fr_78px_56px_72px] items-center gap-0 px-3 py-2">
+    <div className="grid grid-cols-[minmax(0,1fr)_64px_42px_58px] items-center gap-0 px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3">
       {/* Round */}
       <div className="flex min-w-0 items-center gap-2">
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05] text-[8px] font-black text-white/40">
