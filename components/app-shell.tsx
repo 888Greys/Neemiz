@@ -252,9 +252,7 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
 function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSupport, pathname }: { collapsed: boolean; onToggle: () => void; onOpenWallet: () => void; onOpenBonuses: () => void; onOpenSupport: () => void; pathname: string }) {
   const [openGroups, setOpenGroups] = useState({
     sports: true,
-    casino: true,
-    markets: false,
-    trade: false,
+    p2p: false,
   });
 
   const toggleGroup = (group: keyof typeof openGroups) => {
@@ -283,27 +281,21 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSuppo
           <SidebarItem collapsed={collapsed} href="/my-bets" icon="receipt_long" label="My Bets" pathname={pathname} />
         </SidebarGroup>
 
-        {/* Casino */}
-        <SidebarGroup collapsed={collapsed} icon="casino" isOpen={openGroups.casino} onToggle={() => toggleGroup("casino")} title="Casino">
-          <SidebarItem collapsed={collapsed} href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} badge="HOT" highlight direct />
-          <SidebarItem collapsed={collapsed} href="/dashboard#slots" icon="casino" label="Slots" pathname={pathname} direct suppressActive />
-          <SidebarItem collapsed={collapsed} href="/dashboard#live-casino" icon="live_tv" label="Live Casino" pathname={pathname} direct suppressActive />
-          <SidebarItem collapsed={collapsed} href="/dashboard#fast-games" icon="bolt" label="Fast Games" pathname={pathname} direct suppressActive />
-          <SidebarItem collapsed={collapsed} href="/dashboard#tournaments" icon="emoji_events" label="Tournaments" pathname={pathname} direct suppressActive />
-        </SidebarGroup>
+        {/* Aviator */}
+        <StandaloneSidebarItem collapsed={collapsed} href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} badge="HOT" />
 
-        {/* Markets */}
-        <SidebarGroup collapsed={collapsed} icon="online_prediction" isOpen={openGroups.markets} onToggle={() => toggleGroup("markets")} title="Markets">
-          <SidebarItem collapsed={collapsed} href="/predictions" icon="bar_chart" label="Predictions" pathname={pathname} direct />
-          <SidebarItem collapsed={collapsed} href="/p2p" icon="swap_horiz" label="P2P Trading" pathname={pathname} direct />
-          <SidebarItem collapsed={collapsed} href="/p2p/merchant" icon="storefront" label="Merchant" pathname={pathname} direct />
+        {/* Polymarket */}
+        <StandaloneSidebarItem collapsed={collapsed} href="/polymarket" icon="online_prediction" label="Polymarket" pathname={pathname} />
+
+        {/* P2P */}
+        <SidebarGroup collapsed={collapsed} icon="swap_horiz" isOpen={openGroups.p2p} onToggle={() => toggleGroup("p2p")} title="P2P">
+          <SidebarItem collapsed={collapsed} href="/p2p" icon="storefront" label="Browse Ads" pathname={pathname} direct />
+          <SidebarItem collapsed={collapsed} href="/p2p/merchant" icon="verified_user" label="Merchant Center" pathname={pathname} direct />
           <SidebarItem collapsed={collapsed} href="/p2p/orders" icon="receipt_long" label="My Orders" pathname={pathname} direct />
         </SidebarGroup>
 
-        {/* Trade */}
-        <SidebarGroup collapsed={collapsed} icon="trending_up" isOpen={openGroups.trade} onToggle={() => toggleGroup("trade")} title="Trade">
-          <SidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Binary & Forex" pathname={pathname} direct />
-        </SidebarGroup>
+        {/* Binary */}
+        <StandaloneSidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Binary & Forex" pathname={pathname} />
 
         <div className={`${collapsed ? "mx-1" : "-mx-4"} my-4 border-t border-white/10`} />
 
@@ -600,9 +592,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
 
   const [openGroups, setOpenGroups] = useState({
     sports: false,
-    casino: false,
-    markets: false,
-    trade: false,
+    p2p: false,
   });
 
   return (
@@ -677,27 +667,21 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
             <MobileDrawerLink href="/my-bets" icon="receipt_long" label="My Bets" onClick={onClose} />
           </MobileDrawerGroup>
 
-          {/* Casino */}
-          <MobileDrawerGroup icon="casino" isOpen={openGroups.casino} label="Casino" onToggle={() => setOpenGroups((v) => ({ ...v, casino: !v.casino }))}>
-            <MobileDrawerLink href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" onClick={onClose} />
-            <MobileDrawerLink href="/dashboard#slots" icon="casino" label="Slots" onClick={onClose} />
-            <MobileDrawerLink href="/dashboard#live-casino" icon="live_tv" label="Live Casino" onClick={onClose} />
-            <MobileDrawerLink href="/dashboard#fast-games" icon="bolt" label="Fast Games" onClick={onClose} />
-            <MobileDrawerLink href="/dashboard#tournaments" icon="emoji_events" label="Tournaments" onClick={onClose} />
-          </MobileDrawerGroup>
+          {/* Aviator */}
+          <MobileDrawerLink href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" onClick={onClose} />
 
-          {/* Markets */}
-          <MobileDrawerGroup icon="online_prediction" isOpen={openGroups.markets} label="Markets" onToggle={() => setOpenGroups((v) => ({ ...v, markets: !v.markets }))}>
-            <MobileDrawerLink href="/predictions" icon="bar_chart" label="Predictions" onClick={onClose} />
-            <MobileDrawerLink href="/p2p" icon="swap_horiz" label="P2P Trading" onClick={onClose} />
-            <MobileDrawerLink href="/p2p/merchant" icon="storefront" label="Merchant Center" onClick={onClose} />
+          {/* Polymarket */}
+          <MobileDrawerLink href="/polymarket" icon="online_prediction" label="Polymarket" onClick={onClose} />
+
+          {/* P2P */}
+          <MobileDrawerGroup icon="swap_horiz" isOpen={openGroups.p2p} label="P2P" onToggle={() => setOpenGroups((v) => ({ ...v, p2p: !v.p2p }))}>
+            <MobileDrawerLink href="/p2p" icon="storefront" label="Browse Ads" onClick={onClose} />
+            <MobileDrawerLink href="/p2p/merchant" icon="verified_user" label="Merchant Center" onClick={onClose} />
             <MobileDrawerLink href="/p2p/orders" icon="receipt_long" label="My Orders" onClick={onClose} />
           </MobileDrawerGroup>
 
-          {/* Trade */}
-          <MobileDrawerGroup icon="trending_up" isOpen={openGroups.trade} label="Trade" onToggle={() => setOpenGroups((v) => ({ ...v, trade: !v.trade }))}>
-            <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary & Forex" onClick={onClose} />
-          </MobileDrawerGroup>
+          {/* Binary */}
+          <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary & Forex" onClick={onClose} />
 
           <div className="my-3 border-t border-white/10" />
 
