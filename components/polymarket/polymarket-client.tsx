@@ -479,7 +479,7 @@ function CompactCard({ market, onBet, onOpen }: { market: PolymarketMarket; onBe
           {ranked.slice(0, 3).map(({ outcome, price }) => (
             <div key={outcome} className="flex items-center gap-2 text-[12px] font-bold">
               <span className="min-w-0 flex-1 truncate text-white/45">{outcome}</span>
-              <span className="font-mono text-white/70">{(price * 100).toFixed(0)}¢</span>
+              <span className="font-mono text-white/70">{formatCents(price)}</span>
             </div>
           ))}
         </div>
@@ -490,13 +490,13 @@ function CompactCard({ market, onBet, onOpen }: { market: PolymarketMarket; onBe
           onClick={(e) => { e.stopPropagation(); onBet(market, leader.outcome); }}
           className="h-9 min-w-0 rounded-xl bg-[#31c45d]/15 px-2 text-[12px] font-black text-[#31c45d] transition hover:bg-[#31c45d]/25"
         >
-          <span className="truncate">{yesLabel}</span> <span className="font-mono text-white/70">{(leader.price * 100).toFixed(0)}¢</span>
+          <span className="truncate">{yesLabel}</span> <span className="font-mono text-white/70">{formatCents(leader.price)}</span>
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onBet(market, hasYesNo ? noOutcome : runner.outcome); }}
           className="h-9 min-w-0 rounded-xl bg-red-500/12 px-2 text-[12px] font-black text-red-300 transition hover:bg-red-500/20"
         >
-          <span className="truncate">{noLabel}</span> <span className="font-mono text-white/70">{(noPrice * 100).toFixed(0)}¢</span>
+          <span className="truncate">{noLabel}</span> <span className="font-mono text-white/70">{formatCents(noPrice)}</span>
         </button>
       </div>
 
@@ -517,12 +517,22 @@ function marketPrice(market: PolymarketMarket, index: number) {
   return Math.max(0.01, Math.min(0.99, market.outcomePrices[index] ?? 0.5));
 }
 
+function formatCents(price: number) {
+  const cents = price * 100;
+  return `${cents < 10 ? cents.toFixed(1) : cents.toFixed(0)}¢`;
+}
+
+function formatKes(value: number, options?: Intl.NumberFormatOptions) {
+  return `KSh ${value.toLocaleString(undefined, options)}`;
+}
+
 function DetailTradeTicket({
   market,
   selectedOutcome,
   balance,
   onTradeSuccess,
   onViewBets,
+  onSelectOutcome,
   compact = false,
 }: {
   market: PolymarketMarket;
@@ -530,10 +540,10 @@ function DetailTradeTicket({
   balance: number;
   onTradeSuccess: () => void;
   onViewBets: () => void;
+  onSelectOutcome: (outcome: string) => void;
   compact?: boolean;
 }) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [orderSide, setOrderSide] = useState<"yes" | "no">("yes");
   const [amount, setAmount] = useState(100);
   const [placing, setPlacing] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
@@ -545,22 +555,13 @@ function DetailTradeTicket({
   } | null>(null);
   const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
   const price = marketPrice(market, selectedIndex);
-
-  // For non-Yes/No markets (e.g. Over/Under), "No" = the other outcome
-  const yesOutcomeStr = market.outcomes.find((o) => o.toLowerCase() === "yes") ?? selectedOutcome;
-  const noOutcomeStr  = market.outcomes.find((o) => o.toLowerCase() === "no")
-    ?? market.outcomes.find((o) => o !== selectedOutcome)
-    ?? market.outcomes[1]
-    ?? selectedOutcome;
-  const noOutcomeIdx  = Math.max(0, market.outcomes.findIndex((o) => o === noOutcomeStr));
-  const noPrice       = marketPrice(market, noOutcomeIdx);
-
-  const activePrice  = orderSide === "yes" ? price : noPrice;
-  const tradeOutcome = orderSide === "yes" ? selectedOutcome : noOutcomeStr;
-  const tradeOutcomeIndex = orderSide === "yes" ? selectedIndex : noOutcomeIdx;
+  const activePrice  = price;
+  const tradeOutcome = selectedOutcome;
+  const tradeOutcomeIndex = selectedIndex;
   const isUnavailable = activePrice < 0.01;
   const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0;
   const amountOptions = compact ? [50, 100, 250] : [50, 100, 250, 500];
+  const ticketOutcomes = market.outcomes.slice(0, Math.min(4, Math.max(2, market.outcomes.length)));
 
   useEffect(() => {
     setReceipt(null);
@@ -569,7 +570,7 @@ function DetailTradeTicket({
 
   async function placeTrade() {
     if (placing || isUnavailable) return;
-    if (amount < 10) { setTradeError("Minimum bet is $10"); return; }
+    if (amount < 10) { setTradeError("Minimum bet is KSh 10"); return; }
     if (amount > balance) { setTradeError("Insufficient balance"); return; }
 
     setPlacing(true);
@@ -612,7 +613,7 @@ function DetailTradeTicket({
           <div className="min-w-0">
             <p className="text-[12px] font-bold text-white/35 line-clamp-1">{market.question}</p>
             <p className="text-[15px] font-black leading-tight text-white">
-              {selectedOutcome} <span className="text-white/30">·</span> <span className="text-[#31c45d]">Yes</span>
+              {selectedOutcome} <span className="text-white/30">·</span> <span className={selectedOutcome.toLowerCase() === "no" ? "text-red-400" : "text-[#31c45d]"}>{formatCents(price)}</span>
             </p>
           </div>
         </div>}
@@ -653,17 +654,17 @@ function DetailTradeTicket({
                   <p className="mt-1 text-sm font-black text-white">{receipt.outcome}</p>
                 </div>
                 <div className="rounded-full bg-[#31c45d]/15 px-3 py-1 text-[11px] font-black text-[#31c45d]">
-                  {(receipt.price * 100).toFixed(0)}¢
+                  {formatCents(receipt.price)}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-black/20 p-3 text-[12px]">
                 <div>
                   <p className="text-white/35">Stake</p>
-                  <p className="font-mono font-black text-white">${receipt.stake.toLocaleString()}</p>
+                  <p className="font-mono font-black text-white">{formatKes(receipt.stake)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-white/35">Potential win</p>
-                  <p className="font-mono font-black text-[#31c45d]">${receipt.potentialWin.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                  <p className="font-mono font-black text-[#31c45d]">{formatKes(receipt.potentialWin, { maximumFractionDigits: 2 })}</p>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -684,27 +685,32 @@ function DetailTradeTicket({
           ) : (
           <>
 
-          <div className={`mb-4 grid grid-cols-2 rounded-2xl bg-black/25 p-1 ${compact ? "gap-1" : "gap-2"}`}>
-            <button
-              onClick={() => setOrderSide("yes")}
-              className={`min-h-11 rounded-xl px-2 text-left transition ${orderSide === "yes" ? "bg-[#31c45d] text-white" : "bg-transparent text-white/45 hover:bg-white/[0.04]"}`}
-            >
-              <span className="block truncate text-[12px] font-black">{yesOutcomeStr === selectedOutcome ? "Yes" : yesOutcomeStr}</span>
-              <span className="block font-mono text-[15px] font-black">{(price * 100).toFixed(0)}¢</span>
-            </button>
-            <button
-              onClick={() => setOrderSide("no")}
-              disabled={noPrice < 0.01}
-              className={`min-h-11 rounded-xl px-2 text-left transition disabled:cursor-not-allowed disabled:opacity-30 ${orderSide === "no" ? "bg-red-500/85 text-white" : "bg-transparent text-white/45 hover:bg-white/[0.04]"}`}
-            >
-              <span className="block truncate text-[12px] font-black">{noOutcomeStr === market.outcomes.find((o) => o.toLowerCase() === "no") ? "No" : noOutcomeStr}</span>
-              <span className="block font-mono text-[15px] font-black">{(noPrice * 100).toFixed(0)}¢</span>
-            </button>
+          <div className={`mb-4 grid rounded-2xl bg-black/25 p-1 ${ticketOutcomes.length > 2 ? "grid-cols-2" : "grid-cols-2"} ${compact ? "gap-1" : "gap-2"}`}>
+            {ticketOutcomes.map((outcome) => {
+              const outcomeIndex = Math.max(0, market.outcomes.findIndex((o) => o === outcome));
+              const outcomePrice = marketPrice(market, outcomeIndex);
+              const selected = selectedOutcome === outcome;
+              const negative = outcome.toLowerCase() === "no";
+              return (
+                <button
+                  key={outcome}
+                  onClick={() => onSelectOutcome(outcome)}
+                  className={`min-h-11 rounded-xl px-2 text-left transition ${
+                    selected
+                      ? negative ? "bg-red-500/85 text-white" : "bg-[#31c45d] text-white"
+                      : "bg-transparent text-white/45 hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <span className="block truncate text-[12px] font-black">{outcome}</span>
+                  <span className="block font-mono text-[15px] font-black">{formatCents(outcomePrice)}</span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="mb-3 flex items-end justify-between">
             <span className="text-sm font-black text-white/70">Amount</span>
-            <span className={`${compact ? "text-2xl" : "text-3xl"} font-black text-white/55`}>${amount.toLocaleString()}</span>
+            <span className={`${compact ? "text-2xl" : "text-3xl"} font-black text-white/55`}>{formatKes(amount)}</span>
           </div>
           <div className={`mb-4 grid gap-2 ${compact ? "grid-cols-3" : "grid-cols-4"}`}>
             {amountOptions.map((v) => (
@@ -719,7 +725,7 @@ function DetailTradeTicket({
           </div>
           <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.04] p-3 text-[12px]">
             <div className="flex justify-between text-white/45"><span>Odds</span><span className="font-mono text-white">{(1 / activePrice).toFixed(2)}x</span></div>
-            <div className="mt-1 flex justify-between text-white/45"><span>Potential win</span><span className="font-mono text-[#31c45d]">${potentialWin.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span></div>
+            <div className="mt-1 flex justify-between text-white/45"><span>Potential win</span><span className="font-mono text-[#31c45d]">{formatKes(potentialWin, { maximumFractionDigits: 2 })}</span></div>
           </div>
           {isUnavailable ? (
             <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-center">
@@ -738,7 +744,7 @@ function DetailTradeTicket({
           {tradeError && <p className="mt-3 rounded-lg bg-red-900/30 px-3 py-2 text-[11px] text-red-400">{tradeError}</p>}
           </>
           )}
-          <p className="mt-3 text-center text-[11px] text-white/30">Balance: ${Math.floor(balance).toLocaleString()}</p>
+          <p className="mt-3 text-center text-[11px] text-white/30">Balance: {formatKes(Math.floor(balance))}</p>
         </div>
       </div>
 
@@ -823,17 +829,17 @@ function PositionCard({ bet, onOpen }: { bet: MyBet; onOpen: (bet: MyBet) => voi
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-xl bg-black/20 p-3">
           <p className="text-[11px] font-bold text-white/35">Stake</p>
-          <p className="mt-1 font-mono text-sm font-black text-white">${bet.stake.toLocaleString()}</p>
+          <p className="mt-1 font-mono text-sm font-black text-white">{formatKes(bet.stake)}</p>
         </div>
         <div className="rounded-xl bg-black/20 p-3">
           <p className="text-[11px] font-bold text-white/35">{pending ? "To win" : "Payout"}</p>
           <p className={`mt-1 font-mono text-sm font-black ${bet.status === "LOST" ? "text-red-400" : "text-[#31c45d]"}`}>
-            ${((bet.status === "WON" && bet.winAmount) ? bet.winAmount : bet.potentialWin).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            {formatKes((bet.status === "WON" && bet.winAmount) ? bet.winAmount : bet.potentialWin, { maximumFractionDigits: 2 })}
           </p>
         </div>
         <div className="rounded-xl bg-black/20 p-3">
           <p className="text-[11px] font-bold text-white/35">Max profit</p>
-          <p className="mt-1 font-mono text-sm font-black text-white">${profit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+          <p className="mt-1 font-mono text-sm font-black text-white">{formatKes(profit, { maximumFractionDigits: 2 })}</p>
         </div>
         <div className="rounded-xl bg-black/20 p-3">
           <p className="text-[11px] font-bold text-white/35">Opened</p>
@@ -867,7 +873,6 @@ function MarketDetailView({
   related,
   balance,
   onBack,
-  onBet,
   onTradeSuccess,
   onViewBets,
   onOpen,
@@ -878,7 +883,6 @@ function MarketDetailView({
   related: PolymarketMarket[];
   balance: number;
   onBack: () => void;
-  onBet: (m: PolymarketMarket, o?: string, amount?: number) => void;
   onTradeSuccess: () => void;
   onViewBets: () => void;
   onOpen: (m: PolymarketMarket) => void;
@@ -957,6 +961,10 @@ function MarketDetailView({
         <section className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
           {market.outcomes.map((outcome, i) => {
             const price = marketPrice(market, i);
+            const yesOutcome = market.outcomes.find((o) => o.toLowerCase() === "yes") ?? market.outcomes[0] ?? outcome;
+            const noOutcome = market.outcomes.find((o) => o.toLowerCase() === "no") ?? market.outcomes[1] ?? outcome;
+            const yesPrice = marketPrice(market, Math.max(0, market.outcomes.findIndex((o) => o === yesOutcome)));
+            const noPrice = marketPrice(market, Math.max(0, market.outcomes.findIndex((o) => o === noOutcome)));
             return (
               <div key={outcome} className="grid grid-cols-[minmax(0,1fr)_74px] items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_90px] xl:grid-cols-[minmax(0,1fr)_90px_170px_170px]">
                 <div className="min-w-0">
@@ -967,11 +975,11 @@ function MarketDetailView({
                   <p className="text-xl font-black text-white">{(price * 100).toFixed(0)}%</p>
                   <p className={`text-[11px] font-black ${i === selectedIndex ? "text-[#31c45d]" : "text-red-400"}`}>{i === selectedIndex ? "▲" : "▼"} {Math.max(1, Math.round(price * 28))}%</p>
                 </div>
-                <button onClick={() => onBet(market, outcome)} className="hidden h-10 rounded-xl bg-[#31c45d]/80 text-sm font-black text-white xl:block">
-                  Buy Yes {(price * 100).toFixed(1)}¢
+                <button onClick={() => setSelectedOutcome(yesOutcome)} className="hidden h-10 rounded-xl bg-[#31c45d]/80 text-sm font-black text-white xl:block">
+                  Buy {yesOutcome} {formatCents(yesPrice)}
                 </button>
-                <button onClick={() => onBet(market, market.outcomes.find((o) => o.toLowerCase() === "no") ?? outcome)} className="hidden h-10 rounded-xl bg-red-500/15 text-sm font-black text-red-400 xl:block">
-                  Buy No {((1 - price) * 100).toFixed(1)}¢
+                <button onClick={() => setSelectedOutcome(noOutcome)} className="hidden h-10 rounded-xl bg-red-500/15 text-sm font-black text-red-400 xl:block">
+                  Buy {noOutcome} {formatCents(noPrice)}
                 </button>
               </div>
             );
@@ -1047,6 +1055,7 @@ function MarketDetailView({
           balance={balance}
           onTradeSuccess={onTradeSuccess}
           onViewBets={onViewBets}
+          onSelectOutcome={setSelectedOutcome}
         />
         <div className="mt-5 space-y-3">
           {related.filter((m) => m.conditionId !== market.conditionId).slice(0, 3).map((m) => {
@@ -1081,6 +1090,7 @@ function MarketDetailView({
               balance={balance}
               onTradeSuccess={onTradeSuccess}
               onViewBets={onViewBets}
+              onSelectOutcome={setSelectedOutcome}
               compact
             />
           </>
@@ -1089,7 +1099,7 @@ function MarketDetailView({
             <div className="min-w-0 flex-1">
               <p className="truncate text-[11px] font-bold text-white/35">{market.question}</p>
               <p className="text-[13px] font-black text-white">
-                {selectedOutcome} <span className="font-mono text-[#31c45d]">{(marketPrice(market, selectedIndex) * 100).toFixed(0)}¢</span>
+                {selectedOutcome} <span className={`font-mono ${selectedOutcome.toLowerCase() === "no" ? "text-red-400" : "text-[#31c45d]"}`}>{formatCents(marketPrice(market, selectedIndex))}</span>
               </p>
             </div>
             <button
@@ -1499,7 +1509,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
         </div>
         <div className="hidden h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#1a1b22] px-4 sm:flex">
           <span className="text-[11px] font-black uppercase tracking-widest text-white/25">Balance</span>
-          <span className="font-black text-white">${Math.floor(balance).toLocaleString()}</span>
+          <span className="font-black text-white">{formatKes(Math.floor(balance))}</span>
         </div>
         <button
           onClick={() => setTab(tab === "browse" ? "my-bets" : "browse")}
@@ -1543,7 +1553,6 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
               window.history.pushState({}, "", "/predictions");
             }
           }}
-          onBet={openBet}
           onTradeSuccess={handleBetSuccess}
           onViewBets={viewMyBets}
           onOpen={openMarket}
@@ -1658,11 +1667,11 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
                 </div>
                 <div className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4">
                   <p className="text-[11px] font-black uppercase tracking-wide text-white/35">Capital at risk</p>
-                  <p className="mt-2 text-2xl font-black text-white">${openStake.toLocaleString()}</p>
+                  <p className="mt-2 text-2xl font-black text-white">{formatKes(openStake)}</p>
                 </div>
                 <div className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4">
                   <p className="text-[11px] font-black uppercase tracking-wide text-white/35">Open payout</p>
-                  <p className="mt-2 text-2xl font-black text-[#31c45d]">${openToWin.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                  <p className="mt-2 text-2xl font-black text-[#31c45d]">{formatKes(openToWin, { maximumFractionDigits: 2 })}</p>
                 </div>
               </div>
 
