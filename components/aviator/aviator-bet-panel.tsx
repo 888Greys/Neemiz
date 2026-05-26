@@ -13,8 +13,8 @@ interface Props {
   onCashout:         (panelIndex: 0 | 1) => Promise<void>;
 }
 
-// Quick-amount chips — directly set the bet to a fixed value (Betika style)
-const QUICK_AMOUNTS = [100, 200, 500, 10_000];
+// Quick-amount chips — directly set the bet to a fixed value (matches Betika)
+const QUICK_AMOUNTS = [100, 250, 1_000, 25_000];
 
 function snapStep(v: number) {
   if (v < 100)  return 10;
@@ -61,7 +61,7 @@ export function AviatorBetPanel({
   useEffect(() => { myBetRef.current       = myBet;        }, [myBet]);
   useEffect(() => { nextBetRef.current     = nextBet;      }, [nextBet]);
   useEffect(() => {
-    if (myBet?.status !== "CASHING_OUT" && (round?.state !== "FLYING" || myBet?.status !== "ACTIVE")) setLoading(false);
+    if (round?.state !== "FLYING" || myBet?.status !== "ACTIVE") setLoading(false);
   }, [myBet?.status, round?.state]);
 
   // Clear error when a new betting window opens
@@ -175,9 +175,9 @@ export function AviatorBetPanel({
   );
 
   // ─────────────────────────────────────────────────────────────────────────
-  // FLYING + active bet -> CASHOUT
+  // FLYING + active bet → CASHOUT (no spinner — tap = instant win)
   // ─────────────────────────────────────────────────────────────────────────
-  if (isFlying && (myBet?.status === "ACTIVE" || myBet?.status === "CASHING_OUT")) {
+  if (isFlying && myBet?.status === "ACTIVE") {
     return (
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12] sm:rounded-2xl">
         {TabBar}
@@ -200,27 +200,19 @@ export function AviatorBetPanel({
               </p>
             </div>
           </div>
+          {/* Single tap = instant cashout, no loading state */}
           <button
             onClick={handleCashout}
             className="relative overflow-hidden rounded-xl py-3.5 text-sm font-black text-black transition-all active:scale-[0.97]"
             style={{ background: "linear-gradient(135deg, #f59e0b, #ef8c00)" }}
           >
             <span className="relative z-10 flex items-center justify-center gap-2">
-              {myBet.status === "CASHING_OUT" ? (
-                <>
-                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
-                  CASHING OUT...
-                </>
-              ) : (
-                <>
-                  CASHOUT
-                  <span className="rounded-lg bg-black/20 px-2.5 py-1 text-sm font-black">
-                    KSh {potWin.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </span>
-                </>
-              )}
+              CASHOUT
+              <span className="rounded-lg bg-black/20 px-2.5 py-1 text-sm font-black">
+                KSh {potWin.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
             </span>
-            {myBet.status !== "CASHING_OUT" && <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-15" />}
+            <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-15" />
           </button>
           <p className="text-center text-[11px] font-black text-[#f59e0b]">{currentMultiplier.toFixed(2)}×</p>
           {error && <p className="text-center text-xs text-red-400">{error}</p>}
@@ -250,20 +242,19 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (isCrashed && myBet) {
     const won = myBet.status === "CASHEDOUT";
-    const pending = myBet.status === "CASHING_OUT";
     return (
-      <div className={`flex min-w-0 flex-col overflow-hidden rounded-xl border sm:rounded-2xl ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : pending ? "border-[#f59e0b]/20 bg-[#17100a]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
+      <div className={`flex min-w-0 flex-col overflow-hidden rounded-xl border sm:rounded-2xl ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
         {TabBar}
         <div className="flex flex-col items-center gap-2 p-5 text-center">
-          <p className={`text-sm font-black ${won ? "text-[#31c45d]" : pending ? "text-[#f59e0b]" : "text-red-400"}`}>
-            {won ? "You won!" : pending ? "Cashout pending..." : "Flew away!"}
+          <p className={`text-sm font-black ${won ? "text-[#31c45d]" : "text-red-400"}`}>
+            {won ? "You won!" : "Flew away!"}
           </p>
           <p className="text-xl font-black text-white">
-            {won || pending
+            {won
               ? `KSh ${myBet.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—"}`
               : `-KSh ${myBet.betAmount.toLocaleString()}`}
           </p>
-          {(won || pending) && <p className="text-xs text-white/30">at {myBet.cashoutAt?.toFixed(2)}×</p>}
+          {won && <p className="text-xs text-white/30">at {myBet.cashoutAt?.toFixed(2)}×</p>}
         </div>
       </div>
     );
@@ -379,7 +370,7 @@ export function AviatorBetPanel({
                       : "border-white/[0.07] bg-white/[0.04] text-white/50 hover:border-white/20 hover:text-white"
                   }`}
                 >
-                  {v >= 1000 ? `${v / 1000}K` : v}
+                  {v >= 1000 ? v.toLocaleString() : v}
                 </button>
               ))}
               <button
@@ -411,12 +402,11 @@ export function AviatorBetPanel({
             className="w-full rounded-xl py-3.5 text-sm font-black text-black shadow-[0_10px_30px_rgba(34,197,94,.16)] transition-all disabled:cursor-not-allowed disabled:opacity-40"
             style={{ background: (bettingOpen || isFlying) ? "linear-gradient(135deg, #31c45d, #22a34a)" : "#1f2937" }}
           >
-            {loading
-              ? "Placing…"
+            {loading ? "Placing…"
               : bettingOpen
-              ? `BET  KSh ${amount.toLocaleString()}`
+              ? <>Bet<br />{amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} KES</>
               : isFlying
-              ? `NEXT ROUND  KSh ${amount.toLocaleString()}`
+              ? <>Next Round<br />{amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} KES</>
               : "BETTING CLOSED"}
           </button>
 

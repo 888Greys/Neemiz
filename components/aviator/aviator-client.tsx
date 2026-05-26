@@ -357,10 +357,13 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   const handleCashout = useCallback(async (panelIndex: 0 | 1) => {
     const bet = myBets[panelIndex];
-    if (!bet) return;
+    if (!bet || bet.status !== "ACTIVE") return;
 
+    // ── INSTANT optimistic update — no spinner, no wait ────────────────────
+    // Capture multiplier at the exact moment the user clicks.
     const clickedMultiplier = Math.max(1, multiplier);
     const pendingWin = Number((bet.betAmount * clickedMultiplier).toFixed(2));
+
     setMyBets((prev) => {
       const existing = prev[panelIndex];
       if (!existing || existing.status !== "ACTIVE") return prev;
@@ -368,13 +371,17 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         ...prev,
         [panelIndex]: {
           ...existing,
-          status: "CASHING_OUT",
+          status:    "CASHEDOUT",   // skip CASHING_OUT entirely
           cashoutAt: clickedMultiplier,
           winAmount: pendingWin,
         },
       };
     });
+    // Optimistic balance credit — feels instant to the user
+    setBalance((b) => b + pendingWin);
+    window.dispatchEvent(new Event("wallet-refresh"));
 
+    // ── Background API call — confirm with server ──────────────────────────
     try {
       const res = await fetch("/api/aviator/cashout", {
         method: "POST",
@@ -382,10 +389,9 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         body: JSON.stringify({ panelIndex, betId: bet.id }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error ?? "Cashout failed");
-      }
+      if (!res.ok) throw new Error(data.error ?? "Cashout failed");
 
+      // Update with server-confirmed values (may differ slightly from optimistic)
       setMyBets((prev) => {
         const existing = prev[panelIndex];
         if (!existing) return prev;
@@ -393,28 +399,31 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           ...prev,
           [panelIndex]: {
             ...existing,
-            status: "CASHEDOUT",
+            status:    "CASHEDOUT",
             cashoutAt: data.cashoutAt,
             winAmount: data.winAmount,
           },
         };
       });
+      // Correct balance with server truth (swap optimistic for real)
+      setBalance((b) => b - pendingWin + Number(data.winAmount));
       toast.cashout(
         `Cashed out at ${(data.cashoutAt as number).toFixed(2)}×`,
         `+KSh ${Number(data.winAmount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       );
-      await fetchBalance();
       window.dispatchEvent(new Event("wallet-refresh"));
     } catch (err) {
+      // Revert on failure — put the cashout button back
       toast.error("Cashout failed", (err as Error).message);
+      setBalance((b) => b - pendingWin);   // undo optimistic credit
       setMyBets((prev) => {
         const existing = prev[panelIndex];
-        if (!existing || existing.status !== "CASHING_OUT") return prev;
+        if (!existing || existing.status !== "CASHEDOUT") return prev;
         return {
           ...prev,
           [panelIndex]: {
             ...existing,
-            status: roundRef.current?.state === "FLYING" ? "ACTIVE" : "LOST",
+            status:    roundRef.current?.state === "FLYING" ? "ACTIVE" : "LOST",
             cashoutAt: null,
             winAmount: null,
           },
