@@ -3,7 +3,7 @@ import { ForexClient } from "@/components/forex/forex-client";
 
 export default function ForexPage() {
   return (
-    <AppShell mainBg="bg-[#050506]" hideFooter>
+    <AppShell mainBg="bg-[#050506]" hideFooter fullHeight>
       <ForexClient />
     </AppShell>
   );
