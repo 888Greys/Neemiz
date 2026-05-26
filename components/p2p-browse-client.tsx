@@ -375,7 +375,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
             <Icon name="schedule" className="text-[11px]" />
             {ad.merchant.avgReleaseTime || "<1"}m
           </span>
-          <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+          <span className={`shrink-0 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-black ${
             isMerchantSelling ? "bg-[#05b957]/12 text-[#05b957]" : "bg-red-500/12 text-red-400"
           }`}>
             Fast release
