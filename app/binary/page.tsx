@@ -3,7 +3,7 @@ import { BinaryClient } from "@/components/binary/binary-client";
 
 export default function BinaryPage() {
   return (
-    <AppShell mainBg="bg-[#050506]" hideFooter>
+    <AppShell mainBg="bg-[#050506]" hideFooter fullHeight>
       <BinaryClient />
     </AppShell>
   );
