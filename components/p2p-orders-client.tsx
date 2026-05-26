@@ -154,12 +154,12 @@ export function P2POrdersClient() {
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-[#1e1e30] bg-[#0e0e14]">
+        <div className="flex flex-col gap-1.5">
           {filtered.map((order) => (
             <Link
               key={order.id}
               href={`/p2p/order/${order.id}`}
-              className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_36px] gap-3 border-b border-[#1e1e30] bg-[#0e0e14] px-3 py-3 last:border-b-0 transition hover:bg-[#111118] sm:px-4"
+              className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_36px] gap-3 rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-3 py-3 transition hover:bg-[#111118] sm:px-4"
             >
               <div className="min-w-0">
                 {/* Row 1: direction dot + title + status */}
