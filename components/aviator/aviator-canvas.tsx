@@ -5,7 +5,7 @@ import type { AviatorRoundState } from "@/lib/aviator/types";
 
 interface Props {
   state:            AviatorRoundState;
-  multiplier:       number;
+  multiplier:       number;   // used only for CRASHED display value
   crashPoint?:      number;
   bettingEndsAt?:   string | null;
   flyingStartedAt?: string | null;
@@ -25,13 +25,34 @@ function multToElapsed(m: number) {
   return (-b + Math.sqrt(b * b + 4 * a * target)) / (2 * a);
 }
 
-export function AviatorCanvas({ state, multiplier, crashPoint, bettingEndsAt }: Props) {
+export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedAt }: Props) {
   const canvasRef    = useRef<HTMLCanvasElement>(null);
   const starsRef     = useRef<Star[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const crashedRef   = useRef(false);
-  const rayAngleRef  = useRef(0);          // persists across re-renders for smooth spin
+  const rayAngleRef  = useRef(0);
 
+  // ── Props as refs — never cause RAF loop restarts ──────────────────────────
+  const stateRef           = useRef(state);
+  const crashPointRef      = useRef(crashPoint);
+  const bettingEndsAtRef   = useRef(bettingEndsAt);
+  const flyingStartedAtRef = useRef(flyingStartedAt);
+
+  useEffect(() => { stateRef.current          = state;          }, [state]);
+  useEffect(() => { crashPointRef.current     = crashPoint;     }, [crashPoint]);
+  useEffect(() => { bettingEndsAtRef.current  = bettingEndsAt;  }, [bettingEndsAt]);
+  useEffect(() => { flyingStartedAtRef.current = flyingStartedAt; }, [flyingStartedAt]);
+
+  // Reset particles on new round
+  useEffect(() => {
+    if (state === "WAITING" || state === "BETTING") {
+      crashedRef.current   = false;
+      particlesRef.current = [];
+    }
+    if (state === "CRASHED" && !crashedRef.current) crashedRef.current = true;
+  }, [state]);
+
+  // ── Canvas resize ──────────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -47,31 +68,47 @@ export function AviatorCanvas({ state, multiplier, crashPoint, bettingEndsAt }: 
     return () => obs.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (state === "WAITING" || state === "BETTING") {
-      crashedRef.current   = false;
-      particlesRef.current = [];
-    }
-    if (state === "CRASHED" && !crashedRef.current) crashedRef.current = true;
-  }, [state]);
-
+  // ── Single permanent RAF loop — NEVER restarted, reads refs each frame ─────
+  // This is what eliminates the shake: no dependency on React multiplier state.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     let id: number;
+
     const loop = () => {
-      rayAngleRef.current += 0.018;        // ~1°/frame clockwise
+      rayAngleRef.current += 0.018;
+
+      const currentState = stateRef.current;
+      const isFlying     = currentState === "FLYING";
+      const isCrashed    = currentState === "CRASHED";
+
+      // Compute multiplier live from flyingStartedAt (true 60fps, no React state)
+      let currentMult = 1.0;
+      if (isFlying && flyingStartedAtRef.current) {
+        const elapsed = Math.max(0, Date.now() - new Date(flyingStartedAtRef.current).getTime()) / 1000;
+        currentMult = calculateMultiplier(elapsed);
+      } else if (isCrashed) {
+        currentMult = crashPointRef.current ?? 1.0;
+      }
+
       draw(ctx, canvas.width, canvas.height, {
-        state, multiplier, crashPoint, bettingEndsAt,
-        stars: starsRef.current, particles: particlesRef.current,
-        crashed: crashedRef.current, rayAngle: rayAngleRef.current,
+        state:        currentState,
+        multiplier:   currentMult,
+        crashPoint:   crashPointRef.current,
+        bettingEndsAt: bettingEndsAtRef.current,
+        stars:        starsRef.current,
+        particles:    particlesRef.current,
+        crashed:      crashedRef.current,
+        rayAngle:     rayAngleRef.current,
       });
+
       id = requestAnimationFrame(loop);
     };
+
     id = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(id);
-  }, [state, multiplier, crashPoint, bettingEndsAt]);
+  }, []); // ← empty deps: one loop, runs forever, zero restarts
 
   return <canvas ref={canvasRef} className="h-full w-full" style={{ display: "block" }} />;
 }
@@ -94,16 +131,16 @@ function drawSunburst(
   isCrashed: boolean,
   angle: number,
 ) {
-  const maxR      = Math.sqrt(w * w + h * h) * 1.4;
-  const rayCount  = 22;
+  const maxR       = Math.sqrt(w * w + h * h) * 1.4;
+  const rayCount   = 22;
   const sliceAngle = (Math.PI * 2) / rayCount;
 
   ctx.save();
   ctx.translate(ox, oy);
-  ctx.rotate(angle);                       // spin clockwise each frame
+  ctx.rotate(angle);
 
   for (let i = 0; i < rayCount; i++) {
-    if (i % 2 === 0) continue;            // alternating visible/invisible wedges
+    if (i % 2 === 0) continue;
     const a1 = i * sliceAngle;
     const a2 = a1 + sliceAngle;
     ctx.beginPath();
@@ -132,11 +169,9 @@ function draw(
 ) {
   const { state, multiplier, crashPoint, bettingEndsAt, stars, particles, rayAngle } = opts;
   const isCrashed = state === "CRASHED";
-  const isFlying  = state === "FLYING";
+  const compact   = w < 520;
 
-  const compact = w < 520;
-
-  // ── Background ──────────────────────────────────────────────────────
+  // ── Background ──────────────────────────────────────────────────────────
   const bg = ctx.createRadialGradient(w * 0.72, h * 0.12, 0, w * 0.5, h * 0.5, Math.max(w, h));
   bg.addColorStop(0, "#1d1320");
   bg.addColorStop(0.42, "#0d0d10");
@@ -151,7 +186,7 @@ function draw(
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, w, h);
 
-  // ── Stars ───────────────────────────────────────────────────────────
+  // ── Stars ────────────────────────────────────────────────────────────────
   stars.forEach((s) => {
     s.alpha += Math.sin(Date.now() * s.speed * 0.001) * 0.006;
     s.alpha  = Math.max(0.08, Math.min(0.7, s.alpha));
@@ -166,10 +201,9 @@ function draw(
   const MAX_X    = compact ? w * 0.88 : w * 0.92;
   const MAX_Y    = compact ? 34 : 30;
 
-  // ── Sunburst rays (spinning) ─────────────────────────────────────────
   drawSunburst(ctx, ORIGIN_X, ORIGIN_Y, w, h, isCrashed, rayAngle);
 
-  // ── Ground line ──────────────────────────────────────────────────────
+  // ── Ground line ──────────────────────────────────────────────────────────
   ctx.strokeStyle = "rgba(255,255,255,0.09)";
   ctx.lineWidth   = 1;
   ctx.beginPath();
@@ -177,25 +211,25 @@ function draw(
   ctx.lineTo(w, ORIGIN_Y);
   ctx.stroke();
 
-  // ── Origin dot ───────────────────────────────────────────────────────
+  // ── Origin dot ───────────────────────────────────────────────────────────
   ctx.beginPath();
   ctx.arc(ORIGIN_X, ORIGIN_Y, 3, 0, Math.PI * 2);
   ctx.fillStyle = "#ff1838";
   ctx.fill();
 
-  // ── Betting / waiting state ──────────────────────────────────────────
+  // ── Idle states ──────────────────────────────────────────────────────────
   if (state === "WAITING" || state === "BETTING") {
     drawIdleState(ctx, w, h, ORIGIN_X, ORIGIN_Y, state, bettingEndsAt);
     return;
   }
 
-  // ── Curve ────────────────────────────────────────────────────────────
+  // ── Curve ────────────────────────────────────────────────────────────────
   const displayMult  = isCrashed ? (crashPoint ?? multiplier) : multiplier;
   const totalElapsed = Math.max(0.1, multToElapsed(displayMult));
 
-  const normX = (seconds: number) => ORIGIN_X + (seconds / totalElapsed) * (MAX_X - ORIGIN_X);
+  const normX    = (seconds: number) => ORIGIN_X + (seconds / totalElapsed) * (MAX_X - ORIGIN_X);
   const logDenom = Math.log(Math.max(displayMult, 1.0001));
-  const normY = (m: number)  => ORIGIN_Y - (Math.log(Math.max(m, 1)) / logDenom) * (ORIGIN_Y - MAX_Y);
+  const normY    = (m: number) => ORIGIN_Y - (Math.log(Math.max(m, 1)) / logDenom) * (ORIGIN_Y - MAX_Y);
 
   const STEPS = 80;
 
@@ -232,7 +266,7 @@ function draw(
   const tipX = normX(totalElapsed);
   const tipY = normY(displayMult);
 
-  // ── Plane or explosion ────────────────────────────────────────────────
+  // ── Plane or explosion ────────────────────────────────────────────────────
   if (isCrashed) {
     if (particles.length === 0) {
       for (let i = 0; i < 50; i++) {
@@ -256,27 +290,24 @@ function draw(
       ctx.fill();
       ctx.globalAlpha = 1;
     });
-    // "FLEW AWAY!" text
     const fs = Math.min(w * (compact ? 0.075 : 0.065), compact ? 30 : 40);
-    ctx.font      = `900 ${fs}px Inter,sans-serif`;
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#ff3030";
+    ctx.font       = `900 ${fs}px Inter,sans-serif`;
+    ctx.textAlign  = "center";
+    ctx.fillStyle  = "#ff3030";
     ctx.shadowColor= "#ff3030";
     ctx.shadowBlur = 22;
     ctx.fillText("FLEW AWAY!", w / 2, h * (compact ? 0.36 : 0.42));
     ctx.shadowBlur = 0;
   } else {
     drawPlane(ctx, tipX, tipY, displayMult, compact ? 0.82 : 1);
-    // Plane trail
     drawTrail(ctx, tipX, tipY);
   }
 
-  // ── Multiplier display ────────────────────────────────────────────────
-  const multColor = isCrashed    ? "#ff4444"
-    : displayMult >= 10          ? "#ff2aa8"
-    : displayMult >= 5           ? "#8b5cf6"
-    : displayMult >= 2           ? "#ffffff"
-    :                              "#ffffff";
+  // ── Multiplier display ────────────────────────────────────────────────────
+  const multColor = isCrashed       ? "#ff4444"
+    : displayMult >= 10             ? "#ff2aa8"
+    : displayMult >= 5              ? "#8b5cf6"
+    :                                 "#ffffff";
 
   const fs = Math.min(w * (compact ? 0.16 : 0.10), compact ? 54 : 64);
   ctx.font        = `900 ${fs}px Inter,sans-serif`;
@@ -295,6 +326,7 @@ function draw(
 // ─── Plane ───────────────────────────────────────────────────────────────────
 
 function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, mult: number, scale = 1) {
+  void mult;
   const angle = -Math.PI / 5;
   ctx.save();
   ctx.translate(x, y);
@@ -304,43 +336,28 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, mult: nu
   ctx.shadowColor = "#ff1838";
   ctx.shadowBlur  = 20;
 
-  // Body
   ctx.fillStyle = "#ff1838";
   ctx.beginPath();
-  ctx.moveTo(30, 0);
-  ctx.lineTo(-12, -7);
-  ctx.lineTo(-18, 0);
-  ctx.lineTo(-12, 7);
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(30, 0); ctx.lineTo(-12, -7); ctx.lineTo(-18, 0); ctx.lineTo(-12, 7);
+  ctx.closePath(); ctx.fill();
 
-  // Window
   ctx.fillStyle = "#ffffff";
-  ctx.beginPath();
-  ctx.ellipse(11, -2, 4.5, 3.2, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.beginPath(); ctx.ellipse(11, -2, 4.5, 3.2, 0, 0, Math.PI * 2); ctx.fill();
 
-  // Wing
   ctx.fillStyle = "#ff4d63";
   ctx.beginPath();
   ctx.moveTo(4, 0); ctx.lineTo(-7, -18); ctx.lineTo(-15, -2);
-  ctx.closePath();
-  ctx.fill();
+  ctx.closePath(); ctx.fill();
 
-  // Tail
   ctx.fillStyle = "#ff4d63";
   ctx.beginPath();
   ctx.moveTo(-11, 0); ctx.lineTo(-21, -10); ctx.lineTo(-15, 0);
-  ctx.closePath();
-  ctx.fill();
+  ctx.closePath(); ctx.fill();
 
-  // Engine glow
   ctx.shadowColor = "#ff1838";
   ctx.shadowBlur  = 14;
   ctx.fillStyle   = "#ffffff";
-  ctx.beginPath();
-  ctx.ellipse(-15, 0, 6, 3, 0, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.beginPath(); ctx.ellipse(-15, 0, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
 
   ctx.shadowBlur = 0;
   ctx.restore();
@@ -358,8 +375,7 @@ function drawTrail(ctx: CanvasRenderingContext2D, x: number, y: number) {
   grad.addColorStop(0.4, "rgba(255,24,56,0.5)");
   grad.addColorStop(1, "rgba(255,24,56,0)");
   ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(ex, ey);
+  ctx.moveTo(x, y); ctx.lineTo(ex, ey);
   ctx.strokeStyle = grad;
   ctx.lineWidth   = 5;
   ctx.lineCap     = "round";
@@ -383,7 +399,6 @@ function drawIdleState(
   const isBetting = state === "BETTING";
 
   if (isBetting) {
-    // ── BETTING: bobbing plane + countdown ──────────────────────────────
     const bob = Math.sin(Date.now() * 0.002) * 4;
     drawPlane(ctx, ox + 20, oy - 18 + bob, 1);
 
@@ -394,20 +409,17 @@ function drawIdleState(
 
     if (bettingEndsAt) {
       const rem = Math.max(0, Math.ceil((new Date(bettingEndsAt).getTime() - Date.now()) / 1000));
-      ctx.font      = `900 ${Math.min(w * 0.14, 82)}px Inter,sans-serif`;
-      ctx.fillStyle = rem <= 3 ? "#ff1838" : "#ff1838";
-      ctx.shadowColor= rem <= 3 ? "#ff1838" : "#ff1838";
+      ctx.font       = `900 ${Math.min(w * 0.14, 82)}px Inter,sans-serif`;
+      ctx.fillStyle  = "#ff1838";
+      ctx.shadowColor= "#ff1838";
       ctx.shadowBlur = 30;
       ctx.fillText(`${rem}`, cx, cy + 52);
       ctx.shadowBlur = 0;
     }
-
   } else {
-    // ── WAITING: spinning plane + text ─────────────────────────────────
-    const spin  = Date.now() * 0.0015;   // full rotation every ~4s
+    const spin   = Date.now() * 0.0015;
     const planeR = Math.min(w * 0.07, 48);
 
-    // Circular orbit path (faint)
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy - planeR * 0.3, planeR, 0, Math.PI * 2);
@@ -418,17 +430,14 @@ function drawIdleState(
     ctx.setLineDash([]);
     ctx.restore();
 
-    // Plane orbiting the circle
     const orbitX = cx + Math.cos(spin) * planeR;
     const orbitY = (cy - planeR * 0.3) + Math.sin(spin) * planeR * 0.5;
     ctx.save();
     ctx.translate(orbitX, orbitY);
     ctx.rotate(spin + Math.PI * 0.1);
     ctx.scale(0.85, 0.85);
-    // inline plane draw (same shape as drawPlane, different context origin)
-    ctx.shadowColor = "#ff1838";
-    ctx.shadowBlur  = 14;
-    ctx.fillStyle   = "#ff1838";
+    ctx.shadowColor = "#ff1838"; ctx.shadowBlur = 14;
+    ctx.fillStyle = "#ff1838";
     ctx.beginPath();
     ctx.moveTo(24, 0); ctx.lineTo(-10, -5); ctx.lineTo(-15, 0); ctx.lineTo(-10, 5);
     ctx.closePath(); ctx.fill();
@@ -440,18 +449,16 @@ function drawIdleState(
     ctx.shadowBlur = 0;
     ctx.restore();
 
-    // Engine trail dots
     for (let i = 1; i <= 4; i++) {
-      const trailAngle = spin - i * 0.18;
-      const tx = cx + Math.cos(trailAngle) * planeR;
-      const ty = (cy - planeR * 0.3) + Math.sin(trailAngle) * planeR * 0.5;
+      const ta = spin - i * 0.18;
+      const tx = cx + Math.cos(ta) * planeR;
+      const ty = (cy - planeR * 0.3) + Math.sin(ta) * planeR * 0.5;
       ctx.beginPath();
       ctx.arc(tx, ty, Math.max(1, 3.5 - i * 0.7), 0, Math.PI * 2);
       ctx.fillStyle = `rgba(255,24,56,${0.5 - i * 0.1})`;
       ctx.fill();
     }
 
-    // "STARTING NEXT ROUND" text
     const textY = cy + planeR * 1.45;
     const fs    = Math.min(w * 0.034, 22);
     ctx.font        = `900 ${fs}px Inter,sans-serif`;
@@ -459,7 +466,6 @@ function drawIdleState(
     ctx.fillStyle   = "rgba(255,255,255,0.80)";
     ctx.fillText("STARTING NEXT ROUND", cx, textY);
 
-    // Red underline
     const lineW = Math.min(w * 0.22, 180);
     ctx.beginPath();
     ctx.moveTo(cx - lineW / 2, textY + fs * 0.5);
