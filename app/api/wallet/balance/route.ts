@@ -23,6 +23,6 @@ export async function GET() {
     });
   } catch (err) {
     console.error("Wallet balance route error:", err);
-    return Response.json({ balance: 0, currency: "KES" });
+    return Response.json({ error: "Could not fetch balance" }, { status: 500 });
   }
 }

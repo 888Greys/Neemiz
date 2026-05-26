@@ -111,7 +111,7 @@ export function SupportWidget() {
                 {/* Social quick-contact */}
                 <div className="flex justify-center gap-2">
                   <a
-                    href="https://wa.me/254700000000"
+                    href={`https://wa.me/${process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? "254700000000"}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#25D366]/15 text-[#25D366] ring-1 ring-[#25D366]/20 transition hover:bg-[#25D366]/25"

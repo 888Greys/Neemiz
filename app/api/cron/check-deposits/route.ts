@@ -12,15 +12,49 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
 
-// KES conversion rates — update env vars regularly or fetch from API later
-const USDT_KES_RATE = Number(process.env.USDT_KES_RATE  ?? "128");
-const ETH_KES_RATE  = Number(process.env.ETH_KES_RATE   ?? "420000"); // ~$3,200 × 130
-const BNB_KES_RATE  = Number(process.env.BNB_KES_RATE   ?? "84000");  // ~$650 × 130
+// Fallback KES rates used only when live fetch fails
+const FALLBACK_USDT_KES = Number(process.env.USDT_KES_RATE ?? "128");
+const FALLBACK_ETH_KES  = Number(process.env.ETH_KES_RATE  ?? "420000");
+const FALLBACK_BNB_KES  = Number(process.env.BNB_KES_RATE  ?? "84000");
 
-function toKes(amount: number, crypto: string): number {
-  if (crypto === "ETH") return parseFloat((amount * ETH_KES_RATE).toFixed(2));
-  if (crypto === "BNB") return parseFloat((amount * BNB_KES_RATE).toFixed(2));
-  return parseFloat((amount * USDT_KES_RATE).toFixed(2)); // USDT default
+async function fetchLiveRates(): Promise<{ USDT: number; ETH: number; BNB: number }> {
+  try {
+    // Frankfurter gives major fiat pairs; for crypto we use CoinGecko (no key required)
+    const [kesRes, cryptoRes] = await Promise.all([
+      fetch("https://api.frankfurter.app/latest?base=USD&symbols=KES", { signal: AbortSignal.timeout(5000) }),
+      fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether,ethereum,binancecoin&vs_currencies=kes", { signal: AbortSignal.timeout(5000) }),
+    ]);
+
+    let kesPerUsd = FALLBACK_USDT_KES;
+    if (kesRes.ok) {
+      const data = await kesRes.json() as { rates?: { KES?: number } };
+      if (data.rates?.KES) kesPerUsd = data.rates.KES;
+    }
+
+    let ethKes = FALLBACK_ETH_KES;
+    let bnbKes = FALLBACK_BNB_KES;
+    if (cryptoRes.ok) {
+      const data = await cryptoRes.json() as {
+        tether?: { kes?: number };
+        ethereum?: { kes?: number };
+        binancecoin?: { kes?: number };
+      };
+      if (data.tether?.kes)      kesPerUsd = data.tether.kes;
+      if (data.ethereum?.kes)    ethKes    = data.ethereum.kes;
+      if (data.binancecoin?.kes) bnbKes    = data.binancecoin.kes;
+    }
+
+    return { USDT: kesPerUsd, ETH: ethKes, BNB: bnbKes };
+  } catch {
+    console.warn("[check-deposits] Live rate fetch failed, using env var fallbacks");
+    return { USDT: FALLBACK_USDT_KES, ETH: FALLBACK_ETH_KES, BNB: FALLBACK_BNB_KES };
+  }
+}
+
+function toKes(amount: number, crypto: string, rates: { USDT: number; ETH: number; BNB: number }): number {
+  if (crypto === "ETH") return parseFloat((amount * rates.ETH).toFixed(2));
+  if (crypto === "BNB") return parseFloat((amount * rates.BNB).toFixed(2));
+  return parseFloat((amount * rates.USDT).toFixed(2)); // USDT / default
 }
 
 export async function GET(req: Request) {
@@ -33,9 +67,12 @@ export async function GET(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const addresses = await db.cryptoDepositAddress.findMany({
-    include: { user: { include: { merchantProfile: true } } },
-  });
+  const [addresses, rates] = await Promise.all([
+    db.cryptoDepositAddress.findMany({
+      include: { user: { include: { merchantProfile: true } } },
+    }),
+    fetchLiveRates(),
+  ]);
 
   let credited = 0;
   const errors: string[] = [];
@@ -45,11 +82,12 @@ export async function GET(req: Request) {
       const txs = await checkDeposits(addr.address, addr.crypto, addr.network);
 
       for (const tx of txs) {
-        // Skip if already processed
-        const already = await db.p2PCryptoDeposit.findFirst({
-          where: { txHash: tx.txHash },
-        });
-        if (already) continue;
+        // Skip if already processed (merchant path uses p2PCryptoDeposit, wallet path uses Transaction)
+        const [alreadyDeposit, alreadyTx] = await Promise.all([
+          db.p2PCryptoDeposit.findFirst({ where: { txHash: tx.txHash } }),
+          db.transaction.findFirst({ where: { reference: `crypto-${tx.txHash}` } }),
+        ]);
+        if (alreadyDeposit || alreadyTx) continue;
 
         const amount = parseFloat(tx.amount);
         if (amount <= 0) continue;
@@ -88,23 +126,11 @@ export async function GET(req: Request) {
           });
         } else {
           // ── Wallet deposit: convert to KES and credit betting wallet ─────
-          const kesAmount = toKes(amount, addr.crypto);
+          const kesAmount = toKes(amount, addr.crypto, rates);
 
           await db.$transaction(async (t) => {
-            // Record the raw crypto deposit so we don't double-process
-            await t.p2PCryptoDeposit.create({
-              data: {
-                // No merchantId for wallet deposits — store under a dummy entry
-                // We reuse txHash uniqueness to prevent double-crediting
-                merchantId: (await t.merchantProfile.findFirst())?.id ?? "system",
-                crypto:     addr.crypto,
-                amount,
-                txHash:     tx.txHash,
-                network:    addr.network,
-                status:     "APPROVED",
-                adminNote:  `wallet_deposit:${addr.userId}`,
-              },
-            });
+            // Record via a deduplicated wallet transaction — no fake merchantId needed.
+            // txHash uniqueness in the Transaction table prevents double-crediting.
 
             // Credit KES to user wallet
             await t.user.update({
@@ -122,7 +148,7 @@ export async function GET(req: Request) {
                 status:    TransactionStatus.COMPLETED,
                 reference: `crypto-${tx.txHash}`,
                 provider:  "crypto",
-                metadata:  { txHash: tx.txHash, crypto: addr.crypto, network: addr.network, cryptoAmount: amount, rate: USDT_KES_RATE },
+                metadata:  { txHash: tx.txHash, crypto: addr.crypto, network: addr.network, cryptoAmount: amount, rate: rates[addr.crypto as keyof typeof rates] ?? rates.USDT },
               },
             });
 

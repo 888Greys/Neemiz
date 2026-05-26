@@ -406,9 +406,9 @@ export function BinaryClient() {
         </section>
       </div>
 
-      {streamError && (
-        <div className="mb-3 rounded-lg border border-amber-400/20 bg-amber-400/8 px-4 py-3 text-xs font-bold text-amber-200">
-          {streamError}
+      {streamStatus === "fallback" && (
+        <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-300">
+          ⚠ Live feed unavailable — trading disabled.{streamError ? ` ${streamError}` : ""} Reconnecting automatically.
         </div>
       )}
 
@@ -526,11 +526,12 @@ export function BinaryClient() {
               <button
                 type="button"
                 onClick={openTrade}
-                className={`w-full rounded py-4 text-sm font-black text-white transition active:scale-[0.98] ${
+                disabled={streamStatus !== "live"}
+                className={`w-full rounded py-4 text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
                   direction === "buy" ? "bg-[#0f9f68] hover:bg-[#13ae73]" : "bg-[#d33d4b] hover:bg-[#e24755]"
                 }`}
               >
-                Open {direction.toUpperCase()} {selectedMarket.symbol}
+                {streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
               </button>
             </div>
           </section>
