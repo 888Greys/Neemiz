@@ -781,6 +781,18 @@ function conditionIdFromPath() {
   return parts[parts.length - 1] ?? null;
 }
 
+function scrollPolymarketTop() {
+  if (typeof window === "undefined") return;
+  const scroll = () => {
+    document.querySelector<HTMLElement>("[data-app-scroll='true']")?.scrollTo({ top: 0, behavior: "instant" });
+    window.scrollTo({ top: 0, behavior: "instant" });
+  };
+  requestAnimationFrame(() => {
+    scroll();
+    requestAnimationFrame(scroll);
+  });
+}
+
 function PositionCard({ bet, onOpen }: { bet: MyBet; onOpen: (bet: MyBet) => void }) {
   const pending = bet.status === "PENDING";
   const profit = bet.potentialWin - bet.stake;
@@ -1341,7 +1353,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
 
   const fetchMyBets = useCallback(async () => {
     if (!userId) return;
-    const res = await fetch("/api/polymarket/my-bets");
+    const res = await fetch("/api/polymarket/my-bets", { cache: "no-store" });
     if (res.ok) setMyBets(await res.json());
   }, [userId]);
 
@@ -1364,10 +1376,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
         window.history[options?.replace ? "replaceState" : "pushState"]({ marketId: market.conditionId }, "", url);
       }
     }
-    requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>("[data-app-scroll='true']")?.scrollTo({ top: 0, behavior: "instant" });
-      window.scrollTo({ top: 0, behavior: "instant" });
-    });
+    scrollPolymarketTop();
   }, []);
 
   const openMarketById = useCallback(async (conditionId: string, options?: { replace?: boolean }) => {
@@ -1427,11 +1436,8 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
     if (typeof window !== "undefined" && window.location.pathname !== "/predictions") {
       window.history.pushState({}, "", "/predictions");
     }
-    fetchMyBets();
-    requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>("[data-app-scroll='true']")?.scrollTo({ top: 0, behavior: "instant" });
-      window.scrollTo({ top: 0, behavior: "instant" });
-    });
+    void fetchMyBets();
+    scrollPolymarketTop();
   }
 
   const filtered = useMemo(() => {
