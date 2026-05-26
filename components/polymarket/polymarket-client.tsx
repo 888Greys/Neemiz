@@ -5,7 +5,6 @@ import Image from "next/image";
 import { ArrowLeft, ArrowRight, Bookmark, ChevronDown, ChevronRight, Code2, Flame, Link2, MessageCircle, Search, Settings, Trophy, TrendingUp, Zap } from "lucide-react";
 import { formatEndDate, formatMarketMoney, formatMarketMoneyKes } from "./market-card";
 import { ProbabilityChart } from "./probability-chart";
-import { BetModal }   from "./bet-modal";
 import { toast }      from "@/lib/toast";
 import type { PolymarketMarket } from "@/lib/polymarket";
 
@@ -1392,6 +1391,76 @@ function seedComments(market: PolymarketMarket): DetailComment[] {
   ];
 }
 
+/* ── Trade sheet (replaces old BetModal on browse cards) ───────────────── */
+function TradeSheet({
+  market,
+  initialOutcome,
+  balance,
+  onClose,
+  onSuccess,
+}: {
+  market:          PolymarketMarket;
+  initialOutcome?: string;
+  balance:         number;
+  onClose:         () => void;
+  onSuccess:       () => void;
+}) {
+  const topIdx = market.outcomePrices.reduce(
+    (best, p, i) => (p > (market.outcomePrices[best] ?? 0) ? i : best),
+    0,
+  );
+  const defaultOutcome = market.outcomes[topIdx] ?? market.outcomes[0] ?? "Yes";
+  const [selectedOutcome, setSelectedOutcome] = useState(initialOutcome ?? defaultOutcome);
+  const [selectedTradeSide, setSelectedTradeSide] = useState<"yes" | "no">(() =>
+    initialOutcome?.toLowerCase() === "no" ? "no" : "yes",
+  );
+
+  function handleSelectSide(side: "yes" | "no") {
+    setSelectedTradeSide(side);
+    if (side === "yes") {
+      const yesOutcome = market.outcomes.find((o) => o.toLowerCase() === "yes") ?? market.outcomes[0] ?? selectedOutcome;
+      setSelectedOutcome(yesOutcome);
+    } else {
+      const noOutcome = market.outcomes.find((o) => o.toLowerCase() === "no") ?? market.outcomes[1] ?? selectedOutcome;
+      setSelectedOutcome(noOutcome);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-end justify-center"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-lg animate-[slideUp_0.25s_ease-out]"
+        onClick={(e) => e.stopPropagation()}
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="flex items-center justify-center bg-[#1a1b22] pb-1 pt-3 rounded-t-3xl">
+          <div className="h-1 w-10 rounded-full bg-white/20" />
+        </div>
+        <DetailTradeTicket
+          market={market}
+          selectedOutcome={selectedOutcome}
+          selectedTradeSide={selectedTradeSide}
+          balance={balance}
+          onTradeSuccess={onSuccess}
+          onViewBets={onClose}
+          onSelectTradeSide={handleSelectSide}
+          compact
+        />
+      </div>
+      <style>{`
+        @keyframes slideUp {
+          from { transform: translateY(100%); }
+          to   { transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 /* ── Main component ─────────────────────────────────────────────────────── */
 export function PolymarketClient({ userId, balance: initialBalance, initialMarkets = [] }: Props) {
   const [markets,  setMarkets]  = useState<PolymarketMarket[]>(initialMarkets);
@@ -1817,12 +1886,11 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
         </div>
       )}
 
-      {/* ── Bet modal ────────────────────────────────────────────────────── */}
+      {/* ── Trade sheet (card quick-bet) ─────────────────────────────── */}
       {ticket && (
-        <BetModal
+        <TradeSheet
           market={ticket.market}
           initialOutcome={ticket.outcome}
-          initialAmount={ticket.amount}
           balance={balance}
           onClose={() => setTicket(null)}
           onSuccess={handleBetSuccess}
