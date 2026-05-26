@@ -38,6 +38,7 @@ export async function GET(req: Request) {
         odds: Number(s.odds),
         result: s.result,
       })),
-    }))
+    })),
+    { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=30" } }
   );
 }

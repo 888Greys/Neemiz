@@ -98,7 +98,7 @@ export async function GET() {
       isSeller: merchant ? o.sellerId === merchant.id : false,
     }));
 
-    return Response.json(result);
+    return Response.json(result, { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=30" } });
   } catch (err) {
     console.error("GET /api/p2p/orders:", err instanceof Error ? err.message : "Unknown error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
