@@ -760,13 +760,42 @@ function formatBetDate(value: string) {
   return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function PositionCard({ bet }: { bet: MyBet }) {
+function marketSlug(value: string) {
+  const slug = value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 96);
+  return slug || "market";
+}
+
+function marketUrl(market: PolymarketMarket) {
+  return `/predictions/${marketSlug(market.question)}/${market.conditionId}`;
+}
+
+function conditionIdFromPath() {
+  if (typeof window === "undefined") return null;
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  if (parts[0] !== "predictions" || parts.length < 3) return null;
+  return parts[parts.length - 1] ?? null;
+}
+
+function PositionCard({ bet, onOpen }: { bet: MyBet; onOpen: (bet: MyBet) => void }) {
   const pending = bet.status === "PENDING";
   const profit = bet.potentialWin - bet.stake;
   const sideColor = bet.outcome.toLowerCase() === "yes" ? "text-[#31c45d]" : "text-red-400";
 
   return (
-    <article className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4 transition hover:border-white/[0.13] sm:p-5">
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(bet)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onOpen(bet);
+      }}
+      className="cursor-pointer rounded-2xl border border-white/[0.07] bg-[#171820] p-4 transition hover:border-white/[0.13] hover:bg-[#1b1c25] sm:p-5"
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[15px] font-black leading-snug text-white sm:text-base">{bet.question}</p>
@@ -1325,6 +1354,43 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
     }
   }, [userId]);
 
+  const openMarket = useCallback((market: PolymarketMarket, options?: { replace?: boolean }) => {
+    setSelectedMarket(market);
+    setTab("browse");
+    setSearch("");
+    if (typeof window !== "undefined") {
+      const url = marketUrl(market);
+      if (window.location.pathname !== url) {
+        window.history[options?.replace ? "replaceState" : "pushState"]({ marketId: market.conditionId }, "", url);
+      }
+    }
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>("[data-app-scroll='true']")?.scrollTo({ top: 0, behavior: "instant" });
+      window.scrollTo({ top: 0, behavior: "instant" });
+    });
+  }, []);
+
+  const openMarketById = useCallback(async (conditionId: string, options?: { replace?: boolean }) => {
+    const existing = markets.find((m) => m.conditionId === conditionId);
+    if (existing) {
+      openMarket(existing, options);
+      return;
+    }
+
+    const res = await fetch(`/api/polymarket/market?conditionId=${encodeURIComponent(conditionId)}`);
+    if (!res.ok) {
+      toast.error("Market details are not available");
+      return;
+    }
+    const market = await res.json() as PolymarketMarket;
+    setMarkets((current) => current.some((m) => m.conditionId === market.conditionId) ? current : [market, ...current]);
+    openMarket(market, options);
+  }, [markets, openMarket]);
+
+  const openPosition = useCallback((bet: MyBet) => {
+    void openMarketById(bet.marketId);
+  }, [openMarketById]);
+
   useEffect(() => {
     fetchMarkets();
     // Refresh breaking news / hot topics every 2 minutes
@@ -1332,6 +1398,22 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
     return () => clearInterval(id);
   }, [fetchMarkets]);
   useEffect(() => { if (tab === "my-bets") fetchMyBets(); }, [tab, fetchMyBets]);
+  useEffect(() => {
+    const conditionId = conditionIdFromPath();
+    if (conditionId) void openMarketById(conditionId, { replace: true });
+
+    function onPopState() {
+      const nextConditionId = conditionIdFromPath();
+      if (nextConditionId) {
+        void openMarketById(nextConditionId, { replace: true });
+      } else {
+        setSelectedMarket(null);
+      }
+    }
+
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [openMarketById]);
 
   function handleBetSuccess() {
     toast.success("Bet placed!");
@@ -1342,6 +1424,9 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   function viewMyBets() {
     setSelectedMarket(null);
     setTab("my-bets");
+    if (typeof window !== "undefined" && window.location.pathname !== "/predictions") {
+      window.history.pushState({}, "", "/predictions");
+    }
     fetchMyBets();
     requestAnimationFrame(() => {
       document.querySelector<HTMLElement>("[data-app-scroll='true']")?.scrollTo({ top: 0, behavior: "instant" });
@@ -1373,15 +1458,6 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
       : market.outcomes.find((o) => o.toLowerCase() === "no" && outcome?.toLowerCase().startsWith("no"))
         ?? market.outcomes[0];
     setTicket({ market, outcome: normalizedOutcome, amount });
-  };
-  const openMarket = (market: PolymarketMarket) => {
-    setSelectedMarket(market);
-    setTab("browse");
-    setSearch("");
-    requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>("[data-app-scroll='true']")?.scrollTo({ top: 0, behavior: "instant" });
-      window.scrollTo({ top: 0, behavior: "instant" });
-    });
   };
   const selectedComments = selectedMarket ? commentsByMarket[selectedMarket.conditionId] ?? seedComments(selectedMarket) : [];
   const addComment = (body: string) => {
@@ -1455,7 +1531,12 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
           market={selectedMarket}
           related={markets}
           balance={balance}
-          onBack={() => setSelectedMarket(null)}
+          onBack={() => {
+            setSelectedMarket(null);
+            if (typeof window !== "undefined" && window.location.pathname !== "/predictions") {
+              window.history.pushState({}, "", "/predictions");
+            }
+          }}
           onBet={openBet}
           onTradeSuccess={handleBetSuccess}
           onViewBets={viewMyBets}
@@ -1607,7 +1688,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
                 </div>
               ) : (
                 <div className="grid gap-3 xl:grid-cols-2">
-                  {visibleBets.map((b) => <PositionCard key={b.id} bet={b} />)}
+                  {visibleBets.map((b) => <PositionCard key={b.id} bet={b} onOpen={openPosition} />)}
                 </div>
               )}
             </div>
