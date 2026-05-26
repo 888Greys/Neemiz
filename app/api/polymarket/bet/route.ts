@@ -59,11 +59,11 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { conditionId: string; outcome: string; stake: number };
+  let body: { conditionId: string; outcome: string; outcomeIndex?: number; stake: number };
   try   { body = await req.json(); }
   catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
 
-  const { conditionId, outcome, stake } = body;
+  const { conditionId, outcome, outcomeIndex, stake } = body;
 
   if (!conditionId || !outcome || !stake) {
     return Response.json({ error: "conditionId, outcome and stake are required" }, { status: 400 });
@@ -78,7 +78,13 @@ export async function POST(req: Request) {
     return Response.json({ error: "Market is not open for betting" }, { status: 409 });
   }
 
-  const outcomeIdx = findOutcomeIndex(market.outcomes, outcome);
+  const requestedIndex = Number.isInteger(outcomeIndex) ? Number(outcomeIndex) : -1;
+  const labelMatchIdx = findOutcomeIndex(market.outcomes, outcome);
+  const outcomeIdx = labelMatchIdx >= 0
+    ? labelMatchIdx
+    : requestedIndex >= 0 && requestedIndex < market.outcomes.length
+      ? requestedIndex
+      : -1;
   if (outcomeIdx === -1) {
     return Response.json({
       error: `Selected outcome "${outcome}" is not available on the live market. Available outcomes: ${market.outcomes.join(", ") || "none"}`,

@@ -557,6 +557,7 @@ function DetailTradeTicket({
 
   const activePrice  = orderSide === "yes" ? price : noPrice;
   const tradeOutcome = orderSide === "yes" ? selectedOutcome : noOutcomeStr;
+  const tradeOutcomeIndex = orderSide === "yes" ? selectedIndex : noOutcomeIdx;
   const isUnavailable = activePrice < 0.01;
   const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0;
   const amountOptions = compact ? [50, 100, 250] : [50, 100, 250, 500];
@@ -579,7 +580,7 @@ function DetailTradeTicket({
       const res = await fetch("/api/polymarket/bet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conditionId: market.conditionId, outcome: tradeOutcome, stake: amount }),
+        body: JSON.stringify({ conditionId: market.conditionId, outcome: tradeOutcome, outcomeIndex: tradeOutcomeIndex, stake: amount }),
         signal: controller.signal,
       });
       const data = await res.json().catch(() => ({}));
