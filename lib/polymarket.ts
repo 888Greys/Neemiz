@@ -97,12 +97,13 @@ export async function fetchMarkets(params?: {
 }
 
 export async function fetchMarket(conditionId: string, options?: { cache?: RequestCache }): Promise<PolymarketMarket | null> {
-  const url = `${GAMMA_API}/markets?conditionId=${encodeURIComponent(conditionId)}&limit=1`;
+  const url = `${GAMMA_API}/markets?condition_ids=${encodeURIComponent(conditionId)}&limit=1`;
   const res = await fetch(url, options?.cache ? { cache: options.cache } : { next: { revalidate: 30 } });
   if (!res.ok) return null;
   const data: GammaMarket[] = await res.json();
   if (!data[0]) return null;
   const market = parseMarket(data[0]);
+  if (market.conditionId.toLowerCase() !== conditionId.toLowerCase()) return null;
   return isOpenMarket(market) ? market : null;
 }
 

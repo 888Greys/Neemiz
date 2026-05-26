@@ -558,11 +558,11 @@ function DetailTradeTicket({
   const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
   const price = marketPrice(market, selectedIndex);
   const noPrice = Math.max(0.01, Math.min(0.99, 1 - price));
-  const binaryNoIndex = market.outcomes.findIndex((o) => o.toLowerCase() === "no");
-  const canExecuteNo = selectedTradeSide === "yes" || binaryNoIndex >= 0;
+  const noTradeIndex = market.outcomes.length === 2 ? (selectedIndex === 0 ? 1 : 0) : -1;
+  const canExecuteNo = selectedTradeSide === "yes" || noTradeIndex >= 0;
   const activePrice  = selectedTradeSide === "yes" ? price : noPrice;
-  const tradeOutcome = selectedTradeSide === "yes" ? selectedOutcome : market.outcomes[binaryNoIndex] ?? selectedOutcome;
-  const tradeOutcomeIndex = selectedTradeSide === "yes" ? selectedIndex : binaryNoIndex;
+  const tradeOutcome = selectedTradeSide === "yes" ? selectedOutcome : market.outcomes[noTradeIndex] ?? selectedOutcome;
+  const tradeOutcomeIndex = selectedTradeSide === "yes" ? selectedIndex : noTradeIndex;
   const isUnavailable = activePrice < 0.01;
   const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0;
   const amountOptions = compact ? [50, 100, 250] : [50, 100, 250, 500];
@@ -570,7 +570,7 @@ function DetailTradeTicket({
   useEffect(() => {
     setReceipt(null);
     setTradeError(null);
-  }, [market.conditionId, selectedOutcome]);
+  }, [market.conditionId, selectedOutcome, selectedTradeSide]);
 
   async function placeTrade() {
     if (placing || isUnavailable) return;
