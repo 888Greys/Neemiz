@@ -342,7 +342,7 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSuppo
 
         <div className={`mb-4 flex items-center gap-1.5 ${collapsed ? "flex-col" : ""}`}>
           <a
-            href="https://wa.me/254700000000"
+            href={`https://wa.me/${process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? "254700000000"}`}
             target="_blank"
             rel="noopener noreferrer"
             aria-label="WhatsApp"
@@ -703,7 +703,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
 
         <div className="border-t border-white/10 p-2">
           <div className="mb-2 flex items-center gap-1">
-            <a href="https://wa.me/254700000000" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35] text-white transition hover:bg-white/[0.08]">
+            <a href={`https://wa.me/${process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? "254700000000"}`} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35] text-white transition hover:bg-white/[0.08]">
               <Icon name="chat" fill className="text-[17px]" />
             </a>
             <a href="https://t.me/NeezemSupport" target="_blank" rel="noopener noreferrer" aria-label="Telegram" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35] text-white transition hover:bg-white/[0.08]">

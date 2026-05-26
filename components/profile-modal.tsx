@@ -494,7 +494,7 @@ function LanguageView() {
 // ── Sub-view: Help & Support ─────────────────────────────────────────────────
 
 const SUPPORT_CHANNELS = [
-  { icon: "chat",          label: "WhatsApp",   sub: "Fastest response",     href: "https://wa.me/254700000000", color: "text-emerald-400" },
+  { icon: "chat",          label: "WhatsApp",   sub: "Fastest response",     href: `https://wa.me/${process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? "254700000000"}`, color: "text-emerald-400" },
   { icon: "telegram",      label: "Telegram",   sub: "@NeezemSupport",       href: "https://t.me/NeezemSupport", color: "text-[#5ea9ff]" },
   { icon: "mail",          label: "Email",      sub: "support@nezeem.com",   href: "mailto:support@nezeem.com",  color: "text-slate-400" },
 ];

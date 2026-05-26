@@ -34,24 +34,15 @@ function polymarketBetError(err: unknown) {
     return { status: 400, error: "Insufficient balance" };
   }
 
-  if (err instanceof Prisma.PrismaClientKnownRequestError) {
-    return {
-      status: 500,
-      error: `Database error ${err.code}: ${err.message}`,
-    };
+  if (
+    err instanceof Prisma.PrismaClientKnownRequestError ||
+    err instanceof Prisma.PrismaClientUnknownRequestError ||
+    err instanceof Prisma.PrismaClientValidationError
+  ) {
+    return { status: 500, error: "Database error. Please try again." };
   }
 
-  if (err instanceof Prisma.PrismaClientUnknownRequestError || err instanceof Prisma.PrismaClientValidationError) {
-    return {
-      status: 500,
-      error: `Database error: ${message}`,
-    };
-  }
-
-  return {
-    status: 500,
-    error: `Failed to place bet: ${message}`,
-  };
+  return { status: 500, error: "Failed to place bet. Please try again." };
 }
 
 export async function POST(req: Request) {
