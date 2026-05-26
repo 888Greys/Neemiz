@@ -1666,10 +1666,10 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   };
 
   return (
-    <div className="flex flex-col gap-0 text-white">
+    <div className="flex min-w-0 flex-col gap-0 text-white lg:h-full lg:min-h-0 lg:overflow-hidden">
 
       {/* ── Search + balance bar ─────────────────────────────────────────── */}
-      {!selectedMarket && <div className="mb-4 flex items-center gap-3">
+      {!selectedMarket && <div className="mb-4 flex items-center gap-3 lg:mb-0 lg:h-12 lg:shrink-0 lg:border-b lg:border-white/[0.08] lg:bg-[#101216] lg:px-3">
         <div className="flex h-10 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#1a1b22] px-4">
           <Search className="h-4 w-4 shrink-0 text-white/25" />
           <input
@@ -1696,7 +1696,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
 
       {/* ── Category nav strip ───────────────────────────────────────────── */}
       {tab === "browse" && !selectedMarket && (
-        <div ref={tagBarRef} className="no-scrollbar mb-5 flex gap-0 overflow-x-auto border-b border-white/[0.06] pb-0">
+        <div ref={tagBarRef} className="no-scrollbar mb-5 flex gap-0 overflow-x-auto border-b border-white/[0.06] pb-0 lg:mb-0 lg:h-11 lg:shrink-0 lg:bg-[#0b0d12] lg:px-2">
           {TAGS.map((t) => (
             <button
               key={t}
@@ -1759,22 +1759,94 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
             )}
           </div>
 
-          {/* ── Desktop: hero + sidebar + grid ── */}
-          <div className="hidden lg:flex lg:flex-col lg:gap-8">
-            {/* Hero + sidebar row */}
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
-              <div>
-                {loading ? (
-                  <div className="h-72 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
-                ) : heroMarkets.length > 0 ? (
-                  <HeroCarousel markets={heroMarkets} allMarkets={markets} onBet={openBet} onOpen={openMarket} />
-                ) : null}
+          {/* ── Desktop: terminal ── */}
+          <div className="hidden min-h-0 flex-1 overflow-hidden border-b border-white/[0.08] bg-[#050506] lg:grid lg:grid-cols-[280px_minmax(0,1fr)_320px] xl:grid-cols-[300px_minmax(0,1fr)_340px]">
+            <aside className="min-h-0 overflow-hidden border-r border-white/[0.08] bg-[#101216]">
+              <div className="flex h-11 items-center justify-between border-b border-white/[0.07] px-3">
+                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-white/35">Markets</span>
+                <span className="rounded bg-white/[0.06] px-2 py-1 text-[10px] font-black text-white/40">{filtered.length}</span>
               </div>
-              <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
+              <div className="no-scrollbar h-[calc(100%-2.75rem)] overflow-y-auto">
+                {loading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="h-20 animate-pulse border-b border-white/[0.06] bg-white/[0.03]" />
+                  ))
+                ) : filtered.length === 0 ? (
+                  <div className="px-4 py-10 text-center text-sm font-bold text-white/25">No markets found</div>
+                ) : (
+                  filtered.map((m) => {
+                    const yesIdx = m.outcomes.findIndex((o) => o.toLowerCase() === "yes");
+                    const price = marketPrice(m, yesIdx >= 0 ? yesIdx : 0);
+                    return (
+                      <button
+                        key={m.conditionId}
+                        type="button"
+                        onClick={() => openMarket(m)}
+                        className="flex w-full gap-3 border-b border-white/[0.06] px-3 py-3 text-left transition hover:bg-white/[0.04]"
+                      >
+                        {m.image ? (
+                          <Image src={m.image} alt="" width={34} height={34} unoptimized className="h-8 w-8 shrink-0 rounded bg-white object-cover" />
+                        ) : (
+                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-white/[0.06] text-[10px] font-black text-white/30">?</span>
+                        )}
+                        <span className="min-w-0 flex-1">
+                          <span className="line-clamp-2 text-[12px] font-black leading-snug text-white/80">{m.question}</span>
+                          <span className="mt-1 flex items-center justify-between gap-2">
+                            <span className="truncate text-[10px] font-bold text-white/30">{m.tags[0] ?? "Market"}</span>
+                            <span className="font-mono text-[11px] font-black text-[#31c45d]">{formatCents(price)}</span>
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </aside>
+
+            <main className="min-h-0 overflow-hidden bg-[#0f1218]">
+              <div className="flex h-11 items-center justify-between border-b border-white/[0.07] px-3">
+                <h3 className="truncate text-sm font-black text-white">
+                  {search ? `Results for "${search}"` : "Featured market board"}
+                </h3>
+                <span className="shrink-0 text-[11px] font-bold text-white/30">{filtered.length} markets</span>
+              </div>
+              <div className="no-scrollbar h-[calc(100%-2.75rem)] overflow-y-auto p-3">
+                {loading ? (
+                  <div className="space-y-3">
+                    <div className="h-72 animate-pulse rounded border border-white/[0.06] bg-white/[0.03]" />
+                    <div className="grid gap-3 xl:grid-cols-2">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="h-44 animate-pulse rounded border border-white/[0.06] bg-white/[0.03]" />
+                      ))}
+                    </div>
+                  </div>
+                ) : gridMarkets.length === 0 ? (
+                  <div className="rounded border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
+                    <p className="text-sm text-white/25">No markets found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {heroMarkets.length > 0 && <HeroCarousel markets={heroMarkets} allMarkets={markets} onBet={openBet} onOpen={openMarket} />}
+                    <div className="grid gap-3 xl:grid-cols-2">
+                      {gridMarkets.map((m) => (
+                        <CompactCard key={m.conditionId} market={m} onBet={openBet} onOpen={openMarket} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </main>
+
+            <aside className="min-h-0 overflow-hidden border-l border-white/[0.08] bg-[#101216]">
+              <div className="flex h-11 items-center justify-between border-b border-white/[0.07] px-3">
+                <span className="text-[11px] font-black uppercase tracking-[0.16em] text-white/35">Pulse</span>
+                <span className="rounded bg-[#087cff]/15 px-2 py-1 text-[10px] font-black text-sky-300">Live</span>
+              </div>
+              <div className="no-scrollbar h-[calc(100%-2.75rem)] space-y-3 overflow-y-auto p-3">
                 {loading ? (
                   <>
-                    <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
-                    <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                    <div className="h-52 animate-pulse rounded border border-white/[0.06] bg-white/[0.03]" />
+                    <div className="h-52 animate-pulse rounded border border-white/[0.06] bg-white/[0.03]" />
                   </>
                 ) : (
                   <>
@@ -1783,34 +1855,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
                   </>
                 )}
               </div>
-            </div>
-
-            {/* All markets grid */}
-            <div>
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-xl font-black text-white">
-                  {search ? `Results for "${search}"` : "All markets"}
-                </h3>
-                <span className="text-[12px] text-white/25">{filtered.length} markets</span>
-              </div>
-              {loading ? (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="h-44 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
-                  ))}
-                </div>
-              ) : gridMarkets.length === 0 ? (
-                <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
-                  <p className="text-sm text-white/25">No markets found</p>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {gridMarkets.map((m) => (
-                    <CompactCard key={m.conditionId} market={m} onBet={openBet} onOpen={openMarket} />
-                  ))}
-                </div>
-              )}
-            </div>
+            </aside>
           </div>
         </>
       )}
