@@ -61,7 +61,6 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [verifyRound,    setVerifyRound]    = useState<HistoryRound | null>(null);
   const [prevRoundBets,  setPrevRoundBets]  = useState<AviatorBetPublic[]>([]);
   const [loading,        setLoading]        = useState(true);
-  const [activePanel, setActivePanel] = useState<0 | 1>(0);
 
   const wsRef          = useRef<WebSocket | null>(null);
   const rafRef         = useRef<number>(0);
@@ -458,36 +457,19 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           </div>
         </div>
 
-        <div className="mt-2 grid grid-cols-2 gap-1 rounded-xl border border-white/[0.07] bg-[#0b0c0f] p-1 md:hidden">
+        {/* Both panels always visible, stacked vertically */}
+        <div className="mt-2 flex min-w-0 shrink-0 flex-col gap-2">
           {([0, 1] as const).map((pi) => (
-            <button
+            <AviatorBetPanel
               key={pi}
-              type="button"
-              onClick={() => setActivePanel(pi)}
-              className={`rounded-lg py-2 text-[11px] font-black uppercase tracking-widest transition ${
-                activePanel === pi
-                  ? "bg-[#087cff] text-white shadow-[0_8px_22px_rgba(8,124,255,.25)]"
-                  : "text-white/35"
-              }`}
-            >
-              Bet {pi + 1}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-2 grid min-w-0 shrink-0 grid-cols-1 gap-2 md:grid-cols-2">
-          {([0, 1] as const).map((pi) => (
-            <div key={pi} className={`${activePanel === pi ? "block" : "hidden"} min-w-0 md:block`}>
-              <AviatorBetPanel
-                panelIndex={pi}
-                round={round}
-                myBet={myBets[pi]}
-                currentMultiplier={displayMult}
-                balance={balance}
-                onBet={handleBet}
-                onCashout={handleCashout}
-              />
-            </div>
+              panelIndex={pi}
+              round={round}
+              myBet={myBets[pi]}
+              currentMultiplier={displayMult}
+              balance={balance}
+              onBet={handleBet}
+              onCashout={handleCashout}
+            />
           ))}
         </div>
 
