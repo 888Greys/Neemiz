@@ -1,10 +1,10 @@
 import { AppShell } from "@/components/app-shell";
-import { BinaryClient } from "@/components/binary/binary-client";
+import { ForexClient } from "@/components/forex/forex-client";
 
-export default function BinaryPage() {
+export default function ForexPage() {
   return (
     <AppShell mainBg="bg-[#050506]" hideFooter>
-      <BinaryClient />
+      <ForexClient />
     </AppShell>
   );
 }

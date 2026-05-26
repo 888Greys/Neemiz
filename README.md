@@ -8,7 +8,8 @@ Nezeem is a mobile-first betting and trading app built with Next.js, TypeScript,
 - `/sports` - sportsbook view with sport filters, live/upcoming tabs, league blocks, and odds rows
 - `/p2p` - P2P trading screen with buy/sell tabs, filters, merchant cards, limits, and payment chips
 - `/predictions` - Polymarket-style prediction markets with category filters, probability bars, and Yes/No actions
-- `/binary` - coming-soon binary/forex page
+- `/binary` - binary-options trading terminal with demo balance, digit stats, contract controls, and open/closed trades
+- `/forex` - forex trading terminal with live Deriv-backed candlesticks and order ticket controls
 - `/aviator` - Aviator-style game screen with multiplier history, flight canvas, bet panels, and auto cashout controls
 - `/wallet` - wallet screen with balance, deposit/withdraw/transfer actions, asset breakdown, and recent activity
 - `/login` - login/signup UI with email/phone, password, social buttons, and terms copy

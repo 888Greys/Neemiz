@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  CandlestickSeries,
+  AreaSeries,
   ColorType,
   createChart,
-  type CandlestickData,
+  type AreaData,
   type IChartApi,
   type ISeriesApi,
   type Time,
@@ -13,564 +13,633 @@ import {
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
 
-type Direction = "buy" | "sell";
+type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
+type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
+type TradeStatus = "open" | "won" | "lost";
 type StreamStatus = "connecting" | "live" | "fallback";
 
-type ForexMarket = {
+type BinaryMarket = {
   symbol: string;
   derivSymbol: string;
   name: string;
-  base: string;
-  quote: string;
-  fallbackPrice: number;
-  precision: number;
+  price: number;
+  volatility: number;
+  speedMs: number;
 };
 
-type Trade = {
-  id: number;
-  symbol: string;
-  direction: Direction;
-  size: number;
-  entry: number;
-  stopLoss: number;
-  takeProfit: number;
-  openedAt: number;
-  precision: number;
-};
-
-type Candle = CandlestickData<Time> & {
+type Tick = {
   time: UTCTimestamp;
+  quote: number;
+  digit: number;
 };
 
-const DEFAULT_SYMBOL = "EUR/USD";
-const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
-const CANDLE_SECONDS = 60;
-const SIZES = [1000, 5000, 10000, 25000, 50000];
+type BinaryTrade = {
+  id: number;
+  market: string;
+  side: ContractSide;
+  stake: number;
+  payout: number;
+  entryDigit: number;
+  exitDigit?: number;
+  openedAt: number;
+  settlesAt: number;
+  status: TradeStatus;
+};
 
-const MARKETS: ForexMarket[] = [
-  { symbol: "EUR/USD", derivSymbol: "frxEURUSD", name: "Euro / US Dollar", base: "EUR", quote: "USD", fallbackPrice: 1.16, precision: 5 },
-  { symbol: "GBP/USD", derivSymbol: "frxGBPUSD", name: "British Pound / US Dollar", base: "GBP", quote: "USD", fallbackPrice: 1.34, precision: 5 },
-  { symbol: "USD/JPY", derivSymbol: "frxUSDJPY", name: "US Dollar / Japanese Yen", base: "USD", quote: "JPY", fallbackPrice: 159.2, precision: 3 },
-  { symbol: "USD/CHF", derivSymbol: "frxUSDCHF", name: "US Dollar / Swiss Franc", base: "USD", quote: "CHF", fallbackPrice: 0.79, precision: 5 },
-  { symbol: "AUD/USD", derivSymbol: "frxAUDUSD", name: "Australian Dollar / US Dollar", base: "AUD", quote: "USD", fallbackPrice: 0.71, precision: 5 },
-  { symbol: "USD/CAD", derivSymbol: "frxUSDCAD", name: "US Dollar / Canadian Dollar", base: "USD", quote: "CAD", fallbackPrice: 1.38, precision: 5 },
-  { symbol: "NZD/USD", derivSymbol: "frxNZDUSD", name: "New Zealand Dollar / US Dollar", base: "NZD", quote: "USD", fallbackPrice: 0.65, precision: 5 },
-  { symbol: "EUR/GBP", derivSymbol: "frxEURGBP", name: "Euro / British Pound", base: "EUR", quote: "GBP", fallbackPrice: 0.86, precision: 5 },
+const MARKETS: BinaryMarket[] = [
+  { symbol: "Vol 10 (1s)", derivSymbol: "R_10", name: "Deriv synthetic index", price: 9447.34, volatility: 0.65, speedMs: 900 },
+  { symbol: "Vol 25 (1s)", derivSymbol: "R_25", name: "Deriv synthetic index", price: 3821.8, volatility: 0.95, speedMs: 850 },
+  { symbol: "Vol 50 (1s)", derivSymbol: "R_50", name: "Deriv synthetic index", price: 602.91, volatility: 1.35, speedMs: 780 },
+  { symbol: "Vol 75 (1s)", derivSymbol: "R_75", name: "Deriv synthetic index", price: 12843.2, volatility: 1.75, speedMs: 720 },
+  { symbol: "Vol 100 (1s)", derivSymbol: "R_100", name: "Deriv synthetic index", price: 1762.48, volatility: 2.2, speedMs: 680 },
+  { symbol: "Jump 10", derivSymbol: "JD10", name: "Deriv jump index", price: 119.56, volatility: 1.1, speedMs: 1050 },
 ];
 
-function formatPrice(market: Pick<ForexMarket, "precision">, value: number) {
-  return value.toLocaleString("en-US", {
-    minimumFractionDigits: market.precision,
-    maximumFractionDigits: market.precision,
+const STAKE_PRESETS = [1, 5, 10, 25, 50, 100];
+const DIGITS = Array.from({ length: 10 }, (_, index) => index);
+const TICK_SECONDS = 1;
+const DERIV_WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${process.env.NEXT_PUBLIC_DERIV_APP_ID ?? "1089"}`;
+const TOP_ACTIONS = [
+  { label: "Trader's Hub", icon: "home" },
+  { label: "Deposit", icon: "payments" },
+  { label: "Withdraw", icon: "account_balance_wallet" },
+  { label: "History", icon: "history" },
+  { label: "Chat", icon: "chat" },
+];
+
+function seedTicks(market: BinaryMarket): Tick[] {
+  let quote = market.price;
+  const now = Math.floor(Date.now() / 1000) as UTCTimestamp;
+
+  return Array.from({ length: 80 }, (_, index) => {
+    const wave = Math.sin(index / 5) * market.volatility * 2.5;
+    const drift = Math.cos(index / 9) * market.volatility;
+    quote = Math.max(1, quote + wave + drift + ((index % 3) - 1) * market.volatility);
+    return {
+      time: (now - (80 - index) * TICK_SECONDS) as UTCTimestamp,
+      quote,
+      digit: Math.abs(Math.floor(quote * 100)) % 10,
+    };
   });
 }
 
-function formatTime(value: number) {
-  return new Intl.DateTimeFormat("en-KE", {
-    timeStyle: "medium",
-  }).format(new Date(value * 1000));
+function nextTick(previous: Tick, market: BinaryMarket): Tick {
+  const shock = (Math.random() - 0.5) * market.volatility * 7;
+  const micro = Math.sin(Date.now() / 1600) * market.volatility * 1.6;
+  const quote = Math.max(1, previous.quote + shock + micro);
+
+  return {
+    time: (previous.time + TICK_SECONDS) as UTCTimestamp,
+    quote,
+    digit: Math.abs(Math.floor(quote * 100)) % 10,
+  };
 }
 
-function pipSize(market: Pick<ForexMarket, "precision">) {
-  return market.precision === 3 ? 0.01 : 0.0001;
+function toTick(epoch: number, quote: number): Tick {
+  return {
+    time: epoch as UTCTimestamp,
+    quote,
+    digit: Math.abs(Math.floor(quote * 100)) % 10,
+  };
 }
 
-function getPips(entry: number, price: number, market: Pick<ForexMarket, "precision">) {
-  return (price - entry) / pipSize(market);
+function formatMoney(value: number) {
+  return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function bucketTime(epoch: number) {
-  return (Math.floor(epoch / CANDLE_SECONDS) * CANDLE_SECONDS) as UTCTimestamp;
+function formatQuote(value: number) {
+  return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function upsertCandle(candles: Candle[], epoch: number, price: number) {
-  const time = bucketTime(epoch);
-  const last = candles[candles.length - 1];
-
-  if (last?.time === time) {
-    return [
-      ...candles.slice(0, -1),
-      {
-        ...last,
-        high: Math.max(last.high, price),
-        low: Math.min(last.low, price),
-        close: price,
-      },
-    ].slice(-180);
-  }
-
-  const open = last?.close ?? price;
-  return [
-    ...candles,
-    { time, open, high: Math.max(open, price), low: Math.min(open, price), close: price },
-  ].slice(-180);
+function payoutRate(side: ContractSide) {
+  if (side === "Matches") return 9.15;
+  if (side === "Differs") return 1.12;
+  return 1.952;
 }
 
-function buildFallbackCandles(market: ForexMarket): Candle[] {
-  const now = bucketTime(Math.floor(Date.now() / 1000));
-  const pip = pipSize(market);
-  let previous = market.fallbackPrice;
-
-  return Array.from({ length: 90 }, (_, index) => {
-    const time = (now - (90 - index) * CANDLE_SECONDS) as UTCTimestamp;
-    const drift = Math.sin(index / 8) * pip * 7 + Math.cos(index / 5) * pip * 4;
-    const open = previous;
-    const close = market.fallbackPrice + drift;
-    const high = Math.max(open, close) + pip * (2 + (index % 4));
-    const low = Math.min(open, close) - pip * (1.5 + (index % 3));
-    previous = close;
-    return { time, open, high, low, close };
-  });
+function familyLabel(family: ContractFamily) {
+  if (family === "evenOdd") return "Even / Odd";
+  if (family === "matchDiffer") return "Matches / Differs";
+  return "Over / Under";
 }
 
-function TradingViewCandles({ candles, market }: { candles: Candle[]; market: ForexMarket }) {
+function familySides(family: ContractFamily): ContractSide[] {
+  if (family === "evenOdd") return ["Even", "Odd"];
+  if (family === "matchDiffer") return ["Matches", "Differs"];
+  return ["Over", "Under"];
+}
+
+function evaluateTrade(side: ContractSide, digit: number, targetDigit: number) {
+  if (side === "Even") return digit % 2 === 0;
+  if (side === "Odd") return digit % 2 === 1;
+  if (side === "Matches") return digit === targetDigit;
+  if (side === "Differs") return digit !== targetDigit;
+  if (side === "Over") return digit > targetDigit;
+  return digit < targetDigit;
+}
+
+function TradingViewBinaryChart({ ticks }: { ticks: Tick[] }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
     const container = containerRef.current;
-
     const chart = createChart(container, {
       width: container.clientWidth,
       height: container.clientHeight,
+      autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: "#0b0f18" },
-        textColor: "#7f8ca7",
+        background: { type: ColorType.Solid, color: "#070b10" },
+        textColor: "#8d99ae",
         fontFamily: "var(--font-jakarta), sans-serif",
       },
       grid: {
-        vertLines: { color: "rgba(148,163,184,0.08)" },
-        horzLines: { color: "rgba(148,163,184,0.08)" },
+        vertLines: { color: "rgba(148,163,184,0.045)" },
+        horzLines: { color: "rgba(148,163,184,0.06)" },
       },
       rightPriceScale: {
-        borderColor: "rgba(255,255,255,0.08)",
-        scaleMargins: { top: 0.12, bottom: 0.12 },
+        borderVisible: false,
+        scaleMargins: { top: 0.08, bottom: 0.12 },
       },
       timeScale: {
-        borderColor: "rgba(255,255,255,0.08)",
+        borderVisible: false,
         timeVisible: true,
-        secondsVisible: false,
+        secondsVisible: true,
+        rightOffset: 7,
+        barSpacing: 12,
       },
       crosshair: {
-        vertLine: { color: "rgba(8,124,255,0.65)", labelBackgroundColor: "#087cff" },
-        horzLine: { color: "rgba(8,124,255,0.65)", labelBackgroundColor: "#087cff" },
+        vertLine: { color: "rgba(56,189,248,0.5)", labelBackgroundColor: "#2563eb" },
+        horzLine: { color: "rgba(56,189,248,0.5)", labelBackgroundColor: "#2563eb" },
       },
       localization: {
-        priceFormatter: (price: number) => formatPrice(market, price),
+        priceFormatter: (price: number) => formatQuote(price),
       },
     });
 
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#22c55e",
-      downColor: "#ef4444",
-      borderVisible: false,
-      wickUpColor: "#22c55e",
-      wickDownColor: "#ef4444",
-      priceFormat: {
-        type: "price",
-        precision: market.precision,
-        minMove: pipSize(market),
-      },
+    const series = chart.addSeries(AreaSeries, {
+      lineColor: "#e5edf8",
+      lineWidth: 3,
+      topColor: "rgba(59,130,246,0.28)",
+      bottomColor: "rgba(59,130,246,0.02)",
+      priceLineColor: "#3b82f6",
+      priceLineWidth: 2,
+      lastValueVisible: true,
+      priceLineVisible: true,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 5,
+      crosshairMarkerBorderColor: "#93c5fd",
+      crosshairMarkerBackgroundColor: "#3b82f6",
     });
 
     chartRef.current = chart;
     seriesRef.current = series;
     chart.timeScale().fitContent();
 
-    const resizeObserver = new ResizeObserver(([entry]) => {
-      if (!entry) return;
-      chart.applyOptions({
-        width: Math.floor(entry.contentRect.width),
-        height: Math.floor(entry.contentRect.height),
-      });
-    });
-    resizeObserver.observe(container);
-
     return () => {
-      resizeObserver.disconnect();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
     };
-  }, [market]);
-
-  useEffect(() => {
-    if (!seriesRef.current || !chartRef.current) return;
-    seriesRef.current.setData(candles);
-    if (candles.length > 0) chartRef.current.timeScale().fitContent();
-  }, [candles]);
-
-  return <div ref={containerRef} className="h-[420px] min-h-0 w-full sm:h-[520px] xl:h-[560px]" />;
-}
-
-export function BinaryClient() {
-  const [mounted, setMounted] = useState(false);
-  const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
-  const [direction, setDirection] = useState<Direction>("buy");
-  const [size, setSize] = useState(10000);
-  const [riskPips, setRiskPips] = useState(25);
-  const [targetPips, setTargetPips] = useState(45);
-  const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
-  const [streamError, setStreamError] = useState<string | null>(null);
-  const [candles, setCandles] = useState<Candle[]>([]);
-  const [lastTickAt, setLastTickAt] = useState(0);
-  const [trades, setTrades] = useState<Trade[]>([]);
-
-  const selectedMarket = MARKETS.find((item) => item.symbol === selectedSymbol) ?? MARKETS[0];
-
-  useEffect(() => {
-    setMounted(true);
-    setLastTickAt(Math.floor(Date.now() / 1000));
   }, []);
 
   useEffect(() => {
-    let active = true;
-    let retryCount = 0;
-    let retryTimer: number | undefined;
-    let socket: WebSocket | undefined;
+    if (!seriesRef.current || !chartRef.current) return;
+    const data: AreaData<Time>[] = ticks.map((tick) => ({
+      time: tick.time,
+      value: tick.quote,
+    }));
+    seriesRef.current.setData(data);
+    chartRef.current.timeScale().scrollToRealTime();
+  }, [ticks]);
 
-    setCandles([]);
+  return (
+    <div className="relative h-[310px] overflow-hidden bg-[#070b10]">
+      <div ref={containerRef} className="absolute inset-0" />
+      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded border border-white/[0.07] bg-black/45 px-3 py-2 text-[11px] font-black text-slate-400 backdrop-blur">
+        <span>TradingView Lightweight Chart</span>
+        <span className="text-emerald-300">LIVE</span>
+      </div>
+    </div>
+  );
+}
+
+export function BinaryClient() {
+  const [marketSymbol, setMarketSymbol] = useState(MARKETS[0].symbol);
+  const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
+  const [ticks, setTicks] = useState(() => seedTicks(market));
+  const [family, setFamily] = useState<ContractFamily>("evenOdd");
+  const [stake, setStake] = useState(10);
+  const [targetDigit, setTargetDigit] = useState(5);
+  const [duration, setDuration] = useState(5);
+  const [autoMode, setAutoMode] = useState(false);
+  const [targetProfit, setTargetProfit] = useState(30);
+  const [stopLoss, setStopLoss] = useState(20);
+  const [multiplier, setMultiplier] = useState(1.4);
+  const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const [demoBalance, setDemoBalance] = useState(10000);
+  const [openTrades, setOpenTrades] = useState<BinaryTrade[]>([]);
+  const [closedTrades, setClosedTrades] = useState<BinaryTrade[]>([]);
+  const [transactions, setTransactions] = useState<string[]>([]);
+
+  useEffect(() => {
+    setTicks(seedTicks(market));
+    setOpenTrades([]);
     setStreamStatus("connecting");
     setStreamError(null);
+  }, [market]);
 
-    function connect() {
-      if (!active) return;
-      socket = new WebSocket(DERIV_WS_URL);
+  useEffect(() => {
+    let active = true;
+    let socket: WebSocket | undefined;
+    let fallbackTimer: number | undefined;
 
-      socket.onopen = () => {
-        if (!active || !socket) return;
-        retryCount = 0;
-        socket.send(JSON.stringify({
-          ticks_history: selectedMarket.derivSymbol,
-          adjust_start_time: 1,
-          count: 5000,
-          end: "latest",
-          style: "ticks",
-          subscribe: 1,
-        }));
-      };
-
-      socket.onmessage = (event) => {
-        if (!active) return;
-
-        let response: {
-          error?: { message?: string };
-          history?: { prices?: number[]; times?: number[] };
-          tick?: { epoch: number; quote: number };
-        };
-
-        try {
-          response = JSON.parse(event.data);
-        } catch {
-          setStreamStatus("fallback");
-          setStreamError("Deriv sent an unreadable market message");
-          return;
-        }
-
-        if (response.error) {
-          setStreamStatus("fallback");
-          setStreamError(response.error.message ?? "Deriv stream error");
-          return;
-        }
-
-        if (response.history?.prices?.length && response.history.times?.length) {
-          const historyCandles = response.history.prices.reduce<Candle[]>((result, price, index) => {
-            const epoch = response.history?.times?.[index] ?? Math.floor(Date.now() / 1000);
-            return upsertCandle(result, epoch, price);
-          }, []);
-          setCandles(historyCandles);
-          setLastTickAt(historyCandles[historyCandles.length - 1]?.time ?? Math.floor(Date.now() / 1000));
-          setStreamStatus("live");
-          setStreamError(null);
-        }
-
-        if (response.tick) {
-          setCandles((current) => upsertCandle(current, response.tick!.epoch, response.tick!.quote));
-          setLastTickAt(response.tick.epoch);
-          setStreamStatus("live");
-          setStreamError(null);
-        }
-      };
-
-      socket.onerror = () => {
-        if (!active) return;
-        setStreamStatus("fallback");
-        setStreamError("Deriv stream unavailable");
-        setCandles((current) => current.length ? current : buildFallbackCandles(selectedMarket));
-      };
-
-      socket.onclose = () => {
-        if (!active) return;
-        retryCount += 1;
-        setStreamStatus("fallback");
-        setStreamError("Deriv stream disconnected. Reconnecting...");
-        setCandles((current) => current.length ? current : buildFallbackCandles(selectedMarket));
-        retryTimer = window.setTimeout(connect, Math.min(8000, 1000 * retryCount));
-      };
+    function startFallback(message: string) {
+      if (!active || fallbackTimer) return;
+      setStreamStatus("fallback");
+      setStreamError(message);
+      fallbackTimer = window.setInterval(() => {
+        setTicks((current) => [...current.slice(-119), nextTick(current[current.length - 1], market)]);
+      }, market.speedMs);
     }
 
-    connect();
+    socket = new WebSocket(DERIV_WS_URL);
+
+    socket.onopen = () => {
+      if (!active || !socket) return;
+      socket.send(JSON.stringify({
+        ticks_history: market.derivSymbol,
+        adjust_start_time: 1,
+        count: 120,
+        end: "latest",
+        style: "ticks",
+        subscribe: 1,
+      }));
+    };
+
+    socket.onmessage = (event) => {
+      if (!active) return;
+      let response: {
+        error?: { message?: string };
+        history?: { prices?: number[]; times?: number[] };
+        tick?: { epoch: number; quote: number };
+      };
+
+      try {
+        response = JSON.parse(event.data);
+      } catch {
+        startFallback("Deriv returned an unreadable tick message.");
+        return;
+      }
+
+      if (response.error) {
+        startFallback(response.error.message ?? "Deriv tick stream returned an error.");
+        return;
+      }
+
+      if (response.history?.prices?.length && response.history.times?.length) {
+        const historyTicks = response.history.prices
+          .map((quote, index) => toTick(response.history?.times?.[index] ?? Math.floor(Date.now() / 1000), quote))
+          .filter((tick, index, all) => index === 0 || tick.time > all[index - 1].time)
+          .slice(-120);
+        if (historyTicks.length > 0) {
+          setTicks(historyTicks);
+          setStreamStatus("live");
+          setStreamError(null);
+        }
+      }
+
+      if (response.tick) {
+        setTicks((current) => {
+          const next = toTick(response.tick!.epoch, response.tick!.quote);
+          const last = current[current.length - 1];
+          if (last?.time === next.time) return [...current.slice(0, -1), next];
+          return [...current.slice(-119), next];
+        });
+        setStreamStatus("live");
+        setStreamError(null);
+      }
+    };
+
+    socket.onerror = () => {
+      startFallback("Deriv tick stream is unavailable.");
+    };
+
+    socket.onclose = () => {
+      startFallback("Deriv tick stream disconnected.");
+    };
 
     return () => {
       active = false;
-      if (retryTimer) window.clearTimeout(retryTimer);
+      if (fallbackTimer) window.clearInterval(fallbackTimer);
       if (socket) {
         socket.onopen = null;
         socket.onmessage = null;
         socket.onerror = null;
         socket.onclose = null;
-        if (socket.readyState === WebSocket.OPEN) socket.close();
+        if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+          socket.close();
+        }
       }
     };
-  }, [selectedMarket]);
+  }, [market]);
 
-  const chartCandles = candles;
-  const latest = chartCandles[chartCandles.length - 1];
-  const first = chartCandles[0];
-  const price = latest?.close ?? selectedMarket.fallbackPrice;
-  const change = price - (first?.open ?? selectedMarket.fallbackPrice);
-  const changePct = first?.open ? (change / first.open) * 100 : 0;
-  const spread = price * 0.00018;
-  const bid = price - spread / 2;
-  const ask = price + spread / 2;
-  const unit = pipSize(selectedMarket);
-  const stopLoss = direction === "buy" ? price - riskPips * unit : price + riskPips * unit;
-  const takeProfit = direction === "buy" ? price + targetPips * unit : price - targetPips * unit;
-  const openTrades = trades;
-  const exposure = openTrades.reduce((total, trade) => total + trade.size, 0);
-  const estimatedPnl = openTrades.reduce((total, trade) => {
-    const pips = getPips(trade.entry, price, trade);
-    return total + (trade.direction === "buy" ? pips : -pips) * (trade.size / 10000);
-  }, 0);
-  const levels = useMemo(() => {
-    if (chartCandles.length === 0) {
-      const pip = pipSize(selectedMarket);
+  const latest = ticks[ticks.length - 1];
+  const previous = ticks[ticks.length - 2];
+  const change = latest.quote - (ticks[0]?.quote ?? latest.quote);
+  const changePct = (change / Math.max(1, ticks[0]?.quote ?? latest.quote)) * 100;
+  const selectedSides = familySides(family);
+  const payout = stake * payoutRate(selectedSides[0]);
+
+  const digitStats = useMemo(() => {
+    const recent = ticks.slice(-80);
+    return DIGITS.map((digit) => {
+      const count = recent.filter((tick) => tick.digit === digit).length;
       return {
-        high: selectedMarket.fallbackPrice + pip * 20,
-        low: selectedMarket.fallbackPrice - pip * 20,
-        average: selectedMarket.fallbackPrice,
+        digit,
+        count,
+        pct: recent.length ? (count / recent.length) * 100 : 0,
       };
-    }
-    const highs = chartCandles.map((item) => item.high);
-    const lows = chartCandles.map((item) => item.low);
-    const closes = chartCandles.map((item) => item.close);
-    return {
-      high: Math.max(...highs),
-      low: Math.min(...lows),
-      average: closes.reduce((total, item) => total + item, 0) / closes.length,
+    });
+  }, [ticks]);
+
+  const sessionPnl = closedTrades.reduce((total, trade) => {
+    if (trade.status === "won") return total + trade.payout - trade.stake;
+    if (trade.status === "lost") return total - trade.stake;
+    return total;
+  }, 0);
+  const wins = closedTrades.filter((trade) => trade.status === "won").length;
+  const losses = closedTrades.filter((trade) => trade.status === "lost").length;
+
+  useEffect(() => {
+    if (openTrades.length === 0) return;
+    const now = Date.now();
+    const ready = openTrades.filter((trade) => trade.settlesAt <= now);
+    if (ready.length === 0) return;
+
+    setOpenTrades((current) => current.filter((trade) => trade.settlesAt > now));
+    setClosedTrades((current) => {
+      const settled = ready.map((trade) => {
+        const won = evaluateTrade(trade.side, latest.digit, targetDigit);
+        return {
+          ...trade,
+          exitDigit: latest.digit,
+          status: won ? "won" as const : "lost" as const,
+        };
+      });
+      return [...settled, ...current].slice(0, 20);
+    });
+    setDemoBalance((balance) => ready.reduce((next, trade) => {
+      const won = evaluateTrade(trade.side, latest.digit, targetDigit);
+      return won ? next + trade.payout : next;
+    }, balance));
+  }, [latest, openTrades, targetDigit]);
+
+  function placeTrade(side: ContractSide) {
+    if (stake <= 0 || demoBalance < stake) return;
+    const trade: BinaryTrade = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      market: market.symbol,
+      side,
+      stake,
+      payout: stake * payoutRate(side),
+      entryDigit: latest.digit,
+      openedAt: Date.now(),
+      settlesAt: Date.now() + duration * 1000,
+      status: "open",
     };
-  }, [chartCandles, selectedMarket]);
 
-  function openTrade() {
-    setTrades((current) => [
-      {
-        id: Date.now(),
-        symbol: selectedMarket.symbol,
-        direction,
-        size,
-        entry: price,
-        stopLoss,
-        takeProfit,
-        openedAt: Date.now(),
-        precision: selectedMarket.precision,
-      },
-      ...current,
-    ]);
-  }
-
-  function closeTrade(id: number) {
-    setTrades((current) => current.filter((trade) => trade.id !== id));
+    setDemoBalance((balance) => balance - stake);
+    setOpenTrades((current) => [trade, ...current].slice(0, 12));
+    setTransactions((current) => [`${side} ${market.symbol} stake ${formatMoney(stake)}`, ...current].slice(0, 12));
   }
 
   return (
-    <div className="min-h-screen bg-[#050506] px-3 pb-10 pt-4 text-white lg:px-5">
-      <div className="mb-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <section className="flex min-w-0 items-center gap-3 rounded-lg border border-white/[0.08] bg-[#101216] px-4 py-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded bg-[#087cff]/15 text-[#8bc3ff]">
-            <Icon name="candlestick_chart" className="text-[22px]" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-black tracking-tight text-white sm:text-2xl">Binary & Forex</h1>
-              <StatusPill status={streamStatus} />
+    <div className="min-h-screen bg-[#050506] text-white">
+      <div className="sticky top-0 z-20 border-b border-white/[0.08] bg-[#08090d]/95 px-3 py-2 backdrop-blur lg:px-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="mr-2 flex items-center gap-2 rounded bg-[#11151c] px-3 py-2">
+            <span className="grid h-7 w-7 place-items-center rounded bg-sky-500/15 text-sky-300">
+              <Icon name="analytics" className="text-[16px]" />
+            </span>
+            <div>
+              <div className="text-sm font-black leading-none">Binary Trader</div>
+              <div className="mt-1 text-[10px] font-bold text-slate-500">
+                {streamStatus === "live" ? "Deriv live feed" : streamStatus === "connecting" ? "Connecting feed" : "Demo fallback"}
+              </div>
             </div>
-            <p className="truncate text-xs font-bold text-slate-500">
-              TradingView Lightweight Charts candlesticks with Deriv live forex ticks.
-            </p>
           </div>
-          <div className="hidden items-center gap-5 md:flex">
-            <Metric label="Last tick" value={mounted && lastTickAt ? formatTime(lastTickAt) : "--"} />
-            <Metric label="Deriv ID" value={selectedMarket.derivSymbol} />
-            <Metric label="Open" value={String(openTrades.length)} />
+          {TOP_ACTIONS.map((item) => (
+            <button key={item.label} type="button" className="inline-flex items-center gap-2 rounded px-3 py-2 text-xs font-black text-slate-300 transition hover:bg-white/[0.06] hover:text-white">
+              <Icon name={item.icon} className="text-[14px] text-sky-300" />
+              {item.label}
+            </button>
+          ))}
+          <div className="ml-auto flex items-center gap-2">
+            <div className="rounded bg-[#151a22] px-3 py-2 text-right ring-1 ring-white/[0.07]">
+              <div className="font-mono text-sm font-black">{formatMoney(demoBalance)} DEMO</div>
+              <div className="text-[10px] font-bold text-emerald-300">Demo active</div>
+            </div>
+            <button type="button" className="grid h-10 w-10 place-items-center rounded bg-[#151a22] text-slate-300 ring-1 ring-white/[0.07]">
+              <Icon name="person" className="text-[17px]" />
+            </button>
           </div>
-        </section>
-
-        <section className="grid grid-cols-3 gap-2">
-          <MetricCard label="Exposure" value={`${exposure.toLocaleString("en-US")} units`} />
-          <MetricCard label="Open P/L" value={`${estimatedPnl >= 0 ? "+" : ""}${estimatedPnl.toFixed(2)} pips`} positive={estimatedPnl >= 0} negative={estimatedPnl < 0} />
-          <MetricCard label="Feed" value={streamStatus === "live" ? "Deriv WS" : streamStatus === "connecting" ? "Connecting" : "Retrying"} negative={streamStatus === "fallback"} />
-        </section>
+        </div>
       </div>
 
-      {streamStatus === "fallback" && (
-        <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-300">
-          ⚠ Live feed unavailable — trading disabled.{streamError ? ` ${streamError}` : ""} Reconnecting automatically.
-        </div>
-      )}
-
-      <div className="grid min-w-0 gap-3 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
-        <aside className="order-2 min-w-0 rounded-lg border border-white/[0.08] bg-[#101216] p-3 xl:order-none">
-          <div className="mb-3 flex items-center gap-2 rounded border border-white/[0.07] bg-black/20 px-3 py-2">
-            <Icon name="search" className="text-[16px] text-slate-500" />
-            <span className="text-xs font-bold text-slate-500">Major forex pairs</span>
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-            {MARKETS.map((market) => (
-              <button
-                key={market.symbol}
-                type="button"
-                onClick={() => setSelectedSymbol(market.symbol)}
-                className={`rounded border p-3 text-left transition ${
-                  market.symbol === selectedSymbol
-                    ? "border-[#087cff]/70 bg-[#087cff]/10"
-                    : "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.12] hover:bg-white/[0.05]"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-black text-white">{market.symbol}</div>
-                    <div className="text-[11px] font-bold text-slate-500">{market.name}</div>
-                  </div>
-                  <span className="rounded bg-white/[0.05] px-2 py-1 text-[10px] font-black text-slate-400">FX</span>
-                </div>
-                <div className="mt-3 flex items-center justify-between text-[11px] font-black text-slate-500">
-                  <span>{formatPrice(market, market.symbol === selectedSymbol ? price : market.fallbackPrice)}</span>
-                  <span>{market.symbol === selectedSymbol && streamStatus === "live" ? "live" : "Deriv"}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        <main className="order-1 min-w-0 space-y-3 xl:order-none">
-          <section className="min-w-0 overflow-hidden rounded-lg border border-white/[0.08] bg-[#101216]">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-black text-white">{selectedMarket.symbol}</h2>
-                  <span className={`rounded px-2 py-1 text-[10px] font-black ${changePct >= 0 ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
-                    {changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%
-                  </span>
-                </div>
-                <div className="text-xs font-bold text-slate-500">{selectedMarket.name}</div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-right">
-                <QuoteBox label="Bid" value={formatPrice(selectedMarket, bid)} tone="sell" />
-                <QuoteBox label="Ask" value={formatPrice(selectedMarket, ask)} tone="buy" />
-              </div>
+      <div className="grid min-w-0 gap-3 px-3 py-3 lg:px-5 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
+        <aside className="order-2 space-y-3 xl:order-none">
+          <section className="rounded border border-white/[0.08] bg-[#0f1218]">
+            <div className="grid grid-cols-3 border-b border-white/[0.07] text-xs font-black">
+              <button className="border-b-2 border-sky-400 py-3 text-sky-300" type="button">Open ({openTrades.length})</button>
+              <button className="py-3 text-slate-500" type="button">Closed ({closedTrades.length})</button>
+              <button className="py-3 text-slate-500" type="button">Tx</button>
             </div>
-            <div className="relative">
-              <TradingViewCandles candles={chartCandles} market={selectedMarket} />
-              {chartCandles.length === 0 && (
-                <div className="absolute inset-0 grid place-items-center bg-[#0b0f18]/80">
-                  <div className="rounded-lg border border-white/[0.08] bg-[#101216]/90 px-4 py-3 text-center shadow-2xl shadow-black/30">
-                    <div className="mx-auto mb-2 h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
-                    <p className="text-xs font-black text-white">Loading live candles</p>
-                    <p className="mt-1 text-[11px] font-semibold text-slate-500">Waiting for Deriv history for {selectedMarket.symbol}</p>
-                  </div>
-                </div>
+            <div className="max-h-[330px] space-y-2 overflow-y-auto p-3">
+              {openTrades.length === 0 ? (
+                <EmptyState title="No open positions" subtitle="Your active contracts will appear here" />
+              ) : (
+                openTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
               )}
             </div>
           </section>
 
-          <section className="grid gap-3 md:grid-cols-3">
-            <LevelCard label="Session high" value={formatPrice(selectedMarket, levels.high)} />
-            <LevelCard label="Session average" value={formatPrice(selectedMarket, levels.average)} />
-            <LevelCard label="Session low" value={formatPrice(selectedMarket, levels.low)} />
+          <section className="rounded border border-white/[0.08] bg-[#0f1218] p-3">
+            <div className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-500">Last session</div>
+            <div className="grid grid-cols-3 gap-2">
+              <MiniStat label="Trades" value={String(closedTrades.length)} />
+              <MiniStat label="Wins" value={String(wins)} positive />
+              <MiniStat label="Losses" value={String(losses)} negative />
+            </div>
+            <div className="mt-3 rounded bg-black/25 p-3">
+              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Session P/L</div>
+              <div className={`mt-1 font-mono text-2xl font-black ${sessionPnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                {sessionPnl >= 0 ? "+" : ""}{formatMoney(sessionPnl)}
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded border border-white/[0.08] bg-[#0f1218] p-3">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-black">Closed contracts</h3>
+              <Icon name="history" className="text-[16px] text-slate-500" />
+            </div>
+            <div className="space-y-2">
+              {closedTrades.length === 0 ? (
+                <EmptyState title="No closed trades" subtitle="Settled contracts will show here" />
+              ) : (
+                closedTrades.slice(0, 5).map((trade) => <TradeRow key={trade.id} trade={trade} />)
+              )}
+            </div>
+          </section>
+        </aside>
+
+        <main className="order-1 min-w-0 space-y-3 xl:order-none">
+          <section className="overflow-hidden rounded border border-white/[0.08] bg-[#0f1218]">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <select
+                  value={market.symbol}
+                  onChange={(event) => setMarketSymbol(event.target.value)}
+                  className="h-10 rounded border border-white/[0.08] bg-[#151a22] px-3 text-sm font-black text-white outline-none"
+                >
+                  {MARKETS.map((item) => (
+                    <option key={item.symbol} value={item.symbol}>{item.symbol}</option>
+                  ))}
+                </select>
+                <div>
+              <div className="font-mono text-2xl font-black">{formatQuote(latest.quote)}</div>
+              <div className={`text-xs font-black ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+              </div>
+              {streamStatus === "fallback" && (
+                <div className="mt-1 max-w-[280px] truncate text-[10px] font-bold text-amber-300">
+                  {streamError ?? "Using local fallback ticks"}
+                </div>
+              )}
+            </div>
+              </div>
+              <div className="flex items-center gap-1 rounded bg-black/25 p-1">
+                <button type="button" className="grid h-8 w-8 place-items-center rounded bg-white/[0.06] text-slate-300">
+                  <Icon name="add" className="text-[15px]" />
+                </button>
+                <button type="button" className="grid h-8 w-8 place-items-center rounded bg-white/[0.06] text-slate-300">
+                  <Icon name="remove_circle" className="text-[15px]" />
+                </button>
+              </div>
+            </div>
+            <TradingViewBinaryChart ticks={ticks} />
+          </section>
+
+          <section className="grid gap-2 md:grid-cols-10">
+            {digitStats.map((stat) => (
+              <div key={stat.digit} className={`rounded border p-2 ${latest.digit === stat.digit ? "border-sky-400 bg-sky-400/10" : "border-white/[0.07] bg-[#0f1218]"}`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-lg font-black">{stat.digit}</span>
+                  <span className="text-[10px] font-black text-slate-500">{stat.pct.toFixed(1)}%</span>
+                </div>
+                <div className="mt-2 h-12 rounded bg-black/25 p-1">
+                  <div className="mt-auto rounded bg-sky-400" style={{ height: `${Math.max(8, stat.pct * 3.2)}%` }} />
+                </div>
+              </div>
+            ))}
           </section>
         </main>
 
-        <aside className="order-3 min-w-0 space-y-3 xl:order-none">
-          <section className="rounded-lg border border-white/[0.08] bg-[#101216]">
-            <div className="border-b border-white/[0.07] px-4 py-3">
-              <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Order ticket</div>
-              <div className="mt-1 text-lg font-black text-white">{selectedMarket.symbol} {direction.toUpperCase()}</div>
+        <aside className="order-3 space-y-3 xl:order-none">
+          <section className="rounded border border-white/[0.08] bg-[#0f1218]">
+            <div className="border-b border-white/[0.07] p-4">
+              <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Trading mode</div>
+              <div className="mt-3 grid grid-cols-2 rounded bg-black/30 p-1">
+                <button onClick={() => setAutoMode(true)} type="button" className={`rounded py-2 text-xs font-black ${autoMode ? "bg-sky-500 text-white" : "text-slate-500"}`}>AUTO</button>
+                <button onClick={() => setAutoMode(false)} type="button" className={`rounded py-2 text-xs font-black ${!autoMode ? "bg-sky-500 text-white" : "text-slate-500"}`}>MANUAL</button>
+              </div>
             </div>
+
             <div className="space-y-4 p-4">
-              <div className="grid grid-cols-2 gap-2">
-                <TradeButton active={direction === "buy"} label="Buy" onClick={() => setDirection("buy")} tone="buy" />
-                <TradeButton active={direction === "sell"} label="Sell" onClick={() => setDirection("sell")} tone="sell" />
+              <div className="grid grid-cols-3 gap-2">
+                {(["evenOdd", "matchDiffer", "overUnder"] as ContractFamily[]).map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setFamily(item)}
+                    className={`rounded border px-2 py-2 text-[11px] font-black transition ${family === item ? "border-sky-400 bg-sky-400/10 text-sky-200" : "border-white/[0.07] bg-white/[0.03] text-slate-500 hover:text-white"}`}
+                  >
+                    {familyLabel(item)}
+                  </button>
+                ))}
               </div>
 
               <div>
-                <label className="mb-2 block text-[11px] font-black uppercase tracking-wider text-slate-500" htmlFor="forex-size">
-                  Position size
-                </label>
-                <input
-                  id="forex-size"
-                  type="number"
-                  min={1000}
-                  step={1000}
-                  value={size}
-                  onChange={(event) => setSize(Math.max(1000, Number(event.target.value) || 1000))}
-                  className="h-12 w-full rounded border border-white/[0.08] bg-black/25 px-4 font-mono text-lg font-black text-white outline-none transition focus:border-[#087cff]/70"
-                />
-                <div className="mt-2 grid grid-cols-5 gap-2">
-                  {SIZES.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onClick={() => setSize(item)}
-                      className="rounded bg-white/[0.06] px-2 py-2 text-[11px] font-black text-slate-400 transition hover:bg-white/[0.1] hover:text-white"
-                    >
-                      {item / 1000}K
+                <div className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-500">Stake amount</div>
+                <Stepper value={stake} min={1} prefix="$" onChange={setStake} />
+                <div className="mt-2 grid grid-cols-6 gap-1.5">
+                  {STAKE_PRESETS.map((amount) => (
+                    <button key={amount} type="button" onClick={() => setStake(amount)} className="rounded bg-white/[0.06] px-2 py-2 text-[11px] font-black text-slate-300 transition hover:bg-white/[0.1]">
+                      ${amount}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <NumberField id="risk-pips" label="Stop loss" suffix="pips" value={riskPips} onChange={setRiskPips} />
-                <NumberField id="target-pips" label="Take profit" suffix="pips" value={targetPips} onChange={setTargetPips} />
+                <NumberBox label="Duration" value={duration} suffix="ticks" min={3} max={30} onChange={setDuration} />
+                <NumberBox label="Digit line" value={targetDigit} min={0} max={9} onChange={setTargetDigit} />
               </div>
 
-              <div className="rounded border border-white/[0.07] bg-black/20 p-3">
-                <Row label="Entry" value={formatPrice(selectedMarket, price)} />
-                <Row label="Stop loss" value={formatPrice(selectedMarket, stopLoss)} negative />
-                <Row label="Take profit" value={formatPrice(selectedMarket, takeProfit)} positive />
+              <div className="grid grid-cols-3 gap-2">
+                <SmallInput label="Target" value={targetProfit} prefix="$" onChange={setTargetProfit} />
+                <SmallInput label="Stop loss" value={stopLoss} prefix="$" onChange={setStopLoss} />
+                <SmallInput label="Multiplier" value={multiplier} prefix="x" step={0.1} onChange={setMultiplier} />
               </div>
 
-              <button
-                type="button"
-                onClick={openTrade}
-                disabled={streamStatus !== "live"}
-                className={`w-full rounded py-4 text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
-                  direction === "buy" ? "bg-[#0f9f68] hover:bg-[#13ae73]" : "bg-[#d33d4b] hover:bg-[#e24755]"
-                }`}
-              >
-                {streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
-              </button>
+              <div className="rounded border border-white/[0.07] bg-black/25 p-3">
+                <SummaryRow label="Stake" value={formatMoney(stake)} />
+                <SummaryRow label="Est. payout" value={formatMoney(payout)} positive />
+                <SummaryRow label="Last digit" value={String(latest.digit)} />
+                <SummaryRow label="Previous digit" value={String(previous?.digit ?? "-")} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {selectedSides.map((side) => (
+                  <button
+                    key={side}
+                    type="button"
+                    onClick={() => placeTrade(side)}
+                    className="rounded bg-[#0b8f62] px-3 py-4 text-left transition hover:bg-[#0da26f] active:scale-[0.98]"
+                  >
+                    <div className="text-base font-black">{side}</div>
+                    <div className="mt-1 font-mono text-sm font-black">{formatMoney(stake * payoutRate(side))}</div>
+                    <div className="mt-1 text-[11px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
+                  </button>
+                ))}
+              </div>
+
+              {demoBalance < stake && (
+                <div className="rounded border border-red-400/25 bg-red-400/10 px-3 py-2 text-xs font-black text-red-200">
+                  Insufficient demo balance for this stake.
+                </div>
+              )}
             </div>
           </section>
 
-          <section className="rounded-lg border border-white/[0.08] bg-[#101216] p-4">
+          <section className="rounded border border-white/[0.08] bg-[#0f1218] p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-black text-white">Open positions</h3>
-              <span className="rounded bg-[#087cff]/10 px-2 py-1 text-[10px] font-black text-[#8bc3ff]">{openTrades.length}</span>
+              <h3 className="text-sm font-black">Transactions</h3>
+              <span className="rounded bg-white/[0.06] px-2 py-1 text-[10px] font-black text-slate-400">{transactions.length}</span>
             </div>
-            <div className="space-y-2">
-              {openTrades.length === 0 ? (
-                <div className="rounded border border-dashed border-white/[0.08] py-8 text-center text-xs font-bold text-slate-600">
-                  No open positions
-                </div>
-              ) : (
-                openTrades.map((trade) => (
-                  <PositionRow key={trade.id} currentPrice={price} onClose={() => closeTrade(trade.id)} trade={trade} />
-                ))
-              )}
-            </div>
+            {transactions.length === 0 ? (
+              <EmptyState title="No transactions" subtitle="Trade activity will appear here" />
+            ) : (
+              <div className="space-y-2">
+                {transactions.map((item, index) => (
+                  <div key={`${item}-${index}`} className="rounded bg-black/25 px-3 py-2 text-xs font-bold text-slate-300">{item}</div>
+                ))}
+              </div>
+            )}
           </section>
         </aside>
       </div>
@@ -578,124 +647,95 @@ export function BinaryClient() {
   );
 }
 
-function StatusPill({ status }: { status: StreamStatus }) {
+function EmptyState({ subtitle, title }: { subtitle: string; title: string }) {
   return (
-    <span className={`rounded px-2 py-1 text-[10px] font-black uppercase tracking-wider ${
-      status === "live" ? "bg-sky-400/10 text-sky-300" : status === "connecting" ? "bg-amber-400/10 text-amber-300" : "bg-red-400/10 text-red-300"
-    }`}>
-      {status === "live" ? "Deriv live" : status === "connecting" ? "Connecting" : "Fallback"}
-    </span>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{label}</div>
-      <div className="font-mono text-sm font-black text-white">{value}</div>
+    <div className="rounded border border-dashed border-white/[0.08] px-3 py-8 text-center">
+      <div className="mx-auto mb-2 h-2 w-2 rounded-full bg-slate-700" />
+      <div className="text-xs font-black text-slate-400">{title}</div>
+      <div className="mt-1 text-[11px] font-bold text-slate-600">{subtitle}</div>
     </div>
   );
 }
 
-function MetricCard({ label, negative, positive, value }: { label: string; negative?: boolean; positive?: boolean; value: string }) {
+function MiniStat({ label, negative, positive, value }: { label: string; negative?: boolean; positive?: boolean; value: string }) {
   return (
-    <div className="rounded border border-white/[0.08] bg-[#101216] px-3 py-3">
-      <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{label}</div>
-      <div className={`mt-1 truncate font-mono text-sm font-black ${positive ? "text-[#33d49b]" : negative ? "text-[#ff6171]" : "text-white"}`}>{value}</div>
+    <div className="rounded bg-black/25 p-2">
+      <div className="text-[10px] font-black uppercase text-slate-600">{label}</div>
+      <div className={`font-mono text-sm font-black ${positive ? "text-emerald-300" : negative ? "text-red-300" : "text-white"}`}>{value}</div>
     </div>
   );
 }
 
-function QuoteBox({ label, tone, value }: { label: string; tone: "buy" | "sell"; value: string }) {
-  return (
-    <div className={`min-w-[112px] rounded border px-3 py-2 ${tone === "buy" ? "border-[#33d49b]/30 bg-[#33d49b]/8" : "border-[#ff6171]/30 bg-[#ff6171]/8"}`}>
-      <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="font-mono text-base font-black text-white sm:text-lg">{value}</div>
-    </div>
-  );
-}
+function TradeRow({ trade }: { trade: BinaryTrade }) {
+  const isOpen = trade.status === "open";
+  const isWon = trade.status === "won";
+  const secondsLeft = Math.max(0, Math.ceil((trade.settlesAt - Date.now()) / 1000));
 
-function LevelCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-white/[0.08] bg-[#101216] p-4">
-      <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{label}</div>
-      <div className="mt-1 font-mono text-lg font-black text-white">{value}</div>
-    </div>
-  );
-}
-
-function TradeButton({ active, label, onClick, tone }: { active: boolean; label: string; onClick: () => void; tone: "buy" | "sell" }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded px-4 py-3 text-sm font-black transition ${
-        active
-          ? tone === "buy"
-            ? "bg-[#0f9f68] text-white"
-            : "bg-[#d33d4b] text-white"
-          : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.1]"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function NumberField({ id, label, onChange, suffix, value }: { id: string; label: string; onChange: (value: number) => void; suffix: string; value: number }) {
-  return (
-    <div>
-      <label className="mb-2 block text-[11px] font-black uppercase tracking-wider text-slate-500" htmlFor={id}>
-        {label}
-      </label>
-      <div className="flex h-11 items-center rounded border border-white/[0.08] bg-black/25 focus-within:border-[#087cff]/70">
-        <input
-          id={id}
-          type="number"
-          min={1}
-          value={value}
-          onChange={(event) => onChange(Math.max(1, Number(event.target.value) || 1))}
-          className="min-w-0 flex-1 bg-transparent px-3 font-mono text-sm font-black text-white outline-none"
-        />
-        <span className="pr-3 text-[10px] font-black uppercase text-slate-600">{suffix}</span>
+    <div className="rounded border border-white/[0.07] bg-black/25 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-black text-white">{trade.side}</div>
+          <div className="text-[11px] font-bold text-slate-500">{trade.market} · digit {trade.entryDigit}</div>
+        </div>
+        <span className={`rounded px-2 py-1 text-[10px] font-black ${isOpen ? "bg-sky-400/10 text-sky-300" : isWon ? "bg-emerald-400/10 text-emerald-300" : "bg-red-400/10 text-red-300"}`}>
+          {isOpen ? `${secondsLeft}s` : trade.status.toUpperCase()}
+        </span>
+      </div>
+      <div className="mt-3 flex items-center justify-between text-xs font-black">
+        <span className="text-slate-500">Stake {formatMoney(trade.stake)}</span>
+        <span className={isOpen || isWon ? "text-emerald-300" : "text-red-300"}>{isOpen ? formatMoney(trade.payout) : isWon ? `+${formatMoney(trade.payout - trade.stake)}` : `-${formatMoney(trade.stake)}`}</span>
       </div>
     </div>
   );
 }
 
-function Row({ label, negative, positive, value }: { label: string; negative?: boolean; positive?: boolean; value: string }) {
+function Stepper({ min, onChange, prefix, value }: { min: number; onChange: (value: number) => void; prefix: string; value: number }) {
+  return (
+    <div className="flex h-12 items-center overflow-hidden rounded border border-white/[0.08] bg-black/25">
+      <button type="button" onClick={() => onChange(Math.max(min, value - 1))} className="grid h-full w-11 place-items-center bg-white/[0.04] text-slate-300">
+        <Icon name="remove_circle" className="text-[16px]" />
+      </button>
+      <div className="flex min-w-0 flex-1 items-center px-3">
+        <span className="font-mono text-slate-500">{prefix}</span>
+        <input value={value} min={min} type="number" onChange={(event) => onChange(Math.max(min, Number(event.target.value) || min))} className="min-w-0 flex-1 bg-transparent px-2 font-mono text-lg font-black text-white outline-none" />
+      </div>
+      <button type="button" onClick={() => onChange(value + 1)} className="grid h-full w-11 place-items-center bg-white/[0.04] text-slate-300">
+        <Icon name="add" className="text-[16px]" />
+      </button>
+    </div>
+  );
+}
+
+function NumberBox({ label, max, min, onChange, suffix, value }: { label: string; max: number; min: number; onChange: (value: number) => void; suffix?: string; value: number }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-[11px] font-black uppercase tracking-wider text-slate-500">{label}</span>
+      <div className="flex h-11 items-center rounded border border-white/[0.08] bg-black/25 px-3 focus-within:border-sky-400">
+        <input type="number" min={min} max={max} value={value} onChange={(event) => onChange(Math.min(max, Math.max(min, Number(event.target.value) || min)))} className="min-w-0 flex-1 bg-transparent font-mono text-sm font-black text-white outline-none" />
+        {suffix && <span className="text-[10px] font-black uppercase text-slate-600">{suffix}</span>}
+      </div>
+    </label>
+  );
+}
+
+function SmallInput({ label, onChange, prefix, step = 1, value }: { label: string; onChange: (value: number) => void; prefix: string; step?: number; value: number }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</span>
+      <div className="flex h-10 items-center rounded border border-white/[0.08] bg-black/25 px-2">
+        <span className="font-mono text-xs font-black text-slate-600">{prefix}</span>
+        <input type="number" step={step} value={value} onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))} className="min-w-0 flex-1 bg-transparent px-1 font-mono text-xs font-black text-white outline-none" />
+      </div>
+    </label>
+  );
+}
+
+function SummaryRow({ label, positive, value }: { label: string; positive?: boolean; value: string }) {
   return (
     <div className="flex items-center justify-between border-b border-white/[0.06] py-2 last:border-0">
       <span className="text-xs font-bold text-slate-500">{label}</span>
-      <span className={`font-mono text-sm font-black ${positive ? "text-[#33d49b]" : negative ? "text-[#ff6171]" : "text-white"}`}>{value}</span>
-    </div>
-  );
-}
-
-function PositionRow({ currentPrice, onClose, trade }: { currentPrice: number; onClose: () => void; trade: Trade }) {
-  const rawPips = getPips(trade.entry, currentPrice, trade);
-  const pips = trade.direction === "buy" ? rawPips : -rawPips;
-
-  return (
-    <div className="rounded border border-white/[0.07] bg-black/20 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-black text-white">{trade.symbol}</div>
-          <div className="text-[11px] font-bold text-slate-500">
-            {trade.direction.toUpperCase()} {trade.size.toLocaleString("en-US")} @ {formatPrice(trade, trade.entry)}
-          </div>
-        </div>
-        <div className={`font-mono text-sm font-black ${pips >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
-          {pips >= 0 ? "+" : ""}{pips.toFixed(1)}
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onClose}
-        className="mt-3 w-full rounded bg-white/[0.06] py-2 text-xs font-black text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
-      >
-        Close position
-      </button>
+      <span className={`font-mono text-sm font-black ${positive ? "text-emerald-300" : "text-white"}`}>{value}</span>
     </div>
   );
 }
