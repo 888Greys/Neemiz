@@ -77,8 +77,8 @@ const products = [
   {
     href: "/binary",
     icon: "candlestick_chart",
-    title: "Binary & Forex",
-    desc: "Up or down. Fixed risk, fixed reward on currency pairs.",
+    title: "Binary",
+    desc: "Digit contracts with fixed stake, payout, and timed settlement.",
     cta: "Trade",
     glow: "rgba(59,130,246,.45)",
     bg: "from-blue-600/20 via-blue-900/10 to-[#0d0e12]",

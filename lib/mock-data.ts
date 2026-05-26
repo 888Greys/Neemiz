@@ -7,7 +7,7 @@ export const navItems = [
   { href: "/p2p", label: "P2P", icon: "groups" },
   { href: "/predictions", label: "Predictions", icon: "online_prediction" },
   { href: "/binary", label: "Binary", icon: "analytics" },
-  { href: "/binary?market=forex", label: "Forex", icon: "currency_exchange" },
+  { href: "/forex", label: "Forex", icon: "currency_exchange" },
   { href: "/aviator", label: "Aviator", icon: "flight_takeoff" },
   { href: "/", label: "Promotions", icon: "campaign" },
 ];
@@ -26,7 +26,7 @@ export const productCards = [
   { href: "/p2p", label: "P2P", icon: "groups" },
   { href: "/predictions", label: "Predictions", icon: "online_prediction" },
   { href: "/binary", label: "Binary", icon: "analytics" },
-  { href: "/binary?market=forex", label: "Forex", icon: "currency_exchange" },
+  { href: "/forex", label: "Forex", icon: "currency_exchange" },
   { href: "/aviator", label: "Aviator", icon: "flight_takeoff" },
 ];
 

@@ -125,6 +125,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
               <TopNavLink href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} />
               <TopNavLink href="/predictions" icon="online_prediction" label="Polymarket" pathname={pathname} />
               <TopNavLink href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} />
+              <TopNavLink href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} />
             </nav>
           </div>
           {isSignedIn ? (
@@ -304,8 +305,9 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSuppo
           <SidebarItem collapsed={collapsed} href="/p2p/orders" icon="receipt_long" label="My Orders" pathname={pathname} direct />
         </SidebarGroup>
 
-        {/* Binary */}
-        <StandaloneSidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Binary & Forex" pathname={pathname} />
+        {/* Trading */}
+        <StandaloneSidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} />
+        <StandaloneSidebarItem collapsed={collapsed} href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} />
 
         <div className={`${collapsed ? "mx-1" : "-mx-4"} my-4 border-t border-white/10`} />
 
@@ -689,8 +691,9 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
             <MobileDrawerLink href="/p2p/orders" icon="receipt_long" label="My Orders" onClick={onClose} />
           </MobileDrawerGroup>
 
-          {/* Binary */}
-          <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary & Forex" onClick={onClose} />
+          {/* Trading */}
+          <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary" onClick={onClose} />
+          <MobileDrawerLink href="/forex" icon="currency_exchange" label="Forex" onClick={onClose} />
 
           <div className="my-3 border-t border-white/10" />
 
@@ -862,7 +865,8 @@ function AppFooter() {
     { label: "Aviator", href: "/aviator" },
     { label: "Predictions", href: "/predictions" },
     { label: "P2P Trading", href: "/p2p" },
-    { label: "Binary & Forex", href: "/binary" },
+    { label: "Binary", href: "/binary" },
+    { label: "Forex", href: "/forex" },
     { label: "Smart Wallet", href: "/wallet" },
   ];
 
