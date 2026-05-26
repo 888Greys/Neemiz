@@ -40,6 +40,6 @@ export async function GET() {
     );
   } catch (err) {
     console.error("Wallet transactions route error:", err);
-    return Response.json([]);
+    return Response.json({ error: "Could not fetch transactions" }, { status: 500 });
   }
 }
