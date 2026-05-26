@@ -222,22 +222,6 @@ export function AviatorBetPanel({
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // FLYING + cashed out
-  // ─────────────────────────────────────────────────────────────────────────
-  if (isFlying && myBet?.status === "CASHEDOUT") {
-    return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#31c45d]/20 bg-[#0a1a0f] sm:rounded-2xl">
-        {TabBar}
-        <div className="flex flex-col items-center gap-2 p-5 text-center">
-          <p className="text-sm font-black text-[#31c45d]">Cashed out!</p>
-          <p className="text-xl font-black text-white">KSh {myBet.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—"}</p>
-          <p className="text-xs text-white/30">at {myBet.cashoutAt?.toFixed(2)}×</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
   // CRASHED outcomes
   // ─────────────────────────────────────────────────────────────────────────
   if (isCrashed && myBet) {
