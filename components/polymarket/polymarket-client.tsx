@@ -1495,21 +1495,33 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   }, [fetchMarkets]);
   useEffect(() => { if (tab === "my-bets" || selectedMarket) fetchMyBets(); }, [tab, selectedMarket, fetchMyBets]);
   useEffect(() => {
-    const conditionId = conditionIdFromPath();
-    if (conditionId) void openMarketById(conditionId, { replace: true });
+    if (typeof window !== "undefined" && window.location.pathname === "/predictions/my-bets") {
+      setTab("my-bets");
+      void fetchMyBets();
+    } else {
+      const conditionId = conditionIdFromPath();
+      if (conditionId) void openMarketById(conditionId, { replace: true });
+    }
 
     function onPopState() {
-      const nextConditionId = conditionIdFromPath();
-      if (nextConditionId) {
-        void openMarketById(nextConditionId, { replace: true });
-      } else {
+      if (window.location.pathname === "/predictions/my-bets") {
         setSelectedMarket(null);
+        setTab("my-bets");
+        void fetchMyBets();
+      } else {
+        const nextConditionId = conditionIdFromPath();
+        if (nextConditionId) {
+          void openMarketById(nextConditionId, { replace: true });
+        } else {
+          setSelectedMarket(null);
+          setTab("browse");
+        }
       }
     }
 
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [openMarketById]);
+  }, [openMarketById, fetchMyBets]);
 
   function handleBetSuccess() {
     toast.success("Bet placed!");
@@ -1520,10 +1532,19 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   function viewMyBets() {
     setSelectedMarket(null);
     setTab("my-bets");
+    if (typeof window !== "undefined" && window.location.pathname !== "/predictions/my-bets") {
+      window.history.pushState({}, "", "/predictions/my-bets");
+    }
+    void fetchMyBets();
+    scrollPolymarketTop();
+  }
+
+  function goBackToMarkets() {
+    setTab("browse");
+    setSelectedMarket(null);
     if (typeof window !== "undefined" && window.location.pathname !== "/predictions") {
       window.history.pushState({}, "", "/predictions");
     }
-    void fetchMyBets();
     scrollPolymarketTop();
   }
 
@@ -1589,7 +1610,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
           <span className="font-black text-white">{formatKes(Math.floor(balance))}</span>
         </div>
         <button
-          onClick={() => setTab(tab === "browse" ? "my-bets" : "browse")}
+          onClick={() => tab === "my-bets" ? goBackToMarkets() : viewMyBets()}
           className={`h-10 rounded-xl px-4 text-[13px] font-black transition ${
             tab === "my-bets" ? "bg-[#087cff] text-white" : "border border-white/[0.08] bg-[#1a1b22] text-white/50 hover:text-white"
           }`}
@@ -1722,6 +1743,13 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
       {/* ── My Bets ──────────────────────────────────────────────────────── */}
       {tab === "my-bets" && (
         <div className="mx-auto w-full max-w-6xl">
+          <button
+            onClick={goBackToMarkets}
+            className="mb-5 inline-flex items-center gap-2 text-[13px] font-black text-white/45 hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4" /> Markets
+          </button>
+
           {!userId ? (
             <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
               <p className="text-sm text-white/30">Sign in to see your bets</p>
@@ -1730,7 +1758,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
             <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
               <p className="text-sm text-white/30">No bets yet</p>
               <button
-                onClick={() => setTab("browse")}
+                onClick={goBackToMarkets}
                 className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-5 py-2.5 text-sm font-bold text-white/60 hover:bg-white/10 hover:text-white transition"
               >
                 Browse Markets <ArrowRight className="h-4 w-4" />
