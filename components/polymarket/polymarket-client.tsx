@@ -979,13 +979,13 @@ function MarketDetailView({
   }, [market.conditionId, market.outcomes, topIndex]);
 
   return (
-    <div className={`grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:pb-0 xl:grid-cols-[minmax(0,1fr)_420px] ${mobileTradeOpen ? "pb-72" : "pb-24"}`}>
-      <main className="min-w-0">
-        <button onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[13px] font-black text-white/45 hover:text-white">
+    <div className={`grid gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-0 lg:overflow-hidden lg:border-b lg:border-white/[0.08] xl:grid-cols-[minmax(0,1fr)_500px] ${mobileTradeOpen ? "pb-72 lg:pb-0" : "pb-24 lg:pb-0"}`}>
+      <main className="min-w-0 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-white/[0.08] lg:bg-[#0f1218] lg:px-3 lg:py-3">
+        <button onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[13px] font-black text-white/45 hover:text-white lg:mb-3">
           <ArrowLeft className="h-4 w-4" /> Markets
         </button>
 
-        <div className="mb-6 flex items-start justify-between gap-4">
+        <div className="mb-6 flex items-start justify-between gap-4 lg:mb-4">
           <div className="flex min-w-0 items-start gap-4">
             {market.image ? (
               <Image src={market.image} alt="" width={56} height={56} unoptimized className="h-14 w-14 shrink-0 rounded-xl bg-white object-cover" />
@@ -1016,7 +1016,7 @@ function MarketDetailView({
           </div>
         </div>
 
-        <section className="mb-6 rounded-2xl border border-white/[0.06] bg-[#15191f] p-4 sm:p-5">
+        <section className="mb-6 rounded-2xl border border-white/[0.06] bg-[#15191f] p-4 sm:p-5 lg:mb-4 lg:rounded">
           {market.clobTokenIds.length > 0 ? (
             <ProbabilityChart tokenIds={market.clobTokenIds} outcomes={market.outcomes} />
           ) : (
@@ -1059,7 +1059,7 @@ function MarketDetailView({
           })}
         </section>
 
-        <section className="mt-10">
+        <section className="mt-10 lg:mt-5">
           <div className="mb-5 flex gap-5">
             {(["rules", "context"] as const).map((t) => (
               <button
@@ -1087,7 +1087,7 @@ function MarketDetailView({
           )}
         </section>
 
-        <section className="mt-10">
+        <section className="mt-10 lg:mt-5">
           <div className="mb-5 flex flex-wrap gap-5">
             <button
               onClick={() => setCommentsTab("comments")}
@@ -1121,32 +1121,39 @@ function MarketDetailView({
         </section>
       </main>
 
-      <div className="hidden min-w-0 lg:block">
-        <DetailTradeTicket
-          market={market}
-          selectedOutcome={selectedOutcome}
-          selectedTradeSide={selectedTradeSide}
-          balance={balance}
-          onTradeSuccess={onTradeSuccess}
-          onViewBets={onViewBets}
-          onSelectTradeSide={setSelectedTradeSide}
-        />
-        <DetailMyBets bets={myBets.filter((b) => b.marketId === market.conditionId)} />
-        <div className="mt-5 space-y-3">
-          {related.filter((m) => m.conditionId !== market.conditionId).slice(0, 3).map((m) => {
-            const p = Math.round(marketPrice(m, 0) * 100);
-            return (
-              <button
-                key={m.conditionId}
-                onClick={() => { onOpen(m); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-                className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-white/[0.04]"
-              >
-                {m.image ? <Image src={m.image} alt="" width={38} height={38} unoptimized className="h-10 w-10 rounded-lg object-cover" /> : <div className="h-10 w-10 rounded-lg bg-white/[0.06]" />}
-                <p className="min-w-0 flex-1 text-[12px] font-black leading-tight text-white/80 line-clamp-2">{m.question}</p>
-                <span className="text-lg font-black text-white">{p}%</span>
-              </button>
-            );
-          })}
+      <div className="hidden min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:bg-[#101216]">
+        <div className="shrink-0 border-b border-white/[0.08] p-3">
+          <DetailTradeTicket
+            market={market}
+            selectedOutcome={selectedOutcome}
+            selectedTradeSide={selectedTradeSide}
+            balance={balance}
+            onTradeSuccess={onTradeSuccess}
+            onViewBets={onViewBets}
+            onSelectTradeSide={setSelectedTradeSide}
+          />
+        </div>
+        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto p-3">
+          <DetailMyBets bets={myBets.filter((b) => b.marketId === market.conditionId)} />
+          <div className="mt-4 border-t border-white/[0.08] pt-3">
+            <div className="mb-2 text-[11px] font-black uppercase tracking-[0.16em] text-white/35">Related markets</div>
+            <div className="space-y-2">
+              {related.filter((m) => m.conditionId !== market.conditionId).slice(0, 6).map((m) => {
+                const p = Math.round(marketPrice(m, 0) * 100);
+                return (
+                  <button
+                    key={m.conditionId}
+                    onClick={() => { onOpen(m); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                    className="flex w-full items-center gap-3 rounded p-2 text-left hover:bg-white/[0.04]"
+                  >
+                    {m.image ? <Image src={m.image} alt="" width={38} height={38} unoptimized className="h-10 w-10 rounded object-cover" /> : <div className="h-10 w-10 rounded bg-white/[0.06]" />}
+                    <p className="min-w-0 flex-1 text-[12px] font-black leading-tight text-white/80 line-clamp-2">{m.question}</p>
+                    <span className="text-lg font-black text-white">{p}%</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
