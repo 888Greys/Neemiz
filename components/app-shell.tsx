@@ -38,6 +38,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const meta = user?.user_metadata ?? {};
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
+  const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
   const { balance, currency, refresh: refreshWalletBalance } = useWalletBalance();
   const fmtBalance = isSignedIn
     ? `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -86,8 +87,8 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         >
           {sidebarCollapsed ? (
             isSignedIn ? (
-              <button onClick={() => setProfileOpen(true)} type="button" className="flex h-10 w-10 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white transition hover:opacity-80">
-                {initials}
+              <button onClick={() => setProfileOpen(true)} type="button" className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#087cff] text-sm font-black text-white transition hover:opacity-80">
+                <UserAvatar src={avatarUrl} initials={initials} className="h-full w-full" />
               </button>
             ) : (
               <button onClick={() => setLoginOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-[#34363b] text-slate-300" type="button">
@@ -96,9 +97,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             )
           ) : isSignedIn ? (
             <button onClick={() => setProfileOpen(true)} type="button" className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-white/[0.05]">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white">
-                {initials}
-              </div>
+              <UserAvatar src={avatarUrl} initials={initials} className="h-9 w-9 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] font-black text-white">{displayName}</div>
                 <div className="truncate text-[10px] text-slate-500">ID {user?.id?.slice(-8).toUpperCase()}</div>
@@ -238,6 +237,25 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
       <Icon name={icon} fill={active} className="text-[17px]" />
       {label}
     </Link>
+  );
+}
+
+function UserAvatar({ src, initials, className }: { src?: string | null; initials: string; className: string }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        referrerPolicy="no-referrer"
+        className={`${className} rounded-full object-cover`}
+      />
+    );
+  }
+
+  return (
+    <span className={`${className} flex items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white`}>
+      {initials}
+    </span>
   );
 }
 
@@ -578,6 +596,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
   const meta = user?.user_metadata ?? {};
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
+  const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
   const fmtBalance = isSignedIn
     ? `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
@@ -603,9 +622,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
                 onClick={onOpenProfile}
                 className="flex w-full items-center gap-3 rounded-xl bg-[#28292d] px-3 py-2.5 transition hover:bg-[#32343b]"
               >
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#087cff] text-sm font-black text-white">
-                  {initials}
-                </div>
+                <UserAvatar src={avatarUrl} initials={initials} className="h-9 w-9 shrink-0" />
                 <div className="min-w-0 flex-1 text-left">
                   <p className="truncate text-[13px] font-black text-white">{displayName}</p>
                   <p className="text-[10px] text-slate-500">View profile</p>
