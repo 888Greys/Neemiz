@@ -12,6 +12,7 @@ type View =
   | "main"
   | "settings"
   | "bets"
+  | "transactions"
   | "withdraw"
   | "bonuses"
   | "bonus-codes"
@@ -149,6 +150,107 @@ function BetsView() {
           )}
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Sub-view: Transaction History ───────────────────────────────────────────
+
+const TXN_META: Record<string, { label: string; icon: string; color: string; sign: "+" | "-" }> = {
+  DEPOSIT:    { label: "Deposit",    icon: "add_circle",    color: "text-emerald-400", sign: "+" },
+  WITHDRAWAL: { label: "Withdrawal", icon: "remove_circle", color: "text-red-400",     sign: "-" },
+  BET_STAKE:  { label: "Bet Placed", icon: "sports_soccer", color: "text-red-400",     sign: "-" },
+  BET_WIN:    { label: "Bet Win",    icon: "emoji_events",  color: "text-emerald-400", sign: "+" },
+  BONUS:      { label: "Bonus",      icon: "redeem",        color: "text-amber-400",   sign: "+" },
+  REFUND:     { label: "Refund",     icon: "undo",          color: "text-sky-400",     sign: "+" },
+};
+
+function TransactionsView() {
+  const [txns, setTxns] = useState<Txn[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+    fetch("/api/wallet/transactions")
+      .then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) throw new Error(data?.error ?? "Failed to load transactions");
+        return data;
+      })
+      .then((data) => setTxns(Array.isArray(data) ? data : []))
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Failed to load transactions"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-3 px-4 py-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/[0.05]" />
+        ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
+        <Icon name="error" fill className="text-[40px] text-red-400/70" />
+        <p className="text-sm font-black text-slate-400">Could not load transactions</p>
+        <p className="text-xs text-slate-600">{error}</p>
+      </div>
+    );
+  }
+
+  if (!txns.length) {
+    return (
+      <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
+        <Icon name="receipt_long" fill className="text-[48px] text-slate-700" />
+        <p className="text-sm font-black text-slate-400">No transactions yet</p>
+        <p className="text-xs text-slate-600">Your deposits and withdrawals will appear here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 px-4 py-3">
+      {txns.map((t) => {
+        const meta = TXN_META[t.type] ?? { label: t.type, icon: "swap_horiz", color: "text-white", sign: "+" as const };
+        return (
+          <div
+            key={t.id}
+            className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 py-3.5 ring-1 ring-white/[0.07]"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
+              <Icon name={meta.icon} fill className={`text-[18px] ${meta.color}`} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-black text-white">{meta.label}</p>
+              <p className="text-[10px] text-slate-600">
+                {new Date(t.createdAt).toLocaleDateString("en-KE", {
+                  day: "numeric", month: "short", year: "numeric",
+                  hour: "2-digit", minute: "2-digit",
+                })}
+                {t.provider ? ` · ${t.provider}` : ""}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className={`text-[14px] font-black ${meta.color}`}>
+                {meta.sign}KSh {Number(t.amount).toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+              </p>
+              <p className={`text-[10px] font-black uppercase ${
+                t.status === "COMPLETED" ? "text-emerald-500/70"
+                : t.status === "FAILED"  ? "text-red-400/70"
+                : "text-amber-400/70"
+              }`}>
+                {t.status}
+              </p>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -554,6 +656,7 @@ const VIEW_TITLES: Record<View, string> = {
   main: "Profile",
   settings: "Settings",
   bets: "Bet History",
+  transactions: "Transaction History",
   withdraw: "Withdraw",
   bonuses: "Bonuses",
   "bonus-codes": "Bonus Codes",
@@ -598,7 +701,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
     { icon: "redeem",              label: "Bonuses",             sub: "Free spins and other offers",     action: () => setView("bonuses") },
     { icon: "confirmation_number", label: "Bonus codes",         sub: "Code activation",                 action: () => setView("bonus-codes") },
     { icon: "history",             label: "Bet history",         sub: "Open and settled bets",           action: () => setView("bets") },
-    { icon: "receipt_long",        label: "Transaction history", sub: "Deposit and withdrawal statuses", action: () => { onClose(); onOpenWallet(); } },
+    { icon: "receipt_long",        label: "Transaction history", sub: "Deposit and withdrawal statuses", action: () => setView("transactions") },
   ];
 
   const SETTINGS_ITEMS = [
@@ -833,6 +936,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
 
           {/* ── SUB-VIEWS ── */}
           {view === "bets"         && <BetsView />}
+          {view === "transactions" && <TransactionsView />}
           {view === "withdraw"     && <WithdrawView balance={balance} currency={currency} onSuccess={(nb) => { refreshBalance(); }} />}
           {view === "bonuses"      && <BonusesView />}
           {view === "bonus-codes"  && <BonusCodesView />}
