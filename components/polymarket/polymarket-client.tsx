@@ -870,10 +870,82 @@ function PositionCard({ bet, onOpen }: { bet: MyBet; onOpen: (bet: MyBet) => voi
   );
 }
 
+function DetailMyBets({ bets }: { bets: MyBet[] }) {
+  if (bets.length === 0) return null;
+
+  const openCount = bets.filter((b) => b.status === "PENDING").length;
+  const totalStake = bets.reduce((s, b) => s + b.stake, 0);
+  const openToWin = bets.filter((b) => b.status === "PENDING").reduce((s, b) => s + b.potentialWin, 0);
+
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a1b22]">
+      <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+        <span className="text-[13px] font-black text-white">My Bets</span>
+        <div className="flex items-center gap-2">
+          {openCount > 0 && (
+            <span className="rounded-full bg-[#087cff]/20 px-2 py-0.5 text-[10px] font-black text-[#8bc3ff]">
+              {openCount} open
+            </span>
+          )}
+          <span className="text-[11px] text-white/30">{bets.length} total</span>
+        </div>
+      </div>
+
+      {bets.length > 1 && (
+        <div className="grid grid-cols-2 gap-px border-b border-white/[0.06] bg-white/[0.06]">
+          <div className="bg-[#1a1b22] px-4 py-2.5">
+            <p className="text-[10px] font-black uppercase tracking-wide text-white/30">Staked</p>
+            <p className="mt-0.5 font-mono text-[13px] font-black text-white">{formatKes(totalStake)}</p>
+          </div>
+          <div className="bg-[#1a1b22] px-4 py-2.5">
+            <p className="text-[10px] font-black uppercase tracking-wide text-white/30">To win</p>
+            <p className="mt-0.5 font-mono text-[13px] font-black text-[#31c45d]">{formatKes(openToWin, { maximumFractionDigits: 2 })}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="divide-y divide-white/[0.05]">
+        {bets.map((bet) => {
+          const isYes = bet.outcome.toLowerCase() === "yes";
+          const pending = bet.status === "PENDING";
+          const payout = bet.status === "WON" && bet.winAmount ? bet.winAmount : bet.potentialWin;
+          return (
+            <div key={bet.id} className="px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[13px] font-black ${isYes ? "text-[#31c45d]" : "text-red-400"}`}>
+                    {bet.outcome}
+                  </span>
+                  <span className="font-mono text-[11px] text-white/35">@ {(bet.price * 100).toFixed(1)}¢</span>
+                </div>
+                <StatusBadge status={bet.status} />
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[11px]">
+                <span className="text-white/40">
+                  Stake <span className="font-mono font-black text-white">{formatKes(bet.stake)}</span>
+                </span>
+                <span className={`font-mono font-black ${bet.status === "LOST" ? "text-red-400" : "text-[#31c45d]"}`}>
+                  {pending ? "→ " : ""}{formatKes(payout, { maximumFractionDigits: 2 })}
+                </span>
+              </div>
+              {bet.executionMode === "clob" && bet.clobStatus && (
+                <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-wide text-white/25">
+                  CLOB · {bet.clobStatus}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function MarketDetailView({
   market,
   related,
   balance,
+  myBets,
   onBack,
   onTradeSuccess,
   onViewBets,
@@ -884,6 +956,7 @@ function MarketDetailView({
   market: PolymarketMarket;
   related: PolymarketMarket[];
   balance: number;
+  myBets: MyBet[];
   onBack: () => void;
   onTradeSuccess: () => void;
   onViewBets: () => void;
@@ -1059,6 +1132,7 @@ function MarketDetailView({
           onViewBets={onViewBets}
           onSelectTradeSide={setSelectedTradeSide}
         />
+        <DetailMyBets bets={myBets.filter((b) => b.marketId === market.conditionId)} />
         <div className="mt-5 space-y-3">
           {related.filter((m) => m.conditionId !== market.conditionId).slice(0, 3).map((m) => {
             const p = Math.round(marketPrice(m, 0) * 100);
@@ -1419,7 +1493,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
     const id = setInterval(fetchMarkets, 2 * 60 * 1000);
     return () => clearInterval(id);
   }, [fetchMarkets]);
-  useEffect(() => { if (tab === "my-bets") fetchMyBets(); }, [tab, fetchMyBets]);
+  useEffect(() => { if (tab === "my-bets" || selectedMarket) fetchMyBets(); }, [tab, selectedMarket, fetchMyBets]);
   useEffect(() => {
     const conditionId = conditionIdFromPath();
     if (conditionId) void openMarketById(conditionId, { replace: true });
@@ -1440,7 +1514,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   function handleBetSuccess() {
     toast.success("Bet placed!");
     fetchBalance();
-    if (tab === "my-bets") fetchMyBets();
+    fetchMyBets();
   }
 
   function viewMyBets() {
@@ -1550,6 +1624,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
           market={selectedMarket}
           related={markets}
           balance={balance}
+          myBets={myBets}
           onBack={() => {
             setSelectedMarket(null);
             if (typeof window !== "undefined" && window.location.pathname !== "/predictions") {
