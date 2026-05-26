@@ -58,19 +58,22 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [history,    setHistory]    = useState<HistoryRound[]>([]);
   const [myHistory,  setMyHistory]  = useState<MyHistoryBet[]>([]);
   const [balance,    setBalance]    = useState(initialBalance);
-  const [verifyRound, setVerifyRound] = useState<HistoryRound | null>(null);
-  const [loading,    setLoading]    = useState(true);
+  const [verifyRound,    setVerifyRound]    = useState<HistoryRound | null>(null);
+  const [prevRoundBets,  setPrevRoundBets]  = useState<AviatorBetPublic[]>([]);
+  const [loading,        setLoading]        = useState(true);
   const [activePanel, setActivePanel] = useState<0 | 1>(0);
 
   const wsRef          = useRef<WebSocket | null>(null);
   const rafRef         = useRef<number>(0);
   const roundRef       = useRef<AviatorRound | null>(null);
+  const liveBetsRef    = useRef<AviatorBetPublic[]>([]);
   const roundCountRef  = useRef(0);
   // tracks which panel index has a pending bet awaiting a bet_id response
   const pendingBetRef  = useRef<{ panelIndex: 0 | 1; amount: number } | null>(null);
   const supabase       = createClient();
 
-  useEffect(() => { roundRef.current = round; }, [round]);
+  useEffect(() => { roundRef.current  = round;     }, [round]);
+  useEffect(() => { liveBetsRef.current = liveBets; }, [liveBets]);
 
   // ── Balance ────────────────────────────────────────────────────────────────
   const fetchBalance = useCallback(async () => {
@@ -160,6 +163,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
       case "round_start": {
         roundCountRef.current++;
+        setPrevRoundBets(liveBetsRef.current);
         setLiveBets([]);
         setMyBets({});
         pendingBetRef.current = null;
@@ -288,13 +292,17 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   }, [userId]);
 
   // ── Multiplier RAF ─────────────────────────────────────────────────────────
+  // Throttled to ~10 fps — the canvas has its own RAF loop and doesn't need
+  // state updates; React state is only used by the bet-panel & UI labels.
   useEffect(() => {
-    const loop = () => {
+    let lastTick = 0;
+    const loop = (now: number) => {
       const r = roundRef.current;
-      if (r?.state === "FLYING" && r.flyingStartedAt) {
+      if (r?.state === "FLYING" && r.flyingStartedAt && now - lastTick >= 100) {
         const elapsed = Math.max(0, Date.now() - new Date(r.flyingStartedAt).getTime()) / 1000;
-        const value = 1 + elapsed / 1.5 + elapsed * elapsed * 0.005;
+        const value   = 1 + elapsed / 1.5 + elapsed * elapsed * 0.005;
         setMultiplier(Math.floor(value * 100) / 100);
+        lastTick = now;
       }
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -433,6 +441,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-white/10 bg-[#141414] xl:block">
         <AviatorLiveBets
           liveBets={liveBets}
+          prevBets={prevRoundBets}
           myHistory={myHistory}
           myCurrentBets={Object.values(myBets)}
           userId={userId}

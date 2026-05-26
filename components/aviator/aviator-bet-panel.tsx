@@ -13,7 +13,8 @@ interface Props {
   onCashout:         (panelIndex: 0 | 1) => Promise<void>;
 }
 
-const MULT_CHIPS = [{ label: "½×", fn: (v: number) => v * 0.5 }, { label: "2×", fn: (v: number) => v * 2 }, { label: "5×", fn: (v: number) => v * 5 }];
+// Quick-amount chips — directly set the bet to a fixed value (Betika style)
+const QUICK_AMOUNTS = [100, 200, 500, 10_000];
 
 function snapStep(v: number) {
   if (v < 100)  return 10;
@@ -31,6 +32,8 @@ export function AviatorBetPanel({
   const [acEnabled,    setAcEnabled]    = useState(false);
   const [loading,      setLoading]      = useState(false);
   const [error,        setError]        = useState<string | null>(null);
+  // Bet queued for the *next* round (placed while current round is FLYING)
+  const [nextBet,      setNextBet]      = useState<{ amount: number; autoCashout?: number } | null>(null);
 
   // Auto-bet
   const [autoBetOn,    setAutoBetOn]    = useState(false);
@@ -46,6 +49,7 @@ export function AviatorBetPanel({
   const stopWinRef     = useRef(false);
   const stopLossRef    = useRef(false);
   const myBetRef       = useRef<AviatorBetPublic | undefined>(undefined);
+  const nextBetRef     = useRef<{ amount: number; autoCashout?: number } | null>(null);
   const prevStateRef   = useRef<string | undefined>(undefined);
 
   useEffect(() => { autoBetRef.current     = autoBetOn;    }, [autoBetOn]);
@@ -55,6 +59,7 @@ export function AviatorBetPanel({
   useEffect(() => { stopWinRef.current     = stopOnWin;    }, [stopOnWin]);
   useEffect(() => { stopLossRef.current    = stopOnLoss;   }, [stopOnLoss]);
   useEffect(() => { myBetRef.current       = myBet;        }, [myBet]);
+  useEffect(() => { nextBetRef.current     = nextBet;      }, [nextBet]);
   useEffect(() => {
     if (myBet?.status !== "CASHING_OUT" && (round?.state !== "FLYING" || myBet?.status !== "ACTIVE")) setLoading(false);
   }, [myBet?.status, round?.state]);
@@ -110,6 +115,18 @@ export function AviatorBetPanel({
   useEffect(() => {
     const curr = round?.state;
     const prev = prevStateRef.current;
+
+    if (curr === "BETTING" && prev !== "BETTING" && !myBetRef.current) {
+      // Place queued next-round bet first; skip auto-bet if queued bet fires
+      const queued = nextBetRef.current;
+      if (queued) {
+        setNextBet(null);
+        placeBet(queued.amount, queued.autoCashout);
+        prevStateRef.current = curr;
+        return;
+      }
+    }
+
     if (autoBetRef.current) {
       if (curr === "BETTING" && prev !== "BETTING" && !myBetRef.current) placeAutoBet();
       if (curr === "CRASHED" && (prev === "FLYING" || prev === "BETTING")) {
@@ -123,7 +140,7 @@ export function AviatorBetPanel({
       }
     }
     prevStateRef.current = curr;
-  }, [round?.state, placeAutoBet]);
+  }, [round?.state, placeAutoBet, placeBet]);
 
   useEffect(() => {
     if (autoBetOn && round?.state === "BETTING" && !myBet) placeAutoBet();
@@ -270,11 +287,36 @@ export function AviatorBetPanel({
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // WAITING / FLYING (no bet) / CRASHED (no bet)
+  // FLYING (no bet) + already queued → show confirmation
   // ─────────────────────────────────────────────────────────────────────────
-  if (state === "WAITING" || (isFlying && !myBet) || (isCrashed && !myBet)) {
-    const label = state === "WAITING" ? "Next round loading…"
-      : isFlying  ? "Round in progress"
+  if (isFlying && !myBet && nextBet) {
+    return (
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#087cff]/30 bg-[#060d1c] sm:rounded-2xl">
+        {TabBar}
+        <div className="flex flex-col items-center gap-3 p-5 text-center">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#087cff]/15 text-xl">⏳</div>
+          <p className="text-sm font-black text-[#087cff]">Queued for next round</p>
+          <p className="text-2xl font-black text-white">KSh {nextBet.amount.toLocaleString()}</p>
+          {nextBet.autoCashout && (
+            <p className="text-xs text-white/40">Auto cashout at {nextBet.autoCashout.toFixed(2)}×</p>
+          )}
+          <button
+            onClick={() => setNextBet(null)}
+            className="mt-1 rounded-lg border border-white/10 px-5 py-1.5 text-[11px] font-black text-white/40 hover:border-white/25 hover:text-white/70 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // WAITING / CRASHED (no bet) — blocked state
+  // ─────────────────────────────────────────────────────────────────────────
+  if (state === "WAITING" || (isCrashed && !myBet)) {
+    const label = state === "WAITING"
+      ? "Next round loading…"
       : `Ended at ${round?.crashPoint?.toFixed(2)}×`;
     return (
       <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0d0e12]">
@@ -325,19 +367,23 @@ export function AviatorBetPanel({
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
               >+</button>
             </div>
-            {/* Multiplier chips */}
+            {/* Quick-amount chips */}
             <div className="mt-2 flex gap-1.5">
-              {MULT_CHIPS.map(({ label, fn }) => (
+              {QUICK_AMOUNTS.map((v) => (
                 <button
-                  key={label}
-                  onClick={() => setAmount(clampAmt(fn(amount)))}
-                  className="flex-1 rounded-lg border border-white/[0.07] bg-white/[0.04] py-1.5 text-[10px] font-black text-white/50 hover:border-white/20 hover:text-white"
+                  key={v}
+                  onClick={() => { setAmount(v); setError(null); }}
+                  className={`flex-1 rounded-lg border py-1.5 text-[10px] font-black transition-colors ${
+                    amount === v
+                      ? "border-[#31c45d]/50 bg-[#31c45d]/10 text-[#31c45d]"
+                      : "border-white/[0.07] bg-white/[0.04] text-white/50 hover:border-white/20 hover:text-white"
+                  }`}
                 >
-                  {label}
+                  {v >= 1000 ? `${v / 1000}K` : v}
                 </button>
               ))}
               <button
-                onClick={() => setAmount(clampAmt(balance))}
+                onClick={() => { setAmount(clampAmt(balance)); setError(null); }}
                 className="flex-1 rounded-lg border border-white/[0.07] bg-white/[0.04] py-1.5 text-[10px] font-black text-white/50 hover:border-white/20 hover:text-white"
               >
                 MAX
@@ -345,15 +391,32 @@ export function AviatorBetPanel({
             </div>
           </div>
 
-          {/* BET button */}
+          {/* BET / NEXT ROUND button */}
           <button
-            onClick={handleBet}
-            disabled={loading || !bettingOpen}
+            onClick={() => {
+              if (isFlying) {
+                // Queue for the next round instead of sending to server
+                if (amount < 10)      { setError("Minimum KSh 10"); return; }
+                if (amount > balance) { setError("Insufficient balance"); return; }
+                setError(null);
+                setNextBet({
+                  amount,
+                  autoCashout: acEnabled && autoCashout >= 1.01 ? autoCashout : undefined,
+                });
+              } else {
+                handleBet();
+              }
+            }}
+            disabled={loading}
             className="w-full rounded-xl py-3.5 text-sm font-black text-black shadow-[0_10px_30px_rgba(34,197,94,.16)] transition-all disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ background: bettingOpen ? "linear-gradient(135deg, #31c45d, #22a34a)" : "#1f2937" }}
+            style={{ background: (bettingOpen || isFlying) ? "linear-gradient(135deg, #31c45d, #22a34a)" : "#1f2937" }}
           >
-            {loading ? "Placing…" : bettingOpen
+            {loading
+              ? "Placing…"
+              : bettingOpen
               ? `BET  KSh ${amount.toLocaleString()}`
+              : isFlying
+              ? `NEXT ROUND  KSh ${amount.toLocaleString()}`
               : "BETTING CLOSED"}
           </button>
 
