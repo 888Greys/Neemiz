@@ -522,12 +522,14 @@ function DetailTradeTicket({
   selectedOutcome,
   balance,
   onTradeSuccess,
+  onViewBets,
   compact = false,
 }: {
   market: PolymarketMarket;
   selectedOutcome: string;
   balance: number;
   onTradeSuccess: () => void;
+  onViewBets: () => void;
   compact?: boolean;
 }) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -535,6 +537,12 @@ function DetailTradeTicket({
   const [amount, setAmount] = useState(100);
   const [placing, setPlacing] = useState(false);
   const [tradeError, setTradeError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<{
+    outcome: string;
+    stake: number;
+    price: number;
+    potentialWin: number;
+  } | null>(null);
   const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
   const price = marketPrice(market, selectedIndex);
 
@@ -552,6 +560,11 @@ function DetailTradeTicket({
   const isUnavailable = activePrice < 0.01;
   const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0;
   const amountOptions = compact ? [50, 100, 250] : [50, 100, 250, 500];
+
+  useEffect(() => {
+    setReceipt(null);
+    setTradeError(null);
+  }, [market.conditionId, selectedOutcome]);
 
   async function placeTrade() {
     if (placing || isUnavailable) return;
@@ -571,6 +584,12 @@ function DetailTradeTicket({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to place bet");
+      setReceipt({
+        outcome: String(data.outcome ?? tradeOutcome),
+        stake: Number(data.stake ?? amount),
+        price: Number(data.price ?? activePrice),
+        potentialWin: Number(data.potentialWin ?? potentialWin),
+      });
       onTradeSuccess();
     } catch (err: unknown) {
       setTradeError((err as Error).name === "AbortError" ? "Bet request timed out. Please try again." : (err as Error).message);
@@ -625,6 +644,45 @@ function DetailTradeTicket({
             </div>
           )}
 
+          {receipt ? (
+            <div className="rounded-2xl border border-[#31c45d]/25 bg-[#082414] p-4">
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[12px] font-black uppercase tracking-wide text-[#31c45d]">Position opened</p>
+                  <p className="mt-1 text-sm font-black text-white">{receipt.outcome}</p>
+                </div>
+                <div className="rounded-full bg-[#31c45d]/15 px-3 py-1 text-[11px] font-black text-[#31c45d]">
+                  {(receipt.price * 100).toFixed(0)}¢
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-black/20 p-3 text-[12px]">
+                <div>
+                  <p className="text-white/35">Stake</p>
+                  <p className="font-mono font-black text-white">${receipt.stake.toLocaleString()}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-white/35">Potential win</p>
+                  <p className="font-mono font-black text-[#31c45d]">${receipt.potentialWin.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setReceipt(null)}
+                  className="h-10 rounded-xl border border-white/[0.08] bg-white/[0.04] text-[12px] font-black text-white/60"
+                >
+                  Trade again
+                </button>
+                <button
+                  onClick={onViewBets}
+                  className="h-10 rounded-xl bg-[#087cff] text-[12px] font-black text-white shadow-lg shadow-[#087cff]/20"
+                >
+                  View my bets
+                </button>
+              </div>
+            </div>
+          ) : (
+          <>
+
           <div className={`mb-4 grid grid-cols-2 rounded-2xl bg-black/25 p-1 ${compact ? "gap-1" : "gap-2"}`}>
             <button
               onClick={() => setOrderSide("yes")}
@@ -677,6 +735,8 @@ function DetailTradeTicket({
             </button>
           )}
           {tradeError && <p className="mt-3 rounded-lg bg-red-900/30 px-3 py-2 text-[11px] text-red-400">{tradeError}</p>}
+          </>
+          )}
           <p className="mt-3 text-center text-[11px] text-white/30">Balance: ${Math.floor(balance).toLocaleString()}</p>
         </div>
       </div>
@@ -700,6 +760,7 @@ function MarketDetailView({
   onBack,
   onBet,
   onTradeSuccess,
+  onViewBets,
   onOpen,
   comments,
   onAddComment,
@@ -710,6 +771,7 @@ function MarketDetailView({
   onBack: () => void;
   onBet: (m: PolymarketMarket, o?: string, amount?: number) => void;
   onTradeSuccess: () => void;
+  onViewBets: () => void;
   onOpen: (m: PolymarketMarket) => void;
   comments: DetailComment[];
   onAddComment: (body: string) => void;
@@ -875,6 +937,7 @@ function MarketDetailView({
           selectedOutcome={selectedOutcome}
           balance={balance}
           onTradeSuccess={onTradeSuccess}
+          onViewBets={onViewBets}
         />
         <div className="mt-5 space-y-3">
           {related.filter((m) => m.conditionId !== market.conditionId).slice(0, 3).map((m) => {
@@ -908,6 +971,7 @@ function MarketDetailView({
               selectedOutcome={selectedOutcome}
               balance={balance}
               onTradeSuccess={onTradeSuccess}
+              onViewBets={onViewBets}
               compact
             />
           </>
@@ -1206,6 +1270,16 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
     if (tab === "my-bets") fetchMyBets();
   }
 
+  function viewMyBets() {
+    setSelectedMarket(null);
+    setTab("my-bets");
+    fetchMyBets();
+    requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>("[data-app-scroll='true']")?.scrollTo({ top: 0, behavior: "instant" });
+      window.scrollTo({ top: 0, behavior: "instant" });
+    });
+  }
+
   const filtered = useMemo(() => {
     if (!search.trim()) return markets;
     const q = search.toLowerCase();
@@ -1310,6 +1384,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
           onBack={() => setSelectedMarket(null)}
           onBet={openBet}
           onTradeSuccess={handleBetSuccess}
+          onViewBets={viewMyBets}
           onOpen={openMarket}
           comments={selectedComments}
           onAddComment={addComment}
