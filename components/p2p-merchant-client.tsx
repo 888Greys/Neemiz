@@ -628,8 +628,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             <div>
               <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
               <select value={form.crypto} onChange={(e) => f("crypto", e.target.value)} disabled={isEditing}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none">
-                {["USDT"].map((c) => <option key={c} value={c}>{c}</option>)}
+                className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm text-white outline-none">
+                {["USDT"].map((c) => <option key={c} value={c} style={{ background: "#1a1b22", color: "#fff" }}>{c}</option>)}
               </select>
             </div>
           </div>
@@ -670,8 +670,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           <div>
             <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Payment window</label>
             <select value={form.paymentWindow} onChange={(e) => f("paymentWindow", e.target.value)}
-              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none">
-              {[10,15,20,30].map((w) => <option key={w} value={w}>{w} minutes</option>)}
+              className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm text-white outline-none">
+              {[10,15,20,30].map((w) => <option key={w} value={w} style={{ background: "#1a1b22", color: "#fff" }}>{w} minutes</option>)}
             </select>
           </div>
 
