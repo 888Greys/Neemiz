@@ -1437,8 +1437,14 @@ function TradeSheet({
         onClick={(e) => e.stopPropagation()}
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="flex items-center justify-center bg-[#1a1b22] pb-1 pt-3 rounded-t-3xl">
-          <div className="h-1 w-10 rounded-full bg-white/20" />
+        <div className="flex flex-col items-center bg-[#1a1b22] pt-3 pb-1 rounded-t-3xl">
+          <div className="h-1 w-10 rounded-full bg-white/20 mb-2" />
+          <button
+            onClick={onClose}
+            className="flex h-6 w-full max-w-xs items-center justify-center gap-1 text-[11px] font-black text-white/45 hover:text-white/70"
+          >
+            <ChevronDown className="h-4 w-4" /> Minimize trade
+          </button>
         </div>
         <DetailTradeTicket
           market={market}
