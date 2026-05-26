@@ -67,7 +67,7 @@ export async function GET(req: Request) {
         completionRate:  Number(ad.merchant.completionRate),
         avgReleaseTime:  ad.merchant.avgReleaseTime,
       },
-    })));
+    })), { headers: { "Cache-Control": "public, s-maxage=20, stale-while-revalidate=60" } });
   } catch (err) {
     console.error("GET /api/p2p/ads:", err instanceof Error ? err.message : "Unknown error");
     return Response.json({ error: "Internal server error" }, { status: 500 });

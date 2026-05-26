@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { getCached, cachedFetch } from "@/lib/client-cache";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { P2PSubNav } from "@/components/p2p-subnav";
@@ -63,25 +64,18 @@ function FilterButton({ active, label, onClick }: { active: boolean; label: stri
 
 // ─── Main P2P Orders Client ───────────────────────────────────────────────────
 
+const ORDERS_KEY = "/api/p2p/orders";
+
 export function P2POrdersClient() {
-  const [orders, setOrders]   = useState<OrderSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders]   = useState<OrderSummary[]>(() => getCached<OrderSummary[]>(ORDERS_KEY) ?? []);
+  const [loading, setLoading] = useState(!getCached(ORDERS_KEY));
   const [filter, setFilter]   = useState<FilterTab>("all");
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (force = false) => {
     setLoading(true);
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 12000);
-    try {
-      const res = await fetch("/api/p2p/orders", { signal: controller.signal });
-      if (res.ok) {
-        const data = await res.json();
-        setOrders(Array.isArray(data) ? data : []);
-      }
-    } catch { /* ignore */ } finally {
-      window.clearTimeout(timeout);
-      setLoading(false);
-    }
+    const data = await cachedFetch<OrderSummary[]>(ORDERS_KEY, force);
+    if (data) setOrders(data);
+    setLoading(false);
   }, []);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);

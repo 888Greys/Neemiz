@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { getCached, cachedFetch } from "@/lib/client-cache";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
@@ -134,19 +135,18 @@ function BetCard({ bet }: { bet: Bet }) {
 export function MyBetsClient() {
   const { isSignedIn } = useSupabaseAuth();
   const { openLogin } = useAuthModal();
-  const [bets, setBets] = useState<Bet[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("ALL");
 
-  const fetchBets = useCallback(async () => {
+  const BETS_KEY = "/api/bets/mine?limit=50";
+  const [bets, setBets]       = useState<Bet[]>(() => getCached<Bet[]>(BETS_KEY) ?? []);
+  const [loading, setLoading] = useState(!getCached(BETS_KEY));
+
+  const fetchBets = useCallback(async (force = false) => {
     if (!isSignedIn) return;
     setLoading(true);
-    try {
-      const res = await fetch("/api/bets/mine?limit=50");
-      if (res.ok) setBets(await res.json());
-    } finally {
-      setLoading(false);
-    }
+    const data = await cachedFetch<Bet[]>(BETS_KEY, force);
+    if (data) setBets(data);
+    setLoading(false);
   }, [isSignedIn]);
 
   useEffect(() => { fetchBets(); }, [fetchBets]);
@@ -188,7 +188,7 @@ export function MyBetsClient() {
         </div>
         <button
           type="button"
-          onClick={fetchBets}
+          onClick={() => fetchBets(true)}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-slate-400 transition hover:bg-white/[0.10] hover:text-white"
         >
           <Icon name="refresh" className="text-[18px]" />

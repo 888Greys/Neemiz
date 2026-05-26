@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { getCached, cachedFetch } from "@/lib/client-cache";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
@@ -583,11 +584,9 @@ export function P2PBrowseClient() {
     ? (searchParams.get("payment") ?? "")
     : "";
 
-  const [tab, setTabState]         = useState<"BUY" | "SELL">(initTab);
-  const [crypto, setCryptoState]   = useState(initCrypto);
-  const [payment, setPaymentState] = useState(initPayment);
-  const [ads, setAds]              = useState<Ad[]>([]);
-  const [loading, setLoading]      = useState(true);
+  const [tab, setTabState]          = useState<"BUY" | "SELL">(initTab);
+  const [crypto, setCryptoState]    = useState(initCrypto);
+  const [payment, setPaymentState]  = useState(initPayment);
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
 
   // Sync state to URL whenever filters change
@@ -615,26 +614,21 @@ export function P2PBrowseClient() {
     pushUrl(tab, crypto, p);
   }, [tab, crypto, pushUrl]);
 
-  const fetchAds = useCallback(async () => {
+  const adsKey = `/api/p2p/ads?${new URLSearchParams({
+    side:   tab === "BUY" ? "SELL" : "BUY",
+    crypto,
+    ...(payment ? { payment } : {}),
+  })}`;
+
+  const [ads, setAds]         = useState<Ad[]>(() => getCached<Ad[]>(adsKey) ?? []);
+  const [loading, setLoading] = useState(!getCached(adsKey));
+
+  const fetchAds = useCallback(async (force = false) => {
     setLoading(true);
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 12000);
-    try {
-      const params = new URLSearchParams({
-        side: tab === "BUY" ? "SELL" : "BUY",
-        crypto,
-        ...(payment ? { payment } : {}),
-      });
-      const res  = await fetch(`/api/p2p/ads?${params}`, { signal: controller.signal });
-      const data = await res.json();
-      setAds(Array.isArray(data) ? data : []);
-    } catch {
-      setAds([]);
-    } finally {
-      window.clearTimeout(timeout);
-      setLoading(false);
-    }
-  }, [tab, crypto, payment]);
+    const data = await cachedFetch<Ad[]>(adsKey, force);
+    setAds(data ?? []);
+    setLoading(false);
+  }, [adsKey]);
 
   useEffect(() => { fetchAds(); }, [fetchAds]);
 
@@ -723,7 +717,7 @@ export function P2PBrowseClient() {
                   </button>
                 ))}
                 <button
-                  onClick={fetchAds}
+                  onClick={() => fetchAds(true)}
                   title="Refresh"
                   className="grid h-8 w-8 place-items-center rounded-md text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-white"
                 >
