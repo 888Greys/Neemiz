@@ -754,6 +754,73 @@ function DetailTradeTicket({
   );
 }
 
+function formatBetDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function PositionCard({ bet }: { bet: MyBet }) {
+  const pending = bet.status === "PENDING";
+  const profit = bet.potentialWin - bet.stake;
+  const sideColor = bet.outcome.toLowerCase() === "yes" ? "text-[#31c45d]" : "text-red-400";
+
+  return (
+    <article className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4 transition hover:border-white/[0.13] sm:p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[15px] font-black leading-snug text-white sm:text-base">{bet.question}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold text-white/45">
+            <span className={sideColor}>{bet.outcome}</span>
+            <span>@ {(bet.price * 100).toFixed(1)}¢</span>
+            <span>{(1 / bet.price).toFixed(2)}x</span>
+          </div>
+        </div>
+        <StatusBadge status={bet.status} />
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-xl bg-black/20 p-3">
+          <p className="text-[11px] font-bold text-white/35">Stake</p>
+          <p className="mt-1 font-mono text-sm font-black text-white">${bet.stake.toLocaleString()}</p>
+        </div>
+        <div className="rounded-xl bg-black/20 p-3">
+          <p className="text-[11px] font-bold text-white/35">{pending ? "To win" : "Payout"}</p>
+          <p className={`mt-1 font-mono text-sm font-black ${bet.status === "LOST" ? "text-red-400" : "text-[#31c45d]"}`}>
+            ${((bet.status === "WON" && bet.winAmount) ? bet.winAmount : bet.potentialWin).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          </p>
+        </div>
+        <div className="rounded-xl bg-black/20 p-3">
+          <p className="text-[11px] font-bold text-white/35">Max profit</p>
+          <p className="mt-1 font-mono text-sm font-black text-white">${profit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+        </div>
+        <div className="rounded-xl bg-black/20 p-3">
+          <p className="text-[11px] font-bold text-white/35">Opened</p>
+          <p className="mt-1 text-sm font-black text-white">{formatBetDate(bet.createdAt)}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-3">
+        <div className="text-[12px] font-semibold text-white/35">
+          {pending ? "Position is open until the market resolves." : bet.settledAt ? `Settled ${formatBetDate(bet.settledAt)}` : "Position resolved."}
+        </div>
+        {bet.executionMode === "clob" && (
+          <div className="flex flex-wrap gap-2 text-[11px] text-white/35">
+            <span className="rounded-md border border-white/[0.06] bg-black/20 px-2 py-1 uppercase tracking-wide">
+              CLOB {bet.clobStatus ?? "PLACED"}
+            </span>
+            {bet.clobOrderId && (
+              <span className="rounded-md border border-white/[0.06] bg-black/20 px-2 py-1 font-mono">
+                {bet.clobOrderId.slice(0, 10)}...{bet.clobOrderId.slice(-6)}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </article>
+  );
+}
+
 function MarketDetailView({
   market,
   related,
@@ -1209,6 +1276,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   const [search,   setSearch]   = useState("");
   const [selectedMarket, setSelectedMarket] = useState<PolymarketMarket | null>(null);
   const [commentsByMarket, setCommentsByMarket] = useState<Record<string, DetailComment[]>>({});
+  const [betsView, setBetsView] = useState<"open" | "resolved" | "all">("open");
   const tagBarRef = useRef<HTMLDivElement>(null);
 
   const hasLoadedRef = useRef(initialMarkets.length > 0);
@@ -1293,6 +1361,11 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   const breakingMarkets = useMemo(() => [...markets].sort((a, b) => b.volume - a.volume), [markets]);
   // Grid = all filtered except the hero (first in filtered)
   const gridMarkets = filtered;
+  const openBets = useMemo(() => myBets.filter((b) => b.status === "PENDING"), [myBets]);
+  const resolvedBets = useMemo(() => myBets.filter((b) => b.status !== "PENDING"), [myBets]);
+  const visibleBets = betsView === "open" ? openBets : betsView === "resolved" ? resolvedBets : myBets;
+  const openStake = openBets.reduce((sum, b) => sum + b.stake, 0);
+  const openToWin = openBets.reduce((sum, b) => sum + b.potentialWin, 0);
 
   const openBet = (market: PolymarketMarket, outcome?: string, amount?: number) => {
     const normalizedOutcome = outcome && market.outcomes.includes(outcome)
@@ -1474,7 +1547,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
 
       {/* ── My Bets ──────────────────────────────────────────────────────── */}
       {tab === "my-bets" && (
-        <div>
+        <div className="mx-auto w-full max-w-6xl">
           {!userId ? (
             <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
               <p className="text-sm text-white/30">Sign in to see your bets</p>
@@ -1490,42 +1563,53 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
               </button>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
-              {myBets.map((b) => (
-                <div key={b.id} className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] p-5">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <p className="flex-1 text-[15px] font-semibold leading-snug text-white line-clamp-2">{b.question}</p>
-                    <StatusBadge status={b.status} />
-                  </div>
-                  <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-white/40">
-                    <span>
-                      <span className={b.outcome.toLowerCase() === "yes" ? "text-[#31c45d]" : "text-red-400"}>{b.outcome}</span>
-                      {" "}@ {(b.price * 100).toFixed(0)}¢ ({(1 / b.price).toFixed(2)}×)
-                    </span>
-                    <span>Stake: <span className="font-black text-white">${b.stake.toLocaleString()}</span></span>
-                    <span>
-                      {b.status === "WON"
-                        ? <span className="font-black text-[#31c45d]">Won ${b.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        : b.status === "LOST"
-                        ? <span className="font-black text-red-400">Lost</span>
-                        : <span>To win: <span className="font-black text-white">${b.potentialWin.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></span>
-                      }
-                    </span>
-                  </div>
-                  {b.executionMode === "clob" && (
-                    <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-white/35">
-                      <span className="rounded-md border border-white/[0.06] bg-black/20 px-2 py-1 uppercase tracking-wide">
-                        CLOB {b.clobStatus ?? "PLACED"}
-                      </span>
-                      {b.clobOrderId && (
-                        <span className="rounded-md border border-white/[0.06] bg-black/20 px-2 py-1 font-mono">
-                          {b.clobOrderId.slice(0, 10)}...{b.clobOrderId.slice(-6)}
-                        </span>
-                      )}
-                    </div>
-                  )}
+            <div className="space-y-5">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-white/35">Open positions</p>
+                  <p className="mt-2 text-2xl font-black text-white">{openBets.length}</p>
                 </div>
-              ))}
+                <div className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-white/35">Capital at risk</p>
+                  <p className="mt-2 text-2xl font-black text-white">${openStake.toLocaleString()}</p>
+                </div>
+                <div className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-white/35">Open payout</p>
+                  <p className="mt-2 text-2xl font-black text-[#31c45d]">${openToWin.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-black text-white">My positions</h2>
+                  <p className="mt-1 text-sm text-white/35">Track pending bets, entry price, stake, and potential payout.</p>
+                </div>
+                <div className="grid grid-cols-3 rounded-xl border border-white/[0.08] bg-[#171820] p-1">
+                  {([
+                    ["open", `Open ${openBets.length}`],
+                    ["resolved", `Resolved ${resolvedBets.length}`],
+                    ["all", `All ${myBets.length}`],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      onClick={() => setBetsView(value)}
+                      className={`h-9 rounded-lg px-3 text-[12px] font-black ${betsView === value ? "bg-[#087cff] text-white" : "text-white/40 hover:text-white/70"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {visibleBets.length === 0 ? (
+                <div className="rounded-2xl border border-white/[0.06] bg-[#171820] py-14 text-center">
+                  <p className="text-sm text-white/30">No positions in this view</p>
+                </div>
+              ) : (
+                <div className="grid gap-3 xl:grid-cols-2">
+                  {visibleBets.map((b) => <PositionCard key={b.id} bet={b} />)}
+                </div>
+              )}
             </div>
           )}
         </div>
