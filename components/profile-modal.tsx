@@ -427,7 +427,13 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               />
             </div>
 
-            <p className="text-[11px] text-slate-600">Min KSh 100 · Max KSh 150,000 per transaction</p>
+            <p className="text-[11px] text-slate-600">Min KSh 100 · Max KSh 150,000 · 5% fee applies</p>
+            {Number(amount) > 0 && (
+              <div className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-2.5 ring-1 ring-white/[0.06]">
+                <span className="text-[11px] text-slate-500">You will receive</span>
+                <span className="text-[13px] font-black text-emerald-400">KSh {(Number(amount) * 0.95).toLocaleString("en-KE", { minimumFractionDigits: 2 })}</span>
+              </div>
+            )}
 
             {error && (
               <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 ring-1 ring-red-500/20">{error}</p>
@@ -547,8 +553,14 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
             />
 
             <p className="text-[11px] text-slate-600">
-              Min {MIN_CRYPTO[selectedBal?.crypto ?? ""] ?? 0} {selectedBal?.crypto} · Network fees apply
+              Min {MIN_CRYPTO[selectedBal?.crypto ?? ""] ?? 0} {selectedBal?.crypto} · 5% fee applies
             </p>
+            {Number(cwAmount) > 0 && (
+              <div className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-2.5 ring-1 ring-white/[0.06]">
+                <span className="text-[11px] text-slate-500">You will receive</span>
+                <span className="text-[13px] font-black text-emerald-400">{(Number(cwAmount) * 0.95).toFixed(cwPrec)} {selectedBal?.crypto}</span>
+              </div>
+            )}
 
             {cwError && (
               <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 ring-1 ring-red-500/20">{cwError}</p>

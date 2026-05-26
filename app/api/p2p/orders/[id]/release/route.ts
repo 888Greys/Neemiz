@@ -37,6 +37,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const network     = defaultNetwork(order.crypto);
     const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
 
+    // Platform escrow fee: 2% total (1% from buyer + 1% from seller).
+    // Deducted from the crypto being transferred — receiver gets 98% of trade amount.
+    const ESCROW_FEE_RATE = 0.02;
+    const netCryptoAmt    = parseFloat((cryptoAmt * (1 - ESCROW_FEE_RATE)).toFixed(8));
+
     await db.$transaction(async (tx) => {
       await tx.p2POrder.update({
         where: { id },
@@ -57,7 +62,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           },
         });
 
-        await creditUserCrypto(tx, order.buyerId, order.crypto, network, cryptoAmt);
+        // Buyer (user) receives 98% — 2% platform fee stays in escrow
+        await creditUserCrypto(tx, order.buyerId, order.crypto, network, netCryptoAmt);
       } else {
         if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
         const unlocked = await tx.userCryptoBalance.updateMany({
@@ -65,10 +71,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           data:  { locked: { decrement: cryptoAmt } },
         });
         if (unlocked.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
+        // Merchant (buyer) receives 98% — 2% platform fee stays in escrow
         await tx.p2PCryptoBalance.upsert({
           where:  { merchantId_crypto: { merchantId: merchant.id, crypto: order.crypto } },
-          create: { merchantId: merchant.id, crypto: order.crypto, total: cryptoAmt, available: cryptoAmt, locked: 0 },
-          update: { total: { increment: cryptoAmt }, available: { increment: cryptoAmt } },
+          create: { merchantId: merchant.id, crypto: order.crypto, total: netCryptoAmt, available: netCryptoAmt, locked: 0 },
+          update: { total: { increment: netCryptoAmt }, available: { increment: netCryptoAmt } },
         });
       }
 
