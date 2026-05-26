@@ -454,13 +454,13 @@ export function BinaryClient() {
 
       <div data-binary-grid="true" className="grid min-h-0 flex-1 min-w-0 gap-0 overflow-hidden xl:grid-cols-[300px_minmax(0,1fr)_390px]">
         <aside className="order-2 hidden min-h-0 flex-col overflow-hidden border-r border-white/[0.08] xl:order-none xl:flex">
-          <section className="flex min-h-0 flex-[0.78] flex-col border-b border-white/[0.08] bg-[#0f1218]">
+          <section className="shrink-0 border-b border-white/[0.08] bg-[#0f1218]">
             <div className="grid grid-cols-3 border-b border-white/[0.07] text-xs font-black">
               <button className="border-b-2 border-sky-400 py-2 text-sky-300" type="button">Open ({openTrades.length})</button>
               <button className="py-2 text-slate-500" type="button">Closed ({closedTrades.length})</button>
               <button className="py-2 text-slate-500" type="button">Tx</button>
             </div>
-            <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-3">
+            <div className="space-y-1.5 overflow-y-auto px-3 py-2">
               {openTrades.length === 0 ? (
                 <EmptyState title="No open positions" subtitle="Your active contracts will appear here" />
               ) : (
@@ -484,8 +484,8 @@ export function BinaryClient() {
             </div>
           </section>
 
-          <section className="flex min-h-0 flex-1 flex-col bg-[#0f1218] p-3">
-            <div className="mb-2 flex items-center justify-between">
+          <section className="flex min-h-0 flex-1 flex-col bg-[#0f1218] px-3 py-2">
+            <div className="mb-1.5 flex items-center justify-between">
               <h3 className="text-sm font-black">Closed contracts</h3>
               <Icon name="history" className="text-[16px] text-slate-500" />
             </div>
@@ -651,10 +651,9 @@ export function BinaryClient() {
 
 function EmptyState({ subtitle, title }: { subtitle: string; title: string }) {
   return (
-    <div className="border border-dashed border-white/[0.08] px-3 py-5 text-center">
-      <div className="mx-auto mb-2 h-2 w-2 rounded-full bg-slate-700" />
+    <div className="px-2 py-2 text-center">
       <div className="text-xs font-black text-slate-400">{title}</div>
-      <div className="mt-1 text-[11px] font-bold text-slate-600">{subtitle}</div>
+      <div className="mt-0.5 text-[11px] font-bold text-slate-600">{subtitle}</div>
     </div>
   );
 }
