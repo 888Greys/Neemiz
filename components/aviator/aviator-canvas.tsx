@@ -394,28 +394,69 @@ function drawIdleState(
   state: AviatorRoundState,
   bettingEndsAt?: string | null,
 ) {
-  const cx = w / 2;
-  const cy = h / 2;
+  const cx      = w / 2;
+  const cy      = h / 2;
+  const compact = w < 520;
   const isBetting = state === "BETTING";
 
   if (isBetting) {
-    const bob = Math.sin(Date.now() * 0.002) * 4;
-    drawPlane(ctx, ox + 20, oy - 18 + bob, 1);
-
-    ctx.font      = `900 ${Math.min(w * 0.048, 30)}px Inter,sans-serif`;
+    // ── "STARTING IN" label ─────────────────────────────────────────────
+    const labelFs = Math.min(w * 0.038, 20);
+    ctx.font      = `700 ${labelFs}px Inter,sans-serif`;
     ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fillText("Place your bets", cx, cy - 22);
+    ctx.fillStyle = "rgba(255,255,255,0.45)";
+    ctx.fillText("STARTING IN", cx, cy - (compact ? 54 : 62));
 
     if (bettingEndsAt) {
-      const rem = Math.max(0, Math.ceil((new Date(bettingEndsAt).getTime() - Date.now()) / 1000));
-      ctx.font       = `900 ${Math.min(w * 0.14, 82)}px Inter,sans-serif`;
-      ctx.fillStyle  = "#ff1838";
-      ctx.shadowColor= "#ff1838";
-      ctx.shadowBlur = 30;
-      ctx.fillText(`${rem}`, cx, cy + 52);
-      ctx.shadowBlur = 0;
+      const TOTAL_MS  = 5000;   // standard 5-second betting window
+      const endMs     = new Date(bettingEndsAt).getTime();
+      const remaining = Math.max(0, endMs - Date.now());
+      const progress  = Math.max(0, Math.min(1, remaining / TOTAL_MS)); // 1 → 0
+      const remSec    = Math.ceil(remaining / 1000);
+      const urgent    = remSec <= 2;
+
+      const ringR   = Math.min(w * 0.14, compact ? 44 : 54);
+      const ringY   = cy - (compact ? 4 : 6);
+      const ringW   = Math.max(4, ringR * 0.18);
+      const color   = urgent ? "#ff1838" : "#ffffff";
+
+      // Outer track
+      ctx.beginPath();
+      ctx.arc(cx, ringY, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.lineWidth   = ringW;
+      ctx.stroke();
+
+      // Progress arc (starts at top, sweeps clockwise, depletes as time runs out)
+      if (progress > 0) {
+        const startAngle = -Math.PI / 2;
+        const endAngle   = startAngle + (Math.PI * 2 * progress);
+        ctx.beginPath();
+        ctx.arc(cx, ringY, ringR, startAngle, endAngle);
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = ringW;
+        ctx.lineCap     = "round";
+        ctx.shadowColor = color;
+        ctx.shadowBlur  = urgent ? 20 : 12;
+        ctx.stroke();
+        ctx.shadowBlur  = 0;
+        ctx.lineCap     = "butt";
+      }
+
+      // Number in center
+      const numFs = Math.min(w * 0.13, compact ? 46 : 56);
+      ctx.font        = `900 ${numFs}px Inter,sans-serif`;
+      ctx.textAlign   = "center";
+      ctx.fillStyle   = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur  = urgent ? 30 : 16;
+      ctx.fillText(`${remSec}`, cx, ringY + numFs * 0.36);
+      ctx.shadowBlur  = 0;
     }
+
+    // Bobbing plane at bottom-left
+    const bob = Math.sin(Date.now() * 0.002) * 3;
+    drawPlane(ctx, ox + 20, oy - 16 + bob, 1, compact ? 0.75 : 0.9);
   } else {
     const spin   = Date.now() * 0.0015;
     const planeR = Math.min(w * 0.07, 48);
