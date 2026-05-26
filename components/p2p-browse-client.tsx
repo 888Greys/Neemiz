@@ -511,45 +511,20 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
 
 function MerchantPromoBanner({ isSignedIn }: { isSignedIn: boolean }) {
   return (
-    <div className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#111118] p-5">
-      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
-        {/* Icon */}
-        <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-[#087cff]/15 border border-[#087cff]/25 shrink-0">
-          <Icon name="storefront" className="text-[#3b82f6] text-xl" />
+    <Link
+      href="/p2p/merchant"
+      className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-[#111118] px-4 py-3 hover:bg-[#16161f] transition-colors"
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#087cff]/15 border border-[#087cff]/25 shrink-0">
+          <Icon name="storefront" className="text-[#3b82f6] text-base" />
         </div>
-
-        {/* Text */}
-        <div className="flex-1 min-w-0">
-          <h3 className="text-white font-black text-base mb-1">Open a merchant desk</h3>
-          <p className="text-sm text-slate-500 leading-relaxed mb-3 max-w-2xl">
-            Post buy &amp; sell ads at your own prices. Accept M-Pesa or bank transfers.
-            All trades are escrow-protected — zero counterparty risk.
-          </p>
-          <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500">
-            {[
-              { icon: "price_change",    text: "Set your own spread" },
-              { icon: "lock",            text: "Escrow-secured trades" },
-              { icon: "verified",        text: "Verified badge" },
-              { icon: "payments",        text: "M-Pesa & Bank" },
-            ].map(({ icon, text }) => (
-              <span key={text} className="flex items-center gap-1.5">
-                <Icon name={icon} className="text-[#3b82f6] text-sm" />
-                {text}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* CTA */}
-        <Link
-          href="/p2p/merchant"
-          className="flex shrink-0 items-center gap-2 rounded-xl bg-[#087cff] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-[#087cff]/20 hover:bg-[#0068d9] transition-all active:scale-[0.97]"
-        >
-          {isSignedIn ? "Apply Now" : "Learn More"}
-          <Icon name="arrow_forward" className="text-base" />
-        </Link>
+        <span className="text-sm font-semibold text-slate-400">
+          {isSignedIn ? "Apply to be a merchant" : "Become a merchant"}
+        </span>
       </div>
-    </div>
+      <Icon name="chevron_right" className="text-lg text-white/25 shrink-0" />
+    </Link>
   );
 }
 
