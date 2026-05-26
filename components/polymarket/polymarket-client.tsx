@@ -529,18 +529,20 @@ function formatKes(value: number, options?: Intl.NumberFormatOptions) {
 function DetailTradeTicket({
   market,
   selectedOutcome,
+  selectedTradeSide,
   balance,
   onTradeSuccess,
   onViewBets,
-  onSelectOutcome,
+  onSelectTradeSide,
   compact = false,
 }: {
   market: PolymarketMarket;
   selectedOutcome: string;
+  selectedTradeSide: "yes" | "no";
   balance: number;
   onTradeSuccess: () => void;
   onViewBets: () => void;
-  onSelectOutcome: (outcome: string) => void;
+  onSelectTradeSide: (side: "yes" | "no") => void;
   compact?: boolean;
 }) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -555,13 +557,15 @@ function DetailTradeTicket({
   } | null>(null);
   const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
   const price = marketPrice(market, selectedIndex);
-  const activePrice  = price;
-  const tradeOutcome = selectedOutcome;
-  const tradeOutcomeIndex = selectedIndex;
+  const noPrice = Math.max(0.01, Math.min(0.99, 1 - price));
+  const binaryNoIndex = market.outcomes.findIndex((o) => o.toLowerCase() === "no");
+  const canExecuteNo = selectedTradeSide === "yes" || binaryNoIndex >= 0;
+  const activePrice  = selectedTradeSide === "yes" ? price : noPrice;
+  const tradeOutcome = selectedTradeSide === "yes" ? selectedOutcome : market.outcomes[binaryNoIndex] ?? selectedOutcome;
+  const tradeOutcomeIndex = selectedTradeSide === "yes" ? selectedIndex : binaryNoIndex;
   const isUnavailable = activePrice < 0.01;
   const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0;
   const amountOptions = compact ? [50, 100, 250] : [50, 100, 250, 500];
-  const ticketOutcomes = market.outcomes.slice(0, Math.min(4, Math.max(2, market.outcomes.length)));
 
   useEffect(() => {
     setReceipt(null);
@@ -572,6 +576,10 @@ function DetailTradeTicket({
     if (placing || isUnavailable) return;
     if (amount < 10) { setTradeError("Minimum bet is KSh 10"); return; }
     if (amount > balance) { setTradeError("Insufficient balance"); return; }
+    if (!canExecuteNo) {
+      setTradeError("No-side execution for multi-outcome markets is not connected yet. Use the Yes side for this outcome.");
+      return;
+    }
 
     setPlacing(true);
     setTradeError(null);
@@ -613,7 +621,7 @@ function DetailTradeTicket({
           <div className="min-w-0">
             <p className="text-[12px] font-bold text-white/35 line-clamp-1">{market.question}</p>
             <p className="text-[15px] font-black leading-tight text-white">
-              {selectedOutcome} <span className="text-white/30">·</span> <span className={selectedOutcome.toLowerCase() === "no" ? "text-red-400" : "text-[#31c45d]"}>{formatCents(price)}</span>
+              {selectedOutcome} <span className="text-white/30">·</span> <span className={selectedTradeSide === "no" ? "text-red-400" : "text-[#31c45d]"}>{selectedTradeSide === "yes" ? "Yes" : "No"} {formatCents(activePrice)}</span>
             </p>
           </div>
         </div>}
@@ -685,27 +693,21 @@ function DetailTradeTicket({
           ) : (
           <>
 
-          <div className={`mb-4 grid rounded-2xl bg-black/25 p-1 ${ticketOutcomes.length > 2 ? "grid-cols-2" : "grid-cols-2"} ${compact ? "gap-1" : "gap-2"}`}>
-            {ticketOutcomes.map((outcome) => {
-              const outcomeIndex = Math.max(0, market.outcomes.findIndex((o) => o === outcome));
-              const outcomePrice = marketPrice(market, outcomeIndex);
-              const selected = selectedOutcome === outcome;
-              const negative = outcome.toLowerCase() === "no";
-              return (
-                <button
-                  key={outcome}
-                  onClick={() => onSelectOutcome(outcome)}
-                  className={`min-h-11 rounded-xl px-2 text-left transition ${
-                    selected
-                      ? negative ? "bg-red-500/85 text-white" : "bg-[#31c45d] text-white"
-                      : "bg-transparent text-white/45 hover:bg-white/[0.04]"
-                  }`}
-                >
-                  <span className="block truncate text-[12px] font-black">{outcome}</span>
-                  <span className="block font-mono text-[15px] font-black">{formatCents(outcomePrice)}</span>
-                </button>
-              );
-            })}
+          <div className={`mb-4 grid grid-cols-2 rounded-2xl bg-black/25 p-1 ${compact ? "gap-1" : "gap-2"}`}>
+            <button
+              onClick={() => onSelectTradeSide("yes")}
+              className={`min-h-11 rounded-xl px-2 text-left transition ${selectedTradeSide === "yes" ? "bg-[#31c45d] text-white" : "bg-transparent text-white/45 hover:bg-white/[0.04]"}`}
+            >
+              <span className="block truncate text-[12px] font-black">Yes</span>
+              <span className="block font-mono text-[15px] font-black">{formatCents(price)}</span>
+            </button>
+            <button
+              onClick={() => onSelectTradeSide("no")}
+              className={`min-h-11 rounded-xl px-2 text-left transition ${selectedTradeSide === "no" ? "bg-red-500/85 text-white" : "bg-transparent text-white/45 hover:bg-white/[0.04]"}`}
+            >
+              <span className="block truncate text-[12px] font-black">No</span>
+              <span className="block font-mono text-[15px] font-black">{formatCents(noPrice)}</span>
+            </button>
           </div>
 
           <div className="mb-3 flex items-end justify-between">
@@ -891,12 +893,14 @@ function MarketDetailView({
 }) {
   const topIndex = market.outcomePrices.reduce((best, price, index) => price > (market.outcomePrices[best] ?? 0) ? index : best, 0);
   const [selectedOutcome, setSelectedOutcome] = useState(market.outcomes[topIndex] ?? market.outcomes[0] ?? "Yes");
+  const [selectedTradeSide, setSelectedTradeSide] = useState<"yes" | "no">("yes");
   const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
   const [rulesTab, setRulesTab] = useState<"rules" | "context">("rules");
   const [commentsTab, setCommentsTab] = useState<"comments" | "holders" | "positions" | "activity">("comments");
   const [mobileTradeOpen, setMobileTradeOpen] = useState(false);
   useEffect(() => {
     setSelectedOutcome(market.outcomes[topIndex] ?? market.outcomes[0] ?? "Yes");
+    setSelectedTradeSide("yes");
     setRulesTab("rules");
     setCommentsTab("comments");
     setMobileTradeOpen(false);
@@ -923,7 +927,7 @@ function MarketDetailView({
                 {market.outcomes.slice(0, 4).map((outcome, i) => (
                   <button
                     key={outcome}
-                    onClick={() => setSelectedOutcome(outcome)}
+                    onClick={() => { setSelectedOutcome(outcome); setSelectedTradeSide("yes"); }}
                     className={`flex items-center gap-1.5 text-[13px] font-semibold ${selectedOutcome === outcome ? "text-white" : "text-white/45 hover:text-white/70"}`}
                   >
                     <span className="h-2.5 w-2.5 rounded-full" style={{ background: ["#8bc3ff", "#2997ff", "#facc15", "#f97316"][i % 4] }} />
@@ -961,10 +965,7 @@ function MarketDetailView({
         <section className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
           {market.outcomes.map((outcome, i) => {
             const price = marketPrice(market, i);
-            const yesOutcome = market.outcomes.find((o) => o.toLowerCase() === "yes") ?? market.outcomes[0] ?? outcome;
-            const noOutcome = market.outcomes.find((o) => o.toLowerCase() === "no") ?? market.outcomes[1] ?? outcome;
-            const yesPrice = marketPrice(market, Math.max(0, market.outcomes.findIndex((o) => o === yesOutcome)));
-            const noPrice = marketPrice(market, Math.max(0, market.outcomes.findIndex((o) => o === noOutcome)));
+            const noPrice = Math.max(0.01, Math.min(0.99, 1 - price));
             return (
               <div key={outcome} className="grid grid-cols-[minmax(0,1fr)_74px] items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_90px] xl:grid-cols-[minmax(0,1fr)_90px_170px_170px]">
                 <div className="min-w-0">
@@ -975,11 +976,11 @@ function MarketDetailView({
                   <p className="text-xl font-black text-white">{(price * 100).toFixed(0)}%</p>
                   <p className={`text-[11px] font-black ${i === selectedIndex ? "text-[#31c45d]" : "text-red-400"}`}>{i === selectedIndex ? "▲" : "▼"} {Math.max(1, Math.round(price * 28))}%</p>
                 </div>
-                <button onClick={() => setSelectedOutcome(yesOutcome)} className="hidden h-10 rounded-xl bg-[#31c45d]/80 text-sm font-black text-white xl:block">
-                  Buy {yesOutcome} {formatCents(yesPrice)}
+                <button onClick={() => { setSelectedOutcome(outcome); setSelectedTradeSide("yes"); }} className="hidden h-10 rounded-xl bg-[#31c45d]/80 text-sm font-black text-white xl:block">
+                  Buy Yes {formatCents(price)}
                 </button>
-                <button onClick={() => setSelectedOutcome(noOutcome)} className="hidden h-10 rounded-xl bg-red-500/15 text-sm font-black text-red-400 xl:block">
-                  Buy {noOutcome} {formatCents(noPrice)}
+                <button onClick={() => { setSelectedOutcome(outcome); setSelectedTradeSide("no"); }} className="hidden h-10 rounded-xl bg-red-500/15 text-sm font-black text-red-400 xl:block">
+                  Buy No {formatCents(noPrice)}
                 </button>
               </div>
             );
@@ -1052,10 +1053,11 @@ function MarketDetailView({
         <DetailTradeTicket
           market={market}
           selectedOutcome={selectedOutcome}
+          selectedTradeSide={selectedTradeSide}
           balance={balance}
           onTradeSuccess={onTradeSuccess}
           onViewBets={onViewBets}
-          onSelectOutcome={setSelectedOutcome}
+          onSelectTradeSide={setSelectedTradeSide}
         />
         <div className="mt-5 space-y-3">
           {related.filter((m) => m.conditionId !== market.conditionId).slice(0, 3).map((m) => {
@@ -1087,10 +1089,11 @@ function MarketDetailView({
             <DetailTradeTicket
               market={market}
               selectedOutcome={selectedOutcome}
+              selectedTradeSide={selectedTradeSide}
               balance={balance}
               onTradeSuccess={onTradeSuccess}
               onViewBets={onViewBets}
-              onSelectOutcome={setSelectedOutcome}
+              onSelectTradeSide={setSelectedTradeSide}
               compact
             />
           </>
@@ -1099,7 +1102,7 @@ function MarketDetailView({
             <div className="min-w-0 flex-1">
               <p className="truncate text-[11px] font-bold text-white/35">{market.question}</p>
               <p className="text-[13px] font-black text-white">
-                {selectedOutcome} <span className={`font-mono ${selectedOutcome.toLowerCase() === "no" ? "text-red-400" : "text-[#31c45d]"}`}>{formatCents(marketPrice(market, selectedIndex))}</span>
+                {selectedOutcome} <span className={`font-mono ${selectedTradeSide === "no" ? "text-red-400" : "text-[#31c45d]"}`}>{selectedTradeSide === "yes" ? "Yes" : "No"} {formatCents(selectedTradeSide === "yes" ? marketPrice(market, selectedIndex) : Math.max(0.01, Math.min(0.99, 1 - marketPrice(market, selectedIndex))))}</span>
               </p>
             </div>
             <button
