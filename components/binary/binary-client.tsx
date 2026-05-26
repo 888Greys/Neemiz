@@ -552,16 +552,16 @@ export function BinaryClient() {
         </main>
 
         <aside className="order-3 hidden min-h-0 flex-col overflow-hidden border-l border-white/[0.08] xl:order-none xl:flex">
-          <section className="min-h-0 flex-1 overflow-hidden bg-[#0f1218]">
-            <div className="shrink-0 border-b border-white/[0.07] p-3">
+          <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
+            <div className="shrink-0 border-b border-white/[0.07] p-2">
               <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Trading mode</div>
-              <div className="mt-2 grid grid-cols-2 rounded bg-black/30 p-1">
-                <button onClick={() => setAutoMode(true)} type="button" className={`rounded py-2 text-xs font-black ${autoMode ? "bg-sky-500 text-white" : "text-slate-500"}`}>AUTO</button>
-                <button onClick={() => setAutoMode(false)} type="button" className={`rounded py-2 text-xs font-black ${!autoMode ? "bg-sky-500 text-white" : "text-slate-500"}`}>MANUAL</button>
+              <div className="mt-1.5 grid grid-cols-2 rounded bg-black/30 p-1">
+                <button onClick={() => setAutoMode(true)} type="button" className={`rounded py-1.5 text-xs font-black ${autoMode ? "bg-sky-500 text-white" : "text-slate-500"}`}>AUTO</button>
+                <button onClick={() => setAutoMode(false)} type="button" className={`rounded py-1.5 text-xs font-black ${!autoMode ? "bg-sky-500 text-white" : "text-slate-500"}`}>MANUAL</button>
               </div>
             </div>
 
-            <div className="min-h-0 space-y-3 overflow-y-auto p-3">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
               <div className="grid grid-cols-3 gap-2">
                 {(["evenOdd", "matchDiffer", "overUnder"] as ContractFamily[]).map((item) => (
                   <button
@@ -577,10 +577,10 @@ export function BinaryClient() {
 
               <div>
                 <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Stake amount</div>
-                <Stepper value={stake} min={1} prefix="$" onChange={setStake} />
-                <div className="mt-2 grid grid-cols-6 gap-1.5">
+                <Stepper value={stake} min={1} prefix="$" onChange={setStake} compact />
+                <div className="mt-1.5 grid grid-cols-6 gap-1.5">
                   {STAKE_PRESETS.map((amount) => (
-                    <button key={amount} type="button" onClick={() => setStake(amount)} className="rounded bg-white/[0.06] px-2 py-2 text-[11px] font-black text-slate-300 transition hover:bg-white/[0.1]">
+                    <button key={amount} type="button" onClick={() => setStake(amount)} className="rounded bg-white/[0.06] px-2 py-1.5 text-[11px] font-black text-slate-300 transition hover:bg-white/[0.1]">
                       ${amount}
                     </button>
                   ))}
@@ -588,8 +588,8 @@ export function BinaryClient() {
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <NumberBox label="Duration" value={duration} suffix="ticks" min={3} max={30} onChange={setDuration} />
-                <NumberBox label="Digit line" value={targetDigit} min={0} max={9} onChange={setTargetDigit} />
+                <NumberBox label="Duration" value={duration} suffix="ticks" min={3} max={30} onChange={setDuration} compact />
+                <NumberBox label="Digit line" value={targetDigit} min={0} max={9} onChange={setTargetDigit} compact />
               </div>
 
               <div className="grid grid-cols-3 gap-2">
@@ -598,20 +598,20 @@ export function BinaryClient() {
                 <SmallInput label="Multiplier" value={multiplier} prefix="x" step={0.1} onChange={setMultiplier} />
               </div>
 
-              <div className="rounded border border-white/[0.07] bg-black/25 p-3">
+              <div className="rounded border border-white/[0.07] bg-black/25 px-3 py-1.5">
                 <SummaryRow label="Stake" value={formatMoney(stake)} />
                 <SummaryRow label="Est. payout" value={formatMoney(payout)} positive />
                 <SummaryRow label="Last digit" value={String(latest.digit)} />
                 <SummaryRow label="Previous digit" value={String(previous?.digit ?? "-")} />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="sticky bottom-0 z-10 -mx-2 grid grid-cols-2 gap-2 border-t border-white/[0.08] bg-[#0f1218] p-2 shadow-[0_-12px_24px_rgba(0,0,0,.35)]">
                 {selectedSides.map((side) => (
                   <button
                     key={side}
                     type="button"
                     onClick={() => placeTrade(side)}
-                    className="flex items-center justify-between rounded bg-[#0b8f62] px-3 py-2.5 text-left transition hover:bg-[#0da26f] active:scale-[0.98]"
+                    className="flex items-center justify-between rounded bg-[#0b8f62] px-3 py-2 text-left transition hover:bg-[#0da26f] active:scale-[0.98]"
                   >
                     <div className="text-sm font-black">{side}</div>
                     <div className="text-right">
@@ -693,15 +693,15 @@ function TradeRow({ trade }: { trade: BinaryTrade }) {
   );
 }
 
-function Stepper({ min, onChange, prefix, value }: { min: number; onChange: (value: number) => void; prefix: string; value: number }) {
+function Stepper({ compact = false, min, onChange, prefix, value }: { compact?: boolean; min: number; onChange: (value: number) => void; prefix: string; value: number }) {
   return (
-    <div className="flex h-12 items-center overflow-hidden rounded border border-white/[0.08] bg-black/25">
+    <div className={`flex items-center overflow-hidden rounded border border-white/[0.08] bg-black/25 ${compact ? "h-9" : "h-12"}`}>
       <button type="button" onClick={() => onChange(Math.max(min, value - 1))} className="grid h-full w-11 place-items-center bg-white/[0.04] text-slate-300">
         <Icon name="remove_circle" className="text-[16px]" />
       </button>
       <div className="flex min-w-0 flex-1 items-center px-3">
         <span className="font-mono text-slate-500">{prefix}</span>
-        <input value={value} min={min} type="number" onChange={(event) => onChange(Math.max(min, Number(event.target.value) || min))} className="min-w-0 flex-1 bg-transparent px-2 font-mono text-lg font-black text-white outline-none" />
+        <input value={value} min={min} type="number" onChange={(event) => onChange(Math.max(min, Number(event.target.value) || min))} className={`min-w-0 flex-1 bg-transparent px-2 font-mono font-black text-white outline-none ${compact ? "text-sm" : "text-lg"}`} />
       </div>
       <button type="button" onClick={() => onChange(value + 1)} className="grid h-full w-11 place-items-center bg-white/[0.04] text-slate-300">
         <Icon name="add" className="text-[16px]" />
@@ -710,11 +710,11 @@ function Stepper({ min, onChange, prefix, value }: { min: number; onChange: (val
   );
 }
 
-function NumberBox({ label, max, min, onChange, suffix, value }: { label: string; max: number; min: number; onChange: (value: number) => void; suffix?: string; value: number }) {
+function NumberBox({ compact = false, label, max, min, onChange, suffix, value }: { compact?: boolean; label: string; max: number; min: number; onChange: (value: number) => void; suffix?: string; value: number }) {
   return (
-    <label className="block">
-      <span className="mb-2 block text-[11px] font-black uppercase tracking-wider text-slate-500">{label}</span>
-      <div className="flex h-11 items-center rounded border border-white/[0.08] bg-black/25 px-3 focus-within:border-sky-400">
+    <label className={`block ${compact ? "px-2 py-2" : ""}`}>
+      <span className={`${compact ? "mb-1 text-[10px]" : "mb-2 text-[11px]"} block font-black uppercase tracking-wider text-slate-500`}>{label}</span>
+      <div className={`flex items-center rounded border border-white/[0.08] bg-black/25 px-3 focus-within:border-sky-400 ${compact ? "h-9" : "h-11"}`}>
         <input type="number" min={min} max={max} value={value} onChange={(event) => onChange(Math.min(max, Math.max(min, Number(event.target.value) || min)))} className="min-w-0 flex-1 bg-transparent font-mono text-sm font-black text-white outline-none" />
         {suffix && <span className="text-[10px] font-black uppercase text-slate-600">{suffix}</span>}
       </div>
@@ -725,8 +725,8 @@ function NumberBox({ label, max, min, onChange, suffix, value }: { label: string
 function SmallInput({ label, onChange, prefix, step = 1, value }: { label: string; onChange: (value: number) => void; prefix: string; step?: number; value: number }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</span>
-      <div className="flex h-10 items-center rounded border border-white/[0.08] bg-black/25 px-2">
+      <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</span>
+      <div className="flex h-9 items-center rounded border border-white/[0.08] bg-black/25 px-2">
         <span className="font-mono text-xs font-black text-slate-600">{prefix}</span>
         <input type="number" step={step} value={value} onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))} className="min-w-0 flex-1 bg-transparent px-1 font-mono text-xs font-black text-white outline-none" />
       </div>
@@ -736,7 +736,7 @@ function SmallInput({ label, onChange, prefix, step = 1, value }: { label: strin
 
 function SummaryRow({ label, positive, value }: { label: string; positive?: boolean; value: string }) {
   return (
-    <div className="flex items-center justify-between border-b border-white/[0.06] py-2 last:border-0">
+    <div className="flex items-center justify-between border-b border-white/[0.06] py-1.5 last:border-0">
       <span className="text-xs font-bold text-slate-500">{label}</span>
       <span className={`font-mono text-sm font-black ${positive ? "text-emerald-300" : "text-white"}`}>{value}</span>
     </div>
