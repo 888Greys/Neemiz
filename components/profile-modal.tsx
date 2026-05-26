@@ -572,6 +572,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const meta        = user?.user_metadata ?? {};
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials    = displayName.charAt(0).toUpperCase();
+  const avatarUrl   = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
   const email       = user?.email;
   const phone       = user?.phone ?? meta.phone_number ?? null;
   const isVerified  = user?.email_confirmed_at != null;
@@ -650,9 +651,18 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
           {view === "main" && (
             <>
               <div className="flex flex-col items-center gap-2 px-5 pb-5 pt-1 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#087cff] to-[#0556c8] text-2xl font-black text-white shadow-[0_0_30px_rgba(8,124,255,0.4)]">
-                  {initials}
-                </div>
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt=""
+                    referrerPolicy="no-referrer"
+                    className="h-16 w-16 rounded-full object-cover shadow-[0_0_30px_rgba(8,124,255,0.24)] ring-2 ring-white/[0.08]"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#087cff] to-[#0556c8] text-2xl font-black text-white shadow-[0_0_30px_rgba(8,124,255,0.4)]">
+                    {initials}
+                  </div>
+                )}
                 <div>
                   <p className="text-lg font-black text-white">{displayName}</p>
                   <p className="font-mono text-[11px] text-slate-500">ID {memberId}</p>
