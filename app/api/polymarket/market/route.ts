@@ -7,7 +7,7 @@ export async function GET(req: Request) {
     return Response.json({ error: "conditionId is required" }, { status: 400 });
   }
 
-  const market = await fetchMarket(conditionId);
+  const market = await fetchMarket(conditionId, { cache: "no-store" });
   if (!market) {
     return Response.json({ error: "Market not found" }, { status: 404 });
   }

@@ -72,7 +72,7 @@ export async function POST(req: Request) {
   if (stake > MAX_BET) return Response.json({ error: `Maximum bet is KSh ${MAX_BET.toLocaleString()}` }, { status: 400 });
 
   // Fetch live market to get current price
-  const market = await fetchMarket(conditionId);
+  const market = await fetchMarket(conditionId, { cache: "no-store" });
   if (!market) return Response.json({ error: "Market not found" }, { status: 404 });
   if (!market.active || market.closed) {
     return Response.json({ error: "Market is not open for betting" }, { status: 409 });
