@@ -17,6 +17,7 @@ interface MyHistoryBet {
 
 interface Props {
   liveBets:       AviatorBetPublic[];
+  prevBets?:      AviatorBetPublic[];
   myHistory:      MyHistoryBet[];
   myCurrentBets?: AviatorBetPublic[];
   userId?:        string;
@@ -34,8 +35,8 @@ function MultChip({ v }: { v: number | null }) {
   return <span className={`font-black ${cls}`}>{v.toFixed(2)}×</span>;
 }
 
-export function AviatorLiveBets({ liveBets, myHistory, myCurrentBets = [], userId }: Props) {
-  const [tab, setTab] = useState<"live" | "my" | "top">("live");
+export function AviatorLiveBets({ liveBets, prevBets = [], myHistory, myCurrentBets = [], userId }: Props) {
+  const [tab, setTab] = useState<"live" | "prev" | "my" | "top">("live");
 
   // top = highest cashout multiplier from live bets this round
   const topBets = [...liveBets]
@@ -48,14 +49,15 @@ export function AviatorLiveBets({ liveBets, myHistory, myCurrentBets = [], userI
       {/* Tab bar */}
       <div className="flex shrink-0 gap-1 border-b border-white/[0.07] bg-[#101010] p-2">
         {([
-          { id: "live" as const, label: `All Bets`, count: liveBets.length },
-          { id: "my"   as const, label: "My Bets",  count: myCurrentBets.length + myHistory.length },
-          { id: "top"  as const, label: "Top",       count: topBets.length },
+          { id: "live" as const, label: "All Bets",  count: liveBets.length },
+          { id: "prev" as const, label: "Previous",  count: prevBets.length },
+          { id: "my"   as const, label: "My Bets",   count: myCurrentBets.length + myHistory.length },
+          { id: "top"  as const, label: "Top",        count: topBets.length },
         ]).map(({ id, label, count }) => (
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[11px] font-black transition-colors ${
+            className={`flex flex-1 items-center justify-center gap-1 rounded-full py-1.5 text-[10px] font-black transition-colors ${
               tab === id
                 ? "bg-white/10 text-white"
                 : "text-white/40 hover:bg-white/5 hover:text-white/70"
@@ -86,6 +88,15 @@ export function AviatorLiveBets({ liveBets, myHistory, myCurrentBets = [], userI
           <>
             {liveBets.length === 0 && <EmptyRow text="No bets placed yet this round" />}
             {liveBets.map((b) => (
+              <LiveRow key={b.id} bet={b} isMe={b.userId === userId} />
+            ))}
+          </>
+        )}
+
+        {tab === "prev" && (
+          <>
+            {prevBets.length === 0 && <EmptyRow text="No data for previous round" />}
+            {prevBets.map((b) => (
               <LiveRow key={b.id} bet={b} isMe={b.userId === userId} />
             ))}
           </>
