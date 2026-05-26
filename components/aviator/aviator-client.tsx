@@ -6,6 +6,7 @@ import { AviatorCanvas }   from "./aviator-canvas";
 import { AviatorBetPanel } from "./aviator-bet-panel";
 import { AviatorHistory, VerifyModal } from "./aviator-history";
 import { AviatorLiveBets } from "./aviator-live-bets";
+import { toast } from "@/lib/toast";
 import type {
   AviatorRoundState,
   AviatorRound,
@@ -390,9 +391,14 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           },
         };
       });
+      toast.success(
+        `Cashed out at ${(data.cashoutAt as number).toFixed(2)}×`,
+        `+KSh ${Number(data.winAmount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      );
       await fetchBalance();
       window.dispatchEvent(new Event("wallet-refresh"));
     } catch (err) {
+      toast.error("Cashout failed", (err as Error).message);
       setMyBets((prev) => {
         const existing = prev[panelIndex];
         if (!existing || existing.status !== "CASHING_OUT") return prev;
