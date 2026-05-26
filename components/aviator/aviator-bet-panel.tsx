@@ -13,7 +13,7 @@ interface Props {
   onCashout:         (panelIndex: 0 | 1) => Promise<void>;
 }
 
-// Quick-amount chips — directly set the bet to a fixed value (matches Betika)
+// Quick-amount chips — matches Betika exactly
 const QUICK_AMOUNTS = [100, 250, 1_000, 25_000];
 
 function snapStep(v: number) {
@@ -26,20 +26,19 @@ function snapStep(v: number) {
 export function AviatorBetPanel({
   panelIndex, round, myBet, currentMultiplier, balance, onBet, onCashout,
 }: Props) {
-  const [tab,          setTab]          = useState<"bet" | "auto">("bet");
-  const [amount,       setAmount]       = useState<number>(100);
-  const [autoCashout,  setAutoCashout]  = useState<number>(2.00);
-  const [acEnabled,    setAcEnabled]    = useState(false);
-  const [loading,      setLoading]      = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
-  // Bet queued for the *next* round (placed while current round is FLYING)
-  const [nextBet,      setNextBet]      = useState<{ amount: number; autoCashout?: number } | null>(null);
+  const [tab,           setTab]          = useState<"bet" | "auto">("bet");
+  const [amount,        setAmount]       = useState<number>(100);
+  const [autoCashout,   setAutoCashout]  = useState<number>(2.00);
+  const [acEnabled,     setAcEnabled]    = useState(false);
+  const [loading,       setLoading]      = useState(false);
+  const [error,         setError]        = useState<string | null>(null);
+  const [nextBet,       setNextBet]      = useState<{ amount: number; autoCashout?: number } | null>(null);
 
   // Auto-bet
-  const [autoBetOn,    setAutoBetOn]    = useState(false);
-  const [stopOnWin,    setStopOnWin]    = useState(false);
-  const [stopOnLoss,   setStopOnLoss]   = useState(false);
-  const [autoBetRounds,setAutoBetRounds]= useState(0);
+  const [autoBetOn,     setAutoBetOn]    = useState(false);
+  const [stopOnWin,     setStopOnWin]    = useState(false);
+  const [stopOnLoss,    setStopOnLoss]   = useState(false);
+  const [autoBetRounds, setAutoBetRounds]= useState(0);
 
   // Refs for stale-closure-safe effects
   const autoBetRef     = useRef(false);
@@ -64,7 +63,6 @@ export function AviatorBetPanel({
     if (round?.state !== "FLYING" || myBet?.status !== "ACTIVE") setLoading(false);
   }, [myBet?.status, round?.state]);
 
-  // Clear error when a new betting window opens
   useEffect(() => {
     if (round?.state === "BETTING") setError(null);
   }, [round?.state]);
@@ -75,11 +73,9 @@ export function AviatorBetPanel({
   const isCrashed   = state === "CRASHED";
   const potWin      = myBet ? +(myBet.betAmount * currentMultiplier).toFixed(2) : 0;
 
-  // ── Amount helpers ─────────────────────────────────────────────────────────
   const clampAmt = (v: number) => Math.max(10, Math.min(50000, Math.round(v)));
   const adj = (delta: number) => setAmount((v) => clampAmt(v + delta));
 
-  // ── Place bet ──────────────────────────────────────────────────────────────
   const placeBet = useCallback(async (amt: number, ac?: number) => {
     setError(null);
     setLoading(true);
@@ -93,8 +89,8 @@ export function AviatorBetPanel({
   }, [onBet, panelIndex]);
 
   const handleBet = useCallback(async () => {
-    if (amount < 10)       { setError("Minimum KSh 10"); return; }
-    if (amount > balance)  { setError("Insufficient balance"); return; }
+    if (amount < 10)      { setError("Minimum KSh 10"); return; }
+    if (amount > balance) { setError("Insufficient balance"); return; }
     await placeBet(amount, acEnabled && autoCashout >= 1.01 ? autoCashout : undefined);
   }, [amount, balance, acEnabled, autoCashout, placeBet]);
 
@@ -103,7 +99,6 @@ export function AviatorBetPanel({
     catch (e: unknown) { setError((e as Error).message ?? "Cashout failed"); }
   }, [onCashout, panelIndex]);
 
-  // ── Auto-bet engine ────────────────────────────────────────────────────────
   const placeAutoBet = useCallback(async () => {
     const amt = amountRef.current;
     if (amt < 10) { setAutoBetOn(false); return; }
@@ -117,7 +112,6 @@ export function AviatorBetPanel({
     const prev = prevStateRef.current;
 
     if (curr === "BETTING" && prev !== "BETTING" && !myBetRef.current) {
-      // Place queued next-round bet first; skip auto-bet if queued bet fires
       const queued = nextBetRef.current;
       if (queued) {
         setNextBet(null);
@@ -149,22 +143,22 @@ export function AviatorBetPanel({
 
   useEffect(() => { if (!autoBetOn) setAutoBetRounds(0); }, [autoBetOn]);
 
-  // ── Tab bar ────────────────────────────────────────────────────────────────
+  // ── Betika-style pill tab bar ──────────────────────────────────────────────
   const TabBar = (
-    <div className="flex shrink-0 border-b border-white/[0.07]">
+    <div className="mx-2 mt-2 mb-1 flex shrink-0 rounded-lg bg-white/[0.07] p-[3px]">
       {(["bet", "auto"] as const).map((t) => (
         <button
           key={t}
           onClick={() => setTab(t)}
-          className={`flex-1 py-2 text-[11px] font-black uppercase tracking-widest transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] font-black uppercase tracking-wider transition-all ${
             tab === t
-              ? "border-b-2 border-[#087cff] text-[#087cff]"
-              : "text-white/30 hover:text-white/60"
+              ? "bg-white/[0.15] text-white shadow-sm"
+              : "text-white/35 hover:text-white/60"
           }`}
         >
           {t === "bet" ? "Bet" : "Auto"}
           {t === "auto" && autoBetOn && (
-            <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-[#087cff]/20 px-1.5 py-px text-[8px] font-black text-[#087cff]">
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#087cff]/30 px-1.5 py-px text-[8px] font-black text-[#087cff]">
               <span className="h-1 w-1 animate-pulse rounded-full bg-[#087cff]" />
               ON
             </span>
@@ -175,45 +169,46 @@ export function AviatorBetPanel({
   );
 
   // ─────────────────────────────────────────────────────────────────────────
-  // FLYING + active bet → CASHOUT (no spinner — tap = instant win)
+  // FLYING + active bet → CASHOUT button
   // ─────────────────────────────────────────────────────────────────────────
   if (isFlying && myBet?.status === "ACTIVE") {
     return (
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12] sm:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col gap-2.5 p-3 sm:p-3.5">
+        <div className="flex flex-col gap-2 p-2 sm:p-3">
           {myBet.autoCashout && (
-            <div className="flex items-center justify-between text-[11px]">
+            <div className="flex items-center justify-between px-1 text-[11px]">
               <span className="text-white/40">Auto cashout at</span>
               <span className="font-black text-[#f59e0b]">{myBet.autoCashout.toFixed(2)}×</span>
             </div>
           )}
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] text-white/30">Bet</p>
-              <p className="font-black text-white">KSh {myBet.betAmount.toLocaleString()}</p>
+          <div className="grid grid-cols-[1fr_auto] items-stretch gap-2">
+            {/* Left: bet info */}
+            <div className="flex flex-col justify-center gap-1.5 rounded-xl bg-white/[0.04] px-3 py-2">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10px] text-white/35">Staked</span>
+                <span className="font-black text-white">KSh {myBet.betAmount.toLocaleString()}</span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <span className="text-[10px] text-white/35">Win now</span>
+                <span className="font-black text-[#31c45d]">
+                  KSh {potWin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-white/30">Win now</p>
-              <p className="font-black text-[#31c45d]">
-                KSh {potWin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </p>
-            </div>
-          </div>
-          {/* Single tap = instant cashout, no loading state */}
-          <button
-            onClick={handleCashout}
-            className="relative overflow-hidden rounded-xl py-3.5 text-sm font-black text-black transition-all active:scale-[0.97]"
-            style={{ background: "linear-gradient(135deg, #f59e0b, #ef8c00)" }}
-          >
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              CASHOUT
-              <span className="rounded-lg bg-black/20 px-2.5 py-1 text-sm font-black">
+            {/* Right: cashout button — tap = instant, no spinner */}
+            <button
+              onClick={handleCashout}
+              className="relative w-[120px] overflow-hidden rounded-xl text-black transition-all active:scale-[0.97]"
+              style={{ background: "linear-gradient(160deg, #f5b942, #e08200)" }}
+            >
+              <p className="text-[11px] font-bold leading-none opacity-80">Cashout</p>
+              <p className="mt-0.5 text-[15px] font-black leading-tight">
                 KSh {potWin.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </span>
-            </span>
-            <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-15" />
-          </button>
+              </p>
+              <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-10" />
+            </button>
+          </div>
           <p className="text-center text-[11px] font-black text-[#f59e0b]">{currentMultiplier.toFixed(2)}×</p>
           {error && <p className="text-center text-xs text-red-400">{error}</p>}
         </div>
@@ -245,7 +240,7 @@ export function AviatorBetPanel({
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // BETTING + confirmed
+  // BETTING + bet already confirmed — waiting for launch
   // ─────────────────────────────────────────────────────────────────────────
   if (bettingOpen && myBet?.status === "ACTIVE") {
     return (
@@ -262,7 +257,7 @@ export function AviatorBetPanel({
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // FLYING (no bet) + already queued → show confirmation
+  // FLYING (no bet) + next bet queued → confirmation card
   // ─────────────────────────────────────────────────────────────────────────
   if (isFlying && !myBet && nextBet) {
     return (
@@ -277,7 +272,7 @@ export function AviatorBetPanel({
           )}
           <button
             onClick={() => setNextBet(null)}
-            className="mt-1 rounded-lg border border-white/10 px-5 py-1.5 text-[11px] font-black text-white/40 hover:border-white/25 hover:text-white/70 transition-colors"
+            className="mt-1 rounded-lg border border-white/10 px-5 py-1.5 text-[11px] font-black text-white/40 transition-colors hover:border-white/25 hover:text-white/70"
           >
             Cancel
           </button>
@@ -287,20 +282,18 @@ export function AviatorBetPanel({
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // WAITING / CRASHED (no bet) — blocked state
+  // WAITING / CRASHED (no bet) — show disabled form
   // ─────────────────────────────────────────────────────────────────────────
   if (state === "WAITING" || (isCrashed && !myBet)) {
-    const label = state === "WAITING"
-      ? "Next round loading…"
-      : `Ended at ${round?.crashPoint?.toFixed(2)}×`;
     return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0d0e12]">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-[#0d0e12] sm:rounded-2xl">
         {TabBar}
         <div className="flex flex-col items-center gap-2.5 p-4 text-center sm:p-5">
           {state === "WAITING" && <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-white/50" />}
-          <p className="text-sm text-white/40">{label}</p>
+          <p className="text-sm text-white/40">
+            {state === "WAITING" ? "Next round loading…" : `Ended at ${round?.crashPoint?.toFixed(2)}×`}
+          </p>
         </div>
-        {/* Still show auto-bet controls */}
         <AutoBetSection
           autoBetOn={autoBetOn} setAutoBetOn={setAutoBetOn}
           stopOnWin={stopOnWin} setStopOnWin={setStopOnWin}
@@ -312,96 +305,92 @@ export function AviatorBetPanel({
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // BETTING — main form (Bet tab or Auto tab)
+  // BETTING / FLYING (no bet) — main Betika-style form
   // ─────────────────────────────────────────────────────────────────────────
+  const queueForNext = () => {
+    if (amount < 10)      { setError("Minimum KSh 10"); return; }
+    if (amount > balance) { setError("Insufficient balance"); return; }
+    setError(null);
+    setNextBet({ amount, autoCashout: acEnabled && autoCashout >= 1.01 ? autoCashout : undefined });
+  };
+
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-[#0d0e12] sm:rounded-2xl">
       {TabBar}
 
       {tab === "bet" ? (
-        <div className="flex flex-col gap-2.5 p-3 sm:gap-3 sm:p-4">
-          {error && <p className="rounded-lg bg-red-900/30 px-3 py-2 text-[11px] text-red-400">{error}</p>}
+        <div className="flex flex-col gap-2 p-2 sm:p-3">
+          {error && (
+            <p className="rounded-lg bg-red-900/30 px-3 py-1.5 text-[11px] text-red-400">{error}</p>
+          )}
 
-          {/* Amount row */}
-          <div>
-            <p className="mb-1.5 text-[9px] font-black uppercase tracking-widest text-white/30">Bet Amount (KSh)</p>
-            <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] items-center gap-2">
-              <button
-                onClick={() => adj(-snapStep(amount))}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
-              >−</button>
-              <input
-                type="number"
-                value={amount}
-                min={10} max={50000}
-                onChange={(e) => { setAmount(clampAmt(Number(e.target.value))); setError(null); }}
-                className="min-w-0 rounded-xl border border-white/[0.08] bg-black/40 py-2.5 text-center font-mono text-base font-black text-white outline-none focus:border-[#087cff]/50"
-              />
-              <button
-                onClick={() => adj(snapStep(amount))}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.05] text-lg font-black text-white/60 hover:bg-white/[0.1] hover:text-white"
-              >+</button>
-            </div>
-            {/* Quick-amount chips */}
-            <div className="mt-2 flex gap-1.5">
-              {QUICK_AMOUNTS.map((v) => (
+          {/* ── Two-column layout: [amount+chips] | [BET button] ── */}
+          <div className="grid grid-cols-[1fr_auto] items-stretch gap-2">
+
+            {/* Left column */}
+            <div className="flex flex-col gap-1.5">
+              {/* Amount row: ⊖  value  ⊕ */}
+              <div className="flex items-center gap-2">
                 <button
-                  key={v}
-                  onClick={() => { setAmount(v); setError(null); }}
-                  className={`flex-1 rounded-lg border py-1.5 text-[10px] font-black transition-colors ${
-                    amount === v
-                      ? "border-[#31c45d]/50 bg-[#31c45d]/10 text-[#31c45d]"
-                      : "border-white/[0.07] bg-white/[0.04] text-white/50 hover:border-white/20 hover:text-white"
-                  }`}
-                >
-                  {v >= 1000 ? v.toLocaleString() : v}
-                </button>
-              ))}
-              <button
-                onClick={() => { setAmount(clampAmt(balance)); setError(null); }}
-                className="flex-1 rounded-lg border border-white/[0.07] bg-white/[0.04] py-1.5 text-[10px] font-black text-white/50 hover:border-white/20 hover:text-white"
-              >
-                MAX
-              </button>
+                  onClick={() => { adj(-snapStep(amount)); setError(null); }}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-xl font-black text-white transition-colors hover:bg-white/[0.14] active:scale-90"
+                >−</button>
+
+                <input
+                  type="number"
+                  value={amount}
+                  min={10} max={50000}
+                  onChange={(e) => { setAmount(clampAmt(Number(e.target.value))); setError(null); }}
+                  className="min-w-0 flex-1 bg-transparent text-center text-[17px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+
+                <button
+                  onClick={() => { adj(snapStep(amount)); setError(null); }}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-xl font-black text-white transition-colors hover:bg-white/[0.14] active:scale-90"
+                >+</button>
+              </div>
+
+              {/* Quick chips */}
+              <div className="grid grid-cols-4 gap-1">
+                {QUICK_AMOUNTS.map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => { setAmount(v); setError(null); }}
+                    className={`rounded-md py-1.5 text-[10px] font-black transition-colors ${
+                      amount === v
+                        ? "bg-[#31c45d]/15 text-[#31c45d]"
+                        : "bg-white/[0.05] text-white/45 hover:bg-white/[0.09] hover:text-white"
+                    }`}
+                  >
+                    {v >= 1000 ? v.toLocaleString() : v}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Right column: BET / NEXT ROUND button */}
+            <button
+              onClick={isFlying ? queueForNext : handleBet}
+              disabled={loading}
+              className="flex w-[118px] flex-col items-center justify-center rounded-xl px-2 py-3 text-black shadow-[0_8px_24px_rgba(34,197,94,.18)] transition-all active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ background: (bettingOpen || isFlying) ? "linear-gradient(160deg, #3dd568, #18a838)" : "#1f2937" }}
+            >
+              <span className="text-[11px] font-bold leading-none" style={{ opacity: 0.8 }}>
+                {loading ? "…" : isFlying ? "Next Round" : "Bet"}
+              </span>
+              <span className="mt-0.5 text-[15px] font-black leading-tight">
+                {amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} KES
+              </span>
+            </button>
           </div>
 
-          {/* BET / NEXT ROUND button */}
-          <button
-            onClick={() => {
-              if (isFlying) {
-                // Queue for the next round instead of sending to server
-                if (amount < 10)      { setError("Minimum KSh 10"); return; }
-                if (amount > balance) { setError("Insufficient balance"); return; }
-                setError(null);
-                setNextBet({
-                  amount,
-                  autoCashout: acEnabled && autoCashout >= 1.01 ? autoCashout : undefined,
-                });
-              } else {
-                handleBet();
-              }
-            }}
-            disabled={loading}
-            className="w-full rounded-xl py-3.5 text-sm font-black text-black shadow-[0_10px_30px_rgba(34,197,94,.16)] transition-all disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ background: (bettingOpen || isFlying) ? "linear-gradient(135deg, #31c45d, #22a34a)" : "#1f2937" }}
-          >
-            {loading ? "Placing…"
-              : bettingOpen
-              ? <>Bet<br />{amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} KES</>
-              : isFlying
-              ? <>Next Round<br />{amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} KES</>
-              : "BETTING CLOSED"}
-          </button>
-
-          <p className="text-center text-[10px] text-white/25">
+          <p className="text-center text-[10px] text-white/20">
             Balance: KSh {balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </p>
         </div>
       ) : (
-        /* ── Auto tab ─────────────────────────────────────────────────── */
-        <div className="flex flex-col gap-3 p-4">
-          {/* Auto-cashout config in Auto tab */}
+        /* ── Auto tab ──────────────────────────────────────────────────── */
+        <div className="flex flex-col gap-3 p-3">
           <div>
             <p className="mb-1.5 text-[9px] font-black uppercase tracking-widest text-white/30">Auto Cashout at (×)</p>
             <div className="flex items-center gap-2">
@@ -419,7 +408,11 @@ export function AviatorBetPanel({
                 <button
                   key={v}
                   onClick={() => { setAutoCashout(v); setAcEnabled(true); }}
-                  className={`flex-1 rounded-lg border py-1.5 text-[10px] font-black transition-colors ${autoCashout === v && acEnabled ? "border-[#087cff]/50 bg-[#087cff]/10 text-[#087cff]" : "border-white/[0.07] bg-white/[0.04] text-white/40 hover:text-white"}`}
+                  className={`flex-1 rounded-lg border py-1.5 text-[10px] font-black transition-colors ${
+                    autoCashout === v && acEnabled
+                      ? "border-[#087cff]/50 bg-[#087cff]/10 text-[#087cff]"
+                      : "border-white/[0.07] bg-white/[0.04] text-white/40 hover:text-white"
+                  }`}
                 >
                   {v}×
                 </button>
@@ -454,7 +447,7 @@ function AutoBetSection({
   autoBetRounds: number;
 }) {
   return (
-    <div className={`mx-4 mb-4 rounded-xl border px-3 py-3 transition-colors ${autoBetOn ? "border-[#087cff]/30 bg-[#087cff]/5" : "border-white/[0.05] bg-white/[0.02]"}`}>
+    <div className={`mx-3 mb-3 rounded-xl border px-3 py-3 transition-colors ${autoBetOn ? "border-[#087cff]/30 bg-[#087cff]/5" : "border-white/[0.05] bg-white/[0.02]"}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-sm">🤖</span>
@@ -473,7 +466,7 @@ function AutoBetSection({
           <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${autoBetOn ? "translate-x-4" : "translate-x-0.5"}`} />
         </button>
       </div>
-      <div className="mt-2.5 grid grid-cols-1 gap-2 sm:flex sm:gap-4">
+      <div className="mt-2.5 flex gap-4">
         <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-white/40">
           <input type="checkbox" checked={stopOnWin} onChange={(e) => setStopOnWin(e.target.checked)} className="h-3 w-3 cursor-pointer accent-green-500" />
           Stop on win
