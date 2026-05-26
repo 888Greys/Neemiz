@@ -419,34 +419,34 @@ export function BinaryClient() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#050506] text-white">
-      <div className="z-20 shrink-0 border-b border-white/[0.08] bg-[#08090d]/95 px-2 py-1.5 backdrop-blur lg:px-3">
-        <div className="flex h-12 items-center gap-2 overflow-hidden">
-          <div className="mr-1 flex shrink-0 items-center gap-2 rounded bg-[#11151c] px-3 py-2">
-            <span className="grid h-7 w-7 place-items-center rounded bg-sky-500/15 text-sky-300">
-              <Icon name="analytics" className="text-[16px]" />
+      <div className="z-20 shrink-0 border-b border-white/[0.08] bg-[#08090d]/95 px-2 py-1 backdrop-blur lg:px-3">
+        <div className="flex h-10 items-center gap-2 overflow-hidden">
+          <div className="mr-1 flex shrink-0 items-center gap-2 rounded bg-[#11151c] px-2.5 py-1.5">
+            <span className="grid h-6 w-6 place-items-center rounded bg-sky-500/15 text-sky-300">
+              <Icon name="analytics" className="text-[14px]" />
             </span>
             <div>
-              <div className="text-sm font-black leading-none">Binary Trader</div>
-              <div className="mt-1 text-[10px] font-bold text-slate-500">
+              <div className="text-xs font-black leading-none">Binary Trader</div>
+              <div className="mt-0.5 text-[10px] font-bold text-slate-500">
                 {streamStatus === "live" ? "Deriv live feed" : streamStatus === "connecting" ? "Connecting feed" : "Demo fallback"}
               </div>
             </div>
           </div>
           <div className="hidden min-w-0 flex-1 items-center gap-1 lg:flex">
           {TOP_ACTIONS.map((item) => (
-            <button key={item.label} type="button" className="inline-flex items-center gap-2 rounded px-3 py-2 text-xs font-black text-slate-300 transition hover:bg-white/[0.06] hover:text-white">
+            <button key={item.label} type="button" className="inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-black text-slate-300 transition hover:bg-white/[0.06] hover:text-white">
               <Icon name={item.icon} className="text-[14px] text-sky-300" />
               {item.label}
             </button>
           ))}
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <div className="rounded bg-[#151a22] px-3 py-2 text-right ring-1 ring-white/[0.07]">
-              <div className="font-mono text-sm font-black">{formatMoney(demoBalance)} DEMO</div>
+            <div className="rounded bg-[#151a22] px-3 py-1.5 text-right ring-1 ring-white/[0.07]">
+              <div className="font-mono text-xs font-black">{formatMoney(demoBalance)} DEMO</div>
               <div className="text-[10px] font-bold text-emerald-300">Demo active</div>
             </div>
-            <button type="button" className="grid h-10 w-10 place-items-center rounded bg-[#151a22] text-slate-300 ring-1 ring-white/[0.07]">
-              <Icon name="person" className="text-[17px]" />
+            <button type="button" className="grid h-9 w-9 place-items-center rounded bg-[#151a22] text-slate-300 ring-1 ring-white/[0.07]">
+              <Icon name="person" className="text-[16px]" />
             </button>
           </div>
         </div>
@@ -611,11 +611,13 @@ export function BinaryClient() {
                     key={side}
                     type="button"
                     onClick={() => placeTrade(side)}
-                    className="rounded bg-[#0b8f62] px-3 py-4 text-left transition hover:bg-[#0da26f] active:scale-[0.98]"
+                    className="flex items-center justify-between rounded bg-[#0b8f62] px-3 py-2.5 text-left transition hover:bg-[#0da26f] active:scale-[0.98]"
                   >
-                    <div className="text-base font-black">{side}</div>
-                    <div className="mt-1 font-mono text-sm font-black">{formatMoney(stake * payoutRate(side))}</div>
-                    <div className="mt-1 text-[11px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
+                    <div className="text-sm font-black">{side}</div>
+                    <div className="text-right">
+                      <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side))}</div>
+                      <div className="text-[10px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
+                    </div>
                   </button>
                 ))}
               </div>
