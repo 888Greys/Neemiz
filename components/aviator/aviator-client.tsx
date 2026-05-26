@@ -391,7 +391,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           },
         };
       });
-      toast.success(
+      toast.cashout(
         `Cashed out at ${(data.cashoutAt as number).toFixed(2)}×`,
         `+KSh ${Number(data.winAmount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       );

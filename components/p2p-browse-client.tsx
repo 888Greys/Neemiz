@@ -175,7 +175,8 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
               </div>
             <p className="mt-3 text-[11px] text-slate-500">Limits: {ad.minLimit.toLocaleString("en-KE")} - {ad.maxLimit.toLocaleString("en-KE")} {ad.fiat}</p>
             <p className="mt-2 text-[12px] text-slate-500">
-              I will receive <span className="text-white">{cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "--"} {ad.crypto}</span>
+              {isBuyingCrypto ? "I will receive" : "I will send"}{" "}
+              <span className="text-white">{cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "--"} {ad.crypto}</span>
             </p>
             {(belowMin || aboveMax || exceedsAvailable) && (
               <p className="mt-2 text-[11px] font-bold text-red-400">
@@ -232,7 +233,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
           <div className="grid grid-cols-[minmax(0,1fr)_118px] items-center gap-3">
             <div>
               <p className="text-[16px] font-black text-white">{fiatNum > 0 ? fiatNum.toLocaleString("en-KE", { maximumFractionDigits: 2 }) : "0"} {ad.fiat}</p>
-              <p className="text-[11px] text-slate-500">Total Payable</p>
+              <p className="text-[11px] text-slate-500">{isBuyingCrypto ? "Total Payable" : "Total Receivable"}</p>
             </div>
           <button
             onClick={submit}

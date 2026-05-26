@@ -94,12 +94,9 @@ export function AviatorBetPanel({
   }, [amount, balance, acEnabled, autoCashout, placeBet]);
 
   const handleCashout = useCallback(async () => {
-    if (loading) return;
-    setLoading(true);
     try   { await onCashout(panelIndex); }
     catch (e: unknown) { setError((e as Error).message ?? "Cashout failed"); }
-    finally { setLoading(false); }
-  }, [loading, onCashout, panelIndex]);
+  }, [onCashout, panelIndex]);
 
   // ── Auto-bet engine ────────────────────────────────────────────────────────
   const placeAutoBet = useCallback(async () => {
@@ -188,12 +185,16 @@ export function AviatorBetPanel({
           </div>
           <button
             onClick={handleCashout}
-            disabled={loading || myBet.status === "CASHING_OUT"}
-            className="relative overflow-hidden rounded-xl py-3.5 text-sm font-black text-black transition-all disabled:opacity-80"
+            className="relative overflow-hidden rounded-xl py-3.5 text-sm font-black text-black transition-all active:scale-[0.97]"
             style={{ background: "linear-gradient(135deg, #f59e0b, #ef8c00)" }}
           >
             <span className="relative z-10 flex items-center justify-center gap-2">
-              {loading || myBet.status === "CASHING_OUT" ? "CASHING OUT..." : (
+              {myBet.status === "CASHING_OUT" ? (
+                <>
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+                  CASHING OUT...
+                </>
+              ) : (
                 <>
                   CASHOUT
                   <span className="rounded-lg bg-black/20 px-2.5 py-1 text-sm font-black">
@@ -202,7 +203,7 @@ export function AviatorBetPanel({
                 </>
               )}
             </span>
-            {!loading && myBet.status !== "CASHING_OUT" && <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-15" />}
+            {myBet.status !== "CASHING_OUT" && <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-15" />}
           </button>
           <p className="text-center text-[11px] font-black text-[#f59e0b]">{currentMultiplier.toFixed(2)}×</p>
           {error && <p className="text-center text-xs text-red-400">{error}</p>}

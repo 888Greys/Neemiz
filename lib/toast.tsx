@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
 
-type ToastType = "success" | "error" | "info";
+type ToastType = "success" | "error" | "info" | "cashout";
 
 interface ToastItem {
   id: string;
@@ -36,6 +36,7 @@ export const toast = {
   success: (title: string, description?: string) => fire("success", title, description),
   error:   (title: string, description?: string) => fire("error",   title, description),
   info:    (title: string, description?: string) => fire("info",    title, description),
+  cashout: (title: string, description?: string) => fire("cashout", title, description),
 };
 
 /* ── Single toast card ── */
@@ -53,22 +54,27 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
 
   const IconComponent =
     item.type === "success" ? CheckCircle
+    : item.type === "cashout" ? CheckCircle
     : item.type === "error" ? AlertCircle
     : Info;
 
   const iconColor =
     item.type === "success" ? "text-emerald-400"
+    : item.type === "cashout" ? "text-[#f59e0b]"
     : item.type === "error" ? "text-red-400"
     : "text-[#087cff]";
 
   const ringColor =
     item.type === "success" ? "ring-emerald-500/20"
+    : item.type === "cashout" ? "ring-[#f59e0b]/40"
     : item.type === "error" ? "ring-red-500/20"
     : "ring-[#087cff]/20";
 
+  const bgColor = item.type === "cashout" ? "bg-[#1c1500]" : "bg-[#17181e]";
+
   return (
     <div
-      className={`flex items-start gap-3 rounded-2xl bg-[#17181e] px-4 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.6)] ring-1 ${ringColor} transition-all duration-300 ${
+      className={`flex items-start gap-3 rounded-2xl ${bgColor} px-4 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.6)] ring-1 ${ringColor} transition-all duration-300 ${
         visible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"
       }`}
       style={{ minWidth: 260, maxWidth: 340 }}
