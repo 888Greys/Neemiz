@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { fetchMarket } from "@/lib/polymarket";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const supabase = await createClient();
@@ -15,10 +18,25 @@ export async function GET() {
     take:    50,
   });
 
-  return Response.json(bets.map((b) => ({
+  const liveMarkets = new Map(
+    (await Promise.all(
+      Array.from(new Set(bets.map((b) => b.marketId))).map(async (marketId) => {
+        try {
+          const market = await fetchMarket(marketId, { cache: "no-store" });
+          return market ? [marketId, market] as const : null;
+        } catch {
+          return null;
+        }
+      })
+    )).filter((entry): entry is readonly [string, NonNullable<Awaited<ReturnType<typeof fetchMarket>>>] => Boolean(entry))
+  );
+
+  return Response.json(bets.map((b) => {
+    const liveMarket = liveMarkets.get(b.marketId);
+    return {
     id:          b.id,
     marketId:    b.marketId,
-    question:    b.question,
+    question:    liveMarket?.question ?? b.question,
     outcome:     b.outcome,
     price:       Number(b.price),
     stake:       Number(b.stake),
@@ -30,5 +48,8 @@ export async function GET() {
     clobStatus:  b.clobStatus,
     settledAt:   b.settledAt?.toISOString() ?? null,
     createdAt:   b.createdAt.toISOString(),
-  })));
+    };
+  }), {
+    headers: { "Cache-Control": "no-store" },
+  });
 }
