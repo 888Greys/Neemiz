@@ -22,7 +22,7 @@ export default async function PredictionsPage() {
   const initialMarkets = await fetchMarkets({ limit: 24 });
 
   return (
-    <AppShell>
+    <AppShell hideFooter>
       <div className="w-full px-3 py-3 sm:px-4 lg:h-[calc(100vh-5rem)] lg:min-h-0 lg:overflow-hidden lg:px-0 lg:py-0">
         <PolymarketClient userId={userId} balance={balance} initialMarkets={initialMarkets} />
       </div>
