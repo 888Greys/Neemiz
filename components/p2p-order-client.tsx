@@ -328,88 +328,118 @@ function MobileP2POrderView({
   if (["RELEASED", "CANCELLED", "EXPIRED"].includes(order.status)) {
     const isSuccess = order.status === "RELEASED";
     const isCancelled = order.status === "CANCELLED";
+    const paymentLabel = order.paymentMethod === "MPESA" ? "M-Pesa Paybill" : order.paymentMethod === "BANK" ? "Bank Transfer" : order.paymentMethod;
+    const rows = [
+      { label: "Amount",            value: `${Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2 })} ${order.ad.fiat}` },
+      { label: "Price",             value: `${Number(order.pricePerUnit).toLocaleString("en-KE")} ${order.ad.fiat}` },
+      { label: "Total Quantity",    value: `${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}` },
+      { label: "Transaction Fees",  value: `0 ${order.crypto}` },
+      { label: "Order No.",         value: orderId.slice(0, 20).toUpperCase(), copy: true },
+      { label: "Order Time",        value: new Date(order.createdAt).toLocaleString("en-KE", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }) },
+    ];
+
     return (
-      <div className="lg:hidden flex flex-col min-h-[calc(100dvh-7rem)] bg-[#08080c] px-4 pt-3 pb-[calc(2rem+env(safe-area-inset-bottom))] text-white">
-        {/* Back nav */}
-        <div className="mb-6 flex items-center gap-3 border-b border-white/[0.08] pb-3">
+      <div className="lg:hidden flex flex-col min-h-[calc(100dvh-7rem)] bg-[#08080c] text-white">
+        {/* Top bar */}
+        <div className="grid grid-cols-[36px_1fr_36px] items-center border-b border-white/[0.08] px-4 pb-3 pt-3">
           <button type="button" onClick={onBack} className="grid h-9 w-9 place-items-center rounded-full text-white">
             <Icon name="arrow_back" className="text-[21px]" />
           </button>
-          <span className="text-sm font-black text-slate-400">Order #{orderId.slice(0, 8).toUpperCase()}</span>
+          <span className="text-center text-sm font-black">P2P Help Center</span>
+          <div />
         </div>
 
-        {/* Hero icon + status */}
-        <div className="flex flex-col items-center pt-6 pb-8">
-          <div className={`mb-4 grid h-20 w-20 place-items-center rounded-full ${
-            isSuccess ? "bg-[#05b957]/15" : "bg-white/5"
-          }`}>
-            <Icon
-              name={isSuccess ? "check_circle" : isCancelled ? "cancel" : "schedule"}
-              className={`text-[48px] ${isSuccess ? "text-[#05b957]" : "text-slate-500"}`}
-            />
-          </div>
-          <h1 className={`mb-1 text-[22px] font-black ${isSuccess ? "text-white" : "text-slate-400"}`}>
-            {isSuccess ? "Trade Completed!" : isCancelled ? "Order Cancelled" : "Order Expired"}
+        <div className="flex-1 overflow-y-auto px-4 py-4 pb-[calc(3rem+env(safe-area-inset-bottom))]">
+          {/* Title */}
+          <h1 className="mb-4 text-[20px] font-black leading-snug">
+            {isSuccess ? "Trade completed!" : isCancelled ? "Your order has been canceled." : "Your order has expired."}
           </h1>
-          <p className="text-sm text-slate-500">
-            {isSuccess
-              ? `You ${order.isBuyer ? "bought" : "sold"} ${order.crypto} successfully`
-              : isCancelled
-              ? "This order was cancelled"
-              : "This order has expired"}
-          </p>
-        </div>
 
-        {/* Amount card */}
-        {isSuccess && (
-          <div className="mb-4 rounded-2xl border border-[#05b957]/20 bg-[#05b957]/5 px-5 py-4">
-            <p className="mb-0.5 text-[11px] font-semibold text-slate-500">{order.isBuyer ? "You received" : "You sent"}</p>
-            <p className="text-[28px] font-black leading-tight text-[#05b957] tabular-nums">
-              {Number(order.cryptoAmount).toFixed(6)}
-              <span className="ml-1.5 text-[16px] text-[#05b957]/70">{order.crypto}</span>
-            </p>
-            <p className="mt-1 text-[12px] font-semibold text-slate-500">
-              ≈ {order.ad.fiat} {Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </p>
-          </div>
-        )}
-
-        {/* Order details */}
-        <div className="mb-6 rounded-2xl border border-[#1e1e30] bg-[#111118] px-4 py-3 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-slate-500">Order ID</span>
-            <span className="font-mono text-[12px] font-bold text-white">{orderId.slice(0, 16).toUpperCase()}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-slate-500">Type</span>
-            <span className="text-[12px] font-bold text-white">{order.isBuyer ? "Buy" : "Sell"} {order.crypto}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-slate-500">Merchant</span>
-            <span className="text-[12px] font-bold text-white">{order.seller.displayName}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] text-slate-500">Price</span>
-            <span className="text-[12px] font-bold text-white">
-              {Number(order.pricePerUnit).toLocaleString("en-KE")} {order.ad.fiat}
-            </span>
-          </div>
-          {order.cancelReason && (
-            <div className="flex items-start justify-between gap-3 border-t border-white/[0.06] pt-2.5">
-              <span className="text-[12px] text-slate-500 shrink-0">Reason</span>
-              <span className="text-right text-[12px] text-slate-400">{order.cancelReason}</span>
+          {/* Info box */}
+          {!isSuccess && (
+            <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+              <p className="text-[12px] leading-5 text-slate-400">
+                This order has concluded, and the assets are no longer locked in escrow. Do not blindly trust strangers or release funds without confirming.
+              </p>
             </div>
           )}
-        </div>
+          {!isSuccess && (
+            <p className="mb-4 text-[12px] leading-5 text-slate-500">
+              {order.cancelReason
+                ? order.cancelReason
+                : isCancelled
+                ? "Your order has been cancelled by the system because you didn't indicate that you made the payment before the countdown timer ended."
+                : "Your order expired because the payment window closed without a confirmed payment."}
+            </p>
+          )}
+          {isSuccess && (
+            <div className="mb-4 rounded-xl border border-[#05b957]/20 bg-[#05b957]/5 px-4 py-3">
+              <p className="text-[11px] text-slate-500">{order.isBuyer ? "You received" : "You sent"}</p>
+              <p className="mt-0.5 text-[26px] font-black text-[#05b957] tabular-nums">
+                {Number(order.cryptoAmount).toFixed(6)} <span className="text-[16px]">{order.crypto}</span>
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate-500">≈ {order.ad.fiat} {Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2 })}</p>
+            </div>
+          )}
 
-        {/* CTA */}
-        <button
-          type="button"
-          onClick={onBack}
-          className="h-12 w-full rounded-full bg-[#087cff] text-sm font-black text-white hover:bg-[#0570e8] transition-colors"
-        >
-          Back to P2P
-        </button>
+          {/* Merchant + contact */}
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-white/[0.08] bg-[#16161f] px-4 py-3">
+            <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
+              {order.seller.displayName} <Icon name="chevron_right" className="text-[16px] text-slate-500" />
+            </button>
+            <button type="button" className="rounded-full bg-[#f59e0b] px-4 py-1.5 text-xs font-black text-black">
+              Contact Seller
+            </button>
+          </div>
+
+          {/* Order type chip */}
+          <div className="mb-4">
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-black ${
+              order.isBuyer ? "bg-[#05b957]/15 text-[#05b957]" : "bg-red-500/15 text-red-400"
+            }`}>
+              <Icon name={order.isBuyer ? "arrow_downward" : "arrow_upward"} className="text-[12px]" />
+              {order.isBuyer ? "Buy" : "Sell"} {order.crypto}
+            </span>
+          </div>
+
+          {/* Details table */}
+          <div className="mb-4 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0e0e14] divide-y divide-white/[0.05]">
+            {rows.map(({ label, value, copy }) => (
+              <div key={label} className="flex items-center justify-between px-4 py-3">
+                <span className="text-[12px] text-slate-500">{label}</span>
+                <span className="flex items-center gap-1.5 text-right text-[12px] font-bold text-white">
+                  {value}
+                  {copy && <Icon name="content_copy" className="text-[12px] text-slate-500" />}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* Payment method */}
+          <div className="mb-5 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0e0e14]">
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-[12px] text-slate-500">Payment Method</span>
+              <Icon name="keyboard_arrow_down" className="text-[18px] text-slate-500" />
+            </div>
+            <div className="border-t border-white/[0.05] px-4 py-3">
+              <span className="flex items-center gap-1.5 text-[12px] font-bold text-white">
+                <span className={`h-3.5 w-0.5 rounded-full ${order.paymentMethod === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
+                {paymentLabel}
+              </span>
+            </div>
+          </div>
+
+          {/* Bottom actions */}
+          <button
+            type="button"
+            className="mb-3 h-12 w-full rounded-xl border border-white/[0.10] bg-[#16161f] text-sm font-black text-white"
+          >
+            Order Dispute?
+          </button>
+          <button type="button" className="w-full text-center text-sm font-bold text-[#087cff]">
+            Encountered an Issue?
+          </button>
+        </div>
       </div>
     );
   }

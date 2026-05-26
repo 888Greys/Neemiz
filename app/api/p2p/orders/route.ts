@@ -65,6 +65,7 @@ export async function GET() {
         crypto: true,
         cryptoAmount: true,
         fiatAmount: true,
+        pricePerUnit: true,
         paymentMethod: true,
         createdAt: true,
         expiresAt: true,
@@ -77,7 +78,7 @@ export async function GET() {
           },
         },
         ad: {
-          select: { side: true },
+          select: { side: true, fiat: true },
         },
         buyer: {
           select: {
@@ -92,6 +93,7 @@ export async function GET() {
     const result = orders.map((o) => ({
       ...o,
       side:     o.ad.side,
+      fiat:     o.ad.fiat,
       isBuyer:  o.buyerId === dbUser.id,
       isSeller: merchant ? o.sellerId === merchant.id : false,
     }));

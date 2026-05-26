@@ -17,6 +17,7 @@ interface OrderSummary {
   crypto: string;
   cryptoAmount: number;
   fiatAmount: number;
+  pricePerUnit: number;
   fiat: string;
   isBuyer: boolean;
   counterparty: string;
@@ -159,49 +160,57 @@ export function P2POrdersClient() {
             <Link
               key={order.id}
               href={`/p2p/order/${order.id}`}
-              className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_36px] gap-3 rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-3 py-3 transition hover:bg-[#111118] sm:px-4"
+              className="group block rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-4 py-3 transition hover:bg-[#111118]"
             >
-              <div className="min-w-0">
-                {/* Row 1: direction dot + title + status */}
-                <div className="mb-1.5 flex min-w-0 items-center gap-2">
+              {/* Row 1: type + status + chevron */}
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
                     order.isBuyer ? "bg-[#05b957]/15" : "bg-red-500/15"
                   }`}>
-                    <Icon
-                      name={order.isBuyer ? "arrow_downward" : "arrow_upward"}
-                      className={`text-[11px] ${order.isBuyer ? "text-[#05b957]" : "text-red-400"}`}
-                    />
+                    <Icon name={order.isBuyer ? "arrow_downward" : "arrow_upward"} className={`text-[11px] ${order.isBuyer ? "text-[#05b957]" : "text-red-400"}`} />
                   </div>
-                  <span className="text-[12px] font-black text-white">
-                    {order.isBuyer ? "Buy" : "Sell"} {order.crypto}
-                  </span>
+                  <span className="text-[13px] font-black text-white">{order.isBuyer ? "Buy" : "Sell"} {order.crypto}</span>
                   <StatusBadge status={order.status} />
                 </div>
+                <Icon name="chevron_right" className="shrink-0 text-[20px] text-white/25 transition group-hover:text-white/50" />
+              </div>
 
-                {/* Row 2: large fiat amount */}
-                <div className="mb-2.5">
-                  <p className="text-[10px] font-semibold leading-3 text-white/45">{order.fiat}</p>
-                  <p className="text-[21px] font-black leading-tight text-white tabular-nums">
-                    {Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </p>
-                </div>
-
-                {/* Row 3: amount + counterparty */}
-                <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40">
-                  <p>Amount <span className="text-white/65">{Number(order.cryptoAmount).toFixed(6)} {order.crypto}</span></p>
-                  <p>{order.isBuyer ? "Merchant" : "Buyer"} <span className="text-white/65">{order.counterparty}</span></p>
-                </div>
-
-                {/* Row 4: date */}
-                <p className="mt-1.5 text-[10px] font-semibold text-white/30">
-                  {new Date(order.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
+              {/* Amount */}
+              <div className="mb-3">
+                <p className="text-[10px] font-semibold text-white/40">{order.fiat}</p>
+                <p className="text-[22px] font-black leading-tight text-white tabular-nums">
+                  {Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2 })}
                 </p>
               </div>
 
-              {/* Right: arrow */}
-              <div className="flex items-center justify-end">
-                <span className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.05] text-white/40 transition group-hover:bg-white/10 group-hover:text-white">
-                  <Icon name="arrow_forward" className="text-sm" />
+              {/* Detail rows */}
+              <div className="mb-3 space-y-1.5">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-white/40">Price</span>
+                  <span className="font-semibold text-white/70">{Number(order.pricePerUnit).toLocaleString("en-KE")} {order.fiat}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-white/40">Qty</span>
+                  <span className="font-semibold text-white/70">{Number(order.cryptoAmount).toFixed(4)} {order.crypto}</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-white/40">Order No.</span>
+                  <span className="flex items-center gap-1 font-mono font-semibold text-white/70">
+                    {order.id.slice(0, 16).toUpperCase()}
+                    <Icon name="content_copy" className="text-[11px] text-white/25" />
+                  </span>
+                </div>
+              </div>
+
+              {/* Footer: merchant chip + date */}
+              <div className="flex items-center justify-between border-t border-white/[0.05] pt-2.5">
+                <span className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-white/55">
+                  <Icon name="chat_bubble_outline" className="text-[11px]" />
+                  {order.counterparty}
+                </span>
+                <span className="text-[11px] text-white/30">
+                  {new Date(order.createdAt).toLocaleString("en-KE", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
                 </span>
               </div>
             </Link>
