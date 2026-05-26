@@ -8,6 +8,33 @@ import { Prisma, TransactionType, TransactionStatus } from "@prisma/client";
 const MIN_BET = 10;
 const MAX_BET = 100_000;
 
+function polymarketBetError(err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+
+  if (message === "INSUFFICIENT_BALANCE") {
+    return { status: 400, error: "Insufficient balance" };
+  }
+
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    return {
+      status: 500,
+      error: `Database error ${err.code}: ${err.message}`,
+    };
+  }
+
+  if (err instanceof Prisma.PrismaClientUnknownRequestError || err instanceof Prisma.PrismaClientValidationError) {
+    return {
+      status: 500,
+      error: `Database error: ${message}`,
+    };
+  }
+
+  return {
+    status: 500,
+    error: `Failed to place bet: ${message}`,
+  };
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -48,7 +75,15 @@ export async function POST(req: Request) {
     return Response.json({ error: "This outcome is missing a Polymarket CLOB token id" }, { status: 400 });
   }
 
-  const dbUser = await getOrCreateUser(user.id, { email: user.email });
+  let dbUser: Awaited<ReturnType<typeof getOrCreateUser>>;
+  try {
+    dbUser = await getOrCreateUser(user.id, { email: user.email });
+  } catch (err) {
+    console.error("Polymarket user lookup error:", err);
+    const response = polymarketBetError(err);
+    return Response.json({ error: response.error }, { status: response.status });
+  }
+
   let clobOrder: Awaited<ReturnType<typeof placePolymarketBuyOrder>> | null = null;
   try {
     clobOrder = useClob
@@ -119,11 +154,9 @@ export async function POST(req: Request) {
       });
     });
   } catch (err: unknown) {
-    if ((err as Error).message === "INSUFFICIENT_BALANCE") {
-      return Response.json({ error: "Insufficient balance" }, { status: 400 });
-    }
     console.error("Polymarket bet error:", err, clobOrder ? { clobOrder } : undefined);
-    return Response.json({ error: "Failed to place bet" }, { status: 500 });
+    const response = polymarketBetError(err);
+    return Response.json({ error: response.error }, { status: response.status });
   }
 
   return Response.json({
