@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { getCached, cachedFetch } from "@/lib/client-cache";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
@@ -135,6 +136,7 @@ function BetCard({ bet }: { bet: Bet }) {
 export function MyBetsClient() {
   const { isSignedIn } = useSupabaseAuth();
   const { openLogin } = useAuthModal();
+  const router = useRouter();
   const [filter, setFilter] = useState<Filter>("ALL");
 
   const BETS_KEY = "/api/bets/mine?limit=50";
@@ -181,18 +183,18 @@ export function MyBetsClient() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-slate-400 transition hover:bg-white/[0.10] hover:text-white"
+        >
+          <Icon name="arrow_back" className="text-[18px]" />
+        </button>
         <div>
           <h1 className="text-2xl font-black text-white">My Bets</h1>
           <p className="mt-0.5 text-sm text-slate-500">{stats.total} bets placed</p>
         </div>
-        <button
-          type="button"
-          onClick={() => fetchBets(true)}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-white/[0.06] text-slate-400 transition hover:bg-white/[0.10] hover:text-white"
-        >
-          <Icon name="refresh" className="text-[18px]" />
-        </button>
       </div>
 
       {/* Stats */}

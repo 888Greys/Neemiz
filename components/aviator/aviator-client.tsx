@@ -84,21 +84,14 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── History ────────────────────────────────────────────────────────────────
   const fetchHistory = useCallback(async () => {
+    if (!userId) return;
     try {
-      const url  = userId ? `/api/aviator/history?userId=${userId}` : "/api/aviator/history";
-      const res  = await fetch(url);
+      const res  = await fetch("/api/aviator/history");
       if (!res.ok) return;
-      const data = await res.json() as Array<{
-        roundId: string; roundNumber: number; crashPoint: number;
-        crashedAt: string | null; serverSeed: string; serverSeedHash: string;
-        myBets?: Array<{ id: string; panelIndex: number; betAmount: number; cashoutAt: number | null; winAmount: number | null; status: string; placedAt: string }>;
-      }>;
-      setHistory(data);
-      if (userId) {
-        const flat: MyHistoryBet[] = [];
-        data.forEach((r) => (r.myBets ?? []).forEach((b) => flat.push({ ...b, roundNumber: r.roundNumber, crashPoint: r.crashPoint })));
-        flat.sort((a, b) => new Date(b.placedAt).getTime() - new Date(a.placedAt).getTime());
-        setMyHistory(flat);
+      const data = await res.json() as MyHistoryBet[];
+      // Only overwrite if we got real records
+      if (Array.isArray(data) && data.length > 0) {
+        setMyHistory(data);
       }
     } catch { /* ignore */ }
   }, [userId]);
@@ -196,11 +189,24 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
       case "crash": {
         const crashPoint = (msg.multiplier as number) ?? 1.0;
-        setRound((prev) => prev ? {
-          ...prev, state: "CRASHED", crashPoint,
-          serverSeed: (msg.server_seed as string) ?? undefined,
-          crashedAt:  new Date().toISOString(),
-        } : prev);
+        const serverSeed = (msg.server_seed as string) ?? "";
+        const crashedAt  = new Date().toISOString();
+        setRound((prev) => {
+          if (!prev) return prev;
+          // Append to round-history chips
+          setHistory((h) => {
+            const entry: HistoryRound = {
+              roundId:        prev.id,
+              roundNumber:    prev.roundNumber ?? 0,
+              crashPoint,
+              crashedAt,
+              serverSeed,
+              serverSeedHash: prev.serverSeedHash ?? "",
+            };
+            return [...h, entry].slice(-80);
+          });
+          return { ...prev, state: "CRASHED", crashPoint, serverSeed, crashedAt };
+        });
         setMultiplier(crashPoint);
         setMyBets((prev) => {
           const next = { ...prev } as MyBets;
@@ -209,7 +215,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           });
           return next;
         });
-        setTimeout(fetchHistory, 500);
+        setTimeout(fetchHistory, 1000);
         setTimeout(fetchBalance, 800);
         break;
       }
