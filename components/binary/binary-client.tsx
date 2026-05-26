@@ -197,9 +197,9 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
   }, [market]);
 
   useEffect(() => {
-    if (!seriesRef.current || !chartRef.current || candles.length === 0) return;
+    if (!seriesRef.current || !chartRef.current) return;
     seriesRef.current.setData(candles);
-    chartRef.current.timeScale().fitContent();
+    if (candles.length > 0) chartRef.current.timeScale().fitContent();
   }, [candles]);
 
   return <div ref={containerRef} className="h-[420px] min-h-0 w-full sm:h-[520px] xl:h-[560px]" />;
@@ -245,7 +245,7 @@ export function BinaryClient() {
         socket.send(JSON.stringify({
           ticks_history: selectedMarket.derivSymbol,
           adjust_start_time: 1,
-          count: 500,
+          count: 5000,
           end: "latest",
           style: "ticks",
           subscribe: 1,
@@ -326,7 +326,7 @@ export function BinaryClient() {
     };
   }, [selectedMarket]);
 
-  const chartCandles = candles.length ? candles : buildFallbackCandles(selectedMarket);
+  const chartCandles = candles;
   const latest = chartCandles[chartCandles.length - 1];
   const first = chartCandles[0];
   const price = latest?.close ?? selectedMarket.fallbackPrice;
@@ -345,6 +345,14 @@ export function BinaryClient() {
     return total + (trade.direction === "buy" ? pips : -pips) * (trade.size / 10000);
   }, 0);
   const levels = useMemo(() => {
+    if (chartCandles.length === 0) {
+      const pip = pipSize(selectedMarket);
+      return {
+        high: selectedMarket.fallbackPrice + pip * 20,
+        low: selectedMarket.fallbackPrice - pip * 20,
+        average: selectedMarket.fallbackPrice,
+      };
+    }
     const highs = chartCandles.map((item) => item.high);
     const lows = chartCandles.map((item) => item.low);
     const closes = chartCandles.map((item) => item.close);
@@ -353,7 +361,7 @@ export function BinaryClient() {
       low: Math.min(...lows),
       average: closes.reduce((total, item) => total + item, 0) / closes.length,
     };
-  }, [chartCandles]);
+  }, [chartCandles, selectedMarket]);
 
   function openTrade() {
     setTrades((current) => [
@@ -463,7 +471,18 @@ export function BinaryClient() {
                 <QuoteBox label="Ask" value={formatPrice(selectedMarket, ask)} tone="buy" />
               </div>
             </div>
-            <TradingViewCandles candles={chartCandles} market={selectedMarket} />
+            <div className="relative">
+              <TradingViewCandles candles={chartCandles} market={selectedMarket} />
+              {chartCandles.length === 0 && (
+                <div className="absolute inset-0 grid place-items-center bg-[#0b0f18]/80">
+                  <div className="rounded-lg border border-white/[0.08] bg-[#101216]/90 px-4 py-3 text-center shadow-2xl shadow-black/30">
+                    <div className="mx-auto mb-2 h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
+                    <p className="text-xs font-black text-white">Loading live candles</p>
+                    <p className="mt-1 text-[11px] font-semibold text-slate-500">Waiting for Deriv history for {selectedMarket.symbol}</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </section>
 
           <section className="grid gap-3 md:grid-cols-3">
