@@ -419,9 +419,9 @@ export function BinaryClient() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#050506] text-white">
-      <div className="z-20 shrink-0 border-b border-white/[0.08] bg-[#08090d]/95 px-3 py-2 backdrop-blur lg:px-4">
+      <div className="z-20 shrink-0 border-b border-white/[0.08] bg-[#08090d]/95 px-2 py-1.5 backdrop-blur lg:px-3">
         <div className="flex h-12 items-center gap-2 overflow-hidden">
-          <div className="mr-2 flex shrink-0 items-center gap-2 rounded bg-[#11151c] px-3 py-2">
+          <div className="mr-1 flex shrink-0 items-center gap-2 rounded bg-[#11151c] px-3 py-2">
             <span className="grid h-7 w-7 place-items-center rounded bg-sky-500/15 text-sky-300">
               <Icon name="analytics" className="text-[16px]" />
             </span>
@@ -452,9 +452,9 @@ export function BinaryClient() {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 min-w-0 gap-2 overflow-hidden px-2 py-2 lg:px-3 xl:grid-cols-[300px_minmax(0,1fr)_390px]">
-        <aside className="order-2 hidden min-h-0 flex-col gap-2 overflow-hidden xl:order-none xl:flex">
-          <section className="flex min-h-0 flex-[1.05] flex-col rounded border border-white/[0.08] bg-[#0f1218]">
+      <div data-binary-grid="true" className="grid min-h-0 flex-1 min-w-0 gap-0 overflow-hidden xl:grid-cols-[300px_minmax(0,1fr)_390px]">
+        <aside className="order-2 hidden min-h-0 flex-col overflow-hidden border-r border-white/[0.08] xl:order-none xl:flex">
+          <section className="flex min-h-0 flex-[1.05] flex-col border-b border-white/[0.08] bg-[#0f1218]">
             <div className="grid grid-cols-3 border-b border-white/[0.07] text-xs font-black">
               <button className="border-b-2 border-sky-400 py-2.5 text-sky-300" type="button">Open ({openTrades.length})</button>
               <button className="py-2.5 text-slate-500" type="button">Closed ({closedTrades.length})</button>
@@ -469,14 +469,14 @@ export function BinaryClient() {
             </div>
           </section>
 
-          <section className="shrink-0 rounded border border-white/[0.08] bg-[#0f1218] p-3">
+          <section className="shrink-0 border-b border-white/[0.08] bg-[#0f1218] p-3">
             <div className="mb-2 text-[11px] font-black uppercase tracking-wider text-slate-500">Last session</div>
             <div className="grid grid-cols-3 gap-2">
               <MiniStat label="Trades" value={String(closedTrades.length)} />
               <MiniStat label="Wins" value={String(wins)} positive />
               <MiniStat label="Losses" value={String(losses)} negative />
             </div>
-            <div className="mt-3 rounded bg-black/25 p-3">
+            <div className="mt-3 bg-black/25 p-3">
               <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Session P/L</div>
               <div className={`mt-1 font-mono text-2xl font-black ${sessionPnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>
                 {sessionPnl >= 0 ? "+" : ""}{formatMoney(sessionPnl)}
@@ -484,7 +484,7 @@ export function BinaryClient() {
             </div>
           </section>
 
-          <section className="flex min-h-0 flex-1 flex-col rounded border border-white/[0.08] bg-[#0f1218] p-3">
+          <section className="flex min-h-0 flex-1 flex-col bg-[#0f1218] p-3">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-black">Closed contracts</h3>
               <Icon name="history" className="text-[16px] text-slate-500" />
@@ -499,8 +499,8 @@ export function BinaryClient() {
           </section>
         </aside>
 
-        <main className="order-1 flex min-h-0 min-w-0 flex-col gap-2 xl:order-none">
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-white/[0.08] bg-[#0f1218]">
+        <main className="order-1 flex min-h-0 min-w-0 flex-col xl:order-none">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
             <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-2">
               <div className="flex min-w-0 items-center gap-3">
                 <select
@@ -536,9 +536,9 @@ export function BinaryClient() {
             <TradingViewBinaryChart ticks={ticks} />
           </section>
 
-          <section className="grid shrink-0 gap-2 md:grid-cols-10">
+          <section className="grid shrink-0 gap-0 border-t border-white/[0.08] bg-[#0b0d12] md:grid-cols-10">
             {digitStats.map((stat) => (
-              <div key={stat.digit} className={`h-[74px] rounded border p-2 ${latest.digit === stat.digit ? "border-sky-400 bg-sky-400/10" : "border-white/[0.07] bg-[#0f1218]"}`}>
+              <div key={stat.digit} className={`h-[74px] border-r border-white/[0.08] p-2 last:border-r-0 ${latest.digit === stat.digit ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400" : "bg-[#0f1218]"}`}>
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-lg font-black">{stat.digit}</span>
                   <span className="text-[10px] font-black text-slate-500">{stat.pct.toFixed(1)}%</span>
@@ -551,8 +551,8 @@ export function BinaryClient() {
           </section>
         </main>
 
-        <aside className="order-3 hidden min-h-0 flex-col overflow-hidden xl:order-none xl:flex">
-          <section className="min-h-0 flex-1 overflow-hidden rounded border border-white/[0.08] bg-[#0f1218]">
+        <aside className="order-3 hidden min-h-0 flex-col overflow-hidden border-l border-white/[0.08] xl:order-none xl:flex">
+          <section className="min-h-0 flex-1 overflow-hidden bg-[#0f1218]">
             <div className="shrink-0 border-b border-white/[0.07] p-3">
               <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Trading mode</div>
               <div className="mt-2 grid grid-cols-2 rounded bg-black/30 p-1">
@@ -651,7 +651,7 @@ export function BinaryClient() {
 
 function EmptyState({ subtitle, title }: { subtitle: string; title: string }) {
   return (
-    <div className="rounded border border-dashed border-white/[0.08] px-3 py-8 text-center">
+    <div className="border border-dashed border-white/[0.08] px-3 py-6 text-center">
       <div className="mx-auto mb-2 h-2 w-2 rounded-full bg-slate-700" />
       <div className="text-xs font-black text-slate-400">{title}</div>
       <div className="mt-1 text-[11px] font-bold text-slate-600">{subtitle}</div>
@@ -661,7 +661,7 @@ function EmptyState({ subtitle, title }: { subtitle: string; title: string }) {
 
 function MiniStat({ label, negative, positive, value }: { label: string; negative?: boolean; positive?: boolean; value: string }) {
   return (
-    <div className="rounded bg-black/25 p-2">
+    <div className="bg-black/25 p-2">
       <div className="text-[10px] font-black uppercase text-slate-600">{label}</div>
       <div className={`font-mono text-sm font-black ${positive ? "text-emerald-300" : negative ? "text-red-300" : "text-white"}`}>{value}</div>
     </div>
@@ -674,7 +674,7 @@ function TradeRow({ trade }: { trade: BinaryTrade }) {
   const secondsLeft = Math.max(0, Math.ceil((trade.settlesAt - Date.now()) / 1000));
 
   return (
-    <div className="rounded border border-white/[0.07] bg-black/25 p-3">
+    <div className="border border-white/[0.07] bg-black/25 p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-black text-white">{trade.side}</div>
