@@ -8,6 +8,25 @@ import { Prisma, TransactionType, TransactionStatus } from "@prisma/client";
 const MIN_BET = 10;
 const MAX_BET = 100_000;
 
+function normalizeOutcome(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function findOutcomeIndex(outcomes: string[], requested: string) {
+  const normalized = normalizeOutcome(requested);
+  const exact = outcomes.findIndex((o) => normalizeOutcome(o) === normalized);
+  if (exact >= 0) return exact;
+
+  if (normalized === "yes" || normalized.startsWith("yes ")) {
+    return outcomes.findIndex((o) => normalizeOutcome(o) === "yes");
+  }
+  if (normalized === "no" || normalized.startsWith("no ")) {
+    return outcomes.findIndex((o) => normalizeOutcome(o) === "no");
+  }
+
+  return -1;
+}
+
 function polymarketBetError(err: unknown) {
   const message = err instanceof Error ? err.message : String(err);
 
@@ -59,11 +78,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "Market is not open for betting" }, { status: 409 });
   }
 
-  const outcomeIdx = market.outcomes.findIndex(
-    (o) => o.toLowerCase() === outcome.toLowerCase()
-  );
+  const outcomeIdx = findOutcomeIndex(market.outcomes, outcome);
   if (outcomeIdx === -1) {
-    return Response.json({ error: "This outcome is no longer available — market may be near resolution" }, { status: 400 });
+    return Response.json({
+      error: `Selected outcome "${outcome}" is not available on the live market. Available outcomes: ${market.outcomes.join(", ") || "none"}`,
+    }, { status: 400 });
   }
 
   const price       = market.outcomePrices[outcomeIdx];
