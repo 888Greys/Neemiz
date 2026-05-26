@@ -521,18 +521,20 @@ function DetailTradeTicket({
   market,
   selectedOutcome,
   balance,
-  onBet,
+  onTradeSuccess,
   compact = false,
 }: {
   market: PolymarketMarket;
   selectedOutcome: string;
   balance: number;
-  onBet: (m: PolymarketMarket, o?: string, amount?: number) => void;
+  onTradeSuccess: () => void;
   compact?: boolean;
 }) {
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [orderSide, setOrderSide] = useState<"yes" | "no">("yes");
   const [amount, setAmount] = useState(100);
+  const [placing, setPlacing] = useState(false);
+  const [tradeError, setTradeError] = useState<string | null>(null);
   const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
   const price = marketPrice(market, selectedIndex);
 
@@ -550,6 +552,33 @@ function DetailTradeTicket({
   const isUnavailable = activePrice < 0.01;
   const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0;
   const amountOptions = compact ? [50, 100, 250] : [50, 100, 250, 500];
+
+  async function placeTrade() {
+    if (placing || isUnavailable) return;
+    if (amount < 10) { setTradeError("Minimum bet is $10"); return; }
+    if (amount > balance) { setTradeError("Insufficient balance"); return; }
+
+    setPlacing(true);
+    setTradeError(null);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
+    try {
+      const res = await fetch("/api/polymarket/bet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conditionId: market.conditionId, outcome: tradeOutcome, stake: amount }),
+        signal: controller.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to place bet");
+      onTradeSuccess();
+    } catch (err: unknown) {
+      setTradeError((err as Error).name === "AbortError" ? "Bet request timed out. Please try again." : (err as Error).message);
+    } finally {
+      window.clearTimeout(timeout);
+      setPlacing(false);
+    }
+  }
 
   return (
     <aside className={compact ? "" : "lg:sticky lg:top-24 lg:self-start"}>
@@ -640,12 +669,14 @@ function DetailTradeTicket({
             </div>
           ) : (
             <button
-              onClick={() => onBet(market, tradeOutcome, amount)}
-              className="h-11 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-[#087cff]/20 transition hover:bg-[#1c8aff]"
+              onClick={placeTrade}
+              disabled={placing}
+              className="h-11 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-[#087cff]/20 transition hover:bg-[#1c8aff] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {side === "buy" ? "Place trade" : "Create sell order"}
+              {placing ? "Placing..." : side === "buy" ? "Place trade" : "Create sell order"}
             </button>
           )}
+          {tradeError && <p className="mt-3 rounded-lg bg-red-900/30 px-3 py-2 text-[11px] text-red-400">{tradeError}</p>}
           <p className="mt-3 text-center text-[11px] text-white/30">Balance: ${Math.floor(balance).toLocaleString()}</p>
         </div>
       </div>
@@ -668,6 +699,7 @@ function MarketDetailView({
   balance,
   onBack,
   onBet,
+  onTradeSuccess,
   onOpen,
   comments,
   onAddComment,
@@ -677,6 +709,7 @@ function MarketDetailView({
   balance: number;
   onBack: () => void;
   onBet: (m: PolymarketMarket, o?: string, amount?: number) => void;
+  onTradeSuccess: () => void;
   onOpen: (m: PolymarketMarket) => void;
   comments: DetailComment[];
   onAddComment: (body: string) => void;
@@ -841,7 +874,7 @@ function MarketDetailView({
           market={market}
           selectedOutcome={selectedOutcome}
           balance={balance}
-          onBet={onBet}
+          onTradeSuccess={onTradeSuccess}
         />
         <div className="mt-5 space-y-3">
           {related.filter((m) => m.conditionId !== market.conditionId).slice(0, 3).map((m) => {
@@ -874,7 +907,7 @@ function MarketDetailView({
               market={market}
               selectedOutcome={selectedOutcome}
               balance={balance}
-              onBet={onBet}
+              onTradeSuccess={onTradeSuccess}
               compact
             />
           </>
@@ -1276,6 +1309,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
           balance={balance}
           onBack={() => setSelectedMarket(null)}
           onBet={openBet}
+          onTradeSuccess={handleBetSuccess}
           onOpen={openMarket}
           comments={selectedComments}
           onAddComment={addComment}
