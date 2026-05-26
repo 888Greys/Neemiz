@@ -37,7 +37,7 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
       const res = await fetch("/api/polymarket/bet", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ conditionId: market.conditionId, outcome, stake }),
+        body:    JSON.stringify({ conditionId: market.conditionId, outcome, outcomeIndex: outcomeIdx, stake }),
         signal:  controller.signal,
       });
       const data = await res.json();
