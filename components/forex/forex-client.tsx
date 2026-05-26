@@ -385,8 +385,8 @@ export function ForexClient() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#050506] text-white">
-      <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_420px] border-b border-white/[0.08] bg-[#08090d]/95">
+    <div className="min-h-full max-w-full overflow-x-hidden bg-[#050506] text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden">
+      <div className="grid min-w-0 shrink-0 grid-cols-1 overflow-hidden border-b border-white/[0.08] bg-[#08090d]/95 xl:grid-cols-[minmax(0,1fr)_420px]">
         <section className="flex min-w-0 items-center gap-3 px-4 py-2">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded bg-[#087cff]/15 text-[#8bc3ff]">
             <Icon name="candlestick_chart" className="text-[22px]" />
@@ -407,7 +407,7 @@ export function ForexClient() {
           </div>
         </section>
 
-        <section className="grid grid-cols-3 border-l border-white/[0.08]">
+        <section className="grid min-w-0 grid-cols-3 border-l border-white/[0.08]">
           <MetricCard label="Exposure" value={`${exposure.toLocaleString("en-US")} units`} />
           <MetricCard label="Open P/L" value={`${estimatedPnl >= 0 ? "+" : ""}${estimatedPnl.toFixed(2)} pips`} positive={estimatedPnl >= 0} negative={estimatedPnl < 0} />
           <MetricCard label="Feed" value={streamStatus === "live" ? "Deriv WS" : streamStatus === "connecting" ? "Connecting" : "Retrying"} negative={streamStatus === "fallback"} />
@@ -420,13 +420,13 @@ export function ForexClient() {
         </div>
       )}
 
-      <div data-forex-grid="true" className="grid min-h-0 flex-1 min-w-0 gap-0 overflow-hidden xl:grid-cols-[320px_minmax(0,1fr)_450px]">
-        <aside className="order-2 hidden min-h-0 border-r border-white/[0.08] bg-[#101216] xl:order-none xl:block">
+      <div data-forex-grid="true" className="grid max-w-full min-w-0 gap-2 overflow-visible px-2 py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:p-0 xl:grid-cols-[320px_minmax(0,1fr)_450px]">
+        <aside className="order-2 min-w-0 overflow-hidden rounded border border-white/[0.08] bg-[#101216] xl:order-none xl:block xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
           <div className="flex h-12 items-center gap-2 border-b border-white/[0.07] bg-black/20 px-3">
             <Icon name="search" className="text-[16px] text-slate-500" />
             <span className="text-xs font-bold text-slate-500">Major forex pairs</span>
           </div>
-          <div className="grid max-h-[calc(100%-3rem)] gap-0 overflow-y-auto">
+          <div className="grid max-h-[360px] gap-0 overflow-y-auto sm:grid-cols-2 xl:max-h-[calc(100%-3rem)] xl:grid-cols-1">
             {MARKETS.map((market) => (
               <button
                 key={market.symbol}
@@ -454,10 +454,10 @@ export function ForexClient() {
           </div>
         </aside>
 
-        <main className="order-1 flex min-h-0 min-w-0 flex-col xl:order-none">
+        <main className="order-1 flex min-h-[600px] min-w-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#101216]">
-            <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-2">
-              <div>
+            <div className="shrink-0 flex flex-col gap-3 border-b border-white/[0.07] px-4 py-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h2 className="text-xl font-black text-white">{selectedMarket.symbol}</h2>
                   <span className={`rounded px-2 py-1 text-[10px] font-black ${changePct >= 0 ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
@@ -466,7 +466,7 @@ export function ForexClient() {
                 </div>
                 <div className="text-xs font-bold text-slate-500">{selectedMarket.name}</div>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-right">
+              <div className="grid w-full min-w-0 grid-cols-1 gap-2 text-right sm:w-auto sm:grid-cols-2">
                 <QuoteBox label="Bid" value={formatPrice(selectedMarket, bid)} tone="sell" />
                 <QuoteBox label="Ask" value={formatPrice(selectedMarket, ask)} tone="buy" />
               </div>
@@ -492,7 +492,7 @@ export function ForexClient() {
           </section>
         </main>
 
-        <aside className="order-3 hidden min-h-0 overflow-hidden border-l border-white/[0.08] bg-[#101216] xl:order-none xl:block">
+        <aside className="order-3 min-w-0 overflow-hidden rounded border border-white/[0.08] bg-[#101216] xl:order-none xl:block xl:min-h-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
           <section className="flex h-full min-h-0 flex-col">
             <div className="shrink-0 border-b border-white/[0.07] px-4 py-3">
               <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Order ticket</div>
@@ -599,7 +599,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function MetricCard({ label, negative, positive, value }: { label: string; negative?: boolean; positive?: boolean; value: string }) {
   return (
-    <div className="rounded border border-white/[0.08] bg-[#101216] px-3 py-3">
+    <div className="min-w-0 rounded border border-white/[0.08] bg-[#101216] px-3 py-3">
       <div className="text-[10px] font-black uppercase tracking-wider text-slate-600">{label}</div>
       <div className={`mt-1 truncate font-mono text-sm font-black ${positive ? "text-[#33d49b]" : negative ? "text-[#ff6171]" : "text-white"}`}>{value}</div>
     </div>
@@ -608,9 +608,9 @@ function MetricCard({ label, negative, positive, value }: { label: string; negat
 
 function QuoteBox({ label, tone, value }: { label: string; tone: "buy" | "sell"; value: string }) {
   return (
-    <div className={`min-w-[112px] rounded border px-3 py-2 ${tone === "buy" ? "border-[#33d49b]/30 bg-[#33d49b]/8" : "border-[#ff6171]/30 bg-[#ff6171]/8"}`}>
+    <div className={`min-w-0 overflow-hidden rounded border px-2 py-2 sm:min-w-[112px] sm:px-3 ${tone === "buy" ? "border-[#33d49b]/30 bg-[#33d49b]/8" : "border-[#ff6171]/30 bg-[#ff6171]/8"}`}>
       <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="font-mono text-base font-black text-white sm:text-lg">{value}</div>
+      <div className="truncate font-mono text-sm font-black text-white sm:text-lg">{value}</div>
     </div>
   );
 }
