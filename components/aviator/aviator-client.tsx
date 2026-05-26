@@ -359,29 +359,21 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     const bet = myBets[panelIndex];
     if (!bet || bet.status !== "ACTIVE") return;
 
-    // ── INSTANT optimistic update — no spinner, no wait ────────────────────
-    // Capture multiplier at the exact moment the user clicks.
+    // Capture multiplier at the exact tap moment
     const clickedMultiplier = Math.max(1, multiplier);
     const pendingWin = Number((bet.betAmount * clickedMultiplier).toFixed(2));
 
-    setMyBets((prev) => {
-      const existing = prev[panelIndex];
-      if (!existing || existing.status !== "ACTIVE") return prev;
-      return {
-        ...prev,
-        [panelIndex]: {
-          ...existing,
-          status:    "CASHEDOUT",   // skip CASHING_OUT entirely
-          cashoutAt: clickedMultiplier,
-          winAmount: pendingWin,
-        },
-      };
-    });
-    // Optimistic balance credit — feels instant to the user
+    // ── INSTANT: clear bet → panel returns to "NEXT ROUND" form immediately ──
+    // Win is shown as a toast only — no "You won" panel blocking the UI.
+    setMyBets((prev) => { const n = { ...prev }; delete n[panelIndex]; return n; });
     setBalance((b) => b + pendingWin);
+    toast.cashout(
+      `Cashed out at ${clickedMultiplier.toFixed(2)}×`,
+      `+KSh ${pendingWin.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+    );
     window.dispatchEvent(new Event("wallet-refresh"));
 
-    // ── Background API call — confirm with server ──────────────────────────
+    // ── Background confirm — silently correct balance if server differs ──────
     try {
       const res = await fetch("/api/aviator/cashout", {
         method: "POST",
@@ -391,47 +383,21 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Cashout failed");
 
-      // Update with server-confirmed values (may differ slightly from optimistic)
-      setMyBets((prev) => {
-        const existing = prev[panelIndex];
-        if (!existing) return prev;
-        return {
-          ...prev,
-          [panelIndex]: {
-            ...existing,
-            status:    "CASHEDOUT",
-            cashoutAt: data.cashoutAt,
-            winAmount: data.winAmount,
-          },
-        };
-      });
-      // Correct balance with server truth (swap optimistic for real)
-      setBalance((b) => b - pendingWin + Number(data.winAmount));
-      toast.cashout(
-        `Cashed out at ${(data.cashoutAt as number).toFixed(2)}×`,
-        `+KSh ${Number(data.winAmount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      );
-      window.dispatchEvent(new Event("wallet-refresh"));
+      // Swap optimistic amount for server-confirmed amount
+      const serverWin = Number(data.winAmount);
+      if (serverWin !== pendingWin) {
+        setBalance((b) => b - pendingWin + serverWin);
+        window.dispatchEvent(new Event("wallet-refresh"));
+      }
     } catch (err) {
-      // Revert on failure — put the cashout button back
+      // Server rejected — revert balance and restore the cashout button
       toast.error("Cashout failed", (err as Error).message);
-      setBalance((b) => b - pendingWin);   // undo optimistic credit
-      setMyBets((prev) => {
-        const existing = prev[panelIndex];
-        if (!existing || existing.status !== "CASHEDOUT") return prev;
-        return {
-          ...prev,
-          [panelIndex]: {
-            ...existing,
-            status:    roundRef.current?.state === "FLYING" ? "ACTIVE" : "LOST",
-            cashoutAt: null,
-            winAmount: null,
-          },
-        };
-      });
-      throw err;
+      setBalance((b) => b - pendingWin);
+      if (roundRef.current?.state === "FLYING") {
+        setMyBets((prev) => ({ ...prev, [panelIndex]: { ...bet, status: "ACTIVE" } }));
+      }
     }
-  }, [fetchBalance, multiplier, myBets]);
+  }, [multiplier, myBets]);
 
   const displayMult = round?.state === "CRASHED" ? (round.crashPoint ?? multiplier) : multiplier;
 
