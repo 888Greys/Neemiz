@@ -37,6 +37,12 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XX or 01XX format." }, { status: 400 });
     }
 
+    // 5% withdrawal fee — deducted from the requested amount.
+    // User requests amountKes, receives (amountKes * 0.95) via M-Pesa.
+    const WITHDRAWAL_FEE_RATE = 0.05;
+    const feeKes    = parseFloat((amountKes * WITHDRAWAL_FEE_RATE).toFixed(2));
+    const payoutKes = parseFloat((amountKes - feeKes).toFixed(2));
+
     const result = await db.$transaction(async (tx) => {
       const dbUser = await getOrCreateUser(user.id, { email: user.email });
       const balance = Number(dbUser.walletBalance);
@@ -59,7 +65,7 @@ export async function POST(req: Request) {
           currency: "KES",
           status: TransactionStatus.PENDING,
           provider: "megapay",
-          metadata: { msisdn, requestedAt: new Date().toISOString() },
+          metadata: { msisdn, requestedAt: new Date().toISOString(), fee: feeKes, payout: payoutKes },
         },
       });
 
@@ -70,7 +76,9 @@ export async function POST(req: Request) {
       ok: true,
       newBalance: result.newBalance,
       withdrawalId: result.withdrawalId,
-      message: `KSh ${amountKes.toLocaleString()} withdrawal submitted. Funds will arrive within 24 hours.`,
+      fee: feeKes,
+      payout: payoutKes,
+      message: `KSh ${payoutKes.toLocaleString()} will be sent to your M-Pesa (5% fee: KSh ${feeKes.toLocaleString()}).`,
     });
   } catch (err) {
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {

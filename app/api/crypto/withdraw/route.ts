@@ -52,6 +52,12 @@ export async function POST(req: Request) {
     );
   }
 
+  // 5% withdrawal fee — deducted from the requested amount.
+  // User requests `amount`, receives `payoutAmount` on-chain.
+  const WITHDRAWAL_FEE_RATE = 0.05;
+  const feeAmount    = parseFloat((amount * WITHDRAWAL_FEE_RATE).toFixed(8));
+  const payoutAmount = parseFloat((amount - feeAmount).toFixed(8));
+
   // ── Balance check + debit (atomic) ─────────────────────────────────────────
   let txRecord;
   try {
@@ -67,7 +73,7 @@ export async function POST(req: Request) {
           currency:  crypto,
           status:    TransactionStatus.PENDING,
           provider:  "nowpayments",
-          metadata:  { address, network, crypto, submittedAt: new Date().toISOString() },
+          metadata:  { address, network, crypto, fee: feeAmount, payout: payoutAmount, submittedAt: new Date().toISOString() },
         },
       });
     });
@@ -85,8 +91,8 @@ export async function POST(req: Request) {
     const payout = await createPayout({
       address,
       currency:   payCurrency,
-      amount,
-      externalId: txRecord.id,   // unique per withdrawal
+      amount:     payoutAmount,  // send net amount (after 5% platform fee)
+      externalId: txRecord.id,
     });
 
     // Update transaction with NOWPayments payout ID
