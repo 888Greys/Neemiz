@@ -686,14 +686,16 @@ function MarketDetailView({
   const selectedIndex = Math.max(0, market.outcomes.findIndex((o) => o === selectedOutcome));
   const [rulesTab, setRulesTab] = useState<"rules" | "context">("rules");
   const [commentsTab, setCommentsTab] = useState<"comments" | "holders" | "positions" | "activity">("comments");
+  const [mobileTradeOpen, setMobileTradeOpen] = useState(false);
   useEffect(() => {
     setSelectedOutcome(market.outcomes[topIndex] ?? market.outcomes[0] ?? "Yes");
     setRulesTab("rules");
     setCommentsTab("comments");
+    setMobileTradeOpen(false);
   }, [market.conditionId, market.outcomes, topIndex]);
 
   return (
-    <div className="grid gap-6 pb-72 lg:grid-cols-[minmax(0,1fr)_360px] lg:pb-0 xl:grid-cols-[minmax(0,1fr)_420px]">
+    <div className={`grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:pb-0 xl:grid-cols-[minmax(0,1fr)_420px] ${mobileTradeOpen ? "pb-72" : "pb-24"}`}>
       <main className="min-w-0">
         <button onClick={onBack} className="mb-5 inline-flex items-center gap-2 text-[13px] font-black text-white/45 hover:text-white">
           <ArrowLeft className="h-4 w-4" /> Markets
@@ -860,13 +862,38 @@ function MarketDetailView({
       </div>
 
       <div className="fixed inset-x-0 bottom-14 z-40 border-t border-white/[0.08] bg-[#090a0d]/95 px-3 pt-2 shadow-2xl shadow-black/60 backdrop-blur lg:hidden">
-        <DetailTradeTicket
-          market={market}
-          selectedOutcome={selectedOutcome}
-          balance={balance}
-          onBet={onBet}
-          compact
-        />
+        {mobileTradeOpen ? (
+          <>
+            <button
+              onClick={() => setMobileTradeOpen(false)}
+              className="mx-auto mb-2 flex h-6 w-full max-w-xs items-center justify-center rounded-full text-[11px] font-black text-white/45"
+            >
+              <ChevronDown className="h-4 w-4" /> Minimize trade
+            </button>
+            <DetailTradeTicket
+              market={market}
+              selectedOutcome={selectedOutcome}
+              balance={balance}
+              onBet={onBet}
+              compact
+            />
+          </>
+        ) : (
+          <div className="mx-auto flex max-w-xl items-center gap-3 pb-2">
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[11px] font-bold text-white/35">{market.question}</p>
+              <p className="text-[13px] font-black text-white">
+                {selectedOutcome} <span className="font-mono text-[#31c45d]">{(marketPrice(market, selectedIndex) * 100).toFixed(0)}¢</span>
+              </p>
+            </div>
+            <button
+              onClick={() => setMobileTradeOpen(true)}
+              className="h-11 shrink-0 rounded-xl bg-[#087cff] px-5 text-[13px] font-black text-white shadow-lg shadow-[#087cff]/20"
+            >
+              Trade
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
