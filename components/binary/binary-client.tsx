@@ -452,7 +452,7 @@ export function BinaryClient() {
         </div>
       </div>
 
-      <div data-binary-grid="true" className="grid min-h-0 flex-1 min-w-0 gap-0 overflow-hidden xl:grid-cols-[300px_minmax(0,1fr)_390px]">
+      <div data-binary-grid="true" className="grid min-h-0 flex-1 min-w-0 gap-0 overflow-hidden border-b border-white/[0.08] xl:grid-cols-[300px_minmax(0,1fr)_390px]">
         <aside className="order-2 hidden min-h-0 flex-col overflow-hidden border-r border-white/[0.08] xl:order-none xl:flex">
           <section className="shrink-0 border-b border-white/[0.08] bg-[#0f1218]">
             <div className="grid grid-cols-3 border-b border-white/[0.07] text-xs font-black">
@@ -536,14 +536,14 @@ export function BinaryClient() {
             <TradingViewBinaryChart ticks={ticks} />
           </section>
 
-          <section className="grid shrink-0 gap-0 border-t border-white/[0.08] bg-[#0b0d12] md:grid-cols-10">
+          <section className="grid h-[70px] shrink-0 gap-0 border-t border-white/[0.08] bg-[#0b0d12] md:grid-cols-10">
             {digitStats.map((stat) => (
-              <div key={stat.digit} className={`h-[74px] border-r border-white/[0.08] p-2 last:border-r-0 ${latest.digit === stat.digit ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400" : "bg-[#0f1218]"}`}>
+              <div key={stat.digit} className={`h-full border-r border-white/[0.08] px-2 py-1.5 last:border-r-0 ${latest.digit === stat.digit ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400" : "bg-[#0f1218]"}`}>
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-lg font-black">{stat.digit}</span>
                   <span className="text-[10px] font-black text-slate-500">{stat.pct.toFixed(1)}%</span>
                 </div>
-                <div className="mt-1 h-7 rounded bg-black/25 p-1">
+                <div className="mt-1 h-6 rounded bg-black/25 p-1">
                   <div className="mt-auto rounded bg-sky-400" style={{ height: `${Math.max(8, stat.pct * 3.2)}%` }} />
                 </div>
               </div>
