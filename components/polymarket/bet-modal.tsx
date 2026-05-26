@@ -14,6 +14,15 @@ interface Props {
 
 const QUICK = [50, 100, 250, 500, 1000];
 
+function formatKes(value: number, options?: Intl.NumberFormatOptions) {
+  return `KSh ${value.toLocaleString(undefined, options)}`;
+}
+
+function formatCents(price: number) {
+  const cents = price * 100;
+  return `${cents < 10 ? cents.toFixed(1) : cents.toFixed(0)}¢`;
+}
+
 export function BetModal({ market, initialOutcome, initialAmount, balance, onClose, onSuccess }: Props) {
   const [outcome,  setOutcome]  = useState<string>(initialOutcome && market.outcomes.includes(initialOutcome) ? initialOutcome : market.outcomes[0]);
   const [amount,   setAmount]   = useState(String(initialAmount ?? 100));
@@ -27,7 +36,7 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
   const profit       = potentialWin - stake;
 
   async function handleBet() {
-    if (stake < 10)     { setError("Minimum bet is $10"); return; }
+    if (stake < 10)     { setError("Minimum bet is KSh 10"); return; }
     if (stake > balance){ setError("Insufficient balance");  return; }
     setError(null);
     setLoading(true);
@@ -82,7 +91,7 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
                 }`}
               >
                 <span className={`text-sm font-black ${selected ? (isYes ? "text-[#31c45d]" : "text-red-400") : "text-white/60"}`}>{o}</span>
-                <span className="font-mono text-xs text-white/50">{(p * 100).toFixed(0)}% · {(1/p).toFixed(2)}x</span>
+                <span className="font-mono text-xs text-white/50">{formatCents(p)} · {(1/p).toFixed(2)}x</span>
               </button>
             );
           })}
@@ -91,7 +100,7 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
         {/* Amount */}
         <div className="mb-3">
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-white/50">
-            Stake ($)
+            Stake (KSh)
           </label>
           <div className="relative">
             <input
@@ -126,7 +135,7 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
           <div className="mb-4 rounded-lg border border-white/5 bg-white/5 p-3 text-xs">
             <div className="flex justify-between text-white/50">
               <span>Stake</span>
-              <span className="font-mono text-white">$ {stake.toLocaleString()}</span>
+              <span className="font-mono text-white">{formatKes(stake)}</span>
             </div>
             <div className="mt-1 flex justify-between text-white/50">
               <span>Odds</span>
@@ -134,11 +143,11 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
             </div>
             <div className="mt-2 flex justify-between border-t border-white/10 pt-2 font-semibold">
               <span className="text-white/60">Potential win</span>
-              <span className="font-mono text-[#31c45d]">$ {potentialWin.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="font-mono text-[#31c45d]">{formatKes(potentialWin, { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/40">Profit</span>
-              <span className="font-mono text-[#31c45d]/70">+$ {profit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              <span className="font-mono text-[#31c45d]/70">+{formatKes(profit, { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
         )}
@@ -150,11 +159,11 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
           disabled={loading || stake < 10}
           className="w-full rounded-lg bg-[#087cff] py-3 text-sm font-black text-white transition hover:bg-[#0068d9] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Placing…" : `Bet ${outcome} · $${stake > 0 ? stake.toLocaleString() : "—"}`}
+          {loading ? "Placing..." : `Bet ${outcome} · ${stake > 0 ? formatKes(stake) : "KSh -"}`}
         </button>
 
         <p className="mt-2 text-center text-xs text-white/30">
-          Balance: $ {balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          Balance: {formatKes(balance, { minimumFractionDigits: 2 })}
         </p>
       </div>
     </div>
