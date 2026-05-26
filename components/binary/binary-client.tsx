@@ -418,7 +418,7 @@ export function BinaryClient() {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#050506] text-white">
+    <div className="min-h-full overflow-visible bg-[#050506] text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden">
       <div className="z-20 shrink-0 border-b border-white/[0.08] bg-[#08090d]/95 px-2 py-1 backdrop-blur lg:px-3">
         <div className="flex h-10 items-center gap-2 overflow-hidden">
           <div className="mr-1 flex shrink-0 items-center gap-2 rounded bg-[#11151c] px-2.5 py-1.5">
@@ -452,8 +452,8 @@ export function BinaryClient() {
         </div>
       </div>
 
-      <div data-binary-grid="true" className="grid min-h-0 flex-1 min-w-0 gap-0 overflow-hidden border-b border-white/[0.08] xl:grid-cols-[300px_minmax(0,1fr)_390px]">
-        <aside className="order-2 hidden min-h-0 flex-col overflow-hidden border-r border-white/[0.08] xl:order-none xl:flex">
+      <div data-binary-grid="true" className="grid min-w-0 gap-2 overflow-visible px-2 py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 xl:grid-cols-[300px_minmax(0,1fr)_390px]">
+        <aside className="order-2 flex min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
           <section className="shrink-0 border-b border-white/[0.08] bg-[#0f1218]">
             <div className="grid grid-cols-3 border-b border-white/[0.07] text-xs font-black">
               <button className="border-b-2 border-sky-400 py-2 text-sky-300" type="button">Open ({openTrades.length})</button>
@@ -499,7 +499,7 @@ export function BinaryClient() {
           </section>
         </aside>
 
-        <main className="order-1 flex min-h-0 min-w-0 flex-col xl:order-none">
+        <main className="order-1 flex min-h-[620px] min-w-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
             <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-2">
               <div className="flex min-w-0 items-center gap-3">
@@ -551,7 +551,7 @@ export function BinaryClient() {
           </section>
         </main>
 
-        <aside className="order-3 hidden min-h-0 flex-col overflow-hidden border-l border-white/[0.08] xl:order-none xl:flex">
+        <aside className="order-3 flex min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
           <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
             <div className="shrink-0 border-b border-white/[0.07] p-2">
               <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Trading mode</div>
