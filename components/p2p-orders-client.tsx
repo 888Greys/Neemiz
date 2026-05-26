@@ -105,7 +105,7 @@ export function P2POrdersClient() {
   return (
     <>
       <P2PSubNav />
-    <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-5xl px-3 py-4 sm:px-4">
       {/* Header */}
       <div className="mb-5">
         <h1 className="text-2xl font-black text-white mb-1">My P2P Orders</h1>

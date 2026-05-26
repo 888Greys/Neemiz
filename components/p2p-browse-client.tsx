@@ -669,10 +669,10 @@ export function P2PBrowseClient() {
 
       <P2PSubNav />
 
-      <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4">
+      <div className="mx-auto w-full max-w-5xl px-3 py-3 sm:px-4">
 
         {/* Workspace header */}
-        <div className="mb-2 grid min-w-0 gap-2 xl:grid-cols-[minmax(0,1fr)_575px]">
+        <div className="mb-2 grid min-w-0 gap-2 xl:grid-cols-[minmax(0,1fr)_430px]">
           <div className="min-w-0 rounded-xl border border-[#1e1e30] bg-[#111118] px-3 py-2.5">
             <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
               <div>

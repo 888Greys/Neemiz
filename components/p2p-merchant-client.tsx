@@ -183,7 +183,7 @@ function ApplicationStatus({ status, onRefresh }: { status: MerchantStatus; onRe
   const isPending  = status.kycStatus === "PENDING";
 
   return (
-    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-4">
       <div className="max-w-lg">
         {/* Status card */}
         <div className={`rounded-2xl border p-6 mb-6 ${
@@ -726,7 +726,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   }
 
   return (
-    <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-4">
       {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} />}
       {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} />}
 

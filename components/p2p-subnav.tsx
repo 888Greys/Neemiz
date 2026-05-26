@@ -19,7 +19,7 @@ export function P2PSubNav() {
   const effectivePath = pathname.startsWith("/p2p/order/") ? "/p2p/orders" : pathname;
 
   return (
-    <div className="px-3 pt-2 sm:px-4">
+    <div className="mx-auto w-full max-w-6xl px-3 pt-2 sm:px-4">
       <div className="flex w-full items-center justify-between rounded-xl border border-[#1e1e30] bg-[#111118] px-1.5 py-1">
         <div className="no-scrollbar flex items-center overflow-x-auto">
           {TABS.map((t) => {
