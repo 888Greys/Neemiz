@@ -59,6 +59,11 @@ export function AviatorBetPanel({
     if (myBet?.status !== "CASHING_OUT" && (round?.state !== "FLYING" || myBet?.status !== "ACTIVE")) setLoading(false);
   }, [myBet?.status, round?.state]);
 
+  // Clear error when a new betting window opens
+  useEffect(() => {
+    if (round?.state === "BETTING") setError(null);
+  }, [round?.state]);
+
   const state       = round?.state ?? "WAITING";
   const bettingOpen = state === "BETTING";
   const isFlying    = state === "FLYING";
@@ -335,35 +340,6 @@ export function AviatorBetPanel({
                 className="flex-1 rounded-lg border border-white/[0.07] bg-white/[0.04] py-1.5 text-[10px] font-black text-white/50 hover:border-white/20 hover:text-white"
               >
                 MAX
-              </button>
-            </div>
-          </div>
-
-          {/* Auto-cashout */}
-          <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5">
-            <label className="flex items-center gap-2 text-[11px] font-black text-white/50">
-              Auto Cashout
-              {acEnabled && (
-                <span className="rounded-full border border-[#31c45d]/30 bg-[#31c45d]/10 px-1.5 py-px text-[9px] text-[#31c45d]">
-                  at {autoCashout.toFixed(2)}×
-                </span>
-              )}
-            </label>
-            <div className="flex items-center gap-2">
-              {acEnabled && (
-                <input
-                  type="number"
-                  value={autoCashout}
-                  min="1.01" step="0.01"
-                  onChange={(e) => setAutoCashout(parseFloat(e.target.value) || 1.01)}
-                  className="w-20 rounded-lg border border-white/[0.08] bg-black/30 py-1 text-center font-mono text-xs text-white outline-none focus:border-[#087cff]/50"
-                />
-              )}
-              <button
-                onClick={() => setAcEnabled((v) => !v)}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${acEnabled ? "bg-[#31c45d]" : "bg-white/15"}`}
-              >
-                <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${acEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
               </button>
             </div>
           </div>
