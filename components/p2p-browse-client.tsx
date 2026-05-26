@@ -354,7 +354,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
     <button
       type="button"
       onClick={openOrder}
-      className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_84px] gap-3 border-b border-[#1e1e30] bg-[#0e0e14] px-3 py-3 text-left transition hover:bg-[#111118] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#087cff]/60 sm:grid-cols-[minmax(0,1fr)_118px] sm:px-4"
+      className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_84px] gap-3 rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-3 py-3 text-left transition hover:bg-[#111118] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/60 sm:grid-cols-[minmax(0,1fr)_118px] sm:px-4"
     >
       <div className="min-w-0">
         <div className="mb-1.5 flex min-w-0 items-center gap-2">
@@ -770,7 +770,7 @@ export function P2PBrowseClient() {
           ) : ads.length === 0 ? (
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-[#1e1e30] bg-[#0e0e14]">
+            <div className="flex flex-col gap-1.5">
               {ads.map((ad) => (
                 <AdCard key={ad.id} ad={ad} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
               ))}
