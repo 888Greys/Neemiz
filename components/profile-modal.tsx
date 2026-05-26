@@ -257,22 +257,71 @@ function TransactionsView() {
 
 // ── Sub-view: Withdraw ───────────────────────────────────────────────────────
 
+const COIN_ICONS: Record<string, string> = {
+  USDT:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
+  USDC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
+  BTC:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
+  ETH:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
+  BNB:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
+  MATIC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/matic.svg",
+};
+
+const NET_LABEL: Record<string, string> = {
+  TRC20: "TRC-20", ERC20: "ERC-20", BEP20: "BEP-20", BTC: "Bitcoin",
+};
+
+const MIN_CRYPTO: Record<string, number> = {
+  USDT: 10, USDC: 10, BTC: 0.0001, ETH: 0.005, BNB: 0.01, MATIC: 5,
+};
+
+type CryptoBal = { crypto: string; network: string; available: number };
+
 function WithdrawView({ balance, currency, onSuccess }: { balance: number; currency: string; onSuccess: (newBalance: number) => void }) {
   const { user } = useSupabaseAuth();
-  const [amount, setAmount] = useState("");
-  const [phone, setPhone] = useState("");
+  const [mode, setMode] = useState<"fiat" | "crypto">("fiat");
+
+  // — fiat state —
+  const [amount, setAmount]   = useState("");
+  const [phone, setPhone]     = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
+  const [error, setError]     = useState("");
+  const [done, setDone]       = useState(false);
+
+  // — crypto state —
+  const [cryptoBalances, setCryptoBalances] = useState<CryptoBal[]>([]);
+  const [cryptoLoading, setCryptoLoading]   = useState(false);
+  const [selectedBal, setSelectedBal]       = useState<CryptoBal | null>(null);
+  const [cwAmount, setCwAmount]             = useState("");
+  const [cwAddress, setCwAddress]           = useState("");
+  const [cwLoading, setCwLoading]           = useState(false);
+  const [cwError, setCwError]               = useState("");
+  const [cwDone, setCwDone]                 = useState(false);
+  const [cwOpen, setCwOpen]                 = useState(false);
 
   useEffect(() => {
     const ph = user?.phone ?? user?.user_metadata?.phone_number;
     if (ph && !phone) setPhone(String(ph).replace("+", ""));
   }, [user, phone]);
 
-  const fmtBal = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
+  useEffect(() => {
+    if (mode !== "crypto") return;
+    setCryptoLoading(true);
+    fetch("/api/crypto/balance")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: unknown) => {
+        const bals = Array.isArray(data) ? (data as CryptoBal[]).filter((b) => b.available > 0) : [];
+        setCryptoBalances(bals);
+        if (bals.length && !selectedBal) setSelectedBal(bals[0]);
+      })
+      .catch(() => {})
+      .finally(() => setCryptoLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
-  async function submit() {
+  const fmtBal = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
+  const cwPrec = selectedBal?.crypto === "BTC" || selectedBal?.crypto === "ETH" ? 8 : 6;
+
+  async function submitFiat() {
     setError("");
     const amt = Number(amount);
     if (!amt || amt < 100) { setError("Minimum withdrawal is KSh 100"); return; }
@@ -285,9 +334,9 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
         body: JSON.stringify({ amountKes: amt, phoneNumber: normalizeMsisdn(phone) }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Withdrawal failed");
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Withdrawal failed");
       setDone(true);
-      onSuccess(data.newBalance);
+      onSuccess((data as { newBalance: number }).newBalance);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -295,57 +344,227 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
     }
   }
 
-  if (done) {
-    return (
-      <div className="flex flex-col items-center gap-4 px-6 py-12 text-center">
-        <Icon name="check_circle" fill className="text-[54px] text-emerald-400" />
-        <p className="text-2xl font-black text-white">Request submitted</p>
-        <p className="text-sm font-bold text-slate-400">Your withdrawal will arrive within 24 hours via M-Pesa.</p>
-      </div>
-    );
+  async function submitCrypto() {
+    if (!selectedBal) return;
+    setCwError("");
+    const amt = Number(cwAmount);
+    const min = MIN_CRYPTO[selectedBal.crypto] ?? 0;
+    if (!amt || amt < min) { setCwError(`Minimum withdrawal is ${min} ${selectedBal.crypto}`); return; }
+    if (amt > selectedBal.available) { setCwError("Amount exceeds available balance"); return; }
+    if (!cwAddress.trim()) { setCwError("Destination address is required"); return; }
+    setCwLoading(true);
+    try {
+      const res = await fetch("/api/crypto/withdraw", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crypto: selectedBal.crypto, network: selectedBal.network, amount: amt, address: cwAddress.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Withdrawal failed");
+      setCwDone(true);
+    } catch (err) {
+      setCwError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setCwLoading(false);
+    }
   }
 
   return (
     <div className="space-y-4 px-4 py-3">
-      <div className="rounded-2xl bg-[#16171d] px-4 py-3 ring-1 ring-white/[0.07]">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Available</p>
-        <p className="text-2xl font-black text-white">{fmtBal}</p>
+
+      {/* ── Mode tabs ── */}
+      <div className="grid grid-cols-2 rounded-2xl bg-white/[0.04] p-1 ring-1 ring-white/[0.07]">
+        <button
+          type="button"
+          onClick={() => { setMode("fiat"); setDone(false); setError(""); }}
+          className={`flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-black transition ${mode === "fiat" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:text-white"}`}
+        >
+          <Icon name="phone_iphone" fill className="text-[15px]" />
+          M-Pesa
+        </button>
+        <button
+          type="button"
+          onClick={() => { setMode("crypto"); setCwDone(false); setCwError(""); }}
+          className={`flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-black transition ${mode === "crypto" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:text-white"}`}
+        >
+          <Icon name="currency_bitcoin" fill className="text-[15px]" />
+          Crypto
+        </button>
       </div>
 
-      <input
-        type="tel"
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        placeholder="M-Pesa number (07XX or 01XX)"
-        className="h-14 w-full rounded-2xl bg-[#16171d] px-5 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
-      />
+      {/* ── M-Pesa tab ── */}
+      {mode === "fiat" && (
+        done ? (
+          <div className="flex flex-col items-center gap-4 py-10 text-center">
+            <Icon name="check_circle" fill className="text-[54px] text-emerald-400" />
+            <p className="text-2xl font-black text-white">Request submitted</p>
+            <p className="text-sm font-bold text-slate-400">Your withdrawal will arrive within 24 hours via M-Pesa.</p>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-2xl bg-[#16171d] px-4 py-3 ring-1 ring-white/[0.07]">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Available</p>
+              <p className="text-2xl font-black text-white">{fmtBal}</p>
+            </div>
 
-      <div className="relative">
-        <span className="absolute left-5 top-2 text-[10px] font-black text-slate-500">Amount (KSh)</span>
-        <input
-          type="number"
-          min="100"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="0"
-          className="h-14 w-full rounded-2xl bg-[#16171d] px-5 pt-4 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
-        />
-      </div>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="M-Pesa number (07XX or 01XX)"
+              className="h-14 w-full rounded-2xl bg-[#16171d] px-5 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
+            />
 
-      <p className="text-[11px] text-slate-600">Min KSh 100 · Max KSh 150,000 per transaction</p>
+            <div className="relative">
+              <span className="absolute left-5 top-2 text-[10px] font-black text-slate-500">Amount (KSh)</span>
+              <input
+                type="number"
+                min="100"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0"
+                className="h-14 w-full rounded-2xl bg-[#16171d] px-5 pt-4 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
+              />
+            </div>
 
-      {error && (
-        <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 ring-1 ring-red-500/20">{error}</p>
+            <p className="text-[11px] text-slate-600">Min KSh 100 · Max KSh 150,000 per transaction</p>
+
+            {error && (
+              <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 ring-1 ring-red-500/20">{error}</p>
+            )}
+
+            <button
+              type="button"
+              onClick={submitFiat}
+              disabled={loading || !amount || !phone}
+              className="h-14 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading ? "Submitting…" : "Withdraw via M-Pesa"}
+            </button>
+          </>
+        )
       )}
 
-      <button
-        type="button"
-        onClick={submit}
-        disabled={loading || !amount || !phone}
-        className="h-14 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {loading ? "Submitting…" : "Withdraw via M-Pesa"}
-      </button>
+      {/* ── Crypto tab ── */}
+      {mode === "crypto" && (
+        cwDone ? (
+          <div className="flex flex-col items-center gap-4 py-10 text-center">
+            <Icon name="check_circle" fill className="text-[54px] text-emerald-400" />
+            <p className="text-2xl font-black text-white">Withdrawal submitted</p>
+            <p className="text-sm font-bold text-slate-400">Your crypto is on its way. It may take a few minutes to arrive.</p>
+          </div>
+        ) : cryptoLoading ? (
+          <div className="flex flex-col gap-3 py-2">
+            {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-white/[0.05]" />)}
+          </div>
+        ) : !cryptoBalances.length ? (
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <Icon name="account_balance_wallet" fill className="text-[40px] text-slate-700" />
+            <p className="text-sm font-black text-slate-400">No crypto balance</p>
+            <p className="text-xs text-slate-600">Complete a P2P trade to earn crypto you can withdraw here.</p>
+          </div>
+        ) : (
+          <>
+            {/* Coin / network selector */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setCwOpen((v) => !v)}
+                className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.08] transition hover:bg-white/[0.06]"
+              >
+                <span className="flex items-center gap-3">
+                  {selectedBal && COIN_ICONS[selectedBal.crypto] ? (
+                    <img src={COIN_ICONS[selectedBal.crypto]} alt="" width={28} height={28} className="h-7 w-7 rounded-full" />
+                  ) : (
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-700 text-xs font-black text-white">{selectedBal?.crypto?.[0]}</span>
+                  )}
+                  <span className="text-sm font-black text-white">
+                    {selectedBal?.crypto}
+                    <span className="ml-1.5 text-[11px] font-bold text-slate-500">{NET_LABEL[selectedBal?.network ?? ""] ?? selectedBal?.network}</span>
+                  </span>
+                </span>
+                <span className="flex items-center gap-1.5 text-xs font-black text-slate-400">
+                  {selectedBal?.available.toFixed(cwPrec)} avail.
+                  <Icon name={cwOpen ? "expand_less" : "expand_more"} className="text-[18px]" />
+                </span>
+              </button>
+
+              {cwOpen && (
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl bg-[#111316] shadow-2xl shadow-black/50 ring-1 ring-white/[0.09]">
+                  {cryptoBalances.map((b) => {
+                    const p = b.crypto === "BTC" || b.crypto === "ETH" ? 8 : 6;
+                    return (
+                      <button
+                        key={`${b.crypto}:${b.network}`}
+                        type="button"
+                        onClick={() => { setSelectedBal(b); setCwOpen(false); setCwAmount(""); }}
+                        className="flex w-full items-center gap-3 px-4 py-3 transition hover:bg-white/[0.06]"
+                      >
+                        {COIN_ICONS[b.crypto] ? (
+                          <img src={COIN_ICONS[b.crypto]} alt="" width={26} height={26} className="h-[26px] w-[26px] rounded-full" />
+                        ) : (
+                          <span className="flex h-[26px] w-[26px] items-center justify-center rounded-full bg-slate-700 text-xs font-black text-white">{b.crypto[0]}</span>
+                        )}
+                        <span className="flex-1 text-left text-sm font-black text-white">
+                          {b.crypto}
+                          <span className="ml-1.5 text-[11px] font-bold text-slate-500">{NET_LABEL[b.network] ?? b.network}</span>
+                        </span>
+                        <span className="text-xs font-black text-slate-400">{b.available.toFixed(p)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Amount */}
+            <div className="relative">
+              <span className="absolute left-5 top-2 text-[10px] font-black text-slate-500">Amount ({selectedBal?.crypto})</span>
+              <input
+                type="number"
+                step="any"
+                value={cwAmount}
+                onChange={(e) => { setCwAmount(e.target.value); setCwError(""); }}
+                placeholder="0"
+                className="h-14 w-full rounded-2xl bg-[#16171d] px-5 pt-4 pr-16 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
+              />
+              <button
+                type="button"
+                onClick={() => setCwAmount(selectedBal?.available.toFixed(cwPrec) ?? "")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 rounded-lg bg-white/[0.07] px-2 py-1 text-[10px] font-black text-[#087cff] transition hover:bg-white/[0.12]"
+              >
+                MAX
+              </button>
+            </div>
+
+            {/* Destination address */}
+            <input
+              type="text"
+              value={cwAddress}
+              onChange={(e) => { setCwAddress(e.target.value); setCwError(""); }}
+              placeholder={`Destination ${NET_LABEL[selectedBal?.network ?? ""] ?? selectedBal?.network} address`}
+              className="h-14 w-full rounded-2xl bg-[#16171d] px-5 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
+            />
+
+            <p className="text-[11px] text-slate-600">
+              Min {MIN_CRYPTO[selectedBal?.crypto ?? ""] ?? 0} {selectedBal?.crypto} · Network fees apply
+            </p>
+
+            {cwError && (
+              <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 ring-1 ring-red-500/20">{cwError}</p>
+            )}
+
+            <button
+              type="button"
+              onClick={submitCrypto}
+              disabled={cwLoading || !cwAmount || !cwAddress.trim()}
+              className="h-14 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {cwLoading ? "Submitting…" : `Withdraw ${selectedBal?.crypto ?? "Crypto"}`}
+            </button>
+          </>
+        )
+      )}
     </div>
   );
 }
