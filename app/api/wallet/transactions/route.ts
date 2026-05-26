@@ -13,9 +13,12 @@ export async function GET() {
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
     const txns = await db.transaction.findMany({
-      where: { userId: dbUser.id },
+      where: {
+        userId: dbUser.id,
+        type: { in: ["DEPOSIT", "WITHDRAWAL"] },
+      },
       orderBy: { createdAt: "desc" },
-      take: 30,
+      take: 50,
       select: {
         id: true,
         type: true,
