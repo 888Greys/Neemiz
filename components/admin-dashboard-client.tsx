@@ -65,19 +65,19 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
   useEffect(() => { fetchStats(); }, [fetchStats]);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      {/* Header */}
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      {/* Page header */}
+      <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-black text-white">Admin Dashboard</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Signed in as <span className="text-slate-300">{adminEmail}</span></p>
+          <h1 className="text-xl font-black text-white">Overview</h1>
+          <p className="text-slate-600 text-xs mt-0.5">Live platform stats</p>
         </div>
         <button
           type="button"
           onClick={fetchStats}
-          className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-xs font-bold text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
+          className="flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2 text-xs font-bold text-slate-500 hover:text-white hover:bg-white/[0.07] transition-colors"
         >
-          <Icon name="refresh" className="text-[15px]" />
+          <Icon name="refresh" className="text-[13px]" />
           Refresh
         </button>
       </div>
@@ -119,7 +119,7 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
               label="Total Users"
               value={stats.totalUsers.toLocaleString()}
               sub={`+${stats.newUsersToday} today`}
-              icon="group"
+              icon="groups"
               color="bg-violet-500/15 text-violet-300"
             />
             <StatCard
