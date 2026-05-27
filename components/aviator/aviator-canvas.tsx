@@ -408,49 +408,21 @@ function drawIdleState(
     ctx.fillText("STARTING IN", cx, cy - (compact ? 54 : 62));
 
     if (bettingEndsAt) {
-      const TOTAL_MS  = 5000;   // standard 5-second betting window
       const endMs     = new Date(bettingEndsAt).getTime();
       const remaining = Math.max(0, endMs - Date.now());
-      const progress  = Math.max(0, Math.min(1, remaining / TOTAL_MS)); // 1 → 0
       const remSec    = Math.ceil(remaining / 1000);
       const urgent    = remSec <= 2;
 
-      const ringR   = Math.min(w * 0.14, compact ? 44 : 54);
-      const ringY   = cy - (compact ? 4 : 6);
-      const ringW   = Math.max(4, ringR * 0.18);
+      const numberY = cy - (compact ? 4 : 6);
       const color   = urgent ? "#ff1838" : "#ffffff";
 
-      // Outer track
-      ctx.beginPath();
-      ctx.arc(cx, ringY, ringR, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(255,255,255,0.10)";
-      ctx.lineWidth   = ringW;
-      ctx.stroke();
-
-      // Progress arc (starts at top, sweeps clockwise, depletes as time runs out)
-      if (progress > 0) {
-        const startAngle = -Math.PI / 2;
-        const endAngle   = startAngle + (Math.PI * 2 * progress);
-        ctx.beginPath();
-        ctx.arc(cx, ringY, ringR, startAngle, endAngle);
-        ctx.strokeStyle = color;
-        ctx.lineWidth   = ringW;
-        ctx.lineCap     = "round";
-        ctx.shadowColor = color;
-        ctx.shadowBlur  = urgent ? 20 : 12;
-        ctx.stroke();
-        ctx.shadowBlur  = 0;
-        ctx.lineCap     = "butt";
-      }
-
-      // Number in center
       const numFs = Math.min(w * 0.13, compact ? 46 : 56);
       ctx.font        = `900 ${numFs}px Inter,sans-serif`;
       ctx.textAlign   = "center";
       ctx.fillStyle   = color;
       ctx.shadowColor = color;
       ctx.shadowBlur  = urgent ? 30 : 16;
-      ctx.fillText(`${remSec}`, cx, ringY + numFs * 0.36);
+      ctx.fillText(`${remSec}`, cx, numberY + numFs * 0.36);
       ctx.shadowBlur  = 0;
     }
 
