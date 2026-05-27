@@ -41,6 +41,7 @@ type BinaryTrade = {
   stake: number;
   payout: number;
   entryDigit: number;
+  targetDigit: number;
   exitDigit?: number;
   openedAt: number;
   settlesAt: number;
@@ -428,7 +429,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     const digit = latest.digit;
     setClosedTrades((current) => {
       const settled = ready.map((trade) => {
-        const won = evaluateTrade(trade.side, digit, trade.entryDigit); // use per-trade targetDigit stored in trade
+        const won = evaluateTrade(trade.side, digit, trade.targetDigit);
         return { ...trade, exitDigit: digit, status: won ? "won" as const : "lost" as const };
       });
       return [...settled, ...current].slice(0, 20);
@@ -438,7 +439,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       if (isLive && trade.isReal) {
         settleReal(trade, digit);
       } else {
-        const won = evaluateTrade(trade.side, digit, trade.entryDigit);
+        const won = evaluateTrade(trade.side, digit, trade.targetDigit);
         setDemoBalance((b) => won ? b + trade.payout : b);
       }
     }
@@ -468,16 +469,17 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           return;
         }
         const trade: BinaryTrade = {
-          id:         data.tradeId,
-          market:     market.symbol,
+          id:          data.tradeId,
+          market:      market.symbol,
           side,
           stake,
-          payout:     data.payout ?? stake * payoutRate(side),
-          entryDigit: latest.digit,
-          openedAt:   Date.now(),
-          settlesAt:  Date.now() + duration * 1000,
-          status:     "open",
-          isReal:     true,
+          payout:      data.payout ?? stake * payoutRate(side),
+          entryDigit:  latest.digit,
+          targetDigit,
+          openedAt:    Date.now(),
+          settlesAt:   Date.now() + duration * 1000,
+          status:      "open",
+          isReal:      true,
         };
         setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
@@ -488,16 +490,17 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       }
     } else {
       const trade: BinaryTrade = {
-        id:         `demo-${Date.now()}`,
-        market:     market.symbol,
+        id:          `demo-${Date.now()}`,
+        market:      market.symbol,
         side,
         stake,
-        payout:     stake * payoutRate(side),
-        entryDigit: latest.digit,
-        openedAt:   Date.now(),
-        settlesAt:  Date.now() + duration * 1000,
-        status:     "open",
-        isReal:     false,
+        payout:      stake * payoutRate(side),
+        entryDigit:  latest.digit,
+        targetDigit,
+        openedAt:    Date.now(),
+        settlesAt:   Date.now() + duration * 1000,
+        status:      "open",
+        isReal:      false,
       };
       setDemoBalance((b) => b - stake);
       setOpenTrades((current) => [trade, ...current].slice(0, 12));
