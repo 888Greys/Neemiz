@@ -467,13 +467,13 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col bg-[#101112] shadow-2xl lg:h-full lg:max-w-[1180px]">
-      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-5 lg:p-5">
-        <section className="min-w-0">
+    <div className="flex h-full w-full flex-col bg-[#101112] lg:overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-3 lg:p-3">
+        <section className="flex min-h-0 min-w-0 flex-col">
           <AviatorTicker liveBets={liveBets} multiplier={displayMult} />
 
-          <div className="flex min-w-0 items-center gap-2 px-3 pb-2">
-            <div className="min-w-0 flex-1 overflow-hidden rounded-lg bg-transparent">
+          <div className="flex min-w-0 items-center gap-2 px-2 pb-1.5">
+            <div className="min-w-0 flex-1 overflow-hidden">
               <AviatorHistory rounds={history} onVerify={setVerifyRound} />
             </div>
             <button className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#1f2022] text-white/75" type="button">
@@ -481,8 +481,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             </button>
           </div>
 
-          <div className="mx-3 overflow-hidden rounded-[10px] border border-[#333] bg-[#080808]">
-            <div className="h-[240px] lg:h-[420px]">
+          <div className="mx-2 overflow-hidden rounded-[10px] border border-[#2a2a2a] bg-[#080808] lg:mx-0 lg:min-h-0 lg:flex-1">
+            <div className="h-[260px] lg:h-full">
               <AviatorCanvas
                 state={round?.state ?? "WAITING"}
                 multiplier={displayMult}
@@ -493,7 +493,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-col gap-2 p-3 lg:flex-row">
+          <div className="flex shrink-0 min-w-0 flex-col gap-2 p-2 lg:flex-row lg:p-3">
             {([0, 1] as const).map((pi) => (
               <AviatorBetPanel
                 key={pi}
@@ -509,7 +509,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           </div>
         </section>
 
-        <aside className="min-w-0 lg:rounded-[10px] lg:border lg:border-[#333] lg:bg-[#171819]">
+        <aside className="min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[#2a2a2a] lg:bg-[#171819]">
           <AviatorPlayersTable
             liveBets={liveBets}
             myHistory={myHistory}
@@ -536,7 +536,7 @@ function AviatorTicker({ liveBets, multiplier }: { liveBets: AviatorBetPublic[];
       ];
 
   return (
-    <div className="px-3 py-2">
+    <div className="px-2 py-1.5">
       <div className="flex min-w-0 gap-2 overflow-hidden rounded-full bg-[#18191a] px-2 py-1">
         {items.map((item) => (
           <span key={item} className="shrink-0 rounded-full bg-[#242526] px-2 py-1 text-[9px] font-bold text-white/60">
@@ -568,13 +568,13 @@ function AviatorPlayersTable({
   ];
 
   return (
-    <div className="pb-2">
-      <div className="grid grid-cols-3 border-b border-[#333] px-4 py-2 text-[9px] font-black uppercase text-white/45">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="grid grid-cols-3 border-b border-[#2a2a2a] px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-white/40">
         <span>Player</span>
         <span className="text-center">Bet KES</span>
         <span className="text-right">Win KES</span>
       </div>
-      <div className="flex max-h-[350px] flex-col gap-[3px] overflow-y-auto px-3 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto px-3 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:max-h-none max-h-[300px]">
         {rows.length > 0 ? rows.map((bet) => (
           <div
             key={bet.id}

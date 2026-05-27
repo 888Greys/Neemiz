@@ -189,12 +189,16 @@ function draw(
   }
 
   // Curve maths
-  const displayMult  = isCrashed ? (crashPoint ?? multiplier) : multiplier;
-  const totalElapsed = Math.max(0.1, multToElapsed(displayMult));
-  const normX  = (t: number) => ORIGIN_X + (t / totalElapsed) * (MAX_X - ORIGIN_X);
-  // Quadratic y mapping: starts FLAT at bottom-left, sweeps STEEPLY to top-right
+  const displayMult = isCrashed ? (crashPoint ?? multiplier) : multiplier;
+  const curElapsed  = Math.max(0.1, multToElapsed(displayMult));
+
+  // Fixed reference: 15x fills the canvas. Above 15x the canvas scales so
+  // the plane stays near the top rather than flying off-screen.
+  const refElapsed  = Math.max(multToElapsed(15), curElapsed / 0.88);
+
+  const normX  = (t: number) => ORIGIN_X + (t / refElapsed) * (MAX_X - ORIGIN_X);
   const normYT = (t: number) => {
-    const frac = Math.min(t / totalElapsed, 1);
+    const frac = Math.min(t / refElapsed, 1);
     return ORIGIN_Y + frac * frac * (MAX_Y - ORIGIN_Y);
   };
 
@@ -204,10 +208,10 @@ function draw(
   ctx.beginPath();
   ctx.moveTo(ORIGIN_X, ORIGIN_Y);
   for (let i = 1; i <= STEPS; i++) {
-    const t = (i / STEPS) * totalElapsed;
+    const t = (i / STEPS) * curElapsed;
     ctx.lineTo(normX(t), normYT(t));
   }
-  ctx.lineTo(normX(totalElapsed), ORIGIN_Y);
+  ctx.lineTo(normX(curElapsed), ORIGIN_Y);
   ctx.closePath();
   const fill = ctx.createLinearGradient(0, MAX_Y, 0, ORIGIN_Y);
   fill.addColorStop(0,    "rgba(255,24,56,0)");
@@ -220,7 +224,7 @@ function draw(
   ctx.beginPath();
   ctx.moveTo(ORIGIN_X, ORIGIN_Y);
   for (let i = 1; i <= STEPS; i++) {
-    const t = (i / STEPS) * totalElapsed;
+    const t = (i / STEPS) * curElapsed;
     ctx.lineTo(normX(t), normYT(t));
   }
   ctx.strokeStyle = "#ff1838";
@@ -230,11 +234,11 @@ function draw(
   ctx.stroke();
   ctx.shadowBlur  = 0;
 
-  const tipX = normX(totalElapsed);
-  const tipY = normYT(totalElapsed);
+  const tipX = normX(curElapsed);
+  const tipY = normYT(curElapsed);
 
-  // Plane angle from slope at tip (quadratic derivative: slope = 2*frac)
-  const prevT      = Math.max(0.01, totalElapsed * 0.96);
+  // Plane angle from slope at tip
+  const prevT = Math.max(0.01, curElapsed * 0.96);
   const planeAngle = Math.atan2(
     tipY - normYT(prevT),
     tipX - normX(prevT),
