@@ -23,7 +23,11 @@ interface OrderData {
   releasedAt: string | null;
   cancelReason: string | null;
   buyer: { id: string; firstName: string | null; lastName: string | null; username: string | null };
-  seller: { displayName: string; userId: string };
+  seller: {
+    displayName: string;
+    userId: string;
+    paymentMethod: { type: string; accountName: string; accountNo: string; bankName: string | null; name: string } | null;
+  };
   ad: { fiat: string; paymentMethods: string[] };
   side: "BUY" | "SELL";
   isBuyer: boolean;
@@ -387,7 +391,7 @@ function MobileP2POrderView({
             <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
               {order.seller.displayName} <Icon name="chevron_right" className="text-[16px] text-slate-500" />
             </button>
-            <button type="button" className="rounded-full bg-[#f59e0b] px-4 py-1.5 text-xs font-black text-black">
+            <button type="button" onClick={() => setShowChat(true)} className="rounded-full bg-[#f59e0b] px-4 py-1.5 text-xs font-black text-black hover:bg-[#f59e0b]/80 transition-colors">
               Contact Seller
             </button>
           </div>
@@ -496,8 +500,15 @@ function MobileP2POrderView({
         </div>
         <div className="ml-2 border-l border-white/[0.10] pl-4">
           <InfoRow label="Fiat Amount" value={`${Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${order.ad.fiat}`} copy />
-          <InfoRow label="Name" value={order.seller.displayName.toUpperCase()} copy />
-          <InfoRow label={order.paymentMethod === "MPESA" ? "Paybill Number" : "Account Number/Card No"} value="400200" copy />
+          <InfoRow label="Account Name" value={order.seller.paymentMethod?.accountName ?? order.seller.displayName.toUpperCase()} copy />
+          <InfoRow
+            label={order.paymentMethod === "MPESA" ? "Paybill / Phone No." : order.seller.paymentMethod?.bankName ? `${order.seller.paymentMethod.bankName} Account` : "Account Number"}
+            value={order.seller.paymentMethod?.accountNo ?? "—"}
+            copy={!!order.seller.paymentMethod?.accountNo}
+          />
+          {order.seller.paymentMethod?.bankName && (
+            <InfoRow label="Bank" value={order.seller.paymentMethod.bankName} />
+          )}
           <InfoRow label="Order No." value={orderId.slice(0, 24).toUpperCase()} copy />
           <button type="button" className="mt-2 flex items-center gap-1 text-xs text-slate-500">
             Order details

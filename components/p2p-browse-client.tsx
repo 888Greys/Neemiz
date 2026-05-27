@@ -114,7 +114,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
             <div className="flex items-center gap-1.5">
               <span className="text-slate-400">Price</span>
               <span className="font-black text-[#05b957]">{ad.pricePerUnit.toLocaleString("en-KE", { maximumFractionDigits: 2 })} {ad.fiat}</span>
-              <span className="text-slate-600">38s</span>
+              <span className="text-slate-600">{ad.paymentWindow ?? 15}m window</span>
             </div>
             <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-slate-400">
               <Icon name="verified_user" className="text-[11px] text-[#05b957]" />

@@ -314,7 +314,7 @@ function DepositSection() {
       if (depRes.ok) setDeposits(await depRes.json());
       if (balRes.ok) setBalances(await balRes.json());
     }
-    catch { /* ignore */ } finally { setLoading(false); }
+    catch (err) { toast.error(err instanceof Error ? err.message : "Failed to load deposit info"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -705,7 +705,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
   const loadAds = useCallback(async () => {
     try { const r = await fetch("/api/p2p/ads/mine"); if (r.ok) setAds(await r.json()); }
-    catch { /* ignore */ } finally { setLoading(false); }
+    catch (err) { toast.error(err instanceof Error ? err.message : "Failed to load ads"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { loadAds(); }, [loadAds]);
@@ -963,7 +963,7 @@ export function P2PMerchantClient() {
 
   const check = useCallback(async () => {
     try { const r = await fetch("/api/p2p/merchant/apply"); setStatus(await r.json()); }
-    catch { /* ignore */ } finally { setLoading(false); }
+    catch (err) { toast.error(err instanceof Error ? err.message : "Failed to load merchant status"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
