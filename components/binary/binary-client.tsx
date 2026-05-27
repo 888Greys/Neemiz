@@ -129,6 +129,12 @@ function familySides(family: ContractFamily): ContractSide[] {
   return ["Over", "Under"];
 }
 
+function actionLabel(side: ContractSide) {
+  if (side === "Matches") return "MATCH";
+  if (side === "Differs") return "DIFFER";
+  return side;
+}
+
 function evaluateTrade(side: ContractSide, digit: number, targetDigit: number) {
   if (side === "Even") return digit % 2 === 0;
   if (side === "Odd") return digit % 2 === 1;
@@ -216,7 +222,7 @@ function TradingViewBinaryChart({ ticks }: { ticks: Tick[] }) {
   }, [ticks]);
 
   return (
-    <div className="relative h-full min-h-[260px] overflow-hidden bg-[#070b10]">
+    <div className="relative h-full min-h-[180px] overflow-hidden bg-[#070b10] sm:min-h-[260px]">
       <div ref={containerRef} className="absolute inset-0" />
       <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded border border-white/[0.07] bg-black/45 px-3 py-2 text-[11px] font-black text-slate-400 backdrop-blur">
         <span>TradingView Lightweight Chart</span>
@@ -418,7 +424,7 @@ export function BinaryClient() {
   }
 
   return (
-    <div className="min-h-full overflow-visible bg-[#050506] text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden">
+    <div className="min-h-full overflow-visible bg-[#050506] pb-16 text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       <div className="z-20 shrink-0 border-b border-white/[0.08] bg-[#08090d]/95 px-1.5 py-1 backdrop-blur lg:px-3">
         <div className="flex h-10 items-center gap-2 overflow-hidden">
           <div className="mr-1 flex shrink-0 items-center gap-2 rounded bg-[#11151c] px-2 py-1.5">
@@ -499,7 +505,7 @@ export function BinaryClient() {
           </section>
         </aside>
 
-        <main className="order-1 flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
+        <main className="order-1 flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
             <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:px-4 sm:py-2">
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -536,7 +542,7 @@ export function BinaryClient() {
             <TradingViewBinaryChart ticks={ticks} />
           </section>
 
-          <section className="grid h-[58px] shrink-0 grid-cols-10 gap-0 border-t border-white/[0.08] bg-[#0b0d12] sm:h-[70px]">
+          <section className="grid h-[50px] shrink-0 grid-cols-10 gap-0 border-t border-white/[0.08] bg-[#0b0d12] sm:h-[70px]">
             {digitStats.map((stat) => (
               <div key={stat.digit} className={`h-full border-r border-white/[0.08] px-1 py-1 last:border-r-0 sm:px-2 sm:py-1.5 ${latest.digit === stat.digit ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400" : "bg-[#0f1218]"}`}>
                 <div className="flex items-center justify-between gap-1">
@@ -605,28 +611,28 @@ export function BinaryClient() {
                 <SummaryRow label="Previous digit" value={String(previous?.digit ?? "-")} />
               </div>
 
-              <div className="sticky bottom-0 z-10 -mx-2 grid grid-cols-2 gap-2 border-t border-white/[0.08] bg-[#0f1218] p-2 shadow-[0_-12px_24px_rgba(0,0,0,.35)]">
-                {selectedSides.map((side) => (
-                  <button
-                    key={side}
-                    type="button"
-                    onClick={() => placeTrade(side)}
-                    className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
-                  >
-                    <div className="text-sm font-black">{side}</div>
-                    <div className="text-right">
-                      <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side))}</div>
-                      <div className="text-[10px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
               {demoBalance < stake && (
                 <div className="rounded border border-red-400/25 bg-red-400/10 px-3 py-2 text-xs font-black text-red-200">
                   Insufficient demo balance for this stake.
                 </div>
               )}
+            </div>
+
+            <div className="sticky bottom-0 z-10 -mx-0 hidden grid-cols-2 gap-2 border-t border-white/[0.08] bg-[#0f1218] p-2 shadow-[0_-12px_24px_rgba(0,0,0,.35)] xl:grid">
+              {selectedSides.map((side) => (
+                <button
+                  key={side}
+                  type="button"
+                  onClick={() => placeTrade(side)}
+                  className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
+                >
+                  <div className="text-sm font-black">{actionLabel(side)}</div>
+                  <div className="text-right">
+                    <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side))}</div>
+                    <div className="text-[10px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
+                  </div>
+                </button>
+              ))}
             </div>
           </section>
 
@@ -646,6 +652,23 @@ export function BinaryClient() {
             )}
           </section>
         </aside>
+      </div>
+
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 grid grid-cols-2 gap-2 border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur lg:bottom-0 xl:hidden">
+        {selectedSides.map((side) => (
+          <button
+            key={side}
+            type="button"
+            onClick={() => placeTrade(side)}
+            className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
+          >
+            <div className="text-sm font-black">{actionLabel(side)}</div>
+            <div className="text-right">
+              <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side))}</div>
+              <div className="text-[10px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );
