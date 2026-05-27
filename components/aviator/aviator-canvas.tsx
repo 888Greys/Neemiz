@@ -191,10 +191,12 @@ function draw(
   // Curve maths
   const displayMult  = isCrashed ? (crashPoint ?? multiplier) : multiplier;
   const totalElapsed = Math.max(0.1, multToElapsed(displayMult));
-  const normX        = (s: number) => ORIGIN_X + (s / totalElapsed) * (MAX_X - ORIGIN_X);
-  const logDenom     = Math.log(Math.max(displayMult, 1.0001));
-  // Y DECREASES as mult grows → line rises UP (bottom-left to top-right)
-  const normY        = (m: number) => ORIGIN_Y + (Math.log(Math.max(m, 1)) / logDenom) * (MAX_Y - ORIGIN_Y);
+  const normX  = (t: number) => ORIGIN_X + (t / totalElapsed) * (MAX_X - ORIGIN_X);
+  // Quadratic y mapping: starts FLAT at bottom-left, sweeps STEEPLY to top-right
+  const normYT = (t: number) => {
+    const frac = Math.min(t / totalElapsed, 1);
+    return ORIGIN_Y + frac * frac * (MAX_Y - ORIGIN_Y);
+  };
 
   const STEPS = 80;
 
@@ -202,8 +204,8 @@ function draw(
   ctx.beginPath();
   ctx.moveTo(ORIGIN_X, ORIGIN_Y);
   for (let i = 1; i <= STEPS; i++) {
-    const t = i / STEPS;
-    ctx.lineTo(normX(t * totalElapsed), normY(calculateMultiplier(t * totalElapsed)));
+    const t = (i / STEPS) * totalElapsed;
+    ctx.lineTo(normX(t), normYT(t));
   }
   ctx.lineTo(normX(totalElapsed), ORIGIN_Y);
   ctx.closePath();
@@ -218,8 +220,8 @@ function draw(
   ctx.beginPath();
   ctx.moveTo(ORIGIN_X, ORIGIN_Y);
   for (let i = 1; i <= STEPS; i++) {
-    const t = i / STEPS;
-    ctx.lineTo(normX(t * totalElapsed), normY(calculateMultiplier(t * totalElapsed)));
+    const t = (i / STEPS) * totalElapsed;
+    ctx.lineTo(normX(t), normYT(t));
   }
   ctx.strokeStyle = "#ff1838";
   ctx.lineWidth   = compact ? 2 : 2.5;
@@ -229,12 +231,12 @@ function draw(
   ctx.shadowBlur  = 0;
 
   const tipX = normX(totalElapsed);
-  const tipY = normY(displayMult);
+  const tipY = normYT(totalElapsed);
 
-  // Plane angle from slope at tip
+  // Plane angle from slope at tip (quadratic derivative: slope = 2*frac)
   const prevT      = Math.max(0.01, totalElapsed * 0.96);
   const planeAngle = Math.atan2(
-    tipY - normY(calculateMultiplier(prevT)),
+    tipY - normYT(prevT),
     tipX - normX(prevT),
   );
 
