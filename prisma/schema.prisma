@@ -20,6 +20,8 @@ model User {
   currency       String        @default("KES")
   isActive       Boolean       @default(true) @map("is_active")
   isAdmin        Boolean       @default(false) @map("is_admin")
+  totpSecret     String?       @map("totp_secret")
+  totpEnabled    Boolean       @default(false) @map("totp_enabled")
   createdAt      DateTime      @default(now()) @map("created_at")
   updatedAt      DateTime      @updatedAt @map("updated_at")
 
