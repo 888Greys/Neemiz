@@ -530,7 +530,7 @@ export function P2PMarketPanel() {
       const ids = Object.values(COINGECKO_IDS).join(",");
       const res = await fetch(
         `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=kes,usd&include_24hr_change=true`,
-        { next: { revalidate: 0 } }
+        { next: { revalidate: 60 } }
       );
       if (!res.ok) return;
       const data = await res.json();

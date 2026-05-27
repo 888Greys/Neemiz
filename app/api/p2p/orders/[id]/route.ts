@@ -15,7 +15,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const order = await db.p2POrder.findUnique({
     where: { id },
     include: {
-      seller: { select: { displayName: true, userId: true } },
+      seller: {
+        select: {
+          displayName: true,
+          userId: true,
+          paymentMethods: {
+            where: { isActive: true },
+            select: { type: true, accountName: true, accountNo: true, bankName: true, name: true },
+          },
+        },
+      },
       buyer: { select: { id: true, firstName: true, lastName: true, username: true } },
       ad: { select: { fiat: true, paymentMethods: true, side: true } },
     },
@@ -58,9 +67,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     paidAt:          order.paidAt,
     releasedAt:      order.releasedAt,
     cancelReason:    order.cancelReason,
-    buyer:           order.buyer,
-    seller:          order.seller,
-    ad:              order.ad,
+    buyer:  order.buyer,
+    seller: {
+      displayName: order.seller.displayName,
+      userId:      order.seller.userId,
+      // Match the order's payment method to the seller's active method
+      paymentMethod: order.seller.paymentMethods.find(
+        (pm) => pm.type.toLowerCase() === order.paymentMethod.toLowerCase()
+      ) ?? null,
+    },
+    ad:     order.ad,
     side:            order.ad.side,
     isBuyer,
     isSeller,
