@@ -902,9 +902,14 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const router = useRouter();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
   const [view, setView] = useState<View>(initialView ?? "main");
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [usernameInput, setUsernameInput] = useState("");
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameError, setUsernameError] = useState("");
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
 
   const meta        = user?.user_metadata ?? {};
-  const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
+  const displayName = currentUsername ?? meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials    = displayName.charAt(0).toUpperCase();
   const avatarUrl   = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
   const email       = user?.email;
@@ -926,6 +931,39 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
     onClose();
     toast.info("Signed out", "See you next time!");
     router.push("/");
+  }
+
+  function startEditUsername() {
+    setUsernameInput(displayName);
+    setUsernameError("");
+    setEditingUsername(true);
+  }
+
+  async function saveUsername() {
+    const val = usernameInput.trim();
+    if (!val) return;
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(val)) {
+      setUsernameError("3–20 chars, letters/numbers/underscore only");
+      return;
+    }
+    setUsernameSaving(true);
+    setUsernameError("");
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: val }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setUsernameError(data.error ?? "Failed to save"); return; }
+      setCurrentUsername(data.username);
+      setEditingUsername(false);
+      toast.info("Username updated", `You're now @${data.username}`);
+    } catch {
+      setUsernameError("Network error — try again");
+    } finally {
+      setUsernameSaving(false);
+    }
   }
 
   const MENU = [
@@ -1001,6 +1039,60 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                   <p className="text-lg font-black text-white">{displayName}</p>
                   <p className="font-mono text-[11px] text-slate-500">ID {memberId}</p>
                 </div>
+              </div>
+
+              {/* ── Username editor ── */}
+              <div className="mx-4 mb-3 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+                <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">Username</p>
+                {editingUsername ? (
+                  <div className="px-4 pb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500 text-sm font-black">@</span>
+                      <input
+                        autoFocus
+                        value={usernameInput}
+                        onChange={(e) => setUsernameInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") setEditingUsername(false); }}
+                        maxLength={20}
+                        placeholder="your_username"
+                        className="min-w-0 flex-1 rounded-xl bg-white/[0.07] px-3 py-2 text-[13px] font-black text-white outline-none ring-1 ring-white/[0.08] focus:ring-[#087cff]/60"
+                      />
+                    </div>
+                    {usernameError && <p className="mt-1.5 text-[11px] font-bold text-red-400">{usernameError}</p>}
+                    <div className="mt-2.5 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={saveUsername}
+                        disabled={usernameSaving}
+                        className="flex-1 rounded-xl bg-[#087cff] py-2 text-[12px] font-black text-white transition hover:bg-[#0970e8] disabled:opacity-50"
+                      >
+                        {usernameSaving ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingUsername(false)}
+                        className="flex-1 rounded-xl bg-white/[0.06] py-2 text-[12px] font-black text-slate-300 transition hover:bg-white/[0.1]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Icon name="alternate_email" fill className="text-[15px] text-slate-500" />
+                      <p className="text-[13px] font-black text-white">@{displayName}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={startEditUsername}
+                      className="flex items-center gap-1 rounded-lg bg-white/[0.06] px-2.5 py-1.5 text-[11px] font-black text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
+                    >
+                      <Icon name="edit" className="text-[12px]" />
+                      Edit
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="mx-4 mb-4 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.08]">

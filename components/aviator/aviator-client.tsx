@@ -287,7 +287,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           id:          (d.bet_id as string) ?? `${d.user_id}-${Date.now()}`,
           roundId:     roundRef.current?.id ?? "",
           userId:      (d.user_id as string) ?? "",
-          username:    (d.user_id as string) ?? null,
+          username:    (d.username as string) ?? null,
           panelIndex:  0,
           betAmount:   (d.amount as number) ?? 0,
           autoCashout: null,
@@ -315,12 +315,13 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── WebSocket connection ───────────────────────────────────────────────────
   useEffect(() => {
-    const uid = encodeURIComponent(userId ?? "guest");
+    const uid   = encodeURIComponent(userId ?? "guest");
+    const uname = encodeURIComponent(username ?? "Guest");
     let closed = false;
 
     function connect() {
       if (closed) return;
-      const ws = new WebSocket(`${WS_URL}?user_id=${uid}`);
+      const ws = new WebSocket(`${WS_URL}?user_id=${uid}&username=${uname}`);
       wsRef.current = ws;
 
       ws.onopen = () => setLoading(false);
@@ -470,7 +471,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     <div className="flex h-full w-full flex-col bg-[#101112] lg:overflow-hidden">
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-3 lg:p-3">
         <section className="flex min-h-0 min-w-0 flex-col">
-          <AviatorTicker liveBets={liveBets} multiplier={displayMult} />
+          <AviatorTicker liveBets={liveBets} />
 
           <div className="flex min-w-0 items-center gap-2 px-2 pb-1.5">
             <div className="min-w-0 flex-1 overflow-hidden">
@@ -512,6 +513,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         <aside className="min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[#2a2a2a] lg:bg-[#171819]">
           <AviatorPlayersTable
             liveBets={liveBets}
+            prevRoundBets={prevRoundBets}
             myHistory={myHistory}
             myCurrentBets={Object.values(myBets)}
             userId={userId}
@@ -526,83 +528,135 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   );
 }
 
-function AviatorTicker({ liveBets, multiplier }: { liveBets: AviatorBetPublic[]; multiplier: number }) {
-  const winners = liveBets.filter((bet) => bet.status === "CASHEDOUT" && bet.winAmount).slice(-3);
-  const items = winners.length > 0
-    ? winners.map((bet) => `${bet.username ?? "Player"} won ${(bet.winAmount ?? 0).toFixed(2)} KES at ${(bet.cashoutAt ?? multiplier).toFixed(2)}x`)
-    : [
-        `m 2448.05 KES at ${Math.max(1.8, multiplier).toFixed(2)}x`,
-        `072***912 won 680.11 KES at ${Math.max(2, multiplier + 0.2).toFixed(2)}x`,
-      ];
+function AviatorTicker({ liveBets }: { liveBets: AviatorBetPublic[] }) {
+  const winners = liveBets.filter((bet) => bet.status === "CASHEDOUT" && bet.winAmount);
 
   return (
     <div className="px-2 py-1.5">
       <div className="flex min-w-0 gap-2 overflow-hidden rounded-full bg-[#18191a] px-2 py-1">
-        {items.map((item) => (
-          <span key={item} className="shrink-0 rounded-full bg-[#242526] px-2 py-1 text-[9px] font-bold text-white/60">
-            {item.split(" at ")[0]} <span className="text-[#28a909]">at {item.split(" at ")[1]}</span>
-          </span>
-        ))}
+        {winners.length === 0 ? (
+          <span className="px-2 py-1 text-[9px] font-bold text-white/30">Waiting for cashouts…</span>
+        ) : (
+          winners.slice(-4).map((bet) => (
+            <span key={bet.id} className="shrink-0 rounded-full bg-[#242526] px-2 py-1 text-[9px] font-bold text-white/60">
+              {bet.username ?? "Player"} won {(bet.winAmount ?? 0).toFixed(2)} KES{" "}
+              <span className="text-[#28a909]">at {(bet.cashoutAt ?? 1).toFixed(2)}×</span>
+            </span>
+          ))
+        )}
       </div>
     </div>
   );
 }
 
 function AviatorPlayersTable({
-  liveBets, myHistory, myCurrentBets, userId,
+  liveBets, prevRoundBets, myHistory, myCurrentBets, userId,
 }: {
-  liveBets: AviatorBetPublic[];
-  myHistory: MyHistoryBet[];
+  liveBets:      AviatorBetPublic[];
+  prevRoundBets: AviatorBetPublic[];
+  myHistory:     MyHistoryBet[];
   myCurrentBets: AviatorBetPublic[];
   userId?: string;
 }) {
-  const rows = [
+  const [tab, setTab] = useState<"live" | "mine" | "prev">("live");
+
+  // Deduplicate live bets — my current bets override any WS entry for same userId
+  const myIds = new Set(myCurrentBets.map((b) => b.userId));
+  const allLive = [
     ...myCurrentBets,
-    ...liveBets,
-  ].slice(0, 18);
-  const fallbackRows = [
-    { name: "User_992", amount: 1878.58 },
-    { name: "JohnDoe", amount: 1105.24 },
-    { name: "JohnDoe", amount: 1784.45 },
-    { name: "SammyBoy", amount: 1246.87 },
+    ...liveBets.filter((b) => !myIds.has(b.userId)),
+  ].slice(0, 30);
+
+  const TABS = [
+    { key: "live" as const, label: "Live", count: allLive.length },
+    { key: "mine" as const, label: "Mine",  count: myCurrentBets.length + myHistory.length },
+    { key: "prev" as const, label: "Prev",  count: prevRoundBets.length },
   ];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="grid grid-cols-3 border-b border-[#2a2a2a] px-4 py-2.5 text-[10px] font-black uppercase tracking-wide text-white/40">
-        <span>Player</span>
-        <span className="text-center">Bet KES</span>
-        <span className="text-right">Win KES</span>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto px-3 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:max-h-none max-h-[300px]">
-        {rows.length > 0 ? rows.map((bet) => (
-          <div
-            key={bet.id}
-            className={`grid grid-cols-3 rounded bg-white/[0.035] px-2 py-1.5 text-[11px] font-bold text-white/55 ${bet.userId === userId ? "bg-[#3b5bdb]/15 text-white" : ""}`}
+      {/* Tab bar */}
+      <div className="grid shrink-0 grid-cols-3 border-b border-[#2a2a2a]">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setTab(t.key)}
+            className={`py-2.5 text-[10px] font-black uppercase tracking-wide transition ${tab === t.key ? "border-b-2 border-[#28a909] text-[#28a909]" : "text-white/35 hover:text-white/60"}`}
           >
-            <span className="truncate">{bet.userId === userId ? "You" : (bet.username ?? "Player")}</span>
-            <span className="text-center">{bet.betAmount.toFixed(2)}</span>
-            <span className="text-right">
-              {bet.status === "CASHEDOUT" && bet.winAmount ? (
-                <span className="rounded bg-[#28a909]/20 px-1.5 py-0.5 text-[10px] text-[#28a909]">{bet.winAmount.toFixed(2)}</span>
-              ) : "—"}
-            </span>
-          </div>
-        )) : fallbackRows.map((row) => (
-          <div key={`${row.name}-${row.amount}`} className="grid grid-cols-3 rounded bg-white/[0.035] px-2 py-1.5 text-[11px] font-bold text-white/55">
-            <span className="truncate">{row.name}</span>
-            <span className="text-center">{row.amount.toFixed(2)}</span>
-            <span className="text-right">—</span>
-          </div>
-        ))}
-        {myHistory.slice(0, 4).map((bet) => (
-          <div key={bet.id} className="grid grid-cols-3 rounded bg-white/[0.035] px-2 py-1.5 text-[11px] font-bold text-white/55">
-            <span className="truncate">Round #{bet.roundNumber}</span>
-            <span className="text-center">{bet.betAmount.toFixed(2)}</span>
-            <span className="text-right">{bet.winAmount ? bet.winAmount.toFixed(2) : "—"}</span>
-          </div>
+            {t.label} {t.count > 0 && <span className="opacity-60">({t.count})</span>}
+          </button>
         ))}
       </div>
+
+      {/* Column headers */}
+      <div className="grid shrink-0 grid-cols-3 px-4 py-1.5 text-[9px] font-black uppercase tracking-wide text-white/25">
+        <span>Player</span>
+        <span className="text-center">Bet (KES)</span>
+        <span className="text-right">Win (KES)</span>
+      </div>
+
+      {/* Rows */}
+      <div className="flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto px-3 pb-2 [scrollbar-width:none] max-h-[300px] lg:max-h-none [&::-webkit-scrollbar]:hidden">
+        {tab === "live" && (
+          allLive.length === 0 ? (
+            <p className="py-6 text-center text-[11px] text-white/25">Waiting for bets…</p>
+          ) : allLive.map((bet) => (
+            <BetRow key={bet.id} bet={bet} isMe={bet.userId === userId} />
+          ))
+        )}
+
+        {tab === "mine" && (
+          <>
+            {myCurrentBets.length === 0 && myHistory.length === 0 ? (
+              <p className="py-6 text-center text-[11px] text-white/25">No bets placed yet</p>
+            ) : (
+              <>
+                {myCurrentBets.map((bet) => <BetRow key={bet.id} bet={bet} isMe />)}
+                {myHistory.map((bet) => (
+                  <div key={bet.id} className="grid grid-cols-3 rounded bg-white/[0.035] px-2 py-1.5 text-[11px] font-bold text-white/55">
+                    <span className="truncate text-white/70">#{bet.roundNumber}</span>
+                    <span className="text-center">{bet.betAmount.toFixed(2)}</span>
+                    <span className="text-right">
+                      {bet.winAmount ? (
+                        <span className="text-[#28a909]">{bet.winAmount.toFixed(2)}</span>
+                      ) : (
+                        <span className="text-red-400/70">Lost</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        )}
+
+        {tab === "prev" && (
+          prevRoundBets.length === 0 ? (
+            <p className="py-6 text-center text-[11px] text-white/25">No data for previous round</p>
+          ) : prevRoundBets.map((bet) => (
+            <BetRow key={bet.id} bet={bet} isMe={bet.userId === userId} />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BetRow({ bet, isMe }: { bet: AviatorBetPublic; isMe?: boolean }) {
+  return (
+    <div className={`grid grid-cols-3 rounded px-2 py-1.5 text-[11px] font-bold ${isMe ? "bg-[#3b5bdb]/15 text-white" : "bg-white/[0.035] text-white/55"}`}>
+      <span className="truncate">
+        {isMe ? "You" : (bet.username ?? `User_${bet.userId.slice(-4)}`)}
+      </span>
+      <span className="text-center">{bet.betAmount.toFixed(2)}</span>
+      <span className="text-right">
+        {bet.status === "CASHEDOUT" && bet.winAmount ? (
+          <span className="rounded bg-[#28a909]/20 px-1.5 py-0.5 text-[10px] text-[#28a909]">{bet.winAmount.toFixed(2)}</span>
+        ) : bet.status === "LOST" ? (
+          <span className="text-red-400/70">Lost</span>
+        ) : "—"}
+      </span>
     </div>
   );
 }
