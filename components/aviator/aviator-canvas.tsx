@@ -277,7 +277,7 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: n
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
-  ctx.scale(scale, -scale); // flip Y so wings are correct for downward trajectory
+  ctx.scale(scale, scale);
 
   ctx.shadowColor = "#ff1838"; ctx.shadowBlur = 20;
 
