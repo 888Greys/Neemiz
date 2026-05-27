@@ -636,16 +636,18 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
             <TradingViewBinaryChart ticks={ticks} />
           </section>
 
-          <section className="grid h-[50px] shrink-0 grid-cols-10 gap-0 border-t border-white/[0.08] bg-[#0b0d12] sm:h-[70px]">
+          <section className="grid h-[100px] shrink-0 grid-cols-10 gap-0 border-t border-white/[0.08] bg-[#0b0d12] sm:h-[116px]">
             {digitStats.map((stat) => (
-              <div key={stat.digit} className={`h-full border-r border-white/[0.08] px-1 py-1 last:border-r-0 sm:px-2 sm:py-1.5 ${latest.digit === stat.digit ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400" : "bg-[#0f1218]"}`}>
-                <div className="flex items-center justify-between gap-1">
-                  <span className="font-mono text-base font-black sm:text-lg">{stat.digit}</span>
-                  <span className="text-[8px] font-black text-slate-500 sm:text-[10px]">{stat.pct.toFixed(1)}%</span>
-                </div>
-                <div className="mt-1 h-4 rounded bg-black/25 p-0.5 sm:h-6 sm:p-1">
-                  <div className="mt-auto rounded bg-sky-400" style={{ height: `${Math.max(8, stat.pct * 3.2)}%` }} />
-                </div>
+              <div
+                key={stat.digit}
+                className={`relative flex h-full flex-col items-center justify-center border-r border-white/[0.07] last:border-r-0 ${
+                  latest.digit === stat.digit ? "bg-amber-400/5" : "bg-[#0b0d12]"
+                }`}
+              >
+                <DigitRing stat={stat} isActive={latest.digit === stat.digit} />
+                {latest.digit === stat.digit && (
+                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] leading-none text-amber-400">▲</span>
+                )}
               </div>
             ))}
           </section>
@@ -766,6 +768,54 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function DigitRing({ isActive, stat }: { isActive: boolean; stat: { digit: number; pct: number } }) {
+  const radius = 20;
+  const circumference = 2 * Math.PI * radius;
+  const filled = Math.max(0, Math.min(1, stat.pct / 100)) * circumference;
+  const isHot = stat.pct >= 15;
+
+  return (
+    <div className="relative flex flex-col items-center gap-0.5">
+      {isHot && (
+        <span className="absolute -top-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-red-400" />
+      )}
+      <div className="relative">
+        <svg width="46" height="46" viewBox="0 0 46 46" className="sm:hidden">
+          <circle cx="23" cy="23" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="2.5" />
+          <circle
+            cx="23" cy="23" r={radius}
+            fill="none"
+            stroke={isActive ? "#f59e0b" : "#22c55e"}
+            strokeWidth={isActive ? "3" : "2"}
+            strokeDasharray={circumference}
+            strokeDashoffset={circumference - filled}
+            strokeLinecap="round"
+            transform="rotate(-90 23 23)"
+          />
+          <text x="23" y="27" textAnchor="middle" fontSize="13" fontWeight="900" fill={isActive ? "#fbbf24" : "white"} fontFamily="monospace">{stat.digit}</text>
+        </svg>
+        <svg width="56" height="56" viewBox="0 0 56 56" className="hidden sm:block">
+          <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+          <circle
+            cx="28" cy="28" r="24"
+            fill="none"
+            stroke={isActive ? "#f59e0b" : "#22c55e"}
+            strokeWidth={isActive ? "3.5" : "2.5"}
+            strokeDasharray={2 * Math.PI * 24}
+            strokeDashoffset={2 * Math.PI * 24 - Math.max(0, Math.min(1, stat.pct / 100)) * 2 * Math.PI * 24}
+            strokeLinecap="round"
+            transform="rotate(-90 28 28)"
+          />
+          <text x="28" y="33" textAnchor="middle" fontSize="16" fontWeight="900" fill={isActive ? "#fbbf24" : "white"} fontFamily="monospace">{stat.digit}</text>
+        </svg>
+      </div>
+      <span className={`text-[8px] font-black sm:text-[9px] ${stat.pct > 0 ? "text-emerald-400" : "text-slate-600"}`}>
+        {stat.pct.toFixed(1)}%
+      </span>
     </div>
   );
 }
