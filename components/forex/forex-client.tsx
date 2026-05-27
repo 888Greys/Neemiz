@@ -39,6 +39,20 @@ type Trade = {
   margin?: number;
 };
 
+type ClosedTrade = {
+  id: string;
+  symbol: string;
+  direction: Direction;
+  size: number;
+  entry: number;
+  closePrice: number | null;
+  precision: number;
+  margin: number;
+  profitLoss: number | null;
+  openedAt: number;
+  closedAt: number | null;
+};
+
 type Candle = CandlestickData<Time> & {
   time: UTCTimestamp;
 };
@@ -221,7 +235,11 @@ export function ForexClient() {
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [openingTrade, setOpeningTrade] = useState(false);
   const [closingId, setClosingId] = useState<string | null>(null);
+  const [forexHistory, setForexHistory] = useState<ClosedTrade[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const autoClosingRef = useRef<Set<string>>(new Set());
+  const orderPanelRef = useRef<HTMLDivElement | null>(null);
+  const positionsSectionRef = useRef<HTMLDivElement | null>(null);
 
   const selectedMarket = MARKETS.find((item) => item.symbol === selectedSymbol) ?? MARKETS[0];
 
@@ -373,7 +391,15 @@ export function ForexClient() {
     fetch("/api/forex/positions")
       .then((r) => r.ok ? r.json() : [])
       .then((data: Trade[]) => setTrades(data))
-      .catch(() => {/* silently ignore — user may not be logged in */});
+      .catch(() => {});
+  }, []);
+
+  // Load closed trade history on mount
+  useEffect(() => {
+    fetch("/api/forex/history")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: ClosedTrade[]) => setForexHistory(data))
+      .catch(() => {});
   }, []);
 
   async function openTrade(nextDirection: Direction = direction) {
@@ -402,6 +428,12 @@ export function ForexClient() {
       }
       setTrades((current) => [data as Trade, ...current]);
       window.dispatchEvent(new Event("wallet-refresh"));
+      // Scroll the order panel down so the user sees their new open position
+      setTimeout(() => {
+        if (orderPanelRef.current) {
+          orderPanelRef.current.scrollTo({ top: orderPanelRef.current.scrollHeight, behavior: "smooth" });
+        }
+      }, 80);
     } catch {
       setTradeError("Network error — please try again");
     } finally {
@@ -426,6 +458,24 @@ export function ForexClient() {
       }
       setTrades((current) => current.filter((t) => t.id !== id));
       window.dispatchEvent(new Event("wallet-refresh"));
+      // Prepend to local history so user sees it immediately without a refresh
+      if (trade) {
+        const closed: ClosedTrade = {
+          id: trade.id,
+          symbol: trade.symbol,
+          direction: trade.direction,
+          size: trade.size,
+          entry: trade.entry,
+          closePrice: price,
+          precision: trade.precision,
+          margin: trade.margin ?? 0,
+          profitLoss: data.profitLoss ?? null,
+          openedAt: trade.openedAt,
+          closedAt: Date.now(),
+        };
+        setForexHistory((h) => [closed, ...h].slice(0, 30));
+        setShowHistory(true);
+      }
     } catch {
       setTradeError("Network error — please try again");
     } finally {
@@ -457,6 +507,15 @@ export function ForexClient() {
             setTrades((current) => current.filter((t) => t.id !== trade.id));
             setTradeError(`${reason} — ${trade.symbol} ${trade.direction.toUpperCase()} closed`);
             window.dispatchEvent(new Event("wallet-refresh"));
+            const closed: ClosedTrade = {
+              id: trade.id, symbol: trade.symbol, direction: trade.direction,
+              size: trade.size, entry: trade.entry, closePrice: price,
+              precision: trade.precision, margin: trade.margin ?? 0,
+              profitLoss: data.profitLoss ?? null,
+              openedAt: trade.openedAt, closedAt: Date.now(),
+            };
+            setForexHistory((h) => [closed, ...h].slice(0, 30));
+            setShowHistory(true);
           })
           .catch(() => autoClosingRef.current.delete(trade.id));
       }
@@ -586,7 +645,7 @@ export function ForexClient() {
               <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Order ticket</div>
               <div className="mt-1 text-base font-black text-white sm:text-lg">{selectedMarket.symbol} {direction.toUpperCase()}</div>
             </div>
-            <div className="min-h-0 space-y-2 overflow-y-auto p-2 sm:space-y-3 sm:p-4">
+            <div ref={orderPanelRef} className="min-h-0 space-y-2 overflow-y-auto p-2 sm:space-y-3 sm:p-4">
               <div className="grid grid-cols-2 gap-2">
                 <TradeButton active={direction === "buy"} label="Buy" onClick={() => setDirection("buy")} tone="buy" />
                 <TradeButton active={direction === "sell"} label="Sell" onClick={() => setDirection("sell")} tone="sell" />
@@ -654,8 +713,8 @@ export function ForexClient() {
                 Or tap <span className="text-slate-500">Close position</span> below to exit early.
               </p>
 
-              {/* ── Open positions (inline so always visible) ── */}
-              <div className="pt-1">
+              {/* ── Open positions ── */}
+              <div ref={positionsSectionRef} className="pt-1">
                 <div className="mb-2 flex items-center justify-between">
                   <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Open positions</span>
                   <span className="rounded bg-[#087cff]/10 px-2 py-0.5 text-[10px] font-black text-[#8bc3ff]">{openTrades.length}</span>
@@ -671,6 +730,34 @@ export function ForexClient() {
                     ))
                   )}
                 </div>
+              </div>
+
+              {/* ── Trade history ── */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowHistory((v) => !v)}
+                  className="mb-2 flex w-full items-center justify-between"
+                >
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Trade history</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="rounded bg-white/[0.06] px-2 py-0.5 text-[10px] font-black text-slate-400">{forexHistory.length}</span>
+                    <Icon name={showHistory ? "expand_less" : "expand_more"} className="text-[14px] text-slate-500" />
+                  </div>
+                </button>
+                {showHistory && (
+                  <div className="space-y-2">
+                    {forexHistory.length === 0 ? (
+                      <div className="rounded border border-dashed border-white/[0.08] py-6 text-center text-xs font-bold text-slate-600">
+                        No closed trades yet
+                      </div>
+                    ) : (
+                      forexHistory.map((trade) => (
+                        <HistoryRow key={trade.id} trade={trade} />
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -829,6 +916,39 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
       >
         {closing ? "Closing…" : "Close position"}
       </button>
+    </div>
+  );
+}
+
+function HistoryRow({ trade }: { trade: ClosedTrade }) {
+  const pl = trade.profitLoss ?? 0;
+  const won = pl >= 0;
+  const closedDate = trade.closedAt ? new Intl.DateTimeFormat("en-KE", { dateStyle: "short", timeStyle: "short" }).format(new Date(trade.closedAt)) : "—";
+
+  return (
+    <div className="rounded border border-white/[0.07] bg-black/20 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-black text-white">{trade.symbol}</span>
+            <span className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase ${trade.direction === "buy" ? "bg-emerald-500/15 text-emerald-300" : "bg-red-500/15 text-red-300"}`}>
+              {trade.direction.toUpperCase()}
+            </span>
+          </div>
+          <div className="text-[10px] font-bold text-slate-600">{closedDate}</div>
+          <div className="mt-0.5 text-[11px] font-bold text-slate-500">
+            {trade.size.toLocaleString("en-US")} units @ {trade.entry.toLocaleString("en-US", { minimumFractionDigits: trade.precision, maximumFractionDigits: trade.precision })}
+          </div>
+        </div>
+        <div className="text-right">
+          <div className={`font-mono text-sm font-black ${won ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
+            {won ? "+" : ""}KSh {pl.toFixed(2)}
+          </div>
+          <div className={`rounded px-2 py-0.5 text-[9px] font-black ${won ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
+            {won ? "WIN" : "LOSS"}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
