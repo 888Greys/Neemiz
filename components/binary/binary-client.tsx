@@ -579,7 +579,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
             <div className="mt-2 bg-black/25 p-2.5">
               <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Session P/L</div>
               <div className={`mt-1 font-mono text-xl font-black ${sessionPnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>
-                {sessionPnl >= 0 ? "+" : ""}{formatMoney(sessionPnl)}
+                {sessionPnl >= 0 ? "+" : ""}{formatMoney(sessionPnl, isLive)}
               </div>
             </div>
           </section>
@@ -677,7 +677,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
               <div>
                 <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Stake amount</div>
-                <Stepper value={stake} min={1} prefix="$" onChange={setStake} compact />
+                <Stepper value={stake} min={1} prefix={isLive ? "KSh" : "$"} onChange={setStake} compact />
                 <div className="mt-1.5 grid grid-cols-6 gap-1">
                   {(isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO).map((amount) => (
                     <button key={amount} type="button" onClick={() => setStake(amount)} className={`rounded px-1 py-1.5 text-[10px] font-black transition sm:px-2 sm:text-[11px] ${stake === amount ? "bg-sky-500 text-white" : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
@@ -693,13 +693,13 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <SmallInput label="Target" value={targetProfit} prefix="$" onChange={setTargetProfit} />
-                <SmallInput label="Stop loss" value={stopLoss} prefix="$" onChange={setStopLoss} />
+                <SmallInput label="Target" value={targetProfit} prefix={isLive ? "KSh" : "$"} onChange={setTargetProfit} />
+                <SmallInput label="Stop loss" value={stopLoss} prefix={isLive ? "KSh" : "$"} onChange={setStopLoss} />
                 <SmallInput label="Multiplier" value={multiplier} prefix="x" step={0.1} onChange={setMultiplier} />
               </div>
 
               <div className="rounded border border-white/[0.07] bg-black/25 px-3 py-1.5">
-                <SummaryRow label="Stake" value={formatMoney(stake)} />
+                <SummaryRow label="Stake" value={formatMoney(stake, isLive)} />
                 <SummaryRow label="Est. payout" value={formatMoney(payout, isLive)} positive />
                 <SummaryRow label="Last digit" value={String(latest.digit)} />
                 <SummaryRow label="Previous digit" value={String(previous?.digit ?? "-")} />
@@ -791,7 +791,16 @@ function MiniStat({ label, negative, positive, value }: { label: string; negativ
 function TradeRow({ trade }: { trade: BinaryTrade }) {
   const isOpen = trade.status === "open";
   const isWon = trade.status === "won";
-  const secondsLeft = Math.max(0, Math.ceil((trade.settlesAt - Date.now()) / 1000));
+  const isReal = trade.isReal ?? false;
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [isOpen]);
+
+  const secondsLeft = Math.max(0, Math.ceil((trade.settlesAt - now) / 1000));
 
   return (
     <div className="border border-white/[0.07] bg-black/25 p-3">
@@ -805,8 +814,8 @@ function TradeRow({ trade }: { trade: BinaryTrade }) {
         </span>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs font-black">
-        <span className="text-slate-500">Stake {formatMoney(trade.stake)}</span>
-        <span className={isOpen || isWon ? "text-emerald-300" : "text-red-300"}>{isOpen ? formatMoney(trade.payout) : isWon ? `+${formatMoney(trade.payout - trade.stake)}` : `-${formatMoney(trade.stake)}`}</span>
+        <span className="text-slate-500">Stake {formatMoney(trade.stake, isReal)}</span>
+        <span className={isOpen || isWon ? "text-emerald-300" : "text-red-300"}>{isOpen ? formatMoney(trade.payout, isReal) : isWon ? `+${formatMoney(trade.payout - trade.stake, isReal)}` : `-${formatMoney(trade.stake, isReal)}`}</span>
       </div>
     </div>
   );

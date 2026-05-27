@@ -221,6 +221,7 @@ export function ForexClient() {
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [openingTrade, setOpeningTrade] = useState(false);
   const [closingId, setClosingId] = useState<string | null>(null);
+  const autoClosingRef = useRef<Set<string>>(new Set());
 
   const selectedMarket = MARKETS.find((item) => item.symbol === selectedSymbol) ?? MARKETS[0];
 
@@ -432,6 +433,36 @@ export function ForexClient() {
     }
   }
 
+  // Auto-close trades when SL or TP is hit
+  useEffect(() => {
+    if (trades.length === 0 || price === 0) return;
+    for (const trade of trades) {
+      if (autoClosingRef.current.has(trade.id)) continue;
+      const tpHit = trade.direction === "buy" ? price >= trade.takeProfit : price <= trade.takeProfit;
+      const slHit = trade.direction === "buy" ? price <= trade.stopLoss : price >= trade.stopLoss;
+      if (tpHit || slHit) {
+        autoClosingRef.current.add(trade.id);
+        const reason = tpHit ? "Take profit reached" : "Stop loss triggered";
+        fetch("/api/forex/close", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tradeId: trade.id, closePrice: price }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.error) {
+              autoClosingRef.current.delete(trade.id);
+              return;
+            }
+            setTrades((current) => current.filter((t) => t.id !== trade.id));
+            setTradeError(`${reason} — ${trade.symbol} ${trade.direction.toUpperCase()} closed`);
+            window.dispatchEvent(new Event("wallet-refresh"));
+          })
+          .catch(() => autoClosingRef.current.delete(trade.id));
+      }
+    }
+  }, [price, trades]);
+
   return (
     <div className="min-h-full max-w-full overflow-x-hidden bg-[#050506] pb-16 text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       <div className="grid min-w-0 shrink-0 grid-cols-1 overflow-hidden border-b border-white/[0.08] bg-[#08090d]/95 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -600,7 +631,7 @@ export function ForexClient() {
               </div>
 
               {tradeError && (
-                <div className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">
+                <div className={`rounded border px-3 py-2 text-xs font-bold ${tradeError.includes("reached") || tradeError.includes("triggered") ? "border-sky-500/30 bg-sky-500/10 text-sky-300" : "border-red-500/30 bg-red-500/10 text-red-300"}`}>
                   {tradeError}
                   <button type="button" onClick={() => setTradeError(null)} className="ml-2 opacity-60 hover:opacity-100">✕</button>
                 </div>
@@ -616,6 +647,12 @@ export function ForexClient() {
               >
                 {openingTrade ? "Opening…" : streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
               </button>
+
+              <p className="hidden text-center text-[10px] font-bold leading-relaxed text-slate-600 xl:block">
+                Watch the pips — green means profit.<br />
+                Your trade closes automatically at Stop Loss / Take Profit.<br />
+                Or tap <span className="text-slate-500">Close position</span> below to exit early.
+              </p>
 
               {/* ── Open positions (inline so always visible) ── */}
               <div className="pt-1">
