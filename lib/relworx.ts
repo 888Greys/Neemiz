@@ -21,15 +21,24 @@ async function relworxPost(url: string, payload: RelworxPayload): Promise<Relwor
   const apiKey = process.env.RELWORX_API_KEY;
   if (!apiKey) throw new Error("RELWORX_API_KEY not configured");
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept":        "application/vnd.relworx.v2",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15_000); // 15s timeout
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept":        "application/vnd.relworx.v2",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body:   JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 
   let raw: unknown;
   try { raw = await res.json(); } catch { raw = null; }
