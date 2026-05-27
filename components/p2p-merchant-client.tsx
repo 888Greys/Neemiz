@@ -74,32 +74,33 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
+    <div className="w-full px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
       {/* Hero */}
-      <div className="relative mb-5 overflow-hidden rounded-2xl border border-[#1e1e30] bg-gradient-to-br from-[#111118] to-[#0e0e14] p-6 text-center sm:p-8">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-40 bg-[#087cff]/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative">
-          <div className="w-16 h-16 rounded-2xl bg-[#087cff]/15 border border-[#087cff]/25 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-[#087cff]/10">
-            <Icon name="storefront" className="text-[#087cff] text-3xl" />
+      <div className="relative mb-3 overflow-hidden rounded-lg border border-[#1e1e30] bg-[#111118] p-4 sm:p-5 lg:p-4">
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#087cff]/25 bg-[#087cff]/15 shadow-xl shadow-[#087cff]/10">
+            <Icon name="storefront" className="text-2xl text-[#087cff]" />
           </div>
-          <h1 className="text-3xl font-black text-white mb-2">Become a Merchant</h1>
-          <p className="text-slate-400 text-base max-w-md mx-auto leading-relaxed">
-            Post buy &amp; sell ads, set your own prices, and earn from every trade.
-            Nezeem holds crypto in escrow — your funds are always safe.
-          </p>
+          <div className="min-w-0">
+            <h1 className="mb-1 text-2xl font-black text-white lg:text-xl">Become a Merchant</h1>
+            <p className="max-w-3xl text-sm leading-5 text-slate-400">
+              Post buy &amp; sell ads, set your own prices, and earn from every trade.
+              Nezeem holds crypto in escrow — your funds are always safe.
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Benefits grid */}
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           { icon: "price_change",   label: "Your Prices",     desc: "Set your own spread and profit per trade" },
           { icon: "lock",           label: "Escrow Safe",     desc: "Crypto secured by Nezeem before any release" },
           { icon: "verified",       label: "Trust Badge",     desc: "Verified badge builds buyer confidence" },
           { icon: "payments",       label: "Local Payments",  desc: "M-Pesa and bank transfers supported" },
         ].map(({ icon, label, desc }) => (
-          <div key={label} className="bg-[#111118] border border-white/[0.06] rounded-xl p-4 hover:border-[#087cff]/20 transition-colors">
-            <div className="w-8 h-8 rounded-lg bg-[#087cff]/10 flex items-center justify-center mb-3">
+          <div key={label} className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-[#087cff]/20">
+            <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-[#087cff]/10">
               <Icon name={icon} className="text-[#087cff] text-sm" />
             </div>
             <p className="text-white font-black text-sm mb-1">{label}</p>
@@ -109,16 +110,16 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       </div>
 
       {/* How it works */}
-      <div className="mb-5 rounded-2xl border border-white/[0.06] bg-[#111118] p-5 sm:p-6">
-        <h2 className="text-white font-black text-base mb-4">How it works</h2>
-        <div className="flex flex-col sm:flex-row gap-4">
+      <div className="mb-3 rounded-lg border border-white/[0.06] bg-[#111118] p-4">
+        <h2 className="mb-3 text-base font-black text-white">How it works</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { step: "1", icon: "edit_note",     label: "Apply",         desc: "Fill in your display name and submit" },
             { step: "2", icon: "manage_search", label: "KYC Review",    desc: "We review your application in under 24h" },
             { step: "3", icon: "account_balance_wallet", label: "Deposit Crypto", desc: "Fund your escrow balance" },
             { step: "4", icon: "storefront",    label: "Post Ads",      desc: "Go live and start trading" },
           ].map(({ step, icon, label, desc }, i, arr) => (
-            <div key={step} className="flex items-start gap-3 flex-1">
+            <div key={step} className="flex items-start gap-3">
               <div className="flex flex-col items-center shrink-0">
                 <div className="w-8 h-8 rounded-full bg-[#087cff]/15 border border-[#087cff]/30 flex items-center justify-center text-[#087cff] font-black text-sm">
                   {step}
@@ -139,9 +140,9 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
 
       {/* Application form */}
       <div className="max-w-lg">
-        <div className="bg-[#111118] border border-white/[0.07] rounded-2xl p-6">
-          <h2 className="text-white font-black text-lg mb-1">Start your application</h2>
-          <p className="text-slate-500 text-sm mb-5">Takes less than a minute. Reviewed within 24 hours.</p>
+        <div className="rounded-lg border border-white/[0.07] bg-[#111118] p-4">
+          <h2 className="mb-1 text-lg font-black text-white">Start your application</h2>
+          <p className="mb-4 text-sm text-slate-500">Takes less than a minute. Reviewed within 24 hours.</p>
 
           <div className="space-y-4">
             <div>
@@ -183,7 +184,7 @@ function ApplicationStatus({ status, onRefresh }: { status: MerchantStatus; onRe
   const isPending  = status.kycStatus === "PENDING";
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-4">
+    <div className="w-full px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
       <div className="max-w-lg">
         {/* Status card */}
         <div className={`rounded-2xl border p-6 mb-6 ${
@@ -353,16 +354,16 @@ function DepositSection() {
     : null;
 
   return (
-    <div className="mb-5 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#111118]">
+    <div className="mb-3 overflow-hidden rounded-lg border border-white/[0.06] bg-[#111118]">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-4">
+      <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-3 lg:py-2.5">
         <div>
           <h2 className="text-white font-black text-base">Escrow Balance</h2>
           <p className="text-slate-500 text-xs mt-0.5">Deposit crypto to fund your sell ads — auto-detected on-chain</p>
         </div>
         <button
           onClick={() => { setOpen((v) => !v); setAddress(null); }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#05b957] text-white font-black text-sm hover:bg-[#28af52] transition-colors shadow-lg shadow-[#05b957]/20"
+          className="flex items-center gap-1.5 rounded-lg bg-[#05b957] px-4 py-2 text-sm font-black text-white shadow-lg shadow-[#05b957]/20 transition-colors hover:bg-[#28af52] lg:h-9"
         >
           <Icon name="add" className="text-base" />
           Deposit
@@ -371,7 +372,7 @@ function DepositSection() {
 
       {/* Available balance row */}
       {balances.length > 0 && (
-        <div className="flex flex-wrap gap-4 px-5 py-3 border-b border-white/[0.06] bg-white/[0.01]">
+        <div className="flex flex-wrap gap-4 border-b border-white/[0.06] bg-white/[0.01] px-4 py-2">
           {balances.map((b) => (
             <div key={b.crypto} className="flex items-center gap-3">
               <div>
@@ -504,11 +505,11 @@ function DepositSection() {
 
       {/* Deposit history table */}
       {loading ? (
-        <div className="flex items-center justify-center py-8">
+        <div className="flex items-center justify-center py-5">
           <div className="w-5 h-5 border-2 border-white/10 border-t-[#05b957] rounded-full animate-spin" />
         </div>
       ) : deposits.length === 0 ? (
-        <div className="flex min-h-[120px] flex-col items-center justify-center px-4 py-5 text-center">
+        <div className="flex min-h-[78px] flex-col items-center justify-center px-4 py-3 text-center">
           <Icon name="account_balance_wallet" className="mb-2 text-2xl text-slate-700" />
           <p className="text-slate-500 text-sm">No deposits yet</p>
           <p className="text-slate-600 text-xs mt-1">Click Deposit above to get your unique crypto address</p>
@@ -731,16 +732,16 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} />}
 
       {/* Merchant header */}
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           {user?.user_metadata?.avatar_url ? (
             <img
               src={user.user_metadata.avatar_url}
               alt={status.displayName ?? "avatar"}
-              className="w-12 h-12 rounded-xl object-cover shadow-lg shadow-black/30"
+              className="h-12 w-12 rounded-xl object-cover shadow-lg shadow-black/30 lg:h-10 lg:w-10 lg:rounded-lg"
             />
           ) : (
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#087cff] to-[#6366f1] flex items-center justify-center text-white font-black text-xl shadow-lg shadow-[#087cff]/20">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#087cff] to-[#6366f1] text-xl font-black text-white shadow-lg shadow-[#087cff]/20 lg:h-10 lg:w-10 lg:rounded-lg lg:text-lg">
               {status.displayName?.charAt(0).toUpperCase()}
             </div>
           )}
@@ -763,7 +764,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         {/* Post Ad — icon-only on mobile, full button on sm+ */}
         <button
           onClick={() => setCreate(true)}
-          className="flex items-center gap-2 sm:px-4 sm:py-2.5 p-2.5 rounded-xl bg-[#087cff] text-white font-black text-sm hover:bg-[#0570e8] transition-colors shadow-lg shadow-[#087cff]/20 shrink-0"
+          className="flex shrink-0 items-center gap-2 rounded-lg bg-[#087cff] p-2.5 text-sm font-black text-white shadow-lg shadow-[#087cff]/20 transition-colors hover:bg-[#0570e8] sm:px-4 sm:py-2 lg:h-9"
         >
           <Icon name="add" className="text-base" />
           <span className="hidden sm:inline">Post Ad</span>
@@ -778,46 +779,46 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         const listedKES     = ads.reduce((s, a) => s + Number(a.availableAmount) * Number(a.pricePerUnit), 0);
         const cryptos       = ads.map((a) => a.crypto).filter((c, idx, arr) => arr.indexOf(c) === idx);
         return (
-          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
             {/* Active Ads */}
-            <div className="bg-[#111118] border border-white/[0.06] rounded-xl p-4 hover:border-[#087cff]/20 transition-colors">
-              <div className="flex items-center justify-between mb-2">
+            <div className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-[#087cff]/20">
+              <div className="mb-1 flex items-center justify-between">
                 <p className="text-slate-500 text-xs">Active Ads</p>
                 <Icon name="campaign" className="text-[#087cff] text-sm opacity-60" />
               </div>
-              <p className="font-black text-2xl text-[#087cff]">{activeAds.length}</p>
+              <p className="text-xl font-black text-[#087cff]">{activeAds.length}</p>
               <p className="text-slate-600 text-[11px] mt-1">{ads.length} total · {ads.length - activeAds.length} paused</p>
             </div>
 
             {/* Listed crypto */}
-            <div className="bg-[#111118] border border-white/[0.06] rounded-xl p-4 hover:border-[#05b957]/20 transition-colors">
-              <div className="flex items-center justify-between mb-2">
+            <div className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-[#05b957]/20">
+              <div className="mb-1 flex items-center justify-between">
                 <p className="text-slate-500 text-xs">Listed Crypto</p>
                 <Icon name="currency_bitcoin" className="text-[#05b957] text-sm opacity-60" />
               </div>
-              <p className="font-black text-2xl text-[#05b957]">{totalAvail.toFixed(4)}</p>
+              <p className="text-xl font-black text-[#05b957]">{totalAvail.toFixed(4)}</p>
               <p className="text-slate-600 text-[11px] mt-1">{totalListed.toFixed(4)} total · {cryptos.join(", ") || "—"}</p>
             </div>
 
             {/* KES value */}
-            <div className="bg-[#111118] border border-white/[0.06] rounded-xl p-4 hover:border-amber-500/20 transition-colors">
-              <div className="flex items-center justify-between mb-2">
+            <div className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-amber-500/20">
+              <div className="mb-1 flex items-center justify-between">
                 <p className="text-slate-500 text-xs">Est. KES Value</p>
                 <Icon name="payments" className="text-amber-400 text-sm opacity-60" />
               </div>
-              <p className="font-black text-2xl text-amber-400">
+              <p className="text-xl font-black text-amber-400">
                 {listedKES >= 1000 ? `${(listedKES/1000).toFixed(1)}K` : listedKES.toFixed(0)}
               </p>
               <p className="text-slate-600 text-[11px] mt-1">across active listings</p>
             </div>
 
             {/* Account */}
-            <div className="bg-[#111118] border border-white/[0.06] rounded-xl p-4 hover:border-[#05b957]/20 transition-colors">
-              <div className="flex items-center justify-between mb-2">
+            <div className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-[#05b957]/20">
+              <div className="mb-1 flex items-center justify-between">
                 <p className="text-slate-500 text-xs">Account</p>
                 <Icon name="shield" className="text-[#05b957] text-sm opacity-60" />
               </div>
-              <div className="flex items-center gap-1.5 mb-1">
+              <div className="mb-1 flex items-center gap-1.5">
                 <Icon name="verified" className="text-[#05b957] text-sm" />
                 <p className="font-black text-sm text-[#05b957]">Verified</p>
               </div>
@@ -833,8 +834,8 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       <DepositSection />
 
       {/* Ads list */}
-      <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+      <div className="overflow-hidden rounded-lg border border-white/[0.06] bg-[#111118]">
+        <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3 lg:py-2.5">
           <div>
             <h2 className="text-white font-black text-base">My Ads</h2>
             <p className="text-slate-500 text-xs mt-0.5">{ads.filter((a) => a.isActive).length} active · {ads.length} total</p>
@@ -846,7 +847,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             {[1,2].map((i) => <div key={i} className="h-16 bg-white/[0.03] animate-pulse" />)}
           </div>
         ) : ads.length === 0 ? (
-          <div className="flex min-h-[190px] flex-col items-center justify-center px-6 py-8 text-center">
+          <div className="flex min-h-[120px] flex-col items-center justify-center px-6 py-5 text-center">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
               <Icon name="post_add" className="text-xl text-slate-500" />
             </div>
@@ -865,10 +866,10 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               const cryptoColor: Record<string, string> = { USDT: "#26a17b", BTC: "#f7931a", ETH: "#627eea", BNB: "#f0b90b" };
               const dotColor = cryptoColor[ad.crypto] ?? "#087cff";
               return (
-                <div key={ad.id} className="grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_90px] gap-3 border-b border-[#1e1e30] bg-[#0e0e14] px-3 py-3 last:border-b-0 transition hover:bg-[#111118] sm:px-4">
+                <div key={ad.id} className="grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_90px] gap-3 border-b border-[#1e1e30] bg-[#0e0e14] px-3 py-3 transition last:border-b-0 hover:bg-[#111118] sm:px-4 lg:min-h-[82px] lg:grid-cols-[minmax(0,1fr)_120px] lg:items-center lg:gap-4 lg:px-3 lg:py-2">
                   <div className="min-w-0">
                     {/* Row 1: crypto dot + name + side badge + status */}
-                    <div className="mb-1.5 flex min-w-0 items-center gap-2">
+                    <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-0">
                       <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-black" style={{ backgroundColor: dotColor }}>
                         {ad.crypto.charAt(0)}
                       </div>
@@ -885,21 +886,21 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                     </div>
 
                     {/* Row 2: large price */}
-                    <div className="mb-2.5">
+                    <div className="mb-2.5 lg:mb-0">
                       <p className="text-[10px] font-semibold leading-3 text-white/45">KES</p>
-                      <p className="text-[21px] font-black leading-tight text-white tabular-nums">
+                      <p className="text-[21px] font-black leading-tight text-white tabular-nums lg:text-lg">
                         {ad.pricePerUnit.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
                     </div>
 
                     {/* Row 3: limits + quantity */}
-                    <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40">
+                    <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40 lg:flex lg:flex-wrap lg:gap-x-4 lg:space-y-0">
                       <p>Limits <span className="text-white/65">{ad.minLimit.toLocaleString("en-KE")} – {ad.maxLimit.toLocaleString("en-KE")} KES</span></p>
                       <p>Quantity <span className="text-white/65">{Number(ad.availableAmount).toLocaleString("en-KE", { maximumFractionDigits: 4 })} {ad.crypto}</span></p>
                     </div>
 
                     {/* Row 4: payment methods */}
-                    <div className="mt-1.5 flex min-w-0 flex-wrap gap-x-2 gap-y-1">
+                    <div className="mt-1.5 flex min-w-0 flex-wrap gap-x-2 gap-y-1 lg:mt-1">
                       {ad.paymentMethods.map((m) => (
                         <span key={m} className="flex items-center gap-1 text-[10px] font-semibold text-white/45">
                           <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
@@ -909,7 +910,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                     </div>
 
                     {/* Fill bar */}
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-2 flex items-center gap-2 lg:mt-1">
                       <div className="h-1 w-20 overflow-hidden rounded-full bg-white/[0.06]">
                         <div className="h-full rounded-full bg-[#087cff] transition-all" style={{ width: `${fillPct}%` }} />
                       </div>
@@ -928,13 +929,13 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                   <div className="flex flex-col items-stretch justify-center gap-2">
                     <button
                       onClick={() => setEditingAd(ad)}
-                      className="grid h-8 place-items-center rounded-full bg-[#087cff]/15 text-[11px] font-black text-[#4da3ff] transition hover:bg-[#087cff]/25"
+                      className="grid h-8 place-items-center rounded-lg bg-[#087cff]/15 text-[11px] font-black text-[#4da3ff] transition hover:bg-[#087cff]/25"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => toggleActive(ad)}
-                      className={`grid h-8 place-items-center rounded-full text-[11px] font-black transition ${
+                      className={`grid h-8 place-items-center rounded-lg text-[11px] font-black transition ${
                         ad.isActive
                           ? "bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
                           : "bg-[#05b957]/10 text-[#05b957] hover:bg-[#05b957]/20"

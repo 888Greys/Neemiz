@@ -51,7 +51,7 @@ function FilterButton({ active, label, onClick }: { active: boolean; label: stri
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+      className={`rounded-lg px-3 py-2 text-xs font-black transition-all lg:h-8 lg:px-3 lg:py-0 ${
         active
           ? "bg-[#087cff] text-white shadow-[0_2px_12px_rgba(8,124,255,.3)]"
           : "bg-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/[0.08]"
@@ -100,15 +100,15 @@ export function P2POrdersClient() {
   return (
     <>
       <P2PSubNav />
-    <div className="mx-auto w-full max-w-5xl px-3 py-4 sm:px-4">
+    <div className="w-full px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
       {/* Header */}
-      <div className="mb-5">
-        <h1 className="text-2xl font-black text-white mb-1">My P2P Orders</h1>
-        <p className="text-slate-500 text-sm">Track all your buy and sell orders.</p>
+      <div className="mb-3 lg:mb-2">
+        <h1 className="mb-1 text-2xl font-black text-white lg:text-xl">My P2P Orders</h1>
+        <p className="text-sm text-slate-500 lg:text-xs">Track all your buy and sell orders.</p>
       </div>
 
       {/* Filter tabs */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2 lg:mb-2">
         {([
           { id: "all" as FilterTab,       label: `All (${tabCounts.all})` },
           { id: "pending" as FilterTab,   label: `Pending (${tabCounts.pending})` },
@@ -124,7 +124,7 @@ export function P2POrdersClient() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-[88px] rounded-2xl bg-white/5 animate-pulse" />
+            <div key={i} className="h-[88px] rounded-2xl bg-white/5 animate-pulse lg:h-[58px] lg:rounded-lg" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -154,10 +154,10 @@ export function P2POrdersClient() {
             <Link
               key={order.id}
               href={`/p2p/order/${order.id}`}
-              className="group block rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-4 py-3 transition hover:bg-[#111118]"
+              className="group block rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-4 py-3 transition hover:bg-[#111118] lg:grid lg:grid-cols-[minmax(190px,1fr)_150px_minmax(360px,1.5fr)_240px] lg:items-center lg:gap-4 lg:rounded-lg lg:px-3 lg:py-2"
             >
               {/* Row 1: type + status + chevron */}
-              <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="mb-3 flex items-center justify-between gap-2 lg:mb-0">
                 <div className="flex min-w-0 items-center gap-2">
                   <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
                     order.isBuyer ? "bg-[#05b957]/15" : "bg-red-500/15"
@@ -167,19 +167,19 @@ export function P2POrdersClient() {
                   <span className="text-[13px] font-black text-white">{order.isBuyer ? "Buy" : "Sell"} {order.crypto}</span>
                   <StatusBadge status={order.status} />
                 </div>
-                <Icon name="chevron_right" className="shrink-0 text-[20px] text-white/25 transition group-hover:text-white/50" />
+                <Icon name="chevron_right" className="shrink-0 text-[20px] text-white/25 transition group-hover:text-white/50 lg:hidden" />
               </div>
 
               {/* Amount */}
-              <div className="mb-3">
+              <div className="mb-3 lg:mb-0">
                 <p className="text-[10px] font-semibold text-white/40">{order.fiat}</p>
-                <p className="text-[22px] font-black leading-tight text-white tabular-nums">
+                <p className="text-[22px] font-black leading-tight text-white tabular-nums lg:text-lg">
                   {Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2 })}
                 </p>
               </div>
 
               {/* Detail rows */}
-              <div className="mb-3 space-y-1.5">
+              <div className="mb-3 space-y-1.5 lg:mb-0 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-white/40">Price</span>
                   <span className="font-semibold text-white/70">{Number(order.pricePerUnit).toLocaleString("en-KE")} {order.fiat}</span>
@@ -198,7 +198,7 @@ export function P2POrdersClient() {
               </div>
 
               {/* Footer: merchant chip + date */}
-              <div className="flex items-center justify-between border-t border-white/[0.05] pt-2.5">
+              <div className="flex items-center justify-between border-t border-white/[0.05] pt-2.5 lg:border-t-0 lg:pt-0">
                 <span className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-white/55">
                   <Icon name="chat_bubble_outline" className="text-[11px]" />
                   {order.counterparty}

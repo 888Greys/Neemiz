@@ -319,7 +319,7 @@ function StatsBar() {
       {cells.map((s) => (
         <div
           key={s.label}
-          className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#111118] px-3 py-2.5 transition-colors hover:border-white/[0.12]"
+          className="relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#111118] px-3 py-2 transition-colors hover:border-white/[0.12]"
         >
           <div className="mb-1 flex items-center gap-1.5">
             {s.live && <span className="w-1.5 h-1.5 rounded-full bg-[#05b957] animate-pulse shrink-0" />}
@@ -356,10 +356,10 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
     <button
       type="button"
       onClick={openOrder}
-      className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_84px] gap-3 rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-3 py-3 text-left transition hover:bg-[#111118] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/60 sm:grid-cols-[minmax(0,1fr)_118px] sm:px-4"
+      className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_84px] gap-3 rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-3 py-3 text-left transition hover:bg-[#111118] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/60 sm:grid-cols-[minmax(0,1fr)_118px] sm:px-4 lg:min-h-[86px] lg:rounded-lg lg:px-3 lg:py-2"
     >
       <div className="min-w-0">
-        <div className="mb-1.5 flex min-w-0 items-center gap-2">
+        <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-1">
           <div className="relative shrink-0">
             <div
               className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-black"
@@ -384,10 +384,10 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
           </span>
         </div>
 
-        <div className="mb-2.5 flex items-start justify-between gap-2">
+        <div className="mb-2.5 flex items-start justify-between gap-2 lg:mb-1">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold leading-3 text-white/45">{ad.fiat}</p>
-            <p className="text-[21px] font-black leading-tight text-white tabular-nums">
+            <p className="text-[21px] font-black leading-tight text-white tabular-nums lg:text-[19px]">
               {ad.pricePerUnit.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           </div>
@@ -396,7 +396,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
           </div>
         </div>
 
-        <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40">
+        <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40 lg:flex lg:flex-wrap lg:gap-x-4 lg:space-y-0">
           <p>
             Limits <span className="text-white/65">{ad.minLimit.toLocaleString("en-KE")} - {ad.maxLimit.toLocaleString("en-KE")} {ad.fiat}</span>
           </p>
@@ -405,7 +405,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
           </p>
         </div>
 
-        <div className="mt-1.5 flex min-w-0 flex-wrap gap-x-2 gap-y-1">
+        <div className="mt-1.5 flex min-w-0 flex-wrap gap-x-2 gap-y-1 lg:mt-1">
           {ad.paymentMethods.map((m) => (
             <span key={m} className="flex items-center gap-1 text-[10px] font-semibold text-white/45">
               <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
@@ -415,7 +415,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
         </div>
       </div>
 
-      <div className="flex min-w-0 flex-col items-end justify-center gap-4">
+      <div className="flex min-w-0 flex-col items-end justify-center gap-4 lg:gap-2">
         <span className="text-right text-[10px] font-semibold leading-3 text-white/35 sm:hidden">
           {ad.merchant.completedTrades} Orders ({ad.merchant.completionRate.toFixed(0)}%)
         </span>
@@ -639,16 +639,16 @@ export function P2PBrowseClient() {
 
       <P2PSubNav />
 
-      <div className="mx-auto w-full max-w-5xl px-3 py-3 sm:px-4">
+      <div className="w-full px-3 py-2 sm:px-4 lg:px-3">
 
         {/* Workspace header */}
-        <div className="mb-2 grid min-w-0 gap-2 xl:grid-cols-[minmax(0,1fr)_430px]">
-          <div className="min-w-0 rounded-xl border border-[#1e1e30] bg-[#111118] px-3 py-2.5">
-            <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
+        <div className="mb-2 grid min-w-0 gap-2 xl:grid-cols-[minmax(0,1fr)_520px]">
+          <div className="min-w-0 rounded-lg border border-[#1e1e30] bg-[#111118] px-3 py-2">
+            <div className="mb-2 flex min-w-0 items-center justify-between gap-3 lg:mb-1.5">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">Nezeem P2P</p>
                 <h1 className="text-lg font-black leading-tight text-white">Local crypto exchange</h1>
-                <p className="max-w-md text-xs font-semibold leading-5 text-slate-500">
+                <p className="max-w-md text-xs font-semibold leading-5 text-slate-500 lg:leading-4">
                   Verified merchants, local payments, escrow-protected orders.
                 </p>
               </div>
@@ -734,7 +734,7 @@ export function P2PBrowseClient() {
         </div>
 
         {/* Ad grid */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           {loading ? (
             <AdSkeleton />
           ) : ads.length === 0 ? (
