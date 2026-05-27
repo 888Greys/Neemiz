@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AreaSeries,
   ColorType,
@@ -12,6 +12,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
+import { toast } from "@/lib/toast";
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
 type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
@@ -34,7 +35,7 @@ type Tick = {
 };
 
 type BinaryTrade = {
-  id: number;
+  id: string;
   market: string;
   side: ContractSide;
   stake: number;
@@ -44,6 +45,7 @@ type BinaryTrade = {
   openedAt: number;
   settlesAt: number;
   status: TradeStatus;
+  isReal?: boolean; // true when backed by real wallet
 };
 
 const MARKETS: BinaryMarket[] = [
@@ -55,7 +57,8 @@ const MARKETS: BinaryMarket[] = [
   { symbol: "Jump 10", derivSymbol: "JD10", name: "Deriv jump index", price: 119.56, volatility: 1.1, speedMs: 1050 },
 ];
 
-const STAKE_PRESETS = [1, 5, 10, 25, 50, 100];
+const STAKE_PRESETS_LIVE = [10, 50, 100, 250, 500, 1000];
+const STAKE_PRESETS_DEMO = [1, 5, 10, 25, 50, 100];
 const DIGITS = Array.from({ length: 10 }, (_, index) => index);
 const TICK_SECONDS = 1;
 const DERIV_WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${process.env.NEXT_PUBLIC_DERIV_APP_ID ?? "1089"}`;
@@ -103,8 +106,9 @@ function toTick(epoch: number, quote: number): Tick {
   };
 }
 
-function formatMoney(value: number) {
-  return `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatMoney(value: number, isLive = false) {
+  const fmt = value.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return isLive ? `KSh ${fmt}` : `$${fmt}`;
 }
 
 function formatQuote(value: number) {
@@ -232,12 +236,20 @@ function TradingViewBinaryChart({ ticks }: { ticks: Tick[] }) {
   );
 }
 
-export function BinaryClient() {
+interface BinaryClientProps {
+  userId?:   string;
+  username?: string;
+  balance?:  number;
+}
+
+export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClientProps) {
+  const isLive = !!userId;
+
   const [marketSymbol, setMarketSymbol] = useState(MARKETS[0].symbol);
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
   const [ticks, setTicks] = useState(() => seedTicks(market));
   const [family, setFamily] = useState<ContractFamily>("evenOdd");
-  const [stake, setStake] = useState(10);
+  const [stake, setStake] = useState(isLive ? 10 : 10);
   const [targetDigit, setTargetDigit] = useState(5);
   const [duration, setDuration] = useState(5);
   const [autoMode, setAutoMode] = useState(false);
@@ -246,10 +258,14 @@ export function BinaryClient() {
   const [multiplier, setMultiplier] = useState(1.4);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [liveBalance, setLiveBalance] = useState(initialBalance);
   const [demoBalance, setDemoBalance] = useState(10000);
+  const [placing, setPlacing] = useState(false);
   const [openTrades, setOpenTrades] = useState<BinaryTrade[]>([]);
   const [closedTrades, setClosedTrades] = useState<BinaryTrade[]>([]);
   const [transactions, setTransactions] = useState<string[]>([]);
+
+  const balance = isLive ? liveBalance : demoBalance;
 
   useEffect(() => {
     setTicks(seedTicks(market));
@@ -380,6 +396,27 @@ export function BinaryClient() {
   const wins = closedTrades.filter((trade) => trade.status === "won").length;
   const losses = closedTrades.filter((trade) => trade.status === "lost").length;
 
+  const settleReal = useCallback(async (trade: BinaryTrade, exitDigit: number) => {
+    try {
+      const res  = await fetch("/api/binary/settle", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ tradeId: trade.id, exitDigit }),
+      });
+      const data = await res.json() as { won?: boolean; winAmount?: number; error?: string };
+      if (!res.ok) {
+        console.error("binary settle failed:", data.error);
+        return;
+      }
+      if (data.won && data.winAmount) {
+        setLiveBalance((b) => b + data.winAmount!);
+        window.dispatchEvent(new Event("wallet-refresh"));
+      }
+    } catch (err) {
+      console.error("binary settle error:", err);
+    }
+  }, []);
+
   useEffect(() => {
     if (openTrades.length === 0) return;
     const now = Date.now();
@@ -387,40 +424,85 @@ export function BinaryClient() {
     if (ready.length === 0) return;
 
     setOpenTrades((current) => current.filter((trade) => trade.settlesAt > now));
+
+    const digit = latest.digit;
     setClosedTrades((current) => {
       const settled = ready.map((trade) => {
-        const won = evaluateTrade(trade.side, latest.digit, targetDigit);
-        return {
-          ...trade,
-          exitDigit: latest.digit,
-          status: won ? "won" as const : "lost" as const,
-        };
+        const won = evaluateTrade(trade.side, digit, trade.entryDigit); // use per-trade targetDigit stored in trade
+        return { ...trade, exitDigit: digit, status: won ? "won" as const : "lost" as const };
       });
       return [...settled, ...current].slice(0, 20);
     });
-    setDemoBalance((balance) => ready.reduce((next, trade) => {
-      const won = evaluateTrade(trade.side, latest.digit, targetDigit);
-      return won ? next + trade.payout : next;
-    }, balance));
-  }, [latest, openTrades, targetDigit]);
 
-  function placeTrade(side: ContractSide) {
-    if (stake <= 0 || demoBalance < stake) return;
-    const trade: BinaryTrade = {
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      market: market.symbol,
-      side,
-      stake,
-      payout: stake * payoutRate(side),
-      entryDigit: latest.digit,
-      openedAt: Date.now(),
-      settlesAt: Date.now() + duration * 1000,
-      status: "open",
-    };
+    for (const trade of ready) {
+      if (isLive && trade.isReal) {
+        settleReal(trade, digit);
+      } else {
+        const won = evaluateTrade(trade.side, digit, trade.entryDigit);
+        setDemoBalance((b) => won ? b + trade.payout : b);
+      }
+    }
+  }, [latest, openTrades, isLive, settleReal]);
 
-    setDemoBalance((balance) => balance - stake);
-    setOpenTrades((current) => [trade, ...current].slice(0, 12));
-    setTransactions((current) => [`${side} ${market.symbol} stake ${formatMoney(stake)}`, ...current].slice(0, 12));
+  async function placeTrade(side: ContractSide) {
+    if (placing || stake <= 0 || balance < stake) return;
+
+    if (isLive) {
+      setPlacing(true);
+      try {
+        const res  = await fetch("/api/binary/bet", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            market:       market.derivSymbol,
+            side,
+            stake,
+            targetDigit,
+            entryDigit:   latest.digit,
+            durationTicks: duration,
+          }),
+        });
+        const data = await res.json() as { tradeId?: string; payout?: number; error?: string };
+        if (!res.ok || !data.tradeId) {
+          toast.error("Trade failed", data.error ?? "Could not place trade");
+          return;
+        }
+        const trade: BinaryTrade = {
+          id:         data.tradeId,
+          market:     market.symbol,
+          side,
+          stake,
+          payout:     data.payout ?? stake * payoutRate(side),
+          entryDigit: latest.digit,
+          openedAt:   Date.now(),
+          settlesAt:  Date.now() + duration * 1000,
+          status:     "open",
+          isReal:     true,
+        };
+        setLiveBalance((b) => b - stake);
+        window.dispatchEvent(new Event("wallet-refresh"));
+        setOpenTrades((current) => [trade, ...current].slice(0, 12));
+        setTransactions((current) => [`${side} ${market.symbol} KSh ${stake}`, ...current].slice(0, 12));
+      } finally {
+        setPlacing(false);
+      }
+    } else {
+      const trade: BinaryTrade = {
+        id:         `demo-${Date.now()}`,
+        market:     market.symbol,
+        side,
+        stake,
+        payout:     stake * payoutRate(side),
+        entryDigit: latest.digit,
+        openedAt:   Date.now(),
+        settlesAt:  Date.now() + duration * 1000,
+        status:     "open",
+        isReal:     false,
+      };
+      setDemoBalance((b) => b - stake);
+      setOpenTrades((current) => [trade, ...current].slice(0, 12));
+      setTransactions((current) => [`${side} ${market.symbol} $${stake}`, ...current].slice(0, 12));
+    }
   }
 
   return (
@@ -448,8 +530,17 @@ export function BinaryClient() {
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
             <div className="rounded bg-[#151a22] px-2 py-1.5 text-right ring-1 ring-white/[0.07] sm:px-3">
-              <div className="font-mono text-xs font-black">{formatMoney(demoBalance)} DEMO</div>
-              <div className="text-[10px] font-bold text-emerald-300">Demo active</div>
+              {isLive ? (
+                <>
+                  <div className="font-mono text-xs font-black">KSh {liveBalance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  <div className="text-[10px] font-bold text-emerald-300">Live wallet</div>
+                </>
+              ) : (
+                <>
+                  <div className="font-mono text-xs font-black">{formatMoney(demoBalance)} DEMO</div>
+                  <div className="text-[10px] font-bold text-amber-400">Demo — login to play live</div>
+                </>
+              )}
             </div>
             <button type="button" className="grid h-9 w-9 place-items-center rounded bg-[#151a22] text-slate-300 ring-1 ring-white/[0.07]">
               <Icon name="person" className="text-[16px]" />
@@ -585,9 +676,9 @@ export function BinaryClient() {
                 <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Stake amount</div>
                 <Stepper value={stake} min={1} prefix="$" onChange={setStake} compact />
                 <div className="mt-1.5 grid grid-cols-6 gap-1">
-                  {STAKE_PRESETS.map((amount) => (
+                  {(isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO).map((amount) => (
                     <button key={amount} type="button" onClick={() => setStake(amount)} className={`rounded px-1 py-1.5 text-[10px] font-black transition sm:px-2 sm:text-[11px] ${stake === amount ? "bg-sky-500 text-white" : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
-                      ${amount}
+                      {isLive ? amount : `$${amount}`}
                     </button>
                   ))}
                 </div>
@@ -606,14 +697,14 @@ export function BinaryClient() {
 
               <div className="rounded border border-white/[0.07] bg-black/25 px-3 py-1.5">
                 <SummaryRow label="Stake" value={formatMoney(stake)} />
-                <SummaryRow label="Est. payout" value={formatMoney(payout)} positive />
+                <SummaryRow label="Est. payout" value={formatMoney(payout, isLive)} positive />
                 <SummaryRow label="Last digit" value={String(latest.digit)} />
                 <SummaryRow label="Previous digit" value={String(previous?.digit ?? "-")} />
               </div>
 
-              {demoBalance < stake && (
+              {balance < stake && (
                 <div className="rounded border border-red-400/25 bg-red-400/10 px-3 py-2 text-xs font-black text-red-200">
-                  Insufficient demo balance for this stake.
+                  {isLive ? "Insufficient wallet balance. Please deposit." : "Insufficient demo balance for this stake."}
                 </div>
               )}
             </div>
@@ -624,11 +715,12 @@ export function BinaryClient() {
                   key={side}
                   type="button"
                   onClick={() => placeTrade(side)}
-                  className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
+                  disabled={placing || balance < stake}
+                  className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] disabled:opacity-50 ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
                 >
-                  <div className="text-sm font-black">{actionLabel(side)}</div>
+                  <div className="text-sm font-black">{placing ? "…" : actionLabel(side)}</div>
                   <div className="text-right">
-                    <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side))}</div>
+                    <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side), isLive)}</div>
                     <div className="text-[10px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
                   </div>
                 </button>
@@ -660,11 +752,12 @@ export function BinaryClient() {
             key={side}
             type="button"
             onClick={() => placeTrade(side)}
-            className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
+            disabled={placing || balance < stake}
+            className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] disabled:opacity-50 ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
           >
-            <div className="text-sm font-black">{actionLabel(side)}</div>
+            <div className="text-sm font-black">{placing ? "…" : actionLabel(side)}</div>
             <div className="text-right">
-              <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side))}</div>
+              <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side), isLive)}</div>
               <div className="text-[10px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
             </div>
           </button>
