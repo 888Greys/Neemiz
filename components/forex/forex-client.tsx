@@ -27,7 +27,7 @@ type ForexMarket = {
 };
 
 type Trade = {
-  id: number;
+  id: string;
   symbol: string;
   direction: Direction;
   size: number;
@@ -36,6 +36,7 @@ type Trade = {
   takeProfit: number;
   openedAt: number;
   precision: number;
+  margin?: number;
 };
 
 type Candle = CandlestickData<Time> & {
@@ -217,6 +218,9 @@ export function ForexClient() {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [lastTickAt, setLastTickAt] = useState(0);
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [tradeError, setTradeError] = useState<string | null>(null);
+  const [openingTrade, setOpeningTrade] = useState(false);
+  const [closingId, setClosingId] = useState<string | null>(null);
 
   const selectedMarket = MARKETS.find((item) => item.symbol === selectedSymbol) ?? MARKETS[0];
 
@@ -363,25 +367,69 @@ export function ForexClient() {
     };
   }, [chartCandles, selectedMarket]);
 
-  function openTrade(nextDirection: Direction = direction) {
-    setTrades((current) => [
-      {
-        id: Date.now(),
-        symbol: selectedMarket.symbol,
-        direction: nextDirection,
-        size,
-        entry: price,
-        stopLoss: nextDirection === "buy" ? price - riskPips * unit : price + riskPips * unit,
-        takeProfit: nextDirection === "buy" ? price + targetPips * unit : price - targetPips * unit,
-        openedAt: Date.now(),
-        precision: selectedMarket.precision,
-      },
-      ...current,
-    ]);
+  // Load open positions on mount
+  useEffect(() => {
+    fetch("/api/forex/positions")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: Trade[]) => setTrades(data))
+      .catch(() => {/* silently ignore — user may not be logged in */});
+  }, []);
+
+  async function openTrade(nextDirection: Direction = direction) {
+    setTradeError(null);
+    setOpeningTrade(true);
+    const sl = nextDirection === "buy" ? price - riskPips * unit : price + riskPips * unit;
+    const tp = nextDirection === "buy" ? price + targetPips * unit : price - targetPips * unit;
+    try {
+      const res = await fetch("/api/forex/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          symbol: selectedMarket.symbol,
+          direction: nextDirection,
+          size,
+          entryPrice: price,
+          stopLoss: sl,
+          takeProfit: tp,
+          precision: selectedMarket.precision,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTradeError(data.error ?? "Failed to open trade");
+        return;
+      }
+      setTrades((current) => [data as Trade, ...current]);
+      window.dispatchEvent(new Event("wallet-refresh"));
+    } catch {
+      setTradeError("Network error — please try again");
+    } finally {
+      setOpeningTrade(false);
+    }
   }
 
-  function closeTrade(id: number) {
-    setTrades((current) => current.filter((trade) => trade.id !== id));
+  async function closeTrade(id: string) {
+    setClosingId(id);
+    const trade = trades.find((t) => t.id === id);
+    if (!trade) { setClosingId(null); return; }
+    try {
+      const res = await fetch("/api/forex/close", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tradeId: id, closePrice: price }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTradeError(data.error ?? "Failed to close trade");
+        return;
+      }
+      setTrades((current) => current.filter((t) => t.id !== id));
+      window.dispatchEvent(new Event("wallet-refresh"));
+    } catch {
+      setTradeError("Network error — please try again");
+    } finally {
+      setClosingId(null);
+    }
   }
 
   return (
@@ -551,20 +599,27 @@ export function ForexClient() {
                 <Row label="Take profit" value={formatPrice(selectedMarket, takeProfit)} positive />
               </div>
 
+              {tradeError && (
+                <div className="rounded border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300">
+                  {tradeError}
+                  <button type="button" onClick={() => setTradeError(null)} className="ml-2 opacity-60 hover:opacity-100">✕</button>
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={() => openTrade()}
-                disabled={streamStatus !== "live"}
+                disabled={streamStatus !== "live" || openingTrade}
                 className={`hidden w-full rounded py-4 text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 xl:block ${
                   direction === "buy" ? "bg-[#0f9f68] hover:bg-[#13ae73]" : "bg-[#d33d4b] hover:bg-[#e24755]"
                 }`}
               >
-                {streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
+                {openingTrade ? "Opening…" : streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
               </button>
             </div>
           </section>
 
-          <section className="hidden rounded-lg border border-white/[0.08] bg-[#101216] p-4">
+          <section className="rounded-lg border border-white/[0.08] bg-[#101216] p-4 mx-3 mb-3">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-black text-white">Open positions</h3>
               <span className="rounded bg-[#087cff]/10 px-2 py-1 text-[10px] font-black text-[#8bc3ff]">{openTrades.length}</span>
@@ -576,7 +631,7 @@ export function ForexClient() {
                 </div>
               ) : (
                 openTrades.map((trade) => (
-                  <PositionRow key={trade.id} currentPrice={price} onClose={() => closeTrade(trade.id)} trade={trade} />
+                  <PositionRow key={trade.id} currentPrice={price} onClose={() => closeTrade(trade.id)} trade={trade} closing={closingId === trade.id} />
                 ))
               )}
             </div>
@@ -588,19 +643,19 @@ export function ForexClient() {
         <button
           type="button"
           onClick={() => openTrade("buy")}
-          disabled={streamStatus !== "live"}
+          disabled={streamStatus !== "live" || openingTrade}
           className="min-h-14 rounded bg-[#0f9f68] px-3 py-2 text-left text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <span className="block">BUY {selectedMarket.symbol}</span>
+          <span className="block">{openingTrade ? "Opening…" : `BUY ${selectedMarket.symbol}`}</span>
           <span className="mt-0.5 block font-mono text-xs text-emerald-100">{formatPrice(selectedMarket, price)}</span>
         </button>
         <button
           type="button"
           onClick={() => openTrade("sell")}
-          disabled={streamStatus !== "live"}
+          disabled={streamStatus !== "live" || openingTrade}
           className="min-h-14 rounded bg-[#d33d4b] px-3 py-2 text-left text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <span className="block">SELL {selectedMarket.symbol}</span>
+          <span className="block">{openingTrade ? "Opening…" : `SELL ${selectedMarket.symbol}`}</span>
           <span className="mt-0.5 block font-mono text-xs text-red-100">{formatPrice(selectedMarket, price)}</span>
         </button>
       </div>
@@ -702,9 +757,10 @@ function Row({ label, negative, positive, value }: { label: string; negative?: b
   );
 }
 
-function PositionRow({ currentPrice, onClose, trade }: { currentPrice: number; onClose: () => void; trade: Trade }) {
+function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: boolean; currentPrice: number; onClose: () => void; trade: Trade }) {
   const rawPips = getPips(trade.entry, currentPrice, trade);
   const pips = trade.direction === "buy" ? rawPips : -rawPips;
+  const plKes = parseFloat((pips * (trade.size / 10000)).toFixed(2));
 
   return (
     <div className="rounded border border-white/[0.07] bg-black/20 p-3">
@@ -714,17 +770,26 @@ function PositionRow({ currentPrice, onClose, trade }: { currentPrice: number; o
           <div className="text-[11px] font-bold text-slate-500">
             {trade.direction.toUpperCase()} {trade.size.toLocaleString("en-US")} @ {formatPrice(trade, trade.entry)}
           </div>
+          {trade.margin && (
+            <div className="text-[10px] text-slate-600">Margin: KSh {trade.margin}</div>
+          )}
         </div>
-        <div className={`font-mono text-sm font-black ${pips >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
-          {pips >= 0 ? "+" : ""}{pips.toFixed(1)}
+        <div className="text-right">
+          <div className={`font-mono text-sm font-black ${pips >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
+            {pips >= 0 ? "+" : ""}{pips.toFixed(1)} pips
+          </div>
+          <div className={`font-mono text-[11px] font-bold ${plKes >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
+            {plKes >= 0 ? "+" : ""}KSh {plKes.toFixed(2)}
+          </div>
         </div>
       </div>
       <button
         type="button"
         onClick={onClose}
-        className="mt-3 w-full rounded bg-white/[0.06] py-2 text-xs font-black text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
+        disabled={closing}
+        className="mt-3 w-full rounded bg-white/[0.06] py-2 text-xs font-black text-slate-300 transition hover:bg-white/[0.1] hover:text-white disabled:opacity-50"
       >
-        Close position
+        {closing ? "Closing…" : "Close position"}
       </button>
     </div>
   );
