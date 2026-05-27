@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 
 const NAV = [
@@ -11,6 +11,12 @@ const NAV = [
 
 export function AdminShell({ children, adminEmail }: { children: React.ReactNode; adminEmail?: string }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function exitAdmin() {
+    await fetch("/api/admin/signout", { method: "POST" });
+    router.push("/");
+  }
 
   return (
     <div className="min-h-screen bg-[#08080c] text-white flex flex-col">
@@ -56,13 +62,14 @@ export function AdminShell({ children, adminEmail }: { children: React.ReactNode
               {adminEmail}
             </span>
           )}
-          <Link
-            href="/"
+          <button
+            type="button"
+            onClick={exitAdmin}
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] transition-colors shrink-0"
           >
             <Icon name="arrow_back" size={13} />
             Exit admin
-          </Link>
+          </button>
         </div>
       </header>
 
