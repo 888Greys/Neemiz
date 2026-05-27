@@ -165,17 +165,17 @@ function draw(
     ctx.fill();
   });
 
-  // Origin TOP-LEFT → curve goes DOWN to BOTTOM-RIGHT (no side gaps)
+  // Origin BOTTOM-LEFT → curve goes UP to TOP-RIGHT
   const ORIGIN_X = compact ? 8  : 6;
-  const ORIGIN_Y = compact ? 12 : 10;
+  const ORIGIN_Y = h - (compact ? 12 : 10);
   const MAX_X    = w - (compact ? 8  : 6);
-  const MAX_Y    = h - (compact ? 12 : 10);
+  const MAX_Y    = compact ? 12 : 10;
 
   // Guide lines
   ctx.strokeStyle = "rgba(255,255,255,0.07)";
   ctx.lineWidth   = 1;
-  ctx.beginPath(); ctx.moveTo(ORIGIN_X, ORIGIN_Y); ctx.lineTo(ORIGIN_X, h); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(ORIGIN_X, MAX_Y);    ctx.lineTo(w, MAX_Y);    ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ORIGIN_X, 0);      ctx.lineTo(ORIGIN_X, ORIGIN_Y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ORIGIN_X, MAX_Y);  ctx.lineTo(w, MAX_Y);           ctx.stroke();
 
   // Origin dot
   ctx.beginPath();
@@ -193,12 +193,12 @@ function draw(
   const totalElapsed = Math.max(0.1, multToElapsed(displayMult));
   const normX        = (s: number) => ORIGIN_X + (s / totalElapsed) * (MAX_X - ORIGIN_X);
   const logDenom     = Math.log(Math.max(displayMult, 1.0001));
-  // Y INCREASES as mult grows → line goes DOWN
+  // Y DECREASES as mult grows → line goes UP (bottom-left to top-right)
   const normY        = (m: number) => ORIGIN_Y + (Math.log(Math.max(m, 1)) / logDenom) * (MAX_Y - ORIGIN_Y);
 
   const STEPS = 80;
 
-  // Fill above curve (wedge from top edge down to curve)
+  // Fill below curve (wedge from curve down to bottom edge)
   ctx.beginPath();
   ctx.moveTo(ORIGIN_X, ORIGIN_Y);
   for (let i = 1; i <= STEPS; i++) {
@@ -207,10 +207,10 @@ function draw(
   }
   ctx.lineTo(normX(totalElapsed), ORIGIN_Y);
   ctx.closePath();
-  const fill = ctx.createLinearGradient(0, ORIGIN_Y, 0, MAX_Y);
+  const fill = ctx.createLinearGradient(0, MAX_Y, 0, ORIGIN_Y);
   fill.addColorStop(0,    "rgba(255,24,56,0)");
-  fill.addColorStop(0.3,  "rgba(255,24,56,0.10)");
-  fill.addColorStop(1,    "rgba(255,24,56,0.42)");
+  fill.addColorStop(0.5,  "rgba(255,24,56,0.12)");
+  fill.addColorStop(1,    "rgba(255,24,56,0.45)");
   ctx.fillStyle = fill;
   ctx.fill();
 
@@ -357,9 +357,9 @@ function drawIdleState(
       ctx.fillText(`${remSec}`, cx, ringY+numFs*0.36); ctx.shadowBlur = 0;
     }
 
-    // Bobbing plane near origin (top-left), flipped to match flight direction
+    // Bobbing plane near origin (bottom-left), faces upper-right to match flight direction
     const bob = Math.sin(Date.now() * 0.002) * 3;
-    drawPlane(ctx, ox+24, oy+20+bob, Math.PI/6, compact?0.75:0.9);
+    drawPlane(ctx, ox+24, oy-20+bob, -Math.PI/6, compact?0.75:0.9);
   } else {
     // WAITING: orbiting plane
     const spin = Date.now() * 0.0015;
