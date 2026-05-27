@@ -27,7 +27,7 @@ export function AviatorBetPanel({
   panelIndex, round, myBet, currentMultiplier, balance, onBet, onCashout,
 }: Props) {
   const [tab,           setTab]          = useState<"bet" | "auto">("bet");
-  const [amount,        setAmount]       = useState<number>(100);
+  const [amount,        setAmount]       = useState<number>(10);
   const [autoCashout,   setAutoCashout]  = useState<number>(2.00);
   const [acEnabled,     setAcEnabled]    = useState(false);
   const [loading,       setLoading]      = useState(false);
@@ -145,15 +145,15 @@ export function AviatorBetPanel({
 
   // ── Betika-style pill tab bar ──────────────────────────────────────────────
   const TabBar = (
-    <div className="mx-2 mt-2 mb-1 flex shrink-0 rounded-lg bg-white/[0.07] p-[3px]">
+    <div className="mx-auto mb-1 flex w-[170px] shrink-0 rounded-full bg-[#171819] p-[2px]">
       {(["bet", "auto"] as const).map((t) => (
         <button
           key={t}
           onClick={() => setTab(t)}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] font-black uppercase tracking-wider transition-all ${
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[10px] font-black transition-all ${
             tab === t
-              ? "bg-white/[0.15] text-white shadow-sm"
-              : "text-white/35 hover:text-white/60"
+              ? "bg-[#333435] text-white shadow-sm"
+              : "text-white/45 hover:text-white/70"
           }`}
         >
           {t === "bet" ? "Bet" : "Auto"}
@@ -315,25 +315,25 @@ export function AviatorBetPanel({
   };
 
   return (
-    <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.07] bg-[#0d0e12] sm:rounded-2xl">
+    <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-[#2a2b2c] p-2">
       {TabBar}
 
       {tab === "bet" ? (
-        <div className="flex flex-col gap-2 p-2 sm:p-3">
+        <div className="flex flex-col gap-2">
           {error && (
             <p className="rounded-lg bg-red-900/30 px-3 py-1.5 text-[11px] text-red-400">{error}</p>
           )}
 
           {/* ── Two-column layout: [amount+chips] | [BET button] ── */}
-          <div className="grid grid-cols-[1fr_auto] items-stretch gap-2">
+          <div className="grid h-[90px] grid-cols-[1fr_1.1fr] items-stretch gap-2">
 
             {/* Left column */}
-            <div className="flex flex-col gap-1.5">
+            <div className="flex min-w-0 flex-col gap-1">
               {/* Amount row: ⊖  value  ⊕ */}
-              <div className="flex items-center gap-2">
+              <div className="flex h-[35px] items-center rounded-md bg-[#171819]">
                 <button
                   onClick={() => { adj(-snapStep(amount)); setError(null); }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-xl font-black text-white transition-colors hover:bg-white/[0.14] active:scale-90"
+                  className="flex h-full w-9 shrink-0 items-center justify-center text-xl font-black text-white/55 transition-colors hover:text-white active:scale-90"
                 >−</button>
 
                 <input
@@ -341,25 +341,25 @@ export function AviatorBetPanel({
                   value={amount}
                   min={10} max={50000}
                   onChange={(e) => { setAmount(clampAmt(Number(e.target.value))); setError(null); }}
-                  className="min-w-0 flex-1 bg-transparent text-center text-[17px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="min-w-0 flex-1 bg-transparent text-center text-[16px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
 
                 <button
                   onClick={() => { adj(snapStep(amount)); setError(null); }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-xl font-black text-white transition-colors hover:bg-white/[0.14] active:scale-90"
+                  className="flex h-full w-9 shrink-0 items-center justify-center text-xl font-black text-white/55 transition-colors hover:text-white active:scale-90"
                 >+</button>
               </div>
 
               {/* Quick chips */}
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid flex-1 grid-cols-2 gap-1">
                 {QUICK_AMOUNTS.map((v) => (
                   <button
                     key={v}
                     onClick={() => { setAmount(v); setError(null); }}
-                    className={`rounded-md py-1.5 text-[10px] font-black transition-colors ${
+                    className={`rounded-md py-1 text-[10px] font-bold transition-colors ${
                       amount === v
-                        ? "bg-[#31c45d]/15 text-[#31c45d]"
-                        : "bg-white/[0.05] text-white/45 hover:bg-white/[0.09] hover:text-white"
+                        ? "bg-[#171819] text-white"
+                        : "bg-[#171819] text-white/45 hover:text-white"
                     }`}
                   >
                     {v >= 1000 ? v.toLocaleString() : v}
@@ -372,21 +372,17 @@ export function AviatorBetPanel({
             <button
               onClick={isFlying ? queueForNext : handleBet}
               disabled={loading}
-              className="flex w-[118px] flex-col items-center justify-center rounded-xl px-2 py-3 text-black shadow-[0_8px_24px_rgba(34,197,94,.18)] transition-all active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
-              style={{ background: (bettingOpen || isFlying) ? "linear-gradient(160deg, #3dd568, #18a838)" : "#1f2937" }}
+              className="flex min-w-0 flex-col items-center justify-center rounded-[10px] px-2 py-3 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,.2)] transition-all active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ background: (bettingOpen || isFlying) ? "#1dbb08" : "#1f2937" }}
             >
-              <span className="text-[11px] font-bold leading-none" style={{ opacity: 0.8 }}>
+              <span className="text-[24px] font-black uppercase leading-none">
                 {loading ? "…" : isFlying ? "Next Round" : "Bet"}
               </span>
-              <span className="mt-0.5 text-[15px] font-black leading-tight">
-                {amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} KES
+              <span className="mt-0.5 text-[12px] font-semibold leading-tight">
+                {amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES
               </span>
             </button>
           </div>
-
-          <p className="text-center text-[10px] text-white/20">
-            Balance: KSh {balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </p>
         </div>
       ) : (
         /* ── Auto tab ──────────────────────────────────────────────────── */
