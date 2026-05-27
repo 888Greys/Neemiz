@@ -616,24 +616,25 @@ export function ForexClient() {
               >
                 {openingTrade ? "Opening…" : streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
               </button>
-            </div>
-          </section>
 
-          <section className="rounded-lg border border-white/[0.08] bg-[#101216] p-4 mx-3 mb-3">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-black text-white">Open positions</h3>
-              <span className="rounded bg-[#087cff]/10 px-2 py-1 text-[10px] font-black text-[#8bc3ff]">{openTrades.length}</span>
-            </div>
-            <div className="space-y-2">
-              {openTrades.length === 0 ? (
-                <div className="rounded border border-dashed border-white/[0.08] py-8 text-center text-xs font-bold text-slate-600">
-                  No open positions
+              {/* ── Open positions (inline so always visible) ── */}
+              <div className="pt-1">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Open positions</span>
+                  <span className="rounded bg-[#087cff]/10 px-2 py-0.5 text-[10px] font-black text-[#8bc3ff]">{openTrades.length}</span>
                 </div>
-              ) : (
-                openTrades.map((trade) => (
-                  <PositionRow key={trade.id} currentPrice={price} onClose={() => closeTrade(trade.id)} trade={trade} closing={closingId === trade.id} />
-                ))
-              )}
+                <div className="space-y-2">
+                  {openTrades.length === 0 ? (
+                    <div className="rounded border border-dashed border-white/[0.08] py-6 text-center text-xs font-bold text-slate-600">
+                      No open positions
+                    </div>
+                  ) : (
+                    openTrades.map((trade) => (
+                      <PositionRow key={trade.id} currentPrice={price} onClose={() => closeTrade(trade.id)} trade={trade} closing={closingId === trade.id} />
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
           </section>
         </aside>
