@@ -5,7 +5,7 @@ import type { AviatorRoundState } from "@/lib/aviator/types";
 
 interface Props {
   state:            AviatorRoundState;
-  multiplier:       number;   // used only for CRASHED display value
+  multiplier:       number;
   crashPoint?:      number;
   bettingEndsAt?:   string | null;
   flyingStartedAt?: string | null;
@@ -30,7 +30,6 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
   const starsRef     = useRef<Star[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const crashedRef   = useRef(false);
-  const rayAngleRef  = useRef(0);
 
   // ── Props as refs — never cause RAF loop restarts ──────────────────────────
   const stateRef           = useRef(state);
@@ -38,9 +37,9 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
   const bettingEndsAtRef   = useRef(bettingEndsAt);
   const flyingStartedAtRef = useRef(flyingStartedAt);
 
-  useEffect(() => { stateRef.current          = state;          }, [state]);
-  useEffect(() => { crashPointRef.current     = crashPoint;     }, [crashPoint]);
-  useEffect(() => { bettingEndsAtRef.current  = bettingEndsAt;  }, [bettingEndsAt]);
+  useEffect(() => { stateRef.current           = state;          }, [state]);
+  useEffect(() => { crashPointRef.current      = crashPoint;     }, [crashPoint]);
+  useEffect(() => { bettingEndsAtRef.current   = bettingEndsAt;  }, [bettingEndsAt]);
   useEffect(() => { flyingStartedAtRef.current = flyingStartedAt; }, [flyingStartedAt]);
 
   // Reset particles on new round
@@ -69,7 +68,6 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
   }, []);
 
   // ── Single permanent RAF loop — NEVER restarted, reads refs each frame ─────
-  // This is what eliminates the shake: no dependency on React multiplier state.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -77,8 +75,6 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
     let id: number;
 
     const loop = () => {
-      rayAngleRef.current += 0.018;
-
       const currentState = stateRef.current;
       const isFlying     = currentState === "FLYING";
       const isCrashed    = currentState === "CRASHED";
@@ -93,14 +89,13 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
       }
 
       draw(ctx, canvas.width, canvas.height, {
-        state:        currentState,
-        multiplier:   currentMult,
-        crashPoint:   crashPointRef.current,
+        state:         currentState,
+        multiplier:    currentMult,
+        crashPoint:    crashPointRef.current,
         bettingEndsAt: bettingEndsAtRef.current,
-        stars:        starsRef.current,
-        particles:    particlesRef.current,
-        crashed:      crashedRef.current,
-        rayAngle:     rayAngleRef.current,
+        stars:         starsRef.current,
+        particles:     particlesRef.current,
+        crashed:       crashedRef.current,
       });
 
       id = requestAnimationFrame(loop);
@@ -124,38 +119,6 @@ function genStars(w: number, h: number): Star[] {
   }));
 }
 
-function drawSunburst(
-  ctx: CanvasRenderingContext2D,
-  ox: number, oy: number,
-  w: number,  h: number,
-  isCrashed: boolean,
-  angle: number,
-) {
-  const maxR       = Math.sqrt(w * w + h * h) * 1.4;
-  const rayCount   = 22;
-  const sliceAngle = (Math.PI * 2) / rayCount;
-
-  ctx.save();
-  ctx.translate(ox, oy);
-  ctx.rotate(angle);
-
-  for (let i = 0; i < rayCount; i++) {
-    if (i % 2 === 0) continue;
-    const a1 = i * sliceAngle;
-    const a2 = a1 + sliceAngle;
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, maxR, a1, a2);
-    ctx.closePath();
-    ctx.fillStyle = isCrashed
-      ? "rgba(255,24,56,0.055)"
-      : "rgba(255,255,255,0.032)";
-    ctx.fill();
-  }
-
-  ctx.restore();
-}
-
 // ─── Main draw ────────────────────────────────────────────────────────────────
 
 function draw(
@@ -164,25 +127,26 @@ function draw(
   opts: {
     state: AviatorRoundState; multiplier: number; crashPoint?: number;
     bettingEndsAt?: string | null;
-    stars: Star[]; particles: Particle[]; crashed: boolean; rayAngle: number;
+    stars: Star[]; particles: Particle[]; crashed: boolean;
   },
 ) {
-  const { state, multiplier, crashPoint, bettingEndsAt, stars, particles, rayAngle } = opts;
+  const { state, multiplier, crashPoint, bettingEndsAt, stars, particles } = opts;
   const isCrashed = state === "CRASHED";
   const compact   = w < 520;
 
   // ── Background ──────────────────────────────────────────────────────────
-  const bg = ctx.createRadialGradient(w * 0.72, h * 0.12, 0, w * 0.5, h * 0.5, Math.max(w, h));
-  bg.addColorStop(0, "#1d1320");
-  bg.addColorStop(0.42, "#0d0d10");
+  const bg = ctx.createRadialGradient(w * 0.5, h * 0.35, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.9);
+  bg.addColorStop(0, "#111118");
+  bg.addColorStop(0.5, "#0a0a0d");
   bg.addColorStop(1, "#030303");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
+  // Subtle edge vignette
   const vignette = ctx.createLinearGradient(0, 0, 0, h);
-  vignette.addColorStop(0, "rgba(255,24,56,0.08)");
-  vignette.addColorStop(0.5, "rgba(0,0,0,0)");
-  vignette.addColorStop(1, "rgba(0,0,0,0.52)");
+  vignette.addColorStop(0, "rgba(0,0,0,0.45)");
+  vignette.addColorStop(0.3, "rgba(0,0,0,0)");
+  vignette.addColorStop(1, "rgba(0,0,0,0.55)");
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, w, h);
 
@@ -196,19 +160,25 @@ function draw(
     ctx.fill();
   });
 
+  // Origin at TOP-LEFT; endpoint at BOTTOM-RIGHT
+  // Line curves DOWNWARD from top-left to bottom-right
   const ORIGIN_X = compact ? w * 0.11 : w * 0.08;
-  const ORIGIN_Y = h - (compact ? 36 : 30);
+  const ORIGIN_Y = compact ? 34 : 28;              // near top
   const MAX_X    = compact ? w * 0.88 : w * 0.92;
-  const MAX_Y    = compact ? 34 : 30;
+  const MAX_Y    = h - (compact ? 36 : 30);        // near bottom
 
-  drawSunburst(ctx, ORIGIN_X, ORIGIN_Y, w, h, isCrashed, rayAngle);
-
-  // ── Ground line ──────────────────────────────────────────────────────────
-  ctx.strokeStyle = "rgba(255,255,255,0.09)";
+  // ── Guide lines ──────────────────────────────────────────────────────────
+  // Vertical line on left (launch column)
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
   ctx.lineWidth   = 1;
   ctx.beginPath();
-  ctx.moveTo(0, ORIGIN_Y);
-  ctx.lineTo(w, ORIGIN_Y);
+  ctx.moveTo(ORIGIN_X, ORIGIN_Y);
+  ctx.lineTo(ORIGIN_X, h);
+  ctx.stroke();
+  // Horizontal line at bottom
+  ctx.beginPath();
+  ctx.moveTo(ORIGIN_X, MAX_Y);
+  ctx.lineTo(w, MAX_Y);
   ctx.stroke();
 
   // ── Origin dot ───────────────────────────────────────────────────────────
@@ -227,25 +197,28 @@ function draw(
   const displayMult  = isCrashed ? (crashPoint ?? multiplier) : multiplier;
   const totalElapsed = Math.max(0.1, multToElapsed(displayMult));
 
+  // normX: linear across canvas width
   const normX    = (seconds: number) => ORIGIN_X + (seconds / totalElapsed) * (MAX_X - ORIGIN_X);
   const logDenom = Math.log(Math.max(displayMult, 1.0001));
-  const normY    = (m: number) => ORIGIN_Y - (Math.log(Math.max(m, 1)) / logDenom) * (ORIGIN_Y - MAX_Y);
+  // normY: as multiplier grows, Y increases → line descends (curves DOWN)
+  const normY    = (m: number) => ORIGIN_Y + (Math.log(Math.max(m, 1)) / logDenom) * (MAX_Y - ORIGIN_Y);
 
   const STEPS = 80;
 
-  // Fill under curve
+  // Fill: area above the curve (between top edge at ORIGIN_Y and the curve itself)
   ctx.beginPath();
   ctx.moveTo(ORIGIN_X, ORIGIN_Y);
   for (let i = 1; i <= STEPS; i++) {
     const t = i / STEPS;
     ctx.lineTo(normX(t * totalElapsed), normY(calculateMultiplier(t * totalElapsed)));
   }
+  // Return along top edge back to origin
   ctx.lineTo(normX(totalElapsed), ORIGIN_Y);
   ctx.closePath();
-  const fillGrad = ctx.createLinearGradient(ORIGIN_X, ORIGIN_Y, MAX_X, MAX_Y);
-  fillGrad.addColorStop(0, "rgba(255,24,56,0.38)");
-  fillGrad.addColorStop(0.45, "rgba(255,24,56,0.22)");
-  fillGrad.addColorStop(1, "rgba(0,0,0,0)");
+  const fillGrad = ctx.createLinearGradient(ORIGIN_X, ORIGIN_Y, ORIGIN_X, MAX_Y);
+  fillGrad.addColorStop(0,    "rgba(255,24,56,0)");
+  fillGrad.addColorStop(0.35, "rgba(255,24,56,0.12)");
+  fillGrad.addColorStop(1,    "rgba(255,24,56,0.40)");
   ctx.fillStyle = fillGrad;
   ctx.fill();
 
@@ -265,6 +238,13 @@ function draw(
 
   const tipX = normX(totalElapsed);
   const tipY = normY(displayMult);
+
+  // Compute plane angle from curve slope at the tip (faces down-right)
+  const prevT      = Math.max(0.01, totalElapsed * 0.96);
+  const planeAngle = Math.atan2(
+    tipY - normY(calculateMultiplier(prevT)),
+    tipX - normX(prevT),
+  );
 
   // ── Plane or explosion ────────────────────────────────────────────────────
   if (isCrashed) {
@@ -299,8 +279,8 @@ function draw(
     ctx.fillText("FLEW AWAY!", w / 2, h * (compact ? 0.36 : 0.42));
     ctx.shadowBlur = 0;
   } else {
-    drawPlane(ctx, tipX, tipY, displayMult, compact ? 0.82 : 1);
-    drawTrail(ctx, tipX, tipY);
+    drawPlane(ctx, tipX, tipY, planeAngle, compact ? 0.82 : 1);
+    drawTrail(ctx, tipX, tipY, planeAngle);
   }
 
   // ── Multiplier display ────────────────────────────────────────────────────
@@ -325,9 +305,7 @@ function draw(
 
 // ─── Plane ───────────────────────────────────────────────────────────────────
 
-function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, mult: number, scale = 1) {
-  void mult;
-  const angle = -Math.PI / 5;
+function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, scale = 1) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
@@ -365,15 +343,14 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, mult: nu
 
 // ─── Trail ───────────────────────────────────────────────────────────────────
 
-function drawTrail(ctx: CanvasRenderingContext2D, x: number, y: number) {
-  const angle = -Math.PI / 5;
-  const len   = 28;
-  const ex    = x + Math.cos(Math.PI + angle) * len;
-  const ey    = y + Math.sin(Math.PI + angle) * len;
-  const grad  = ctx.createLinearGradient(x, y, ex, ey);
-  grad.addColorStop(0, "rgba(255,24,56,0.9)");
+function drawTrail(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number) {
+  const len  = 28;
+  const ex   = x + Math.cos(Math.PI + angle) * len;
+  const ey   = y + Math.sin(Math.PI + angle) * len;
+  const grad = ctx.createLinearGradient(x, y, ex, ey);
+  grad.addColorStop(0,   "rgba(255,24,56,0.9)");
   grad.addColorStop(0.4, "rgba(255,24,56,0.5)");
-  grad.addColorStop(1, "rgba(255,24,56,0)");
+  grad.addColorStop(1,   "rgba(255,24,56,0)");
   ctx.beginPath();
   ctx.moveTo(x, y); ctx.lineTo(ex, ey);
   ctx.strokeStyle = grad;
@@ -408,27 +385,55 @@ function drawIdleState(
     ctx.fillText("STARTING IN", cx, cy - (compact ? 54 : 62));
 
     if (bettingEndsAt) {
+      const TOTAL_MS  = 5000;
       const endMs     = new Date(bettingEndsAt).getTime();
       const remaining = Math.max(0, endMs - Date.now());
+      const progress  = Math.max(0, Math.min(1, remaining / TOTAL_MS));
       const remSec    = Math.ceil(remaining / 1000);
       const urgent    = remSec <= 2;
 
-      const numberY = cy - (compact ? 4 : 6);
-      const color   = urgent ? "#ff1838" : "#ffffff";
+      const ringR = Math.min(w * 0.14, compact ? 44 : 54);
+      const ringY = cy - (compact ? 4 : 6);
+      const ringW = Math.max(4, ringR * 0.18);
+      const color = urgent ? "#ff1838" : "#ffffff";
 
+      // Outer track
+      ctx.beginPath();
+      ctx.arc(cx, ringY, ringR, 0, Math.PI * 2);
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.lineWidth   = ringW;
+      ctx.stroke();
+
+      // Progress arc (starts at top, sweeps clockwise, depletes as time runs out)
+      if (progress > 0) {
+        const startAngle = -Math.PI / 2;
+        const endAngle   = startAngle + (Math.PI * 2 * progress);
+        ctx.beginPath();
+        ctx.arc(cx, ringY, ringR, startAngle, endAngle);
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = ringW;
+        ctx.lineCap     = "round";
+        ctx.shadowColor = color;
+        ctx.shadowBlur  = urgent ? 20 : 12;
+        ctx.stroke();
+        ctx.shadowBlur  = 0;
+        ctx.lineCap     = "butt";
+      }
+
+      // Number in center
       const numFs = Math.min(w * 0.13, compact ? 46 : 56);
       ctx.font        = `900 ${numFs}px Inter,sans-serif`;
       ctx.textAlign   = "center";
       ctx.fillStyle   = color;
       ctx.shadowColor = color;
       ctx.shadowBlur  = urgent ? 30 : 16;
-      ctx.fillText(`${remSec}`, cx, numberY + numFs * 0.36);
+      ctx.fillText(`${remSec}`, cx, ringY + numFs * 0.36);
       ctx.shadowBlur  = 0;
     }
 
-    // Bobbing plane at bottom-left
+    // Bobbing plane near top-left origin
     const bob = Math.sin(Date.now() * 0.002) * 3;
-    drawPlane(ctx, ox + 20, oy - 16 + bob, 1, compact ? 0.75 : 0.9);
+    drawPlane(ctx, ox + 24, oy + 18 + bob, Math.PI / 6, compact ? 0.75 : 0.9);
   } else {
     const spin   = Date.now() * 0.0015;
     const planeR = Math.min(w * 0.07, 48);
