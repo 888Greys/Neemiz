@@ -43,6 +43,9 @@ model User {
   // Binary
   binaryTrades      BinaryTrade[]
 
+  // Forex
+  forexTrades       ForexTrade[]
+
   @@map("users")
 }
 
@@ -506,6 +509,40 @@ model AviatorBet {
 
   @@unique([roundId, userId, panelIndex])
   @@map("aviator_bets")
+}
+
+// ─── Forex Trades ────────────────────────────────────────────────────────────
+
+enum ForexTradeDirection {
+  BUY
+  SELL
+}
+
+enum ForexTradeStatus {
+  OPEN
+  CLOSED
+}
+
+model ForexTrade {
+  id          String              @id @default(cuid())
+  userId      String              @map("user_id")
+  user        User                @relation(fields: [userId], references: [id])
+
+  symbol      String              // "EUR/USD", "GBP/USD", etc.
+  direction   ForexTradeDirection
+  size        Int                 // position size in units (1000, 5000, etc.)
+  entryPrice  Decimal             @map("entry_price") @db.Decimal(12, 6)
+  closePrice  Decimal?            @map("close_price") @db.Decimal(12, 6)
+  stopLoss    Decimal             @map("stop_loss") @db.Decimal(12, 6)
+  takeProfit  Decimal             @map("take_profit") @db.Decimal(12, 6)
+  precision   Int                 @default(5)
+  margin      Decimal             @db.Decimal(18, 2) // KES reserved
+  profitLoss  Decimal?            @map("profit_loss") @db.Decimal(18, 2) // KES
+  status      ForexTradeStatus    @default(OPEN)
+  openedAt    DateTime            @default(now()) @map("opened_at")
+  closedAt    DateTime?           @map("closed_at")
+
+  @@map("forex_trades")
 }
 
 // ─── Binary Options Trades ────────────────────────────────────────────────────
