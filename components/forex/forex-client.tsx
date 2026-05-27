@@ -434,7 +434,7 @@ export function ForexClient() {
 
   return (
     <div className="min-h-full max-w-full overflow-x-hidden bg-[#050506] pb-16 text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
-      <div className="grid min-w-0 shrink-0 grid-cols-1 overflow-hidden border-b border-white/[0.08] bg-[#08090d]/95 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="grid min-w-0 shrink-0 grid-cols-1 overflow-hidden border-b border-white/[0.08] bg-[#08090d]/95 xl:grid-cols-[minmax(0,1fr)_340px]">
         <section className="flex min-w-0 items-center gap-2 px-2 py-1.5 sm:gap-3 sm:px-4 sm:py-2">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded bg-[#087cff]/15 text-[#8bc3ff] sm:h-10 sm:w-10">
             <Icon name="candlestick_chart" className="text-[18px] sm:text-[22px]" />
@@ -468,7 +468,7 @@ export function ForexClient() {
         </div>
       )}
 
-      <div data-forex-grid="true" className="grid max-w-full min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:p-0 xl:grid-cols-[320px_minmax(0,1fr)_450px]">
+      <div data-forex-grid="true" className="grid max-w-full min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:p-0 xl:grid-cols-[200px_minmax(0,1fr)_340px]">
         <aside className="order-2 hidden min-w-0 overflow-hidden rounded border border-white/[0.08] bg-[#101216] xl:order-none xl:block xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
           <div className="flex h-12 items-center gap-2 border-b border-white/[0.07] bg-black/20 px-3">
             <Icon name="search" className="text-[16px] text-slate-500" />
@@ -480,7 +480,7 @@ export function ForexClient() {
                 key={market.symbol}
                 type="button"
                 onClick={() => setSelectedSymbol(market.symbol)}
-                className={`border-b border-white/[0.07] p-3 text-left transition ${
+                className={`border-b border-white/[0.07] p-2 text-left transition ${
                   market.symbol === selectedSymbol
                     ? "bg-[#087cff]/10"
                     : "bg-white/[0.025] hover:bg-white/[0.05]"

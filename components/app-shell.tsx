@@ -81,36 +81,43 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
       <header className="fixed left-0 right-0 top-0 z-50 flex h-14 max-w-[100vw] items-center overflow-visible bg-[#111113] px-3 lg:h-20 lg:px-0">
         <div
-          className={`hidden h-full shrink-0 items-center border-r border-white/10 px-4 transition-[width] duration-300 ease-out lg:flex ${
-            sidebarCollapsed ? "w-[78px] justify-center" : "w-[280px]"
+          className={`hidden h-full shrink-0 items-center border-r border-white/10 px-3 transition-[width] duration-300 ease-out lg:flex ${
+            sidebarCollapsed ? "w-[78px] justify-center" : "w-[280px] gap-2"
           }`}
         >
           {sidebarCollapsed ? (
-            isSignedIn ? (
-              <button onClick={() => setProfileOpen(true)} type="button" className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#087cff] text-sm font-black text-white transition hover:opacity-80">
-                <UserAvatar src={avatarUrl} initials={initials} className="h-full w-full" />
-              </button>
-            ) : (
-              <button onClick={() => setLoginOpen(true)} className="flex h-10 w-10 items-center justify-center rounded-full bg-[#34363b] text-slate-300" type="button">
-                <Icon name="person" fill className="text-[22px]" />
-              </button>
-            )
+            <button
+              onClick={toggleSidebar}
+              type="button"
+              title="Expand sidebar"
+              className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#34363b] text-slate-300 transition hover:bg-[#424550] hover:text-white"
+            >
+              <Icon name="keyboard_double_arrow_right" className="text-[20px]" />
+            </button>
           ) : isSignedIn ? (
-            <button onClick={() => setProfileOpen(true)} type="button" className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-white/[0.05]">
+            <button onClick={() => setProfileOpen(true)} type="button" className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-2 py-2 transition hover:bg-white/[0.05]">
               <UserAvatar src={avatarUrl} initials={initials} className="h-9 w-9 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className="truncate text-[13px] font-black text-white">{displayName}</div>
                 <div className="truncate text-[10px] text-slate-500">ID {user?.id?.slice(-8).toUpperCase()}</div>
               </div>
-              <Icon name="chevron_right" className="text-[18px] text-slate-400" />
             </button>
           ) : (
-            <button onClick={() => setLoginOpen(true)} className="flex w-full items-center gap-2.5 rounded-xl text-left transition hover:bg-white/[0.03] px-2 py-2" type="button">
+            <button onClick={() => setLoginOpen(true)} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl text-left transition hover:bg-white/[0.03] px-2 py-2" type="button">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#34363b] text-slate-300">
                 <Icon name="person" fill className="text-[22px]" />
               </span>
               <span className="flex-1 text-[13px] font-black">Log in</span>
-              <Icon name="chevron_right" className="text-[18px] text-slate-400" />
+            </button>
+          )}
+          {!sidebarCollapsed && (
+            <button
+              onClick={toggleSidebar}
+              type="button"
+              title="Collapse sidebar"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.05] text-slate-400 transition hover:bg-white/[0.1] hover:text-white"
+            >
+              <Icon name="keyboard_double_arrow_left" className="text-[20px]" />
             </button>
           )}
         </div>
@@ -167,7 +174,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
       <div className="flex h-screen overflow-hidden pt-14 lg:pt-20">
         <aside
-          className={`hidden shrink-0 overflow-visible border-r border-white/10 bg-[#1b1c20] transition-[width] duration-300 ease-out lg:block ${
+          className={`hidden shrink-0 overflow-hidden border-r border-white/10 bg-[#1b1c20] transition-[width] duration-300 ease-out lg:block ${
             sidebarCollapsed ? "w-[78px]" : "w-[280px]"
           }`}
         >
@@ -272,14 +279,6 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSuppo
 
   return (
     <div className="relative flex h-full flex-col">
-      <button
-        className="absolute -right-5 top-44 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-[#353740] text-slate-300 shadow-xl transition hover:bg-[#424550] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#1b1c20]"
-        type="button"
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        onClick={onToggle}
-      >
-        <Icon name={collapsed ? "keyboard_double_arrow_right" : "keyboard_double_arrow_left"} className="text-[26px]" />
-      </button>
 
       <div className={`no-scrollbar flex-1 overflow-y-auto py-5 ${collapsed ? "px-2" : "px-4"}`}>
         {/* Sports */}
