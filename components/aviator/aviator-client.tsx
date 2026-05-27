@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { AviatorCanvas }   from "./aviator-canvas";
 import { AviatorBetPanel } from "./aviator-bet-panel";
 import { AviatorHistory, VerifyModal } from "./aviator-history";
-import { AviatorLiveBets } from "./aviator-live-bets";
 import { toast } from "@/lib/toast";
+import { Icon } from "@/components/icon";
 import type {
   AviatorRoundState,
   AviatorRound,
@@ -15,6 +15,8 @@ import type {
 } from "@/lib/aviator/types";
 
 const WS_URL = process.env.NEXT_PUBLIC_AVIATOR_WS_URL ?? "wss://aviator.nezeem.com/ws";
+const ENGINE_SOUND_SRC = "/aviator/engine.mp3";
+const CRASH_SOUND_SRC = "/aviator/crash.mp3";
 
 interface HistoryRound {
   roundId:        string;
@@ -67,12 +69,66 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const roundRef       = useRef<AviatorRound | null>(null);
   const liveBetsRef    = useRef<AviatorBetPublic[]>([]);
   const roundCountRef  = useRef(0);
+  const engineAudioRef = useRef<HTMLAudioElement | null>(null);
+  const crashAudioRef  = useRef<HTMLAudioElement | null>(null);
+  const previousRoundStateRef = useRef<AviatorRoundState | null>(null);
   // tracks which panel index has a pending bet awaiting a bet_id response
   const pendingBetRef  = useRef<{ panelIndex: 0 | 1; amount: number } | null>(null);
   const supabase       = createClient();
 
   useEffect(() => { roundRef.current  = round;     }, [round]);
   useEffect(() => { liveBetsRef.current = liveBets; }, [liveBets]);
+
+  useEffect(() => {
+    const engine = new Audio(ENGINE_SOUND_SRC);
+    engine.loop = true;
+    engine.volume = 0.32;
+    const crash = new Audio(CRASH_SOUND_SRC);
+    crash.volume = 0.62;
+    engineAudioRef.current = engine;
+    crashAudioRef.current = crash;
+
+    const unlockAudio = () => {
+      engine.play()
+        .then(() => {
+          engine.pause();
+          engine.currentTime = 0;
+        })
+        .catch(() => undefined);
+      crash.load();
+    };
+
+    window.addEventListener("pointerdown", unlockAudio, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlockAudio);
+      engine.pause();
+      engineAudioRef.current = null;
+      crashAudioRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const state = round?.state ?? "WAITING";
+    const previousState = previousRoundStateRef.current;
+    const engine = engineAudioRef.current;
+    const crash = crashAudioRef.current;
+
+    if (state === "FLYING") {
+      engine?.play().catch(() => undefined);
+    } else {
+      if (engine) {
+        engine.pause();
+        engine.currentTime = 0;
+      }
+    }
+
+    if (state === "CRASHED" && previousState !== "CRASHED" && crash) {
+      crash.currentTime = 0;
+      crash.play().catch(() => undefined);
+    }
+
+    previousRoundStateRef.current = state;
+  }, [round?.state]);
 
   // ── Balance ────────────────────────────────────────────────────────────────
   const fetchBalance = useCallback(async () => {
@@ -411,85 +467,142 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="mx-auto grid w-full min-w-0 max-w-[1680px] gap-2 lg:h-full lg:min-h-0 lg:overflow-hidden xl:grid-cols-[280px_minmax(0,1fr)_300px] 2xl:grid-cols-[320px_minmax(0,1fr)_340px]">
-      <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-white/10 bg-[#141414] xl:block">
-        <AviatorLiveBets
-          liveBets={liveBets}
-          prevBets={prevRoundBets}
-          myHistory={myHistory}
-          myCurrentBets={Object.values(myBets)}
-          userId={userId}
-        />
-      </aside>
+    <div className="mx-auto flex min-h-full w-full max-w-[430px] flex-col bg-[#101112] shadow-2xl lg:h-full lg:max-w-[1180px]">
+      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-5 lg:p-5">
+        <section className="min-w-0">
+          <AviatorTicker liveBets={liveBets} multiplier={displayMult} />
 
-      <section className="grid min-w-0 grid-rows-[auto_auto_auto_auto] lg:min-h-0 lg:overflow-hidden lg:grid-rows-[auto_auto_minmax(0,1fr)_auto]">
-        <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-[#101010] px-2.5 py-2 sm:px-3">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <span className="font-[var(--font-pacifico)] text-lg text-[#ff1838] sm:text-2xl">Aviator</span>
-            <span className="hidden text-[11px] font-black uppercase tracking-widest text-white/35 sm:inline">
-              Round #{round?.roundNumber ?? "--"}
-            </span>
-            {round && (
-              <span className="hidden font-mono text-[10px] text-white/20 md:inline">
-                {round.serverSeedHash.slice(0, 18)}...
-              </span>
-            )}
+          <div className="flex min-w-0 items-center gap-2 px-3 pb-2">
+            <div className="min-w-0 flex-1 overflow-hidden rounded-lg bg-transparent">
+              <AviatorHistory rounds={history} onVerify={setVerifyRound} />
+            </div>
+            <button className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#1f2022] text-white/75" type="button">
+              <Icon name="history" className="h-4 w-4" />
+            </button>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden rounded-full bg-[#f6a400] px-2.5 py-1 text-[11px] font-black text-black sm:inline sm:px-3 sm:text-xs">How to play?</span>
-            <span className="hidden text-xs font-black text-[#20d15a] sm:inline">Provably fair</span>
+
+          <div className="mx-3 overflow-hidden rounded-[10px] border border-[#333] bg-[#080808]">
+            <div className="h-[240px] lg:h-[420px]">
+              <AviatorCanvas
+                state={round?.state ?? "WAITING"}
+                multiplier={displayMult}
+                crashPoint={round?.crashPoint ?? undefined}
+                bettingEndsAt={round?.bettingEndsAt ?? null}
+                flyingStartedAt={round?.flyingStartedAt ?? null}
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="mb-2 min-w-0 overflow-hidden rounded-lg border border-white/10 bg-[#0d0d0d] px-2 py-1">
-          <AviatorHistory rounds={history} onVerify={setVerifyRound} />
-        </div>
-
-        <div className="overflow-hidden rounded-lg border border-white/10 bg-black lg:min-h-0">
-          <div className="h-[240px] sm:h-[300px] md:h-[380px] lg:h-full">
-            <AviatorCanvas
-              state={round?.state ?? "WAITING"}
-              multiplier={displayMult}
-              crashPoint={round?.crashPoint ?? undefined}
-              bettingEndsAt={round?.bettingEndsAt ?? null}
-              flyingStartedAt={round?.flyingStartedAt ?? null}
-            />
+          <div className="flex min-w-0 flex-col gap-2 p-3 lg:flex-row">
+            {([0, 1] as const).map((pi) => (
+              <AviatorBetPanel
+                key={pi}
+                panelIndex={pi}
+                round={round}
+                myBet={myBets[pi]}
+                currentMultiplier={displayMult}
+                balance={balance}
+                onBet={handleBet}
+                onCashout={handleCashout}
+              />
+            ))}
           </div>
-        </div>
+        </section>
 
-        {/* Both panels always visible, stacked vertically */}
-        <div className="mt-2 flex min-w-0 shrink-0 flex-col gap-2">
-          {([0, 1] as const).map((pi) => (
-            <AviatorBetPanel
-              key={pi}
-              panelIndex={pi}
-              round={round}
-              myBet={myBets[pi]}
-              currentMultiplier={displayMult}
-              balance={balance}
-              onBet={handleBet}
-              onCashout={handleCashout}
-            />
-          ))}
-        </div>
-
-        <div className="mt-2 xl:hidden">
-          <AviatorLiveBets
+        <aside className="min-w-0 lg:rounded-[10px] lg:border lg:border-[#333] lg:bg-[#171819]">
+          <AviatorPlayersTable
             liveBets={liveBets}
             myHistory={myHistory}
             myCurrentBets={Object.values(myBets)}
             userId={userId}
           />
-        </div>
-      </section>
-
-      <aside className="hidden min-h-0 overflow-hidden rounded-lg border border-white/10 bg-[#080d16] xl:block">
-        <AviatorChatPanel liveBets={liveBets} roundNumber={round?.roundNumber ?? null} userId={userId} username={username} />
-      </aside>
+        </aside>
+      </div>
 
       {verifyRound && (
         <VerifyModal round={verifyRound} onClose={() => setVerifyRound(null)} />
       )}
+    </div>
+  );
+}
+
+function AviatorTicker({ liveBets, multiplier }: { liveBets: AviatorBetPublic[]; multiplier: number }) {
+  const winners = liveBets.filter((bet) => bet.status === "CASHEDOUT" && bet.winAmount).slice(-3);
+  const items = winners.length > 0
+    ? winners.map((bet) => `${bet.username ?? "Player"} won ${(bet.winAmount ?? 0).toFixed(2)} KES at ${(bet.cashoutAt ?? multiplier).toFixed(2)}x`)
+    : [
+        `m 2448.05 KES at ${Math.max(1.8, multiplier).toFixed(2)}x`,
+        `072***912 won 680.11 KES at ${Math.max(2, multiplier + 0.2).toFixed(2)}x`,
+      ];
+
+  return (
+    <div className="px-3 py-2">
+      <div className="flex min-w-0 gap-2 overflow-hidden rounded-full bg-[#18191a] px-2 py-1">
+        {items.map((item) => (
+          <span key={item} className="shrink-0 rounded-full bg-[#242526] px-2 py-1 text-[9px] font-bold text-white/60">
+            {item.split(" at ")[0]} <span className="text-[#28a909]">at {item.split(" at ")[1]}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AviatorPlayersTable({
+  liveBets, myHistory, myCurrentBets, userId,
+}: {
+  liveBets: AviatorBetPublic[];
+  myHistory: MyHistoryBet[];
+  myCurrentBets: AviatorBetPublic[];
+  userId?: string;
+}) {
+  const rows = [
+    ...myCurrentBets,
+    ...liveBets,
+  ].slice(0, 18);
+  const fallbackRows = [
+    { name: "User_992", amount: 1878.58 },
+    { name: "JohnDoe", amount: 1105.24 },
+    { name: "JohnDoe", amount: 1784.45 },
+    { name: "SammyBoy", amount: 1246.87 },
+  ];
+
+  return (
+    <div className="pb-2">
+      <div className="grid grid-cols-3 border-b border-[#333] px-4 py-2 text-[9px] font-black uppercase text-white/45">
+        <span>Player</span>
+        <span className="text-center">Bet KES</span>
+        <span className="text-right">Win KES</span>
+      </div>
+      <div className="flex max-h-[350px] flex-col gap-[3px] overflow-y-auto px-3 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {rows.length > 0 ? rows.map((bet) => (
+          <div
+            key={bet.id}
+            className={`grid grid-cols-3 rounded bg-white/[0.035] px-2 py-1.5 text-[11px] font-bold text-white/55 ${bet.userId === userId ? "bg-[#3b5bdb]/15 text-white" : ""}`}
+          >
+            <span className="truncate">{bet.userId === userId ? "You" : (bet.username ?? "Player")}</span>
+            <span className="text-center">{bet.betAmount.toFixed(2)}</span>
+            <span className="text-right">
+              {bet.status === "CASHEDOUT" && bet.winAmount ? (
+                <span className="rounded bg-[#28a909]/20 px-1.5 py-0.5 text-[10px] text-[#28a909]">{bet.winAmount.toFixed(2)}</span>
+              ) : "—"}
+            </span>
+          </div>
+        )) : fallbackRows.map((row) => (
+          <div key={`${row.name}-${row.amount}`} className="grid grid-cols-3 rounded bg-white/[0.035] px-2 py-1.5 text-[11px] font-bold text-white/55">
+            <span className="truncate">{row.name}</span>
+            <span className="text-center">{row.amount.toFixed(2)}</span>
+            <span className="text-right">—</span>
+          </div>
+        ))}
+        {myHistory.slice(0, 4).map((bet) => (
+          <div key={bet.id} className="grid grid-cols-3 rounded bg-white/[0.035] px-2 py-1.5 text-[11px] font-bold text-white/55">
+            <span className="truncate">Round #{bet.roundNumber}</span>
+            <span className="text-center">{bet.betAmount.toFixed(2)}</span>
+            <span className="text-right">{bet.winAmount ? bet.winAmount.toFixed(2) : "—"}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
