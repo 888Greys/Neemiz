@@ -165,7 +165,7 @@ function draw(
     ctx.fill();
   });
 
-  // Origin BOTTOM-LEFT → curve goes UP to TOP-RIGHT
+  // Origin BOTTOM-LEFT → curve rises UP to TOP-RIGHT
   const ORIGIN_X = compact ? 8  : 6;
   const ORIGIN_Y = h - (compact ? 12 : 10);
   const MAX_X    = w - (compact ? 8  : 6);
@@ -193,12 +193,12 @@ function draw(
   const totalElapsed = Math.max(0.1, multToElapsed(displayMult));
   const normX        = (s: number) => ORIGIN_X + (s / totalElapsed) * (MAX_X - ORIGIN_X);
   const logDenom     = Math.log(Math.max(displayMult, 1.0001));
-  // Y DECREASES as mult grows → line goes UP (bottom-left to top-right)
+  // Y DECREASES as mult grows → line rises UP (bottom-left to top-right)
   const normY        = (m: number) => ORIGIN_Y + (Math.log(Math.max(m, 1)) / logDenom) * (MAX_Y - ORIGIN_Y);
 
   const STEPS = 80;
 
-  // Fill below curve (wedge from curve down to bottom edge)
+  // Fill below curve (wedge between curve and bottom edge)
   ctx.beginPath();
   ctx.moveTo(ORIGIN_X, ORIGIN_Y);
   for (let i = 1; i <= STEPS; i++) {
