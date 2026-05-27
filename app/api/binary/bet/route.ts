@@ -8,10 +8,19 @@ const VALID_SIDES   = ["Even", "Odd", "Matches", "Differs", "Over", "Under"];
 const MIN_STAKE     = 10;
 const MAX_STAKE     = 10_000;
 
-function payoutRate(side: string): number {
-  if (side === "Matches") return 9.15;
-  if (side === "Differs") return 1.12;
-  return 1.952; // Even / Odd / Over / Under
+// House edge ~5% on all contract types.
+// Over/Under payout scales with win probability so no digit gives player +EV.
+function payoutRate(side: string, targetDigit: number): number {
+  if (side === "Matches") return 9.15;  // 1/10 win → 8.5% edge
+  if (side === "Differs") return 1.05;  // 9/10 win → 5.5% edge
+  if (side === "Even" || side === "Odd") return 1.90; // 5/10 win → 5% edge
+  if (side === "Over") {
+    const wins = 9 - targetDigit; // digits strictly > targetDigit
+    return Math.floor((9.5 / wins) * 100) / 100; // floor keeps house edge ≥ 5%
+  }
+  // Under: digits strictly < targetDigit
+  const wins = targetDigit;
+  return Math.floor((9.5 / wins) * 100) / 100;
 }
 
 export async function POST(req: Request) {
@@ -34,10 +43,13 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid entry digit" }, { status: 400 });
   if (targetDigit === undefined || targetDigit < 0 || targetDigit > 9)
     return Response.json({ error: "Invalid target digit" }, { status: 400 });
+  // Block zero-probability bets (Over 9 = impossible; Under 0 = impossible)
+  if (side === "Over"  && targetDigit >= 9) return Response.json({ error: "Invalid target: no digit is greater than 9" }, { status: 400 });
+  if (side === "Under" && targetDigit <= 0) return Response.json({ error: "Invalid target: no digit is less than 0"    }, { status: 400 });
 
   const ticks       = Math.max(1, Math.min(30, durationTicks ?? 5));
   const stakeVal    = stake!;
-  const payoutVal   = Number((stakeVal * payoutRate(side)).toFixed(2));
+  const payoutVal   = Number((stakeVal * payoutRate(side, targetDigit!)).toFixed(2));
   const settleBefore = new Date(Date.now() + ticks * 1000 + 10_000); // +10s buffer
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
