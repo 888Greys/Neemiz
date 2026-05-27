@@ -40,6 +40,9 @@ model User {
   // Polymarket
   polymarketBets    PolymarketBet[]
 
+  // Binary
+  binaryTrades      BinaryTrade[]
+
   @@map("users")
 }
 
@@ -503,4 +506,36 @@ model AviatorBet {
 
   @@unique([roundId, userId, panelIndex])
   @@map("aviator_bets")
+}
+
+// ─── Binary Options Trades ────────────────────────────────────────────────────
+
+enum BinaryTradeStatus {
+  PENDING
+  WON
+  LOST
+}
+
+model BinaryTrade {
+  id            String            @id @default(cuid())
+  userId        String            @map("user_id")
+  user          User              @relation(fields: [userId], references: [id])
+
+  market        String            // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
+  side          String            // "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under"
+  stake         Decimal           @db.Decimal(18, 2)
+  payout        Decimal           @db.Decimal(18, 2)
+  targetDigit   Int               @map("target_digit")
+  entryDigit    Int               @map("entry_digit")
+  exitDigit     Int?              @map("exit_digit")
+  durationTicks Int               @map("duration_ticks")
+  settleBefore  DateTime          @map("settle_before")
+
+  status        BinaryTradeStatus @default(PENDING)
+  settledAt     DateTime?         @map("settled_at")
+
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  @@map("binary_trades")
 }
