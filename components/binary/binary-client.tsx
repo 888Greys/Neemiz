@@ -419,13 +419,13 @@ export function BinaryClient() {
 
   return (
     <div className="min-h-full overflow-visible bg-[#050506] text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden">
-      <div className="z-20 shrink-0 border-b border-white/[0.08] bg-[#08090d]/95 px-2 py-1 backdrop-blur lg:px-3">
+      <div className="z-20 shrink-0 border-b border-white/[0.08] bg-[#08090d]/95 px-1.5 py-1 backdrop-blur lg:px-3">
         <div className="flex h-10 items-center gap-2 overflow-hidden">
-          <div className="mr-1 flex shrink-0 items-center gap-2 rounded bg-[#11151c] px-2.5 py-1.5">
+          <div className="mr-1 flex shrink-0 items-center gap-2 rounded bg-[#11151c] px-2 py-1.5">
             <span className="grid h-6 w-6 place-items-center rounded bg-sky-500/15 text-sky-300">
               <Icon name="analytics" className="text-[14px]" />
             </span>
-            <div>
+            <div className="hidden min-[380px]:block">
               <div className="text-xs font-black leading-none">Binary Trader</div>
               <div className="mt-0.5 text-[10px] font-bold text-slate-500">
                 {streamStatus === "live" ? "Deriv live feed" : streamStatus === "connecting" ? "Connecting feed" : "Demo fallback"}
@@ -441,7 +441,7 @@ export function BinaryClient() {
           ))}
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-2">
-            <div className="rounded bg-[#151a22] px-3 py-1.5 text-right ring-1 ring-white/[0.07]">
+            <div className="rounded bg-[#151a22] px-2 py-1.5 text-right ring-1 ring-white/[0.07] sm:px-3">
               <div className="font-mono text-xs font-black">{formatMoney(demoBalance)} DEMO</div>
               <div className="text-[10px] font-bold text-emerald-300">Demo active</div>
             </div>
@@ -452,8 +452,8 @@ export function BinaryClient() {
         </div>
       </div>
 
-      <div data-binary-grid="true" className="grid min-w-0 gap-2 overflow-visible px-2 py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 xl:grid-cols-[300px_minmax(0,1fr)_390px]">
-        <aside className="order-2 flex min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
+      <div data-binary-grid="true" className="grid min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 xl:grid-cols-[300px_minmax(0,1fr)_390px]">
+        <aside className="order-2 hidden min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:flex xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
           <section className="shrink-0 border-b border-white/[0.08] bg-[#0f1218]">
             <div className="grid grid-cols-3 border-b border-white/[0.07] text-xs font-black">
               <button className="border-b-2 border-sky-400 py-2 text-sky-300" type="button">Open ({openTrades.length})</button>
@@ -499,22 +499,22 @@ export function BinaryClient() {
           </section>
         </aside>
 
-        <main className="order-1 flex min-h-[620px] min-w-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
+        <main className="order-1 flex min-h-[420px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
-            <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.07] px-4 py-2">
-              <div className="flex min-w-0 items-center gap-3">
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:px-4 sm:py-2">
+              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                 <select
                   value={market.symbol}
                   onChange={(event) => setMarketSymbol(event.target.value)}
-                  className="h-10 rounded border border-white/[0.08] bg-[#151a22] px-3 text-sm font-black text-white outline-none"
+                  className="h-9 rounded border border-white/[0.08] bg-[#151a22] px-2 text-xs font-black text-white outline-none sm:h-10 sm:px-3 sm:text-sm"
                 >
                   {MARKETS.map((item) => (
                     <option key={item.symbol} value={item.symbol}>{item.symbol}</option>
                   ))}
                 </select>
                 <div>
-                  <div className="font-mono text-2xl font-black leading-none">{formatQuote(latest.quote)}</div>
-                  <div className={`mt-1 text-xs font-black ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                  <div className="font-mono text-xl font-black leading-none sm:text-2xl">{formatQuote(latest.quote)}</div>
+                  <div className={`mt-0.5 text-[11px] font-black sm:mt-1 sm:text-xs ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
                     {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
                   </div>
                   {streamStatus === "fallback" && (
@@ -536,14 +536,14 @@ export function BinaryClient() {
             <TradingViewBinaryChart ticks={ticks} />
           </section>
 
-          <section className="grid h-[70px] shrink-0 gap-0 border-t border-white/[0.08] bg-[#0b0d12] md:grid-cols-10">
+          <section className="grid h-[58px] shrink-0 grid-cols-10 gap-0 border-t border-white/[0.08] bg-[#0b0d12] sm:h-[70px]">
             {digitStats.map((stat) => (
-              <div key={stat.digit} className={`h-full border-r border-white/[0.08] px-2 py-1.5 last:border-r-0 ${latest.digit === stat.digit ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400" : "bg-[#0f1218]"}`}>
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-lg font-black">{stat.digit}</span>
-                  <span className="text-[10px] font-black text-slate-500">{stat.pct.toFixed(1)}%</span>
+              <div key={stat.digit} className={`h-full border-r border-white/[0.08] px-1 py-1 last:border-r-0 sm:px-2 sm:py-1.5 ${latest.digit === stat.digit ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400" : "bg-[#0f1218]"}`}>
+                <div className="flex items-center justify-between gap-1">
+                  <span className="font-mono text-base font-black sm:text-lg">{stat.digit}</span>
+                  <span className="text-[8px] font-black text-slate-500 sm:text-[10px]">{stat.pct.toFixed(1)}%</span>
                 </div>
-                <div className="mt-1 h-6 rounded bg-black/25 p-1">
+                <div className="mt-1 h-4 rounded bg-black/25 p-0.5 sm:h-6 sm:p-1">
                   <div className="mt-auto rounded bg-sky-400" style={{ height: `${Math.max(8, stat.pct * 3.2)}%` }} />
                 </div>
               </div>
@@ -551,7 +551,7 @@ export function BinaryClient() {
           </section>
         </main>
 
-        <aside className="order-3 flex min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+        <aside className="order-2 flex min-h-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:rounded sm:border xl:order-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
           <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
             <div className="shrink-0 border-b border-white/[0.07] p-2">
               <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Trading mode</div>
@@ -568,7 +568,7 @@ export function BinaryClient() {
                     key={item}
                     type="button"
                     onClick={() => setFamily(item)}
-                    className={`rounded border px-2 py-2 text-[11px] font-black transition ${family === item ? "border-sky-400 bg-sky-400/10 text-sky-200" : "border-white/[0.07] bg-white/[0.03] text-slate-500 hover:text-white"}`}
+                    className={`rounded border px-1.5 py-2 text-[10px] font-black transition sm:px-2 sm:text-[11px] ${family === item ? "border-sky-400 bg-sky-400/10 text-sky-200" : "border-white/[0.07] bg-white/[0.03] text-slate-500 hover:text-white"}`}
                   >
                     {familyLabel(item)}
                   </button>
@@ -578,9 +578,9 @@ export function BinaryClient() {
               <div>
                 <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Stake amount</div>
                 <Stepper value={stake} min={1} prefix="$" onChange={setStake} compact />
-                <div className="mt-1.5 grid grid-cols-6 gap-1.5">
+                <div className="mt-1.5 grid grid-cols-6 gap-1">
                   {STAKE_PRESETS.map((amount) => (
-                    <button key={amount} type="button" onClick={() => setStake(amount)} className="rounded bg-white/[0.06] px-2 py-1.5 text-[11px] font-black text-slate-300 transition hover:bg-white/[0.1]">
+                    <button key={amount} type="button" onClick={() => setStake(amount)} className={`rounded px-1 py-1.5 text-[10px] font-black transition sm:px-2 sm:text-[11px] ${stake === amount ? "bg-sky-500 text-white" : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
                       ${amount}
                     </button>
                   ))}
@@ -611,7 +611,7 @@ export function BinaryClient() {
                     key={side}
                     type="button"
                     onClick={() => placeTrade(side)}
-                    className="flex items-center justify-between rounded bg-[#0b8f62] px-3 py-2 text-left transition hover:bg-[#0da26f] active:scale-[0.98]"
+                    className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
                   >
                     <div className="text-sm font-black">{side}</div>
                     <div className="text-right">
