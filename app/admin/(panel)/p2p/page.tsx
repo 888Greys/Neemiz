@@ -1,0 +1,12 @@
+import { AppShell } from "@/components/app-shell";
+import { AdminP2PClient } from "@/components/admin-p2p-client";
+
+export const metadata = { title: "P2P Admin · Nezeem" };
+
+export default function AdminP2PPage() {
+  return (
+    <AppShell>
+      <AdminP2PClient />
+    </AppShell>
+  );
+}

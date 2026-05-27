@@ -7,6 +7,8 @@ const PROTECTED = [
   "/admin",
 ];
 
+const ADMIN_COOKIE = "__nezeem_a2fa";
+
 function isProtected(pathname: string) {
   return PROTECTED.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
@@ -50,6 +52,15 @@ export default async function middleware(request: NextRequest) {
     if (!user && isProtected(pathname)) {
       const url = request.nextUrl.clone();
       url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+
+    // Fast 2FA shortcut: admin routes without the session cookie → /admin/2fa
+    const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+    const is2FAPage = pathname === "/admin/2fa" || pathname.startsWith("/admin/2fa/");
+    if (user && isAdminRoute && !is2FAPage && !request.cookies.get(ADMIN_COOKIE)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/2fa";
       return NextResponse.redirect(url);
     }
   } catch {
