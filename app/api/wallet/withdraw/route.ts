@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
+import { relworxSend } from "@/lib/relworx";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -27,8 +28,8 @@ export async function POST(req: Request) {
     const { amountKes, phoneNumber } = body;
     const msisdn = normalizeMsisdn(String(phoneNumber ?? ""));
 
-    if (!Number.isFinite(amountKes) || amountKes < 100) {
-      return Response.json({ error: "Minimum withdrawal is KSh 100" }, { status: 400 });
+    if (!Number.isFinite(amountKes) || amountKes < 50) {
+      return Response.json({ error: "Minimum withdrawal is KSh 50" }, { status: 400 });
     }
     if (amountKes > 150_000) {
       return Response.json({ error: "Maximum withdrawal is KSh 150,000" }, { status: 400 });
@@ -37,49 +38,90 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XX or 01XX format." }, { status: 400 });
     }
 
-    // 5% withdrawal fee — deducted from the requested amount.
-    // User requests amountKes, receives (amountKes * 0.95) via M-Pesa.
     const WITHDRAWAL_FEE_RATE = 0.05;
     const feeKes    = parseFloat((amountKes * WITHDRAWAL_FEE_RATE).toFixed(2));
     const payoutKes = parseFloat((amountKes - feeKes).toFixed(2));
 
-    const result = await db.$transaction(async (tx) => {
+    // ── Step 1: deduct balance + create PENDING record atomically ──
+    const { withdrawalId, dbUserId } = await db.$transaction(async (tx) => {
       const dbUser = await getOrCreateUser(user.id, { email: user.email });
       const balance = Number(dbUser.walletBalance);
 
-      if (balance < amountKes) {
-        throw new Error("INSUFFICIENT_BALANCE");
-      }
+      if (balance < amountKes) throw new Error("INSUFFICIENT_BALANCE");
 
-      const updated = await tx.user.update({
+      await tx.user.update({
         where: { id: dbUser.id },
-        data: { walletBalance: { decrement: amountKes } },
-        select: { walletBalance: true },
+        data:  { walletBalance: { decrement: amountKes } },
       });
 
       const withdrawal = await tx.transaction.create({
         data: {
-          userId: dbUser.id,
-          type: TransactionType.WITHDRAWAL,
-          amount: amountKes,
+          userId:   dbUser.id,
+          type:     TransactionType.WITHDRAWAL,
+          amount:   amountKes,
           currency: "KES",
-          status: TransactionStatus.PENDING,
-          provider: "megapay",
-          metadata: { msisdn, requestedAt: new Date().toISOString(), fee: feeKes, payout: payoutKes },
+          status:   TransactionStatus.PENDING,
+          provider: "relworx",
+          metadata: {
+            msisdn,
+            fee:         feeKes,
+            payout:      payoutKes,
+            requestedAt: new Date().toISOString(),
+          },
         },
       });
 
-      return { newBalance: Number(updated.walletBalance), withdrawalId: withdrawal.id };
+      return { withdrawalId: withdrawal.id, dbUserId: dbUser.id };
     });
 
-    return Response.json({
-      ok: true,
-      newBalance: result.newBalance,
-      withdrawalId: result.withdrawalId,
-      fee: feeKes,
-      payout: payoutKes,
-      message: `KSh ${payoutKes.toLocaleString()} will be sent to your M-Pesa (5% fee: KSh ${feeKes.toLocaleString()}).`,
-    });
+    // ── Step 2: call Relworx ──
+    const accountNo = process.env.RELWORX_ACCOUNT_NO;
+    if (!accountNo) {
+      // Roll back balance — Relworx not configured
+      await db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } });
+      await db.transaction.update({ where: { id: withdrawalId }, data: { status: TransactionStatus.FAILED } });
+      return Response.json({ error: "Payment provider not configured" }, { status: 503 });
+    }
+
+    try {
+      const result = await relworxSend({
+        account_no:  accountNo,
+        reference:   withdrawalId,
+        msisdn:      `+${msisdn}`,
+        currency:    "KES",
+        amount:      payoutKes,
+        description: `Nezeem withdrawal ${withdrawalId}`,
+      });
+
+      // Store Relworx reference for webhook matching
+      await db.transaction.update({
+        where: { id: withdrawalId },
+        data:  { reference: result.reference ?? withdrawalId, metadata: {
+          msisdn,
+          fee:          feeKes,
+          payout:       payoutKes,
+          requestedAt:  new Date().toISOString(),
+          relworxRef:   result.reference,
+          submittedAt:  new Date().toISOString(),
+        }},
+      });
+
+      return Response.json({
+        ok:           true,
+        withdrawalId,
+        fee:          feeKes,
+        payout:       payoutKes,
+        message:      `KSh ${payoutKes.toLocaleString()} is on its way to +${msisdn} via M-Pesa.`,
+      });
+    } catch (apiErr) {
+      // Relworx call failed — refund the user immediately
+      await db.$transaction([
+        db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } }),
+        db.transaction.update({ where: { id: withdrawalId }, data: { status: TransactionStatus.FAILED } }),
+      ]);
+      const msg = apiErr instanceof Error ? apiErr.message : "Payment provider error";
+      return Response.json({ error: msg }, { status: 502 });
+    }
   } catch (err) {
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });

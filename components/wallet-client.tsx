@@ -88,6 +88,13 @@ export function WalletClient() {
   const [cwOpen, setCwOpen]             = useState(false);
   const [cwState, setCwState]           = useState<CryptoWithdrawState>({ step: "idle" });
 
+  // ── M-Pesa withdraw state ──
+  const [wdAmount, setWdAmount] = useState("");
+  const [wdPhone, setWdPhone]   = useState("");
+  const [wdLoading, setWdLoading] = useState(false);
+  const [wdError, setWdError]   = useState("");
+  const [wdDone, setWdDone]     = useState<{ payout: number; fee: number } | null>(null);
+
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCount = useRef(0);
 
@@ -210,6 +217,28 @@ export function WalletClient() {
         step:    "error",
         message: err instanceof Error ? err.message : "Withdrawal failed",
       });
+    }
+  }
+
+  async function handleMpesaWithdraw() {
+    if (!isSignedIn) { openLogin(); return; }
+    const amt = Number(wdAmount);
+    if (!wdPhone.trim() || !amt) return;
+    setWdLoading(true); setWdError("");
+    try {
+      const res  = await fetch("/api/wallet/withdraw", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ amountKes: amt, phoneNumber: wdPhone }),
+      });
+      const data = await res.json() as { ok?: boolean; payout?: number; fee?: number; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Withdrawal failed");
+      setWdDone({ payout: data.payout!, fee: data.fee! });
+      refreshBalance();
+    } catch (err) {
+      setWdError(err instanceof Error ? err.message : "Withdrawal failed");
+    } finally {
+      setWdLoading(false);
     }
   }
 
@@ -754,60 +783,95 @@ export function WalletClient() {
               </>
             )}
 
-            {/* ── M-Pesa withdraw (coming soon) ── */}
+            {/* ── M-Pesa withdraw ── */}
             {withdrawMode === "fiat" && (
               <div className="space-y-5">
-                <div className="rounded-3xl bg-[#16171d] p-6 ring-1 ring-white/[0.07] text-center">
-                  <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-400/10">
-                    <Icon name="account_balance" fill className="text-[32px] text-amber-400" />
+                {wdDone ? (
+                  <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-white/[0.07] text-center space-y-3">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#05b957]/15">
+                      <Icon name="check_circle" className="text-[32px] text-[#05b957]" />
+                    </div>
+                    <h3 className="text-lg font-black text-white">Withdrawal Submitted</h3>
+                    <p className="text-sm text-slate-500">
+                      <span className="text-white font-bold">KSh {wdDone.payout.toLocaleString()}</span> is being sent to your M-Pesa.
+                      <br />Fee: KSh {wdDone.fee.toLocaleString()}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => { setWdDone(null); setWdAmount(""); setWdPhone(""); }}
+                      className="mt-2 text-xs font-bold text-slate-500 hover:text-white transition-colors"
+                    >
+                      New Withdrawal
+                    </button>
                   </div>
-                  <h3 className="text-lg font-black text-white">M-Pesa Withdrawal</h3>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Withdrawals to M-Pesa are coming soon.<br />
-                    Use crypto withdrawal for instant payouts.
-                  </p>
-                </div>
+                ) : (
+                  <>
+                    <div className="rounded-2xl bg-[#16171d]/60 px-4 py-3 ring-1 ring-white/[0.05]">
+                      <p className="text-xs text-slate-500">
+                        <span className="font-bold text-slate-300">5% fee</span> is deducted. Min KSh 50 · Max KSh 150,000.
+                        Money arrives within 1–5 minutes via Safaricom M-Pesa.
+                      </p>
+                    </div>
 
-                <div>
-                  <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-                    Amount (KSh)
-                  </p>
-                  <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] transition">
-                    <span className="shrink-0 text-sm font-black text-slate-500">KSh</span>
-                    <input
-                      type="number"
-                      min="50"
-                      placeholder="Enter amount"
-                      disabled
-                      className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700 disabled:opacity-40"
-                    />
-                  </div>
-                </div>
+                    <div>
+                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount (KSh)</p>
+                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#05b957]/40 transition">
+                        <span className="shrink-0 text-sm font-black text-slate-500">KSh</span>
+                        <input
+                          type="number"
+                          min="50"
+                          max="150000"
+                          value={wdAmount}
+                          onChange={(e) => { setWdAmount(e.target.value); setWdError(""); }}
+                          placeholder="Enter amount"
+                          className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
+                        />
+                        {wdAmount && Number(wdAmount) >= 50 && (
+                          <span className="shrink-0 text-xs text-slate-600">
+                            → KSh {(Number(wdAmount) * 0.95).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-                <div>
-                  <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-                    M-Pesa Number
-                  </p>
-                  <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] transition">
-                    <span className="shrink-0 text-base">🇰🇪</span>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="07XXXXXXXX"
-                      disabled
-                      className="flex-1 bg-transparent py-4 text-sm font-bold text-white outline-none placeholder:text-slate-700 disabled:opacity-40"
-                    />
-                  </div>
-                </div>
+                    <div>
+                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">M-Pesa Number</p>
+                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#05b957]/40 transition">
+                        <span className="shrink-0 text-base">🇰🇪</span>
+                        <input
+                          type="tel"
+                          value={wdPhone}
+                          onChange={(e) => { setWdPhone(e.target.value); setWdError(""); }}
+                          placeholder="07XXXXXXXX"
+                          className="flex-1 bg-transparent py-4 text-sm font-bold text-white outline-none placeholder:text-slate-700"
+                        />
+                      </div>
+                    </div>
 
-                <button
-                  type="button"
-                  disabled
-                  className="w-full rounded-2xl bg-amber-400/15 py-4 text-sm font-black text-amber-400 ring-1 ring-amber-400/20 transition disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Coming Soon
-                </button>
+                    {wdError && (
+                      <p className="flex items-center gap-1.5 text-xs font-bold text-red-400">
+                        <Icon name="error" className="text-[13px]" />
+                        {wdError}
+                      </p>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleMpesaWithdraw}
+                      disabled={wdLoading || !wdAmount || Number(wdAmount) < 50 || !wdPhone.trim()}
+                      className="w-full rounded-2xl bg-[#05b957] py-4 text-base font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-50"
+                    >
+                      {wdLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          Processing…
+                        </span>
+                      ) : (
+                        `Withdraw${wdAmount && Number(wdAmount) >= 50 ? ` KSh ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
+                      )}
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
