@@ -264,9 +264,47 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [placing, setPlacing] = useState(false);
   const [openTrades, setOpenTrades] = useState<BinaryTrade[]>([]);
   const [closedTrades, setClosedTrades] = useState<BinaryTrade[]>([]);
+  const [persistedTrades, setPersistedTrades] = useState<BinaryTrade[]>([]);
   const [transactions, setTransactions] = useState<string[]>([]);
+  const [tab, setTab] = useState<"open" | "closed" | "tx">("open");
 
   const balance = isLive ? liveBalance : demoBalance;
+
+  // Load persisted closed trades from DB on mount (live users only)
+  useEffect(() => {
+    if (!isLive) return;
+    fetch("/api/binary/history")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: Array<{
+        id: string; market: string; side: string; stake: number; payout: number;
+        targetDigit: number; entryDigit: number; exitDigit?: number; status: string; createdAt: string;
+      }>) => {
+        const mapped: BinaryTrade[] = data
+          .filter((t) => t.status !== "PENDING")
+          .map((t) => ({
+            id: t.id,
+            market: t.market,
+            side: t.side as ContractSide,
+            stake: t.stake,
+            payout: t.payout,
+            entryDigit: t.entryDigit,
+            targetDigit: t.targetDigit,
+            exitDigit: t.exitDigit,
+            openedAt: new Date(t.createdAt).getTime(),
+            settlesAt: 0,
+            status: (t.status === "WON" ? "won" : "lost") as TradeStatus,
+            isReal: true,
+          }));
+        setPersistedTrades(mapped);
+      })
+      .catch(() => {});
+  }, [isLive]);
+
+  // Merge session trades with persisted DB trades (dedup by id)
+  const allClosedTrades = useMemo(() => {
+    const sessionIds = new Set(closedTrades.map((t) => t.id));
+    return [...closedTrades, ...persistedTrades.filter((t) => !sessionIds.has(t.id))];
+  }, [closedTrades, persistedTrades]);
 
   useEffect(() => {
     setTicks(seedTicks(market));
@@ -443,6 +481,9 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         setDemoBalance((b) => won ? b + trade.payout : b);
       }
     }
+
+    // Switch sidebar to Closed tab so user sees the result
+    setTab("closed");
   }, [latest, openTrades, isLive, settleReal]);
 
   async function placeTrade(side: ContractSide) {
@@ -554,25 +595,58 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
       <div data-binary-grid="true" className="grid min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 xl:grid-cols-[300px_minmax(0,1fr)_390px]">
         <aside className="order-2 hidden min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:flex xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
-          <section className="shrink-0 border-b border-white/[0.08] bg-[#0f1218]">
-            <div className="grid grid-cols-3 border-b border-white/[0.07] text-xs font-black">
-              <button className="border-b-2 border-sky-400 py-2 text-sky-300" type="button">Open ({openTrades.length})</button>
-              <button className="py-2 text-slate-500" type="button">Closed ({closedTrades.length})</button>
-              <button className="py-2 text-slate-500" type="button">Tx</button>
-            </div>
-            <div className="space-y-1.5 overflow-y-auto px-3 py-2">
-              {openTrades.length === 0 ? (
-                <EmptyState title="No open positions" subtitle="Your active contracts will appear here" />
-              ) : (
-                openTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
-              )}
-            </div>
-          </section>
+          {/* Tab bar */}
+          <div className="grid shrink-0 grid-cols-3 border-b border-white/[0.07] bg-[#0f1218] text-xs font-black">
+            {(["open", "closed", "tx"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
+              >
+                {t === "open" ? `Open (${openTrades.length})` : t === "closed" ? `Closed (${allClosedTrades.length})` : "Tx"}
+              </button>
+            ))}
+          </div>
 
-          <section className="shrink-0 border-b border-white/[0.08] bg-[#0f1218] p-3">
-            <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Last session</div>
+          {/* Tab content — scrollable */}
+          <div className="min-h-0 flex-1 overflow-y-auto bg-[#0f1218]">
+            {tab === "open" && (
+              <div className="space-y-1.5 p-3">
+                {openTrades.length === 0 ? (
+                  <EmptyState title="No open positions" subtitle="Your active contracts will appear here" />
+                ) : (
+                  openTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
+                )}
+              </div>
+            )}
+            {tab === "closed" && (
+              <div className="space-y-1.5 p-3">
+                {allClosedTrades.length === 0 ? (
+                  <EmptyState title="No closed trades" subtitle="Settled contracts will show here" />
+                ) : (
+                  allClosedTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
+                )}
+              </div>
+            )}
+            {tab === "tx" && (
+              <div className="space-y-1.5 p-3">
+                {transactions.length === 0 ? (
+                  <EmptyState title="No transactions" subtitle="Trade activity will appear here" />
+                ) : (
+                  transactions.map((item, index) => (
+                    <div key={`${item}-${index}`} className="rounded bg-black/25 px-3 py-2 text-xs font-bold text-slate-300">{item}</div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Session stats — always visible */}
+          <section className="shrink-0 border-t border-white/[0.08] bg-[#0f1218] p-3">
+            <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Session</div>
             <div className="grid grid-cols-3 gap-1.5">
-              <MiniStat label="Trades" value={String(closedTrades.length)} />
+              <MiniStat label="Trades" value={String(allClosedTrades.length)} />
               <MiniStat label="Wins" value={String(wins)} positive />
               <MiniStat label="Losses" value={String(losses)} negative />
             </div>
@@ -581,20 +655,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               <div className={`mt-1 font-mono text-xl font-black ${sessionPnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>
                 {sessionPnl >= 0 ? "+" : ""}{formatMoney(sessionPnl, isLive)}
               </div>
-            </div>
-          </section>
-
-          <section className="flex min-h-0 flex-1 flex-col bg-[#0f1218] px-3 py-2">
-            <div className="mb-1.5 flex items-center justify-between">
-              <h3 className="text-sm font-black">Closed contracts</h3>
-              <Icon name="history" className="text-[16px] text-slate-500" />
-            </div>
-            <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto">
-              {closedTrades.length === 0 ? (
-                <EmptyState title="No closed trades" subtitle="Settled contracts will show here" />
-              ) : (
-                closedTrades.slice(0, 5).map((trade) => <TradeRow key={trade.id} trade={trade} />)
-              )}
             </div>
           </section>
         </aside>
