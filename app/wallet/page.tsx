@@ -1,7 +1,15 @@
-import { redirect } from "next/navigation";
+import { AppShell } from "@/components/app-shell";
+import { WalletClient } from "@/components/wallet-client";
 
-// Wallet is now a floating modal opened from the app shell.
-// Redirect any direct /wallet visits back to the dashboard.
+export const metadata = {
+  title: "Wallet · Nezeem",
+  description: "Deposit, withdraw, and manage your Nezeem wallet.",
+};
+
 export default function WalletPage() {
-  redirect("/dashboard");
+  return (
+    <AppShell hideFooter>
+      <WalletClient />
+    </AppShell>
+  );
 }
