@@ -1,4 +1,5 @@
-const RELWORX_URL = "https://payments.relworx.com/api/mobile-money/send-payment";
+const RELWORX_SEND_URL    = "https://payments.relworx.com/api/mobile-money/send-payment";
+const RELWORX_REQUEST_URL = "https://payments.relworx.com/api/mobile-money/request-payment";
 
 interface RelworxPayload {
   account_no: string;
@@ -16,11 +17,11 @@ export interface RelworxResult {
   raw:        unknown;
 }
 
-export async function relworxSend(payload: RelworxPayload): Promise<RelworxResult> {
+async function relworxPost(url: string, payload: RelworxPayload): Promise<RelworxResult> {
   const apiKey = process.env.RELWORX_API_KEY;
   if (!apiKey) throw new Error("RELWORX_API_KEY not configured");
 
-  const res = await fetch(RELWORX_URL, {
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -45,4 +46,12 @@ export async function relworxSend(payload: RelworxPayload): Promise<RelworxResul
     reference: data?.reference as string | undefined,
     raw,
   };
+}
+
+export function relworxSend(payload: RelworxPayload): Promise<RelworxResult> {
+  return relworxPost(RELWORX_SEND_URL, payload);
+}
+
+export function relworxRequestPayment(payload: RelworxPayload): Promise<RelworxResult> {
+  return relworxPost(RELWORX_REQUEST_URL, payload);
 }
