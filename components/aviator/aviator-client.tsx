@@ -63,6 +63,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [verifyRound,    setVerifyRound]    = useState<HistoryRound | null>(null);
   const [prevRoundBets,  setPrevRoundBets]  = useState<AviatorBetPublic[]>([]);
   const [loading,        setLoading]        = useState(true);
+  const [dualPanel,      setDualPanel]      = useState(false);
 
   const wsRef          = useRef<WebSocket | null>(null);
   const rafRef         = useRef<number>(0);
@@ -495,29 +496,68 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           </div>
 
           <div className="flex shrink-0 min-w-0 flex-col gap-2 p-2 lg:flex-row lg:p-3">
-            {([0, 1] as const).map((pi) => (
+            <AviatorBetPanel
+              panelIndex={0}
+              round={round}
+              myBet={myBets[0]}
+              currentMultiplier={displayMult}
+              balance={balance}
+              onBet={handleBet}
+              onCashout={handleCashout}
+            />
+            {/* Panel 1 — always mounted (preserves state); hidden on mobile until user opts in */}
+            <div className={`relative min-w-0 lg:flex-1 ${!dualPanel && !myBets[1] ? "hidden lg:block" : "block"}`}>
               <AviatorBetPanel
-                key={pi}
-                panelIndex={pi}
+                panelIndex={1}
                 round={round}
-                myBet={myBets[pi]}
+                myBet={myBets[1]}
                 currentMultiplier={displayMult}
                 balance={balance}
                 onBet={handleBet}
                 onCashout={handleCashout}
               />
-            ))}
+              {dualPanel && !myBets[1] && (
+                <button
+                  type="button"
+                  onClick={() => setDualPanel(false)}
+                  className="lg:hidden absolute -top-1.5 -right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#3a3b41] text-[10px] text-white/60 hover:text-white"
+                  aria-label="Remove second bet panel"
+                >✕</button>
+              )}
+            </div>
+            {/* Mobile-only toggle to reveal panel 1 */}
+            {!dualPanel && !myBets[1] && (
+              <button
+                type="button"
+                onClick={() => setDualPanel(true)}
+                className="lg:hidden flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 py-3 text-[11px] font-black text-white/30 transition-colors hover:border-white/30 hover:text-white/50 active:scale-[0.98]"
+              >
+                <span className="text-[15px] leading-none font-black">+</span>
+                Add 2nd bet panel
+              </button>
+            )}
           </div>
         </section>
 
         <aside className="min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[#2a2a2a] lg:bg-[#171819]">
-          <AviatorPlayersTable
+          {/* Mobile: collapsible players section */}
+          <MobilePlayersCollapsible
             liveBets={liveBets}
             prevRoundBets={prevRoundBets}
             myHistory={myHistory}
             myCurrentBets={Object.values(myBets)}
             userId={userId}
           />
+          {/* Desktop: always-visible full table */}
+          <div className="hidden lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+            <AviatorPlayersTable
+              liveBets={liveBets}
+              prevRoundBets={prevRoundBets}
+              myHistory={myHistory}
+              myCurrentBets={Object.values(myBets)}
+              userId={userId}
+            />
+          </div>
         </aside>
       </div>
 
@@ -657,6 +697,44 @@ function BetRow({ bet, isMe }: { bet: AviatorBetPublic; isMe?: boolean }) {
           <span className="text-red-400/70">Lost</span>
         ) : "—"}
       </span>
+    </div>
+  );
+}
+
+function MobilePlayersCollapsible({ liveBets, prevRoundBets, myHistory, myCurrentBets, userId }: {
+  liveBets:      AviatorBetPublic[];
+  prevRoundBets: AviatorBetPublic[];
+  myHistory:     MyHistoryBet[];
+  myCurrentBets: AviatorBetPublic[];
+  userId?:       string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="lg:hidden border-t border-[#2a2a2a]">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-2.5 text-[11px] font-black text-white/40 transition-colors hover:text-white/60"
+      >
+        <span className="flex items-center gap-2">
+          Live Players
+          {liveBets.length > 0 && (
+            <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-black">{liveBets.length}</span>
+          )}
+        </span>
+        <Icon name={open ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[18px]" />
+      </button>
+      {open && (
+        <div className="flex max-h-[280px] flex-col overflow-hidden border-t border-[#2a2a2a]/50">
+          <AviatorPlayersTable
+            liveBets={liveBets}
+            prevRoundBets={prevRoundBets}
+            myHistory={myHistory}
+            myCurrentBets={myCurrentBets}
+            userId={userId}
+          />
+        </div>
+      )}
     </div>
   );
 }

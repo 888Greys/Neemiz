@@ -13,6 +13,22 @@ type OpenBody = {
   precision: number;
 };
 
+// Spread charged on entry (3 pips). This is the platform's house edge.
+// BUY: entry is bumped up by 3 pips (user starts 3 pips in the hole).
+// SELL: entry is bumped down by 3 pips (same effect).
+const SPREAD_PIPS = 3;
+
+function pipSize(precision: number) {
+  return precision === 3 ? 0.01 : 0.0001;
+}
+
+function applySpread(price: number, direction: "buy" | "sell", precision: number): number {
+  const pip = pipSize(precision);
+  const spread = SPREAD_PIPS * pip;
+  const raw = direction === "buy" ? price + spread : price - spread;
+  return parseFloat(raw.toFixed(precision));
+}
+
 // Margin = size / 100 KES (e.g. 10K units → 100 KES reserved)
 function calcMargin(size: number) {
   return Math.max(10, Math.round(size / 100));
@@ -43,6 +59,7 @@ export async function POST(req: Request) {
   }
 
   const margin = calcMargin(size);
+  const effectiveEntry = applySpread(entryPrice, direction, precision ?? 5);
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
   try {
@@ -76,7 +93,7 @@ export async function POST(req: Request) {
           symbol,
           direction: direction === "buy" ? ForexTradeDirection.BUY : ForexTradeDirection.SELL,
           size,
-          entryPrice,
+          entryPrice: effectiveEntry, // spread already baked in
           stopLoss,
           takeProfit,
           precision: precision ?? 5,
@@ -92,7 +109,7 @@ export async function POST(req: Request) {
       symbol: result.trade.symbol,
       direction: result.trade.direction.toLowerCase(),
       size: result.trade.size,
-      entry: Number(result.trade.entryPrice),
+      entry: Number(result.trade.entryPrice), // spread-adjusted entry
       stopLoss: Number(result.trade.stopLoss),
       takeProfit: Number(result.trade.takeProfit),
       precision: result.trade.precision,
