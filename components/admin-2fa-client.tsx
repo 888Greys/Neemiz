@@ -10,28 +10,24 @@ interface Props {
 }
 
 function Spinner() {
-  return <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/20 border-t-white" />;
+  return <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />;
 }
 
 export function Admin2FAClient({ totpEnabled, adminEmail }: Props) {
   const router = useRouter();
 
-  // ── Setup state ──
-  const [setupData, setSetupData]   = useState<{ secret: string; uri: string } | null>(null);
+  const [setupData, setSetupData]       = useState<{ secret: string; uri: string } | null>(null);
   const [setupLoading, setSetupLoading] = useState(false);
-  const [setupError, setSetupError] = useState("");
+  const [setupError, setSetupError]     = useState("");
 
-  // ── Verify state ──
-  const [code, setCode]           = useState("");
-  const [verifyLoading, setVerifyLoading] = useState(false);
-  const [verifyError, setVerifyError]     = useState("");
-  const [copied, setCopied]       = useState(false);
+  const [code, setCode]                     = useState("");
+  const [verifyLoading, setVerifyLoading]   = useState(false);
+  const [verifyError, setVerifyError]       = useState("");
+  const [copied, setCopied]                 = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, [setupData, totpEnabled]);
+  useEffect(() => { inputRef.current?.focus(); }, [setupData, totpEnabled]);
 
   async function startSetup() {
     setSetupLoading(true);
@@ -83,29 +79,27 @@ export function Admin2FAClient({ totpEnabled, adminEmail }: Props) {
   }
 
   const qrUrl = setupData
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(setupData.uri)}&bgcolor=ffffff&color=000000&margin=8&qzone=1`
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(setupData.uri)}&bgcolor=ffffff&color=000000&margin=12&qzone=1`
     : null;
 
-  // ── Already enabled → just verify ──────────────────────────────────────────
+  // ── Already enabled → verify ────────────────────────────────────────────────
   if (totpEnabled && !setupData) {
     return (
-      <div className="flex min-h-[80vh] flex-col items-center justify-center px-4">
-        <div className="w-full max-w-sm">
-          {/* Header */}
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="w-full max-w-[360px]">
           <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#087cff]/15 ring-1 ring-[#087cff]/30">
-              <Icon name="security" fill className="text-[32px] text-[#087cff]" />
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#087cff]/10 ring-1 ring-[#087cff]/20">
+              <Icon name="lock" className="text-[#087cff]" size={22} />
             </div>
-            <h1 className="text-2xl font-black text-white">Admin Verification</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Enter the 6-digit code from your authenticator app
+            <h1 className="text-[22px] font-black text-white tracking-tight">Two-factor auth</h1>
+            <p className="mt-1.5 text-sm text-slate-500">
+              Enter the code from your authenticator app
             </p>
           </div>
 
-          {/* Code input */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.08] focus-within:ring-[#087cff]/50 transition">
-              <Icon name="pin" fill className="shrink-0 text-[20px] text-slate-500" />
+          <div className="space-y-3">
+            <div className={`flex items-center gap-3 rounded-2xl bg-[#111318] px-4 ring-1 transition ${verifyError ? "ring-red-500/40" : "ring-white/[0.07] focus-within:ring-[#087cff]/40"}`}>
+              <Icon name="qr_code" className="shrink-0 text-slate-600" size={16} />
               <input
                 ref={inputRef}
                 type="text"
@@ -116,170 +110,164 @@ export function Admin2FAClient({ totpEnabled, adminEmail }: Props) {
                 onChange={(e) => { setCode(e.target.value.replace(/[^0-9\s]/g, "")); setVerifyError(""); }}
                 onKeyDown={(e) => e.key === "Enter" && verify()}
                 placeholder="000 000"
-                className="flex-1 bg-transparent py-4 text-center font-mono text-2xl font-black tracking-[0.3em] text-white outline-none placeholder:text-slate-700"
+                className="flex-1 bg-transparent py-4 text-center font-mono text-xl font-black tracking-[0.35em] text-white outline-none placeholder:text-slate-700"
               />
             </div>
 
             {verifyError && (
-              <div className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2.5 ring-1 ring-red-500/20">
-                <Icon name="error" fill className="shrink-0 text-[15px] text-red-400" />
-                <p className="text-xs font-bold text-red-400">{verifyError}</p>
-              </div>
+              <p className="flex items-center gap-1.5 text-xs font-medium text-red-400">
+                <Icon name="error" size={13} />
+                {verifyError}
+              </p>
             )}
 
             <button
               type="button"
               onClick={() => verify()}
               disabled={verifyLoading || code.replace(/\s/g, "").length !== 6}
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#087cff] text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#087cff] text-sm font-black text-white transition hover:bg-[#1a87ff] active:scale-[.98] disabled:opacity-40"
             >
-              {verifyLoading ? <Spinner /> : "Verify & Enter Admin"}
+              {verifyLoading ? <Spinner /> : "Continue to Admin"}
             </button>
           </div>
 
-          <p className="mt-6 text-center text-xs text-slate-600">
-            Signed in as <span className="text-slate-400">{adminEmail}</span>
+          <p className="mt-5 text-center text-xs text-slate-700">
+            {adminEmail}
           </p>
         </div>
       </div>
     );
   }
 
-  // ── First time setup ────────────────────────────────────────────────────────
+  // ── First-time setup ─────────────────────────────────────────────────────────
   return (
-    <div className="flex min-h-[80vh] flex-col items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        {/* Header */}
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-400/15 ring-1 ring-amber-400/25">
-            <Icon name="shield_lock" fill className="text-[32px] text-amber-400" />
-          </div>
-          <h1 className="text-2xl font-black text-white">Set Up 2FA</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Admin access requires authenticator app verification
-          </p>
-        </div>
-
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <div className="w-full max-w-[360px]">
         {!setupData ? (
-          <div className="space-y-4">
-            <div className="rounded-2xl bg-[#16171d] p-5 ring-1 ring-white/[0.07]">
-              <div className="mb-3 flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff]/20 text-[11px] font-black text-[#087cff]">1</span>
-                <p className="text-sm font-black text-white">Install an authenticator app</p>
+          <>
+            <div className="mb-8 text-center">
+              <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/[0.05] ring-1 ring-white/10">
+                <Icon name="security" className="text-slate-300" size={22} />
               </div>
-              <p className="ml-9 text-xs text-slate-500">
-                Google Authenticator, Authy, or Microsoft Authenticator
+              <h1 className="text-[22px] font-black text-white tracking-tight">Secure your account</h1>
+              <p className="mt-1.5 text-sm text-slate-500">
+                Admin access requires authenticator app verification
               </p>
             </div>
-            <div className="rounded-2xl bg-[#16171d] p-5 ring-1 ring-white/[0.07]">
-              <div className="mb-1 flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff]/20 text-[11px] font-black text-[#087cff]">2</span>
-                <p className="text-sm font-black text-white">Scan the QR code</p>
-              </div>
-              <p className="ml-9 text-xs text-slate-500">
-                Click below to generate your QR code
-              </p>
-            </div>
-            <div className="rounded-2xl bg-[#16171d] p-5 ring-1 ring-white/[0.07]">
-              <div className="mb-1 flex items-center gap-3">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff]/20 text-[11px] font-black text-[#087cff]">3</span>
-                <p className="text-sm font-black text-white">Enter the 6-digit code</p>
-              </div>
-              <p className="ml-9 text-xs text-slate-500">
-                Verify your setup to complete enrollment
-              </p>
+
+            <div className="mb-6 space-y-px">
+              {[
+                { n: "1", label: "Install an authenticator app", sub: "Google Authenticator, Authy, or 1Password" },
+                { n: "2", label: "Scan the QR code", sub: "We'll generate it in the next step" },
+                { n: "3", label: "Enter the 6-digit code", sub: "Complete enrollment to gain access" },
+              ].map(({ n, label, sub }, i) => (
+                <div key={n} className={`flex gap-4 px-4 py-4 bg-[#111318] ${i === 0 ? "rounded-t-2xl" : i === 2 ? "rounded-b-2xl" : ""} border-b border-white/[0.04] last:border-0`}>
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[10px] font-black text-slate-400">
+                    {n}
+                  </span>
+                  <div>
+                    <p className="text-sm font-bold text-white">{label}</p>
+                    <p className="mt-0.5 text-xs text-slate-600">{sub}</p>
+                  </div>
+                </div>
+              ))}
             </div>
 
             {setupError && (
-              <div className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2.5 ring-1 ring-red-500/20">
-                <Icon name="error" fill className="shrink-0 text-[15px] text-red-400" />
-                <p className="text-xs font-bold text-red-400">{setupError}</p>
-              </div>
+              <p className="mb-4 flex items-center gap-1.5 text-xs font-medium text-red-400">
+                <Icon name="error" size={13} />
+                {setupError}
+              </p>
             )}
 
             <button
               type="button"
               onClick={startSetup}
               disabled={setupLoading}
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 text-base font-black text-white shadow-lg shadow-amber-500/20 transition hover:bg-amber-400 active:scale-[.98] disabled:opacity-50"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-white text-sm font-black text-black transition hover:bg-slate-100 active:scale-[.98] disabled:opacity-40"
             >
-              {setupLoading ? <Spinner /> : <>
-                <Icon name="qr_code_2" className="text-[20px]" />
-                Generate QR Code
-              </>}
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {/* QR code */}
-            <div className="flex flex-col items-center rounded-2xl bg-white p-5">
-              {qrUrl && (
-                <img src={qrUrl} alt="Authenticator QR code" width={200} height={200} className="rounded-xl" />
+              {setupLoading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-black/20 border-t-black" />
+              ) : (
+                <>
+                  <Icon name="qr_code" size={16} />
+                  Generate QR code
+                </>
               )}
-              <p className="mt-3 text-center text-xs font-bold text-slate-700">
-                Scan with your authenticator app
+            </button>
+
+            <p className="mt-5 text-center text-xs text-slate-700">{adminEmail}</p>
+          </>
+        ) : (
+          <>
+            <div className="mb-6 text-center">
+              <h1 className="text-[22px] font-black text-white tracking-tight">Scan & verify</h1>
+              <p className="mt-1.5 text-sm text-slate-500">
+                Scan with your authenticator app, then enter the code below
               </p>
             </div>
 
-            {/* Manual entry */}
-            <div className="rounded-xl bg-[#16171d] px-4 py-3 ring-1 ring-white/[0.07]">
-              <p className="mb-1 text-[10px] font-black uppercase tracking-widest text-slate-600">
+            {/* QR code */}
+            <div className="mb-4 flex justify-center rounded-2xl bg-white p-5">
+              {qrUrl && (
+                <img src={qrUrl} alt="2FA QR code" width={200} height={200} className="rounded-lg" />
+              )}
+            </div>
+
+            {/* Manual key */}
+            <div className="mb-5 rounded-2xl bg-[#111318] px-4 py-3 ring-1 ring-white/[0.07]">
+              <p className="mb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">
                 Can&apos;t scan? Enter manually
               </p>
               <div className="flex items-center gap-2">
-                <p className="flex-1 break-all font-mono text-xs text-slate-300">{setupData.secret}</p>
-                <button type="button" onClick={copySecret} className="shrink-0 text-slate-500 hover:text-[#087cff] transition-colors">
-                  <Icon name={copied ? "check" : "content_copy"} className={`text-[16px] ${copied ? "text-[#31c45d]" : ""}`} />
+                <p className="flex-1 break-all font-mono text-xs text-slate-400">{setupData.secret}</p>
+                <button type="button" onClick={copySecret} className="shrink-0 transition text-slate-600 hover:text-white">
+                  <Icon name={copied ? "check" : "qr_code"} size={14} className={copied ? "text-[#31c45d]" : ""} />
                 </button>
               </div>
             </div>
 
-            {/* Code verification */}
-            <div>
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-                Enter the 6-digit code to confirm setup
-              </p>
-              <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.08] focus-within:ring-[#087cff]/50 transition">
-                <Icon name="pin" fill className="shrink-0 text-[20px] text-slate-500" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  inputMode="numeric"
-                  pattern="\d*"
-                  maxLength={7}
-                  value={code}
-                  onChange={(e) => { setCode(e.target.value.replace(/[^0-9\s]/g, "")); setVerifyError(""); }}
-                  onKeyDown={(e) => e.key === "Enter" && verify(true)}
-                  placeholder="000 000"
-                  className="flex-1 bg-transparent py-4 text-center font-mono text-2xl font-black tracking-[0.3em] text-white outline-none placeholder:text-slate-700"
-                />
-              </div>
+            {/* Code input */}
+            <div className={`mb-3 flex items-center gap-3 rounded-2xl bg-[#111318] px-4 ring-1 transition ${verifyError ? "ring-red-500/40" : "ring-white/[0.07] focus-within:ring-[#087cff]/40"}`}>
+              <Icon name="lock" className="shrink-0 text-slate-600" size={15} />
+              <input
+                ref={inputRef}
+                type="text"
+                inputMode="numeric"
+                pattern="\d*"
+                maxLength={7}
+                value={code}
+                onChange={(e) => { setCode(e.target.value.replace(/[^0-9\s]/g, "")); setVerifyError(""); }}
+                onKeyDown={(e) => e.key === "Enter" && verify(true)}
+                placeholder="000 000"
+                className="flex-1 bg-transparent py-4 text-center font-mono text-xl font-black tracking-[0.35em] text-white outline-none placeholder:text-slate-700"
+              />
             </div>
 
             {verifyError && (
-              <div className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2.5 ring-1 ring-red-500/20">
-                <Icon name="error" fill className="shrink-0 text-[15px] text-red-400" />
-                <p className="text-xs font-bold text-red-400">{verifyError}</p>
-              </div>
+              <p className="mb-3 flex items-center gap-1.5 text-xs font-medium text-red-400">
+                <Icon name="error" size={13} />
+                {verifyError}
+              </p>
             )}
 
             <button
               type="button"
               onClick={() => verify(true)}
               disabled={verifyLoading || code.replace(/\s/g, "").length !== 6}
-              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#087cff] text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#087cff] text-sm font-black text-white transition hover:bg-[#1a87ff] active:scale-[.98] disabled:opacity-40 mb-3"
             >
-              {verifyLoading ? <Spinner /> : "Activate 2FA & Enter Admin"}
+              {verifyLoading ? <Spinner /> : "Activate & enter admin"}
             </button>
 
             <button
               type="button"
-              onClick={() => setSetupData(null)}
-              className="w-full text-center text-xs text-slate-600 hover:text-slate-400 transition-colors"
+              onClick={() => { setSetupData(null); setCode(""); setVerifyError(""); }}
+              className="w-full text-center text-xs text-slate-700 hover:text-slate-500 transition-colors"
             >
               Start over
             </button>
-          </div>
+          </>
         )}
       </div>
     </div>
