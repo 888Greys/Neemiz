@@ -17,18 +17,18 @@ interface Props {
 }
 
 function chipColor(cp: number) {
-  if (cp < 1.5) return "bg-sky-700 text-sky-100 border-sky-500/30";
-  if (cp < 2)   return "bg-blue-700 text-blue-100 border-blue-500/30";
-  if (cp < 5)   return "bg-violet-700 text-violet-100 border-violet-500/30";
-  if (cp < 10)  return "bg-purple-700 text-purple-100 border-purple-500/30";
-  return              "bg-fuchsia-800 text-fuchsia-100 border-fuchsia-500/30";
+  if (cp < 1.5) return "bg-sky-600/80 text-sky-100 border-sky-400/40";
+  if (cp < 2)   return "bg-blue-600/80 text-blue-100 border-blue-400/40";
+  if (cp < 5)   return "bg-violet-600/80 text-violet-100 border-violet-400/40";
+  if (cp < 10)  return "bg-purple-600/80 text-purple-100 border-purple-400/40";
+  return              "bg-fuchsia-600/80 text-fuchsia-100 border-fuchsia-400/50";
 }
 
 function chipGlow(cp: number) {
   if (cp < 2)  return "";
-  if (cp < 5)  return "shadow-orange-500/20";
-  if (cp < 10) return "shadow-blue-500/20";
-  return            "shadow-purple-500/30";
+  if (cp < 5)  return "shadow-sm shadow-violet-500/30";
+  if (cp < 10) return "shadow-sm shadow-purple-500/40";
+  return            "shadow-md shadow-fuchsia-500/50";
 }
 
 export function AviatorHistory({ rounds, onVerify }: Props) {
@@ -46,11 +46,11 @@ export function AviatorHistory({ rounds, onVerify }: Props) {
     <div className="relative min-w-0 overflow-hidden">
       <div
         ref={scrollRef}
-        className="no-scrollbar flex w-full min-w-0 max-w-full items-center gap-1.5 overflow-x-auto"
+        className="no-scrollbar flex w-full min-w-0 max-w-full items-center gap-1.5 overflow-x-auto py-0.5"
         style={{ scrollBehavior: "smooth", scrollbarWidth: "none" } as React.CSSProperties}
       >
         {rounds.length === 0 && (
-          <span className="px-2 text-xs text-white/30 italic">No rounds yet…</span>
+          <span className="px-2 text-[11px] text-white/30 italic">No rounds yet…</span>
         )}
         {[...rounds].reverse().map((r) => (
           <button
@@ -58,7 +58,7 @@ export function AviatorHistory({ rounds, onVerify }: Props) {
             onClick={() => onVerify?.(r)}
             onMouseEnter={(e) => setTooltip({ r, x: e.clientX })}
             onMouseLeave={() => setTooltip(null)}
-            className={`shrink-0 rounded-full border px-3 py-1 text-xs font-black shadow-sm transition-transform hover:scale-105 ${chipColor(r.crashPoint)} ${chipGlow(r.crashPoint)}`}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-black transition-transform hover:scale-105 ${chipColor(r.crashPoint)} ${chipGlow(r.crashPoint)}`}
           >
             {r.crashPoint.toFixed(2)}x
           </button>
