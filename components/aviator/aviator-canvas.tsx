@@ -275,7 +275,7 @@ function draw(
   ctx.fillText(`${displayMult.toFixed(2)}x`, w/2, h*(compact?0.52:0.5)+fs*0.18);
   ctx.shadowBlur = 0;
   ctx.font = `bold ${fs*0.28}px Inter,sans-serif`; ctx.fillStyle = "rgba(255,255,255,0.35)";
-  ctx.fillText(isCrashed?"CRASHED":"Current Multiplier", w/2, h*(compact?0.52:0.5)+fs*0.58);
+  if (isCrashed) ctx.fillText("CRASHED", w/2, h*(compact?0.52:0.5)+fs*0.58);
 }
 
 // Plane — y-axis flipped (scale 1,-1) so it appears right-side-up when going down-right
