@@ -248,6 +248,8 @@ function MobileP2POrderView({
   const [showChat, setShowChat] = useState(false);
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [mobileCancelReason, setMobileCancelReason] = useState("");
+  const [showDisputeScreen, setShowDisputeScreen] = useState(false);
+  const [mobileDisputeReason, setMobileDisputeReason] = useState("");
 
   const merchantIsSelling = order.side === "SELL";
   const paymentName = order.paymentMethod === "MPESA" ? "M-pesa Paybill" : order.paymentMethod === "BANK" ? "Bank Transfer" : order.paymentMethod;
@@ -323,6 +325,56 @@ function MobileP2POrderView({
           className="h-12 w-full rounded-full bg-red-500 text-sm font-black text-white disabled:opacity-50 hover:bg-red-600 transition-colors"
         >
           {actionLoading === "cancel" ? "Cancelling…" : "Confirm Cancel"}
+        </button>
+      </div>
+    );
+  }
+
+  // ── Dispute screen ───────────────────────────────────────────────────────
+  if (showDisputeScreen) {
+    return (
+      <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-[#08080c] px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
+        <div className="mb-6 flex items-center gap-3 border-b border-white/[0.08] pb-3">
+          <button
+            type="button"
+            onClick={() => setShowDisputeScreen(false)}
+            className="grid h-9 w-9 place-items-center rounded-full text-white"
+          >
+            <Icon name="arrow_back" className="text-[21px]" />
+          </button>
+          <h1 className="text-[18px] font-black">Raise a Dispute</h1>
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+          <p className="text-[12px] font-bold leading-5 text-red-400">
+            Only raise a dispute if you have paid and the merchant is not responding or refusing to release.
+            Our team will review within 24 hours.
+          </p>
+        </div>
+
+        <div className="mb-6">
+          <label className="mb-2 block text-[11px] font-bold text-slate-500">Describe the issue</label>
+          <textarea
+            value={mobileDisputeReason}
+            onChange={(e) => setMobileDisputeReason(e.target.value)}
+            placeholder="e.g. I paid KSh 5,000 via M-Pesa (ref: QHJ2K3L) 30 minutes ago but merchant has not released…"
+            rows={5}
+            className="w-full rounded-xl border border-white/[0.08] bg-[#16161f] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-700 resize-none"
+          />
+        </div>
+
+        <button
+          type="button"
+          disabled={!mobileDisputeReason.trim() || !!actionLoading}
+          onClick={async () => {
+            if (!mobileDisputeReason.trim()) return;
+            await onAction("dispute", { reason: mobileDisputeReason.trim() }, "dispute");
+            setShowDisputeScreen(false);
+            setMobileDisputeReason("");
+          }}
+          className="h-12 w-full rounded-full bg-red-500 text-sm font-black text-white disabled:opacity-50 hover:bg-red-600 transition-colors"
+        >
+          {actionLoading === "dispute" ? "Raising dispute…" : "Submit Dispute"}
         </button>
       </div>
     );
@@ -544,23 +596,61 @@ function MobileP2POrderView({
         </div>
       )}
 
-      <button type="button" className="mb-5 flex w-full items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3 text-left">
-        <span className="flex items-center gap-2 text-xs text-white">
-          <Icon name="tips_and_updates" className="text-[16px] text-[#f59e0b]" />
-          Encountered an issue?
-        </span>
-        <Icon name="chevron_right" className="text-[16px] text-slate-500" />
-      </button>
-
-      <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-[#1e1e30] bg-[#08080c] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+      {order.status === "PAID" && order.isBuyer && merchantIsSelling && (
         <button
           type="button"
-          disabled={!canMarkPaid || !!actionLoading}
-          onClick={() => onAction("paid", { paymentRef: paidRef || null }, "paid")}
-          className="h-12 w-full rounded-full bg-[#087cff] text-sm font-black text-white disabled:opacity-50 hover:bg-[#0570e8] transition-colors"
+          onClick={() => setShowDisputeScreen(true)}
+          className="mb-5 flex w-full items-center justify-between rounded-2xl bg-red-500/5 border border-red-500/20 px-4 py-3 text-left hover:bg-red-500/10 transition-colors"
         >
-          {actionLoading === "paid" ? "Confirming..." : "Payment Completed"}
+          <span className="flex items-center gap-2 text-xs text-red-400 font-bold">
+            <Icon name="gavel" className="text-[16px]" />
+            Merchant not releasing? Raise a dispute
+          </span>
+          <Icon name="chevron_right" className="text-[16px] text-red-500/50" />
         </button>
+      )}
+
+      {order.status !== "PAID" && (
+        <button type="button" className="mb-5 flex w-full items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3 text-left">
+          <span className="flex items-center gap-2 text-xs text-white">
+            <Icon name="tips_and_updates" className="text-[16px] text-[#f59e0b]" />
+            Encountered an issue?
+          </span>
+          <Icon name="chevron_right" className="text-[16px] text-slate-500" />
+        </button>
+      )}
+
+      <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-[#1e1e30] bg-[#08080c] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+        {canMarkPaid && (
+          <button
+            type="button"
+            disabled={!!actionLoading}
+            onClick={() => onAction("paid", { paymentRef: paidRef || null }, "paid")}
+            className="h-12 w-full rounded-full bg-[#087cff] text-sm font-black text-white disabled:opacity-50 hover:bg-[#0570e8] transition-colors"
+          >
+            {actionLoading === "paid" ? "Confirming..." : "Payment Completed"}
+          </button>
+        )}
+        {order.status === "PAID" && order.isSeller && merchantIsSelling && (
+          <button
+            type="button"
+            disabled={!!actionLoading}
+            onClick={() => onAction("release", {}, "release")}
+            className="h-12 w-full rounded-full bg-[#05b957] text-sm font-black text-white disabled:opacity-50 hover:bg-[#28af52] transition-colors"
+          >
+            {actionLoading === "release" ? "Releasing…" : `Release ${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}`}
+          </button>
+        )}
+        {order.status === "PAID" && order.isBuyer && !merchantIsSelling && (
+          <button
+            type="button"
+            disabled={!!actionLoading}
+            onClick={() => onAction("release", {}, "release")}
+            className="h-12 w-full rounded-full bg-[#05b957] text-sm font-black text-white disabled:opacity-50 hover:bg-[#28af52] transition-colors"
+          >
+            {actionLoading === "release" ? "Releasing…" : `Release ${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}`}
+          </button>
+        )}
       </div>
     </div>
   );

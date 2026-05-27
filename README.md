@@ -1,84 +1,160 @@
 # Nezeem
 
-Nezeem is a mobile-first betting and trading app built with Next.js, TypeScript, Tailwind CSS, Prisma, Supabase Auth, and Bun. The current codebase includes real wallet, betting, P2P, crypto, webhook, and settlement routes, so production deployments must configure the secrets in `.env.local.example` before enabling payments or settlement workers.
+Nezeem is a mobile-first betting and trading platform built with Next.js, TypeScript, Tailwind CSS, Prisma, Supabase Auth, and Bun. It combines a full sportsbook, P2P crypto trading, Aviator crash game, binary options, forex, and Polymarket prediction markets — all backed by real wallets, escrow, and live settlement.
+
+## Live URLs
+
+- Production: `https://www.nezeem.com`
+- Admin panel: `https://www.nezeem.com/admin/p2p`
+- VPS: `root@vmi3292677`
+
+---
 
 ## Current Pages
 
-- `/` - home dashboard with wallet summary, featured match, market shortcuts, trending events, and prediction preview
-- `/sports` - sportsbook view with sport filters, live/upcoming tabs, league blocks, and odds rows
-- `/p2p` - P2P trading screen with buy/sell tabs, filters, merchant cards, limits, and payment chips
-- `/predictions` - Polymarket-style prediction markets with category filters, probability bars, and Yes/No actions
-- `/binary` - binary-options trading terminal with demo balance, digit stats, contract controls, and open/closed trades
-- `/forex` - forex trading terminal with live Deriv-backed candlesticks and order ticket controls
-- `/aviator` - Aviator-style game screen with multiplier history, flight canvas, bet panels, and auto cashout controls
-- `/wallet` - wallet screen with balance, deposit/withdraw/transfer actions, asset breakdown, and recent activity
-- `/login` - login/signup UI with email/phone, password, social buttons, and terms copy
+| Route | Description |
+|-------|-------------|
+| `/` | Home dashboard — wallet summary, hero carousel, game shortcuts, trending matches |
+| `/dashboard` | Main dashboard (default after login) |
+| `/sports` | Sportsbook — sport filters, live/upcoming tabs, league blocks, odds rows |
+| `/sports/[fixtureId]` | Single match page with in-play markets |
+| `/p2p` | P2P trading — buy/sell tabs, merchant cards, verified badge, payment chips |
+| `/p2p/merchant` | Merchant application and profile management |
+| `/p2p/orders` | User's trade history |
+| `/p2p/order/[id]` | Live order page — chat, payment instructions, countdown, release/dispute |
+| `/predictions` | Polymarket-style markets — probability bars, Yes/No trading |
+| `/binary` | Binary options terminal — digit contracts, demo balance, live Deriv charts |
+| `/forex` | Forex trading terminal — live candlesticks, order ticket, history |
+| `/aviator` | Aviator crash game — real-time WebSocket, multiplier history, auto cashout |
+| `/wallet` | Full wallet — deposit (M-Pesa + crypto), withdraw (crypto + M-Pesa), history |
+| `/my-bets` | All bets across sportsbook, binary, forex, predictions |
+| `/profile` | User profile, username editor, preferences |
+| `/admin/p2p` | **Admin only** — KYC review, dispute resolution, merchant deposit management |
+| `/login` | Auth — email/phone, password, social sign-in |
+
+---
 
 ## Stack
 
-- Next.js App Router
-- React
-- TypeScript
-- Tailwind CSS
-- Bun
-- Inter and JetBrains Mono fonts
-- Material Symbols icons
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 15 App Router |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Runtime | Bun |
+| Database | PostgreSQL via Prisma ORM |
+| Auth | Supabase Auth |
+| Fonts | Inter, JetBrains Mono |
+| Icons | Material Symbols |
+| Email | Brevo (Sendinblue) |
+| Crypto payouts | NOWPayments |
+| Fiat deposits | MegaPay (M-Pesa STK push) |
+| Sports data | SportMonks + TheOddsAPI |
+| Prediction markets | Polymarket Gamma API |
+| Crash game | Self-hosted Go server + Redis + PostgreSQL on VPS |
+
+---
 
 ## Development
 
-Install dependencies:
-
 ```bash
 bun install
+bun run dev        # http://127.0.0.1:3000
+bun run build      # production build
 ```
 
-Run the dev server:
-
-```bash
-bun run dev
-```
-
-Open:
-
-```text
-http://127.0.0.1:3000
-```
-
-Build for production:
-
-```bash
-bun run build
-```
+---
 
 ## Project Structure
 
-- `app/` - Next.js routes and global layout/styles
-- `components/` - shared shell, icons, cards, odds buttons, wallet UI, and ticket UI
-- `lib/` - API clients, auth helpers, bet settlement, wallet/game helpers, and fallback mock data
-- `tailwind.config.ts` - Nezeem theme tokens
+```
+app/                  Next.js routes and global layout
+  api/                All API routes
+    admin/p2p/        Admin: merchant KYC, disputes, deposits
+    p2p/              P2P: ads, orders, merchant, disputes
+    crypto/           Crypto: address, balance, withdraw, webhooks
+    wallet/           Fiat: deposit (MegaPay), withdraw, transactions
+    cron/             Cron endpoints called from VPS
+    bets/             Sports/binary/forex bet placement + settlement
+    aviator/          Aviator REST endpoints
+    polymarket/       Prediction market bet placement
+  admin/p2p/          Admin dashboard page
+  p2p/                P2P pages
+  wallet/             Wallet full-page (deposit + withdraw + history)
+components/           Shared UI components
+  admin-p2p-client    KYC, disputes, deposits management panel
+  wallet-client       Full-page wallet (deposit, withdraw, history)
+  wallet-modal        Quick deposit popup (used in app shell header)
+  p2p-order-client    Live order page with chat + actions
+lib/                  Helpers, API clients, auth, bet settlement
+  crypto/             HD wallet derivation, deposit checker
+  p2p/                Crypto balance helpers (lock/unlock/credit/debit)
+prisma/               Database schema and migrations
+```
 
-## Notes
+---
 
-The original Stitch-generated HTML reference files have been removed after converting the design into reusable Next.js components. Some UI surfaces still have placeholder content, but the money-moving APIs are real and should be treated as production-sensitive.
+## Environment Variables
 
-Required production secrets include:
+### Required in Vercel (all environments)
 
-- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_WEBHOOK_SECRET`
-- `MEGAPAY_API_KEY`, `MEGAPAY_EMAIL`, `MEGAPAY_CALLBACK_TOKEN`
-- `MASTER_WALLET_MNEMONIC`, `ETHERSCAN_API_KEY`, `TRONGRID_API_KEY`
-- `USDT_KES_RATE`, `ETH_KES_RATE`, `BNB_KES_RATE`
-- `CRON_SECRET`, `SETTLE_SECRET`
+```env
+# Supabase Auth
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_WEBHOOK_SECRET=
 
-Production deploys are triggered from the `main` branch on Vercel.
+# Database
+DATABASE_URL=
+
+# M-Pesa (MegaPay)
+MEGAPAY_API_KEY=
+MEGAPAY_EMAIL=
+MEGAPAY_CALLBACK_TOKEN=
+MEGAPAY_PAYBILL=
+
+# Crypto deposits (HD wallet)
+MASTER_WALLET_MNEMONIC=        # 12-word BIP44 mnemonic — keep secret
+ETHERSCAN_API_KEY=             # For ERC20/BEP20 deposit detection
+TRONGRID_API_KEY=              # For TRC20 deposit detection
+
+# Crypto withdrawal
+NOWPAYMENTS_API_KEY=
+
+# KES conversion rates (update regularly — no redeploy needed if set as env vars)
+USDT_KES_RATE=128
+ETH_KES_RATE=420000
+BNB_KES_RATE=84000
+
+# Cron auth (must match /opt/neemiz/settle.env on VPS)
+CRON_SECRET=
+SETTLE_SECRET=
+
+# Sports
+SPORTMONKS_API_KEY=
+THE_ODDS_API_KEY=
+
+# Email
+BREVO_API_KEY=
+
+# Prediction markets (internal mode requires no extra keys)
+POLYMARKET_TRADING_MODE=internal
+```
+
+### Vercel env check
+
+```bash
+vercel env ls
+```
+
+---
 
 ## Crypto Deposit System
 
-### How it works
+### Architecture
 
-Each user gets a unique blockchain deposit address per coin/network combination. Addresses are derived deterministically from a single BIP44 HD wallet mnemonic (`MASTER_WALLET_MNEMONIC`) so all funds can be recovered from that one phrase.
-
-**Address derivation:**
+Each user gets a unique blockchain deposit address per coin/network combination. Addresses are derived deterministically from a single BIP44 HD wallet mnemonic so all funds can be recovered from one phrase.
 
 ```
 MASTER_WALLET_MNEMONIC
@@ -90,9 +166,9 @@ MASTER_WALLET_MNEMONIC
        └── m/44'/195'/0'/0/N →  Tron address (USDT TRC20)
 ```
 
-`N` is a global sequential index — the Nth deposit address ever created on the platform. Each user × coin × network combination gets a unique `N`.
+`N` is a global sequential index — the Nth deposit address ever created on the platform.
 
-**Supported coins:**
+### Supported coins
 
 | Coin | Network | Detection API |
 |------|---------|---------------|
@@ -102,19 +178,20 @@ MASTER_WALLET_MNEMONIC
 | ETH  | ERC20 | Etherscan API V2 |
 | BNB  | BEP20 | Etherscan API V2 |
 
-**Deposit flow:**
+### Deposit flow
 
-1. User clicks "Get Deposit Address" → `GET /api/p2p/merchant/deposit-address` or `POST /api/crypto/address`
-2. Server derives the user's unique address from the mnemonic and stores it in `crypto_deposit_addresses`
-3. User sends coins to that address on-chain
-4. VPS cron runs every 5 minutes → calls `GET /api/cron/check-deposits`
-5. Cron scans every address via TronGrid / Etherscan, finds new inbound transactions
-6. For each new deposit:
-   - **Merchant user** → credits `P2PCryptoBalance` (escrow for sell ads)
-   - **Regular user** → converts to KES at the configured rate, credits `walletBalance`, logs a `Transaction`
-7. User receives an in-app notification and their balance updates
+1. User opens Wallet → Deposit → Crypto tab → selects coin/network
+2. Clicks "Get Deposit Address" → `POST /api/crypto/address`
+3. Server derives unique address from mnemonic, stores in `crypto_deposit_addresses`
+4. User sends coins to that address on-chain
+5. VPS cron runs every 5 minutes → `GET https://www.nezeem.com/api/cron/check-deposits`
+6. Cron scans all addresses via TronGrid / Etherscan, finds new inbound transactions
+7. For each new deposit:
+   - **Merchant user** → credits `P2PCryptoBalance` (available for sell ads)
+   - **Regular user** → converts to KES at the configured rate, credits `walletBalance`
+8. User gets an in-app notification
 
-**KES conversion rates (set in Vercel env vars):**
+### KES conversion rates
 
 | Env var | Default | Meaning |
 |---------|---------|---------|
@@ -122,19 +199,146 @@ MASTER_WALLET_MNEMONIC
 | `ETH_KES_RATE` | 420000 | 1 ETH = KSh 420,000 |
 | `BNB_KES_RATE` | 84000 | 1 BNB = KSh 84,000 |
 
-Update these regularly in Vercel → Redeploy to keep rates accurate.
+Update in Vercel → Settings → Environment Variables. Redeploy to apply.
 
-### Polymarket prediction mode
+### Sweeping funds
 
-Prediction markets load from the real Polymarket Gamma API. The recommended production mode for the current app is internal settlement:
+Coins sit in individual deposit addresses until swept. To access funds:
 
-```env
-POLYMARKET_TRADING_MODE=internal
+1. **Trust Wallet** or **Exodus** — import `MASTER_WALLET_MNEMONIC`. All EVM addresses (ETH, BNB, USDT ERC20/BEP20) appear automatically.
+2. **TronLink** — import same mnemonic for Tron (USDT TRC20).
+
+Sweep regularly to a cold wallet after large deposits.
+
+---
+
+## Crypto Withdrawal System
+
+Users withdraw crypto via NOWPayments:
+
+- API: `POST /api/crypto/withdraw` → body `{ crypto, network, amount, address }`
+- 5% platform fee deducted from requested amount
+- Minimum amounts: USDT 10, ETH 0.005, BNB 0.01, BTC 0.0001
+- Debits `UserCryptoBalance`, creates a PENDING `Transaction`, submits payout to NOWPayments
+- On success: NOWPayments calls `POST /api/crypto/withdraw-webhook`
+- On failure: balance automatically refunded
+
+UI: `/wallet` → Withdraw tab → Crypto
+
+---
+
+## P2P Trading
+
+### Flow
+
+1. Merchant applies at `/p2p/merchant` — submits display name + KYC document
+2. Admin approves KYC at `/admin/p2p` → merchant gets verified badge
+3. Merchant deposits USDT to their escrow balance at `/wallet` → Deposit → Crypto
+4. Merchant creates a SELL ad with price, limits, and payment method
+5. Buyer browses ads at `/p2p`, clicks Buy → creates an order
+6. Order locks crypto in escrow. Buyer pays fiat (M-Pesa / bank) and marks as paid
+7. Merchant verifies fiat and clicks Release — 2% platform fee deducted, buyer receives 98%
+8. If dispute: either party raises dispute → admin resolves at `/admin/p2p` → Disputes
+
+### Escrow fee
+
+- Platform takes **2%** of the crypto amount on release
+- Example: 100 USDT order → 98 USDT to buyer, 2 USDT to platform
+
+### Admin panel (`/admin/p2p`)
+
+Three tabs — all require `isAdmin = true` on the user record:
+
+| Tab | Function |
+|-----|---------|
+| KYC Requests | Approve/reject merchant applications with notes |
+| Disputes | View disputed orders, select resolution (Buyer Wins / Seller Wins), enter note |
+| Deposits | Review manual crypto deposit records, approve/reject |
+
+To mark yourself admin: `UPDATE users SET is_admin = true WHERE email = 'your@email.com';`
+
+---
+
+## Aviator Game
+
+Self-hosted Go crash game server on VPS.
+
+### VPS services (vmi3292677)
+
+```bash
+docker ps           # aviator_app, aviator_redis_1, aviator_psql_bp_1
 ```
 
-In this mode, users see real Polymarket markets, prices, charts, and outcomes, but their positions are Nezeem ledger entries. Nezeem deducts the stake internally, stores the entry price, and settles/pays out internally from Polymarket resolution data. No funded Polymarket account or CLOB API credentials are required.
+- **Go server** (`aviator_app`) — WebSocket game server on `:8080`
+- **Redis** (`aviator_redis_1`) — pub/sub and state
+- **PostgreSQL** (`aviator_psql_bp_1`) — persistent round/bet history
 
-To place real Polymarket CLOB buy orders later, switch deliberately to:
+### VPS cron scripts
+
+| Script | Schedule | Function |
+|--------|----------|---------|
+| `aviator-tick.sh` | Every 10s | Drives Aviator game rounds |
+| `bets-settle.sh` | Every 60s | Settles pending sports/binary/forex bets |
+| `polymarket-settle.sh` | Every 1h | Settles resolved Polymarket markets |
+
+---
+
+## VPS Cron Setup
+
+All cron jobs run on `root@vmi3292677` and call Vercel endpoints.
+
+### Secret file
+
+```bash
+# /opt/neemiz/settle.env
+CRON_SECRET=...
+SETTLE_SECRET=...
+```
+
+### Current crontab
+
+```cron
+# Deposit checker — every 5 min
+*/5 * * * * source /opt/neemiz/settle.env && echo -n "[$(date +"%Y-%m-%d %H:%M")] " >> /var/log/neemiz-deposits.log && curl -sL -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/api/cron/check-deposits >> /var/log/neemiz-deposits.log 2>&1 && echo "" >> /var/log/neemiz-deposits.log
+
+# Bet settlement — every 30 min
+*/30 * * * * /opt/neemiz/settle-bets.sh >> /var/log/neemiz-settle.log 2>&1
+```
+
+> **Note:** Use `https://www.nezeem.com` (with `www`) not `https://nezeem.com` — the bare domain redirects (307) and cron calls without `-L` will silently fail.
+
+### Monitor logs
+
+```bash
+tail -f /var/log/neemiz-deposits.log
+# [2026-05-27 14:35] {"ok":true,"checked":7,"credited":0,"errors":[]}
+
+tail -n 50 /var/log/neemiz-settle.log
+```
+
+### Manual trigger
+
+```bash
+source /opt/neemiz/settle.env
+
+# Check deposits now
+curl -sL -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/api/cron/check-deposits
+
+# Settle bets now
+curl -sL -X POST -H "Authorization: Bearer $SETTLE_SECRET" https://www.nezeem.com/api/bets/settle
+```
+
+---
+
+## Polymarket Prediction Mode
+
+```env
+POLYMARKET_TRADING_MODE=internal   # recommended — no funded account needed
+```
+
+In `internal` mode: real Polymarket markets/prices/charts, but positions are Nezeem ledger entries settled internally.
+
+To place real CLOB orders (requires funded Polymarket account):
 
 ```env
 POLYMARKET_TRADING_MODE=clob
@@ -147,72 +351,77 @@ POLYMARKET_SIGNATURE_TYPE=0
 POLYMARKET_ORDER_TYPE=FOK
 ```
 
-The trading wallet or proxy wallet must already be funded and approved on Polymarket before CLOB mode is enabled. When CLOB mode is enabled, `/api/polymarket/bet` posts a real market buy order first, then stores the returned order id, status, trade ids, and transaction hashes with the internal bet record.
+---
 
-### Sweeping funds (moving coins to your main wallet)
+## House Edge Summary
 
-Coins sit in the individual deposit addresses until you sweep them. To access funds:
-
-1. Open **Trust Wallet** or **Exodus**
-2. Import `MASTER_WALLET_MNEMONIC` (12 words from `/opt/neemiz/settle.env`)
-3. All EVM addresses (ETH, BNB, USDT ERC20/BEP20) will appear automatically
-4. For Tron (USDT TRC20) open **TronLink** and import the same mnemonic
-
-Sweep regularly to a cold wallet after large deposits.
-
-### VPS cron for deposit checking
-
-```bash
-# /opt/neemiz/settle.env
-CRON_SECRET=...
-MASTER_WALLET_MNEMONIC="word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12"
-ETHERSCAN_API_KEY=...
-TRONGRID_API_KEY=...
-```
-
-```cron
-*/5 * * * * source /opt/neemiz/settle.env && echo -n "[$(date +"%Y-%m-%d %H:%M")] " >> /var/log/neemiz-deposits.log && curl -s -H "Authorization: Bearer $CRON_SECRET" https://nezeem.com/api/cron/check-deposits >> /var/log/neemiz-deposits.log 2>&1 && echo "" >> /var/log/neemiz-deposits.log
-```
-
-Monitor:
-
-```bash
-tail -f /var/log/neemiz-deposits.log
-# {"ok":true,"checked":5,"credited":1,"errors":[]}
-```
-
-`checked` = number of addresses scanned, `credited` = deposits found and credited this run.
+| Game | Edge | Method |
+|------|------|--------|
+| Sports | ~5–10% | Margin baked into odds |
+| Binary (Matches/Differs) | ~5% | Payout < 100% |
+| Binary (Over/Under) | ~5% dynamic | Target-digit-adjusted payout |
+| Forex | 3-pip spread | Spread baked into entry price |
+| Aviator | ~3% | Provably fair with configurable house cut |
+| P2P | 2% | Fee on crypto release |
+| Crypto withdrawal | 5% | Fee on withdrawal amount |
 
 ---
 
-## Server Cron
+## Database Schema Overview
 
-Vercel cron is disabled for this project so Hobby deployments are not blocked by the 30-minute settlement schedule. Bet settlement runs from the VPS instead.
+Key models (see `prisma/schema.prisma` for full schema):
 
-Installed on `root@vmi3292677`:
+| Model | Purpose |
+|-------|---------|
+| `User` | Platform user — wallet balance, admin flag |
+| `MerchantProfile` | P2P merchant — KYC status, trade stats, online status |
+| `P2PAd` | Buy/sell ads with price, limits, payment methods |
+| `P2POrder` | Live escrow orders — PENDING → PAID → RELEASED/DISPUTED |
+| `P2PDispute` | Dispute records with resolution |
+| `P2PCryptoBalance` | Merchant escrow balance (available/locked per coin) |
+| `UserCryptoBalance` | Regular user crypto balance per coin/network |
+| `CryptoDepositAddress` | HD-wallet-derived deposit addresses |
+| `P2PCryptoDeposit` | Manual deposit submissions requiring admin approval |
+| `Transaction` | Fiat and crypto transaction log |
+| `Notification` | In-app notifications |
+| `Bet` | Sports/binary/forex/prediction bets |
 
-- Secret file: `/opt/neemiz/settle.env`
-- Runner script: `/opt/neemiz/settle-bets.sh`
-- Cron log: `/var/log/neemiz-settle.log`
-- Schedule: every 30 minutes
+---
 
-```cron
-*/30 * * * * /opt/neemiz/settle-bets.sh >> /var/log/neemiz-settle.log 2>&1
-```
-
-The runner calls:
-
-```bash
-curl -fsS -X POST https://www.nezeem.com/api/bets/settle \
-  -H "Authorization: Bearer ${CRON_SECRET}"
-```
-
-`CRON_SECRET` in `/opt/neemiz/settle.env` must match the `CRON_SECRET` value configured in Vercel.
-
-Useful server checks:
+## Migrations
 
 ```bash
-/opt/neemiz/settle-bets.sh
-crontab -l
-tail -n 50 /var/log/neemiz-settle.log
+bun prisma migrate dev --name <name>   # create migration
+bun prisma migrate deploy              # apply in production
+bun prisma db push                     # push schema changes (dev only)
+bun prisma studio                      # GUI
 ```
+
+---
+
+## Deployment
+
+Deploys trigger automatically from `main` branch on Vercel.
+
+```bash
+# Manual deploy
+vercel --prod
+
+# Check recent deploys
+vercel ls
+
+# Tail production logs
+vercel logs --follow
+```
+
+Production always uses `www.nezeem.com`. Bare `nezeem.com` → 307 redirect to `www`.
+
+---
+
+## Security Notes
+
+- `MASTER_WALLET_MNEMONIC` controls all deposit funds — rotate if exposed, sweep first
+- `CRON_SECRET` and `SETTLE_SECRET` authenticate VPS → Vercel calls — rotate if logged/exposed
+- Admin access requires `isAdmin = true` in the database — no UI to self-promote
+- All money-moving API routes require Supabase session auth
+- P2P escrow: crypto is locked in `P2PCryptoBalance.locked` until released/refunded atomically
