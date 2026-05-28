@@ -6,9 +6,16 @@ import { getOrCreateDepositAddress } from "@/lib/crypto/hd-wallet";
 export const dynamic = "force-dynamic";
 
 const VALID: Record<string, string[]> = {
-  USDT: ["TRC20", "ERC20", "BEP20"],
-  ETH:  ["ERC20"],
-  BNB:  ["BEP20"],
+  USDT:  ["TRC20", "ERC20", "BEP20"],
+  USDC:  ["ERC20", "POLYGON"],
+  ETH:   ["ERC20"],
+  BNB:   ["BEP20"],
+  MATIC: ["POLYGON"],
+  TRX:   ["TRC20"],
+  DAI:   ["ERC20"],
+  BUSD:  ["BEP20"],
+  WBTC:  ["ERC20"],
+  LINK:  ["ERC20"],
 };
 
 function defaultNetwork(crypto: string): string {
@@ -58,10 +65,8 @@ export async function POST(req: Request) {
     const network = (body.network ?? defaultNetwork(crypto)).toUpperCase();
 
     if (!VALID[crypto] || !VALID[crypto].includes(network)) {
-      return Response.json(
-        { error: "Invalid crypto/network. Supported: USDT(TRC20/ERC20/BEP20), ETH(ERC20), BNB(BEP20)" },
-        { status: 400 },
-      );
+      const supported = Object.entries(VALID).map(([c, nets]) => `${c}(${nets.join("/")})`).join(", ");
+      return Response.json({ error: `Invalid crypto/network. Supported: ${supported}` }, { status: 400 });
     }
 
     const address = await getOrCreateDepositAddress(dbUser.id, crypto, network);

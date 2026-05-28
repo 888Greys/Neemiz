@@ -10,6 +10,7 @@ interface Stats {
   pendingKyc: number;
   openDisputes: number;
   pendingDeposits: number;
+  pendingWithdrawals: number;
   totalMerchants: number;
   activeOrders: number;
   depositsToday: { count: number; amount: number };
@@ -87,7 +88,7 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
       ) : stats ? (
         <>
           {/* Alerts row */}
-          {(stats.pendingKyc > 0 || stats.openDisputes > 0 || stats.pendingDeposits > 0) && (
+          {(stats.pendingKyc > 0 || stats.openDisputes > 0 || stats.pendingDeposits > 0 || stats.pendingWithdrawals > 0) && (
             <div className="mb-6 flex flex-wrap gap-3">
               {stats.pendingKyc > 0 && (
                 <Link href="/admin/p2p" className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2.5 text-xs font-black text-amber-400 hover:bg-amber-500/15 transition-colors">
@@ -107,6 +108,13 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
                 <Link href="/admin/p2p" className="flex items-center gap-2 rounded-xl bg-blue-500/10 border border-blue-500/20 px-4 py-2.5 text-xs font-black text-blue-400 hover:bg-blue-500/15 transition-colors">
                   <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
                   {stats.pendingDeposits} deposit{stats.pendingDeposits !== 1 ? "s" : ""} to review
+                  <Icon name="chevron_right" className="text-[14px]" />
+                </Link>
+              )}
+              {stats.pendingWithdrawals > 0 && (
+                <Link href="/admin/withdrawals" className="flex items-center gap-2 rounded-xl bg-orange-500/10 border border-orange-500/20 px-4 py-2.5 text-xs font-black text-orange-400 hover:bg-orange-500/15 transition-colors">
+                  <span className="h-1.5 w-1.5 rounded-full bg-orange-400 animate-pulse" />
+                  {stats.pendingWithdrawals} withdrawal{stats.pendingWithdrawals !== 1 ? "s" : ""} awaiting approval
                   <Icon name="chevron_right" className="text-[14px]" />
                 </Link>
               )}

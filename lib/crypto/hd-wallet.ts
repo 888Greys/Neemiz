@@ -80,12 +80,13 @@ export async function getOrCreateDepositAddress(
   });
   if (existing) return existing.address;
 
-  if (network !== "TRC20") {
+  const isTron = network === "TRC20";
+  const isEvm  = !isTron; // ERC20, BEP20, POLYGON all share the same EVM address
+
+  if (isEvm) {
+    // Reuse an existing EVM address for this user across ERC20/BEP20/POLYGON
     const evmAddress = await db.cryptoDepositAddress.findFirst({
-      where: {
-        userId,
-        network: { in: ["ERC20", "BEP20"] },
-      },
+      where: { userId, network: { in: ["ERC20", "BEP20", "POLYGON"] } },
       orderBy: { createdAt: "asc" },
     });
     if (evmAddress) {
@@ -96,9 +97,9 @@ export async function getOrCreateDepositAddress(
     }
   }
 
-  // Global sequential index — each address gets the next slot
+  // Global sequential index — each new user slot gets the next derivation index
   const index   = await db.cryptoDepositAddress.count();
-  const address = network === "TRC20"
+  const address = isTron
     ? deriveTronAddress(index)
     : deriveEVMAddress(index);
 

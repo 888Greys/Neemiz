@@ -11,23 +11,33 @@ const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
 
 const COIN_ICON_URL: Record<string, string> = {
-  USDT: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
-  USDC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
-  BTC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
-  ETH:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
-  BNB:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
-  MATIC:"https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/matic.svg",
+  USDT:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
+  USDC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
+  BTC:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
+  ETH:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
+  BNB:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
+  MATIC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/matic.svg",
+  TRX:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/trx.svg",
+  DAI:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/dai.svg",
+  BUSD:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/busd.svg",
+  WBTC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/wbtc.svg",
+  LINK:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/link.svg",
 };
 
 const CRYPTO_WITHDRAW_ASSETS = [
-  { name: "Tether USD",  code: "USDT", network: "TRC20",   displayNet: "TRC-20",  min: 10     },
-  { name: "Tether USD",  code: "USDT", network: "ERC20",   displayNet: "ERC-20",  min: 10     },
-  { name: "Tether USD",  code: "USDT", network: "BEP20",   displayNet: "BEP-20",  min: 10     },
-  { name: "USD Coin",    code: "USDC", network: "ERC20",   displayNet: "ERC-20",  min: 10     },
-  { name: "USD Coin",    code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 10     },
-  { name: "Bitcoin",     code: "BTC",  network: "BTC",     displayNet: "Bitcoin", min: 0.0001 },
-  { name: "Ethereum",    code: "ETH",  network: "ERC20",   displayNet: "ERC-20",  min: 0.005  },
-  { name: "BNB",         code: "BNB",  network: "BEP20",   displayNet: "BEP-20",  min: 0.01   },
+  { name: "Tether USD",       code: "USDT",  network: "TRC20",   displayNet: "TRC-20",  min: 10      },
+  { name: "Tether USD",       code: "USDT",  network: "ERC20",   displayNet: "ERC-20",  min: 10      },
+  { name: "Tether USD",       code: "USDT",  network: "BEP20",   displayNet: "BEP-20",  min: 10      },
+  { name: "USD Coin",         code: "USDC",  network: "ERC20",   displayNet: "ERC-20",  min: 10      },
+  { name: "USD Coin",         code: "USDC",  network: "POLYGON", displayNet: "Polygon", min: 10      },
+  { name: "Ethereum",         code: "ETH",   network: "ERC20",   displayNet: "ERC-20",  min: 0.005   },
+  { name: "BNB",              code: "BNB",   network: "BEP20",   displayNet: "BEP-20",  min: 0.01    },
+  { name: "Polygon",          code: "MATIC", network: "POLYGON", displayNet: "Polygon", min: 1       },
+  { name: "TRON",             code: "TRX",   network: "TRC20",   displayNet: "TRC-20",  min: 10      },
+  { name: "Dai",              code: "DAI",   network: "ERC20",   displayNet: "ERC-20",  min: 10      },
+  { name: "Binance USD",      code: "BUSD",  network: "BEP20",   displayNet: "BEP-20",  min: 10      },
+  { name: "Wrapped Bitcoin",  code: "WBTC",  network: "ERC20",   displayNet: "ERC-20",  min: 0.0001  },
+  { name: "Chainlink",        code: "LINK",  network: "ERC20",   displayNet: "ERC-20",  min: 0.5     },
 ] as const;
 
 type CryptoWithdrawAsset = (typeof CRYPTO_WITHDRAW_ASSETS)[number];
@@ -70,12 +80,13 @@ export function WalletClient() {
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
 
   // ── fiat deposit state ──
-  const [tab, setTab]         = useState<"deposit" | "withdraw" | "history">("deposit");
-  const [amount, setAmount]   = useState("");
-  const [phone, setPhone]     = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
-  const [deposit, setDeposit] = useState<DepositState>({ step: "idle" });
+  const [tab, setTab]                     = useState<"deposit" | "withdraw" | "history">("deposit");
+  const [depositMethod, setDepositMethod] = useState<"mpesa" | "pesapal">("mpesa");
+  const [amount, setAmount]               = useState("");
+  const [phone, setPhone]                 = useState("");
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState("");
+  const [deposit, setDeposit]             = useState<DepositState>({ step: "idle" });
 
   // ── crypto balance state ──
   const [cryptoBalances, setCryptoBalances] = useState<CryptoBalance[]>([]);
@@ -173,6 +184,17 @@ export function WalletClient() {
     if (!isSignedIn) { openLogin(); return; }
     setError(""); setLoading(true);
     try {
+      if (depositMethod === "pesapal") {
+        const res  = await fetch("/api/wallet/pesapal/checkout", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ amountKes: Number(amount) }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to initiate payment.");
+        window.location.href = (data as { redirectUrl: string }).redirectUrl;
+        return;
+      }
       const res  = await fetch("/api/wallet/deposit", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -429,17 +451,34 @@ export function WalletClient() {
               </div>
             ) : (
               <div className="space-y-5">
-                <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 py-3 ring-1 ring-white/[0.07]">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#05b957]/15">
-                    <Icon name="phone_iphone" fill className="text-[20px] text-[#05b957]" />
-                  </div>
-                  <div>
-                    <p className="text-[13px] font-black text-white">M-Pesa STK Push</p>
-                    <p className="text-[11px] text-slate-500">Instant deposit · Min KSh 10</p>
-                  </div>
-                  <span className="ml-auto rounded-full bg-emerald-500/12 px-2.5 py-0.5 text-[10px] font-black text-emerald-400">
-                    Active
-                  </span>
+                {/* ── Payment method selector ── */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDepositMethod("mpesa")}
+                    className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 ring-1 transition ${depositMethod === "mpesa" ? "bg-[#05b957]/10 ring-[#05b957]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
+                  >
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${depositMethod === "mpesa" ? "bg-[#05b957]/20" : "bg-white/[0.06]"}`}>
+                      <Icon name="phone_iphone" fill className={`text-[18px] ${depositMethod === "mpesa" ? "text-[#05b957]" : "text-slate-500"}`} />
+                    </div>
+                    <div className="text-left">
+                      <p className={`text-[12px] font-black ${depositMethod === "mpesa" ? "text-white" : "text-slate-400"}`}>M-Pesa</p>
+                      <p className="text-[10px] text-slate-600">STK Push</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDepositMethod("pesapal")}
+                    className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 ring-1 transition ${depositMethod === "pesapal" ? "bg-[#087cff]/10 ring-[#087cff]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
+                  >
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${depositMethod === "pesapal" ? "bg-[#087cff]/20" : "bg-white/[0.06]"}`}>
+                      <Icon name="credit_card" fill className={`text-[18px] ${depositMethod === "pesapal" ? "text-[#087cff]" : "text-slate-500"}`} />
+                    </div>
+                    <div className="text-left">
+                      <p className={`text-[12px] font-black ${depositMethod === "pesapal" ? "text-white" : "text-slate-400"}`}>Pesapal</p>
+                      <p className="text-[10px] text-slate-600">Card / Bank</p>
+                    </div>
+                  </button>
                 </div>
 
                 <div>
@@ -488,22 +527,32 @@ export function WalletClient() {
                   </div>
                 </div>
 
-                <div>
-                  <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-                    Safaricom Number
-                  </p>
-                  <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50 transition">
-                    <span className="shrink-0 text-base">🇰🇪</span>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="07XXXXXXXX or 01XXXXXXXX"
-                      required
-                      className="flex-1 bg-transparent py-4 text-sm font-bold text-white outline-none placeholder:text-slate-700"
-                    />
+                {depositMethod === "mpesa" && (
+                  <div>
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
+                      Safaricom Number
+                    </p>
+                    <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50 transition">
+                      <span className="shrink-0 text-base">🇰🇪</span>
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="07XXXXXXXX or 01XXXXXXXX"
+                        required
+                        className="flex-1 bg-transparent py-4 text-sm font-bold text-white outline-none placeholder:text-slate-700"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {depositMethod === "pesapal" && (
+                  <div className="rounded-2xl bg-[#087cff]/5 px-4 py-3 ring-1 ring-[#087cff]/20">
+                    <p className="text-[11px] text-slate-400">
+                      You will be redirected to Pesapal to complete your payment via card, bank transfer, or M-Pesa.
+                    </p>
+                  </div>
+                )}
 
                 {error && (
                   <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20">
@@ -515,8 +564,8 @@ export function WalletClient() {
                 <button
                   type="button"
                   onClick={(e) => handleDeposit(e as unknown as React.FormEvent)}
-                  disabled={loading || !amount || !phone}
-                  className="w-full rounded-2xl bg-[#05b957] py-4 text-base font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-50"
+                  disabled={loading || !amount || (depositMethod === "mpesa" && !phone)}
+                  className={`w-full rounded-2xl py-4 text-base font-black text-white shadow-lg transition active:scale-[.98] disabled:opacity-50 ${depositMethod === "pesapal" ? "bg-[#087cff] shadow-blue-500/20 hover:bg-[#1a8aff]" : "bg-[#05b957] shadow-emerald-500/20 hover:bg-[#07cc63]"}`}
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -524,7 +573,7 @@ export function WalletClient() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                      Sending prompt…
+                      {depositMethod === "pesapal" ? "Redirecting…" : "Sending prompt…"}
                     </span>
                   ) : (
                     `Deposit KSh ${Number(amount || 0).toLocaleString() || "—"}`
@@ -532,7 +581,9 @@ export function WalletClient() {
                 </button>
 
                 <p className="text-center text-[11px] text-slate-700">
-                  Powered by Safaricom M-Pesa · Instant credit to your account
+                  {depositMethod === "pesapal"
+                    ? "Secured by Pesapal · Card, Bank & M-Pesa accepted"
+                    : "Powered by Safaricom M-Pesa · Instant credit to your account"}
                 </p>
               </div>
             )}
@@ -679,13 +730,13 @@ export function WalletClient() {
                             onClick={() =>
                               setCwAmount(
                                 cwBalance.available.toFixed(
-                                  cwAsset.code === "BTC" || cwAsset.code === "ETH" ? 8 : 6,
+                                  cwAsset.code === "ETH" || cwAsset.code === "WBTC" ? 8 : 6,
                                 ),
                               )
                             }
                           >
                             {cwBalance.available.toFixed(
-                              cwAsset.code === "BTC" || cwAsset.code === "ETH" ? 8 : 6,
+                              cwAsset.code === "ETH" || cwAsset.code === "WBTC" ? 8 : 6,
                             )}{" "}
                             {cwAsset.code}
                           </span>

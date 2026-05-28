@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { relworxRequestPayment } from "@/lib/relworx";
 
@@ -77,6 +77,9 @@ export async function POST(req: Request) {
       transactionRequestId: txn.id,
     });
   } catch (err) {
+    if (err instanceof SuspendedAccountError) {
+      return Response.json({ error: "Your account has been suspended. Contact support." }, { status: 403 });
+    }
     console.error("Deposit route error:", err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

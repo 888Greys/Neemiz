@@ -5,8 +5,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 
 const NAV = [
-  { href: "/admin",     label: "Dashboard", icon: "home" },
-  { href: "/admin/p2p", label: "P2P",       icon: "handshake" },
+  { href: "/admin",               label: "Dashboard",  icon: "home" },
+  { href: "/admin/p2p",           label: "P2P",        icon: "handshake" },
+  { href: "/admin/users",         label: "Users",      icon: "group" },
+  { href: "/admin/withdrawals",   label: "Approvals",  icon: "pending_actions" },
+  { href: "/admin/profits",       label: "Profits",    icon: "trending_up" },
 ];
 
 export function AdminShell({ children, adminEmail }: { children: React.ReactNode; adminEmail?: string }) {

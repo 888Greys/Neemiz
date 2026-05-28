@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { relworxSend } from "@/lib/relworx";
 
@@ -42,12 +42,27 @@ export async function POST(req: Request) {
     const feeKes    = parseFloat((amountKes * WITHDRAWAL_FEE_RATE).toFixed(2));
     const payoutKes = parseFloat((amountKes - feeKes).toFixed(2));
 
-    // ── Step 1: deduct balance + create PENDING record atomically ──
-    const { withdrawalId, dbUserId } = await db.$transaction(async (tx) => {
+    // ── Step 1: deduct balance + create record atomically ──
+    // Gate: amounts > 1,000,000 KES or > 10 withdrawals today require admin approval
+    const { withdrawalId, dbUserId, needsApproval } = await db.$transaction(async (tx) => {
       const dbUser = await getOrCreateUser(user.id, { email: user.email });
       const balance = Number(dbUser.walletBalance);
 
       if (balance < amountKes) throw new Error("INSUFFICIENT_BALANCE");
+
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const todayCount = await tx.transaction.count({
+        where: {
+          userId: dbUser.id,
+          type:   TransactionType.WITHDRAWAL,
+          status: { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+          createdAt: { gte: startOfDay },
+        },
+      });
+
+      const needsApproval = amountKes > 1_000_000 || todayCount >= 10;
+      const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
       await tx.user.update({
         where: { id: dbUser.id },
@@ -60,7 +75,7 @@ export async function POST(req: Request) {
           type:     TransactionType.WITHDRAWAL,
           amount:   amountKes,
           currency: "KES",
-          status:   TransactionStatus.PENDING,
+          status:   txStatus,
           provider: "relworx",
           metadata: {
             msisdn,
@@ -71,10 +86,22 @@ export async function POST(req: Request) {
         },
       });
 
-      return { withdrawalId: withdrawal.id, dbUserId: dbUser.id };
+      return { withdrawalId: withdrawal.id, dbUserId: dbUser.id, needsApproval };
     });
 
-    // ── Step 2: call Relworx ──
+    // ── Step 2: if approval required, stop here ──
+    if (needsApproval) {
+      return Response.json({
+        ok:           true,
+        withdrawalId,
+        pendingApproval: true,
+        message: amountKes > 1_000_000
+          ? "Withdrawals above KSh 1,000,000 require admin approval. Your balance has been held and will be processed within 24 hours."
+          : "You have reached the daily withdrawal limit. This withdrawal is pending admin approval and will be processed within 24 hours.",
+      });
+    }
+
+    // ── Step 3: call Relworx ──
     const accountNo = process.env.RELWORX_ACCOUNT_NO;
     if (!accountNo) {
       // Roll back balance — Relworx not configured
@@ -125,6 +152,9 @@ export async function POST(req: Request) {
   } catch (err) {
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
+    }
+    if (err instanceof SuspendedAccountError) {
+      return Response.json({ error: "Your account has been suspended. Contact support." }, { status: 403 });
     }
     console.error("Withdrawal route error:", err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
