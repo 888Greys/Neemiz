@@ -17,6 +17,23 @@ import type {
 const WS_URL = process.env.NEXT_PUBLIC_AVIATOR_WS_URL ?? "wss://aviator.nezeem.com/ws";
 const ENGINE_SOUND_SRC = "/aviator/engine.mp3";
 const CRASH_SOUND_SRC = "/aviator/crash.mp3";
+const HISTORY_STORAGE_KEY = "nezeem_aviator_rounds";
+
+function loadStoredHistory(): HistoryRound[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as HistoryRound[]) : [];
+  } catch { return []; }
+}
+
+function appendStoredHistory(entry: HistoryRound) {
+  try {
+    const existing = loadStoredHistory();
+    const updated = [...existing, entry].slice(-80);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
+  } catch { /* non-critical */ }
+}
 
 interface HistoryRound {
   roundId:        string;
@@ -57,7 +74,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [liveBets,   setLiveBets]   = useState<AviatorBetPublic[]>([]);
   const [myBets,     setMyBets]     = useState<MyBets>({});
   const [multiplier, setMultiplier] = useState(1.0);
-  const [history,    setHistory]    = useState<HistoryRound[]>([]);
+  const [history,    setHistory]    = useState<HistoryRound[]>(() => loadStoredHistory());
   const [myHistory,  setMyHistory]  = useState<MyHistoryBet[]>([]);
   const [balance,    setBalance]    = useState(initialBalance);
   const [verifyRound,    setVerifyRound]    = useState<HistoryRound | null>(null);
@@ -276,6 +293,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
               serverSeed,
               serverSeedHash: prev.serverSeedHash ?? "",
             };
+            appendStoredHistory(entry);
             return [...h, entry].slice(-80);
           });
           return { ...prev, state: "CRASHED", crashPoint, serverSeed, crashedAt };
