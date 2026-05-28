@@ -23,6 +23,21 @@ function snapStep(v: number) {
   return 500;
 }
 
+function useBettingCountdown(bettingEndsAt: string | null | undefined): number {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    if (!bettingEndsAt) { setSecs(0); return; }
+    const tick = () => {
+      const ms = new Date(bettingEndsAt).getTime() - Date.now();
+      setSecs(Math.max(0, Math.ceil(ms / 1000)));
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    return () => clearInterval(id);
+  }, [bettingEndsAt]);
+  return secs;
+}
+
 export function AviatorBetPanel({
   panelIndex, round, myBet, currentMultiplier, balance, onBet, onCashout,
 }: Props) {
@@ -67,10 +82,11 @@ export function AviatorBetPanel({
     if (round?.state === "BETTING") setError(null);
   }, [round?.state]);
 
-  const state       = round?.state ?? "WAITING";
-  const bettingOpen = state === "BETTING";
-  const isFlying    = state === "FLYING";
-  const isCrashed   = state === "CRASHED";
+  const state         = round?.state ?? "WAITING";
+  const bettingOpen   = state === "BETTING";
+  const isFlying      = state === "FLYING";
+  const isCrashed     = state === "CRASHED";
+  const bettingSecsLeft = useBettingCountdown(bettingOpen ? round?.bettingEndsAt : null);
   const potWin      = myBet ? +(myBet.betAmount * currentMultiplier).toFixed(2) : 0;
 
   const clampAmt = (v: number) => Math.max(10, Math.min(50000, Math.round(v)));
@@ -318,6 +334,16 @@ export function AviatorBetPanel({
     <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-[#2a2b2c] p-2">
       {TabBar}
 
+      {/* Betting countdown banner */}
+      {bettingOpen && bettingSecsLeft > 0 && (
+        <div className={`mb-1.5 flex items-center justify-between rounded-lg px-3 py-1.5 ${bettingSecsLeft <= 2 ? "bg-red-500/20 ring-1 ring-red-500/40" : "bg-[#1dbb08]/15 ring-1 ring-[#1dbb08]/30"}`}>
+          <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Closing bets in</span>
+          <span className={`text-[15px] font-black tabular-nums ${bettingSecsLeft <= 2 ? "text-red-400" : "text-[#1dbb08]"}`}>
+            {bettingSecsLeft}s
+          </span>
+        </div>
+      )}
+
       {tab === "bet" ? (
         <div className="flex flex-col gap-2">
           {error && (
@@ -376,10 +402,12 @@ export function AviatorBetPanel({
               style={{ background: (bettingOpen || isFlying) ? "#1dbb08" : "#1f2937" }}
             >
               <span className="text-[24px] font-black uppercase leading-none">
-                {loading ? "…" : isFlying ? "Next Round" : "Bet"}
+                {loading ? "…" : isFlying ? "Next Round" : "BET"}
               </span>
               <span className="mt-0.5 text-[12px] font-semibold leading-tight">
-                {amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES
+                {bettingOpen && bettingSecsLeft > 0
+                  ? `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES · ${bettingSecsLeft}s`
+                  : `${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KES`}
               </span>
             </button>
           </div>
