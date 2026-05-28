@@ -9,10 +9,15 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 const MIN_WITHDRAWAL: Record<string, number> = {
   USDT:  10,
   USDC:  10,
+  DAI:   10,
+  BUSD:  10,
   BTC:   0.0001,
+  WBTC:  0.0001,
   ETH:   0.005,
   BNB:   0.01,
-  MATIC: 5,
+  MATIC: 1,
+  TRX:   10,
+  LINK:  0.5,
 };
 
 /**
