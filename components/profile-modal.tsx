@@ -703,13 +703,34 @@ function NotificationsView() {
 
 // ── Sub-view: Security ───────────────────────────────────────────────────────
 
+type TwoFASetupState =
+  | { phase: "idle" }
+  | { phase: "loading" }
+  | { phase: "qr"; secret: string; uri: string }
+  | { phase: "confirming"; secret: string; uri: string }
+  | { phase: "done" };
+
 function SecurityView({ email }: { email: string | undefined }) {
-  const [sent, setSent] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const { user } = useSupabaseAuth();
+  const [sent, setSent]       = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+
+  // 2FA state
+  const is2FAEnabled = user?.user_metadata?.totp_enabled === true;
+  const [setupState, setSetupState] = useState<TwoFASetupState>({ phase: "idle" });
+  const [codeInput, setCodeInput]   = useState("");
+  const [codeError, setCodeError]   = useState("");
+  const [codeLoading, setCodeLoading] = useState(false);
+  // Disable flow
+  const [disabling, setDisabling]   = useState(false);
+  const [disableCode, setDisableCode] = useState("");
+  const [disableError, setDisableError] = useState("");
+  const [disableLoading, setDisableLoading] = useState(false);
+  const [disabled2FA, setDisabled2FA] = useState(false);
 
   async function sendReset() {
     if (!email) return;
-    setLoading(true);
+    setResetLoading(true);
     try {
       const supabase = createClient();
       await supabase.auth.resetPasswordForEmail(email, {
@@ -717,14 +738,77 @@ function SecurityView({ email }: { email: string | undefined }) {
       });
       setSent(true);
     } catch {
-      setSent(true); // don't leak whether the email exists
+      setSent(true);
     } finally {
-      setLoading(false);
+      setResetLoading(false);
     }
   }
 
+  async function startSetup() {
+    setSetupState({ phase: "loading" });
+    try {
+      const res  = await fetch("/api/auth/2fa/setup", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Setup failed");
+      setSetupState({ phase: "qr", secret: data.secret as string, uri: data.uri as string });
+    } catch (err) {
+      setSetupState({ phase: "idle" });
+      toast.error("Setup failed", err instanceof Error ? err.message : "Try again");
+    }
+  }
+
+  async function confirmEnable() {
+    if (setupState.phase !== "qr" && setupState.phase !== "confirming") return;
+    const digits = codeInput.replace(/\D/g, "");
+    if (digits.length !== 6) { setCodeError("Enter your 6-digit code"); return; }
+    setCodeError("");
+    setCodeLoading(true);
+    try {
+      const res  = await fetch("/api/auth/2fa/enable", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ secret: setupState.secret, code: digits }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setCodeError(data.error ?? "Invalid code"); return; }
+      setSetupState({ phase: "done" });
+      toast.info("2FA enabled", "Google Authenticator is now protecting your account.");
+    } catch {
+      setCodeError("Network error — try again");
+    } finally {
+      setCodeLoading(false);
+    }
+  }
+
+  async function confirmDisable() {
+    const digits = disableCode.replace(/\D/g, "");
+    if (digits.length !== 6) { setDisableError("Enter your 6-digit code"); return; }
+    setDisableError("");
+    setDisableLoading(true);
+    try {
+      const res  = await fetch("/api/auth/2fa/disable", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ code: digits }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setDisableError(data.error ?? "Invalid code"); return; }
+      setDisabling(false);
+      setDisabled2FA(true);
+      toast.info("2FA disabled", "Two-factor authentication has been removed.");
+    } catch {
+      setDisableError("Network error — try again");
+    } finally {
+      setDisableLoading(false);
+    }
+  }
+
+  const effective2FA = is2FAEnabled && !disabled2FA;
+
   return (
     <div className="space-y-3 px-4 py-3">
+
+      {/* Password reset */}
       {email && (
         <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
           <div className="px-4 py-3.5">
@@ -736,19 +820,16 @@ function SecurityView({ email }: { email: string | undefined }) {
             {sent ? (
               <p className="text-[12px] font-bold text-emerald-400">Password reset email sent — check your inbox.</p>
             ) : (
-              <button
-                type="button"
-                onClick={sendReset}
-                disabled={loading}
-                className="text-[12px] font-black text-[#5ea9ff] transition hover:text-white disabled:opacity-50"
-              >
-                {loading ? "Sending…" : "Send password reset email"}
+              <button type="button" onClick={sendReset} disabled={resetLoading}
+                className="text-[12px] font-black text-[#5ea9ff] transition hover:text-white disabled:opacity-50">
+                {resetLoading ? "Sending…" : "Send password reset email"}
               </button>
             )}
           </div>
         </div>
       )}
 
+      {/* ── 2FA card ── */}
       <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
@@ -756,12 +837,128 @@ function SecurityView({ email }: { email: string | undefined }) {
           </div>
           <div className="flex-1">
             <p className="text-[13px] font-black text-white">Two-Factor Authentication</p>
-            <p className="text-[11px] text-slate-500">Extra layer of account security</p>
+            <p className="text-[11px] text-slate-500">Google Authenticator (TOTP)</p>
           </div>
-          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-400">Soon</span>
+          {effective2FA || setupState.phase === "done" ? (
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-400">On</span>
+          ) : (
+            <span className="rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] font-black text-slate-400">Off</span>
+          )}
         </div>
+
+        {/* ── ENABLED: show disable option ── */}
+        {(effective2FA || setupState.phase === "done") && (
+          <div className="border-t border-white/[0.05] px-4 py-3.5">
+            {!disabling ? (
+              <button type="button" onClick={() => { setDisabling(true); setDisableCode(""); setDisableError(""); }}
+                className="text-[12px] font-black text-red-400 transition hover:text-red-300">
+                Disable 2FA…
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-[11px] font-bold text-slate-400">Enter your authenticator code to confirm:</p>
+                <input
+                  type="text" inputMode="numeric" maxLength={6}
+                  value={disableCode}
+                  onChange={(e) => { setDisableCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setDisableError(""); }}
+                  placeholder="000000"
+                  className="h-11 w-full rounded-xl bg-white/[0.06] text-center text-base font-black tracking-[0.2em] text-white outline-none ring-1 ring-white/[0.08] focus:ring-[#087cff]/50"
+                  autoFocus
+                />
+                {disableError && <p className="text-[11px] font-bold text-red-400">{disableError}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button type="button" onClick={confirmDisable} disabled={disableLoading || disableCode.length !== 6}
+                    className="flex-1 rounded-xl bg-red-500/15 py-2 text-[12px] font-black text-red-400 ring-1 ring-red-500/20 transition hover:bg-red-500/25 disabled:opacity-50">
+                    {disableLoading ? "Verifying…" : "Confirm disable"}
+                  </button>
+                  <button type="button" onClick={() => setDisabling(false)}
+                    className="flex-1 rounded-xl bg-white/[0.06] py-2 text-[12px] font-black text-slate-400 transition hover:bg-white/[0.1]">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── NOT ENABLED: setup flow ── */}
+        {!effective2FA && setupState.phase === "idle" && (
+          <div className="border-t border-white/[0.05] px-4 py-3.5">
+            <button type="button" onClick={startSetup}
+              className="text-[12px] font-black text-[#5ea9ff] transition hover:text-white">
+              Enable 2FA →
+            </button>
+          </div>
+        )}
+
+        {setupState.phase === "loading" && (
+          <div className="flex items-center gap-2 border-t border-white/[0.05] px-4 py-3.5">
+            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-600 border-t-[#087cff]" />
+            <span className="text-[12px] font-bold text-slate-500">Generating secret…</span>
+          </div>
+        )}
+
+        {(setupState.phase === "qr" || setupState.phase === "confirming") && (
+          <div className="space-y-4 border-t border-white/[0.05] px-4 py-4">
+            <div>
+              <p className="text-[12px] font-black text-white">1. Scan this QR code with Google Authenticator</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">Or manually enter the key below the QR code.</p>
+            </div>
+
+            {/* QR code via Google Charts */}
+            <div className="flex justify-center">
+              <div className="rounded-2xl bg-white p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(setupState.uri)}&bgcolor=ffffff&color=000000&margin=4`}
+                  alt="2FA QR code"
+                  width={148}
+                  height={148}
+                  className="rounded-lg"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white/[0.04] px-3 py-2.5 text-center ring-1 ring-white/[0.07]">
+              <p className="text-[10px] font-bold text-slate-500 mb-1">Manual key</p>
+              <p className="font-mono text-[12px] font-black text-white tracking-wider break-all">{setupState.secret}</p>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[12px] font-black text-white">2. Enter the 6-digit code to confirm</p>
+              <input
+                type="text" inputMode="numeric" maxLength={6}
+                value={codeInput}
+                onChange={(e) => { setCodeInput(e.target.value.replace(/\D/g, "").slice(0, 6)); setCodeError(""); }}
+                placeholder="000000"
+                className="h-12 w-full rounded-xl bg-white/[0.06] text-center text-xl font-black tracking-[0.25em] text-white outline-none ring-1 ring-white/[0.08] focus:ring-[#087cff]/50"
+                autoFocus
+              />
+              {codeError && <p className="mt-1.5 text-[11px] font-bold text-red-400">{codeError}</p>}
+            </div>
+
+            <div className="flex gap-2">
+              <button type="button" onClick={confirmEnable} disabled={codeLoading || codeInput.length !== 6}
+                className="flex-1 rounded-xl bg-[#087cff] py-2.5 text-[13px] font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:opacity-50">
+                {codeLoading ? "Verifying…" : "Activate 2FA"}
+              </button>
+              <button type="button" onClick={() => { setSetupState({ phase: "idle" }); setCodeInput(""); setCodeError(""); }}
+                className="rounded-xl bg-white/[0.06] px-4 text-[13px] font-black text-slate-400 transition hover:bg-white/[0.1]">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {setupState.phase === "done" && !disabling && (
+          <div className="flex items-center gap-2 border-t border-white/[0.05] px-4 py-3.5">
+            <Icon name="check_circle" fill className="text-[16px] text-emerald-400" />
+            <p className="text-[12px] font-bold text-emerald-400">2FA is active on your account</p>
+          </div>
+        )}
       </div>
 
+      {/* KYC card */}
       <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
