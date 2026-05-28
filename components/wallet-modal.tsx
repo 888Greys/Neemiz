@@ -417,7 +417,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
           clearInterval(pollRef.current!);
           setDeposit({
             step:       "confirmed",
-            amount:     deposit.amount,
+            amount:     (data.amount as number) ?? deposit.amount,
             newBalance: data.newBalance as number,
             receipt:    (data.receipt as string) ?? "",
           });
