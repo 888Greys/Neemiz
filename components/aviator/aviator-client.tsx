@@ -200,17 +200,24 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         const d = msg.data as Record<string, unknown> | undefined;
         if (!d) break;
         roundCountRef.current++;
-        const status  = mapStatus((d.status as string) ?? "BETTING");
-        const now     = new Date().toISOString();
+        const status   = mapStatus((d.status as string) ?? "BETTING");
+        const now      = new Date().toISOString();
+        // Use the server's authoritative start_time so every tab/refresh
+        // calculates the same elapsed time regardless of when they connect.
+        const startTime    = (d.start_time as string) ?? now;
+        const BETTING_MS   = 5_000;
+        const bettingEndMs = new Date(startTime).getTime() + BETTING_MS;
         setRound({
           id:              (d.round_id as string) ?? "",
           roundNumber:     roundCountRef.current,
           serverSeedHash:  (d.hash_commitment as string) ?? "",
           state:           status,
-          bettingEndsAt:   status === "BETTING" ? new Date(Date.now() + 5000).toISOString() : null,
-          flyingStartedAt: status === "FLYING"  ? now : null,
+          // If still in BETTING phase, deadline = server start + 5 s (may already be in the past if >5 s ago)
+          bettingEndsAt:   status === "BETTING" ? new Date(bettingEndMs).toISOString() : null,
+          // flyingStartedAt drives the canvas multiplier — must equal bettingEnd, not "now"
+          flyingStartedAt: status === "FLYING"  ? new Date(bettingEndMs).toISOString() : null,
           crashedAt:       null,
-          createdAt:       (d.start_time as string) ?? now,
+          createdAt:       startTime,
         });
         if (status === "FLYING") setMultiplier((d.current_multiplier as number) ?? 1.0);
         setLoading(false);
@@ -238,8 +245,13 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       }
 
       case "round_running": {
-        const flyingStartedAt = new Date().toISOString();
-        setRound((prev) => prev ? { ...prev, state: "FLYING", flyingStartedAt, bettingEndsAt: null } : prev);
+        // Derive flyingStartedAt from the already-established bettingEndsAt so all tabs
+        // that received the same round_start event share an identical reference time.
+        // Fall back to now only if bettingEndsAt was somehow not set.
+        setRound((prev) => {
+          const flyingStartedAt = prev?.bettingEndsAt ?? new Date().toISOString();
+          return prev ? { ...prev, state: "FLYING", flyingStartedAt, bettingEndsAt: null } : prev;
+        });
         setMultiplier(1.0);
         break;
       }
