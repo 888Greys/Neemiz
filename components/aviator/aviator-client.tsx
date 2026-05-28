@@ -432,17 +432,13 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     const clickedMultiplier = Math.max(1, multiplier);
     const pendingWin = Number((bet.betAmount * clickedMultiplier).toFixed(2));
 
-    // ── INSTANT: clear bet → panel returns to "NEXT ROUND" form immediately ──
-    // Win is shown as a toast only — no "You won" panel blocking the UI.
+    // ── INSTANT: remove cashout button so user can't double-tap ──────────────
+    // Do NOT show a success toast yet — wait for server confirmation to avoid
+    // the confusing "Cashed out ✓" immediately followed by "Cashout failed" pair.
     setMyBets((prev) => { const n = { ...prev }; delete n[panelIndex]; return n; });
     setBalance((b) => b + pendingWin);
-    toast.cashout(
-      `Cashed out at ${clickedMultiplier.toFixed(2)}×`,
-      `+KSh ${pendingWin.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-    );
-    window.dispatchEvent(new Event("wallet-refresh"));
 
-    // ── Background confirm — silently correct balance if server differs ──────
+    // ── Confirm with server ───────────────────────────────────────────────────
     try {
       const res = await fetch("/api/aviator/cashout", {
         method: "POST",
@@ -450,20 +446,31 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         body: JSON.stringify({ panelIndex, betId: bet.id }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Cashout failed");
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Cashout failed");
 
-      // Swap optimistic amount for server-confirmed amount
-      const serverWin = Number(data.winAmount);
-      if (serverWin !== pendingWin) {
-        setBalance((b) => b - pendingWin + serverWin);
-        window.dispatchEvent(new Event("wallet-refresh"));
-      }
+      // Server confirmed — show success toast with the authoritative amount
+      const serverWin  = Number((data as { winAmount: number }).winAmount);
+      const serverMult = Number((data as { cashoutAt: number }).cashoutAt);
+      if (serverWin !== pendingWin) setBalance((b) => b - pendingWin + serverWin);
+      toast.cashout(
+        `Cashed out at ${serverMult.toFixed(2)}×`,
+        `+KSh ${serverWin.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      );
+      window.dispatchEvent(new Event("wallet-refresh"));
     } catch (err) {
-      // Server rejected — revert balance and restore the cashout button
-      toast.error("Cashout failed", (err as Error).message);
+      // Server rejected — revert balance
       setBalance((b) => b - pendingWin);
-      if (roundRef.current?.state === "FLYING") {
+      const msg = (err as Error).message ?? "Cashout failed";
+      const isTimeout = /timeout|ended|too late|expired/i.test(msg);
+      if (isTimeout) {
+        // Round ended before request arrived — not a product bug, just latency
+        toast.error("Too late", "Plane flew away before your cashout was processed");
+      } else if (roundRef.current?.state === "FLYING") {
+        // Some other error while round is still going — restore button
         setMyBets((prev) => ({ ...prev, [panelIndex]: { ...bet, status: "ACTIVE" } }));
+        toast.error("Cashout failed", msg);
+      } else {
+        toast.error("Cashout failed", "Round ended before cashout was processed");
       }
     }
   }, [multiplier, myBets]);
