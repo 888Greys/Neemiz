@@ -2,10 +2,14 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { db } from "@/lib/db";
 
-const MEGAPAY_BASE_URL = (process.env.MEGAPAY_BASE_URL ?? "").replace(/\/+$/, "");
-const MEGAPAY_API_KEY  = process.env.MEGAPAY_API_KEY ?? "";
-const MEGAPAY_EMAIL    = process.env.MEGAPAY_EMAIL ?? "";
-const APP_URL          = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/+$/, "");
+const MEGAPAY_BASE_URL    = (process.env.MEGAPAY_BASE_URL ?? "").replace(/\/+$/, "");
+const MEGAPAY_API_KEY     = process.env.MEGAPAY_API_KEY ?? "";
+const MEGAPAY_EMAIL       = process.env.MEGAPAY_EMAIL ?? "";
+const APP_URL             = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/+$/, "");
+// Use explicit callback URL if set, otherwise build from APP_URL
+const MEGAPAY_CALLBACK_URL = process.env.MEGAPAY_CALLBACK_URL
+  ? process.env.MEGAPAY_CALLBACK_URL
+  : `${APP_URL}/api/wallet/deposit/megapay/callback`;
 
 function normaliseMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -69,7 +73,7 @@ export async function POST(req: Request) {
         amount:   String(Math.round(amount)),
         msisdn,
         reference: transaction.id,
-        callback: `${APP_URL}/api/wallet/deposit/megapay/callback`,
+        callback: MEGAPAY_CALLBACK_URL,
       }),
     });
 
