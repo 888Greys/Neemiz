@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { BetType, TransactionType, TransactionStatus } from "@prisma/client";
-import { getFixtureDetail } from "@/lib/sportmonks";
+import { getFixtureDetail } from "@/lib/theoddsapi";
 
 type BetSelectionInput = {
   fixtureId: string;

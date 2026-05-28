@@ -1,4 +1,4 @@
-import type { MatchDetail } from "@/lib/sportmonks";
+import type { MatchDetail } from "@/lib/theoddsapi";
 
 export type SelectionOutcome = "WON" | "LOST" | "VOID";
 
