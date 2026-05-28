@@ -341,7 +341,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
     if (ph && !phone) setPhone(String(ph).replace("+", ""));
   }, [user, phone]);
 
-  // Check for an existing pending deposit address whenever coin changes
+  // Fetch existing address or auto-generate one — no button click needed
   const checkCryptoAddr = useCallback(async (crypto: string, network: string) => {
     setCryptoAddr({ phase: "checking" });
     try {
@@ -349,11 +349,26 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
       const data = await res.json();
       if (data?.address) {
         setCryptoAddr({ phase: "ready", address: data.address as string });
-      } else {
-        setCryptoAddr({ phase: "form" });
+        return;
       }
-    } catch {
-      setCryptoAddr({ phase: "form" });
+    } catch { /* fall through to generate */ }
+
+    // No address yet — generate automatically
+    setCryptoAddr({ phase: "generating" });
+    try {
+      const res  = await fetch("/api/crypto/address", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ crypto, network }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to generate address");
+      setCryptoAddr({ phase: "ready", address: data.address as string });
+    } catch (err: unknown) {
+      setCryptoAddr({
+        phase: "form",
+        error: err instanceof Error ? err.message : "Failed to generate address",
+      });
     }
   }, []);
 
