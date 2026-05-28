@@ -79,9 +79,11 @@ export async function POST(req: Request) {
 
     const data = await mpRes.json().catch(() => ({})) as Record<string, unknown>;
 
-    if (!mpRes.ok || data.success !== "200" || !data.transaction_request_id) {
+    // MegaPay returns success: true (boolean) or success: "200" (string) depending on version
+    const isSuccess = data.success === true || data.success === "200" || data.ResultCode === "0" || data.ResponseCode === "0";
+    if (!mpRes.ok || !isSuccess || !data.transaction_request_id) {
       await db.transaction.update({ where: { id: transaction.id }, data: { status: "FAILED" } });
-      const msg = (data.massage ?? data.message ?? `MegaPay error (${mpRes.status})`) as string;
+      const msg = (data.massage ?? data.message ?? data.ResultDesc ?? `MegaPay error (${mpRes.status})`) as string;
       return Response.json({ error: msg }, { status: 502 });
     }
 
