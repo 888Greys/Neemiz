@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { getFixtureDetail, FINISHED_STATE_IDS } from "@/lib/sportmonks";
+import { getFixtureDetail, FINISHED_STATE_IDS } from "@/lib/theoddsapi";
 import { resolveSelection, determineBetOutcome, calculateWinAmount } from "@/lib/settle-bet";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 

@@ -19,7 +19,7 @@ import {
   MOCK_LIVE,
   MOCK_UPCOMING,
   type Match,
-} from "@/lib/sportmonks";
+} from "@/lib/theoddsapi";
 import Image from "next/image";
 import Link from "next/link";
 import { OddButton } from "@/components/odd-button";
@@ -59,7 +59,7 @@ export default async function SportsPage({ searchParams }: Props) {
   const activeTab = (searchParams.tab ?? "Top") as Tab;
   const leagueFilter = searchParams.league ?? "";
 
-  const hasToken = Boolean(process.env.SPORTS_MONK_API);
+  const hasToken = Boolean(process.env.ODDS_API_KEY);
 
   const [liveMatches, upcomingMatches] = hasToken
     ? await Promise.all([getLivescores(), getUpcomingFixtures()])

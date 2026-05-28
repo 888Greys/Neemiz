@@ -36,7 +36,17 @@ const FETCH_SPORTS = [
   "basketball_nba",
 ];
 
+// ── State IDs (mirrors Sportmonks convention so settle-bet.ts needs no changes)
+// 1 = Not Started, 2 = Live, 5 = Finished
+export const FINISHED_STATE_IDS = new Set([5]);
+
 // ── Raw API types ─────────────────────────────────────────────────────────────
+
+interface OddsOutcome {
+  name:   string;
+  price:  number;
+  point?: number;   // used by totals (Over/Under) and spreads (Handicap)
+}
 
 interface OddsEvent {
   id: string;
@@ -50,7 +60,7 @@ interface OddsEvent {
     title: string;
     markets: {
       key: string;
-      outcomes: { name: string; price: number }[];
+      outcomes: OddsOutcome[];
     }[];
   }[];
 }
@@ -67,7 +77,7 @@ interface ScoreEvent {
   last_update: string | null;
 }
 
-// ── Normalised UI type (matches lib/sportmonks Match shape) ───────────────────
+// ── Normalised UI types ───────────────────────────────────────────────────────
 
 export interface Match {
   id: number;
@@ -86,12 +96,70 @@ export interface Match {
   extraMarkets: number;
 }
 
-// Convert hex event ID to stable integer for URL params
+// Empty stub types — Odds API doesn't supply lineup/events data,
+// but these must be exported so all callers compile unchanged.
+export interface MatchEvent {
+  id: number;
+  type_id: number;
+  participant_id: number;
+  player_name: string;
+  related_player_name: string | null;
+  minute: number;
+  extra_minute: number | null;
+  result: string | null;
+  info: string | null;
+  addition: string | null;
+}
+
+export interface MatchStat {
+  name: string;
+  home: number | null;
+  away: number | null;
+}
+
+export interface LineupEntry {
+  player_id: number;
+  player_name: string;
+  participant_id: number;
+  jersey_number: number | null;
+  formation_position: number | null;
+  on_bench: boolean;
+}
+
+export interface MarketOdd {
+  label: string;
+  value: string;
+  extra?: string;
+}
+
+export interface BettingMarket {
+  id: number;
+  name: string;
+  odds: MarketOdd[];
+}
+
+export interface MatchDetail {
+  match: Match;
+  stateId: number;
+  homeParticipantId: number;
+  awayParticipantId: number;
+  events: MatchEvent[];
+  stats: MatchStat[];
+  homeLineup: LineupEntry[];
+  awayLineup: LineupEntry[];
+  homePeriodScores: (number | null)[];
+  awayPeriodScores: (number | null)[];
+  markets: BettingMarket[];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Convert hex event ID to stable integer for URL params / DB storage
 function toNumericId(eventId: string): number {
   return parseInt(eventId.replace(/[^0-9a-f]/gi, "").slice(0, 8), 16) || 0;
 }
 
-function formatKickofffTime(iso: string): string {
+function formatKickoffTime(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "--:--";
   return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -102,7 +170,6 @@ function extractH2hOdds(
 ): { odds: { label: string; value: string }[]; extraMarkets: number } {
   if (!event.bookmakers?.length) return { odds: [], extraMarkets: 0 };
 
-  // Pick first bookmaker with h2h market
   for (const bm of event.bookmakers) {
     const h2h = bm.markets.find((m) => m.key === "h2h");
     if (!h2h?.outcomes?.length) continue;
@@ -132,7 +199,7 @@ function normalizeOddsEvent(event: OddsEvent, liveScore?: ScoreEvent): Match {
   const awayScore = liveScore?.scores?.find((s) => s.name === event.away_team)?.score ?? null;
   const isLive    = !!liveScore && !liveScore.completed;
 
-  const period = isLive ? "Live" : formatKickofffTime(event.commence_time);
+  const period = isLive ? "Live" : formatKickoffTime(event.commence_time);
 
   return {
     id:           toNumericId(event.id),
@@ -151,11 +218,71 @@ function normalizeOddsEvent(event: OddsEvent, liveScore?: ScoreEvent): Match {
   };
 }
 
-// ── Fetcher ───────────────────────────────────────────────────────────────────
+// Build BettingMarket[] from all bookmaker markets on an event.
+// Picks the bookmaker with the most market types, then normalises each market.
+function buildMarketsFromEvent(event: OddsEvent): BettingMarket[] {
+  if (!event.bookmakers?.length) return [];
+
+  // Pick the bookmaker with the most distinct market keys
+  const bm = event.bookmakers.reduce((best, cur) =>
+    cur.markets.length > best.markets.length ? cur : best,
+  );
+
+  const MARKET_META: Record<string, { id: number; name: string }> = {
+    h2h:     { id: 1, name: "Full Time Result" },
+    spreads: { id: 2, name: "Handicap" },
+    totals:  { id: 3, name: "Over/Under" },
+    btts:    { id: 4, name: "Both Teams To Score" },
+  };
+
+  const markets: BettingMarket[] = [];
+
+  for (const market of bm.markets) {
+    const meta = MARKET_META[market.key];
+    if (!meta) continue;
+
+    const odds: MarketOdd[] = market.outcomes.map((o) => {
+      if (market.key === "h2h") {
+        // Normalise team names → 1/X/2
+        const labelMap: Record<string, string> = {
+          [event.home_team]: "1",
+          [event.away_team]: "2",
+          "Draw": "X",
+        };
+        return { label: labelMap[o.name] ?? o.name, value: o.price.toFixed(2) };
+      }
+      if (market.key === "totals") {
+        // e.g. "Over 2.5", "Under 2.5"
+        return {
+          label: o.name,
+          value: o.price.toFixed(2),
+          extra: o.point !== undefined ? String(o.point) : undefined,
+        };
+      }
+      if (market.key === "spreads") {
+        const label = o.name === event.home_team ? "1" : "2";
+        return {
+          label,
+          value: o.price.toFixed(2),
+          extra: o.point !== undefined ? (o.point > 0 ? `+${o.point}` : String(o.point)) : undefined,
+        };
+      }
+      // btts / other
+      return { label: o.name, value: o.price.toFixed(2) };
+    });
+
+    if (odds.length > 0) markets.push({ id: meta.id, name: meta.name, odds });
+  }
+
+  // Sort by market id so Full Time Result appears first
+  return markets.sort((a, b) => a.id - b.id);
+}
+
+// ── Fetchers ──────────────────────────────────────────────────────────────────
 
 async function fetchOdds(sportKey: string): Promise<OddsEvent[]> {
   if (!API_KEY) return [];
-  const url = `${BASE}/sports/${sportKey}/odds?apiKey=${API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal`;
+  const url = `${BASE}/sports/${sportKey}/odds?apiKey=${API_KEY}&regions=eu&markets=h2h,totals,spreads&oddsFormat=decimal`;
   try {
     const res = await fetch(url, { next: { revalidate: 7200 } });
     if (!res.ok) {
@@ -169,11 +296,11 @@ async function fetchOdds(sportKey: string): Promise<OddsEvent[]> {
   }
 }
 
-async function fetchScores(sportKey: string): Promise<ScoreEvent[]> {
+async function fetchScores(sportKey: string, daysFrom = 1): Promise<ScoreEvent[]> {
   if (!API_KEY) return [];
-  const url = `${BASE}/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=1`;
+  const url = `${BASE}/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=${daysFrom}`;
   try {
-    const res = await fetch(url, { next: { revalidate: 7200 } });
+    const res = await fetch(url, { next: { revalidate: 60 } });
     if (!res.ok) return [];
     return (await res.json()) as ScoreEvent[];
   } catch (e) {
@@ -210,16 +337,55 @@ export async function getUpcomingFixtures(): Promise<Match[]> {
       );
       return odds
         .filter((e) => {
-          if (liveIds.has(e.id)) return false; // already in live
+          if (liveIds.has(e.id)) return false;
           return new Date(e.commence_time).getTime() > now;
         })
         .map((e) => normalizeOddsEvent(e));
     }),
   );
-  // Sort soonest first, cap at 200
   return results.flat().sort(
     (a, b) => new Date(a.startingAt).getTime() - new Date(b.startingAt).getTime(),
   ).slice(0, 200);
+}
+
+// Fetch full match detail for the fixture detail page and bet verification.
+// Searches all tracked sports for the event matching the numeric ID.
+// Returns empty events/stats/lineups — Odds API doesn't supply those.
+export async function getFixtureDetail(id: number): Promise<MatchDetail | null> {
+  for (const sport of FETCH_SPORTS) {
+    const [odds, scores] = await Promise.all([
+      fetchOdds(sport),
+      fetchScores(sport, 2),   // daysFrom=2 to catch recently finished matches
+    ]);
+
+    const event = odds.find((e) => toNumericId(e.id) === id);
+    if (!event) continue;
+
+    const score      = scores.find((s) => s.id === event.id);
+    const isFinished = !!score?.completed;
+    const isLive     = !!score && !score.completed && new Date(event.commence_time).getTime() <= Date.now();
+
+    // stateId: 5=Finished, 2=Live, 1=Not Started
+    const stateId = isFinished ? 5 : isLive ? 2 : 1;
+
+    const match   = normalizeOddsEvent(event, score ?? undefined);
+    const markets = buildMarketsFromEvent(event);
+
+    return {
+      match,
+      stateId,
+      homeParticipantId: 0,
+      awayParticipantId: 0,
+      events:           [],
+      stats:            [],
+      homeLineup:       [],
+      awayLineup:       [],
+      homePeriodScores: [null, null],
+      awayPeriodScores: [null, null],
+      markets,
+    };
+  }
+  return null;
 }
 
 // ── Mock fallback ─────────────────────────────────────────────────────────────

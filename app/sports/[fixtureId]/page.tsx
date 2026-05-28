@@ -1,6 +1,6 @@
 import { AppShell } from "@/components/app-shell";
 import { SportsBetSlip } from "@/components/sports-bet-slip";
-import { getFixtureDetail, type MatchEvent, type LineupEntry } from "@/lib/sportmonks";
+import { getFixtureDetail, type MatchEvent, type LineupEntry } from "@/lib/theoddsapi";
 import { MarketsSection } from "@/components/markets-section";
 import Image from "next/image";
 import Link from "next/link";
