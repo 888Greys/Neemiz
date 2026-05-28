@@ -44,7 +44,10 @@ function evmToTron(evm: string): string {
 function getRoot(): HDNodeWallet {
   const phrase = process.env.MASTER_WALLET_MNEMONIC;
   if (!phrase) throw new Error("MASTER_WALLET_MNEMONIC is not set");
-  return HDNodeWallet.fromMnemonic(Mnemonic.fromPhrase(phrase.trim()));
+  // In ethers v6, fromMnemonic() defaults to m/44'/60'/0'/0/0 (depth 5).
+  // We need the true root (depth 0) so we can derivePath("m/...") ourselves.
+  const mnemonic = Mnemonic.fromPhrase(phrase.trim());
+  return HDNodeWallet.fromSeed(mnemonic.computeSeed());
 }
 
 // ─── Address derivation ───────────────────────────────────────────────────────
