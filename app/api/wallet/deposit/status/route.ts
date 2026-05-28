@@ -30,11 +30,13 @@ export async function POST(req: Request) {
   }
 
   if (txn.status === TransactionStatus.COMPLETED) {
+    const meta = txn.metadata as Record<string, string> | null;
+    const receipt = meta?.relworxRef ?? meta?.TransactionReceipt ?? meta?.confirmationCode ?? "";
     return Response.json({
       status:     "confirmed",
       newBalance: Number(txn.user.walletBalance),
       message:    `KSh ${Number(txn.amount).toLocaleString()} added to your wallet!`,
-      receipt:    (txn.metadata as Record<string, string> | null)?.relworxRef ?? "",
+      receipt,
     });
   }
 

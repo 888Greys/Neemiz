@@ -7,7 +7,8 @@ const PROTECTED = [
   "/admin",
 ];
 
-const ADMIN_COOKIE = "__nezeem_a2fa";
+const ADMIN_COOKIE    = "__nezeem_a2fa";
+const USER_2FA_COOKIE = "__nezeem_u2fa";
 
 function isProtected(pathname: string) {
   return PROTECTED.some((p) => pathname === p || pathname.startsWith(p + "/"));
@@ -55,12 +56,29 @@ export default async function middleware(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Fast 2FA shortcut: admin routes without the session cookie → /admin/2fa
-    const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
-    const is2FAPage = pathname === "/admin/2fa" || pathname.startsWith("/admin/2fa/");
-    if (user && isAdminRoute && !is2FAPage && !request.cookies.get(ADMIN_COOKIE)) {
+    // Admin 2FA: admin routes without the admin session cookie → /admin/2fa
+    const isAdminRoute   = pathname === "/admin" || pathname.startsWith("/admin/");
+    const isAdmin2FAPage = pathname === "/admin/2fa" || pathname.startsWith("/admin/2fa/");
+    if (user && isAdminRoute && !isAdmin2FAPage && !request.cookies.get(ADMIN_COOKIE)) {
       const url = request.nextUrl.clone();
       url.pathname = "/admin/2fa";
+      return NextResponse.redirect(url);
+    }
+
+    // User 2FA: if user_metadata.totp_enabled and no verified session cookie → /2fa
+    const isUser2FAPage  = pathname === "/2fa";
+    const hasTotpEnabled = user?.user_metadata?.totp_enabled === true;
+    if (
+      user &&
+      hasTotpEnabled &&
+      !isUser2FAPage &&
+      !isAdmin2FAPage &&
+      isProtected(pathname) &&
+      !request.cookies.get(USER_2FA_COOKIE)
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/2fa";
+      url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }
   } catch {
