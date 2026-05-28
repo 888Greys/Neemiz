@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { cookies } from "next/headers";
+import { TransactionStatus } from "@prisma/client";
 
 export async function GET() {
   const supabase = await createClient();
@@ -34,6 +35,7 @@ export async function GET() {
     depositsToday,
     activeOrders,
     totalDepositsMonth,
+    pendingWithdrawals,
   ] = await Promise.all([
     db.user.count(),
     db.user.count({ where: { createdAt: { gte: startOfDay } } }),
@@ -52,6 +54,7 @@ export async function GET() {
       _sum: { amount: true },
       _count: true,
     }),
+    db.transaction.count({ where: { type: "WITHDRAWAL", status: "PENDING_APPROVAL" as TransactionStatus } }),
   ]);
 
   return Response.json({
@@ -62,6 +65,7 @@ export async function GET() {
     pendingDeposits,
     totalMerchants,
     activeOrders,
+    pendingWithdrawals,
     depositsToday: {
       count:  depositsToday._count,
       amount: Number(depositsToday._sum.amount ?? 0),

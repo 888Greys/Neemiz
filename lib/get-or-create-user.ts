@@ -14,9 +14,16 @@ type UserData = {
  * Pass `data` on first call (e.g. from auth webhook or sign-up API route) so the
  * row is seeded with the user's profile info.
  */
+export class SuspendedAccountError extends Error {
+  constructor() { super("ACCOUNT_SUSPENDED"); }
+}
+
 export async function getOrCreateUser(supabaseId: string, data?: UserData) {
   const existing = await db.user.findUnique({ where: { supabaseId } });
-  if (existing) return existing;
+  if (existing) {
+    if (!existing.isActive) throw new SuspendedAccountError();
+    return existing;
+  }
 
   return db.user.create({
     data: {
