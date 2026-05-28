@@ -757,7 +757,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     />
                   </label>
 
-                  <p className="-mt-2 text-xs font-bold text-slate-500">KES 150 – KES 150,000</p>
+                  <p className="-mt-2 text-xs font-bold text-slate-500">KES 10 – KES 150,000</p>
 
                   {error && (
                     <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 ring-1 ring-red-500/20">
