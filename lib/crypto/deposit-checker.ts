@@ -170,6 +170,35 @@ export async function checkTronTRXDeposits(address: string): Promise<DepositTx[]
     .filter((tx) => Number(tx.amount) > 0);
 }
 
+// ─── Bitcoin via Blockstream API (free, no key) ───────────────────────────────
+
+export async function checkBTCDeposits(address: string): Promise<DepositTx[]> {
+  const url = `https://blockstream.info/api/address/${address}/txs`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) return [];
+  const txs = await res.json() as Record<string, unknown>[];
+  if (!Array.isArray(txs)) return [];
+
+  const results: DepositTx[] = [];
+  for (const tx of txs) {
+    if (!(tx.status as Record<string, unknown>)?.confirmed) continue; // skip unconfirmed
+    const vout = tx.vout as Record<string, unknown>[] | undefined;
+    if (!Array.isArray(vout)) continue;
+    for (const out of vout) {
+      if (out.scriptpubkey_address !== address) continue;
+      const satoshis = Number(out.value ?? 0);
+      if (satoshis <= 0) continue;
+      results.push({
+        txHash:    tx.txid as string,
+        amount:    (satoshis / 1e8).toFixed(8),
+        from:      "", // Blockstream doesn't give input address easily
+        timestamp: Number((tx.status as Record<string, unknown>)?.block_time ?? 0) * 1000,
+      });
+    }
+  }
+  return results;
+}
+
 // ─── Unified dispatcher ───────────────────────────────────────────────────────
 
 export async function checkDeposits(
@@ -177,9 +206,10 @@ export async function checkDeposits(
   crypto:  string,
   network: string,
 ): Promise<DepositTx[]> {
+  if (network === "BITCOIN") return checkBTCDeposits(address);
   if (network === "TRC20") {
     if (crypto === "TRX") return checkTronTRXDeposits(address);
-    return checkTronTRC20Deposits(address, crypto); // USDT and any future TRC-20
+    return checkTronTRC20Deposits(address, crypto);
   }
   return checkEVMDeposits(address, crypto, network);
 }
