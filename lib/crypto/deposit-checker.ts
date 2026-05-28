@@ -1,20 +1,39 @@
 /**
- * On-chain deposit checking via Etherscan API V2 (ETH + BSC) and TronGrid (Tron).
+ * On-chain deposit checking via Etherscan API V2 (multi-chain) and TronGrid (Tron).
+ * Supported:
+ *   EVM chains — Ethereum (1), BSC (56), Polygon (137)
+ *   Tron       — TRC-20 tokens + native TRX
  */
 
 const ETHERSCAN = "https://api.etherscan.io/v2/api";
 const TRONGRID  = "https://api.trongrid.io";
 
-// ERC-20 / BEP-20 token contracts (empty contract = native coin)
+// ─── EVM token registry ───────────────────────────────────────────────────────
+// chainId 1 = Ethereum, 56 = BSC, 137 = Polygon
+// Empty contract string = native coin (ETH, BNB, MATIC)
+
 const EVM_TOKENS: Record<string, { chainId: number; contract: string }> = {
-  "USDT:ERC20": { chainId: 1,  contract: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
-  "USDT:BEP20": { chainId: 56, contract: "0x55d398326f99059fF775485246999027B3197955" },
-  "ETH:ERC20":  { chainId: 1,  contract: "" }, // native ETH
-  "BNB:BEP20":  { chainId: 56, contract: "" }, // native BNB
+  // ── Ethereum (chainId 1) ──
+  "ETH:ERC20":   { chainId: 1,   contract: "" },                                         // native
+  "USDT:ERC20":  { chainId: 1,   contract: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
+  "USDC:ERC20":  { chainId: 1,   contract: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
+  "DAI:ERC20":   { chainId: 1,   contract: "0x6B175474E89094C44Da98b954EedeAC495271d0F" },
+  "WBTC:ERC20":  { chainId: 1,   contract: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599" },
+  "LINK:ERC20":  { chainId: 1,   contract: "0x514910771AF9Ca656af840dff83E8264EcF986CA" },
+  // ── BSC (chainId 56) ──
+  "BNB:BEP20":   { chainId: 56,  contract: "" },                                         // native
+  "USDT:BEP20":  { chainId: 56,  contract: "0x55d398326f99059fF775485246999027B3197955" },
+  "BUSD:BEP20":  { chainId: 56,  contract: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56" },
+  // ── Polygon (chainId 137) ──
+  "MATIC:POLYGON": { chainId: 137, contract: "" },                                       // native
+  "USDC:POLYGON":  { chainId: 137, contract: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174" },
+  "USDT:POLYGON":  { chainId: 137, contract: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
 };
 
-// TRC-20 USDT contract on Tron mainnet
-const TRON_USDT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
+// ─── Tron TRC-20 token contracts ──────────────────────────────────────────────
+const TRC20_CONTRACTS: Record<string, string> = {
+  USDT: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+};
 
 export interface DepositTx {
   txHash:    string;
@@ -23,7 +42,7 @@ export interface DepositTx {
   timestamp: number; // ms
 }
 
-// ─── EVM (ETH / BSC) via Etherscan API V2 ────────────────────────────────────
+// ─── EVM (multi-chain) via Etherscan API V2 ───────────────────────────────────
 
 export async function checkEVMDeposits(
   address: string,
@@ -46,10 +65,8 @@ export async function checkEVMDeposits(
   const isNative = !token.contract;
 
   if (isNative) {
-    // Native ETH / BNB: use normal transaction list
     url.searchParams.set("action", "txlist");
   } else {
-    // ERC-20 / BEP-20 token transfer
     url.searchParams.set("action",          "tokentx");
     url.searchParams.set("contractaddress", token.contract);
   }
@@ -60,7 +77,6 @@ export async function checkEVMDeposits(
   if (data.status !== "1" || !Array.isArray(data.result)) return [];
 
   if (isNative) {
-    // txlist: filter successful inbound txs, value in wei (18 decimals)
     return (data.result as Record<string, string>[])
       .filter((tx) =>
         tx.to?.toLowerCase() === address.toLowerCase() &&
@@ -75,7 +91,6 @@ export async function checkEVMDeposits(
       }));
   }
 
-  // tokentx: ERC-20 / BEP-20
   return (data.result as Record<string, string>[])
     .filter((tx) => tx.to?.toLowerCase() === address.toLowerCase())
     .map((tx) => ({
@@ -86,16 +101,20 @@ export async function checkEVMDeposits(
     }));
 }
 
-// ─── Tron (TRC20 USDT) via TronGrid ──────────────────────────────────────────
+// ─── Tron TRC-20 tokens via TronGrid ─────────────────────────────────────────
 
-export async function checkTronUSDTDeposits(address: string): Promise<DepositTx[]> {
+export async function checkTronTRC20Deposits(
+  address:  string,
+  crypto:   string,
+): Promise<DepositTx[]> {
+  const contract = TRC20_CONTRACTS[crypto];
+  if (!contract) return [];
+
   const apiKey  = process.env.TRONGRID_API_KEY;
-  const headers: Record<string, string> = apiKey
-    ? { "TRON-PRO-API-KEY": apiKey }
-    : {};
+  const headers: Record<string, string> = apiKey ? { "TRON-PRO-API-KEY": apiKey } : {};
 
   const url = `${TRONGRID}/v1/accounts/${address}/transactions/trc20` +
-    `?contract_address=${TRON_USDT}&only_confirmed=true&limit=20`;
+    `?contract_address=${contract}&only_confirmed=true&limit=20`;
 
   const res = await fetch(url, { headers, cache: "no-store" });
   if (!res.ok) return [];
@@ -105,25 +124,62 @@ export async function checkTronUSDTDeposits(address: string): Promise<DepositTx[
   return (data.data as Record<string, unknown>[])
     .filter((tx) => {
       const info = tx.token_info as Record<string, unknown> | undefined;
-      return tx.to === address && info?.symbol === "USDT";
+      return tx.to === address && info?.symbol === crypto;
     })
     .map((tx) => ({
       txHash:    tx.transaction_id as string,
-      amount:    (Number(tx.value) / 1_000_000).toFixed(6), // 6 decimals
+      amount:    (Number(tx.value) / 1_000_000).toFixed(6),
       from:      tx.from as string,
       timestamp: Number(tx.block_timestamp),
     }));
 }
 
-// ─── Unified checker ──────────────────────────────────────────────────────────
+// ─── Tron native TRX via TronGrid ────────────────────────────────────────────
+
+export async function checkTronTRXDeposits(address: string): Promise<DepositTx[]> {
+  const apiKey  = process.env.TRONGRID_API_KEY;
+  const headers: Record<string, string> = apiKey ? { "TRON-PRO-API-KEY": apiKey } : {};
+
+  const url = `${TRONGRID}/v1/accounts/${address}/transactions` +
+    `?only_confirmed=true&only_to=true&limit=20`;
+
+  const res = await fetch(url, { headers, cache: "no-store" });
+  if (!res.ok) return [];
+  const data = await res.json();
+  if (!Array.isArray(data.data)) return [];
+
+  return (data.data as Record<string, unknown>[])
+    .filter((tx) => {
+      // Only plain TRX transfers (TransferContract), not TRC-20 calls
+      const contracts = (tx.raw_data as Record<string, unknown>)?.contract as unknown[];
+      if (!Array.isArray(contracts) || contracts.length === 0) return false;
+      const type = (contracts[0] as Record<string, unknown>)?.type;
+      return type === "TransferContract";
+    })
+    .map((tx) => {
+      const contracts = (tx.raw_data as Record<string, unknown>).contract as Record<string, unknown>[];
+      const val = (contracts[0] as Record<string, unknown>)?.parameter as Record<string, unknown>;
+      const value = (val?.value as Record<string, unknown>)?.amount ?? 0;
+      return {
+        txHash:    (tx.txID ?? tx.transaction_id) as string,
+        amount:    (Number(value) / 1_000_000).toFixed(6), // TRX has 6 decimals (sun)
+        from:      ((val?.value as Record<string, unknown>)?.owner_address ?? "") as string,
+        timestamp: Number(tx.block_timestamp),
+      };
+    })
+    .filter((tx) => Number(tx.amount) > 0);
+}
+
+// ─── Unified dispatcher ───────────────────────────────────────────────────────
 
 export async function checkDeposits(
   address: string,
   crypto:  string,
   network: string,
 ): Promise<DepositTx[]> {
-  if (network === "TRC20" && crypto === "USDT") {
-    return checkTronUSDTDeposits(address);
+  if (network === "TRC20") {
+    if (crypto === "TRX") return checkTronTRXDeposits(address);
+    return checkTronTRC20Deposits(address, crypto); // USDT and any future TRC-20
   }
   return checkEVMDeposits(address, crypto, network);
 }

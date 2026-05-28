@@ -30,6 +30,7 @@ const CRYPTO_WITHDRAW_ASSETS = [
   { name: "Tether USD",       code: "USDT",  network: "BEP20",   displayNet: "BEP-20",  min: 10      },
   { name: "USD Coin",         code: "USDC",  network: "ERC20",   displayNet: "ERC-20",  min: 10      },
   { name: "USD Coin",         code: "USDC",  network: "POLYGON", displayNet: "Polygon", min: 10      },
+  { name: "Bitcoin",          code: "BTC",   network: "BTC",     displayNet: "Bitcoin", min: 0.0001  },
   { name: "Ethereum",         code: "ETH",   network: "ERC20",   displayNet: "ERC-20",  min: 0.005   },
   { name: "BNB",              code: "BNB",   network: "BEP20",   displayNet: "BEP-20",  min: 0.01    },
   { name: "Polygon",          code: "MATIC", network: "POLYGON", displayNet: "Polygon", min: 1       },

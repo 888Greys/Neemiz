@@ -17,15 +17,20 @@ const API_KEY = process.env.NOWPAYMENTS_API_KEY ?? "";
 // Maps NOWPayments pay_currency codes → our internal (crypto, network) pair
 
 export const NP_TO_INTERNAL: Record<string, { crypto: string; network: string }> = {
-  usdttrc20:  { crypto: "USDT",  network: "TRC20"   },
-  usdterc20:  { crypto: "USDT",  network: "ERC20"   },
-  usdtbsc:    { crypto: "USDT",  network: "BEP20"   },
-  usdcmatic:  { crypto: "USDC",  network: "POLYGON" },
-  usdcerc20:  { crypto: "USDC",  network: "ERC20"   },
-  btc:        { crypto: "BTC",   network: "BTC"     },
-  eth:        { crypto: "ETH",   network: "ERC20"   },
-  bnbbsc:     { crypto: "BNB",   network: "BEP20"   },
+  usdttrc20:    { crypto: "USDT",  network: "TRC20"   },
+  usdterc20:    { crypto: "USDT",  network: "ERC20"   },
+  usdtbsc:      { crypto: "USDT",  network: "BEP20"   },
+  usdcmatic:    { crypto: "USDC",  network: "POLYGON" },
+  usdcerc20:    { crypto: "USDC",  network: "ERC20"   },
+  btc:          { crypto: "BTC",   network: "BTC"     },
+  eth:          { crypto: "ETH",   network: "ERC20"   },
+  bnbbsc:       { crypto: "BNB",   network: "BEP20"   },
   maticmainnet: { crypto: "MATIC", network: "POLYGON" },
+  trx:          { crypto: "TRX",   network: "TRC20"   },
+  daieth:       { crypto: "DAI",   network: "ERC20"   },
+  busdbsc:      { crypto: "BUSD",  network: "BEP20"   },
+  wbtceth:      { crypto: "WBTC",  network: "ERC20"   },
+  linketh:      { crypto: "LINK",  network: "ERC20"   },
 };
 
 // Maps our (crypto:network) → NOWPayments pay_currency code
@@ -39,6 +44,11 @@ export const INTERNAL_TO_NP: Record<string, string> = {
   "ETH:ERC20":     "eth",
   "BNB:BEP20":     "bnbbsc",
   "MATIC:POLYGON": "maticmainnet",
+  "TRX:TRC20":     "trx",
+  "DAI:ERC20":     "daieth",
+  "BUSD:BEP20":    "busdbsc",
+  "WBTC:ERC20":    "wbtceth",
+  "LINK:ERC20":    "linketh",
 };
 
 export function toNpCurrency(crypto: string, network: string): string {

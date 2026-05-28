@@ -13,48 +13,52 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 export const runtime = "nodejs";
 
 // Fallback KES rates used only when live fetch fails
-const FALLBACK_USDT_KES = Number(process.env.USDT_KES_RATE ?? "128");
-const FALLBACK_ETH_KES  = Number(process.env.ETH_KES_RATE  ?? "420000");
-const FALLBACK_BNB_KES  = Number(process.env.BNB_KES_RATE  ?? "84000");
+const FALLBACK: Record<string, number> = {
+  USDT:  Number(process.env.USDT_KES_RATE  ?? "128"),
+  USDC:  Number(process.env.USDT_KES_RATE  ?? "128"),  // stablecoin ≈ USDT
+  DAI:   Number(process.env.USDT_KES_RATE  ?? "128"),  // stablecoin ≈ USDT
+  BUSD:  Number(process.env.USDT_KES_RATE  ?? "128"),  // stablecoin ≈ USDT
+  ETH:   Number(process.env.ETH_KES_RATE   ?? "420000"),
+  BNB:   Number(process.env.BNB_KES_RATE   ?? "84000"),
+  MATIC: Number(process.env.MATIC_KES_RATE ?? "120"),
+  TRX:   Number(process.env.TRX_KES_RATE   ?? "18"),
+  WBTC:  Number(process.env.BTC_KES_RATE   ?? "14000000"),
+  LINK:  Number(process.env.LINK_KES_RATE  ?? "1800"),
+};
 
-async function fetchLiveRates(): Promise<{ USDT: number; ETH: number; BNB: number }> {
+type Rates = typeof FALLBACK;
+
+async function fetchLiveRates(): Promise<Rates> {
+  const rates = { ...FALLBACK };
   try {
-    // Frankfurter gives major fiat pairs; for crypto we use CoinGecko (no key required)
-    const [kesRes, cryptoRes] = await Promise.all([
-      fetch("https://api.frankfurter.app/latest?base=USD&symbols=KES", { signal: AbortSignal.timeout(5000) }),
-      fetch("https://api.coingecko.com/api/v3/simple/price?ids=tether,ethereum,binancecoin&vs_currencies=kes", { signal: AbortSignal.timeout(5000) }),
-    ]);
+    // CoinGecko IDs for all supported coins
+    const ids = "tether,usd-coin,dai,binance-usd,ethereum,binancecoin,matic-network,tron,wrapped-bitcoin,chainlink";
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=kes`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) return rates;
 
-    let kesPerUsd = FALLBACK_USDT_KES;
-    if (kesRes.ok) {
-      const data = await kesRes.json() as { rates?: { KES?: number } };
-      if (data.rates?.KES) kesPerUsd = data.rates.KES;
-    }
-
-    let ethKes = FALLBACK_ETH_KES;
-    let bnbKes = FALLBACK_BNB_KES;
-    if (cryptoRes.ok) {
-      const data = await cryptoRes.json() as {
-        tether?: { kes?: number };
-        ethereum?: { kes?: number };
-        binancecoin?: { kes?: number };
-      };
-      if (data.tether?.kes)      kesPerUsd = data.tether.kes;
-      if (data.ethereum?.kes)    ethKes    = data.ethereum.kes;
-      if (data.binancecoin?.kes) bnbKes    = data.binancecoin.kes;
-    }
-
-    return { USDT: kesPerUsd, ETH: ethKes, BNB: bnbKes };
+    const data = await res.json() as Record<string, { kes?: number }>;
+    if (data.tether?.kes)         rates.USDT  = data.tether.kes;
+    if (data["usd-coin"]?.kes)    rates.USDC  = data["usd-coin"].kes;
+    if (data.dai?.kes)            rates.DAI   = data.dai.kes;
+    if (data["binance-usd"]?.kes) rates.BUSD  = data["binance-usd"].kes;
+    if (data.ethereum?.kes)       rates.ETH   = data.ethereum.kes;
+    if (data.binancecoin?.kes)    rates.BNB   = data.binancecoin.kes;
+    if (data["matic-network"]?.kes) rates.MATIC = data["matic-network"].kes;
+    if (data.tron?.kes)           rates.TRX   = data.tron.kes;
+    if (data["wrapped-bitcoin"]?.kes) rates.WBTC = data["wrapped-bitcoin"].kes;
+    if (data.chainlink?.kes)      rates.LINK  = data.chainlink.kes;
   } catch {
-    console.warn("[check-deposits] Live rate fetch failed, using env var fallbacks");
-    return { USDT: FALLBACK_USDT_KES, ETH: FALLBACK_ETH_KES, BNB: FALLBACK_BNB_KES };
+    console.warn("[check-deposits] CoinGecko fetch failed, using env var fallbacks");
   }
+  return rates;
 }
 
-function toKes(amount: number, crypto: string, rates: { USDT: number; ETH: number; BNB: number }): number {
-  if (crypto === "ETH") return parseFloat((amount * rates.ETH).toFixed(2));
-  if (crypto === "BNB") return parseFloat((amount * rates.BNB).toFixed(2));
-  return parseFloat((amount * rates.USDT).toFixed(2)); // USDT / default
+function toKes(amount: number, crypto: string, rates: Rates): number {
+  const rate = rates[crypto] ?? rates.USDT;
+  return parseFloat((amount * rate).toFixed(2));
 }
 
 export async function GET(req: Request) {
@@ -148,7 +152,7 @@ export async function GET(req: Request) {
                 status:    TransactionStatus.COMPLETED,
                 reference: `crypto-${tx.txHash}`,
                 provider:  "crypto",
-                metadata:  { txHash: tx.txHash, crypto: addr.crypto, network: addr.network, cryptoAmount: amount, rate: rates[addr.crypto as keyof typeof rates] ?? rates.USDT },
+                metadata:  { txHash: tx.txHash, crypto: addr.crypto, network: addr.network, cryptoAmount: amount, rate: rates[addr.crypto] ?? rates.USDT },
               },
             });
 
