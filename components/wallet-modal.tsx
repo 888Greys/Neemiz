@@ -373,8 +373,9 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   }, []);
 
   useEffect(() => {
+    if (!isSignedIn) return;
     checkCryptoAddr(selectedCrypto.code, selectedCrypto.network);
-  }, [selectedCrypto.code, selectedCrypto.network, checkCryptoAddr]);
+  }, [isSignedIn, selectedCrypto.code, selectedCrypto.network, checkCryptoAddr]);
 
   async function generateCryptoAddress() {
     setCryptoAddr({ phase: "generating" });
