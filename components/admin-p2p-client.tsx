@@ -10,6 +10,17 @@ import { toast } from "@/lib/toast";
 type KycStatus = "PENDING" | "APPROVED" | "REJECTED";
 type DepositStatus = "PENDING" | "APPROVED" | "REJECTED";
 
+type WalletFamily = "EVM" | "TRON" | "BTC";
+
+interface CryptoWallet {
+  address:        string;
+  family:         WalletFamily;
+  derivationPath: string;
+  coins:          { crypto: string; network: string }[];
+  owner:          { id: string; email: string | null; username: string | null };
+  createdAt:      string;
+}
+
 interface MerchantKyc {
   id: string;
   displayName: string;
@@ -637,9 +648,210 @@ function DepositsTab({ onAction }: { onAction: () => void }) {
   );
 }
 
+// ─── Crypto Wallets Tab ───────────────────────────────────────────────────────
+
+function FamilyBadge({ family }: { family: WalletFamily }) {
+  const map: Record<WalletFamily, string> = {
+    EVM:  "bg-[#087cff]/10 text-[#087cff] border-[#087cff]/20",
+    TRON: "bg-red-500/10 text-red-400 border-red-500/20",
+    BTC:  "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  };
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-[10px] font-black ${map[family]}`}>
+      {family}
+    </span>
+  );
+}
+
+function CryptoWalletsTab() {
+  const [wallets, setWallets]   = useState<CryptoWallet[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [copiedAddr, setCopied] = useState<string | null>(null);
+  const [search, setSearch]     = useState("");
+  const [familyFilter, setFamilyFilter] = useState<WalletFamily | "ALL">("ALL");
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/crypto/wallets");
+        if (res.ok) {
+          const data = await res.json();
+          setWallets(data.wallets ?? []);
+        }
+      } catch { /* ignore */ } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  function copy(addr: string) {
+    navigator.clipboard.writeText(addr).then(() => {
+      setCopied(addr);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  }
+
+  const filtered = wallets.filter((w) => {
+    if (familyFilter !== "ALL" && w.family !== familyFilter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (
+        w.address.toLowerCase().includes(q) ||
+        w.owner.email?.toLowerCase().includes(q) ||
+        w.owner.username?.toLowerCase().includes(q) ||
+        w.coins.some((c) => c.crypto.toLowerCase().includes(q))
+      );
+    }
+    return true;
+  });
+
+  return (
+    <div>
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-3 mb-5">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[220px]">
+          <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-base pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search address, email, coin…"
+            className="w-full pl-9 pr-4 py-2.5 bg-[#0f1623] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-slate-600 outline-none focus:border-[#087cff]/40"
+          />
+        </div>
+        {/* Family filter */}
+        <div className="flex gap-1.5">
+          {(["ALL", "EVM", "TRON", "BTC"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFamilyFilter(f)}
+              className={`px-3 py-2 rounded-xl text-xs font-black transition-all ${
+                familyFilter === f
+                  ? f === "EVM"  ? "bg-[#087cff]/20 text-[#087cff]"
+                    : f === "TRON" ? "bg-red-500/20 text-red-400"
+                    : f === "BTC"  ? "bg-amber-500/20 text-amber-400"
+                    : "bg-white/10 text-white"
+                  : "bg-white/5 text-slate-500 hover:text-slate-300"
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+        {/* Total count */}
+        {!loading && (
+          <span className="text-slate-600 text-xs shrink-0">{filtered.length} address{filtered.length !== 1 ? "es" : ""}</span>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Spinner /></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 bg-[#0f1623] border border-white/[0.06] rounded-2xl">
+          <Icon name="account_balance_wallet" className="text-4xl text-slate-700 mb-3" />
+          <p className="text-slate-400 font-bold">No deposit addresses found</p>
+        </div>
+      ) : (
+        <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/[0.06]">
+                  {["Address", "Network", "Coins", "Owner", "Derivation path", "Created"].map((h) => (
+                    <th key={h} className="px-4 py-3.5 text-left text-xs font-black text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((w, i) => (
+                  <tr
+                    key={w.address}
+                    className={`${i < filtered.length - 1 ? "border-b border-white/[0.04]" : ""} hover:bg-white/[0.02] transition-colors`}
+                  >
+                    {/* Address */}
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-slate-300 text-xs">
+                          {w.address.length > 20
+                            ? `${w.address.slice(0, 10)}…${w.address.slice(-8)}`
+                            : w.address}
+                        </span>
+                        <button
+                          onClick={() => copy(w.address)}
+                          title="Copy full address"
+                          className="text-slate-600 hover:text-[#087cff] transition-colors shrink-0"
+                        >
+                          <Icon
+                            name={copiedAddr === w.address ? "check" : "content_copy"}
+                            className={`text-[13px] ${copiedAddr === w.address ? "text-[#31c45d]" : ""}`}
+                          />
+                        </button>
+                      </div>
+                    </td>
+                    {/* Network family */}
+                    <td className="px-4 py-3.5">
+                      <FamilyBadge family={w.family} />
+                    </td>
+                    {/* Supported coins */}
+                    <td className="px-4 py-3.5">
+                      <div className="flex flex-wrap gap-1">
+                        {w.coins.map((c) => (
+                          <span
+                            key={`${c.crypto}-${c.network}`}
+                            className="inline-flex items-center px-2 py-0.5 rounded-md bg-white/[0.05] text-slate-300 text-[10px] font-bold"
+                          >
+                            {c.crypto}
+                            <span className="text-slate-600 ml-1">{c.network}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    {/* Owner */}
+                    <td className="px-4 py-3.5">
+                      <p className="text-slate-300 text-xs font-bold">{w.owner.username ?? "—"}</p>
+                      <p className="text-slate-600 text-[11px] mt-0.5 truncate max-w-[160px]">{w.owner.email ?? "—"}</p>
+                    </td>
+                    {/* Derivation path */}
+                    <td className="px-4 py-3.5">
+                      <span className="font-mono text-slate-400 text-[11px] bg-white/[0.04] px-2 py-0.5 rounded-md whitespace-nowrap">
+                        {w.derivationPath}
+                      </span>
+                    </td>
+                    {/* Created */}
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <p className="text-slate-400 text-xs">
+                        {new Date(w.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short", year: "numeric" })}
+                      </p>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Recovery footer */}
+          <div className="border-t border-white/[0.06] px-5 py-4 bg-amber-500/5">
+            <p className="text-amber-400 text-xs font-black mb-2 flex items-center gap-1.5">
+              <Icon name="key" className="text-sm" />
+              Wallet Recovery (import MASTER_WALLET_MNEMONIC into):
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-400">
+              <div><span className="text-[#087cff] font-black">EVM</span> — MetaMask → Advanced → HD path <code className="font-mono text-slate-300">m/44&apos;/60&apos;/0&apos;/0</code>, add accounts by index</div>
+              <div><span className="text-red-400 font-black">TRON</span> — TronLink → import mnemonic → BIP44 <code className="font-mono text-slate-300">m/44&apos;/195&apos;/0&apos;/0</code></div>
+              <div><span className="text-amber-400 font-black">BTC</span> — Electrum → Standard → BIP44 Legacy → <code className="font-mono text-slate-300">m/44&apos;/0&apos;/0&apos;/0</code></div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Admin P2P Client ────────────────────────────────────────────────────
 
-type AdminTab = "kyc" | "disputes" | "deposits";
+type AdminTab = "kyc" | "disputes" | "deposits" | "wallets";
 
 interface PendingCounts { kyc: number; disputes: number; deposits: number }
 
@@ -670,9 +882,10 @@ export function AdminP2PClient() {
   useEffect(() => { fetchCounts(); }, [fetchCounts]);
 
   const tabs: { id: AdminTab; label: string; icon: string; count: number }[] = [
-    { id: "kyc",      label: "KYC Requests", icon: "verified_user", count: counts.kyc      },
-    { id: "disputes", label: "Disputes",      icon: "gavel",         count: counts.disputes },
-    { id: "deposits", label: "Deposits",      icon: "south_america", count: counts.deposits },
+    { id: "kyc",      label: "KYC Requests",    icon: "verified_user",        count: counts.kyc      },
+    { id: "disputes", label: "Disputes",         icon: "gavel",                count: counts.disputes },
+    { id: "deposits", label: "Deposits",         icon: "south_america",        count: counts.deposits },
+    { id: "wallets",  label: "Crypto Addresses", icon: "account_balance_wallet", count: 0             },
   ];
 
   return (
@@ -711,9 +924,10 @@ export function AdminP2PClient() {
       </div>
 
       {/* Tab content */}
-      {tab === "kyc"      && <KycRequestsTab onAction={fetchCounts} />}
-      {tab === "disputes" && <DisputesTab    onAction={fetchCounts} />}
-      {tab === "deposits" && <DepositsTab    onAction={fetchCounts} />}
+      {tab === "kyc"      && <KycRequestsTab  onAction={fetchCounts} />}
+      {tab === "disputes" && <DisputesTab     onAction={fetchCounts} />}
+      {tab === "deposits" && <DepositsTab     onAction={fetchCounts} />}
+      {tab === "wallets"  && <CryptoWalletsTab />}
     </div>
   );
 }
