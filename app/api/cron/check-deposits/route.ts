@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 
 // Fallback KES rates used only when live fetch fails
 const FALLBACK: Record<string, number> = {
+  BTC:   Number(process.env.BTC_KES_RATE   ?? "14000000"),
   USDT:  Number(process.env.USDT_KES_RATE  ?? "128"),
   USDC:  Number(process.env.USDT_KES_RATE  ?? "128"),  // stablecoin ≈ USDT
   DAI:   Number(process.env.USDT_KES_RATE  ?? "128"),  // stablecoin ≈ USDT
@@ -32,7 +33,7 @@ async function fetchLiveRates(): Promise<Rates> {
   const rates = { ...FALLBACK };
   try {
     // CoinGecko IDs for all supported coins
-    const ids = "tether,usd-coin,dai,binance-usd,ethereum,binancecoin,matic-network,tron,wrapped-bitcoin,chainlink";
+    const ids = "bitcoin,tether,usd-coin,dai,binance-usd,ethereum,binancecoin,matic-network,tron,wrapped-bitcoin,chainlink";
     const res = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=kes`,
       { signal: AbortSignal.timeout(8000) },
@@ -40,6 +41,7 @@ async function fetchLiveRates(): Promise<Rates> {
     if (!res.ok) return rates;
 
     const data = await res.json() as Record<string, { kes?: number }>;
+    if (data.bitcoin?.kes)        rates.BTC   = data.bitcoin.kes;
     if (data.tether?.kes)         rates.USDT  = data.tether.kes;
     if (data["usd-coin"]?.kes)    rates.USDC  = data["usd-coin"].kes;
     if (data.dai?.kes)            rates.DAI   = data.dai.kes;

@@ -3,7 +3,9 @@
  * MASTER_WALLET_MNEMONIC → unique address per user × crypto × network.
  *
  * Recovery: import the mnemonic into any BIP44 wallet (Exodus, Trust Wallet)
- * and iterate m/44'/60'/0'/0/N for EVM or m/44'/195'/0'/0/N for Tron.
+ *   EVM  → m/44'/60'/0'/0/N
+ *   Tron → m/44'/195'/0'/0/N
+ *   BTC  → m/44'/0'/0'/0/N  (Legacy P2PKH — 1… addresses)
  */
 import { HDNodeWallet, Mnemonic } from "ethers";
 import { createHash } from "crypto";
@@ -63,6 +65,22 @@ function deriveTronAddress(index: number): string {
   return evmToTron(child.address);
 }
 
+function deriveBTCAddress(index: number): string {
+  // BIP44 path for Bitcoin (coin type 0) → Legacy P2PKH address (1…)
+  const child  = getRoot().derivePath(`m/44'/0'/0'/0/${index}`);
+  // Compressed public key as Buffer (strip leading "0x")
+  const pubKey = Buffer.from(child.publicKey.replace(/^0x/, ""), "hex");
+  // HASH160 = RIPEMD160(SHA256(pubKey))
+  const sha    = createHash("sha256").update(pubKey).digest();
+  const hash160 = createHash("ripemd160").update(sha).digest();
+  // Version byte 0x00 = mainnet P2PKH
+  const versioned = Buffer.concat([Buffer.from([0x00]), hash160]);
+  // Checksum = first 4 bytes of SHA256(SHA256(versioned))
+  const chk1 = createHash("sha256").update(versioned).digest();
+  const chk2 = createHash("sha256").update(chk1).digest();
+  return base58Encode(Buffer.concat([versioned, chk2.slice(0, 4)]));
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -84,7 +102,8 @@ export async function getOrCreateDepositAddress(
   if (existing) return existing.address;
 
   const isTron = network === "TRC20";
-  const isEvm  = !isTron; // ERC20, BEP20, POLYGON all share the same EVM address
+  const isBTC  = network === "BITCOIN";
+  const isEvm  = !isTron && !isBTC; // ERC20, BEP20, POLYGON share the same EVM address
 
   if (isEvm) {
     // Reuse an existing EVM address for this user across ERC20/BEP20/POLYGON
@@ -102,9 +121,9 @@ export async function getOrCreateDepositAddress(
 
   // Global sequential index — each new user slot gets the next derivation index
   const index   = await db.cryptoDepositAddress.count();
-  const address = isTron
-    ? deriveTronAddress(index)
-    : deriveEVMAddress(index);
+  const address = isTron ? deriveTronAddress(index)
+                : isBTC  ? deriveBTCAddress(index)
+                :           deriveEVMAddress(index);
 
   await db.cryptoDepositAddress.create({
     data: { userId, crypto, network, address },

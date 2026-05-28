@@ -23,6 +23,7 @@ const COIN_ICON_URL: Record<string, string> = {
 };
 
 const CRYPTO_ASSETS = [
+  { name: "Bitcoin",         code: "BTC",   network: "BITCOIN", displayNet: "Bitcoin",          min: 0.0001 },
   { name: "Tether USD",      code: "USDT",  network: "TRC20",   displayNet: "TRC-20 (Tron)",    min: 10     },
   { name: "Tether USD",      code: "USDT",  network: "ERC20",   displayNet: "ERC-20 (ETH)",     min: 10     },
   { name: "Tether USD",      code: "USDT",  network: "BEP20",   displayNet: "BEP-20 (BSC)",     min: 10     },
