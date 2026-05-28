@@ -316,7 +316,7 @@ function CryptoDepositPanel({
 export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   const { isSignedIn, user } = useSupabaseAuth();
   const [mode, setMode] = useState<"fiat" | "crypto">("fiat");
-  const [screen, setScreen] = useState<"methods" | "mpesa" | "pesapal">("methods");
+  const [screen, setScreen] = useState<"methods" | "mpesa">("methods");
 
   // Crypto deposit state
   const [selectedCrypto, setSelectedCrypto] = useState<CryptoAsset>(CRYPTO_ASSETS[0]);
@@ -472,26 +472,6 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
     }
   }
 
-  async function handlePesapalCheckout() {
-    if (!isSignedIn) { setError("Log in to deposit."); return; }
-    setError("");
-    setLoading(true);
-    try {
-      const res  = await fetch("/api/wallet/pesapal/checkout", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ amountKes: Number(amount) }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to initiate payment.");
-      window.location.href = (data as { redirectUrl: string }).redirectUrl;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   const cryptoPanelProps = {
     asset:      selectedCrypto,
     search:     cryptoSearch,
@@ -526,87 +506,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
         </button>
 
         <div className="no-scrollbar relative overflow-y-auto px-4 pb-5 pt-5 sm:px-6 sm:pb-7">
-          {screen === "pesapal" ? (
-            <div className="space-y-4">
-              <button
-                type="button"
-                onClick={() => { reset(); setScreen("methods"); }}
-                className="inline-flex h-9 items-center gap-1 rounded-full bg-white/[0.05] pl-2 pr-4 text-sm font-black text-[#75b8ff] ring-1 ring-white/[0.07] transition hover:bg-white/[0.09] hover:text-white"
-              >
-                <Icon name="chevron_left" className="text-[22px]" />
-                Back
-              </button>
-
-              <div className="pr-12">
-                <div className="inline-flex items-center gap-2 rounded-full bg-blue-400/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-blue-300 ring-1 ring-blue-400/20">
-                  <span className="h-2 w-2 rounded-full bg-[#087cff]" />
-                  Pesapal
-                </div>
-                <h2 className="mt-3 text-xl font-black tracking-tight text-white">Hosted checkout</h2>
-                <p className="mt-1 text-xs font-bold text-slate-500">
-                  Pay with M-Pesa, Visa, Mastercard or mobile money via Pesapal.
-                </p>
-              </div>
-
-              <label className="relative block">
-                <span className="absolute left-5 top-2 text-xs font-bold text-slate-500">Amount (KES)</span>
-                <input
-                  type="number"
-                  min="10"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0"
-                  className="h-14 w-full rounded-2xl bg-white/[0.055] px-5 pt-4 text-base font-bold text-white outline-none ring-1 ring-white/[0.08] transition focus:bg-white/[0.075] focus:ring-2 focus:ring-[#087cff]/50 placeholder:text-slate-600"
-                  autoFocus
-                />
-              </label>
-
-              <p className="-mt-2 text-xs font-bold text-slate-500">Minimum KES 10</p>
-
-              <div className="grid grid-cols-4 gap-2">
-                {QUICK_AMOUNTS.map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setAmount(String(v))}
-                    className={`h-9 rounded-xl text-xs font-black transition ${
-                      Number(amount) === v
-                        ? "bg-[#087cff] text-white"
-                        : "bg-white/[0.06] text-slate-400 ring-1 ring-white/[0.08] hover:bg-white/[0.10] hover:text-white"
-                    }`}
-                  >
-                    {v.toLocaleString()}
-                  </button>
-                ))}
-              </div>
-
-              {error && (
-                <p className="rounded-xl bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300 ring-1 ring-red-500/20">
-                  {error}
-                </p>
-              )}
-
-              <button
-                type="button"
-                onClick={handlePesapalCheckout}
-                disabled={loading || !amount || Number(amount) < 10}
-                className="h-14 w-full rounded-2xl bg-[#087cff] text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-slate-500 disabled:shadow-none"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Redirecting…
-                  </span>
-                ) : (
-                  "Continue to payment →"
-                )}
-              </button>
-
-              <p className="text-center text-[10px] font-bold text-slate-600">
-                You will be redirected to Pesapal to complete your payment securely.
-              </p>
-            </div>
-          ) : screen === "methods" ? (
+          {screen === "methods" ? (
             <div className="space-y-3 sm:space-y-5">
               <div>
                 <h2 className="pr-10 text-3xl font-black tracking-tight text-white sm:text-4xl">
@@ -635,31 +535,17 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     <Icon name="expand_more" className="text-[26px] text-slate-500" />
                   </button>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => { setScreen("mpesa"); setMode("fiat"); }}
-                      className="flex h-[100px] flex-col items-start justify-between rounded-2xl bg-white/[0.06] px-4 py-4 text-left ring-1 ring-white/[0.08] transition hover:bg-white/[0.10] active:scale-[0.99]"
-                    >
-                      <span className="text-xl font-black tracking-tight text-[#31c45d]">M-PESA</span>
-                      <span>
-                        <span className="block text-sm font-black text-white">M-Pesa</span>
-                        <span className="block text-xs font-bold text-slate-500">Instant STK push</span>
-                      </span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => { setScreen("pesapal"); setMode("fiat"); reset(); }}
-                      className="flex h-[100px] flex-col items-start justify-between rounded-2xl bg-white/[0.06] px-4 py-4 text-left ring-1 ring-white/[0.08] transition hover:bg-white/[0.10] active:scale-[0.99]"
-                    >
-                      <span className="text-xl font-black tracking-tight text-[#087cff]">Pesapal</span>
-                      <span>
-                        <span className="block text-sm font-black text-white">Card · M-Pesa</span>
-                        <span className="block text-xs font-bold text-slate-500">Hosted checkout</span>
-                      </span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setScreen("mpesa"); setMode("fiat"); }}
+                    className="flex h-[100px] w-full flex-col items-start justify-between rounded-2xl bg-white/[0.06] px-4 py-4 text-left ring-1 ring-white/[0.08] transition hover:bg-white/[0.10] active:scale-[0.99]"
+                  >
+                    <span className="text-xl font-black tracking-tight text-[#31c45d]">M-PESA</span>
+                    <span>
+                      <span className="block text-sm font-black text-white">M-Pesa</span>
+                      <span className="block text-xs font-bold text-slate-500">Instant STK push</span>
+                    </span>
+                  </button>
                 </>
               ) : (
                 <CryptoDepositPanel {...cryptoPanelProps} />
