@@ -15,14 +15,27 @@ const COIN_ICON_URL: Record<string, string> = {
   ETH:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
   BNB:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
   MATIC:"https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/matic.svg",
+  TRX:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/trx.svg",
+  DAI:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/dai.svg",
+  BUSD: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/busd.svg",
+  WBTC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/wbtc.svg",
+  LINK: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/link.svg",
 };
 
 const CRYPTO_ASSETS = [
-  { name: "Tether USD", code: "USDT", network: "TRC20", displayNet: "TRC-20 (Tron)", min: 10    },
-  { name: "Tether USD", code: "USDT", network: "ERC20", displayNet: "ERC-20 (ETH)",  min: 10    },
-  { name: "Tether USD", code: "USDT", network: "BEP20", displayNet: "BEP-20 (BSC)",  min: 10    },
-  { name: "Ethereum",   code: "ETH",  network: "ERC20", displayNet: "ERC-20 (ETH)",  min: 0.001 },
-  { name: "BNB",        code: "BNB",  network: "BEP20", displayNet: "BEP-20 (BSC)",  min: 0.005 },
+  { name: "Tether USD",      code: "USDT",  network: "TRC20",   displayNet: "TRC-20 (Tron)",    min: 10     },
+  { name: "Tether USD",      code: "USDT",  network: "ERC20",   displayNet: "ERC-20 (ETH)",     min: 10     },
+  { name: "Tether USD",      code: "USDT",  network: "BEP20",   displayNet: "BEP-20 (BSC)",     min: 10     },
+  { name: "USD Coin",        code: "USDC",  network: "ERC20",   displayNet: "ERC-20 (ETH)",     min: 10     },
+  { name: "USD Coin",        code: "USDC",  network: "POLYGON", displayNet: "Polygon",          min: 10     },
+  { name: "Ethereum",        code: "ETH",   network: "ERC20",   displayNet: "ERC-20 (ETH)",     min: 0.001  },
+  { name: "BNB",             code: "BNB",   network: "BEP20",   displayNet: "BEP-20 (BSC)",     min: 0.005  },
+  { name: "Polygon",         code: "MATIC", network: "POLYGON", displayNet: "Polygon",          min: 1      },
+  { name: "TRON",            code: "TRX",   network: "TRC20",   displayNet: "TRC-20 (Tron)",    min: 10     },
+  { name: "Dai",             code: "DAI",   network: "ERC20",   displayNet: "ERC-20 (ETH)",     min: 10     },
+  { name: "Binance USD",     code: "BUSD",  network: "BEP20",   displayNet: "BEP-20 (BSC)",     min: 10     },
+  { name: "Wrapped Bitcoin", code: "WBTC",  network: "ERC20",   displayNet: "ERC-20 (ETH)",     min: 0.0001 },
+  { name: "Chainlink",       code: "LINK",  network: "ERC20",   displayNet: "ERC-20 (ETH)",     min: 0.5    },
 ];
 
 type DepositState =

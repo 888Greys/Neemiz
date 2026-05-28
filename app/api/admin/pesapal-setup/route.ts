@@ -5,7 +5,7 @@
  * Admin-only (requires admin 2FA cookie).
  */
 import { cookies } from "next/headers";
-import { verifyAdminToken } from "@/lib/admin-auth";
+import { verifyAdminToken } from "@/lib/admin-2fa";
 
 const BASE_URL = process.env.PESAPAL_ENV === "production"
   ? "https://pay.pesapal.com/v3"
