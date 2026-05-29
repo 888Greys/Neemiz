@@ -2,8 +2,9 @@
  * Cron endpoint: scans all crypto deposit addresses and credits any new deposits.
  * VPS cron runs this every 5 minutes.
  *
- * All users: converts to KES at live rate → credits walletBalance + UserCryptoBalance.
- * Merchants then use POST /api/p2p/merchant/fund to move wallet crypto into escrow.
+ * Deposits credit UserCryptoBalance only — no KES conversion.
+ * KES walletBalance is only ever credited by fiat payment providers (Megapay, Pesapal, etc.).
+ * Merchants use POST /api/p2p/merchant/fund to move wallet crypto into escrow.
  */
 import { db } from "@/lib/db";
 import { checkDeposits, getOnChainBalance } from "@/lib/crypto/deposit-checker";
@@ -11,57 +12,6 @@ import { sendCryptoDepositEmail } from "@/lib/brevo";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
-
-// Fallback KES rates used only when live fetch fails
-const FALLBACK: Record<string, number> = {
-  BTC:   Number(process.env.BTC_KES_RATE   ?? "14000000"),
-  USDT:  Number(process.env.USDT_KES_RATE  ?? "128"),
-  USDC:  Number(process.env.USDT_KES_RATE  ?? "128"),  // stablecoin ≈ USDT
-  DAI:   Number(process.env.USDT_KES_RATE  ?? "128"),  // stablecoin ≈ USDT
-  BUSD:  Number(process.env.USDT_KES_RATE  ?? "128"),  // stablecoin ≈ USDT
-  ETH:   Number(process.env.ETH_KES_RATE   ?? "420000"),
-  BNB:   Number(process.env.BNB_KES_RATE   ?? "84000"),
-  MATIC: Number(process.env.MATIC_KES_RATE ?? "120"),
-  TRX:   Number(process.env.TRX_KES_RATE   ?? "18"),
-  WBTC:  Number(process.env.BTC_KES_RATE   ?? "14000000"),
-  LINK:  Number(process.env.LINK_KES_RATE  ?? "1800"),
-};
-
-type Rates = typeof FALLBACK;
-
-async function fetchLiveRates(): Promise<Rates> {
-  const rates = { ...FALLBACK };
-  try {
-    // CoinGecko IDs for all supported coins
-    const ids = "bitcoin,tether,usd-coin,dai,binance-usd,ethereum,binancecoin,matic-network,tron,wrapped-bitcoin,chainlink";
-    const res = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=kes`,
-      { signal: AbortSignal.timeout(8000) },
-    );
-    if (!res.ok) return rates;
-
-    const data = await res.json() as Record<string, { kes?: number }>;
-    if (data.bitcoin?.kes)        rates.BTC   = data.bitcoin.kes;
-    if (data.tether?.kes)         rates.USDT  = data.tether.kes;
-    if (data["usd-coin"]?.kes)    rates.USDC  = data["usd-coin"].kes;
-    if (data.dai?.kes)            rates.DAI   = data.dai.kes;
-    if (data["binance-usd"]?.kes) rates.BUSD  = data["binance-usd"].kes;
-    if (data.ethereum?.kes)       rates.ETH   = data.ethereum.kes;
-    if (data.binancecoin?.kes)    rates.BNB   = data.binancecoin.kes;
-    if (data["matic-network"]?.kes) rates.MATIC = data["matic-network"].kes;
-    if (data.tron?.kes)           rates.TRX   = data.tron.kes;
-    if (data["wrapped-bitcoin"]?.kes) rates.WBTC = data["wrapped-bitcoin"].kes;
-    if (data.chainlink?.kes)      rates.LINK  = data.chainlink.kes;
-  } catch {
-    console.warn("[check-deposits] CoinGecko fetch failed, using env var fallbacks");
-  }
-  return rates;
-}
-
-function toKes(amount: number, crypto: string, rates: Rates): number {
-  const rate = rates[crypto] ?? rates.USDT;
-  return parseFloat((amount * rate).toFixed(2));
-}
 
 export async function GET(req: Request) {
   const auth   = req.headers.get("authorization") ?? "";
@@ -73,12 +23,9 @@ export async function GET(req: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [addresses, rates] = await Promise.all([
-    db.cryptoDepositAddress.findMany({
-      include: { user: { include: { merchantProfile: true } } },
-    }),
-    fetchLiveRates(),
-  ]);
+  const addresses = await db.cryptoDepositAddress.findMany({
+    include: { user: { include: { merchantProfile: true } } },
+  });
 
   let credited = 0;
   const errors: string[] = [];
@@ -100,31 +47,25 @@ export async function GET(req: Request) {
 
         const isMerchant = !!addr.user.merchantProfile;
 
-        // ── All users: convert to KES + track crypto balance ────────────────
-        const kesAmount = toKes(amount, addr.crypto, rates);
-
         await db.$transaction(async (t) => {
-          await t.user.update({
-            where: { id: addr.userId },
-            data:  { walletBalance: { increment: kesAmount } },
-          });
-
+          // Credit crypto balance (no KES conversion)
           await t.userCryptoBalance.upsert({
             where:  { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
             create: { userId: addr.userId, crypto: addr.crypto, network: addr.network, available: amount, locked: 0 },
             update: { available: { increment: amount } },
           });
 
+          // Log transaction in crypto currency for audit trail / dedup
           await t.transaction.create({
             data: {
               userId:    addr.userId,
               type:      TransactionType.DEPOSIT,
-              amount:    kesAmount,
-              currency:  "KES",
+              amount,
+              currency:  addr.crypto,
               status:    TransactionStatus.COMPLETED,
               reference: `crypto-${tx.txHash}`,
               provider:  "crypto",
-              metadata:  { txHash: tx.txHash, crypto: addr.crypto, network: addr.network, cryptoAmount: amount, rate: rates[addr.crypto] ?? rates.USDT },
+              metadata:  { txHash: tx.txHash, crypto: addr.crypto, network: addr.network },
             },
           });
 
@@ -134,26 +75,26 @@ export async function GET(req: Request) {
               type:   "wallet_deposit",
               title:  "Crypto deposit received",
               body:   isMerchant
-                ? `${tx.amount} ${addr.crypto} credited to your wallet. Go to Merchant Center to fund your escrow.`
-                : `${tx.amount} ${addr.crypto} = KSh ${kesAmount.toLocaleString()} credited to your wallet.`,
+                ? `${tx.amount} ${addr.crypto} (${addr.network}) credited to your wallet. Go to Merchant Center to fund your escrow.`
+                : `${tx.amount} ${addr.crypto} (${addr.network}) credited to your wallet.`,
               link:   isMerchant ? "/p2p/merchant" : "/dashboard",
             },
           });
         });
 
-        // Send email notification (outside DB transaction — non-blocking)
+        // Email notification (non-blocking)
         if (addr.user.email) {
           sendCryptoDepositEmail(addr.user.email, addr.user.username ?? addr.user.email, {
             crypto:       addr.crypto,
             network:      addr.network,
             cryptoAmount: amount,
-            kesAmount,
             txHash:       tx.txHash,
           }).catch((e) => console.warn("[check-deposits] email failed:", e));
         }
 
         credited++;
       }
+
       // ── Sync on-chain balance → UI (best-effort) ──────────────────────────
       const onChain = await getOnChainBalance(addr.address, addr.crypto, addr.network);
       const existing = await db.userCryptoBalance.findUnique({
