@@ -372,11 +372,10 @@ export async function sendCryptoDepositEmail(
     crypto:       string;
     network:      string;
     cryptoAmount: number;
-    kesAmount:    number;
     txHash:       string;
   }
 ) {
-  const { crypto, network, cryptoAmount, kesAmount, txHash } = opts;
+  const { crypto, network, cryptoAmount, txHash } = opts;
   const netLabel: Record<string, string> = {
     TRC20: "TRC-20 (Tron)", ERC20: "ERC-20 (Ethereum)", BEP20: "BEP-20 (BSC)",
     POLYGON: "Polygon", BITCOIN: "Bitcoin",
@@ -405,15 +404,14 @@ export async function sendCryptoDepositEmail(
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow("Coin", `<strong>${crypto}</strong>`)}
             ${detailRow("Network", netLabel[network] ?? network)}
-            ${detailRow("Crypto Amount", `<strong style="color:#f59e0b;">${cryptoAmount.toFixed(6)} ${crypto}</strong>`)}
-            ${detailRow("KES Credited", `<strong style="color:#05b957;">KSh ${kesAmount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}</strong>`)}
+            ${detailRow("Amount", `<strong style="color:#f59e0b;">${cryptoAmount.toFixed(6)} ${crypto}</strong>`)}
             ${detailRow("Tx Hash", `<a href="${explorerLink}" style="color:#087cff;text-decoration:none;font-size:11px;">${txHash.slice(0, 20)}…</a>`, true)}
           </table>
         </td></tr>
       </table>
 
       <p style="margin:0 0 28px;font-size:14px;color:#8a94a6;line-height:1.6;">
-        Your KES equivalent has been added to your Nezeem betting wallet. You can now place bets or trade on any market.
+        Your crypto has been added to your Nezeem wallet. You can use it to trade on P2P or fund your merchant escrow.
       </p>
 
       ${ctaButton(`${APP_URL}/dashboard`, "Go to Dashboard →", "#f59e0b")}

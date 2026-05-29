@@ -4,35 +4,13 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { debitUserCrypto } from "@/lib/p2p/crypto-balance";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
-const FALLBACK: Record<string, number> = {
-  USDT:  Number(process.env.USDT_KES_RATE  ?? "128"),
-  BTC:   Number(process.env.BTC_KES_RATE   ?? "14000000"),
-  ETH:   Number(process.env.ETH_KES_RATE   ?? "420000"),
-  BNB:   Number(process.env.BNB_KES_RATE   ?? "84000"),
+const VALID_NETWORKS: Record<string, string[]> = {
+  USDT: ["TRC20", "ERC20", "BEP20"],
+  USDC: ["ERC20", "POLYGON"],
+  BTC:  ["BTC"],
+  ETH:  ["ERC20"],
+  BNB:  ["BEP20"],
 };
-
-const CG_IDS: Record<string, string> = {
-  USDT: "tether",
-  BTC:  "bitcoin",
-  ETH:  "ethereum",
-  BNB:  "binancecoin",
-};
-
-async function fetchRate(crypto: string): Promise<number> {
-  const id = CG_IDS[crypto];
-  if (!id) return FALLBACK[crypto] ?? FALLBACK.USDT;
-  try {
-    const res = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=kes`,
-      { signal: AbortSignal.timeout(5000) },
-    );
-    if (!res.ok) throw new Error("fetch failed");
-    const data = await res.json() as Record<string, { kes?: number }>;
-    return data[id]?.kes ?? (FALLBACK[crypto] ?? FALLBACK.USDT);
-  } catch {
-    return FALLBACK[crypto] ?? FALLBACK.USDT;
-  }
-}
 
 // POST /api/p2p/merchant/fund — move crypto from normal wallet into merchant escrow
 export async function POST(req: Request) {
@@ -51,7 +29,6 @@ export async function POST(req: Request) {
     }
 
     const { crypto, network, amount } = body as { crypto: string; network: string; amount: number };
-
     if (!crypto || !network || !amount) {
       return Response.json({ error: "crypto, network, and amount are required" }, { status: 400 });
     }
@@ -60,24 +37,15 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid amount" }, { status: 400 });
     }
 
-    const rate      = await fetchRate(crypto);
-    const kesAmount = parseFloat((amountNum * rate).toFixed(2));
+    if (!VALID_NETWORKS[crypto]?.includes(network)) {
+      return Response.json({ error: `Invalid network for ${crypto}` }, { status: 400 });
+    }
 
     await db.$transaction(async (t) => {
       // Debit UserCryptoBalance — throws INSUFFICIENT_CRYPTO_BALANCE if short
       await debitUserCrypto(t, dbUser.id, crypto, network, amountNum);
 
-      // Deduct KES equivalent from walletBalance (clamp to 0 on rate drift)
-      const updated = await t.user.update({
-        where:  { id: dbUser.id },
-        data:   { walletBalance: { decrement: kesAmount } },
-        select: { walletBalance: true },
-      });
-      if (Number(updated.walletBalance) < 0) {
-        await t.user.update({ where: { id: dbUser.id }, data: { walletBalance: 0 } });
-      }
-
-      // Credit merchant escrow
+      // Credit merchant escrow — no KES involved
       await t.p2PCryptoBalance.upsert({
         where:  { merchantId_crypto: { merchantId: merchant.id, crypto } },
         create: { merchantId: merchant.id, crypto, total: amountNum, available: amountNum, locked: 0 },
@@ -96,17 +64,17 @@ export async function POST(req: Request) {
         },
       });
 
-      // Ledger entry
+      // Audit log
       await t.transaction.create({
         data: {
           userId:    dbUser.id,
           type:      TransactionType.WITHDRAWAL,
-          amount:    kesAmount,
-          currency:  "KES",
+          amount:    amountNum,
+          currency:  crypto,
           status:    TransactionStatus.COMPLETED,
           reference: `escrow-fund-${Date.now()}`,
           provider:  "merchant_escrow",
-          metadata:  { crypto, network, cryptoAmount: amountNum, rate, action: "fund_escrow" },
+          metadata:  { crypto, network, cryptoAmount: amountNum, action: "fund_escrow" },
         },
       });
 
@@ -121,7 +89,7 @@ export async function POST(req: Request) {
       });
     });
 
-    return Response.json({ ok: true, crypto, network, amount: amountNum, kesAmount, rate });
+    return Response.json({ ok: true, crypto, network, amount: amountNum });
   } catch (err) {
     if (err instanceof Error && err.message === "INSUFFICIENT_CRYPTO_BALANCE") {
       return Response.json({ error: "Insufficient crypto balance in wallet" }, { status: 400 });
