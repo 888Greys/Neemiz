@@ -5,7 +5,7 @@ import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
 import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 
-const VALID_CRYPTOS = ["USDT", "BTC", "ETH", "BNB"];
+const VALID_CRYPTOS = ["USDT", "USDC", "BTC", "ETH", "BNB"];
 const VALID_SIDES: AdSide[] = ["BUY", "SELL"];
 
 // GET /api/p2p/ads — browse ads (public)

@@ -7,6 +7,16 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 
+// ─── Supported P2P cryptos ────────────────────────────────────────────────────
+
+const P2P_CRYPTOS: Array<{ symbol: string; name: string; icon: string; color: string }> = [
+  { symbol: "USDT", name: "Tether",       icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg", color: "#26a17b" },
+  { symbol: "USDC", name: "USD Coin",     icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg", color: "#2775ca" },
+  { symbol: "BTC",  name: "Bitcoin",      icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",  color: "#f7931a" },
+  { symbol: "ETH",  name: "Ethereum",     icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",  color: "#627eea" },
+  { symbol: "BNB",  name: "BNB",          icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",  color: "#f0b90b" },
+];
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface MerchantStatus {
@@ -871,31 +881,53 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
         </div>
 
         <div className="space-y-3 p-5">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">I want to</label>
-              <div className="flex gap-1 bg-white/[0.04] rounded-xl p-1">
-                {["BUY","SELL"].map((s) => (
-                  <button key={s} onClick={() => !isEditing && f("side", s)}
-                    disabled={isEditing}
-                    className={`flex-1 rounded-lg py-1.5 text-xs font-black transition-all ${form.side === s ? "bg-[#087cff] text-white shadow shadow-[#087cff]/30" : "text-slate-500 hover:text-white"}`}>
-                    {s}
-                  </button>
-                ))}
-              </div>
+          {/* Side selector */}
+          <div>
+            <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">I want to</label>
+            <div className="flex gap-1 bg-white/[0.04] rounded-xl p-1">
+              {["BUY","SELL"].map((s) => (
+                <button key={s} onClick={() => !isEditing && f("side", s)}
+                  disabled={isEditing}
+                  className={`flex-1 rounded-lg py-1.5 text-xs font-black transition-all ${form.side === s ? "bg-[#087cff] text-white shadow shadow-[#087cff]/30" : "text-slate-500 hover:text-white"}`}>
+                  {s}
+                </button>
+              ))}
             </div>
-            <div>
-              <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
-              <select value={form.crypto} onChange={(e) => f("crypto", e.target.value)} disabled={isEditing}
-                className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm text-white outline-none">
-                {["USDT"].map((c) => <option key={c} value={c} style={{ background: "#1a1b22", color: "#fff" }}>{c}</option>)}
-              </select>
+          </div>
+
+          {/* Crypto selector — icon grid */}
+          <div>
+            <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
+            <div className="grid grid-cols-5 gap-2">
+              {P2P_CRYPTOS.map((c) => {
+                const active = form.crypto === c.symbol;
+                return (
+                  <button
+                    key={c.symbol}
+                    type="button"
+                    onClick={() => !isEditing && f("crypto", c.symbol)}
+                    disabled={isEditing}
+                    title={c.name}
+                    className={`flex flex-col items-center gap-1 rounded-xl border py-2.5 px-1 transition-all ${
+                      active
+                        ? "border-[#087cff] bg-[#087cff]/10"
+                        : "border-white/[0.08] bg-white/[0.03] hover:border-white/20 disabled:opacity-50"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={c.icon} alt={c.symbol} className="h-7 w-7 rounded-full" />
+                    <span className={`text-[10px] font-black ${active ? "text-[#087cff]" : "text-slate-400"}`}>
+                      {c.symbol}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {[
-            { label: `Price per ${form.crypto} (KES)`, key: "pricePerUnit", ph: "e.g. 135" },
-            ...(!isEditing ? [{ label: `Total ${form.crypto} to ${form.side === "SELL" ? "sell" : "buy"}`, key: "totalAmount", ph: "e.g. 0.5" }] : []),
+            { label: `Price per ${form.crypto} (KES)`, key: "pricePerUnit", ph: form.crypto === "BTC" ? "e.g. 14000000" : form.crypto === "ETH" ? "e.g. 420000" : "e.g. 135" },
+            ...(!isEditing ? [{ label: `Total ${form.crypto} to ${form.side === "SELL" ? "sell" : "buy"}`, key: "totalAmount", ph: form.crypto === "BTC" ? "e.g. 0.001" : form.crypto === "ETH" ? "e.g. 0.01" : "e.g. 10" }] : []),
           ].map(({ label, key, ph }) => (
             <div key={key}>
               <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">{label}</label>
@@ -1121,16 +1153,20 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               const pmLabel = (m: string) => m === "MPESA" ? "M-Pesa" : m === "BANK" ? "Bank" : m;
               const filled = Number(ad.totalAmount) - Number(ad.availableAmount);
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
-              const cryptoColor: Record<string, string> = { USDT: "#26a17b", BTC: "#f7931a", ETH: "#627eea", BNB: "#f0b90b" };
-              const dotColor = cryptoColor[ad.crypto] ?? "#087cff";
+              const dotColor = P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)?.color ?? "#087cff";
               return (
                 <div key={ad.id} className="grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_90px] gap-3 border-b border-[#1e1e30] bg-[#0e0e14] px-3 py-3 transition last:border-b-0 hover:bg-[#111118] sm:px-4 lg:min-h-[82px] lg:grid-cols-[minmax(0,1fr)_120px] lg:items-center lg:gap-4 lg:px-3 lg:py-2">
                   <div className="min-w-0">
                     {/* Row 1: crypto dot + name + side badge + status */}
                     <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-0">
-                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-black" style={{ backgroundColor: dotColor }}>
-                        {ad.crypto.charAt(0)}
-                      </div>
+                      {P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)?.icon ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)!.icon} alt={ad.crypto} className="h-5 w-5 shrink-0 rounded-full" />
+                      ) : (
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-black" style={{ backgroundColor: dotColor }}>
+                          {ad.crypto.charAt(0)}
+                        </div>
+                      )}
                       <span className="text-[12px] font-black text-white">{ad.crypto}</span>
                       <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
                         ad.side === "SELL" ? "bg-red-500/12 text-red-400" : "bg-[#05b957]/12 text-[#05b957]"
