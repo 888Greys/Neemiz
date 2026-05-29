@@ -188,17 +188,21 @@ export async function GET(req: Request) {
 
         credited++;
       }
-      // ── Sync on-chain balance → UI (best-effort, non-blocking) ───────────
-      // Overwrites user_crypto_balances with current on-chain truth every cron run.
-      // This means: sweeps show immediately, manual DB wipes self-heal in ≤5 min.
+      // ── Sync on-chain balance → UI (best-effort) ──────────────────────────
+      // Reads actual blockchain balance and writes to user_crypto_balances.
+      // Self-heals within 5 min if DB is wiped. Reflects sweeps automatically.
       if (!addr.user.merchantProfile) {
         const onChain = await getOnChainBalance(addr.address, addr.crypto, addr.network);
-        if (onChain >= 0) {
+        // Only upsert if we got a valid balance (> 0 to create, any value to update existing)
+        const existing = await db.userCryptoBalance.findUnique({
+          where: { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
+        });
+        if (onChain > 0 || existing) {
           await db.userCryptoBalance.upsert({
             where:  { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
             create: { userId: addr.userId, crypto: addr.crypto, network: addr.network, available: onChain, locked: 0 },
             update: { available: onChain },
-          }).catch(() => { /* ignore — don't fail the whole cron */ });
+          }).catch(() => { /* ignore */ });
         }
       }
     } catch (e) {

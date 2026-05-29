@@ -220,11 +220,11 @@ export async function checkDeposits(
 // ─── On-chain balance queries (for UI sync) ───────────────────────────────────
 // Uses public RPC endpoints — no API key required, always reliable.
 
-// Public RPC endpoints (rate-limit friendly, no key)
+// Public RPC endpoints — publicnode.com (free, no key, reliable)
 const EVM_RPC: Record<number, string> = {
-  1:   "https://eth.llamarpc.com",
-  56:  "https://bsc-dataseed.binance.org",
-  137: "https://polygon-rpc.com",
+  1:   "https://ethereum-rpc.publicnode.com",
+  56:  "https://bsc-rpc.publicnode.com",
+  137: "https://polygon-bor-rpc.publicnode.com",
 };
 
 async function rpcCall(chainId: number, method: string, params: unknown[]): Promise<string | null> {
