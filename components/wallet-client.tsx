@@ -1023,9 +1023,20 @@ function CryptoWithdrawalHistory({ isSignedIn }: { isSignedIn: boolean }) {
   );
 }
 
+const KES_CURRENCIES = new Set(["KES"]);
+
+function fmtTxAmount(amount: number, currency: string): string {
+  if (KES_CURRENCIES.has(currency)) {
+    return `KSh ${amount.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+  // Crypto — show up to 6 decimals, strip trailing zeros
+  const decimals = ["BTC", "ETH"].includes(currency) ? 8 : 6;
+  return `${amount.toFixed(decimals).replace(/\.?0+$/, "")} ${currency}`;
+}
+
 function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
   const [txns, setTxns] = useState<
-    Array<{ id: string; type: string; amount: number; status: string; createdAt: string }>
+    Array<{ id: string; type: string; amount: number; currency: string; status: string; provider?: string; createdAt: string }>
   >([]);
   const [loading, setLoading] = useState(false);
 
@@ -1103,7 +1114,7 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
             </div>
             <div className="text-right">
               <p className={`text-[14px] font-black ${meta.color}`}>
-                {meta.sign}KSh {Number(t.amount).toFixed(2)}
+                {meta.sign}{fmtTxAmount(t.amount, t.currency)}
               </p>
               <p
                 className={`text-[10px] font-black uppercase ${
