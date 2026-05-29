@@ -381,6 +381,7 @@ model CryptoDepositAddress {
   crypto    String   // "USDT", "ETH", "BNB"
   network   String   // "TRC20", "ERC20", "BEP20"
   address   String   // the blockchain address
+  hdIndex   Int?     @map("hd_index") // BIP44 derivation index — used to sign withdrawals
 
   createdAt DateTime @default(now()) @map("created_at")
 

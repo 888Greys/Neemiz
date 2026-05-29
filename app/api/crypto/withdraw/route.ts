@@ -8,18 +8,20 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 export const runtime = "nodejs";
 
 // Minimum withdrawal amounts per crypto
+// Gas costs are tiny (< $0.01 on Polygon/Tron), so minimums are low.
+// ETH mainnet is expensive — keep higher there.
 const MIN_WITHDRAWAL: Record<string, number> = {
-  USDT:  10,
-  USDC:  10,
-  DAI:   10,
-  BUSD:  10,
-  BTC:   0.0001,
-  WBTC:  0.0001,
-  ETH:   0.005,
-  BNB:   0.01,
-  MATIC: 1,
-  TRX:   10,
-  LINK:  0.5,
+  USDT:  1,
+  USDC:  1,
+  DAI:   1,
+  BUSD:  1,
+  BTC:   0.00001,
+  WBTC:  0.00001,
+  ETH:   0.001,
+  BNB:   0.005,
+  MATIC: 0.5,
+  TRX:   5,
+  LINK:  0.1,
 };
 
 // Platform fee (5%) deducted from requested amount
@@ -84,9 +86,25 @@ export async function POST(req: Request) {
     throw err;
   }
 
-  // ── Broadcast on-chain ─────────────────────────────────────────────────────
+  // ── Find user's deposit address (tokens are already there on-chain) ───────
+  const depositAddr = await db.cryptoDepositAddress.findUnique({
+    where: { userId_crypto_network: { userId: dbUser.id, crypto, network } },
+  });
+  if (!depositAddr) {
+    // Refund and abort — no deposit address registered for this coin
+    await db.$transaction(async (tx) => {
+      await tx.userCryptoBalance.updateMany({
+        where: { userId: dbUser.id, crypto, network },
+        data:  { available: { increment: amount } },
+      });
+      await tx.transaction.update({ where: { id: txRecord.id }, data: { status: TransactionStatus.FAILED } });
+    });
+    return Response.json({ error: "No deposit address found for this coin — deposit first to register your address" }, { status: 400 });
+  }
+
+  // ── Broadcast on-chain (signs from user's own deposit address) ─────────
   try {
-    const result = await broadcastWithdrawal(address, crypto, network, payoutAmount);
+    const result = await broadcastWithdrawal(depositAddr.address, address, crypto, network, payoutAmount);
 
     // Mark completed
     await db.transaction.update({
