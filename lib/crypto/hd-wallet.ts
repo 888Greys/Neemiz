@@ -6,6 +6,9 @@
  *   EVM  → m/44'/60'/0'/0/N
  *   Tron → m/44'/195'/0'/0/N
  *   BTC  → m/44'/0'/0'/0/N  (Legacy P2PKH — 1… addresses)
+ *
+ * Index 0 is the HOT WALLET (platform treasury / gas funder).
+ * User addresses start at index 1+.
  */
 import { HDNodeWallet, Mnemonic } from "ethers";
 import { createHash } from "crypto";
@@ -46,50 +49,84 @@ function evmToTron(evm: string): string {
 function getRoot(): HDNodeWallet {
   const phrase = process.env.MASTER_WALLET_MNEMONIC;
   if (!phrase) throw new Error("MASTER_WALLET_MNEMONIC is not set");
-  // In ethers v6, fromMnemonic() defaults to m/44'/60'/0'/0/0 (depth 5).
-  // We need the true root (depth 0) so we can derivePath("m/...") ourselves.
   const mnemonic = Mnemonic.fromPhrase(phrase.trim());
   return HDNodeWallet.fromSeed(mnemonic.computeSeed());
 }
 
-// ─── Address derivation ───────────────────────────────────────────────────────
+// ─── Address + key derivation ─────────────────────────────────────────────────
 
-function deriveEVMAddress(index: number): string {
-  // BIP44 path for Ethereum — also used for BNB/BSC (same address format)
-  return getRoot().derivePath(`m/44'/60'/0'/0/${index}`).address;
-}
+function deriveEVM(index: number)  { return getRoot().derivePath(`m/44'/60'/0'/0/${index}`);  }
+function deriveTron(index: number) { return getRoot().derivePath(`m/44'/195'/0'/0/${index}`); }
+function deriveBTC(index: number)  { return getRoot().derivePath(`m/44'/0'/0'/0/${index}`);   }
 
-function deriveTronAddress(index: number): string {
-  // BIP44 path for Tron (coin type 195)
-  const child = getRoot().derivePath(`m/44'/195'/0'/0/${index}`);
-  return evmToTron(child.address);
-}
+function deriveEVMAddress(index: number):  string { return deriveEVM(index).address; }
+function deriveTronAddress(index: number): string { return evmToTron(deriveTron(index).address); }
 
 function deriveBTCAddress(index: number): string {
-  // BIP44 path for Bitcoin (coin type 0) → Legacy P2PKH address (1…)
-  const child  = getRoot().derivePath(`m/44'/0'/0'/0/${index}`);
-  // Compressed public key as Buffer (strip leading "0x")
+  const child  = deriveBTC(index);
   const pubKey = Buffer.from(child.publicKey.replace(/^0x/, ""), "hex");
-  // HASH160 = RIPEMD160(SHA256(pubKey))
   const sha    = createHash("sha256").update(pubKey).digest();
   const hash160 = createHash("ripemd160").update(sha).digest();
-  // Version byte 0x00 = mainnet P2PKH
   const versioned = Buffer.concat([Buffer.from([0x00]), hash160]);
-  // Checksum = first 4 bytes of SHA256(SHA256(versioned))
   const chk1 = createHash("sha256").update(versioned).digest();
   const chk2 = createHash("sha256").update(chk1).digest();
   return base58Encode(Buffer.concat([versioned, chk2.slice(0, 4)]));
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ─── Public: get private key for a stored address ────────────────────────────
+
+/**
+ * Given an address that exists in crypto_deposit_addresses, return its private key.
+ * Uses the stored hdIndex for O(1) lookup; falls back to scanning 0–999 if null.
+ */
+export async function getPrivateKeyForAddress(
+  address: string,
+  network: string,
+): Promise<string> {
+  const row = await db.cryptoDepositAddress.findFirst({
+    where: { address },
+    select: { hdIndex: true },
+  });
+
+  if (row?.hdIndex != null) {
+    return derivePrivateKeyAtIndex(row.hdIndex, network);
+  }
+
+  // Legacy addresses (created before hdIndex column) — scan to find
+  const isTron = network === "TRC20";
+  const isBTC  = network === "BITCOIN";
+  const MAX    = 1000;
+
+  for (let i = 0; i < MAX; i++) {
+    const derived = isTron ? deriveTronAddress(i)
+                   : isBTC  ? deriveBTCAddress(i)
+                   :           deriveEVMAddress(i);
+
+    if (derived.toLowerCase() === address.toLowerCase()) {
+      // Back-fill the index so future lookups are instant
+      await db.cryptoDepositAddress.updateMany({
+        where: { address },
+        data:  { hdIndex: i },
+      }).catch(() => {});
+      return derivePrivateKeyAtIndex(i, network);
+    }
+  }
+
+  throw new Error(`Could not find HD index for address ${address}`);
+}
+
+function derivePrivateKeyAtIndex(index: number, network: string): string {
+  if (network === "TRC20")   return deriveTron(index).privateKey;
+  if (network === "BITCOIN") return deriveBTC(index).privateKey;
+  return deriveEVM(index).privateKey;
+}
+
+// ─── Public: create/get deposit address ──────────────────────────────────────
 
 /**
  * Returns the existing deposit address for userId × crypto × network,
  * or derives and stores the next one using a global sequential index.
- *
- * Recovery: the Nth address (across all users/networks) lives at
- *   EVM  → m/44'/60'/0'/0/N
- *   Tron → m/44'/195'/0'/0/N
+ * Stores the hdIndex so withdrawals can sign directly from this address.
  */
 export async function getOrCreateDepositAddress(
   userId:  string,
@@ -103,30 +140,31 @@ export async function getOrCreateDepositAddress(
 
   const isTron = network === "TRC20";
   const isBTC  = network === "BITCOIN";
-  const isEvm  = !isTron && !isBTC; // ERC20, BEP20, POLYGON share the same EVM address
+  const isEvm  = !isTron && !isBTC;
 
   if (isEvm) {
-    // Reuse an existing EVM address for this user across ERC20/BEP20/POLYGON
-    const evmAddress = await db.cryptoDepositAddress.findFirst({
+    // Reuse the same EVM address for this user across ERC20/BEP20/POLYGON
+    const evmRow = await db.cryptoDepositAddress.findFirst({
       where: { userId, network: { in: ["ERC20", "BEP20", "POLYGON"] } },
       orderBy: { createdAt: "asc" },
     });
-    if (evmAddress) {
+    if (evmRow) {
       await db.cryptoDepositAddress.create({
-        data: { userId, crypto, network, address: evmAddress.address },
+        data: { userId, crypto, network, address: evmRow.address, hdIndex: evmRow.hdIndex },
       });
-      return evmAddress.address;
+      return evmRow.address;
     }
   }
 
-  // Global sequential index — each new user slot gets the next derivation index
-  const index   = await db.cryptoDepositAddress.count();
+  // New slot — use count as next index (index 0 is reserved for hot wallet)
+  // Add 1 so user addresses start at 1+
+  const index   = (await db.cryptoDepositAddress.count()) + 1;
   const address = isTron ? deriveTronAddress(index)
                 : isBTC  ? deriveBTCAddress(index)
                 :           deriveEVMAddress(index);
 
   await db.cryptoDepositAddress.create({
-    data: { userId, crypto, network, address },
+    data: { userId, crypto, network, address, hdIndex: index },
   });
 
   return address;
