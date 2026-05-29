@@ -312,7 +312,7 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSuppo
 
         {/* Utility */}
         <div className="space-y-1">
-          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="account_balance_wallet" label="Wallet" pathname={pathname} onClick={onOpenWallet} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="account_balance_wallet" label="Wallet" pathname={pathname} />
           <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="redeem" label="Bonuses" pathname={pathname} badge="1" onClick={onOpenBonuses} />
           <StandaloneSidebarItem collapsed={collapsed} href="/dashboard" icon="campaign" label="Promotions" pathname={pathname} onClick={() => toast.info("Promotions", "Seasonal promotions and free bets are launching soon!")} />
         </div>
@@ -697,7 +697,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
           <div className="my-3 border-t border-white/10" />
 
           <div className="space-y-1">
-            <MobileDrawerLink icon="account_balance_wallet" label="Wallet" onClick={onOpenWallet} />
+            <MobileDrawerLink href="/wallet" icon="account_balance_wallet" label="Wallet" onClick={onClose} />
             <MobileDrawerLink icon="redeem" label="Bonuses" badge="1" onClick={onOpenBonuses} />
             <MobileDrawerLink icon="campaign" label="Promotions" onClick={() => { onClose(); toast.info("Promotions", "Seasonal promotions and free bets are launching soon!"); }} />
           </div>
