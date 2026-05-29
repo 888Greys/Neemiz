@@ -11,29 +11,35 @@ export async function GET() {
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser = await getOrCreateUser(user.id, {
-      email: user.email,
-      phone: user.phone,
-      username: user.user_metadata?.username,
+      email:     user.email,
+      phone:     user.phone,
+      username:  user.user_metadata?.username,
       firstName: user.user_metadata?.first_name,
-      lastName: user.user_metadata?.last_name,
+      lastName:  user.user_metadata?.last_name,
     });
 
-    // Read crypto balances directly from UserCryptoBalance table.
-    // This is the source of truth — kept up-to-date by the cron's on-chain sync.
+    // ── Crypto balances from UserCryptoBalance table ──────────────────────────
+    // UserCryptoBalance is maintained by increment/decrement only (never overwritten
+    // by on-chain queries), so it always reflects the true platform balance.
     const rows = await db.userCryptoBalance.findMany({
       where:   { userId: dbUser.id },
       orderBy: { crypto: "asc" },
     });
 
-    return Response.json({
-      balance:        Number(dbUser.walletBalance),
-      currency:       dbUser.currency,
-      cryptoBalances: rows.map((r) => ({
+    // Filter out zero balances for cleaner UI
+    const cryptoBalances = rows
+      .filter((r) => Number(r.available) > 0 || Number(r.locked) > 0)
+      .map((r) => ({
         crypto:    r.crypto,
         network:   r.network,
         available: Number(r.available),
         locked:    Number(r.locked),
-      })),
+      }));
+
+    return Response.json({
+      balance:        Number(dbUser.walletBalance),
+      currency:       dbUser.currency,
+      cryptoBalances,
     });
   } catch (err) {
     console.error("Wallet balance route error:", err);
