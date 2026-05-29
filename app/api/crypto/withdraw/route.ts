@@ -1,9 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { createPayout, toNpCurrency } from "@/lib/nowpayments";
 import { debitUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
+import { broadcastWithdrawal, getHotWalletAddresses } from "@/lib/crypto/broadcaster";
 import { TransactionType, TransactionStatus } from "@prisma/client";
+
+export const runtime = "nodejs";
 
 // Minimum withdrawal amounts per crypto
 const MIN_WITHDRAWAL: Record<string, number> = {
@@ -20,13 +22,15 @@ const MIN_WITHDRAWAL: Record<string, number> = {
   LINK:  0.5,
 };
 
+// Platform fee (5%) deducted from requested amount
+const FEE_RATE = 0.05;
+
 /**
  * POST /api/crypto/withdraw
  * Body: { crypto, network, amount, address }
  *
- * Validates balance, debits UserCryptoBalance, submits payout to NOWPayments.
- * The actual on-chain send is async — NOWPayments calls /api/crypto/withdraw-webhook
- * when it's done.
+ * Validates balance, debits UserCryptoBalance, then signs and broadcasts
+ * the transaction directly from the Nezeem hot wallet.
  */
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -39,46 +43,37 @@ export async function POST(req: Request) {
   try   { body = await req.json(); }
   catch { return Response.json({ error: "Invalid request body" }, { status: 400 }); }
 
-  const crypto  = (body.crypto ?? "USDT").toUpperCase();
+  const crypto  = (body.crypto  ?? "USDT").toUpperCase();
   const network = (body.network ?? defaultNetwork(crypto)).toUpperCase();
   const amount  = Number(body.amount);
-  const { address } = body;
+  const address = body.address?.trim();
 
-  // ── Validation ─────────────────────────────────────────────────────────────
-  if (!address?.trim()) {
+  // ── Validation ──────────────────────────────────────────────────────────────
+  if (!address) {
     return Response.json({ error: "Destination address is required" }, { status: 400 });
   }
-
   const minAmt = MIN_WITHDRAWAL[crypto] ?? 1;
   if (!amount || amount < minAmt) {
-    return Response.json(
-      { error: `Minimum withdrawal is ${minAmt} ${crypto}` },
-      { status: 400 },
-    );
+    return Response.json({ error: `Minimum withdrawal is ${minAmt} ${crypto}` }, { status: 400 });
   }
 
-  // 5% withdrawal fee — deducted from the requested amount.
-  // User requests `amount`, receives `payoutAmount` on-chain.
-  const WITHDRAWAL_FEE_RATE = 0.05;
-  const feeAmount    = parseFloat((amount * WITHDRAWAL_FEE_RATE).toFixed(8));
+  const feeAmount    = parseFloat((amount * FEE_RATE).toFixed(8));
   const payoutAmount = parseFloat((amount - feeAmount).toFixed(8));
 
-  // ── Balance check + debit (atomic) ─────────────────────────────────────────
+  // ── Debit balance (atomic, before broadcast) ───────────────────────────────
   let txRecord;
   try {
     txRecord = await db.$transaction(async (tx) => {
-      // debitUserCrypto throws INSUFFICIENT_CRYPTO_BALANCE if not enough
       await debitUserCrypto(tx, dbUser.id, crypto, network, amount);
-
       return tx.transaction.create({
         data: {
-          userId:    dbUser.id,
-          type:      TransactionType.WITHDRAWAL,
+          userId:   dbUser.id,
+          type:     TransactionType.WITHDRAWAL,
           amount,
-          currency:  crypto,
-          status:    TransactionStatus.PENDING,
-          provider:  "nowpayments",
-          metadata:  { address, network, crypto, fee: feeAmount, payout: payoutAmount, submittedAt: new Date().toISOString() },
+          currency: crypto,
+          status:   TransactionStatus.PENDING,
+          provider: "self_custody",
+          metadata: { address, network, crypto, fee: feeAmount, payout: payoutAmount },
         },
       });
     });
@@ -89,51 +84,41 @@ export async function POST(req: Request) {
     throw err;
   }
 
-  // ── Submit payout to NOWPayments ───────────────────────────────────────────
-  const payCurrency = toNpCurrency(crypto, network);
-
+  // ── Broadcast on-chain ─────────────────────────────────────────────────────
   try {
-    const payout = await createPayout({
-      address,
-      currency:   payCurrency,
-      amount:     payoutAmount,  // send net amount (after 5% platform fee)
-      externalId: txRecord.id,
-    });
+    const result = await broadcastWithdrawal(address, crypto, network, payoutAmount);
 
-    // Update transaction with NOWPayments payout ID
+    // Mark completed
     await db.transaction.update({
       where: { id: txRecord.id },
       data: {
-        reference: payout.id,
-        metadata:  {
-          address, network, crypto,
-          npPayoutId: payout.id,
-          npStatus:   payout.status,
-          submittedAt: new Date().toISOString(),
-        },
+        status:    TransactionStatus.COMPLETED,
+        reference: result.txHash,
+        metadata:  { address, network, crypto, fee: feeAmount, payout: payoutAmount, txHash: result.txHash, explorer: result.explorer },
       },
     });
 
-    // Notify user
     await db.notification.create({
       data: {
         userId: dbUser.id,
         type:   "crypto_withdrawal",
-        title:  `${crypto} withdrawal submitted`,
-        body:   `${amount} ${crypto} is being sent to ${address.slice(0, 10)}…${address.slice(-6)}`,
+        title:  `${crypto} withdrawal sent`,
+        body:   `${payoutAmount} ${crypto} sent to ${address.slice(0, 8)}…${address.slice(-6)}`,
         link:   "/wallet",
       },
     });
 
     return Response.json({
-      ok:        true,
-      txId:      txRecord.id,
-      payoutId:  payout.id,
-      status:    payout.status,
+      ok:       true,
+      txId:     txRecord.id,
+      txHash:   result.txHash,
+      explorer: result.explorer,
+      payout:   payoutAmount,
+      fee:      feeAmount,
     }, { status: 201 });
 
   } catch (err: unknown) {
-    // Payout failed — refund the balance
+    // Broadcast failed — refund balance
     await db.$transaction(async (tx) => {
       await tx.userCryptoBalance.updateMany({
         where: { userId: dbUser.id, crypto, network },
@@ -144,51 +129,54 @@ export async function POST(req: Request) {
         data:  { status: TransactionStatus.FAILED },
       });
     });
-
-    console.error("NOWPayments payout error:", err instanceof Error ? err.message : "Unknown error");
-    return Response.json(
-      { error: "Payout failed — funds have been returned to your balance" },
-      { status: 502 },
-    );
+    const msg = err instanceof Error ? err.message : "Broadcast failed";
+    console.error("[crypto/withdraw] broadcast error:", msg);
+    return Response.json({ error: `${msg} — funds returned to your balance` }, { status: 502 });
   }
 }
 
 /**
  * GET /api/crypto/withdraw
- * Returns the user's withdrawal history.
+ * Returns withdrawal history + hot wallet addresses (for admin funding).
  */
-export async function GET() {
+export async function GET(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
+  // If admin requests hot wallet addresses
+  const url = new URL(req.url);
+  if (url.searchParams.get("hotwallets") === "1") {
+    const dbAdmin = await db.user.findUnique({ where: { id: dbUser.id }, select: { isAdmin: true } });
+    if (!dbAdmin?.isAdmin) return Response.json({ error: "Forbidden" }, { status: 403 });
+    return Response.json(getHotWalletAddresses());
+  }
+
   const withdrawals = await db.transaction.findMany({
-    where:   { userId: dbUser.id, type: TransactionType.WITHDRAWAL, provider: "nowpayments" },
+    where:   { userId: dbUser.id, type: TransactionType.WITHDRAWAL, provider: "self_custody" },
     orderBy: { createdAt: "desc" },
     take:    50,
-    select: {
-      id:        true,
-      amount:    true,
-      currency:  true,
-      status:    true,
-      reference: true,
-      metadata:  true,
-      createdAt: true,
-    },
+    select:  { id: true, amount: true, currency: true, status: true, reference: true, metadata: true, createdAt: true },
   });
 
   return Response.json(
-    withdrawals.map((w) => ({
-      id:        w.id,
-      amount:    Number(w.amount),
-      crypto:    w.currency,
-      status:    w.status,
-      reference: w.reference,
-      address:   (w.metadata as Record<string, unknown>)?.address,
-      network:   (w.metadata as Record<string, unknown>)?.network,
-      createdAt: w.createdAt,
-    })),
+    withdrawals.map((w) => {
+      const meta = w.metadata as Record<string, unknown> | null;
+      return {
+        id:        w.id,
+        amount:    Number(w.amount),
+        crypto:    w.currency,
+        status:    w.status,
+        txHash:    w.reference,
+        address:   meta?.address,
+        network:   meta?.network,
+        explorer:  meta?.explorer,
+        payout:    meta?.payout,
+        fee:       meta?.fee,
+        createdAt: w.createdAt,
+      };
+    }),
   );
 }
