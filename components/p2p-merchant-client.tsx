@@ -384,6 +384,15 @@ function DepositSection() {
     }
   }
 
+  // Unique cryptos the user actually holds in their wallet
+  const walletCryptos = walletBalances
+    .map((b) => b.crypto)
+    .filter((c, i, arr) => arr.indexOf(c) === i);
+  // Networks available for the currently selected fund crypto
+  const fundNetworks  = walletBalances
+    .filter((b) => b.crypto === fundCrypto && b.available > 0)
+    .map((b) => b.network);
+
   // Wallet balance for the currently selected fund crypto/network
   const fundWalletBal = walletBalances.find(
     (b) => b.crypto === fundCrypto && b.network === fundNetwork,
@@ -395,6 +404,19 @@ function DepositSection() {
   );
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-select first available wallet crypto/network when balances load
+  useEffect(() => {
+    if (walletBalances.length === 0) return;
+    const match = walletBalances.find((b) => b.crypto === fundCrypto && b.available > 0);
+    if (!match) {
+      const first = walletBalances.find((b) => b.available > 0) ?? walletBalances[0];
+      setFundCrypto(first.crypto);
+      setFundNetwork(first.network);
+    } else if (!walletBalances.find((b) => b.crypto === fundCrypto && b.network === fundNetwork)) {
+      setFundNetwork(match.network);
+    }
+  }, [walletBalances]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When crypto changes, reset network to first valid option
   function handleCryptoChange(c: string) {
@@ -505,24 +527,31 @@ function DepositSection() {
       {fundOpen && (
         <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
           <p className="text-xs text-slate-400 mb-3">Move crypto from your wallet to merchant escrow so you can list sell ads.</p>
+          {walletBalances.length === 0 ? (
+            <p className="text-slate-600 text-sm">No wallet crypto balance to move. Receive crypto first.</p>
+          ) : (
           <div className="grid gap-3 sm:grid-cols-[160px_160px_minmax(0,1fr)_140px] sm:items-end">
-            {/* Crypto */}
+            {/* Crypto — driven by actual wallet holdings */}
             <div>
               <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
-              <div className="flex gap-1.5">
-                {["USDT"].map((c) => (
-                  <button key={c} onClick={() => { setFundCrypto(c); setFundNetwork("TRC20"); }}
-                    className={`flex-1 rounded-xl border py-2 text-xs font-black transition-all ${
-                      fundCrypto === c ? "bg-[#05b957]/15 border-[#05b957] text-[#05b957]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
-                    }`}>{c}</button>
-                ))}
+              <div className="flex gap-1.5 flex-wrap">
+                {walletCryptos.map((c) => {
+                  const firstNet = walletBalances.find((b) => b.crypto === c)?.network ?? "TRC20";
+                  return (
+                    <button key={c} onClick={() => { setFundCrypto(c); setFundNetwork(firstNet); }}
+                      className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${
+                        fundCrypto === c ? "bg-[#05b957]/15 border-[#05b957] text-[#05b957]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                      }`}>{c}</button>
+                  );
+                })}
               </div>
             </div>
-            {/* Network */}
+            {/* Network — show only if multiple networks exist for selected crypto */}
+            {fundNetworks.length > 1 && (
             <div>
               <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Network</label>
               <div className="flex gap-1.5 flex-wrap">
-                {NETWORK_OPTIONS[fundCrypto]?.map((n) => (
+                {fundNetworks.map((n) => (
                   <button key={n} onClick={() => setFundNetwork(n)}
                     className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${
                       fundNetwork === n ? "bg-[#087cff]/15 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
@@ -530,6 +559,7 @@ function DepositSection() {
                 ))}
               </div>
             </div>
+            )}
             {/* Amount */}
             <div>
               <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">
@@ -560,6 +590,7 @@ function DepositSection() {
                 : <><Icon name="arrow_forward" className="text-base" /> Move to Escrow</>}
             </button>
           </div>
+          )}
         </div>
       )}
 
