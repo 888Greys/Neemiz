@@ -26,7 +26,10 @@ const EVM_TOKENS: Record<string, { chainId: number; contract: string }> = {
   "BUSD:BEP20":  { chainId: 56,  contract: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56" },
   // ── Polygon (chainId 137) ──
   "MATIC:POLYGON": { chainId: 137, contract: "" },                                       // native
-  "USDC:POLYGON":  { chainId: 137, contract: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174" },
+  // Native USDC on Polygon (0x3c499c...) — Binance and most exchanges send this
+  // USDC.e (bridged, 0x2791...) is legacy; kept as fallback key
+  "USDC:POLYGON":  { chainId: 137, contract: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359" },
+  "USDCE:POLYGON": { chainId: 137, contract: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174" },
   "USDT:POLYGON":  { chainId: 137, contract: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
 };
 
