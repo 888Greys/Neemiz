@@ -7,7 +7,7 @@
  *   - Regular user (no merchant)  → converts USDT→KES at USDT_KES_RATE and credits walletBalance
  */
 import { db } from "@/lib/db";
-import { checkDeposits } from "@/lib/crypto/deposit-checker";
+import { checkDeposits, getOnChainBalance } from "@/lib/crypto/deposit-checker";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -175,6 +175,19 @@ export async function GET(req: Request) {
         }
 
         credited++;
+      }
+      // ── Sync on-chain balance → UI (best-effort, non-blocking) ───────────
+      // Overwrites user_crypto_balances with current on-chain truth every cron run.
+      // This means: sweeps show immediately, manual DB wipes self-heal in ≤5 min.
+      if (!addr.user.merchantProfile) {
+        const onChain = await getOnChainBalance(addr.address, addr.crypto, addr.network);
+        if (onChain >= 0) {
+          await db.userCryptoBalance.upsert({
+            where:  { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
+            create: { userId: addr.userId, crypto: addr.crypto, network: addr.network, available: onChain, locked: 0 },
+            update: { available: onChain },
+          }).catch(() => { /* ignore — don't fail the whole cron */ });
+        }
       }
     } catch (e) {
       errors.push(`${addr.address}: ${e instanceof Error ? e.message : "error"}`);
