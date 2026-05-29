@@ -216,3 +216,86 @@ export async function checkDeposits(
   }
   return checkEVMDeposits(address, crypto, network);
 }
+
+// ─── On-chain balance queries (for UI sync) ───────────────────────────────────
+// Returns the current actual balance on-chain — used to keep crypto balance
+// display in sync with reality (catches sweeps, manual adjustments, etc.)
+
+async function getEVMBalance(address: string, crypto: string, network: string): Promise<number> {
+  const token  = EVM_TOKENS[`${crypto}:${network}`];
+  if (!token) return 0;
+  const apiKey = process.env.ETHERSCAN_API_KEY;
+  if (!apiKey) return 0;
+
+  const url = new URL(ETHERSCAN);
+  url.searchParams.set("chainid", String(token.chainId));
+  url.searchParams.set("module",  "account");
+  url.searchParams.set("address", address);
+  url.searchParams.set("tag",     "latest");
+  url.searchParams.set("apikey",  apiKey);
+
+  if (!token.contract) {
+    // Native coin (ETH, BNB, MATIC)
+    url.searchParams.set("action", "balance");
+    const res  = await fetch(url.toString(), { cache: "no-store" });
+    const data = await res.json();
+    if (data.status !== "1") return 0;
+    return Number(BigInt(data.result)) / 1e18;
+  }
+
+  // ERC-20 / BEP-20 token
+  url.searchParams.set("action",          "tokenbalance");
+  url.searchParams.set("contractaddress", token.contract);
+  const res  = await fetch(url.toString(), { cache: "no-store" });
+  const data = await res.json();
+  if (data.status !== "1") return 0;
+  // USDT/USDC/DAI/BUSD/USDT.e use 6 decimals; most others use 18
+  const decimals = ["USDT", "USDC", "BUSD", "DAI", "USDCE"].includes(crypto) ? 6 : 18;
+  return Number(data.result) / Math.pow(10, decimals);
+}
+
+async function getTRXBalance(address: string): Promise<number> {
+  const apiKey  = process.env.TRONGRID_API_KEY;
+  const headers: Record<string, string> = apiKey ? { "TRON-PRO-API-KEY": apiKey } : {};
+  const res = await fetch(`${TRONGRID}/v1/accounts/${address}`, { headers, cache: "no-store" });
+  const data = await res.json();
+  return (data?.data?.[0]?.balance ?? 0) / 1_000_000;
+}
+
+async function getTRC20Balance(address: string, crypto: string): Promise<number> {
+  const contract = TRC20_CONTRACTS[crypto];
+  if (!contract) return 0;
+  const apiKey  = process.env.TRONGRID_API_KEY;
+  const headers: Record<string, string> = apiKey ? { "TRON-PRO-API-KEY": apiKey } : {};
+  const res  = await fetch(`${TRONGRID}/v1/accounts/${address}`, { headers, cache: "no-store" });
+  const data = await res.json();
+  const trc20  = data?.data?.[0]?.trc20 ?? [];
+  const token  = (trc20 as Record<string, string>[]).find((t) => Object.keys(t)[0] === contract);
+  if (!token) return 0;
+  return Number(Object.values(token)[0]) / 1_000_000;
+}
+
+async function getBTCBalance(address: string): Promise<number> {
+  const res  = await fetch(`https://blockstream.info/api/address/${address}`, { cache: "no-store" });
+  if (!res.ok) return 0;
+  const data = await res.json();
+  const funded = data?.chain_stats?.funded_txo_sum ?? 0;
+  const spent  = data?.chain_stats?.spent_txo_sum  ?? 0;
+  return (funded - spent) / 1e8;
+}
+
+/** Returns the actual current on-chain balance for an address/coin. */
+export async function getOnChainBalance(
+  address: string,
+  crypto:  string,
+  network: string,
+): Promise<number> {
+  try {
+    if (network === "BITCOIN")            return await getBTCBalance(address);
+    if (network === "TRC20" && crypto === "TRX") return await getTRXBalance(address);
+    if (network === "TRC20")              return await getTRC20Balance(address, crypto);
+    return await getEVMBalance(address, crypto, network);
+  } catch {
+    return 0; // never throw — balance sync is best-effort
+  }
+}
