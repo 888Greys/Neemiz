@@ -8,6 +8,7 @@
  */
 import { db } from "@/lib/db";
 import { checkDeposits, getOnChainBalance } from "@/lib/crypto/deposit-checker";
+import { sendCryptoDepositEmail } from "@/lib/brevo";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -172,6 +173,17 @@ export async function GET(req: Request) {
               },
             });
           });
+
+          // Send email notification (outside DB transaction — non-blocking)
+          if (addr.user.email) {
+            sendCryptoDepositEmail(addr.user.email, addr.user.username ?? addr.user.email, {
+              crypto:       addr.crypto,
+              network:      addr.network,
+              cryptoAmount: amount,
+              kesAmount,
+              txHash:       tx.txHash,
+            }).catch((e) => console.warn("[check-deposits] email failed:", e));
+          }
         }
 
         credited++;

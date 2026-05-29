@@ -363,6 +363,65 @@ export async function sendNewP2POrderEmail(
   ));
 }
 
+// ─── Crypto Deposit Email ─────────────────────────────────────────────────────
+
+export async function sendCryptoDepositEmail(
+  to: string,
+  displayName: string,
+  opts: {
+    crypto:       string;
+    network:      string;
+    cryptoAmount: number;
+    kesAmount:    number;
+    txHash:       string;
+  }
+) {
+  const { crypto, network, cryptoAmount, kesAmount, txHash } = opts;
+  const netLabel: Record<string, string> = {
+    TRC20: "TRC-20 (Tron)", ERC20: "ERC-20 (Ethereum)", BEP20: "BEP-20 (BSC)",
+    POLYGON: "Polygon", BITCOIN: "Bitcoin",
+  };
+  const explorerLink = network === "TRC20"
+    ? `https://tronscan.org/#/transaction/${txHash}`
+    : network === "BITCOIN"
+    ? `https://blockstream.info/tx/${txHash}`
+    : `https://polygonscan.com/tx/${txHash}`;
+
+  await sendEmail(
+    to,
+    displayName,
+    `${cryptoAmount.toFixed(6)} ${crypto} deposit received`,
+    emailWrapper(`
+      <div style="text-align:center;padding-bottom:28px;border-bottom:1px solid #f0f2f5;margin-bottom:28px;">
+        <div style="display:inline-block;width:56px;height:56px;background:#fff7ed;border-radius:50%;line-height:56px;text-align:center;font-size:28px;margin-bottom:16px;">₿</div>
+        <h2 style="margin:0 0 10px;font-size:24px;font-weight:800;color:#1a1a2e;">Crypto Deposit Received!</h2>
+        <p style="margin:0;font-size:15px;color:#4a5568;line-height:1.7;">
+          Your <strong style="color:#f59e0b;">${cryptoAmount.toFixed(6)} ${crypto}</strong> has been credited to your wallet.
+        </p>
+      </div>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;border-radius:12px;margin-bottom:28px;">
+        <tr><td style="padding:4px 24px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            ${detailRow("Coin", `<strong>${crypto}</strong>`)}
+            ${detailRow("Network", netLabel[network] ?? network)}
+            ${detailRow("Crypto Amount", `<strong style="color:#f59e0b;">${cryptoAmount.toFixed(6)} ${crypto}</strong>`)}
+            ${detailRow("KES Credited", `<strong style="color:#05b957;">KSh ${kesAmount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}</strong>`)}
+            ${detailRow("Tx Hash", `<a href="${explorerLink}" style="color:#087cff;text-decoration:none;font-size:11px;">${txHash.slice(0, 20)}…</a>`, true)}
+          </table>
+        </td></tr>
+      </table>
+
+      <p style="margin:0 0 28px;font-size:14px;color:#8a94a6;line-height:1.6;">
+        Your KES equivalent has been added to your Nezeem betting wallet. You can now place bets or trade on any market.
+      </p>
+
+      ${ctaButton(`${APP_URL}/dashboard`, "Go to Dashboard →", "#f59e0b")}
+    `,
+    "You received this email because a crypto deposit was made to your Nezeem account."
+  ));
+}
+
 // ─── Testing Notice ───────────────────────────────────────────────────────────
 
 export async function sendTestingNoticeEmail(to: string, firstName?: string) {
