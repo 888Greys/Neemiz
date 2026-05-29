@@ -100,12 +100,11 @@ export async function GET(req: Request) {
       }
 
       // ── Sync on-chain balance → UI (best-effort) ──────────────────────────
+      // Only sync DOWN if onChain > 0 — never overwrite a credited balance with 0
+      // (TronGrid / RPC nodes can return 0 transiently for newly-funded addresses)
       const onChain = await getOnChainBalance(addr.address, addr.crypto, addr.network);
       addrDetail.onChainBal = onChain;
-      const existing = await db.userCryptoBalance.findUnique({
-        where: { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
-      });
-      if (onChain > 0 || existing) {
+      if (onChain > 0) {
         await db.userCryptoBalance.upsert({
           where:  { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
           create: { userId: addr.userId, crypto: addr.crypto, network: addr.network, available: onChain, locked: 0 },
