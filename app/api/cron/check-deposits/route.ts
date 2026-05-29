@@ -28,11 +28,14 @@ export async function GET(req: Request) {
   });
 
   let credited = 0;
-  const errors: string[] = [];
+  const errors:  string[] = [];
+  const details: Array<{ address: string; crypto: string; network: string; txsFound: number; skipped: number; credited: number; onChainBal: number; error?: string }> = [];
 
   for (const addr of addresses) {
+    const addrDetail: { address: string; crypto: string; network: string; txsFound: number; skipped: number; credited: number; onChainBal: number; error?: string } = { address: addr.address, crypto: addr.crypto, network: addr.network, txsFound: 0, skipped: 0, credited: 0, onChainBal: 0 };
     try {
       const txs = await checkDeposits(addr.address, addr.crypto, addr.network);
+      addrDetail.txsFound = txs.length;
 
       for (const tx of txs) {
         // Skip if already processed
@@ -40,10 +43,10 @@ export async function GET(req: Request) {
           db.p2PCryptoDeposit.findFirst({ where: { txHash: tx.txHash } }),
           db.transaction.findFirst({ where: { reference: `crypto-${tx.txHash}` } }),
         ]);
-        if (alreadyDeposit || alreadyTx) continue;
+        if (alreadyDeposit || alreadyTx) { addrDetail.skipped++; continue; }
 
         const amount = parseFloat(tx.amount);
-        if (amount <= 0) continue;
+        if (amount <= 0) { addrDetail.skipped++; continue; }
 
         const isMerchant = !!addr.user.merchantProfile;
 
@@ -93,10 +96,12 @@ export async function GET(req: Request) {
         }
 
         credited++;
+        addrDetail.credited++;
       }
 
       // ── Sync on-chain balance → UI (best-effort) ──────────────────────────
       const onChain = await getOnChainBalance(addr.address, addr.crypto, addr.network);
+      addrDetail.onChainBal = onChain;
       const existing = await db.userCryptoBalance.findUnique({
         where: { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
       });
@@ -108,9 +113,12 @@ export async function GET(req: Request) {
         }).catch(() => { /* ignore */ });
       }
     } catch (e) {
-      errors.push(`${addr.address}: ${e instanceof Error ? e.message : "error"}`);
+      const msg = e instanceof Error ? e.message : "error";
+      errors.push(`${addr.address}: ${msg}`);
+      addrDetail.error = msg;
     }
+    details.push(addrDetail);
   }
 
-  return Response.json({ ok: true, checked: addresses.length, credited, errors });
+  return Response.json({ ok: true, checked: addresses.length, credited, errors, details });
 }
