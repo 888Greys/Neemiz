@@ -131,17 +131,21 @@ export async function GET(req: Request) {
             });
           });
         } else {
-          // ── Wallet deposit: convert to KES and credit betting wallet ─────
+          // ── Wallet deposit: convert to KES + track crypto balance ────────
           const kesAmount = toKes(amount, addr.crypto, rates);
 
           await db.$transaction(async (t) => {
-            // Record via a deduplicated wallet transaction — no fake merchantId needed.
-            // txHash uniqueness in the Transaction table prevents double-crediting.
-
-            // Credit KES to user wallet
+            // Credit KES to user betting wallet
             await t.user.update({
               where: { id: addr.userId },
               data:  { walletBalance: { increment: kesAmount } },
+            });
+
+            // Track crypto balance separately (so user/owner can see original coin)
+            await t.userCryptoBalance.upsert({
+              where:  { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
+              create: { userId: addr.userId, crypto: addr.crypto, network: addr.network, available: amount, locked: 0 },
+              update: { available: { increment: amount } },
             });
 
             // Log transaction

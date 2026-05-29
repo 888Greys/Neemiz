@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
+import { useWalletBalance } from "@/lib/use-wallet-balance";
 
 const QUICK_AMOUNTS = [400, 1_000, 3_000, 5_000];
 const POLL_INTERVAL = 4_000;
@@ -316,6 +317,7 @@ function CryptoDepositPanel({
 
 export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   const { isSignedIn, user } = useSupabaseAuth();
+  const { balance, currency, cryptoBalances } = useWalletBalance();
   const [mode, setMode] = useState<"fiat" | "crypto">("fiat");
   const [screen, setScreen] = useState<"methods" | "mpesa">("methods");
 
@@ -517,6 +519,43 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                 <p className="mt-1 text-xs font-bold text-slate-500 sm:text-sm">
                   Choose how you want to fund your Nezeem wallet.
                 </p>
+              </div>
+
+              {/* ── Wallet balances summary ── */}
+              <div className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.07] space-y-2">
+                {/* KES balance */}
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-sm font-bold text-slate-400">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#05b957] text-[10px] font-black text-white">KSh</span>
+                    KES Wallet
+                  </span>
+                  <span className="text-sm font-black text-white">
+                    KSh {balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                {/* Crypto balances */}
+                {cryptoBalances.length > 0 && (
+                  <>
+                    <div className="h-px bg-white/[0.06]" />
+                    {cryptoBalances.map((cb) => (
+                      <div key={`${cb.crypto}-${cb.network}`} className="flex items-center justify-between">
+                        <span className="flex items-center gap-2 text-sm font-bold text-slate-400">
+                          {COIN_ICON_URL[cb.crypto] ? (
+                            <img src={COIN_ICON_URL[cb.crypto]} alt={cb.crypto} className="h-6 w-6 rounded-full" />
+                          ) : (
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-700 text-[10px] font-black text-white">{cb.crypto[0]}</span>
+                          )}
+                          {cb.crypto}
+                          <span className="text-[11px] text-slate-600">{cb.network}</span>
+                        </span>
+                        <span className="text-sm font-black text-amber-400">
+                          {cb.available.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                        </span>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
 
               <MoneyTabs mode={mode} setMode={setMode} />

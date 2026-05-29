@@ -3,15 +3,23 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 
+export type CryptoBalance = {
+  crypto:    string;
+  network:   string;
+  available: number;
+  locked:    number;
+};
+
 type WalletState = {
-  balance: number;
-  currency: string;
-  loading: boolean;
+  balance:        number;
+  currency:       string;
+  cryptoBalances: CryptoBalance[];
+  loading:        boolean;
 };
 
 export function useWalletBalance() {
   const { isSignedIn } = useSupabaseAuth();
-  const [state, setState] = useState<WalletState>({ balance: 0, currency: "KES", loading: false });
+  const [state, setState] = useState<WalletState>({ balance: 0, currency: "KES", cryptoBalances: [], loading: false });
 
   const refresh = useCallback(async () => {
     if (!isSignedIn) return;
@@ -20,7 +28,12 @@ export function useWalletBalance() {
       const res = await fetch("/api/wallet/balance");
       if (res.ok) {
         const data = await res.json();
-        setState({ balance: data.balance, currency: data.currency, loading: false });
+        setState({
+          balance:        data.balance,
+          currency:       data.currency,
+          cryptoBalances: data.cryptoBalances ?? [],
+          loading:        false,
+        });
       }
     } catch {
       setState((s) => ({ ...s, loading: false }));

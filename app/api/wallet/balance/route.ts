@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +18,20 @@ export async function GET() {
       lastName: user.user_metadata?.last_name,
     });
 
+    const cryptoBalances = await db.userCryptoBalance.findMany({
+      where: { userId: dbUser.id },
+      orderBy: { updatedAt: "desc" },
+    });
+
     return Response.json({
-      balance: Number(dbUser.walletBalance),
-      currency: dbUser.currency,
+      balance:        Number(dbUser.walletBalance),
+      currency:       dbUser.currency,
+      cryptoBalances: cryptoBalances.map((b) => ({
+        crypto:    b.crypto,
+        network:   b.network,
+        available: Number(b.available),
+        locked:    Number(b.locked),
+      })),
     });
   } catch (err) {
     console.error("Wallet balance route error:", err);
