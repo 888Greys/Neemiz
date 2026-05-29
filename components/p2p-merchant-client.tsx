@@ -318,6 +318,11 @@ function DepositSection() {
   const [fundNetwork, setFundNetwork]     = useState("TRC20");
   const [fundAmount, setFundAmount]       = useState("");
   const [funding, setFunding]             = useState(false);
+  // Escrow → wallet form state
+  const [e2wOpen, setE2wOpen]             = useState(false);
+  const [e2wCrypto, setE2wCrypto]         = useState("USDT");
+  const [e2wAmount, setE2wAmount]         = useState("");
+  const [e2wLoading, setE2wLoading]       = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -356,10 +361,38 @@ function DepositSection() {
     }
   }
 
+  async function escrowToWallet() {
+    const amt = Number(e2wAmount);
+    if (!e2wAmount || !Number.isFinite(amt) || amt <= 0) return toast.error("Enter a valid amount");
+    setE2wLoading(true);
+    try {
+      const r = await fetch("/api/p2p/merchant/escrow-to-wallet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crypto: e2wCrypto, amount: amt }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed");
+      toast.success(`${amt} ${e2wCrypto} moved to your wallet`);
+      setE2wOpen(false);
+      setE2wAmount("");
+      load();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setE2wLoading(false);
+    }
+  }
+
   // Wallet balance for the currently selected fund crypto/network
   const fundWalletBal = walletBalances.find(
     (b) => b.crypto === fundCrypto && b.network === fundNetwork,
   )?.available ?? 0;
+
+  // Escrow available for currently selected e2w crypto
+  const e2wEscrowBal = Number(
+    balances.find((b) => b.crypto === e2wCrypto)?.available ?? 0,
+  );
 
   useEffect(() => { load(); }, [load]);
 
@@ -407,14 +440,21 @@ function DepositSection() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => { setFundOpen((v) => !v); setOpen(false); }}
+            onClick={() => { setFundOpen((v) => !v); setE2wOpen(false); setOpen(false); }}
             className="flex items-center gap-1.5 rounded-lg bg-[#05b957] px-4 py-2 text-sm font-black text-white shadow-lg shadow-[#05b957]/20 transition-colors hover:bg-[#28af52] lg:h-9"
           >
-            <Icon name="arrow_forward" className="text-base" />
+            <Icon name="arrow_upward" className="text-base" />
             Fund Escrow
           </button>
           <button
-            onClick={() => { setOpen((v) => !v); setFundOpen(false); setAddress(null); }}
+            onClick={() => { setE2wOpen((v) => !v); setFundOpen(false); setOpen(false); }}
+            className="flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9"
+          >
+            <Icon name="arrow_downward" className="text-base" />
+            To Wallet
+          </button>
+          <button
+            onClick={() => { setOpen((v) => !v); setFundOpen(false); setE2wOpen(false); setAddress(null); }}
             className="flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9"
           >
             <Icon name="qr_code" className="text-base" />
@@ -520,6 +560,60 @@ function DepositSection() {
                 : <><Icon name="arrow_forward" className="text-base" /> Move to Escrow</>}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Escrow → Wallet panel */}
+      {e2wOpen && (
+        <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
+          <p className="text-xs text-slate-400 mb-3">Move crypto from your merchant escrow back into your normal wallet.</p>
+          {balances.length === 0 ? (
+            <p className="text-slate-600 text-sm">No escrow balance to move.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)_140px] sm:items-end">
+              {/* Crypto selector */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {balances.map((b) => (
+                    <button key={b.crypto} onClick={() => setE2wCrypto(b.crypto)}
+                      className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${
+                        e2wCrypto === b.crypto ? "bg-[#05b957]/15 border-[#05b957] text-[#05b957]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                      }`}>{b.crypto}</button>
+                  ))}
+                </div>
+              </div>
+              {/* Amount */}
+              <div>
+                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">
+                  Amount
+                  {e2wEscrowBal > 0 && (
+                    <button onClick={() => setE2wAmount(String(e2wEscrowBal))}
+                      className="ml-2 normal-case text-[#087cff] hover:underline">
+                      max {e2wEscrowBal.toFixed(4)}
+                    </button>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  value={e2wAmount}
+                  onChange={(e) => setE2wAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none focus:border-[#087cff]/40 transition-colors"
+                />
+              </div>
+              {/* Submit */}
+              <button
+                onClick={escrowToWallet}
+                disabled={e2wLoading || !e2wAmount}
+                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#087cff] px-4 text-sm font-black text-white transition-all hover:bg-[#0570e8] disabled:opacity-50"
+              >
+                {e2wLoading
+                  ? <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Moving…</>
+                  : <><Icon name="arrow_downward" className="text-base" /> Move to Wallet</>}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
