@@ -521,40 +521,40 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                 </p>
               </div>
 
-              {/* ── Wallet balances summary ── */}
+              {/* ── Wallet balance summary — switches with the tab ── */}
               <div className="rounded-2xl bg-white/[0.04] p-4 ring-1 ring-white/[0.07] space-y-2">
-                {/* KES balance */}
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2 text-sm font-bold text-slate-400">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#05b957] text-[10px] font-black text-white">KSh</span>
-                    KES Wallet
-                  </span>
-                  <span className="text-sm font-black text-white">
-                    KSh {balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                {/* Crypto balances */}
-                {cryptoBalances.length > 0 && (
-                  <>
-                    <div className="h-px bg-white/[0.06]" />
-                    {cryptoBalances.map((cb) => (
-                      <div key={`${cb.crypto}-${cb.network}`} className="flex items-center justify-between">
-                        <span className="flex items-center gap-2 text-sm font-bold text-slate-400">
-                          {COIN_ICON_URL[cb.crypto] ? (
-                            <img src={COIN_ICON_URL[cb.crypto]} alt={cb.crypto} className="h-6 w-6 rounded-full" />
-                          ) : (
-                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-700 text-[10px] font-black text-white">{cb.crypto[0]}</span>
-                          )}
-                          {cb.crypto}
-                          <span className="text-[11px] text-slate-600">{cb.network}</span>
-                        </span>
-                        <span className="text-sm font-black text-amber-400">
-                          {cb.available.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
-                        </span>
-                      </div>
-                    ))}
-                  </>
+                {mode === "fiat" ? (
+                  /* KES balance */
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-2 text-sm font-bold text-slate-400">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#05b957] text-[10px] font-black text-white">KSh</span>
+                      KES Wallet
+                    </span>
+                    <span className="text-sm font-black text-white">
+                      KSh {balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                ) : cryptoBalances.length > 0 ? (
+                  /* Crypto balances */
+                  cryptoBalances.map((cb) => (
+                    <div key={`${cb.crypto}-${cb.network}`} className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-sm font-bold text-slate-400">
+                        {COIN_ICON_URL[cb.crypto] ? (
+                          <img src={COIN_ICON_URL[cb.crypto]} alt={cb.crypto} className="h-6 w-6 rounded-full" />
+                        ) : (
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-700 text-[10px] font-black text-white">{cb.crypto[0]}</span>
+                        )}
+                        {cb.crypto}
+                        <span className="text-[11px] text-slate-600">{cb.network}</span>
+                      </span>
+                      <span className="text-sm font-black text-amber-400">
+                        {cb.available.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  /* No crypto yet */
+                  <p className="text-sm text-slate-600 text-center py-1">No crypto in wallet yet</p>
                 )}
               </div>
 
