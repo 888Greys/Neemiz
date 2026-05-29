@@ -2,9 +2,8 @@
  * Cron endpoint: scans all crypto deposit addresses and credits any new deposits.
  * VPS cron runs this every 5 minutes.
  *
- * Two flows:
- *   - User with merchant profile  → credits P2PCryptoBalance (escrow)
- *   - Regular user (no merchant)  → converts USDT→KES at USDT_KES_RATE and credits walletBalance
+ * All users: converts to KES at live rate → credits walletBalance + UserCryptoBalance.
+ * Merchants then use POST /api/p2p/merchant/fund to move wallet crypto into escrow.
  */
 import { db } from "@/lib/db";
 import { checkDeposits, getOnChainBalance } from "@/lib/crypto/deposit-checker";
@@ -89,7 +88,7 @@ export async function GET(req: Request) {
       const txs = await checkDeposits(addr.address, addr.crypto, addr.network);
 
       for (const tx of txs) {
-        // Skip if already processed (merchant path uses p2PCryptoDeposit, wallet path uses Transaction)
+        // Skip if already processed
         const [alreadyDeposit, alreadyTx] = await Promise.all([
           db.p2PCryptoDeposit.findFirst({ where: { txHash: tx.txHash } }),
           db.transaction.findFirst({ where: { reference: `crypto-${tx.txHash}` } }),
@@ -99,111 +98,73 @@ export async function GET(req: Request) {
         const amount = parseFloat(tx.amount);
         if (amount <= 0) continue;
 
-        const merchant = addr.user.merchantProfile;
+        const isMerchant = !!addr.user.merchantProfile;
 
-        if (merchant) {
-          // ── Merchant escrow deposit ──────────────────────────────────────
-          await db.$transaction(async (t) => {
-            await t.p2PCryptoDeposit.create({
-              data: {
-                merchantId: merchant.id,
-                crypto:     addr.crypto,
-                amount,
-                txHash:     tx.txHash,
-                network:    addr.network,
-                status:     "APPROVED",
-              },
-            });
+        // ── All users: convert to KES + track crypto balance ────────────────
+        const kesAmount = toKes(amount, addr.crypto, rates);
 
-            await t.p2PCryptoBalance.upsert({
-              where:  { merchantId_crypto: { merchantId: merchant.id, crypto: addr.crypto } },
-              create: { merchantId: merchant.id, crypto: addr.crypto, total: amount, available: amount, locked: 0 },
-              update: { total: { increment: amount }, available: { increment: amount } },
-            });
-
-            await t.notification.create({
-              data: {
-                userId: addr.userId,
-                type:   "crypto_deposit",
-                title:  `${addr.crypto} deposit received`,
-                body:   `${tx.amount} ${addr.crypto} (${addr.network}) credited to your escrow balance.`,
-                link:   "/p2p/merchant",
-              },
-            });
-          });
-        } else {
-          // ── Wallet deposit: convert to KES + track crypto balance ────────
-          const kesAmount = toKes(amount, addr.crypto, rates);
-
-          await db.$transaction(async (t) => {
-            // Credit KES to user betting wallet
-            await t.user.update({
-              where: { id: addr.userId },
-              data:  { walletBalance: { increment: kesAmount } },
-            });
-
-            // Track crypto balance separately (so user/owner can see original coin)
-            await t.userCryptoBalance.upsert({
-              where:  { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
-              create: { userId: addr.userId, crypto: addr.crypto, network: addr.network, available: amount, locked: 0 },
-              update: { available: { increment: amount } },
-            });
-
-            // Log transaction
-            await t.transaction.create({
-              data: {
-                userId:    addr.userId,
-                type:      TransactionType.DEPOSIT,
-                amount:    kesAmount,
-                currency:  "KES",
-                status:    TransactionStatus.COMPLETED,
-                reference: `crypto-${tx.txHash}`,
-                provider:  "crypto",
-                metadata:  { txHash: tx.txHash, crypto: addr.crypto, network: addr.network, cryptoAmount: amount, rate: rates[addr.crypto] ?? rates.USDT },
-              },
-            });
-
-            await t.notification.create({
-              data: {
-                userId: addr.userId,
-                type:   "wallet_deposit",
-                title:  "Crypto deposit received",
-                body:   `${tx.amount} ${addr.crypto} = KSh ${kesAmount.toLocaleString()} credited to your wallet.`,
-                link:   "/dashboard",
-              },
-            });
+        await db.$transaction(async (t) => {
+          await t.user.update({
+            where: { id: addr.userId },
+            data:  { walletBalance: { increment: kesAmount } },
           });
 
-          // Send email notification (outside DB transaction — non-blocking)
-          if (addr.user.email) {
-            sendCryptoDepositEmail(addr.user.email, addr.user.username ?? addr.user.email, {
-              crypto:       addr.crypto,
-              network:      addr.network,
-              cryptoAmount: amount,
-              kesAmount,
-              txHash:       tx.txHash,
-            }).catch((e) => console.warn("[check-deposits] email failed:", e));
-          }
+          await t.userCryptoBalance.upsert({
+            where:  { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
+            create: { userId: addr.userId, crypto: addr.crypto, network: addr.network, available: amount, locked: 0 },
+            update: { available: { increment: amount } },
+          });
+
+          await t.transaction.create({
+            data: {
+              userId:    addr.userId,
+              type:      TransactionType.DEPOSIT,
+              amount:    kesAmount,
+              currency:  "KES",
+              status:    TransactionStatus.COMPLETED,
+              reference: `crypto-${tx.txHash}`,
+              provider:  "crypto",
+              metadata:  { txHash: tx.txHash, crypto: addr.crypto, network: addr.network, cryptoAmount: amount, rate: rates[addr.crypto] ?? rates.USDT },
+            },
+          });
+
+          await t.notification.create({
+            data: {
+              userId: addr.userId,
+              type:   "wallet_deposit",
+              title:  "Crypto deposit received",
+              body:   isMerchant
+                ? `${tx.amount} ${addr.crypto} credited to your wallet. Go to Merchant Center to fund your escrow.`
+                : `${tx.amount} ${addr.crypto} = KSh ${kesAmount.toLocaleString()} credited to your wallet.`,
+              link:   isMerchant ? "/p2p/merchant" : "/dashboard",
+            },
+          });
+        });
+
+        // Send email notification (outside DB transaction — non-blocking)
+        if (addr.user.email) {
+          sendCryptoDepositEmail(addr.user.email, addr.user.username ?? addr.user.email, {
+            crypto:       addr.crypto,
+            network:      addr.network,
+            cryptoAmount: amount,
+            kesAmount,
+            txHash:       tx.txHash,
+          }).catch((e) => console.warn("[check-deposits] email failed:", e));
         }
 
         credited++;
       }
       // ── Sync on-chain balance → UI (best-effort) ──────────────────────────
-      // Reads actual blockchain balance and writes to user_crypto_balances.
-      // Self-heals within 5 min if DB is wiped. Reflects sweeps automatically.
-      if (!addr.user.merchantProfile) {
-        const onChain = await getOnChainBalance(addr.address, addr.crypto, addr.network);
-        // Only upsert if we got a valid balance (> 0 to create, any value to update existing)
-        const existing = await db.userCryptoBalance.findUnique({
-          where: { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
-        });
-        if (onChain > 0 || existing) {
-          await db.userCryptoBalance.upsert({
-            where:  { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
-            create: { userId: addr.userId, crypto: addr.crypto, network: addr.network, available: onChain, locked: 0 },
-            update: { available: onChain },
-          }).catch(() => { /* ignore */ });
-        }
+      const onChain = await getOnChainBalance(addr.address, addr.crypto, addr.network);
+      const existing = await db.userCryptoBalance.findUnique({
+        where: { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
+      });
+      if (onChain > 0 || existing) {
+        await db.userCryptoBalance.upsert({
+          where:  { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
+          create: { userId: addr.userId, crypto: addr.crypto, network: addr.network, available: onChain, locked: 0 },
+          update: { available: onChain },
+        }).catch(() => { /* ignore */ });
       }
     } catch (e) {
       errors.push(`${addr.address}: ${e instanceof Error ? e.message : "error"}`);

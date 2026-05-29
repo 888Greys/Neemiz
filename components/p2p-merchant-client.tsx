@@ -116,7 +116,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
           {[
             { step: "1", icon: "edit_note",     label: "Apply",         desc: "Fill in your display name and submit" },
             { step: "2", icon: "manage_search", label: "KYC Review",    desc: "We review your application in under 24h" },
-            { step: "3", icon: "account_balance_wallet", label: "Deposit Crypto", desc: "Fund your escrow balance" },
+            { step: "3", icon: "account_balance_wallet", label: "Receive Crypto",  desc: "Receive to your wallet, then fund escrow" },
             { step: "4", icon: "storefront",    label: "Post Ads",      desc: "Go live and start trading" },
           ].map(({ step, icon, label, desc }, i, arr) => (
             <div key={step} className="flex items-start gap-3">
@@ -294,28 +294,72 @@ interface CryptoBalance {
   locked: number;
 }
 
+interface WalletCryptoBalance {
+  crypto: string;
+  network: string;
+  available: number;
+  locked: number;
+}
+
 function DepositSection() {
-  const [open, setOpen]           = useState(false);
-  const [deposits, setDeposits]   = useState<Deposit[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [balances, setBalances]   = useState<CryptoBalance[]>([]);
-  const [crypto, setCrypto]       = useState("USDT");
-  const [network, setNetwork]     = useState("TRC20");
-  const [addrLoading, setAddrLoading] = useState(false);
-  const [address, setAddress]     = useState<string | null>(null);
-  const [copied, setCopied]       = useState(false);
+  const [open, setOpen]                   = useState(false);
+  const [fundOpen, setFundOpen]           = useState(false);
+  const [deposits, setDeposits]           = useState<Deposit[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [balances, setBalances]           = useState<CryptoBalance[]>([]);
+  const [walletBalances, setWalletBalances] = useState<WalletCryptoBalance[]>([]);
+  const [crypto, setCrypto]               = useState("USDT");
+  const [network, setNetwork]             = useState("TRC20");
+  const [addrLoading, setAddrLoading]     = useState(false);
+  const [address, setAddress]             = useState<string | null>(null);
+  const [copied, setCopied]               = useState(false);
+  // Fund escrow form state
+  const [fundCrypto, setFundCrypto]       = useState("USDT");
+  const [fundNetwork, setFundNetwork]     = useState("TRC20");
+  const [fundAmount, setFundAmount]       = useState("");
+  const [funding, setFunding]             = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [depRes, balRes] = await Promise.all([
+      const [depRes, balRes, walletRes] = await Promise.all([
         fetch("/api/p2p/merchant/deposit"),
         fetch("/api/p2p/merchant/balance"),
+        fetch("/api/crypto/balance"),
       ]);
       if (depRes.ok) setDeposits(await depRes.json());
       if (balRes.ok) setBalances(await balRes.json());
+      if (walletRes.ok) setWalletBalances(await walletRes.json());
     }
     catch (err) { toast.error(err instanceof Error ? err.message : "Failed to load deposit info"); } finally { setLoading(false); }
   }, []);
+
+  async function fundEscrow() {
+    const amt = Number(fundAmount);
+    if (!fundAmount || !Number.isFinite(amt) || amt <= 0) return toast.error("Enter a valid amount");
+    setFunding(true);
+    try {
+      const r = await fetch("/api/p2p/merchant/fund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crypto: fundCrypto, network: fundNetwork, amount: amt }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed");
+      toast.success(`${amt} ${fundCrypto} moved to escrow`);
+      setFundOpen(false);
+      setFundAmount("");
+      load();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setFunding(false);
+    }
+  }
+
+  // Wallet balance for the currently selected fund crypto/network
+  const fundWalletBal = walletBalances.find(
+    (b) => b.crypto === fundCrypto && b.network === fundNetwork,
+  )?.available ?? 0;
 
   useEffect(() => { load(); }, [load]);
 
@@ -358,35 +402,124 @@ function DepositSection() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-3 lg:py-2.5">
         <div>
-          <h2 className="text-white font-black text-base">Escrow Balance</h2>
-          <p className="text-slate-500 text-xs mt-0.5">Deposit crypto to fund your sell ads — auto-detected on-chain</p>
+          <h2 className="text-white font-black text-base">Merchant Balances</h2>
+          <p className="text-slate-500 text-xs mt-0.5">Deposits land in your wallet — move to escrow when ready to trade</p>
         </div>
-        <button
-          onClick={() => { setOpen((v) => !v); setAddress(null); }}
-          className="flex items-center gap-1.5 rounded-lg bg-[#05b957] px-4 py-2 text-sm font-black text-white shadow-lg shadow-[#05b957]/20 transition-colors hover:bg-[#28af52] lg:h-9"
-        >
-          <Icon name="add" className="text-base" />
-          Deposit
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setFundOpen((v) => !v); setOpen(false); }}
+            className="flex items-center gap-1.5 rounded-lg bg-[#05b957] px-4 py-2 text-sm font-black text-white shadow-lg shadow-[#05b957]/20 transition-colors hover:bg-[#28af52] lg:h-9"
+          >
+            <Icon name="arrow_forward" className="text-base" />
+            Fund Escrow
+          </button>
+          <button
+            onClick={() => { setOpen((v) => !v); setFundOpen(false); setAddress(null); }}
+            className="flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9"
+          >
+            <Icon name="qr_code" className="text-base" />
+            Receive
+          </button>
+        </div>
       </div>
 
-      {/* Available balance row */}
-      {balances.length > 0 && (
-        <div className="flex flex-wrap gap-4 border-b border-white/[0.06] bg-white/[0.01] px-4 py-2">
-          {balances.map((b) => (
-            <div key={b.crypto} className="flex items-center gap-3">
-              <div>
-                <p className="text-[10px] text-slate-600 uppercase tracking-wide font-bold">{b.crypto} Available</p>
+      {/* Wallet + Escrow balance rows */}
+      {(walletBalances.length > 0 || balances.length > 0) && (
+        <div className="grid grid-cols-2 divide-x divide-white/[0.04] border-b border-white/[0.06] bg-white/[0.01]">
+          {/* Wallet (UserCryptoBalance) */}
+          <div className="flex flex-wrap gap-4 px-4 py-2.5">
+            <p className="w-full text-[10px] font-black text-slate-600 uppercase tracking-wide mb-0.5">In Wallet</p>
+            {walletBalances.length === 0 ? (
+              <p className="text-slate-700 text-xs">—</p>
+            ) : walletBalances.map((b) => (
+              <div key={`${b.crypto}-${b.network}`}>
+                <p className="text-[10px] text-slate-500 font-bold">{b.crypto} <span className="text-slate-700">({b.network})</span></p>
                 <p className="text-white font-black text-sm">{Number(b.available).toFixed(6)}</p>
               </div>
-              {Number(b.locked) > 0 && (
+            ))}
+          </div>
+          {/* Escrow (P2PCryptoBalance) */}
+          <div className="flex flex-wrap gap-4 px-4 py-2.5">
+            <p className="w-full text-[10px] font-black text-slate-600 uppercase tracking-wide mb-0.5">In Escrow</p>
+            {balances.length === 0 ? (
+              <p className="text-slate-700 text-xs">—</p>
+            ) : balances.map((b) => (
+              <div key={b.crypto} className="flex items-center gap-3">
                 <div>
-                  <p className="text-[10px] text-slate-600 uppercase tracking-wide font-bold">Locked</p>
-                  <p className="text-amber-400 font-black text-sm">{Number(b.locked).toFixed(6)}</p>
+                  <p className="text-[10px] text-slate-500 font-bold">{b.crypto}</p>
+                  <p className="text-white font-black text-sm">{Number(b.available).toFixed(6)}</p>
                 </div>
-              )}
+                {Number(b.locked) > 0 && (
+                  <div>
+                    <p className="text-[10px] text-slate-600 font-bold">Locked</p>
+                    <p className="text-amber-400 font-black text-sm">{Number(b.locked).toFixed(6)}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fund Escrow panel */}
+      {fundOpen && (
+        <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
+          <p className="text-xs text-slate-400 mb-3">Move crypto from your wallet to merchant escrow so you can list sell ads.</p>
+          <div className="grid gap-3 sm:grid-cols-[160px_160px_minmax(0,1fr)_140px] sm:items-end">
+            {/* Crypto */}
+            <div>
+              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
+              <div className="flex gap-1.5">
+                {["USDT"].map((c) => (
+                  <button key={c} onClick={() => { setFundCrypto(c); setFundNetwork("TRC20"); }}
+                    className={`flex-1 rounded-xl border py-2 text-xs font-black transition-all ${
+                      fundCrypto === c ? "bg-[#05b957]/15 border-[#05b957] text-[#05b957]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                    }`}>{c}</button>
+                ))}
+              </div>
             </div>
-          ))}
+            {/* Network */}
+            <div>
+              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Network</label>
+              <div className="flex gap-1.5 flex-wrap">
+                {NETWORK_OPTIONS[fundCrypto]?.map((n) => (
+                  <button key={n} onClick={() => setFundNetwork(n)}
+                    className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${
+                      fundNetwork === n ? "bg-[#087cff]/15 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                    }`}>{n}</button>
+                ))}
+              </div>
+            </div>
+            {/* Amount */}
+            <div>
+              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">
+                Amount
+                {fundWalletBal > 0 && (
+                  <button onClick={() => setFundAmount(String(fundWalletBal))}
+                    className="ml-2 normal-case text-[#087cff] hover:underline">
+                    max {fundWalletBal.toFixed(4)}
+                  </button>
+                )}
+              </label>
+              <input
+                type="number"
+                value={fundAmount}
+                onChange={(e) => setFundAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none focus:border-[#087cff]/40 transition-colors"
+              />
+            </div>
+            {/* Submit */}
+            <button
+              onClick={fundEscrow}
+              disabled={funding || !fundAmount}
+              className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#05b957] px-4 text-sm font-black text-white transition-all hover:bg-[#28af52] disabled:opacity-50"
+            >
+              {funding
+                ? <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Moving…</>
+                : <><Icon name="arrow_forward" className="text-base" /> Move to Escrow</>}
+            </button>
+          </div>
         </div>
       )}
 
@@ -489,7 +622,7 @@ function DepositSection() {
               {/* Auto-detect notice */}
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#05b957] animate-pulse shrink-0" />
-                Deposits are detected automatically on-chain. Credit appears within 1–5 minutes of confirmation.
+                Detected automatically on-chain. Funds credit to your wallet within 1–5 minutes — then use Fund Escrow to move them.
               </div>
 
               <button
@@ -512,7 +645,7 @@ function DepositSection() {
         <div className="flex min-h-[78px] flex-col items-center justify-center px-4 py-3 text-center">
           <Icon name="account_balance_wallet" className="mb-2 text-2xl text-slate-700" />
           <p className="text-slate-500 text-sm">No deposits yet</p>
-          <p className="text-slate-600 text-xs mt-1">Click Deposit above to get your unique crypto address</p>
+          <p className="text-slate-600 text-xs mt-1">Use Fund Escrow above to move wallet crypto here</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
