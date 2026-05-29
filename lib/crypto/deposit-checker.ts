@@ -218,40 +218,46 @@ export async function checkDeposits(
 }
 
 // ─── On-chain balance queries (for UI sync) ───────────────────────────────────
-// Returns the current actual balance on-chain — used to keep crypto balance
-// display in sync with reality (catches sweeps, manual adjustments, etc.)
+// Uses public RPC endpoints — no API key required, always reliable.
+
+// Public RPC endpoints (rate-limit friendly, no key)
+const EVM_RPC: Record<number, string> = {
+  1:   "https://eth.llamarpc.com",
+  56:  "https://bsc-dataseed.binance.org",
+  137: "https://polygon-rpc.com",
+};
+
+async function rpcCall(chainId: number, method: string, params: unknown[]): Promise<string | null> {
+  const rpc = EVM_RPC[chainId];
+  if (!rpc) return null;
+  const res  = await fetch(rpc, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    signal:  AbortSignal.timeout(6000),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data?.result ?? null;
+}
 
 async function getEVMBalance(address: string, crypto: string, network: string): Promise<number> {
-  const token  = EVM_TOKENS[`${crypto}:${network}`];
+  const token = EVM_TOKENS[`${crypto}:${network}`];
   if (!token) return 0;
-  const apiKey = process.env.ETHERSCAN_API_KEY;
-  if (!apiKey) return 0;
-
-  const url = new URL(ETHERSCAN);
-  url.searchParams.set("chainid", String(token.chainId));
-  url.searchParams.set("module",  "account");
-  url.searchParams.set("address", address);
-  url.searchParams.set("tag",     "latest");
-  url.searchParams.set("apikey",  apiKey);
 
   if (!token.contract) {
-    // Native coin (ETH, BNB, MATIC)
-    url.searchParams.set("action", "balance");
-    const res  = await fetch(url.toString(), { cache: "no-store" });
-    const data = await res.json();
-    if (data.status !== "1") return 0;
-    return Number(BigInt(data.result)) / 1e18;
+    // Native coin — eth_getBalance
+    const hex = await rpcCall(token.chainId, "eth_getBalance", [address, "latest"]);
+    if (!hex) return 0;
+    return Number(BigInt(hex)) / 1e18;
   }
 
-  // ERC-20 / BEP-20 token
-  url.searchParams.set("action",          "tokenbalance");
-  url.searchParams.set("contractaddress", token.contract);
-  const res  = await fetch(url.toString(), { cache: "no-store" });
-  const data = await res.json();
-  if (data.status !== "1") return 0;
-  // USDT/USDC/DAI/BUSD/USDT.e use 6 decimals; most others use 18
+  // ERC-20 token — call balanceOf(address)
   const decimals = ["USDT", "USDC", "BUSD", "DAI", "USDCE"].includes(crypto) ? 6 : 18;
-  return Number(data.result) / Math.pow(10, decimals);
+  const data = "0x70a08231" + address.slice(2).toLowerCase().padStart(64, "0");
+  const hex  = await rpcCall(token.chainId, "eth_call", [{ to: token.contract, data }, "latest"]);
+  if (!hex || hex === "0x") return 0;
+  return Number(BigInt(hex)) / Math.pow(10, decimals);
 }
 
 async function getTRXBalance(address: string): Promise<number> {
