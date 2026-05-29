@@ -18,10 +18,42 @@ export async function GET() {
       lastName: user.user_metadata?.last_name,
     });
 
-    const cryptoBalances = await db.userCryptoBalance.findMany({
-      where: { userId: dbUser.id },
-      orderBy: { updatedAt: "desc" },
+    // Build crypto balances from transaction history — no external RPC needed.
+    // Groups all completed crypto deposits by coin+network and sums amounts.
+    const cryptoTxns = await db.transaction.findMany({
+      where: {
+        userId:   dbUser.id,
+        provider: "crypto",
+        type:     "DEPOSIT",
+        status:   "COMPLETED",
+      },
+      select: { metadata: true },
     });
+
+    // Sum crypto amounts by coin+network
+    const cryptoMap: Record<string, { crypto: string; network: string; available: number }> = {};
+    for (const tx of cryptoTxns) {
+      const meta = tx.metadata as Record<string, unknown> | null;
+      if (!meta) continue;
+      const crypto  = String(meta.crypto  ?? "");
+      const network = String(meta.network ?? "");
+      const amount  = Number(meta.cryptoAmount ?? 0);
+      if (!crypto || !network || amount <= 0) continue;
+      const key = `${crypto}:${network}`;
+      cryptoMap[key] ??= { crypto, network, available: 0 };
+      cryptoMap[key].available += amount;
+    }
+
+    // Sync to user_crypto_balances table (upsert each)
+    for (const bal of Object.values(cryptoMap)) {
+      await db.userCryptoBalance.upsert({
+        where:  { userId_crypto_network: { userId: dbUser.id, crypto: bal.crypto, network: bal.network } },
+        create: { userId: dbUser.id, crypto: bal.crypto, network: bal.network, available: bal.available, locked: 0 },
+        update: { available: bal.available },
+      }).catch(() => {});
+    }
+
+    const cryptoBalances = Object.values(cryptoMap);
 
     return Response.json({
       balance:        Number(dbUser.walletBalance),
@@ -29,8 +61,8 @@ export async function GET() {
       cryptoBalances: cryptoBalances.map((b) => ({
         crypto:    b.crypto,
         network:   b.network,
-        available: Number(b.available),
-        locked:    Number(b.locked),
+        available: b.available,
+        locked:    0,
       })),
     });
   } catch (err) {
