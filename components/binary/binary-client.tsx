@@ -474,11 +474,22 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     });
 
     for (const trade of ready) {
+      const won = evaluateTrade(trade.side, digit, trade.targetDigit);
       if (isLive && trade.isReal) {
         settleReal(trade, digit);
       } else {
-        const won = evaluateTrade(trade.side, digit, trade.targetDigit);
         setDemoBalance((b) => won ? b + trade.payout : b);
+      }
+      if (won) {
+        toast.cashout(
+          `+${isLive ? "KSh" : "$"}${trade.payout.toFixed(2)} — Trade won!`,
+          `${trade.side} · Exit digit: ${digit}`,
+        );
+      } else {
+        toast.error(
+          `Trade lost`,
+          `${trade.side} · Exit digit: ${digit}`,
+        );
       }
     }
 
