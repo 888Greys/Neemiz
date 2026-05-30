@@ -22,6 +22,56 @@ interface ToastItem {
   description?: string;
 }
 
+/* ── Audio feedback ── */
+function playToastSound(type: ToastType) {
+  if (typeof window === "undefined") return;
+  try {
+    const ctx = new AudioContext();
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.18, ctx.currentTime);
+    master.connect(ctx.destination);
+
+    function tone(freq: number, start: number, duration: number, endFreq?: number) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(master);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+      if (endFreq) osc.frequency.linearRampToValueAtTime(endFreq, ctx.currentTime + start + duration);
+      gain.gain.setValueAtTime(0, ctx.currentTime + start);
+      gain.gain.linearRampToValueAtTime(1, ctx.currentTime + start + 0.01);
+      gain.gain.setValueAtTime(1, ctx.currentTime + start + duration - 0.04);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + duration);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + duration);
+    }
+
+    if (type === "cashout") {
+      // Ascending win fanfare: C5 E5 G5 C6
+      tone(523, 0,    0.12);
+      tone(659, 0.1,  0.12);
+      tone(784, 0.2,  0.12);
+      tone(1047, 0.3, 0.22);
+    } else if (type === "success") {
+      // Two-note positive chime
+      tone(660, 0,   0.12);
+      tone(880, 0.13, 0.18);
+    } else if (type === "error") {
+      // Descending dull thud
+      tone(330, 0,   0.14, 220);
+      tone(220, 0.15, 0.18);
+    } else {
+      // Info: single soft beep
+      tone(660, 0, 0.14);
+    }
+
+    setTimeout(() => ctx.close(), 1500);
+  } catch {
+    // AudioContext blocked (e.g. no user gesture yet) — silently ignore
+  }
+}
+
 /* ── Global queue — modules call toast.success() outside React ── */
 type Listener = (t: ToastItem) => void;
 const listeners: Set<Listener> = new Set();
@@ -29,6 +79,7 @@ const listeners: Set<Listener> = new Set();
 function fire(type: ToastType, title: string, description?: string) {
   const id = Math.random().toString(36).slice(2, 9);
   const item: ToastItem = { id, type, title, description };
+  playToastSound(type);
   listeners.forEach((fn) => fn(item));
 }
 
