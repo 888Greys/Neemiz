@@ -268,6 +268,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [transactions, setTransactions] = useState<string[]>([]);
   const [tab, setTab] = useState<"open" | "closed" | "tx">("open");
 
+  // Refs so interval callbacks always read latest state without stale closures
+  const latestRef   = useRef(latest);
+  const openTradesRef = useRef(openTrades);
+  const settledIds  = useRef(new Set<string>());
+  useEffect(() => { latestRef.current = latest; },     [latest]);
+  useEffect(() => { openTradesRef.current = openTrades; }, [openTrades]);
+
+
   const balance = isLive ? liveBalance : demoBalance;
 
   // Load persisted closed trades from DB on mount (live users only)
@@ -456,46 +464,53 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     }
   }, []);
 
+  // Settle expired trades every 500 ms — works even when the tick stream stalls.
+  // The settledIds ref prevents double-settlement if both a tick and the timer
+  // fire in the same window.
   useEffect(() => {
-    if (openTrades.length === 0) return;
-    const now = Date.now();
-    const ready = openTrades.filter((trade) => trade.settlesAt <= now);
-    if (ready.length === 0) return;
+    const id = setInterval(() => {
+      const now    = Date.now();
+      const pending = openTradesRef.current.filter(
+        (t) => t.settlesAt <= now && !settledIds.current.has(t.id),
+      );
+      if (pending.length === 0) return;
 
-    setOpenTrades((current) => current.filter((trade) => trade.settlesAt > now));
+      // Mark as in-flight before any async work
+      pending.forEach((t) => settledIds.current.add(t.id));
 
-    const digit = latest.digit;
-    setClosedTrades((current) => {
-      const settled = ready.map((trade) => {
-        const won = evaluateTrade(trade.side, digit, trade.targetDigit);
-        return { ...trade, exitDigit: digit, status: won ? "won" as const : "lost" as const };
+      const digit = latestRef.current.digit;
+
+      setOpenTrades((cur) => cur.filter((t) => !settledIds.current.has(t.id)));
+      setClosedTrades((cur) => {
+        const settled = pending.map((trade) => {
+          const won = evaluateTrade(trade.side, digit, trade.targetDigit);
+          return { ...trade, exitDigit: digit, status: won ? "won" as const : "lost" as const };
+        });
+        return [...settled, ...cur].slice(0, 20);
       });
-      return [...settled, ...current].slice(0, 20);
-    });
 
-    for (const trade of ready) {
-      const won = evaluateTrade(trade.side, digit, trade.targetDigit);
-      if (isLive && trade.isReal) {
-        settleReal(trade, digit);
-      } else {
-        setDemoBalance((b) => won ? b + trade.payout : b);
+      for (const trade of pending) {
+        const won = evaluateTrade(trade.side, digit, trade.targetDigit);
+        if (isLive && trade.isReal) {
+          settleReal(trade, digit);
+        } else {
+          setDemoBalance((b) => won ? b + trade.payout : b);
+        }
+        if (won) {
+          toast.cashout(
+            `+${isLive ? "KSh" : "$"}${trade.payout.toFixed(2)} — Trade won!`,
+            `${trade.side} · Exit digit: ${digit}`,
+          );
+        } else {
+          toast.error(`Trade lost`, `${trade.side} · Exit digit: ${digit}`);
+        }
       }
-      if (won) {
-        toast.cashout(
-          `+${isLive ? "KSh" : "$"}${trade.payout.toFixed(2)} — Trade won!`,
-          `${trade.side} · Exit digit: ${digit}`,
-        );
-      } else {
-        toast.error(
-          `Trade lost`,
-          `${trade.side} · Exit digit: ${digit}`,
-        );
-      }
-    }
 
-    // Switch sidebar to Closed tab so user sees the result
-    setTab("closed");
-  }, [latest, openTrades, isLive, settleReal]);
+      setTab("closed");
+    }, 500);
+
+    return () => clearInterval(id);
+  }, [isLive, settleReal]);
 
   async function placeTrade(side: ContractSide) {
     if (placing || stake <= 0) return;

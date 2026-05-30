@@ -50,7 +50,7 @@ export async function POST(req: Request) {
   const ticks       = Math.max(1, Math.min(30, durationTicks ?? 5));
   const stakeVal    = stake!;
   const payoutVal   = Number((stakeVal * payoutRate(side, targetDigit!)).toFixed(2));
-  const settleBefore = new Date(Date.now() + ticks * 1000 + 10_000); // +10s buffer
+  const settleBefore = new Date(Date.now() + ticks * 1000 + 90_000); // +90s buffer — covers tick-stream stalls
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
