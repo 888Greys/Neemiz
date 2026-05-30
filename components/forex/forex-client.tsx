@@ -632,7 +632,7 @@ export function ForexClient() {
             </div>
           </section>
 
-          <section className="hidden shrink-0 border-t border-white/[0.08] md:grid-cols-3 sm:grid">
+          <section className="grid shrink-0 grid-cols-3 border-t border-white/[0.08]">
             <LevelCard label="Session high" value={formatPrice(selectedMarket, levels.high)} />
             <LevelCard label="Session average" value={formatPrice(selectedMarket, levels.average)} />
             <LevelCard label="Session low" value={formatPrice(selectedMarket, levels.low)} />

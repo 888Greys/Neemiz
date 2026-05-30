@@ -625,68 +625,11 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
       <div data-binary-grid="true" className="grid min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 xl:grid-cols-[300px_minmax(0,1fr)_390px]">
         <aside className="order-2 hidden min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:flex xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
-          {/* Tab bar */}
-          <div className="grid shrink-0 grid-cols-3 border-b border-white/[0.07] bg-[#0f1218] text-xs font-black">
-            {(["open", "closed", "tx"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTab(t)}
-                className={`py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
-              >
-                {t === "open" ? `Open (${openTrades.length})` : t === "closed" ? `Closed (${allClosedTrades.length})` : "Tx"}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content — scrollable */}
-          <div className="min-h-0 flex-1 overflow-y-auto bg-[#0f1218]">
-            {tab === "open" && (
-              <div className="space-y-1.5 p-3">
-                {openTrades.length === 0 ? (
-                  <EmptyState title="No open positions" subtitle="Your active contracts will appear here" />
-                ) : (
-                  openTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
-                )}
-              </div>
-            )}
-            {tab === "closed" && (
-              <div className="space-y-1.5 p-3">
-                {allClosedTrades.length === 0 ? (
-                  <EmptyState title="No closed trades" subtitle="Settled contracts will show here" />
-                ) : (
-                  allClosedTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
-                )}
-              </div>
-            )}
-            {tab === "tx" && (
-              <div className="space-y-1.5 p-3">
-                {transactions.length === 0 ? (
-                  <EmptyState title="No transactions" subtitle="Trade activity will appear here" />
-                ) : (
-                  transactions.map((item, index) => (
-                    <div key={`${item}-${index}`} className="rounded bg-black/25 px-3 py-2 text-xs font-bold text-slate-300">{item}</div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Session stats — always visible */}
-          <section className="shrink-0 border-t border-white/[0.08] bg-[#0f1218] p-3">
-            <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Session</div>
-            <div className="grid grid-cols-3 gap-1.5">
-              <MiniStat label="Trades" value={String(allClosedTrades.length)} />
-              <MiniStat label="Wins" value={String(wins)} positive />
-              <MiniStat label="Losses" value={String(losses)} negative />
-            </div>
-            <div className="mt-2 bg-black/25 p-2.5">
-              <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Session P/L</div>
-              <div className={`mt-1 font-mono text-xl font-black ${sessionPnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>
-                {sessionPnl >= 0 ? "+" : ""}{formatMoney(sessionPnl, isLive)}
-              </div>
-            </div>
-          </section>
+          <BinaryActivityPanel
+            tab={tab} setTab={setTab}
+            openTrades={openTrades} allClosedTrades={allClosedTrades} transactions={transactions}
+            wins={wins} losses={losses} sessionPnl={sessionPnl} isLive={isLive}
+          />
         </aside>
 
         <main className="order-1 flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
@@ -824,23 +767,15 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
             </div>
           </section>
 
-          <section className="hidden rounded border border-white/[0.08] bg-[#0f1218] p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-sm font-black">Transactions</h3>
-              <span className="rounded bg-white/[0.06] px-2 py-1 text-[10px] font-black text-slate-400">{transactions.length}</span>
-            </div>
-            {transactions.length === 0 ? (
-              <EmptyState title="No transactions" subtitle="Trade activity will appear here" />
-            ) : (
-              <div className="space-y-2">
-                {transactions.map((item, index) => (
-                  <div key={`${item}-${index}`} className="rounded bg-black/25 px-3 py-2 text-xs font-bold text-slate-300">{item}</div>
-                ))}
-              </div>
-            )}
-          </section>
         </aside>
       </div>
+
+      {/* Mobile-only: positions / history / session — hidden on desktop where the left rail shows it */}
+      <MobileBinaryActivity
+        tab={tab} setTab={setTab}
+        openTrades={openTrades} allClosedTrades={allClosedTrades} transactions={transactions}
+        wins={wins} losses={losses} sessionPnl={sessionPnl} isLive={isLive}
+      />
 
       <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 grid grid-cols-2 gap-2 border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur lg:bottom-0 xl:hidden">
         {selectedSides.map((side) => (
@@ -859,6 +794,120 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+interface ActivityPanelProps {
+  tab: "open" | "closed" | "tx";
+  setTab: (t: "open" | "closed" | "tx") => void;
+  openTrades: BinaryTrade[];
+  allClosedTrades: BinaryTrade[];
+  transactions: string[];
+  wins: number;
+  losses: number;
+  sessionPnl: number;
+  isLive: boolean;
+}
+
+// Shared Open / Closed / Tx tabs + session stats — used by the desktop rail
+// and the mobile collapsible so both views show identical detail.
+function BinaryActivityPanel({
+  tab, setTab, openTrades, allClosedTrades, transactions, wins, losses, sessionPnl, isLive,
+}: ActivityPanelProps) {
+  return (
+    <>
+      {/* Tab bar */}
+      <div className="grid shrink-0 grid-cols-3 border-b border-white/[0.07] bg-[#0f1218] text-xs font-black">
+        {(["open", "closed", "tx"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
+          >
+            {t === "open" ? `Open (${openTrades.length})` : t === "closed" ? `Closed (${allClosedTrades.length})` : "Tx"}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content — scrollable */}
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[#0f1218]">
+        {tab === "open" && (
+          <div className="space-y-1.5 p-3">
+            {openTrades.length === 0 ? (
+              <EmptyState title="No open positions" subtitle="Your active contracts will appear here" />
+            ) : (
+              openTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
+            )}
+          </div>
+        )}
+        {tab === "closed" && (
+          <div className="space-y-1.5 p-3">
+            {allClosedTrades.length === 0 ? (
+              <EmptyState title="No closed trades" subtitle="Settled contracts will show here" />
+            ) : (
+              allClosedTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
+            )}
+          </div>
+        )}
+        {tab === "tx" && (
+          <div className="space-y-1.5 p-3">
+            {transactions.length === 0 ? (
+              <EmptyState title="No transactions" subtitle="Trade activity will appear here" />
+            ) : (
+              transactions.map((item, index) => (
+                <div key={`${item}-${index}`} className="rounded bg-black/25 px-3 py-2 text-xs font-bold text-slate-300">{item}</div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Session stats — always visible */}
+      <section className="shrink-0 border-t border-white/[0.08] bg-[#0f1218] p-3">
+        <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Session</div>
+        <div className="grid grid-cols-3 gap-1.5">
+          <MiniStat label="Trades" value={String(allClosedTrades.length)} />
+          <MiniStat label="Wins" value={String(wins)} positive />
+          <MiniStat label="Losses" value={String(losses)} negative />
+        </div>
+        <div className="mt-2 bg-black/25 p-2.5">
+          <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Session P/L</div>
+          <div className={`mt-1 font-mono text-xl font-black ${sessionPnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+            {sessionPnl >= 0 ? "+" : ""}{formatMoney(sessionPnl, isLive)}
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+// Mobile-only collapsible wrapper around the activity panel (matches the
+// Aviator "Live Players" collapsible). Hidden on xl where the rail shows it.
+function MobileBinaryActivity(props: ActivityPanelProps) {
+  const [open, setOpen] = useState(true);
+  const activeCount = props.openTrades.length;
+  return (
+    <div className="mx-2 mb-28 mt-1 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f1218] sm:mx-2 xl:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-3 py-3 text-[12px] font-black text-white/70 transition-colors hover:text-white active:scale-[0.99]"
+      >
+        <span className="flex items-center gap-2 uppercase tracking-wider">
+          My Activity
+          {activeCount > 0 && (
+            <span className="rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-300">{activeCount} open</span>
+          )}
+        </span>
+        <Icon name={open ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[18px] text-slate-500" />
+      </button>
+      {open && (
+        <div className="flex max-h-[60vh] flex-col overflow-hidden border-t border-white/[0.07]">
+          <BinaryActivityPanel {...props} />
+        </div>
+      )}
     </div>
   );
 }
