@@ -31,7 +31,7 @@ function playToastSound(type: ToastType) {
     master.gain.setValueAtTime(0.18, ctx.currentTime);
     master.connect(ctx.destination);
 
-    function tone(freq: number, start: number, duration: number, endFreq?: number) {
+    const tone = (freq: number, start: number, duration: number, endFreq?: number) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
