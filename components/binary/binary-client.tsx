@@ -698,17 +698,23 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
           <section className="grid h-[100px] shrink-0 grid-cols-10 gap-0 border-t border-white/[0.08] bg-[#0b0d12] sm:h-[116px]">
             {digitStats.map((stat) => (
-              <div
+              <button
                 key={stat.digit}
-                className={`relative flex h-full flex-col items-center justify-center border-r border-white/[0.07] last:border-r-0 ${
-                  latest.digit === stat.digit ? "bg-amber-400/5" : "bg-[#0b0d12]"
+                type="button"
+                onClick={() => setTargetDigit(stat.digit)}
+                className={`relative flex h-full flex-col items-center justify-center border-r border-white/[0.07] last:border-r-0 transition-colors ${
+                  targetDigit === stat.digit
+                    ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400/40"
+                    : latest.digit === stat.digit
+                    ? "bg-amber-400/5 hover:bg-white/[0.04]"
+                    : "bg-[#0b0d12] hover:bg-white/[0.04]"
                 }`}
               >
                 <DigitRing stat={stat} isActive={latest.digit === stat.digit} />
                 {latest.digit === stat.digit && (
                   <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] leading-none text-amber-400">▲</span>
                 )}
-              </div>
+              </button>
             ))}
           </section>
         </main>
