@@ -268,14 +268,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [transactions, setTransactions] = useState<string[]>([]);
   const [tab, setTab] = useState<"open" | "closed" | "tx">("open");
 
-  // Refs so interval callbacks always read latest state without stale closures
-  const latestRef   = useRef(latest);
-  const openTradesRef = useRef(openTrades);
-  const settledIds  = useRef(new Set<string>());
-  useEffect(() => { latestRef.current = latest; },     [latest]);
-  useEffect(() => { openTradesRef.current = openTrades; }, [openTrades]);
-
-
   const balance = isLive ? liveBalance : demoBalance;
 
   // Load persisted closed trades from DB on mount (live users only)
@@ -418,6 +410,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
   const latest = ticks[ticks.length - 1];
   const previous = ticks[ticks.length - 2];
+
+  // Refs so interval callbacks always read latest state without stale closures
+  const latestRef     = useRef(latest);
+  const openTradesRef = useRef(openTrades);
+  const settledIds    = useRef(new Set<string>());
+  useEffect(() => { latestRef.current = latest; },         [latest]);
+  useEffect(() => { openTradesRef.current = openTrades; }, [openTrades]);
+
   const change = latest.quote - (ticks[0]?.quote ?? latest.quote);
   const changePct = (change / Math.max(1, ticks[0]?.quote ?? latest.quote)) * 100;
   const selectedSides = familySides(family);
