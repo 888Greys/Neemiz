@@ -423,6 +423,14 @@ export function SportsBetSlip() {
     if (tab === "mybets") fetchMyBets();
   }, [tab, fetchMyBets]);
 
+  // Auto-refresh every 30 s while the My Bets tab is open and bets are still PENDING
+  const hasPendingBets = myBets.some((b) => b.status === "PENDING");
+  useEffect(() => {
+    if (tab !== "mybets" || !hasPendingBets) return;
+    const id = setInterval(fetchMyBets, 30_000);
+    return () => clearInterval(id);
+  }, [tab, hasPendingBets, fetchMyBets]);
+
   async function placeBets() {
     if (!isSignedIn) { openLogin(); return; }
     setPlacing(true);

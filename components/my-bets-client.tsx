@@ -153,6 +153,14 @@ export function MyBetsClient() {
 
   useEffect(() => { fetchBets(); }, [fetchBets]);
 
+  // Auto-refresh every 30 s while any bet is still PENDING
+  const hasPending = bets.some((b) => b.status === "PENDING");
+  useEffect(() => {
+    if (!hasPending) return;
+    const id = setInterval(() => fetchBets(true), 30_000);
+    return () => clearInterval(id);
+  }, [hasPending, fetchBets]);
+
   const filtered = filter === "ALL" ? bets : bets.filter((b) => b.status === filter);
 
   const stats = {
