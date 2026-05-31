@@ -91,7 +91,7 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
       const res = await fetch(`/api/p2p/orders/${orderId}/messages`);
       if (res.ok) {
         const data = await res.json();
-        setMessages(data);
+        setMessages(Array.isArray(data) ? data : []);
       }
     } catch { /* ignore */ }
   }, [orderId]);
@@ -102,24 +102,33 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
     // Poll every 4s as a reliable fallback (realtime requires DB replication enabled)
     const poll = setInterval(fetchMessages, 4000);
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`p2p-order-${orderId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "p2p_messages",
-          filter: `order_id=eq.${orderId}`,
-        },
-        () => { fetchMessages(); }
-      )
-      .subscribe();
+    // Unique channel name per mount — the desktop and mobile-overlay Chat can be
+    // mounted simultaneously, and subscribing two channels with the same topic on
+    // the shared browser client throws "subscribe multiple times" (which, thrown
+    // inside this effect, would blank the whole page). The poll covers realtime
+    // either way, so wrap setup defensively.
+    let cleanup = () => {};
+    try {
+      const supabase = createClient();
+      const channel = supabase
+        .channel(`p2p-order-${orderId}-${Math.random().toString(36).slice(2)}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "p2p_messages",
+            filter: `order_id=eq.${orderId}`,
+          },
+          () => { fetchMessages(); }
+        )
+        .subscribe();
+      cleanup = () => { supabase.removeChannel(channel); };
+    } catch { /* realtime unavailable — poll still works */ }
 
     return () => {
       clearInterval(poll);
-      supabase.removeChannel(channel);
+      cleanup();
     };
   }, [fetchMessages, orderId]);
 
@@ -146,7 +155,8 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
     }
   }
 
-  function senderName(s: Message["sender"]) {
+  function senderName(s: Message["sender"] | null | undefined) {
+    if (!s) return "User";
     return s.firstName ? `${s.firstName} ${s.lastName ?? ""}`.trim() : s.username ?? "User";
   }
 
@@ -161,7 +171,7 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
           </div>
         )}
         {messages.map((m) => {
-          const mine = m.sender.id === currentUserId;
+          const mine = m.sender?.id === currentUserId;
           return (
             <div key={m.id} className={`flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
               <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#087cff] to-[#05b957] flex items-center justify-center text-white text-[10px] font-black shrink-0">
