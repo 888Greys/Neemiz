@@ -466,32 +466,33 @@ function DepositSection() {
   return (
     <div className="mb-3 overflow-hidden rounded-lg border border-white/[0.06] bg-[#111118]">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-3 lg:py-2.5">
-        <div>
+      <div className="flex flex-col gap-3 border-b border-white/[0.06] px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:py-2.5">
+        <div className="min-w-0">
           <h2 className="text-white font-black text-base">Merchant Balances</h2>
           <p className="text-slate-500 text-xs mt-0.5">Deposits land in your wallet — move to escrow when ready to trade</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="grid grid-cols-3 gap-2 lg:flex lg:items-center">
           <button
             onClick={() => { setFundOpen((v) => !v); setE2wOpen(false); setOpen(false); }}
-            className="flex items-center gap-1.5 rounded-lg bg-[#05b957] px-4 py-2 text-sm font-black text-white shadow-lg shadow-[#05b957]/20 transition-colors hover:bg-[#28af52] lg:h-9"
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-[#05b957] px-2 py-2 text-[11px] font-black text-white shadow-lg shadow-[#05b957]/20 transition-colors hover:bg-[#28af52] lg:h-9 lg:px-4 lg:text-sm"
           >
             <Icon name="arrow_upward" className="text-base" />
-            Fund Escrow
+            <span className="whitespace-nowrap">Fund</span>
+            <span className="hidden whitespace-nowrap lg:inline">Escrow</span>
           </button>
           <button
             onClick={() => { setE2wOpen((v) => !v); setFundOpen(false); setOpen(false); }}
-            className="flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2 py-2 text-[11px] font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9 lg:px-3 lg:text-sm"
           >
             <Icon name="arrow_downward" className="text-base" />
-            To Wallet
+            <span className="whitespace-nowrap">Wallet</span>
           </button>
           <button
             onClick={() => { setOpen((v) => !v); setFundOpen(false); setE2wOpen(false); setAddress(null); }}
-            className="flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-2 text-sm font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2 py-2 text-[11px] font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9 lg:px-3 lg:text-sm"
           >
             <Icon name="qr_code" className="text-base" />
-            Receive
+            <span className="whitespace-nowrap">Receive</span>
           </button>
         </div>
       </div>
@@ -788,26 +789,33 @@ function DepositSection() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/[0.05]">
-                {["Date", "Crypto", "Amount", "Network", "TX Hash", "Status"].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest">{h}</th>
+                {[
+                  { h: "Date",    hide: false },
+                  { h: "Crypto",  hide: false },
+                  { h: "Amount",  hide: false },
+                  { h: "Network", hide: true },
+                  { h: "TX Hash", hide: true },
+                  { h: "Status",  hide: false },
+                ].map(({ h, hide }) => (
+                  <th key={h} className={`px-3 py-3 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest sm:px-4 ${hide ? "hidden sm:table-cell" : ""}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {deposits.map((d, i) => (
                 <tr key={d.id} className={`${i < deposits.length - 1 ? "border-b border-white/[0.04]" : ""} hover:bg-white/[0.02] transition-colors`}>
-                  <td className="px-5 py-3 text-slate-500 text-xs whitespace-nowrap">{new Date(d.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short" })}</td>
-                  <td className="px-5 py-3 text-white font-black text-xs">{d.crypto}</td>
-                  <td className="px-5 py-3 text-white font-black">{Number(d.amount).toFixed(6)}</td>
-                  <td className="px-5 py-3 text-slate-400 text-xs">{d.network}</td>
-                  <td className="px-5 py-3 font-mono text-slate-500 text-xs">
+                  <td className="px-3 py-3 text-slate-500 text-xs whitespace-nowrap sm:px-4">{new Date(d.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short" })}</td>
+                  <td className="px-3 py-3 text-white font-black text-xs sm:px-4">{d.crypto}</td>
+                  <td className="px-3 py-3 text-white font-black text-xs sm:px-4 sm:text-sm">{Number(d.amount).toFixed(6)}</td>
+                  <td className="hidden px-3 py-3 text-slate-400 text-xs sm:table-cell sm:px-4">{d.network}</td>
+                  <td className="hidden px-3 py-3 font-mono text-slate-500 text-xs sm:table-cell sm:px-4">
                     {d.txHash ? (
                       <span title={d.txHash}>{d.txHash.length > 14 ? `${d.txHash.slice(0, 7)}…${d.txHash.slice(-7)}` : d.txHash}</span>
                     ) : (
                       <span className="text-slate-700">—</span>
                     )}
                   </td>
-                  <td className="px-5 py-3"><Badge status={d.status} /></td>
+                  <td className="px-3 py-3 sm:px-4"><Badge status={d.status} /></td>
                 </tr>
               ))}
             </tbody>
