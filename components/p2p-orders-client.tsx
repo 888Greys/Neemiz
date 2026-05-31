@@ -5,6 +5,7 @@ import { getCached, cachedFetch } from "@/lib/client-cache";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { P2PSubNav } from "@/components/p2p-subnav";
+import { formatFiat } from "@/lib/p2p/currencies";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -174,7 +175,7 @@ export function P2POrdersClient() {
               <div className="mb-3 lg:mb-0">
                 <p className="text-[10px] font-semibold text-white/40">{order.fiat}</p>
                 <p className="text-[22px] font-black leading-tight text-white tabular-nums lg:text-lg">
-                  {Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                  {formatFiat(Number(order.fiatAmount), order.fiat, { symbol: false, decimals: 2 })}
                 </p>
               </div>
 
@@ -182,7 +183,7 @@ export function P2POrdersClient() {
               <div className="mb-3 space-y-1.5 lg:mb-0 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-white/40">Price</span>
-                  <span className="font-semibold text-white/70">{Number(order.pricePerUnit).toLocaleString("en-KE")} {order.fiat}</span>
+                  <span className="font-semibold text-white/70">{formatFiat(Number(order.pricePerUnit), order.fiat)}</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-white/40">Qty</span>

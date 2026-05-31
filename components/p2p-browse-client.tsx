@@ -8,6 +8,7 @@ import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { P2PSubNav } from "@/components/p2p-subnav";
+import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -113,7 +114,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
           <div className="mb-2 flex items-center justify-between text-[11px]">
             <div className="flex items-center gap-1.5">
               <span className="text-slate-400">Price</span>
-              <span className="font-black text-[#05b957]">{ad.pricePerUnit.toLocaleString("en-KE", { maximumFractionDigits: 2 })} {ad.fiat}</span>
+              <span className="font-black text-[#05b957]">{formatFiat(ad.pricePerUnit, ad.fiat)}</span>
               <span className="text-slate-600">{ad.paymentWindow ?? 15}m window</span>
             </div>
             <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-slate-400">
@@ -173,7 +174,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
                 Max
               </button>
               </div>
-            <p className="mt-3 text-[11px] text-slate-500">Limits: {ad.minLimit.toLocaleString("en-KE")} - {ad.maxLimit.toLocaleString("en-KE")} {ad.fiat}</p>
+            <p className="mt-3 text-[11px] text-slate-500">Limits: {formatFiat(ad.minLimit, ad.fiat)} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</p>
             <p className="mt-2 text-[12px] text-slate-500">
               {isBuyingCrypto ? "I will receive" : "I will send"}{" "}
               <span className="text-white">{cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "--"} {ad.crypto}</span>
@@ -181,10 +182,10 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
             {(belowMin || aboveMax || exceedsAvailable) && (
               <p className="mt-2 text-[11px] font-bold text-red-400">
                 {belowMin
-                  ? `Minimum is ${ad.fiat} ${ad.minLimit.toLocaleString("en-KE")}`
+                  ? `Minimum is ${formatFiat(ad.minLimit, ad.fiat)}`
                   : aboveMax
-                  ? `Maximum is ${ad.fiat} ${ad.maxLimit.toLocaleString("en-KE")}`
-                  : `Only ${ad.availableAmount.toLocaleString("en-KE", { maximumFractionDigits: 4 })} ${ad.crypto} available`}
+                  ? `Maximum is ${formatFiat(ad.maxLimit, ad.fiat)}`
+                  : `Only ${ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${ad.crypto} available`}
               </p>
             )}
           </section>
@@ -232,7 +233,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
         <div className="shrink-0 border-t border-[#1e1e30] bg-[#0e0e14] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
           <div className="grid grid-cols-[minmax(0,1fr)_118px] items-center gap-3">
             <div>
-              <p className="text-[16px] font-black text-white">{fiatNum > 0 ? fiatNum.toLocaleString("en-KE", { maximumFractionDigits: 2 }) : "0"} {ad.fiat}</p>
+              <p className="text-[16px] font-black text-white">{fiatNum > 0 ? formatFiat(fiatNum, ad.fiat) : formatFiat(0, ad.fiat)}</p>
               <p className="text-[11px] text-slate-500">{isBuyingCrypto ? "Total Payable" : "Total Receivable"}</p>
             </div>
           <button
@@ -388,7 +389,7 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
           <div className="min-w-0">
             <p className="text-[10px] font-semibold leading-3 text-white/45">{ad.fiat}</p>
             <p className="text-[21px] font-black leading-tight text-white tabular-nums lg:text-[19px]">
-              {ad.pricePerUnit.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatFiat(ad.pricePerUnit, ad.fiat, { symbol: false, decimals: 2 })}
             </p>
           </div>
           <div className="hidden shrink-0 pt-1 text-right text-[10px] font-semibold text-white/35 sm:block">
@@ -398,10 +399,10 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
 
         <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40 lg:flex lg:flex-wrap lg:gap-x-4 lg:space-y-0">
           <p>
-            Limits <span className="text-white/65">{ad.minLimit.toLocaleString("en-KE")} - {ad.maxLimit.toLocaleString("en-KE")} {ad.fiat}</span>
+            Limits <span className="text-white/65">{formatFiat(ad.minLimit, ad.fiat, { symbol: false })} - {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })} {ad.fiat}</span>
           </p>
           <p>
-            Quantity <span className="text-white/65">{ad.availableAmount.toLocaleString("en-KE", { maximumFractionDigits: 4 })} {ad.crypto}</span>
+            Quantity <span className="text-white/65">{ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 4 })} {ad.crypto}</span>
           </p>
         </div>
 
@@ -567,6 +568,7 @@ const PAYMENTS  = [
 const VALID_SIDES   = ["BUY", "SELL"] as const;
 const VALID_CRYPTOS_SET = new Set(CRYPTOS);
 const VALID_PAYMENTS_SET = new Set(PAYMENTS.map((p) => p.value));
+const VALID_FIAT_SET = new Set(FIAT_CURRENCIES.map((f) => f.code));
 
 export function P2PBrowseClient() {
   const { isSignedIn }   = useSupabaseAuth();
@@ -584,40 +586,51 @@ export function P2PBrowseClient() {
   const initPayment = VALID_PAYMENTS_SET.has(searchParams.get("payment") ?? "")
     ? (searchParams.get("payment") ?? "")
     : "";
+  const initFiat    = VALID_FIAT_SET.has(searchParams.get("fiat") ?? "")
+    ? searchParams.get("fiat")!
+    : "KES";
 
   const [tab, setTabState]          = useState<"BUY" | "SELL">(initTab);
   const [crypto, setCryptoState]    = useState(initCrypto);
   const [payment, setPaymentState]  = useState(initPayment);
+  const [fiat, setFiatState]        = useState(initFiat);
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
 
   // Sync state to URL whenever filters change
-  const pushUrl = useCallback((newTab: string, newCrypto: string, newPayment: string) => {
+  const pushUrl = useCallback((newTab: string, newCrypto: string, newPayment: string, newFiat: string) => {
     const p = new URLSearchParams();
     if (newTab !== "BUY")     p.set("side",    newTab);
     if (newCrypto !== "USDT") p.set("crypto",  newCrypto);
     if (newPayment)           p.set("payment", newPayment);
+    if (newFiat !== "KES")    p.set("fiat",    newFiat);
     const qs = p.toString();
     router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
   }, [router, pathname]);
 
   const setTab = useCallback((t: "BUY" | "SELL") => {
     setTabState(t);
-    pushUrl(t, crypto, payment);
-  }, [crypto, payment, pushUrl]);
+    pushUrl(t, crypto, payment, fiat);
+  }, [crypto, payment, fiat, pushUrl]);
 
   const setCrypto = useCallback((c: string) => {
     setCryptoState(c);
-    pushUrl(tab, c, payment);
-  }, [tab, payment, pushUrl]);
+    pushUrl(tab, c, payment, fiat);
+  }, [tab, payment, fiat, pushUrl]);
 
   const setPayment = useCallback((p: string) => {
     setPaymentState(p);
-    pushUrl(tab, crypto, p);
-  }, [tab, crypto, pushUrl]);
+    pushUrl(tab, crypto, p, fiat);
+  }, [tab, crypto, fiat, pushUrl]);
+
+  const setFiat = useCallback((f: string) => {
+    setFiatState(f);
+    pushUrl(tab, crypto, payment, f);
+  }, [tab, crypto, payment, pushUrl]);
 
   const adsKey = `/api/p2p/ads?${new URLSearchParams({
     side:   tab === "BUY" ? "SELL" : "BUY",
     crypto,
+    fiat,
     ...(payment ? { payment } : {}),
   })}`;
 
@@ -703,12 +716,29 @@ export function P2PBrowseClient() {
                 ))}
               </div>
 
-              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-1.5 sm:ml-auto sm:flex sm:items-center">
+              <div className="flex min-w-0 items-center gap-1.5 sm:ml-auto">
+                {/* Fiat currency selector */}
+                <div className="relative shrink-0">
+                  <select
+                    value={fiat}
+                    onChange={(e) => setFiat(e.target.value)}
+                    aria-label="Fiat currency"
+                    className="h-8 appearance-none rounded-md border border-white/[0.07] bg-white/[0.04] pl-2.5 pr-7 text-xs font-black text-white outline-none transition-colors hover:border-white/20 focus:border-[#087cff]"
+                  >
+                    {FIAT_CURRENCIES.map((f) => (
+                      <option key={f.code} value={f.code} className="bg-[#111118] text-white">
+                        {f.flag} {f.code}
+                      </option>
+                    ))}
+                  </select>
+                  <Icon name="expand_more" className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-base text-slate-500" />
+                </div>
+
                 {PAYMENTS.map((p) => (
                   <button
                     key={p.value}
                     onClick={() => setPayment(p.value)}
-                    className={`h-8 rounded-md border px-2 text-xs font-bold transition-all sm:px-3 ${
+                    className={`h-8 shrink-0 rounded-md border px-2 text-xs font-bold transition-all sm:px-3 ${
                       payment === p.value
                         ? "bg-white/10 border-white/20 text-white"
                         : "bg-white/[0.04] border-white/[0.05] text-slate-500 hover:border-white/15 hover:text-slate-300"
@@ -720,7 +750,7 @@ export function P2PBrowseClient() {
                 <button
                   onClick={() => fetchAds(true)}
                   title="Refresh"
-                  className="grid h-8 w-8 place-items-center rounded-md text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-white"
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-white"
                 >
                   <Icon name="refresh" className={`text-lg ${loading ? "animate-spin" : ""}`} />
                 </button>
