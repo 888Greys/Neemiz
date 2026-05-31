@@ -552,11 +552,19 @@ export function ForexClient() {
         </section>
       </div>
 
-      {streamStatus === "fallback" && (
-        <div className="shrink-0 border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-bold text-red-300">
-          ⚠ Live feed unavailable — trading disabled.{streamError ? ` ${streamError}` : ""} Reconnecting automatically.
-        </div>
-      )}
+      {streamStatus === "fallback" && (() => {
+        const isClosed = /closed|presently closed|market.*open/i.test(streamError ?? "");
+        return isClosed ? (
+          <div className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs font-bold text-amber-200">
+            🕒 Forex markets are closed on weekends — {selectedMarket.symbol} trading reopens when the week starts (Sunday evening UTC).
+            <span className="hidden sm:inline"> Meanwhile, <a href="/binary" className="underline decoration-amber-400/60 underline-offset-2 hover:text-white">Binary</a> and <a href="/aviator" className="underline decoration-amber-400/60 underline-offset-2 hover:text-white">Aviator</a> run live 24/7.</span>
+          </div>
+        ) : (
+          <div className="shrink-0 border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-xs font-bold text-red-300">
+            ⚠ Live feed unavailable — trading disabled.{streamError ? ` ${streamError}` : ""} Reconnecting automatically.
+          </div>
+        );
+      })()}
 
       <div data-forex-grid="true" className="grid max-w-full min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:p-0 xl:grid-cols-[200px_minmax(0,1fr)_340px]">
         <aside className="order-2 hidden min-w-0 overflow-hidden rounded border border-white/[0.08] bg-[#101216] xl:order-none xl:block xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
