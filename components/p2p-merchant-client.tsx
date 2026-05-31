@@ -1015,12 +1015,23 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const [createOpen, setCreate] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
 
+  const [fx, setFx] = useState<{ toKES: Record<string, number>; live: boolean }>({ toKES: { KES: 1 }, live: false });
+
   const loadAds = useCallback(async () => {
     try { const r = await fetch("/api/p2p/ads/mine"); if (r.ok) setAds(await r.json()); }
     catch (err) { toast.error(err instanceof Error ? err.message : "Failed to load ads"); } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { loadAds(); }, [loadAds]);
+
+  useEffect(() => {
+    fetch("/api/p2p/fx")
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { toKES?: Record<string, number>; live?: boolean } | null) => {
+        if (d?.toKES) setFx({ toKES: d.toKES, live: !!d.live });
+      })
+      .catch(() => { /* keep KES-only fallback */ });
+  }, []);
 
   async function toggleActive(ad: Ad) {
     try {
@@ -1088,7 +1099,12 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         const activeAds     = ads.filter((a) => a.isActive);
         const totalListed   = ads.reduce((s, a) => s + Number(a.totalAmount), 0);
         const totalAvail    = ads.reduce((s, a) => s + Number(a.availableAmount), 0);
-        const listedKES     = ads.reduce((s, a) => s + Number(a.availableAmount) * Number(a.pricePerUnit), 0);
+        // Convert each ad's value (priced in its own fiat) into KES before summing.
+        const listedKES     = ads.reduce((s, a) => {
+          const valueInFiat = Number(a.availableAmount) * Number(a.pricePerUnit);
+          const rate = fx.toKES[a.fiat] ?? 1;
+          return s + valueInFiat * rate;
+        }, 0);
         const cryptos       = ads.map((a) => a.crypto).filter((c, idx, arr) => arr.indexOf(c) === idx);
         return (
           <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
@@ -1121,7 +1137,9 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               <p className="text-xl font-black text-amber-400">
                 {listedKES >= 1000 ? `${(listedKES/1000).toFixed(1)}K` : listedKES.toFixed(0)}
               </p>
-              <p className="text-slate-600 text-[11px] mt-1">across active listings</p>
+              <p className="text-slate-600 text-[11px] mt-1">
+                {fx.live ? "live FX · all currencies" : "approx FX · all currencies"}
+              </p>
             </div>
 
             {/* Account */}
