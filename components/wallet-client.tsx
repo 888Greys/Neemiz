@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
@@ -83,7 +83,7 @@ export function WalletClient() {
 
   // ── fiat deposit state ──
   const [tab, setTab]                     = useState<"deposit" | "withdraw" | "send" | "history">("deposit");
-  const [depositMethod, setDepositMethod] = useState<"mpesa" | "pesapal">("mpesa");
+  const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">("mpesa");
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
   const [loading, setLoading]             = useState(false);
@@ -186,17 +186,6 @@ export function WalletClient() {
     if (!isSignedIn) { openLogin(); return; }
     setError(""); setLoading(true);
     try {
-      if (depositMethod === "pesapal") {
-        const res  = await fetch("/api/wallet/pesapal/checkout", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({ amountKes: Number(amount) }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to initiate payment.");
-        window.location.href = (data as { redirectUrl: string }).redirectUrl;
-        return;
-      }
       const res  = await fetch("/api/wallet/deposit", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -470,19 +459,22 @@ export function WalletClient() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setDepositMethod("pesapal")}
-                    className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 ring-1 transition ${depositMethod === "pesapal" ? "bg-[#087cff]/10 ring-[#087cff]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
+                    onClick={() => setDepositMethod("crypto")}
+                    className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 ring-1 transition ${depositMethod === "crypto" ? "bg-[#f59e0b]/10 ring-[#f59e0b]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
                   >
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${depositMethod === "pesapal" ? "bg-[#087cff]/20" : "bg-white/[0.06]"}`}>
-                      <Icon name="credit_card" fill className={`text-[18px] ${depositMethod === "pesapal" ? "text-[#087cff]" : "text-slate-500"}`} />
+                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${depositMethod === "crypto" ? "bg-[#f59e0b]/20" : "bg-white/[0.06]"}`}>
+                      <Icon name="currency_bitcoin" fill className={`text-[18px] ${depositMethod === "crypto" ? "text-[#f59e0b]" : "text-slate-500"}`} />
                     </div>
                     <div className="text-left">
-                      <p className={`text-[12px] font-black ${depositMethod === "pesapal" ? "text-white" : "text-slate-400"}`}>Pesapal</p>
-                      <p className="text-[10px] text-slate-600">Card / Bank</p>
+                      <p className={`text-[12px] font-black ${depositMethod === "crypto" ? "text-white" : "text-slate-400"}`}>Crypto</p>
+                      <p className="text-[10px] text-slate-600">USDT · BTC · ETH</p>
                     </div>
                   </button>
                 </div>
 
+                {depositMethod === "crypto" && <CryptoDepositPanel />}
+
+                {depositMethod === "mpesa" && (<>
                 <div>
                   <p className="mb-2.5 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
                     Quick Select (KSh)
@@ -548,14 +540,6 @@ export function WalletClient() {
                   </div>
                 )}
 
-                {depositMethod === "pesapal" && (
-                  <div className="rounded-2xl bg-[#087cff]/5 px-4 py-3 ring-1 ring-[#087cff]/20">
-                    <p className="text-[11px] text-slate-400">
-                      You will be redirected to Pesapal to complete your payment via card, bank transfer, or M-Pesa.
-                    </p>
-                  </div>
-                )}
-
                 {error && (
                   <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20">
                     <Icon name="error" fill className="mt-0.5 shrink-0 text-[16px] text-red-400" />
@@ -566,8 +550,8 @@ export function WalletClient() {
                 <button
                   type="button"
                   onClick={(e) => handleDeposit(e as unknown as React.FormEvent)}
-                  disabled={loading || !amount || (depositMethod === "mpesa" && !phone)}
-                  className={`w-full rounded-2xl py-4 text-base font-black text-white shadow-lg transition active:scale-[.98] disabled:opacity-50 ${depositMethod === "pesapal" ? "bg-[#087cff] shadow-blue-500/20 hover:bg-[#1a8aff]" : "bg-[#05b957] shadow-emerald-500/20 hover:bg-[#07cc63]"}`}
+                  disabled={loading || !amount || !phone}
+                  className="w-full rounded-2xl bg-[#05b957] py-4 text-base font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-50"
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -575,7 +559,7 @@ export function WalletClient() {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
-                      {depositMethod === "pesapal" ? "Redirecting…" : "Sending prompt…"}
+                      Sending prompt…
                     </span>
                   ) : (
                     `Deposit KSh ${Number(amount || 0).toLocaleString() || "—"}`
@@ -583,10 +567,9 @@ export function WalletClient() {
                 </button>
 
                 <p className="text-center text-[11px] text-slate-700">
-                  {depositMethod === "pesapal"
-                    ? "Secured by Pesapal · Card, Bank & M-Pesa accepted"
-                    : "Powered by Safaricom M-Pesa · Instant credit to your account"}
+                  Powered by Safaricom M-Pesa · Instant credit to your account
                 </p>
+                </>)}
               </div>
             )}
           </>
@@ -1385,6 +1368,159 @@ function SendCrypto({ isSignedIn, onSent }: { isSignedIn: boolean; onSent: () =>
       >
         <Icon name="send" className="text-base" /> Review Transfer
       </button>
+    </div>
+  );
+}
+
+// ─── Crypto deposit panel (wallet page) ───────────────────────────────────────
+
+const CRYPTO_DEPOSIT_ASSETS = [
+  { name: "Tether USD", code: "USDT",  network: "TRC20",   displayNet: "TRC-20 (Tron)", min: 10 },
+  { name: "Tether USD", code: "USDT",  network: "ERC20",   displayNet: "ERC-20 (ETH)",  min: 10 },
+  { name: "Tether USD", code: "USDT",  network: "BEP20",   displayNet: "BEP-20 (BSC)",  min: 10 },
+  { name: "USD Coin",   code: "USDC",  network: "POLYGON", displayNet: "Polygon",       min: 10 },
+  { name: "USD Coin",   code: "USDC",  network: "ERC20",   displayNet: "ERC-20 (ETH)",  min: 10 },
+  { name: "Bitcoin",    code: "BTC",   network: "BITCOIN", displayNet: "Bitcoin",       min: 0.0001 },
+  { name: "Ethereum",   code: "ETH",   network: "ERC20",   displayNet: "ERC-20 (ETH)",  min: 0.001 },
+  { name: "BNB",        code: "BNB",   network: "BEP20",   displayNet: "BEP-20 (BSC)",  min: 0.005 },
+] as const;
+
+type CryptoAddrPhase =
+  | { phase: "checking" }
+  | { phase: "generating" }
+  | { phase: "form"; error?: string }
+  | { phase: "ready"; address: string };
+
+function CryptoDepositPanel() {
+  const [idx, setIdx]       = useState(0);
+  const [addr, setAddr]     = useState<CryptoAddrPhase>({ phase: "checking" });
+  const [copied, setCopied] = useState(false);
+  const asset = CRYPTO_DEPOSIT_ASSETS[idx];
+
+  const load = useCallback(async (code: string, net: string) => {
+    setAddr({ phase: "checking" });
+    try {
+      const res  = await fetch(`/api/crypto/address?crypto=${code}&network=${net}`);
+      const data = await res.json();
+      if (data?.address) { setAddr({ phase: "ready", address: data.address as string }); return; }
+    } catch { /* fall through to generate */ }
+    setAddr({ phase: "generating" });
+    try {
+      const res  = await fetch("/api/crypto/address", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ crypto: code, network: net }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to generate address");
+      setAddr({ phase: "ready", address: data.address as string });
+    } catch (e: unknown) {
+      setAddr({ phase: "form", error: e instanceof Error ? e.message : "Failed to generate address" });
+    }
+  }, []);
+
+  useEffect(() => { load(asset.code, asset.network); }, [asset.code, asset.network, load]);
+
+  async function copy() {
+    if (addr.phase !== "ready") return;
+    try {
+      await navigator.clipboard.writeText(addr.address);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch { /* clipboard blocked */ }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Asset selector */}
+      <div>
+        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Select asset & network</p>
+        <div className="relative">
+          <select
+            value={idx}
+            onChange={(e) => setIdx(Number(e.target.value))}
+            className="h-12 w-full appearance-none rounded-2xl bg-[#16171d] pl-4 pr-10 text-sm font-black text-white outline-none ring-1 ring-white/[0.07] transition focus:ring-[#f59e0b]/50"
+          >
+            {CRYPTO_DEPOSIT_ASSETS.map((a, i) => (
+              <option key={`${a.code}-${a.network}`} value={i} className="bg-[#16171d]">
+                {a.code} · {a.displayNet}
+              </option>
+            ))}
+          </select>
+          <Icon name="expand_more" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-500" />
+        </div>
+      </div>
+
+      {/* Network badge + min */}
+      <div className="flex h-11 w-full items-center justify-between rounded-xl bg-white/[0.06] px-4 ring-1 ring-white/[0.08]">
+        <span className="text-sm font-black text-white">{asset.displayNet}</span>
+        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-400">{asset.network}</span>
+      </div>
+      <p className="-mt-2 text-xs font-bold text-slate-500">
+        Minimum deposit: <span className="text-white">{asset.min} {asset.code}</span>
+        <span className="ml-1 text-slate-600">· amounts below will not be credited</span>
+      </p>
+
+      {/* Address */}
+      {addr.phase === "checking" ? (
+        <div className="flex items-center justify-center gap-3 rounded-2xl bg-white/[0.06] py-6 ring-1 ring-white/[0.08]">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-[#f59e0b]" />
+          <span className="text-xs font-bold text-slate-500">Checking for your address…</span>
+        </div>
+      ) : addr.phase === "form" || addr.phase === "generating" ? (
+        <div className="space-y-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/[0.08]">
+          {addr.phase === "form" && addr.error && <p className="text-xs font-bold text-red-400">{addr.error}</p>}
+          <button
+            type="button"
+            onClick={() => load(asset.code, asset.network)}
+            disabled={addr.phase === "generating"}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#f59e0b] text-sm font-black text-black transition hover:bg-[#f7af2e] disabled:opacity-60"
+          >
+            {addr.phase === "generating"
+              ? <><div className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" /> Generating…</>
+              : <><Icon name="qr_code" className="text-[16px]" /> Get deposit address</>}
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/[0.08] sm:flex-row sm:items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(addr.address)}&bgcolor=ffffff&color=000000&margin=8&qzone=1`}
+            alt="Deposit QR code"
+            width={88}
+            height={88}
+            className="h-[88px] w-[88px] shrink-0 self-center rounded-lg"
+          />
+          <div className="min-w-0 flex-1 text-center sm:text-left">
+            <p className="text-sm font-black text-white">Deposit address</p>
+            <p className="mt-1.5 break-all font-mono text-[11px] leading-relaxed text-slate-400">
+              <span className="font-black text-white">{addr.address.slice(0, 6)}</span>
+              {addr.address.slice(6, -5)}
+              <span className="font-black text-white">{addr.address.slice(-5)}</span>
+            </p>
+            <p className="mt-1 flex items-center justify-center gap-1 text-[10px] font-bold text-emerald-400/70 sm:justify-start">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              Detected automatically · credited within 1–5 min
+            </p>
+            <button
+              type="button"
+              onClick={copy}
+              className="mt-2.5 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#f59e0b] px-4 text-xs font-black text-black transition hover:bg-[#f7af2e]"
+            >
+              <Icon name={copied ? "check" : "content_copy"} className="text-[16px]" />
+              {copied ? "Copied!" : "Copy address"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {addr.phase === "ready" && (
+        <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3 ring-1 ring-amber-400/15">
+          <Icon name="info" fill className="mt-0.5 shrink-0 text-[16px] text-amber-400" />
+          <p className="text-xs font-bold text-amber-300/80">
+            Send only <strong>{asset.code}</strong> on the <strong>{asset.displayNet}</strong> network to this address. Sending other assets may result in permanent loss.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
