@@ -7,6 +7,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
+import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
 
@@ -176,7 +177,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
               className="w-full py-3.5 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] disabled:opacity-40 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-[#087cff]/20"
             >
               {submitting ? (
-                <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Submitting…</>
+                <LoadingDots label="Submitting" />
               ) : (
                 <><Icon name="send" className="text-base" /> Submit Application</>
               )}
@@ -598,7 +599,7 @@ function DepositSection() {
               className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#05b957] px-4 text-sm font-black text-white transition-all hover:bg-[#28af52] disabled:opacity-50"
             >
               {funding
-                ? <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Moving…</>
+                ? <LoadingDots label="Moving" />
                 : <><Icon name="arrow_forward" className="text-base" /> Move to Escrow</>}
             </button>
           </div>
@@ -652,7 +653,7 @@ function DepositSection() {
                 className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#087cff] px-4 text-sm font-black text-white transition-all hover:bg-[#0570e8] disabled:opacity-50"
               >
                 {e2wLoading
-                  ? <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Moving…</>
+                  ? <LoadingDots label="Moving" />
                   : <><Icon name="arrow_downward" className="text-base" /> Move to Wallet</>}
               </button>
             </div>
@@ -710,7 +711,7 @@ function DepositSection() {
                 className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#05b957] px-4 text-sm font-black text-white transition-all hover:bg-[#28af52] disabled:opacity-50"
               >
                 {addrLoading
-                  ? <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Generating...</>
+                  ? <LoadingDots label="Generating" />
                   : <><Icon name="qr_code" className="text-base" /> Get Address</>}
               </button>
             )}
@@ -997,7 +998,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           <button onClick={submit} disabled={submitting}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] py-3 font-black text-white shadow-lg shadow-[#087cff]/20 transition-all hover:bg-[#0570e8] active:scale-[0.98] disabled:opacity-50">
             {submitting
-              ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> {isEditing ? "Saving..." : "Creating..."}</>
+              ? <LoadingDots label={isEditing ? "Saving" : "Creating"} />
               : <><Icon name={isEditing ? "edit" : "add"} className="text-base" /> {isEditing ? "Save Changes" : "Create Ad"}</>}
           </button>
         </div>

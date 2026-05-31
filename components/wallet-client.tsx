@@ -6,6 +6,7 @@ import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { LoadingDots } from "@/components/loading-dots";
 
 const QUICK_AMOUNTS = [100, 250, 500, 1_000, 2_500, 5_000];
 const POLL_INTERVAL = 4_000;
@@ -1510,18 +1511,3 @@ function CryptoDepositPanel() {
   );
 }
 
-// Animated "typing" dots — a polished inline loading state for action buttons.
-// Three dots ripple in sequence (type) and reset (delete) so a pressed button
-// reads as actively working instead of just frozen with static text.
-function LoadingDots({ label }: { label?: string }) {
-  return (
-    <span className="inline-flex items-center justify-center gap-2">
-      {label && <span>{label}</span>}
-      <span className="inline-flex items-center gap-1">
-        <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
-        <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
-        <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce" />
-      </span>
-    </span>
-  );
-}

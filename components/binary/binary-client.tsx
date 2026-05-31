@@ -13,6 +13,7 @@ import {
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { LoadingDots } from "@/components/loading-dots";
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
 type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
@@ -757,7 +758,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                   disabled={placing}
                   className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] disabled:opacity-50 ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
                 >
-                  <div className="text-sm font-black">{placing ? "…" : actionLabel(side)}</div>
+                  <div className="text-sm font-black">{placing ? <LoadingDots /> : actionLabel(side)}</div>
                   <div className="text-right">
                     <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side), isLive)}</div>
                     <div className="text-[10px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
@@ -786,7 +787,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
             disabled={placing}
             className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] disabled:opacity-50 ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
           >
-            <div className="text-sm font-black">{placing ? "…" : actionLabel(side)}</div>
+            <div className="text-sm font-black">{placing ? <LoadingDots /> : actionLabel(side)}</div>
             <div className="text-right">
               <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side), isLive)}</div>
               <div className="text-[10px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>

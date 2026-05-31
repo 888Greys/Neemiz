@@ -10,7 +10,7 @@ import { Icon } from "@/components/icon";
 import { LoginModal } from "@/components/login-modal";
 import { RegisterModal } from "@/components/register-modal";
 import { ProfileModal } from "@/components/profile-modal";
-import { WalletModal } from "@/components/wallet-modal";
+import { WalletSheet } from "@/components/wallet-sheet";
 import { toast } from "@/lib/toast";
 import { NotificationsBell } from "@/components/notifications-dropdown";
 import { AuthModalContext } from "@/lib/auth-modal-context";
@@ -40,7 +40,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
   const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
-  const { balance, currency, refresh: refreshWalletBalance } = useWalletBalance();
+  const { balance, currency } = useWalletBalance();
   const fmtBalance = isSignedIn
     ? `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
@@ -141,14 +141,15 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           {isSignedIn ? (
             <div className="flex shrink-0 items-center gap-2">
               <div className="flex items-center rounded-2xl bg-[#18191d] ring-1 ring-white/[0.07]">
-                {/* Balance → full wallet page (balance, deposit, withdraw, history) */}
-                <Link
-                  href="/wallet"
+                {/* Balance → floating wallet (deposit, withdraw, send, history) */}
+                <button
+                  type="button"
+                  onClick={() => setWalletOpen(true)}
                   className="flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 sm:px-4 sm:py-2 transition hover:bg-[#22242a]"
                 >
                   <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
                   <span className="text-xs sm:text-sm font-black text-white">{fmtBalance}</span>
-                </Link>
+                </button>
                 {/* Quick deposit shortcut */}
                 <button
                   type="button"
@@ -222,7 +223,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} />}
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
       {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} initialView={profileInitialView as Parameters<typeof ProfileModal>[0]["initialView"]} />}
-      {walletOpen && <WalletModal onClose={() => setWalletOpen(false)} onDepositConfirmed={refreshWalletBalance} />}
+      {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} />}
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} onOpenBonuses={() => { setMobileMenuOpen(false); openProfile("bonuses"); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
@@ -654,9 +655,9 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
                 </div>
                 <Icon name="chevron_right" className="text-[16px] text-slate-500" />
               </button>
-              <Link
-                href="/wallet"
-                onClick={onClose}
+              <button
+                type="button"
+                onClick={onOpenWallet}
                 className="mt-1.5 flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-[#087cff]/20 to-[#16171d] px-3 py-2.5 ring-1 ring-[#087cff]/20 transition hover:ring-[#087cff]/40"
               >
                 <div className="flex items-center gap-2">
@@ -664,7 +665,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
                   <span className="text-xs font-black text-white">{fmtBalance}</span>
                 </div>
                 <span className="rounded-lg bg-[#05b957] px-3 py-1 text-[10px] font-black text-white">Open Wallet</span>
-              </Link>
+              </button>
             </div>
           ) : (
             /* ── Guest header ── */

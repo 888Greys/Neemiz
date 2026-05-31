@@ -7,6 +7,7 @@ import { useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
+import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -286,13 +287,7 @@ function WheelOfFortune({
           disabled={spinning || loading || !amt || amt < 12.96}
           className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-[0_4px_20px_rgba(8,124,255,.35)] hover:bg-[#0570e8] active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
           {(spinning || loading) ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              {loading ? "Placing…" : "Spinning…"}
-            </span>
+            <LoadingDots label={loading ? "Placing" : "Spinning"} />
           ) : "Spin"}
         </button>
       )}
@@ -811,13 +806,7 @@ export function SportsBetSlip() {
                   className="w-full rounded-2xl bg-[#06c96e] py-3.5 text-sm font-black text-white shadow-[0_4px_14px_rgba(6,201,110,.3)] transition hover:bg-[#05b85f] active:scale-[.98] disabled:opacity-60"
                 >
                   {placing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Placing…
-                    </span>
+                    <LoadingDots label="Placing" />
                   ) : isSignedIn
                     ? `Place ${bets.length === 1 ? "Bet" : `${bets.length} Bets`}`
                     : "Log in to Bet"}
