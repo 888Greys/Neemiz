@@ -271,15 +271,15 @@ export function WalletClient() {
     <div className="w-full">
 
       {/* ── Balance hero ── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#051b35] via-[#091522] to-[#0d0e11] px-6 pb-8 pt-10">
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#051b35] via-[#091522] to-[#0d0e11] px-6 pb-5 pt-7 sm:pb-8 sm:pt-10">
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#087cff]/15 blur-3xl" />
         <div className="pointer-events-none absolute -left-12 bottom-0 h-44 w-44 rounded-full bg-[#05b957]/8 blur-2xl" />
 
         <div className="relative mx-auto max-w-2xl text-center">
-          <p className="mb-1 text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+          <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:text-[11px]">
             Available Balance
           </p>
-          <p className="text-5xl font-black tracking-tight text-white">
+          <p className="text-3xl font-black tracking-tight text-white sm:text-5xl">
             {isSignedIn ? fmtBalance : "—"}
           </p>
 
@@ -295,7 +295,7 @@ export function WalletClient() {
 
           {isSignedIn && (
             <>
-              <div className="mt-5 flex justify-center gap-2">
+              <div className="mt-3.5 flex justify-center gap-2 sm:mt-5">
                 <div className="rounded-xl bg-white/[0.07] px-3 py-1.5 text-center ring-1 ring-white/[0.08]">
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Total Deposited</p>
                   <p className="mt-0.5 text-xs font-black text-white">KSh 0.00</p>

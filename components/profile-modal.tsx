@@ -1219,28 +1219,28 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
           {/* ── MAIN ── */}
           {view === "main" && (
             <>
-              <div className="flex flex-col items-center gap-2 px-5 pb-5 pt-1 text-center">
+              <div className="flex flex-col items-center gap-1.5 px-5 pb-3 pt-1 text-center">
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
                     alt=""
                     referrerPolicy="no-referrer"
-                    className="h-16 w-16 rounded-full object-cover shadow-[0_0_30px_rgba(8,124,255,0.24)] ring-2 ring-white/[0.08]"
+                    className="h-12 w-12 rounded-full object-cover shadow-[0_0_30px_rgba(8,124,255,0.24)] ring-2 ring-white/[0.08]"
                   />
                 ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#087cff] to-[#0556c8] text-2xl font-black text-white shadow-[0_0_30px_rgba(8,124,255,0.4)]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#087cff] to-[#0556c8] text-xl font-black text-white shadow-[0_0_30px_rgba(8,124,255,0.4)]">
                     {initials}
                   </div>
                 )}
                 <div>
-                  <p className="text-lg font-black text-white">{displayName}</p>
-                  <p className="font-mono text-[11px] text-slate-500">ID {memberId}</p>
+                  <p className="text-base font-black text-white">{displayName}</p>
+                  <p className="font-mono text-[10px] text-slate-500">ID {memberId}</p>
                 </div>
               </div>
 
               {/* ── Username editor ── */}
-              <div className="mx-4 mb-3 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
-                <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">Username</p>
+              <div className="mx-4 mb-2 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+                <p className="px-4 pt-2.5 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-600">Username</p>
                 {editingUsername ? (
                   <div className="px-4 pb-4">
                     <div className="flex items-center gap-2">
@@ -1275,7 +1275,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center justify-between px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <Icon name="alternate_email" fill className="text-[15px] text-slate-500" />
                       <p className="text-[13px] font-black text-white">@{displayName}</p>
@@ -1292,16 +1292,16 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                 )}
               </div>
 
-              <div className="mx-4 mb-4 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.08]">
-                <div className="px-4 pt-3 pb-2">
+              <div className="mx-4 mb-2.5 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.08]">
+                <div className="px-4 pt-2.5 pb-1.5">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Account Balance</p>
-                  <p className="mt-0.5 text-3xl font-black text-white">{fmtBalance}</p>
+                  <p className="mt-0.5 text-2xl font-black text-white">{fmtBalance}</p>
                 </div>
-                <div className="flex gap-2 px-4 pb-4">
+                <div className="flex gap-2 px-4 pb-3">
                   <button
                     type="button"
                     onClick={() => { onClose(); onOpenWallet(); }}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#05b957] py-2.5 text-sm font-black text-white transition hover:bg-[#07cc63] active:scale-[0.98]"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#05b957] py-2 text-sm font-black text-white transition hover:bg-[#07cc63] active:scale-[0.98]"
                   >
                     <Icon name="add_circle" fill className="text-[16px]" />
                     Deposit
@@ -1309,7 +1309,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                   <button
                     type="button"
                     onClick={() => setView("withdraw")}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/[0.07] py-2.5 text-sm font-black text-slate-300 ring-1 ring-white/[0.09] transition hover:bg-white/[0.11] active:scale-[0.98]"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/[0.07] py-2 text-sm font-black text-slate-300 ring-1 ring-white/[0.09] transition hover:bg-white/[0.11] active:scale-[0.98]"
                   >
                     <Icon name="remove_circle" fill className="text-[16px] text-slate-400" />
                     Withdraw
@@ -1317,20 +1317,20 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                 </div>
               </div>
 
-              <div className="mx-4 mb-3 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+              <div className="mx-4 mb-2 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
                 {MENU.map((item, i) => (
                   <div key={item.label}>
                     <button
                       type="button"
                       onClick={item.action}
-                      className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.04] active:scale-[0.99]"
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/[0.04] active:scale-[0.99]"
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
-                        <Icon name={item.icon} fill className="text-[16px] text-slate-400" />
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
+                        <Icon name={item.icon} fill className="text-[15px] text-slate-400" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-black text-white">{item.label}</p>
-                        <p className="text-[11px] text-slate-500">{item.sub}</p>
+                        <p className="text-[10px] text-slate-500">{item.sub}</p>
                       </div>
                       <Icon name="chevron_right" className="text-[16px] text-slate-600" />
                     </button>
@@ -1339,25 +1339,25 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                 ))}
               </div>
 
-              <div className="mx-4 mb-4 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+              <div className="mx-4 mb-2.5 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
                 <button
                   type="button"
                   onClick={() => setView("settings")}
-                  className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.04]"
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/[0.04]"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
-                    <Icon name="settings" fill className="text-[16px] text-slate-400" />
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
+                    <Icon name="settings" fill className="text-[15px] text-slate-400" />
                   </div>
                   <span className="flex-1 text-[13px] font-black text-white">Settings</span>
                   <Icon name="chevron_right" className="text-[16px] text-slate-600" />
                 </button>
               </div>
 
-              <div className="px-4 pb-6">
+              <div className="px-4 pb-4">
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.07] py-3 text-sm font-black text-red-400 ring-1 ring-red-500/[0.12] transition hover:bg-red-500/[0.12] hover:ring-red-500/30"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.07] py-2.5 text-sm font-black text-red-400 ring-1 ring-red-500/[0.12] transition hover:bg-red-500/[0.12] hover:ring-red-500/30"
                 >
                   <Icon name="logout" className="text-[16px]" />
                   Sign Out
