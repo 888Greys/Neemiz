@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { AviatorRound, AviatorBetPublic } from "@/lib/aviator/types";
+import { LoadingDots } from "@/components/loading-dots";
 
 interface Props {
   panelIndex:        0 | 1;
@@ -240,16 +241,16 @@ export function AviatorBetPanel({
     return (
       <div className={`flex min-w-0 flex-col overflow-hidden rounded-xl border sm:rounded-2xl ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
         {TabBar}
-        <div className="flex flex-col items-center gap-2 p-5 text-center">
-          <p className={`text-sm font-black ${won ? "text-[#31c45d]" : "text-red-400"}`}>
+        <div className="flex flex-col items-center gap-1 p-3 text-center">
+          <p className={`text-[13px] font-black ${won ? "text-[#31c45d]" : "text-red-400"}`}>
             {won ? "You won!" : "Flew away!"}
           </p>
-          <p className="text-xl font-black text-white">
+          <p className="text-lg font-black text-white">
             {won
               ? `KSh ${myBet.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—"}`
               : `-KSh ${myBet.betAmount.toLocaleString()}`}
           </p>
-          {won && <p className="text-xs text-white/30">at {myBet.cashoutAt?.toFixed(2)}×</p>}
+          {won && <p className="text-[11px] text-white/30">at {myBet.cashoutAt?.toFixed(2)}×</p>}
         </div>
       </div>
     );
@@ -262,11 +263,11 @@ export function AviatorBetPanel({
     return (
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-yellow-500/20 bg-[#1a1500] sm:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col items-center gap-2 p-5 text-center">
-          <p className="text-sm font-black text-yellow-400">Bet confirmed</p>
-          <p className="text-xl font-black text-white">KSh {myBet.betAmount.toLocaleString()}</p>
-          {myBet.autoCashout && <p className="text-xs text-white/40">Auto cashout at {myBet.autoCashout.toFixed(2)}×</p>}
-          <p className="mt-1 text-[10px] text-white/25">Waiting for launch…</p>
+        <div className="flex flex-col items-center gap-1 p-3 text-center">
+          <p className="text-[13px] font-black text-yellow-400">Bet confirmed</p>
+          <p className="text-lg font-black text-white">KSh {myBet.betAmount.toLocaleString()}</p>
+          {myBet.autoCashout && <p className="text-[11px] text-white/40">Auto cashout at {myBet.autoCashout.toFixed(2)}×</p>}
+          <p className="mt-0.5 text-[10px] text-white/25">Waiting for launch…</p>
         </div>
       </div>
     );
@@ -279,16 +280,16 @@ export function AviatorBetPanel({
     return (
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#087cff]/30 bg-[#060d1c] sm:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col items-center gap-3 p-5 text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#087cff]/15 text-xl">⏳</div>
-          <p className="text-sm font-black text-[#087cff]">Queued for next round</p>
-          <p className="text-2xl font-black text-white">KSh {nextBet.amount.toLocaleString()}</p>
+        <div className="flex flex-col items-center gap-1.5 p-3 text-center">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#087cff]/15 text-base">⏳</div>
+          <p className="text-[13px] font-black text-[#087cff]">Queued for next round</p>
+          <p className="text-lg font-black text-white">KSh {nextBet.amount.toLocaleString()}</p>
           {nextBet.autoCashout && (
-            <p className="text-xs text-white/40">Auto cashout at {nextBet.autoCashout.toFixed(2)}×</p>
+            <p className="text-[11px] text-white/40">Auto cashout at {nextBet.autoCashout.toFixed(2)}×</p>
           )}
           <button
             onClick={() => setNextBet(null)}
-            className="mt-1 rounded-lg border border-white/10 px-5 py-1.5 text-[11px] font-black text-white/40 transition-colors hover:border-white/25 hover:text-white/70"
+            className="mt-0.5 rounded-lg border border-white/10 px-5 py-1 text-[11px] font-black text-white/40 transition-colors hover:border-white/25 hover:text-white/70"
           >
             Cancel
           </button>
@@ -402,7 +403,7 @@ export function AviatorBetPanel({
               style={{ background: (bettingOpen || isFlying) ? "#1dbb08" : "#1f2937" }}
             >
               <span className="text-[24px] font-black uppercase leading-none">
-                {loading ? "…" : isFlying ? "Next Round" : "BET"}
+                {loading ? <LoadingDots /> : isFlying ? "Next Round" : "BET"}
               </span>
               <span className="mt-0.5 text-[12px] font-semibold leading-tight">
                 {bettingOpen && bettingSecsLeft > 0
