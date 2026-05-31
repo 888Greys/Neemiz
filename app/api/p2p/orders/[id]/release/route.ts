@@ -101,7 +101,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       crypto:      order.crypto,
       cryptoAmount: cryptoAmt,
       fiatAmount:  Number(order.fiatAmount),
-      fiat:        "KSh",
+      fiat:        order.ad.fiat,
       orderId:     order.id,
     };
     const buyerName = order.buyer.firstName ?? order.buyer.username ?? "Trader";
