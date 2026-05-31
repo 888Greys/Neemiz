@@ -21,7 +21,7 @@ export default async function AviatorPage() {
   }
 
   return (
-    <AppShell mainBg="bg-[#2f2f31]" fullHeight>
+    <AppShell mainBg="bg-[#2f2f31]" fullHeight hideSidebar>
       <div className="h-full w-full min-w-0">
         <AviatorClient
           userId={userId}
