@@ -113,7 +113,7 @@ const gameCards = [
 
 export default function DashboardPage() {
   return (
-    <AppShell>
+    <AppShell hideSidebar={false}>
       {/* Mobile hero + products */}
       <div className="md:hidden">
         <MobileDashboard />
