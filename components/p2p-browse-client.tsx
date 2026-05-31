@@ -293,12 +293,12 @@ function StatsBar() {
     {
       label: "Traded today",
       value: stats ? fmtVolume(stats.volumeToday) : "—",
-      accent: "#22c55e",
+      accent: "#05b957",
     },
     {
       label: "Merchants online",
       value: stats ? String(stats.onlineMerchants) : "—",
-      accent: "#3b82f6",
+      accent: "#087cff",
       live: true,
     },
     {
@@ -471,7 +471,7 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
         {isSignedIn && (
           <Link
             href="/p2p/merchant"
-            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#3b82f6]/20 bg-[#3b82f6]/10 px-5 py-2.5 text-sm font-black text-[#3b82f6] transition-colors hover:bg-[#3b82f6]/20"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#087cff]/20 bg-[#087cff]/10 px-5 py-2.5 text-sm font-black text-[#087cff] transition-colors hover:bg-[#087cff]/20"
           >
             <Icon name="add_business" className="text-base" />
             Post an ad
@@ -494,8 +494,8 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
               {i < 2 && (
                 <div className="hidden sm:block absolute top-1/2 -right-1.5 w-3 h-px bg-white/[0.08] z-10" />
               )}
-              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg border border-[#3b82f6]/20 bg-[#3b82f6]/10">
-                <Icon name={step.icon} className="text-base text-[#3b82f6]" />
+              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg border border-[#087cff]/20 bg-[#087cff]/10">
+                <Icon name={step.icon} className="text-base text-[#087cff]" />
               </div>
               <div className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-white/[0.04] px-2 py-0.5">
                 <span className="text-[10px] font-black text-slate-500">Step {i + 1}</span>
@@ -520,7 +520,7 @@ function MerchantPromoBanner({ isSignedIn }: { isSignedIn: boolean }) {
     >
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#087cff]/15 border border-[#087cff]/25 shrink-0">
-          <Icon name="storefront" className="text-[#3b82f6] text-base" />
+          <Icon name="storefront" className="text-[#087cff] text-base" />
         </div>
         <span className="text-sm font-semibold text-slate-400">
           {isSignedIn ? "Apply to be a merchant" : "Become a merchant"}

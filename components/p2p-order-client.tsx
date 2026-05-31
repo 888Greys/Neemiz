@@ -7,6 +7,7 @@ import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat } from "@/lib/p2p/currencies";
+import { P2PStatusBadge } from "@/components/p2p/status-badge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,24 +77,6 @@ function Countdown({ expiresAt, onExpire }: { expiresAt: string; onExpire: () =>
 }
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: OrderData["status"] }) {
-  const map: Record<OrderData["status"], { label: string; color: string }> = {
-    PENDING:   { label: "Awaiting Payment", color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-    PAID:      { label: "Payment Sent",     color: "text-[#087cff] bg-[#087cff]/10 border-[#087cff]/20" },
-    RELEASED:  { label: "Completed",        color: "text-[#05b957] bg-[#05b957]/10 border-[#05b957]/20" },
-    DISPUTED:  { label: "In Dispute",       color: "text-red-400 bg-red-500/10 border-red-500/20" },
-    CANCELLED: { label: "Cancelled",        color: "text-slate-400 bg-white/5 border-white/10" },
-    EXPIRED:   { label: "Expired",          color: "text-slate-500 bg-white/5 border-white/10" },
-  };
-  const { label, color } = map[status];
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold ${color}`}>
-      {status === "PENDING" && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
-      {label}
-    </span>
-  );
-}
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
@@ -764,7 +747,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               <h1 className="text-white font-black text-lg">
                 {order.isBuyer ? "Buy" : "Sell"} {order.crypto}
               </h1>
-              <StatusBadge status={order.status} />
+              <P2PStatusBadge status={order.status} size="md" detailed />
             </div>
             <p className="text-slate-500 text-xs font-mono">#{orderId.slice(0, 16).toUpperCase()}</p>
           </div>

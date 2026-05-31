@@ -74,7 +74,7 @@ function RateCalculator({ rates, market }: { rates: RateMap; market: MarketRateM
     : null;
 
   return (
-    <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl p-4 space-y-3">
+    <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-4 space-y-3">
       <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Rate Calculator</p>
 
       {/* Mode toggle */}
@@ -86,7 +86,7 @@ function RateCalculator({ rates, market }: { rates: RateMap; market: MarketRateM
             className={`flex-1 py-2 rounded-lg text-xs font-black transition-all capitalize ${
               mode === m
                 ? m === "buy"
-                  ? "bg-[#22c55e] text-white shadow shadow-[#22c55e]/30"
+                  ? "bg-[#05b957] text-white shadow shadow-[#05b957]/30"
                   : "bg-red-500 text-white shadow shadow-red-500/30"
                 : "text-slate-500 hover:text-slate-300"
             }`}
@@ -104,7 +104,7 @@ function RateCalculator({ rates, market }: { rates: RateMap; market: MarketRateM
             onClick={() => setCrypto(c)}
             className={`flex flex-col items-center gap-1 py-2 rounded-xl text-[10px] font-black transition-all border ${
               crypto === c
-                ? "bg-[#3b82f6]/20 border-[#3b82f6]/40 text-white"
+                ? "bg-[#087cff]/20 border-[#087cff]/40 text-white"
                 : "bg-white/[0.03] border-white/[0.05] text-slate-500 hover:text-slate-300"
             }`}
           >
@@ -117,7 +117,7 @@ function RateCalculator({ rates, market }: { rates: RateMap; market: MarketRateM
       {/* Amount input */}
       <div>
         <label className="text-[10px] text-slate-600 font-bold mb-1 block">Amount ({crypto})</label>
-        <div className="bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-3 flex items-center gap-2 focus-within:border-[#3b82f6]/50 transition-colors">
+        <div className="bg-white/[0.05] border border-white/[0.08] rounded-xl px-4 py-3 flex items-center gap-2 focus-within:border-[#087cff]/50 transition-colors">
           <input
             type="number"
             inputMode="decimal"
@@ -146,7 +146,7 @@ function RateCalculator({ rates, market }: { rates: RateMap; market: MarketRateM
             )}
           </div>
           <div className="flex items-baseline gap-1">
-            <span className={`text-lg font-black ${p2pResult ? (mode === "buy" ? "text-[#22c55e]" : "text-red-400") : "text-slate-700"}`}>
+            <span className={`text-lg font-black ${p2pResult ? (mode === "buy" ? "text-[#05b957]" : "text-red-400") : "text-slate-700"}`}>
               {p2pResult ? `KSh ${p2pResult.toLocaleString("en-KE", { maximumFractionDigits: 0 })}` : "—"}
             </span>
             {p2pRate && <span className="text-[10px] text-slate-600">you {mode === "buy" ? "pay" : "receive"}</span>}
@@ -168,7 +168,7 @@ function RateCalculator({ rates, market }: { rates: RateMap; market: MarketRateM
               {mktResult ? `KSh ${mktResult.toLocaleString("en-KE", { maximumFractionDigits: 0 })}` : "—"}
             </span>
             {market[crypto]?.change !== undefined && (
-              <span className={`text-[10px] font-bold ${market[crypto].change >= 0 ? "text-[#22c55e]" : "text-red-400"}`}>
+              <span className={`text-[10px] font-bold ${market[crypto].change >= 0 ? "text-[#05b957]" : "text-red-400"}`}>
                 {fmtChange(market[crypto].change)}
               </span>
             )}
@@ -179,7 +179,7 @@ function RateCalculator({ rates, market }: { rates: RateMap; market: MarketRateM
       {/* Spread indicator */}
       {spread !== null && (
         <div className={`flex items-center justify-between px-3 py-2 rounded-xl text-[10px] font-bold ${
-          Math.abs(spread) < 3 ? "bg-[#22c55e]/10 text-[#22c55e]" : "bg-amber-500/10 text-amber-400"
+          Math.abs(spread) < 3 ? "bg-[#05b957]/10 text-[#05b957]" : "bg-amber-500/10 text-amber-400"
         }`}>
           <span>P2P vs market spread</span>
           <span>{Math.abs(spread) < 0.01 ? "~0%" : `${spread > 0 ? "+" : ""}${spread.toFixed(2)}%`}</span>
@@ -193,11 +193,11 @@ function RateCalculator({ rates, market }: { rates: RateMap; market: MarketRateM
 
 function RatesTable({ rates, market, loading }: { rates: RateMap; market: MarketRateMap; loading: boolean }) {
   return (
-    <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl overflow-hidden">
+    <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden">
       <div className="px-4 pt-3 pb-2 flex items-center justify-between">
         <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Best P2P Rates</p>
         <span className="flex items-center gap-1 text-[10px] text-slate-600">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e] animate-pulse" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#05b957] animate-pulse" />
           Live
         </span>
       </div>
@@ -206,7 +206,7 @@ function RatesTable({ rates, market, loading }: { rates: RateMap; market: Market
       <div className="grid grid-cols-[1fr_1fr_1fr_1fr] px-4 py-1.5 text-[9px] font-black text-slate-700 uppercase tracking-wider border-b border-white/[0.04]">
         <span>Asset</span>
         <span className="text-slate-600">Market</span>
-        <span className="text-[#22c55e]">Buy</span>
+        <span className="text-[#05b957]">Buy</span>
         <span className="text-red-400">Sell</span>
       </div>
 
@@ -232,7 +232,7 @@ function RatesTable({ rates, market, loading }: { rates: RateMap; market: Market
                   <div>
                     <p className="text-xs font-black text-white leading-none">{c}</p>
                     {mk?.change !== undefined && (
-                      <p className={`text-[9px] font-bold leading-none mt-0.5 ${mk.change >= 0 ? "text-[#22c55e]" : "text-red-400"}`}>
+                      <p className={`text-[9px] font-bold leading-none mt-0.5 ${mk.change >= 0 ? "text-[#05b957]" : "text-red-400"}`}>
                         {fmtChange(mk.change)}
                       </p>
                     )}
@@ -253,7 +253,7 @@ function RatesTable({ rates, market, loading }: { rates: RateMap; market: Market
                 {/* Best P2P buy */}
                 <div>
                   {r?.bestBuy ? (
-                    <span className="text-[11px] font-bold text-[#22c55e]">
+                    <span className="text-[11px] font-bold text-[#05b957]">
                       {fmtKes(r.bestBuy)}
                     </span>
                   ) : (
@@ -295,7 +295,7 @@ interface Order {
 const ORDER_STATUS_STYLE: Record<string, string> = {
   PENDING:   "bg-amber-500/10 text-amber-400 border-amber-500/20",
   PAID:      "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  RELEASED:  "bg-[#22c55e]/10 text-[#22c55e] border-[#22c55e]/20",
+  RELEASED:  "bg-[#05b957]/10 text-[#05b957] border-[#05b957]/20",
   CANCELLED: "bg-white/5 text-slate-600 border-white/10",
   DISPUTED:  "bg-red-500/10 text-red-400 border-red-500/20",
   EXPIRED:   "bg-white/5 text-slate-600 border-white/10",
@@ -314,10 +314,10 @@ function MyOrders({ userId }: { userId: string }) {
   }, [userId]);
 
   return (
-    <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl overflow-hidden">
+    <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden">
       <div className="px-4 pt-3 pb-2 flex items-center justify-between">
         <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">My Orders</p>
-        <Link href="/p2p/orders" className="text-[10px] text-[#3b82f6] hover:text-blue-300 font-bold transition-colors">
+        <Link href="/p2p/orders" className="text-[10px] text-[#087cff] hover:text-blue-300 font-bold transition-colors">
           View all
         </Link>
       </div>
@@ -332,7 +332,7 @@ function MyOrders({ userId }: { userId: string }) {
         <div className="px-4 pb-4 text-center">
           <Icon name="receipt_long" className="text-slate-700 text-2xl mb-1" />
           <p className="text-[11px] text-slate-600">No orders yet</p>
-          <Link href="/p2p" className="text-[10px] text-[#22c55e] font-bold hover:underline">
+          <Link href="/p2p" className="text-[10px] text-[#05b957] font-bold hover:underline">
             Start trading →
           </Link>
         </div>
@@ -408,7 +408,7 @@ function MerchantCenter({ userId }: { userId: string }) {
 
   if (loading) {
     return (
-      <div className="h-24 rounded-2xl bg-[#0a0f1a] border border-white/[0.06] animate-pulse" />
+      <div className="h-24 rounded-2xl bg-[#111118] border border-white/[0.06] animate-pulse" />
     );
   }
 
@@ -417,10 +417,10 @@ function MerchantCenter({ userId }: { userId: string }) {
     return (
       <Link
         href="/p2p/merchant"
-        className="flex items-center gap-3 bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-2xl px-4 py-3.5 hover:bg-[#3b82f6]/15 transition-colors"
+        className="flex items-center gap-3 bg-[#087cff]/10 border border-[#087cff]/20 rounded-2xl px-4 py-3.5 hover:bg-[#087cff]/15 transition-colors"
       >
-        <div className="w-8 h-8 rounded-xl bg-[#3b82f6]/20 flex items-center justify-center shrink-0">
-          <Icon name="storefront" className="text-[#3b82f6] text-lg" />
+        <div className="w-8 h-8 rounded-xl bg-[#087cff]/20 flex items-center justify-center shrink-0">
+          <Icon name="storefront" className="text-[#087cff] text-lg" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-xs font-black text-white">Become a Merchant</p>
@@ -433,10 +433,10 @@ function MerchantCenter({ userId }: { userId: string }) {
 
   // Active merchant dashboard
   return (
-    <div className="bg-[#0a0f1a] border border-white/[0.06] rounded-2xl overflow-hidden">
+    <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden">
       <div className="px-4 pt-3 pb-2 flex items-center justify-between">
         <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Merchant Center</p>
-        <Link href="/p2p/merchant" className="text-[10px] text-[#3b82f6] hover:text-blue-300 font-bold transition-colors">
+        <Link href="/p2p/merchant" className="text-[10px] text-[#087cff] hover:text-blue-300 font-bold transition-colors">
           Manage
         </Link>
       </div>
@@ -454,11 +454,11 @@ function MerchantCenter({ userId }: { userId: string }) {
             disabled={toggling}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black border transition-all ${
               info.isOnline
-                ? "bg-[#22c55e]/15 border-[#22c55e]/30 text-[#22c55e]"
+                ? "bg-[#05b957]/15 border-[#05b957]/30 text-[#05b957]"
                 : "bg-white/[0.04] border-white/[0.08] text-slate-500"
             }`}
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${info.isOnline ? "bg-[#22c55e] animate-pulse" : "bg-slate-600"}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${info.isOnline ? "bg-[#05b957] animate-pulse" : "bg-slate-600"}`} />
             {info.isOnline ? "Online" : "Offline"}
           </button>
         </div>
@@ -470,7 +470,7 @@ function MerchantCenter({ userId }: { userId: string }) {
             <p className="text-[10px] text-slate-600">Active Ads</p>
           </div>
           <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2 text-center">
-            <p className="text-base font-black text-[#22c55e]">{Number(info.completionRate).toFixed(0)}%</p>
+            <p className="text-base font-black text-[#05b957]">{Number(info.completionRate).toFixed(0)}%</p>
             <p className="text-[10px] text-slate-600">Completion</p>
           </div>
         </div>
@@ -482,7 +482,7 @@ function MerchantCenter({ userId }: { userId: string }) {
             My Ads
           </Link>
           <Link href="/p2p/merchant?tab=deposit" className="flex items-center justify-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl py-2 text-[11px] font-black text-white hover:bg-white/[0.07] transition-colors">
-            <Icon name="account_balance_wallet" className="text-sm text-[#3b82f6]" />
+            <Icon name="account_balance_wallet" className="text-sm text-[#087cff]" />
             Deposit
           </Link>
         </div>
@@ -503,9 +503,9 @@ function TrustBlock() {
   return (
     <div className="space-y-2">
       {items.map(({ icon, text, sub }) => (
-        <div key={text} className="flex items-start gap-3 bg-[#0a0f1a] border border-white/[0.05] rounded-xl px-3 py-2.5">
-          <div className="w-7 h-7 rounded-lg bg-[#3b82f6]/10 flex items-center justify-center shrink-0 mt-0.5">
-            <Icon name={icon} className="text-[#3b82f6] text-sm" />
+        <div key={text} className="flex items-start gap-3 bg-[#111118] border border-white/[0.05] rounded-xl px-3 py-2.5">
+          <div className="w-7 h-7 rounded-lg bg-[#087cff]/10 flex items-center justify-center shrink-0 mt-0.5">
+            <Icon name={icon} className="text-[#087cff] text-sm" />
           </div>
           <div>
             <p className="text-xs font-black text-white">{text}</p>
@@ -620,9 +620,9 @@ export function P2PMarketPanel() {
       <div className="grid grid-cols-2 gap-2">
         <Link
           href="/p2p"
-          className="flex flex-col items-center gap-1.5 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-xl py-3 hover:bg-[#22c55e]/15 transition-colors"
+          className="flex flex-col items-center gap-1.5 bg-[#05b957]/10 border border-[#05b957]/20 rounded-xl py-3 hover:bg-[#05b957]/15 transition-colors"
         >
-          <Icon name="add_circle" className="text-[#22c55e] text-xl" />
+          <Icon name="add_circle" className="text-[#05b957] text-xl" />
           <span className="text-xs font-black text-white">Buy</span>
         </Link>
         <Link
@@ -643,10 +643,10 @@ export function P2PMarketPanel() {
         : (
           <Link
             href="/p2p/merchant"
-            className="flex items-center gap-3 bg-[#3b82f6]/10 border border-[#3b82f6]/20 rounded-2xl px-4 py-3.5 hover:bg-[#3b82f6]/15 transition-colors"
+            className="flex items-center gap-3 bg-[#087cff]/10 border border-[#087cff]/20 rounded-2xl px-4 py-3.5 hover:bg-[#087cff]/15 transition-colors"
           >
-            <div className="w-8 h-8 rounded-xl bg-[#3b82f6]/20 flex items-center justify-center shrink-0">
-              <Icon name="storefront" className="text-[#3b82f6] text-lg" />
+            <div className="w-8 h-8 rounded-xl bg-[#087cff]/20 flex items-center justify-center shrink-0">
+              <Icon name="storefront" className="text-[#087cff] text-lg" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-black text-white">Become a Merchant</p>
