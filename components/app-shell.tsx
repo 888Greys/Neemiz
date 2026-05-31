@@ -28,9 +28,10 @@ type AppShellProps = {
   mainBg?: string;
   hideFooter?: boolean;
   fullHeight?: boolean;
+  hideSidebar?: boolean;
 };
 
-export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false }: AppShellProps) {
+export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = false }: AppShellProps) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
   const isSportsPage = pathname.startsWith("/sports");
@@ -80,6 +81,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
       <header className="fixed left-0 right-0 top-0 z-50 flex h-14 max-w-[100vw] items-center overflow-visible bg-[#111113] px-3 lg:h-20 lg:px-0">
+        {!hideSidebar && (
         <div
           className={`hidden h-full shrink-0 items-center border-r border-white/10 px-3 transition-[width] duration-300 ease-out lg:flex ${
             sidebarCollapsed ? "w-[78px] justify-center" : "w-[280px] gap-2"
@@ -121,6 +123,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             </button>
           )}
         </div>
+        )}
 
         <div className="flex min-w-0 flex-1 items-center justify-between gap-2 lg:gap-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-6">
@@ -180,6 +183,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       </header>
 
       <div className="flex h-screen overflow-hidden pt-14 lg:pt-20">
+        {!hideSidebar && (
         <aside
           className={`hidden shrink-0 overflow-hidden border-r border-white/10 bg-[#1b1c20] transition-[width] duration-300 ease-out lg:block ${
             sidebarCollapsed ? "w-[78px]" : "w-[280px]"
@@ -187,6 +191,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         >
           <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => setWalletOpen(true)} onOpenBonuses={() => openProfile("bonuses")} onOpenSupport={() => openProfile("support")} />
         </aside>
+        )}
 
         <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto lg:pl-3 lg:pb-0 ${fullHeight ? "pb-14 lg:overflow-hidden" : "pb-32"} ${mainBg ?? "bg-background"}`}>
           {fullHeight ? (

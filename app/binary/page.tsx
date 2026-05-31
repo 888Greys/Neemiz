@@ -21,7 +21,7 @@ export default async function BinaryPage() {
   }
 
   return (
-    <AppShell mainBg="bg-[#050506]" hideFooter fullHeight>
+    <AppShell mainBg="bg-[#050506]" hideFooter fullHeight hideSidebar>
       <BinaryClient userId={userId} username={username} balance={balance} />
     </AppShell>
   );
