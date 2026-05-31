@@ -31,7 +31,7 @@ type AppShellProps = {
   hideSidebar?: boolean;
 };
 
-export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = false }: AppShellProps) {
+export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = true }: AppShellProps) {
   const pathname = usePathname();
   const isLogin = pathname === "/login";
   const isSportsPage = pathname.startsWith("/sports");
@@ -159,6 +159,18 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
                 </button>
               </div>
               <NotificationsBell />
+              {/* Profile entry point — needed on desktop when the sidebar (which
+                  used to hold the avatar) is hidden. */}
+              {hideSidebar && (
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen(true)}
+                  title="Profile"
+                  className="hidden lg:block shrink-0 rounded-full ring-1 ring-white/[0.07] transition hover:ring-white/20"
+                >
+                  <UserAvatar src={avatarUrl} initials={initials} className="h-9 w-9" />
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
