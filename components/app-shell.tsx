@@ -137,17 +137,24 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           </div>
           {isSignedIn ? (
             <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setWalletOpen(true)}
-                className="flex items-center gap-1.5 rounded-2xl bg-[#18191d] px-2.5 py-1.5 sm:px-4 sm:py-2 ring-1 ring-white/[0.07] transition hover:bg-[#22242a]"
-              >
-                <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
-                <span className="text-xs sm:text-sm font-black text-white">{fmtBalance}</span>
-                <span className="hidden sm:inline rounded-lg bg-[#05b957] px-2.5 py-1 text-xs font-black text-white">
+              <div className="flex items-center rounded-2xl bg-[#18191d] ring-1 ring-white/[0.07]">
+                {/* Balance → full wallet page (balance, deposit, withdraw, history) */}
+                <Link
+                  href="/wallet"
+                  className="flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 sm:px-4 sm:py-2 transition hover:bg-[#22242a]"
+                >
+                  <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
+                  <span className="text-xs sm:text-sm font-black text-white">{fmtBalance}</span>
+                </Link>
+                {/* Quick deposit shortcut */}
+                <button
+                  type="button"
+                  onClick={() => setWalletOpen(true)}
+                  className="my-1 mr-1 hidden rounded-lg bg-[#05b957] px-2.5 py-1 text-xs font-black text-white transition hover:bg-[#06d169] sm:inline"
+                >
                   Deposit
-                </span>
-              </button>
+                </button>
+              </div>
               <NotificationsBell />
             </div>
           ) : (
@@ -630,17 +637,17 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
                 </div>
                 <Icon name="chevron_right" className="text-[16px] text-slate-500" />
               </button>
-              <button
-                type="button"
-                onClick={onOpenWallet}
+              <Link
+                href="/wallet"
+                onClick={onClose}
                 className="mt-1.5 flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-[#087cff]/20 to-[#16171d] px-3 py-2.5 ring-1 ring-[#087cff]/20 transition hover:ring-[#087cff]/40"
               >
                 <div className="flex items-center gap-2">
                   <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
                   <span className="text-xs font-black text-white">{fmtBalance}</span>
                 </div>
-                <span className="rounded-lg bg-[#05b957] px-3 py-1 text-[10px] font-black text-white">Deposit</span>
-              </button>
+                <span className="rounded-lg bg-[#05b957] px-3 py-1 text-[10px] font-black text-white">Open Wallet</span>
+              </Link>
             </div>
           ) : (
             /* ── Guest header ── */
