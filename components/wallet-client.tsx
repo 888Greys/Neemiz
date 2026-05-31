@@ -554,13 +554,7 @@ export function WalletClient() {
                   className="w-full rounded-2xl bg-[#05b957] py-4 text-base font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-50"
                 >
                   {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Sending prompt…
-                    </span>
+                    <LoadingDots label="Sending prompt" />
                   ) : (
                     `Deposit KSh ${Number(amount || 0).toLocaleString() || "—"}`
                   )}
@@ -800,13 +794,7 @@ export function WalletClient() {
                       className="w-full rounded-2xl bg-[#087cff] py-4 text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
                     >
                       {cwState.step === "loading" ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          Submitting withdrawal…
-                        </span>
+                        <LoadingDots label="Submitting withdrawal" />
                       ) : (
                         `Withdraw ${cwAmount ? `${cwAmount} ` : ""}${cwAsset.code}`
                       )}
@@ -898,10 +886,7 @@ export function WalletClient() {
                       className="w-full rounded-2xl bg-[#05b957] py-4 text-base font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-50"
                     >
                       {wdLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                          Processing…
-                        </span>
+                        <LoadingDots label="Processing" />
                       ) : (
                         `Withdraw${wdAmount && Number(wdAmount) >= 50 ? ` KSh ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
                       )}
@@ -1476,7 +1461,7 @@ function CryptoDepositPanel() {
             className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#f59e0b] text-sm font-black text-black transition hover:bg-[#f7af2e] disabled:opacity-60"
           >
             {addr.phase === "generating"
-              ? <><div className="h-4 w-4 animate-spin rounded-full border-2 border-black/30 border-t-black" /> Generating…</>
+              ? <LoadingDots label="Generating" />
               : <><Icon name="qr_code" className="text-[16px]" /> Get deposit address</>}
           </button>
         </div>
@@ -1522,5 +1507,21 @@ function CryptoDepositPanel() {
         </div>
       )}
     </div>
+  );
+}
+
+// Animated "typing" dots — a polished inline loading state for action buttons.
+// Three dots ripple in sequence (type) and reset (delete) so a pressed button
+// reads as actively working instead of just frozen with static text.
+function LoadingDots({ label }: { label?: string }) {
+  return (
+    <span className="inline-flex items-center justify-center gap-2">
+      {label && <span>{label}</span>}
+      <span className="inline-flex items-center gap-1">
+        <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
+        <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce" />
+      </span>
+    </span>
   );
 }
