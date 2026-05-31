@@ -6,6 +6,7 @@ import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
 
@@ -824,6 +825,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const [form, setForm] = useState({
     side: ad?.side ?? "SELL",
     crypto: ad?.crypto ?? "USDT",
+    fiat: ad?.fiat ?? "KES",
     pricePerUnit: ad ? String(ad.pricePerUnit) : "",
     totalAmount: ad ? String(ad.totalAmount) : "",
     minLimit: ad ? String(ad.minLimit) : "",
@@ -851,6 +853,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           id: ad?.id,
           side: form.side,
           crypto: form.crypto,
+          fiat: form.fiat,
           pricePerUnit: Number(form.pricePerUnit),
           totalAmount: Number(form.totalAmount),
           minLimit: Number(form.minLimit),
@@ -925,8 +928,19 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
           </div>
 
+          {/* Fiat currency selector */}
+          <div>
+            <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Fiat currency</label>
+            <select value={form.fiat} onChange={(e) => f("fiat", e.target.value)}
+              className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm font-bold text-white outline-none transition-colors focus:border-[#087cff]/40">
+              {FIAT_CURRENCIES.map((c) => (
+                <option key={c.code} value={c.code} style={{ background: "#1a1b22", color: "#fff" }}>{c.flag} {c.code} — {c.name}</option>
+              ))}
+            </select>
+          </div>
+
           {[
-            { label: `Price per ${form.crypto} (KES)`, key: "pricePerUnit", ph: form.crypto === "BTC" ? "e.g. 14000000" : form.crypto === "ETH" ? "e.g. 420000" : "e.g. 135" },
+            { label: `Price per ${form.crypto} (${form.fiat})`, key: "pricePerUnit", ph: form.crypto === "BTC" ? "e.g. 14000000" : form.crypto === "ETH" ? "e.g. 420000" : "e.g. 135" },
             ...(!isEditing ? [{ label: `Total ${form.crypto} to ${form.side === "SELL" ? "sell" : "buy"}`, key: "totalAmount", ph: form.crypto === "BTC" ? "e.g. 0.001" : form.crypto === "ETH" ? "e.g. 0.01" : "e.g. 10" }] : []),
           ].map(({ label, key, ph }) => (
             <div key={key}>
@@ -937,7 +951,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           ))}
 
           <div className="grid grid-cols-2 gap-3">
-            {[{ label: "Min order (KES)", key: "minLimit", ph: "500" }, { label: "Max order (KES)", key: "maxLimit", ph: "50000" }].map(({ label, key, ph }) => (
+            {[{ label: `Min order (${form.fiat})`, key: "minLimit", ph: "500" }, { label: `Max order (${form.fiat})`, key: "maxLimit", ph: "50000" }].map(({ label, key, ph }) => (
               <div key={key}>
                 <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">{label}</label>
                 <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
@@ -1181,16 +1195,16 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
                     {/* Row 2: large price */}
                     <div className="mb-2.5 lg:mb-0">
-                      <p className="text-[10px] font-semibold leading-3 text-white/45">KES</p>
+                      <p className="text-[10px] font-semibold leading-3 text-white/45">{ad.fiat}</p>
                       <p className="text-[21px] font-black leading-tight text-white tabular-nums lg:text-lg">
-                        {ad.pricePerUnit.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {formatFiat(Number(ad.pricePerUnit), ad.fiat, { symbol: false, decimals: 2 })}
                       </p>
                     </div>
 
                     {/* Row 3: limits + quantity */}
                     <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40 lg:flex lg:flex-wrap lg:gap-x-4 lg:space-y-0">
-                      <p>Limits <span className="text-white/65">{ad.minLimit.toLocaleString("en-KE")} – {ad.maxLimit.toLocaleString("en-KE")} KES</span></p>
-                      <p>Quantity <span className="text-white/65">{Number(ad.availableAmount).toLocaleString("en-KE", { maximumFractionDigits: 4 })} {ad.crypto}</span></p>
+                      <p>Limits <span className="text-white/65">{formatFiat(Number(ad.minLimit), ad.fiat, { symbol: false })} – {formatFiat(Number(ad.maxLimit), ad.fiat, { symbol: false })} {ad.fiat}</span></p>
+                      <p>Quantity <span className="text-white/65">{Number(ad.availableAmount).toLocaleString("en-US", { maximumFractionDigits: 4 })} {ad.crypto}</span></p>
                     </div>
 
                     {/* Row 4: payment methods */}

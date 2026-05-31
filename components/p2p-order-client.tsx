@@ -6,6 +6,7 @@ import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
 import { P2PSubNav } from "@/components/p2p-subnav";
+import { formatFiat } from "@/lib/p2p/currencies";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -386,8 +387,8 @@ function MobileP2POrderView({
     const isCancelled = order.status === "CANCELLED";
     const paymentLabel = order.paymentMethod === "MPESA" ? "M-Pesa Paybill" : order.paymentMethod === "BANK" ? "Bank Transfer" : order.paymentMethod;
     const rows = [
-      { label: "Amount",            value: `${Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2 })} ${order.ad.fiat}` },
-      { label: "Price",             value: `${Number(order.pricePerUnit).toLocaleString("en-KE")} ${order.ad.fiat}` },
+      { label: "Amount",            value: formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 }) },
+      { label: "Price",             value: formatFiat(Number(order.pricePerUnit), order.ad.fiat) },
       { label: "Total Quantity",    value: `${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}` },
       { label: "Transaction Fees",  value: `0 ${order.crypto}` },
       { label: "Order No.",         value: orderId.slice(0, 20).toUpperCase(), copy: true },
@@ -434,7 +435,7 @@ function MobileP2POrderView({
               <p className="mt-0.5 text-[26px] font-black text-[#05b957] tabular-nums">
                 {Number(order.cryptoAmount).toFixed(6)} <span className="text-[16px]">{order.crypto}</span>
               </p>
-              <p className="mt-0.5 text-[11px] text-slate-500">≈ {order.ad.fiat} {Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2 })}</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">≈ {formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })}</p>
             </div>
           )}
 
@@ -551,7 +552,7 @@ function MobileP2POrderView({
           <h2 className="text-sm font-black">Transfer via {paymentName}</h2>
         </div>
         <div className="ml-2 border-l border-white/[0.10] pl-4">
-          <InfoRow label="Fiat Amount" value={`${Number(order.fiatAmount).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${order.ad.fiat}`} copy />
+          <InfoRow label="Fiat Amount" value={formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })} copy />
           <InfoRow label="Account Name" value={order.seller.paymentMethod?.accountName ?? order.seller.displayName.toUpperCase()} copy />
           <InfoRow
             label={order.paymentMethod === "MPESA" ? "Paybill / Phone No." : order.seller.paymentMethod?.bankName ? `${order.seller.paymentMethod.bankName} Account` : "Account Number"}
@@ -787,11 +788,11 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           </div>
           <div>
             <p className="text-slate-600 text-xs mb-0.5">Price</p>
-            <p className="text-white font-bold">{Number(order.pricePerUnit).toLocaleString("en-KE")} {order.ad.fiat}</p>
+            <p className="text-white font-bold">{formatFiat(Number(order.pricePerUnit), order.ad.fiat)}</p>
           </div>
           <div>
             <p className="text-slate-600 text-xs mb-0.5">You {order.isBuyer ? "pay" : "receive"}</p>
-            <p className="text-[#05b957] font-black text-base">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</p>
+            <p className="text-[#05b957] font-black text-base">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</p>
           </div>
           <div>
             <p className="text-slate-600 text-xs mb-0.5">Payment</p>
@@ -843,7 +844,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 <ol className="space-y-3 text-sm text-slate-400">
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">1</span>
-                    <span>Send <span className="text-white font-bold">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</span> to the merchant via <span className="text-white font-bold">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank Transfer"}</span>.</span>
+                    <span>Send <span className="text-white font-bold">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</span> to the merchant via <span className="text-white font-bold">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank Transfer"}</span>.</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
@@ -860,7 +861,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 <ol className="space-y-3 text-sm text-slate-400">
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">1</span>
-                    <span>Your <span className="text-white font-bold">{order.crypto}</span> is locked in escrow. Wait for the merchant to send you <span className="text-white font-bold">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</span> via {order.paymentMethod === "MPESA" ? "M-Pesa" : "bank transfer"}.</span>
+                    <span>Your <span className="text-white font-bold">{order.crypto}</span> is locked in escrow. Wait for the merchant to send you <span className="text-white font-bold">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</span> via {order.paymentMethod === "MPESA" ? "M-Pesa" : "bank transfer"}.</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
@@ -880,7 +881,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 <ol className="space-y-3 text-sm text-slate-400">
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">1</span>
-                    <span>Send <span className="text-white font-bold">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</span> to the trader via <span className="text-white font-bold">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank Transfer"}</span>.</span>
+                    <span>Send <span className="text-white font-bold">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</span> to the trader via <span className="text-white font-bold">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank Transfer"}</span>.</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
@@ -893,7 +894,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 <ol className="space-y-3 text-sm text-slate-400">
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#05b957]/20 text-[#05b957] text-xs font-black flex items-center justify-center shrink-0">1</span>
-                    <span>Check your <strong className="text-white">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank"}</strong> for a payment of <strong className="text-white">KSh {Number(order.fiatAmount).toLocaleString("en-KE")}</strong>.</span>
+                    <span>Check your <strong className="text-white">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank"}</strong> for a payment of <strong className="text-white">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</strong>.</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#05b957]/20 text-[#05b957] text-xs font-black flex items-center justify-center shrink-0">2</span>

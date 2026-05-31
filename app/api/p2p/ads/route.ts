@@ -4,9 +4,11 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
 import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
+import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
 
 const VALID_CRYPTOS = ["USDT", "USDC", "BTC", "ETH", "BNB"];
 const VALID_SIDES: AdSide[] = ["BUY", "SELL"];
+const VALID_FIATS = new Set(FIAT_CURRENCIES.map((f) => f.code));
 
 // GET /api/p2p/ads — browse ads (public)
 export async function GET(req: Request) {
@@ -15,12 +17,14 @@ export async function GET(req: Request) {
     const side   = url.searchParams.get("side") as AdSide | null;
     const crypto = url.searchParams.get("crypto");
     const payment = url.searchParams.get("payment");
+    const fiat   = url.searchParams.get("fiat");
 
     const ads = await db.p2PAd.findMany({
       where: {
         isActive: true,
         ...(side && VALID_SIDES.includes(side) ? { side } : {}),
         ...(crypto && VALID_CRYPTOS.includes(crypto) ? { crypto } : {}),
+        ...(fiat && VALID_FIATS.has(fiat) ? { fiat } : {}),
         ...(payment ? { paymentMethods: { has: payment } } : {}),
         availableAmount: { gt: 0 },
       },
@@ -92,7 +96,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid request body" }, { status: 400 });
     }
 
-    const { side, crypto, pricePerUnit, totalAmount, minLimit, maxLimit, paymentMethods, paymentWindow, terms } = body;
+    const { side, crypto, fiat, pricePerUnit, totalAmount, minLimit, maxLimit, paymentMethods, paymentWindow, terms } = body;
 
     if (!side || !crypto || pricePerUnit == null || totalAmount == null || minLimit == null || maxLimit == null || !(paymentMethods as unknown[])?.length) {
       return Response.json({ error: "Missing required fields" }, { status: 400 });
@@ -103,6 +107,7 @@ export async function POST(req: Request) {
     if (!VALID_CRYPTOS.includes(crypto as string)) {
       return Response.json({ error: "Unsupported crypto" }, { status: 400 });
     }
+    const fiatCode = typeof fiat === "string" && VALID_FIATS.has(fiat) ? fiat : DEFAULT_FIAT;
 
     const pricePerUnitNum  = Number(pricePerUnit);
     const totalAmountNum   = Number(totalAmount);
@@ -135,6 +140,7 @@ export async function POST(req: Request) {
       merchantId:      merchant.id,
       side:            side as AdSide,
       crypto:          crypto as string,
+      fiat:            fiatCode,
       pricePerUnit:    pricePerUnitNum,
       totalAmount:     totalAmountNum,
       availableAmount: totalAmountNum,
@@ -174,7 +180,7 @@ export async function POST(req: Request) {
           crypto: crypto as string,
           totalAmount: totalAmountNum,
           pricePerUnit: pricePerUnitNum,
-          fiat: "KES",
+          fiat: fiatCode,
           minLimit: minLimitNum,
           maxLimit: maxLimitNum,
           adId: ad.id,
@@ -190,7 +196,7 @@ export async function POST(req: Request) {
         crypto: crypto as string,
         totalAmount: totalAmountNum,
         pricePerUnit: pricePerUnitNum,
-        fiat: "KES",
+        fiat: fiatCode,
         minLimit: minLimitNum,
         maxLimit: maxLimitNum,
         adId: ad.id,
