@@ -59,7 +59,7 @@ const MARKETS: BinaryMarket[] = [
   { symbol: "Jump 10", derivSymbol: "JD10", name: "Deriv jump index", price: 119.56, volatility: 1.1, speedMs: 1050 },
 ];
 
-const STAKE_PRESETS_LIVE = [10, 50, 100, 250, 500, 1000];
+const STAKE_PRESETS_LIVE = [2000, 2500, 3000, 5000, 7500, 10000];
 const STAKE_PRESETS_DEMO = [1, 5, 10, 25, 50, 100];
 const DIGITS = Array.from({ length: 10 }, (_, index) => index);
 const TICK_SECONDS = 1;
@@ -251,7 +251,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
   const [ticks, setTicks] = useState(() => seedTicks(market));
   const [family, setFamily] = useState<ContractFamily>("evenOdd");
-  const [stake, setStake] = useState(isLive ? 10 : 10);
+  const [stake, setStake] = useState(isLive ? 2000 : 10);
   const [targetDigit, setTargetDigit] = useState(5);
   const [duration, setDuration] = useState(5);
   const [autoMode, setAutoMode] = useState(false);
@@ -719,7 +719,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
               <div>
                 <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Stake amount</div>
-                <Stepper value={stake} min={1} prefix={isLive ? "KSh" : "$"} onChange={setStake} compact />
+                <Stepper value={stake} min={isLive ? 2000 : 1} prefix={isLive ? "KSh" : "$"} onChange={setStake} compact />
                 <div className="mt-1.5 grid grid-cols-6 gap-1">
                   {(isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO).map((amount) => (
                     <button key={amount} type="button" onClick={() => setStake(amount)} className={`rounded px-1 py-1.5 text-[10px] font-black transition sm:px-2 sm:text-[11px] ${stake === amount ? "bg-sky-500 text-white" : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>

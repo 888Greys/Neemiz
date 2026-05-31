@@ -60,7 +60,7 @@ type Candle = CandlestickData<Time> & {
 const DEFAULT_SYMBOL = "EUR/USD";
 const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
 const CANDLE_SECONDS = 60;
-const SIZES = [1000, 5000, 10000, 25000, 50000];
+const SIZES = [2000, 5000, 10000, 25000, 50000];
 
 const MARKETS: ForexMarket[] = [
   { symbol: "EUR/USD", derivSymbol: "frxEURUSD", name: "Euro / US Dollar", base: "EUR", quote: "USD", fallbackPrice: 1.16, precision: 5 },
@@ -666,10 +666,10 @@ export function ForexClient() {
                 <input
                   id="forex-size"
                   type="number"
-                  min={1000}
+                  min={2000}
                   step={1000}
                   value={size}
-                  onChange={(event) => setSize(Math.max(1000, Number(event.target.value) || 1000))}
+                  onChange={(event) => setSize(Math.max(2000, Number(event.target.value) || 2000))}
                   className="h-12 w-full rounded border border-white/[0.08] bg-black/25 px-4 font-mono text-lg font-black text-white outline-none transition focus:border-[#087cff]/70"
                 />
                 <div className="mt-2 grid grid-cols-5 gap-1 sm:gap-2">

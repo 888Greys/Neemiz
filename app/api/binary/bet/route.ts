@@ -5,7 +5,7 @@ import { TransactionStatus, TransactionType } from "@prisma/client";
 
 const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_SIDES   = ["Even", "Odd", "Matches", "Differs", "Over", "Under"];
-const MIN_STAKE     = 10;
+const MIN_STAKE     = 2_000;
 const MAX_STAKE     = 10_000;
 
 // House edge ~5% on all contract types.
