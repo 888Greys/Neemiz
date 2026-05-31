@@ -9,6 +9,7 @@ import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
+import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -242,10 +243,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
               className={`h-11 rounded-full text-sm font-black text-white transition-all disabled:opacity-45 disabled:cursor-not-allowed active:scale-[0.98] ${actionTone}`}
           >
             {submitting ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Placing order…
-              </span>
+              <LoadingDots label="Placing order" />
               ) : isBuyingCrypto ? "Buy" : "Sell"}
           </button>
           </div>

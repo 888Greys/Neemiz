@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat } from "@/lib/p2p/currencies";
 import { P2PStatusBadge } from "@/components/p2p/status-badge";
+import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -976,7 +977,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                     className="w-full py-3 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] disabled:opacity-50 transition-all active:scale-[0.98]"
                   >
                     {actionLoading === "paid"
-                      ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Confirming…</span>
+                      ? <LoadingDots label="Confirming" />
                       : "✓ I've Paid"}
                   </button>
                 </div>
@@ -1002,7 +1003,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                   className="w-full py-3 rounded-xl font-black text-white bg-[#05b957] hover:bg-[#28af52] disabled:opacity-50 transition-all active:scale-[0.98]"
                 >
                   {actionLoading === "release"
-                    ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Releasing…</span>
+                    ? <LoadingDots label="Releasing" />
                     : `Release ${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}`}
                 </button>
               )}
@@ -1014,7 +1015,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                   className="w-full py-3 rounded-xl font-black text-white bg-[#05b957] hover:bg-[#28af52] disabled:opacity-50 transition-all active:scale-[0.98]"
                 >
                   {actionLoading === "release"
-                    ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Releasing…</span>
+                    ? <LoadingDots label="Releasing" />
                     : `Release ${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}`}
                 </button>
               )}

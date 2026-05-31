@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { LoadingDots } from "@/components/loading-dots";
 import { CountryPicker } from "@/components/country-picker";
 import { COUNTRIES, type Country } from "@/lib/countries";
 import { toast } from "@/lib/toast";
@@ -184,15 +185,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
               disabled={loading}
               className="w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-60"
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Logging in…
-                </span>
-              ) : "Log in"}
+              {loading ? <LoadingDots label="Logging in" /> : "Log in"}
             </button>
           </form>
 
