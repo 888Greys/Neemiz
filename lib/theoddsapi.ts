@@ -197,7 +197,11 @@ function normalizeOddsEvent(event: OddsEvent, liveScore?: ScoreEvent): Match {
 
   const homeScore = liveScore?.scores?.find((s) => s.name === event.home_team)?.score ?? null;
   const awayScore = liveScore?.scores?.find((s) => s.name === event.away_team)?.score ?? null;
-  const isLive    = !!liveScore && !liveScore.completed;
+  // A game is only "live" once kickoff has passed. TheOddsAPI returns
+  // not-yet-started games in the scores feed with completed:false too, so
+  // !completed alone would wrongly flag pre-game matches as live.
+  const hasKickedOff = new Date(event.commence_time).getTime() <= Date.now();
+  const isLive    = !!liveScore && !liveScore.completed && hasKickedOff;
 
   const period = isLive ? "Live" : formatKickoffTime(event.commence_time);
 
@@ -312,6 +316,7 @@ async function fetchScores(sportKey: string, daysFrom = 1): Promise<ScoreEvent[]
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getLivescores(): Promise<Match[]> {
+  const now = Date.now();
   const results = await Promise.all(
     FETCH_SPORTS.map(async (sport) => {
       const [odds, scores] = await Promise.all([fetchOdds(sport), fetchScores(sport)]);
@@ -319,7 +324,10 @@ export async function getLivescores(): Promise<Match[]> {
       return odds
         .filter((e) => {
           const score = scoreMap.get(e.id);
-          return score && !score.completed;
+          // Truly live = in scores feed, not finished, AND kickoff has passed.
+          // Pre-game matches (completed:false, scores:null) are excluded here
+          // and fall through to getUpcomingFixtures instead.
+          return score && !score.completed && new Date(e.commence_time).getTime() <= now;
         })
         .map((e) => normalizeOddsEvent(e, scoreMap.get(e.id)));
     }),
@@ -332,8 +340,15 @@ export async function getUpcomingFixtures(): Promise<Match[]> {
   const results = await Promise.all(
     FETCH_SPORTS.map(async (sport) => {
       const [odds, scores] = await Promise.all([fetchOdds(sport), fetchScores(sport)]);
+      const scoreMap = new Map(scores.map((s) => [s.id, s]));
+      // Only genuinely-live games (kicked off + not completed) are excluded.
       const liveIds = new Set(
-        scores.filter((s) => !s.completed).map((s) => s.id),
+        odds
+          .filter((e) => {
+            const s = scoreMap.get(e.id);
+            return s && !s.completed && new Date(e.commence_time).getTime() <= now;
+          })
+          .map((e) => e.id),
       );
       return odds
         .filter((e) => {
