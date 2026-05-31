@@ -8,7 +8,7 @@ import {
   type GoBetResponse,
 } from "@/lib/aviator/service";
 
-const MIN_BET = 10;
+const MIN_BET = 100;
 const MAX_BET = 10_000;
 
 export async function POST(req: Request) {

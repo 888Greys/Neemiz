@@ -43,7 +43,7 @@ export function AviatorBetPanel({
   panelIndex, round, myBet, currentMultiplier, balance, onBet, onCashout,
 }: Props) {
   const [tab,           setTab]          = useState<"bet" | "auto">("bet");
-  const [amount,        setAmount]       = useState<number>(10);
+  const [amount,        setAmount]       = useState<number>(100);
   const [autoCashout,   setAutoCashout]  = useState<number>(2.00);
   const [acEnabled,     setAcEnabled]    = useState(false);
   const [loading,       setLoading]      = useState(false);
@@ -90,7 +90,7 @@ export function AviatorBetPanel({
   const bettingSecsLeft = useBettingCountdown(bettingOpen ? round?.bettingEndsAt : null);
   const potWin      = myBet ? +(myBet.betAmount * currentMultiplier).toFixed(2) : 0;
 
-  const clampAmt = (v: number) => Math.max(10, Math.min(50000, Math.round(v)));
+  const clampAmt = (v: number) => Math.max(100, Math.min(50000, Math.round(v)));
   const adj = (delta: number) => setAmount((v) => clampAmt(v + delta));
 
   const placeBet = useCallback(async (amt: number, ac?: number) => {
@@ -106,7 +106,7 @@ export function AviatorBetPanel({
   }, [onBet, panelIndex]);
 
   const handleBet = useCallback(async () => {
-    if (amount < 10)      { setError("Minimum KSh 10"); return; }
+    if (amount < 100)     { setError("Minimum KSh 100"); return; }
     if (amount > balance) { setError("Insufficient balance"); return; }
     await placeBet(amount, acEnabled && autoCashout >= 1.01 ? autoCashout : undefined);
   }, [amount, balance, acEnabled, autoCashout, placeBet]);
@@ -118,7 +118,7 @@ export function AviatorBetPanel({
 
   const placeAutoBet = useCallback(async () => {
     const amt = amountRef.current;
-    if (amt < 10) { setAutoBetOn(false); return; }
+    if (amt < 100) { setAutoBetOn(false); return; }
     const ac = acEnabledRef.current && autoCashoutRef.current >= 1.01 ? autoCashoutRef.current : undefined;
     try { await onBet(amt, panelIndex, ac); }
     catch (e: unknown) { setError((e as Error).message ?? "Auto-bet failed"); setAutoBetOn(false); }
@@ -325,7 +325,7 @@ export function AviatorBetPanel({
   // BETTING / FLYING (no bet) — main Betika-style form
   // ─────────────────────────────────────────────────────────────────────────
   const queueForNext = () => {
-    if (amount < 10)      { setError("Minimum KSh 10"); return; }
+    if (amount < 100)     { setError("Minimum KSh 100"); return; }
     if (amount > balance) { setError("Insufficient balance"); return; }
     setError(null);
     setNextBet({ amount, autoCashout: acEnabled && autoCashout >= 1.01 ? autoCashout : undefined });
