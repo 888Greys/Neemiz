@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat } from "@/lib/p2p/currencies";
+import { P2PStatusBadge } from "@/components/p2p/status-badge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,24 +28,6 @@ interface OrderSummary {
 }
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: OrderStatus }) {
-  const map: Record<OrderStatus, { label: string; color: string }> = {
-    PENDING:   { label: "Pending",    color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-    PAID:      { label: "Paid",       color: "text-[#087cff] bg-[#087cff]/10 border-[#087cff]/20" },
-    RELEASED:  { label: "Completed",  color: "text-[#05b957] bg-[#05b957]/10 border-[#05b957]/20" },
-    DISPUTED:  { label: "Disputed",   color: "text-red-400 bg-red-500/10 border-red-500/20" },
-    CANCELLED: { label: "Cancelled",  color: "text-slate-400 bg-white/5 border-white/10" },
-    EXPIRED:   { label: "Expired",    color: "text-slate-500 bg-white/5 border-white/10" },
-  };
-  const { label, color } = map[status];
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border text-[10px] font-black whitespace-nowrap ${color}`}>
-      {status === "PENDING" && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
-      {label}
-    </span>
-  );
-}
 
 // ─── Filter Tab Button ────────────────────────────────────────────────────────
 
@@ -166,7 +149,7 @@ export function P2POrdersClient() {
                     <Icon name={order.isBuyer ? "arrow_downward" : "arrow_upward"} className={`text-[11px] ${order.isBuyer ? "text-[#05b957]" : "text-red-400"}`} />
                   </div>
                   <span className="text-[13px] font-black text-white">{order.isBuyer ? "Buy" : "Sell"} {order.crypto}</span>
-                  <StatusBadge status={order.status} />
+                  <P2PStatusBadge status={order.status} />
                 </div>
                 <Icon name="chevron_right" className="shrink-0 text-[20px] text-white/25 transition group-hover:text-white/50 lg:hidden" />
               </div>
