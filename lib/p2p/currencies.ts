@@ -32,6 +32,45 @@ export function getFiat(code: string | null | undefined): FiatCurrency {
   return (code && BY_CODE.get(code)) || BY_CODE.get(DEFAULT_FIAT)!;
 }
 
+/** True only for a fiat we actually support (used to validate user/cookie input). */
+export function isSupportedFiat(code: string | null | undefined): boolean {
+  return !!code && BY_CODE.has(code);
+}
+
+// ─── Geo detection ────────────────────────────────────────────────────────────
+// ISO 3166-1 alpha-2 country code → supported fiat. Only countries whose
+// currency we support are listed; anything else falls back to DEFAULT_FIAT.
+const COUNTRY_TO_FIAT: Record<string, string> = {
+  KE: "KES", NG: "NGN", GH: "GHS", ZA: "ZAR", TZ: "TZS", UG: "UGX",
+  US: "USD", GB: "GBP", IN: "INR",
+  // Eurozone → EUR
+  AT: "EUR", BE: "EUR", HR: "EUR", CY: "EUR", EE: "EUR", FI: "EUR", FR: "EUR",
+  DE: "EUR", GR: "EUR", IE: "EUR", IT: "EUR", LV: "EUR", LT: "EUR", LU: "EUR",
+  MT: "EUR", NL: "EUR", PT: "EUR", SK: "EUR", SI: "EUR", ES: "EUR",
+};
+
+/**
+ * Detect the visitor's fiat from request headers, with a layered fallback:
+ *   1. Edge geo headers (x-vercel-ip-country on Vercel, cf-ipcountry on Cloudflare)
+ *   2. accept-language region tag (e.g. "en-KE" → KE)
+ *   3. DEFAULT_FIAT
+ * Pure function — pass a getHeader accessor so it stays framework-agnostic.
+ */
+export function detectFiatFromHeaders(getHeader: (name: string) => string | null | undefined): string {
+  const geoHeaders = ["x-vercel-ip-country", "cf-ipcountry", "x-country", "x-geo-country", "x-country-code"];
+  for (const h of geoHeaders) {
+    const fiat = COUNTRY_TO_FIAT[(getHeader(h) ?? "").trim().toUpperCase()];
+    if (fiat) return fiat;
+  }
+  const lang = getHeader("accept-language") ?? "";
+  const m = /-([A-Za-z]{2})\b/.exec(lang);
+  if (m) {
+    const fiat = COUNTRY_TO_FIAT[m[1].toUpperCase()];
+    if (fiat) return fiat;
+  }
+  return DEFAULT_FIAT;
+}
+
 export function fiatSymbol(code: string | null | undefined): string {
   return getFiat(code).symbol;
 }
