@@ -9,6 +9,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat } from "@/lib/p2p/currencies";
 import { P2PStatusBadge } from "@/components/p2p/status-badge";
 import { LoadingDots } from "@/components/loading-dots";
+import { paymentMethodLabel } from "@/lib/p2p/payment-methods";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -247,7 +248,7 @@ function MobileP2POrderView({
   const [mobileDisputeReason, setMobileDisputeReason] = useState("");
 
   const merchantIsSelling = order.side === "SELL";
-  const paymentName = order.paymentMethod === "MPESA" ? "M-pesa Paybill" : order.paymentMethod === "BANK" ? "Bank Transfer" : order.paymentMethod;
+  const paymentName = paymentMethodLabel(order.paymentMethod);
   const canMarkPaid = order.isBuyer && order.status === "PENDING" && merchantIsSelling;
   const currentUserId = order.isBuyer ? order.buyer.id : order.seller.userId;
   const orderClosed = ["RELEASED", "CANCELLED", "EXPIRED", "DISPUTED"].includes(order.status);
@@ -379,7 +380,7 @@ function MobileP2POrderView({
   if (["RELEASED", "CANCELLED", "EXPIRED"].includes(order.status)) {
     const isSuccess = order.status === "RELEASED";
     const isCancelled = order.status === "CANCELLED";
-    const paymentLabel = order.paymentMethod === "MPESA" ? "M-Pesa Paybill" : order.paymentMethod === "BANK" ? "Bank Transfer" : order.paymentMethod;
+    const paymentLabel = paymentMethodLabel(order.paymentMethod);
     const rows = [
       { label: "Amount",            value: formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 }) },
       { label: "Price",             value: formatFiat(Number(order.pricePerUnit), order.ad.fiat) },
