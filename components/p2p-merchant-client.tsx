@@ -883,8 +883,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="no-scrollbar w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0e0e14] shadow-2xl max-h-[calc(100dvh-3rem)]" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
+      <div className="no-scrollbar w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0e0e14] shadow-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)]" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 flex items-center justify-between rounded-t-2xl border-b border-white/[0.07] bg-[#0e0e14] px-6 py-3">
           <h3 className="text-white font-black text-lg">{isEditing ? "Edit Ad" : "Create New Ad"}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all">
@@ -892,10 +892,10 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </button>
         </div>
 
-        <div className="space-y-3 p-5">
+        <div className="space-y-2.5 p-4">
           {/* Side selector */}
           <div>
-            <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">I want to</label>
+            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">I want to</label>
             <div className="flex gap-1 bg-white/[0.04] rounded-xl p-1">
               {["BUY","SELL"].map((s) => (
                 <button key={s} onClick={() => !isEditing && f("side", s)}
@@ -909,8 +909,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
           {/* Crypto selector — icon grid */}
           <div>
-            <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
-            <div className="grid grid-cols-5 gap-2">
+            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Crypto</label>
+            <div className="grid grid-cols-5 gap-1.5">
               {P2P_CRYPTOS.map((c) => {
                 const active = form.crypto === c.symbol;
                 return (
@@ -920,14 +920,14 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                     onClick={() => !isEditing && f("crypto", c.symbol)}
                     disabled={isEditing}
                     title={c.name}
-                    className={`flex flex-col items-center gap-1 rounded-xl border py-2.5 px-1 transition-all ${
+                    className={`flex flex-col items-center gap-1 rounded-lg border py-1.5 px-1 transition-all ${
                       active
                         ? "border-[#087cff] bg-[#087cff]/10"
                         : "border-white/[0.08] bg-white/[0.03] hover:border-white/20 disabled:opacity-50"
                     }`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={c.icon} alt={c.symbol} className="h-7 w-7 rounded-full" />
+                    <img src={c.icon} alt={c.symbol} className="h-6 w-6 rounded-full" />
                     <span className={`text-[10px] font-black ${active ? "text-[#087cff]" : "text-slate-400"}`}>
                       {c.symbol}
                     </span>
@@ -939,7 +939,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
           {/* Fiat currency selector */}
           <div>
-            <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Fiat currency</label>
+            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Fiat currency</label>
             <select value={form.fiat} onChange={(e) => f("fiat", e.target.value)}
               className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm font-bold text-white outline-none transition-colors focus:border-[#087cff]/40">
               {FIAT_CURRENCIES.map((c) => (
@@ -953,18 +953,18 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             ...(!isEditing ? [{ label: `Total ${form.crypto} to ${form.side === "SELL" ? "sell" : "buy"}`, key: "totalAmount", ph: form.crypto === "BTC" ? "e.g. 0.001" : form.crypto === "ETH" ? "e.g. 0.01" : "e.g. 10" }] : []),
           ].map(({ label, key, ph }) => (
             <div key={key}>
-              <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">{label}</label>
+              <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">{label}</label>
               <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
             </div>
           ))}
 
           <div className="grid grid-cols-2 gap-3">
             {[{ label: `Min order (${form.fiat})`, key: "minLimit", ph: "500" }, { label: `Max order (${form.fiat})`, key: "maxLimit", ph: "50000" }].map(({ label, key, ph }) => (
               <div key={key}>
-                <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">{label}</label>
+                <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">{label}</label>
                 <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
-                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
               </div>
             ))}
           </div>
@@ -982,7 +982,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </div>
 
           <div>
-            <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Payment window</label>
+            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Payment window</label>
             <select value={form.paymentWindow} onChange={(e) => f("paymentWindow", e.target.value)}
               className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm text-white outline-none">
               {[10,15,20,30].map((w) => <option key={w} value={w} style={{ background: "#1a1b22", color: "#fff" }}>{w} minutes</option>)}
@@ -990,7 +990,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </div>
 
           <div>
-            <label className="text-xs font-black text-slate-500 mb-1.5 block uppercase tracking-wide">Trade terms <span className="normal-case text-slate-600">(optional)</span></label>
+            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Trade terms <span className="normal-case text-slate-600">(optional)</span></label>
             <textarea value={form.terms} onChange={(e) => f("terms", e.target.value)} placeholder="Any specific requirements for buyers…" rows={2}
               className="w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
           </div>
@@ -1165,8 +1165,8 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       <DepositSection />
 
       {/* Ads list */}
-      <div className="overflow-hidden rounded-lg border border-white/[0.06] bg-[#111118]">
-        <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3 lg:py-2.5">
+      <div>
+        <div className="mb-2 flex items-center justify-between px-1">
           <div>
             <h2 className="text-white font-black text-base">My Ads</h2>
             <p className="text-slate-500 text-xs mt-0.5">{ads.filter((a) => a.isActive).length} active · {ads.length} total</p>
@@ -1174,11 +1174,11 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         </div>
 
         {loading ? (
-          <div className="space-y-px">
-            {[1,2].map((i) => <div key={i} className="h-16 bg-white/[0.03] animate-pulse" />)}
+          <div className="space-y-2">
+            {[1,2].map((i) => <div key={i} className="h-20 rounded-2xl bg-white/[0.03] animate-pulse" />)}
           </div>
         ) : ads.length === 0 ? (
-          <div className="flex min-h-[120px] flex-col items-center justify-center px-6 py-5 text-center">
+          <div className="flex min-h-[120px] flex-col items-center justify-center rounded-2xl ring-1 ring-white/[0.07] bg-[#16171d] px-6 py-5 text-center">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
               <Icon name="post_add" className="text-xl text-slate-500" />
             </div>
@@ -1189,14 +1189,14 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </button>
           </div>
         ) : (
-          <div>
+          <div className="space-y-2">
             {ads.map((ad) => {
               const pmLabel = (m: string) => m === "MPESA" ? "M-Pesa" : m === "BANK" ? "Bank" : m;
               const filled = Number(ad.totalAmount) - Number(ad.availableAmount);
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
               const dotColor = P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)?.color ?? "#087cff";
               return (
-                <div key={ad.id} className="grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_90px] gap-3 border-b border-[#1e1e30] bg-[#0e0e14] px-3 py-3 transition last:border-b-0 hover:bg-[#111118] sm:px-4 lg:min-h-[82px] lg:grid-cols-[minmax(0,1fr)_120px] lg:items-center lg:gap-4 lg:px-3 lg:py-2">
+                <div key={ad.id} className="grid w-full grid-cols-[minmax(0,1fr)_90px] gap-3 rounded-2xl bg-[#16171d] px-3 py-3 ring-1 ring-white/[0.07] transition hover:bg-[#1a1b22] hover:ring-white/[0.14] sm:px-4 lg:grid-cols-[minmax(0,1fr)_120px] lg:items-center lg:gap-4">
                   <div className="min-w-0">
                     {/* Row 1: crypto dot + name + side badge + status */}
                     <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-0">
