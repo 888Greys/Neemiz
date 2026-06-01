@@ -184,7 +184,6 @@ export function P2POrdersClient() {
               {/* Footer: merchant chip + date */}
               <div className="flex items-center justify-between border-t border-white/[0.05] pt-2.5 lg:border-t-0 lg:pt-0">
                 <span className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-white/55">
-                  <Icon name="chat_bubble_outline" className="text-[11px]" />
                   {order.counterparty}
                 </span>
                 <span className="text-[11px] text-white/30">
