@@ -187,14 +187,14 @@ export function WalletClient() {
     if (!isSignedIn) { openLogin(); return; }
     setError(""); setLoading(true);
     try {
-      const res  = await fetch("/api/wallet/deposit", {
+      const res  = await fetch("/api/wallet/deposit/megapay", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ amountKes: Number(amount), phoneNumber: normalizeMsisdn(phone) }),
+        body:    JSON.stringify({ phone: normalizeMsisdn(phone), amount: Number(amount) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to initiate payment.");
-      setDeposit({ step: "pending", txId: data.transactionRequestId as string, amount: Number(amount) });
+      setDeposit({ step: "pending", txId: data.transactionId as string, amount: Number(amount) });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
