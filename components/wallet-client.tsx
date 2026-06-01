@@ -83,7 +83,7 @@ export function WalletClient() {
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
 
   // ── fiat deposit state ──
-  const [tab, setTab]                     = useState<"deposit" | "withdraw" | "send" | "history">("deposit");
+  const [tab, setTab]                     = useState<"deposit" | "withdraw" | "history">("deposit");
   const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">("mpesa");
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
@@ -341,7 +341,7 @@ export function WalletClient() {
       {/* ── Tabs ── */}
       <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#0d0e11]">
         <div className="mx-auto flex max-w-2xl gap-0">
-          {(["deposit", "withdraw", "send", "history"] as const).map((t) => (
+          {(["deposit", "withdraw", "history"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -353,7 +353,7 @@ export function WalletClient() {
               }`}
             >
               <Icon
-                name={t === "deposit" ? "add_circle" : t === "withdraw" ? "remove_circle" : t === "send" ? "send" : "history"}
+                name={t === "deposit" ? "add_circle" : t === "withdraw" ? "remove_circle" : "history"}
                 fill={tab === t}
                 className="text-[15px]"
               />
@@ -899,9 +899,6 @@ export function WalletClient() {
           </div>
         )}
 
-        {/* ── SEND TAB ── */}
-        {tab === "send" && <SendCrypto isSignedIn={!!isSignedIn} onSent={refreshBalance} />}
-
         {/* ── HISTORY TAB ── */}
         {tab === "history" && <TransactionHistory isSignedIn={!!isSignedIn} />}
       </div>
@@ -1108,255 +1105,6 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
   );
 }
 
-/* ── SendCrypto ─────────────────────────────────────────────────────────────── */
-
-type SendStep = "form" | "confirm" | "success";
-
-interface RecipientInfo {
-  id:          string;
-  username:    string;
-  displayName: string;
-  imageUrl:    string | null;
-}
-
-function SendCrypto({ isSignedIn, onSent }: { isSignedIn: boolean; onSent: () => void }) {
-  const { cryptoBalances } = useWalletBalance();
-
-  const [step,         setStep]        = useState<SendStep>("form");
-  const [toUsername,   setToUsername]  = useState("");
-  const [recipient,    setRecipient]   = useState<RecipientInfo | null>(null);
-  const [recipientErr, setRecipientErr] = useState("");
-  const [looking,      setLooking]     = useState(false);
-  const [crypto,       setCrypto]      = useState("");
-  const [network,      setNetwork]     = useState("");
-  const [amount,       setAmount]      = useState("");
-  const [sending,      setSending]     = useState(false);
-  const [sentResult,   setSentResult]  = useState<{ to: string; amount: number; crypto: string } | null>(null);
-
-  const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (cryptoBalances.length > 0 && !crypto) {
-      setCrypto(cryptoBalances[0].crypto);
-      setNetwork(cryptoBalances[0].network);
-    }
-  }, [cryptoBalances, crypto]);
-
-  const selectedBal = cryptoBalances.find((b) => b.crypto === crypto && b.network === network)?.available ?? 0;
-
-  function handleUsernameChange(val: string) {
-    setToUsername(val);
-    setRecipient(null);
-    setRecipientErr("");
-    if (lookupTimer.current) clearTimeout(lookupTimer.current);
-    if (val.trim().length < 2) return;
-    lookupTimer.current = setTimeout(async () => {
-      setLooking(true);
-      try {
-        const r = await fetch(`/api/crypto/transfer?username=${encodeURIComponent(val.trim())}`);
-        const d = await r.json();
-        if (!r.ok) { setRecipientErr(d.error ?? "Not found"); return; }
-        setRecipient(d);
-      } finally { setLooking(false); }
-    }, 500);
-  }
-
-  async function send() {
-    setSending(true);
-    try {
-      const r = await fetch("/api/crypto/transfer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipientUsername: toUsername.trim(), crypto, network, amount: Number(amount) }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "Failed");
-      setSentResult({ to: d.to, amount: Number(amount), crypto });
-      setStep("success");
-      onSent();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Transfer failed");
-    } finally { setSending(false); }
-  }
-
-  function reset() {
-    setStep("form"); setToUsername(""); setRecipient(null);
-    setRecipientErr(""); setAmount(""); setSentResult(null);
-  }
-
-  if (!isSignedIn) {
-    return (
-      <div className="flex flex-col items-center gap-3 py-16 text-center">
-        <Icon name="lock" fill className="text-[36px] text-slate-700" />
-        <p className="text-sm font-bold text-slate-500">Log in to send crypto</p>
-      </div>
-    );
-  }
-
-  if (step === "success" && sentResult) {
-    return (
-      <div className="mx-auto max-w-md px-4 py-12 text-center">
-        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 mx-auto">
-          <Icon name="check_circle" fill className="text-[36px] text-emerald-400" />
-        </div>
-        <h2 className="text-2xl font-black text-white mb-2">Sent!</h2>
-        <p className="text-slate-400 text-sm mb-6">
-          <span className="text-white font-black">{sentResult.amount} {sentResult.crypto}</span>{" "}sent to{" "}
-          <span className="text-[#087cff] font-black">@{sentResult.to}</span>
-        </p>
-        <button onClick={reset}
-          className="w-full rounded-2xl bg-[#087cff] py-3.5 font-black text-white hover:bg-[#0570e8] transition-all">
-          Send Again
-        </button>
-      </div>
-    );
-  }
-
-  if (step === "confirm") {
-    return (
-      <div className="mx-auto max-w-md px-4 py-8 space-y-4">
-        <h2 className="text-xl font-black text-white">Confirm Transfer</h2>
-        <div className="rounded-2xl bg-white/[0.04] ring-1 ring-white/[0.08] divide-y divide-white/[0.06]">
-          {([
-            ["To",      `@${recipient?.displayName ?? toUsername}`],
-            ["Amount",  `${amount} ${crypto}`],
-            ["Network", network],
-            ["Fee",     "None (internal)"],
-          ] as [string, string][]).map(([label, val]) => (
-            <div key={label} className="flex items-center justify-between px-4 py-3">
-              <span className="text-xs font-bold text-slate-500">{label}</span>
-              <span className="text-sm font-black text-white">{val}</span>
-            </div>
-          ))}
-        </div>
-        <div className="flex gap-3">
-          <button onClick={() => setStep("form")}
-            className="flex-1 rounded-2xl border border-white/[0.1] py-3.5 font-black text-slate-300 hover:bg-white/[0.05] transition-all">
-            Back
-          </button>
-          <button onClick={send} disabled={sending}
-            className="flex-1 rounded-2xl bg-[#087cff] py-3.5 font-black text-white hover:bg-[#0570e8] disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-            {sending
-              ? <><span className="h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Sending…</>
-              : <><Icon name="send" className="text-base" /> Confirm &amp; Send</>}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  const canReview = !!recipient && Number(amount) > 0 && Number(amount) <= selectedBal && !!crypto;
-
-  return (
-    <div className="mx-auto max-w-md px-4 py-8 space-y-4">
-      <div>
-        <h2 className="text-xl font-black text-white">Send Crypto</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Instant · Free · To any Nezeem user</p>
-      </div>
-
-      {/* Recipient */}
-      <div>
-        <label className="text-xs font-black text-slate-500 uppercase tracking-wide mb-1.5 block">Recipient</label>
-        <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-black text-sm">@</span>
-          <input
-            type="text"
-            value={toUsername}
-            onChange={(e) => handleUsernameChange(e.target.value)}
-            placeholder="username"
-            autoComplete="off"
-            className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.04] pl-8 pr-10 py-3.5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-[#087cff]/50 transition-colors"
-          />
-          {looking && (
-            <span className="absolute right-4 top-1/2 -translate-y-1/2">
-              <span className="h-4 w-4 rounded-full border-2 border-white/20 border-t-[#087cff] animate-spin block" />
-            </span>
-          )}
-        </div>
-        {recipient && (
-          <div className="mt-2 flex items-center gap-2.5 rounded-xl bg-emerald-500/[0.08] border border-emerald-500/20 px-3 py-2.5">
-            {recipient.imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={recipient.imageUrl} alt={recipient.username ?? ""} className="h-7 w-7 rounded-full object-cover" />
-            ) : (
-              <div className="h-7 w-7 rounded-full bg-[#087cff]/20 flex items-center justify-center text-[#087cff] text-[11px] font-black">
-                {(recipient.displayName ?? recipient.username ?? "?")[0]?.toUpperCase()}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-black text-white truncate">{recipient.displayName}</p>
-              <p className="text-[10px] text-emerald-400">@{recipient.username}</p>
-            </div>
-            <Icon name="check_circle" fill className="text-emerald-400 text-lg shrink-0" />
-          </div>
-        )}
-        {recipientErr && <p className="mt-1.5 text-xs text-red-400 font-bold">{recipientErr}</p>}
-      </div>
-
-      {cryptoBalances.length === 0 ? (
-        <p className="text-sm text-slate-600 text-center py-4">No crypto balance to send.</p>
-      ) : (
-        <>
-          {/* Coin selector */}
-          <div>
-            <label className="text-xs font-black text-slate-500 uppercase tracking-wide mb-1.5 block">Coin</label>
-            <div className="flex flex-wrap gap-2">
-              {cryptoBalances.map((b) => (
-                <button
-                  key={`${b.crypto}-${b.network}`}
-                  onClick={() => { setCrypto(b.crypto); setNetwork(b.network); setAmount(""); }}
-                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-black transition-all ${
-                    crypto === b.crypto && network === b.network
-                      ? "bg-[#087cff]/15 border-[#087cff] text-[#087cff]"
-                      : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
-                  }`}
-                >
-                  {COIN_ICON_URL[b.crypto] && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={COIN_ICON_URL[b.crypto]} alt={b.crypto} className="h-4 w-4 rounded-full" />
-                  )}
-                  {b.crypto}
-                  <span className="opacity-50">{b.network}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Amount */}
-          <div>
-            <label className="text-xs font-black text-slate-500 uppercase tracking-wide mb-1.5 block">
-              Amount
-              <button onClick={() => setAmount(String(selectedBal))}
-                className="ml-2 normal-case text-[#087cff] hover:underline">
-                max {selectedBal.toFixed(4)} {crypto}
-              </button>
-            </label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              className="w-full rounded-2xl border border-white/[0.08] bg-white/[0.04] px-4 py-3.5 text-sm text-white placeholder:text-slate-700 outline-none focus:border-[#087cff]/50 transition-colors"
-            />
-            {!!amount && Number(amount) > selectedBal && (
-              <p className="mt-1.5 text-xs text-red-400 font-bold">
-                Exceeds available balance ({selectedBal.toFixed(6)} {crypto})
-              </p>
-            )}
-          </div>
-        </>
-      )}
-
-      <button
-        onClick={() => setStep("confirm")}
-        disabled={!canReview}
-        className="w-full rounded-2xl bg-[#087cff] py-3.5 font-black text-white hover:bg-[#0570e8] disabled:opacity-40 transition-all flex items-center justify-center gap-2"
-      >
-        <Icon name="send" className="text-base" /> Review Transfer
-      </button>
-    </div>
-  );
-}
 
 // ─── Crypto deposit panel (wallet page) ───────────────────────────────────────
 
