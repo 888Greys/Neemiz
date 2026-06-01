@@ -9,6 +9,7 @@ import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
+import { paymentMethodsForFiat, paymentMethodLabel, ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -38,8 +39,7 @@ interface Ad {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const fmtPm = (m: string) =>
-  m === "MPESA" ? "M-Pesa" : m === "BANK" ? "Bank" : m;
+const fmtPm = (m: string) => paymentMethodLabel(m);
 
 // ─── Order Modal ──────────────────────────────────────────────────────────────
 
@@ -555,17 +555,12 @@ const CRYPTO_ICONS: Record<string, string> = {
 };
 
 const CRYPTOS   = ["USDT", "BTC", "ETH", "BNB"];
-const PAYMENTS  = [
-  { value: "",       label: "All" },
-  { value: "MPESA",  label: "M-Pesa" },
-  { value: "BANK",   label: "Bank" },
-];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const VALID_SIDES   = ["BUY", "SELL"] as const;
 const VALID_CRYPTOS_SET = new Set(CRYPTOS);
-const VALID_PAYMENTS_SET = new Set(PAYMENTS.map((p) => p.value));
+const VALID_PAYMENTS_SET = new Set<string>(["", ...Array.from(ALL_PAYMENT_CODES)]);
 const VALID_FIAT_SET = new Set(FIAT_CURRENCIES.map((f) => f.code));
 
 export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string }) {
@@ -624,7 +619,11 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     setFiatState(f);
     // Remember the manual choice for 1 year so it overrides geo-detection next visit.
     document.cookie = `user_fiat=${f}; path=/; max-age=31536000; samesite=lax`;
-    pushUrl(tab, crypto, payment, f);
+    // If the active payment filter isn't a rail for the new currency, clear it.
+    const stillValid = payment === "" || paymentMethodsForFiat(f).some((m) => m.value === payment);
+    const nextPayment = stillValid ? payment : "";
+    if (nextPayment !== payment) setPaymentState(nextPayment);
+    pushUrl(tab, crypto, nextPayment, f);
   }, [tab, crypto, payment, pushUrl]);
 
   const adsKey = `/api/p2p/ads?${new URLSearchParams({
@@ -734,19 +733,21 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
                   <Icon name="expand_more" className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-base text-slate-500" />
                 </div>
 
-                {PAYMENTS.map((p) => (
-                  <button
-                    key={p.value}
-                    onClick={() => setPayment(p.value)}
-                    className={`h-8 shrink-0 rounded-md border px-2 text-xs font-bold transition-all sm:px-3 ${
-                      payment === p.value
-                        ? "bg-white/10 border-white/20 text-white"
-                        : "bg-white/[0.04] border-white/[0.05] text-slate-500 hover:border-white/15 hover:text-slate-300"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
+                <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {[{ value: "", label: "All" }, ...paymentMethodsForFiat(fiat)].map((p) => (
+                    <button
+                      key={p.value || "all"}
+                      onClick={() => setPayment(p.value)}
+                      className={`h-8 shrink-0 rounded-md border px-2 text-xs font-bold transition-all sm:px-3 ${
+                        payment === p.value
+                          ? "bg-white/10 border-white/20 text-white"
+                          : "bg-white/[0.04] border-white/[0.05] text-slate-500 hover:border-white/15 hover:text-slate-300"
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
                 <button
                   onClick={() => fetchAds(true)}
                   title="Refresh"

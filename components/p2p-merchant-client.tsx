@@ -7,6 +7,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
+import { paymentMethodsForFiat, paymentMethodLabel } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
@@ -940,7 +941,11 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           {/* Fiat currency selector */}
           <div>
             <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Fiat currency</label>
-            <select value={form.fiat} onChange={(e) => f("fiat", e.target.value)}
+            <select value={form.fiat} onChange={(e) => {
+                const nextFiat = e.target.value;
+                const allowed = new Set(paymentMethodsForFiat(nextFiat).map((m) => m.value));
+                setForm((p) => ({ ...p, fiat: nextFiat, paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)) }));
+              }}
               className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm font-bold text-white outline-none transition-colors focus:border-[#087cff]/40">
               {FIAT_CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code} style={{ background: "#1a1b22", color: "#fff" }}>{c.flag} {c.code} — {c.name}</option>
@@ -970,12 +975,12 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </div>
 
           <div>
-            <label className="text-xs font-black text-slate-500 mb-2 block uppercase tracking-wide">Payment methods</label>
-            <div className="flex gap-2">
-              {[{ v: "MPESA", l: "M-Pesa" }, { v: "BANK", l: "Bank Transfer" }].map(({ v, l }) => (
-                <button key={v} onClick={() => togglePm(v)}
-                  className={`flex-1 rounded-xl border py-2 text-xs font-bold transition-all ${form.paymentMethods.includes(v) ? "bg-[#087cff]/20 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"}`}>
-                  {l}
+            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Payment methods</label>
+            <div className="grid grid-cols-2 gap-2">
+              {paymentMethodsForFiat(form.fiat).map(({ value, label }) => (
+                <button key={value} type="button" onClick={() => togglePm(value)}
+                  className={`rounded-xl border py-2 text-xs font-bold transition-all ${form.paymentMethods.includes(value) ? "bg-[#087cff]/20 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"}`}>
+                  {label}
                 </button>
               ))}
             </div>
@@ -1191,7 +1196,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         ) : (
           <div className="space-y-2">
             {ads.map((ad) => {
-              const pmLabel = (m: string) => m === "MPESA" ? "M-Pesa" : m === "BANK" ? "Bank" : m;
+              const pmLabel = (m: string) => paymentMethodLabel(m);
               const filled = Number(ad.totalAmount) - Number(ad.availableAmount);
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
               const dotColor = P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)?.color ?? "#087cff";
