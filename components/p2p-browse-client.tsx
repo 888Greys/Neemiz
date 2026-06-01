@@ -568,7 +568,7 @@ const VALID_CRYPTOS_SET = new Set(CRYPTOS);
 const VALID_PAYMENTS_SET = new Set(PAYMENTS.map((p) => p.value));
 const VALID_FIAT_SET = new Set(FIAT_CURRENCIES.map((f) => f.code));
 
-export function P2PBrowseClient() {
+export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string }) {
   const { isSignedIn }   = useSupabaseAuth();
   const router           = useRouter();
   const pathname         = usePathname();
@@ -586,7 +586,7 @@ export function P2PBrowseClient() {
     : "";
   const initFiat    = VALID_FIAT_SET.has(searchParams.get("fiat") ?? "")
     ? searchParams.get("fiat")!
-    : "KES";
+    : (VALID_FIAT_SET.has(defaultFiat) ? defaultFiat : "KES");
 
   const [tab, setTabState]          = useState<"BUY" | "SELL">(initTab);
   const [crypto, setCryptoState]    = useState(initCrypto);
@@ -622,6 +622,8 @@ export function P2PBrowseClient() {
 
   const setFiat = useCallback((f: string) => {
     setFiatState(f);
+    // Remember the manual choice for 1 year so it overrides geo-detection next visit.
+    document.cookie = `user_fiat=${f}; path=/; max-age=31536000; samesite=lax`;
     pushUrl(tab, crypto, payment, f);
   }, [tab, crypto, payment, pushUrl]);
 
