@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getCached, cachedFetch } from "@/lib/client-cache";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -292,24 +292,28 @@ function StatsBar() {
       label: "Traded today",
       value: stats ? fmtVolume(stats.volumeToday) : "—",
       accent: "#05b957",
+      icon: "payments",
     },
     {
       label: "Merchants online",
       value: stats ? String(stats.onlineMerchants) : "—",
       accent: "#087cff",
+      icon: "groups",
       live: true,
     },
     {
-      label: "Avg release time",
+      label: "Avg release",
       value: stats
-        ? stats.avgReleaseMin > 0 ? `~${stats.avgReleaseMin} min` : "< 1 min"
+        ? stats.avgReleaseMin > 0 ? `~${stats.avgReleaseMin}m` : "< 1m"
         : "—",
       accent: "#a78bfa",
+      icon: "bolt",
     },
     {
       label: "Platform fees",
       value: stats ? `${stats.feePct}%` : "0%",
       accent: "#f59e0b",
+      icon: "savings",
     },
   ];
 
@@ -318,15 +322,87 @@ function StatsBar() {
       {cells.map((s) => (
         <div
           key={s.label}
-          className="relative overflow-hidden rounded-lg border border-white/[0.07] bg-[#111118] px-3 py-2 transition-colors hover:border-white/[0.12]"
+          className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-gradient-to-br from-[#14151c] to-[#0d0e13] p-3 transition-colors hover:border-white/[0.16]"
         >
-          <div className="mb-1 flex items-center gap-1.5">
-            {s.live && <span className="w-1.5 h-1.5 rounded-full bg-[#05b957] animate-pulse shrink-0" />}
-            <span className="text-[11px] text-slate-500 font-medium">{s.label}</span>
+          {/* accent glow */}
+          <div
+            className="pointer-events-none absolute -right-5 -top-5 h-14 w-14 rounded-full blur-2xl"
+            style={{ background: `${s.accent}26` }}
+          />
+          <div className="mb-2 flex items-center justify-between">
+            <span
+              className="flex h-7 w-7 items-center justify-center rounded-lg"
+              style={{ background: `${s.accent}1f`, color: s.accent }}
+            >
+              <Icon name={s.icon} fill className="text-[15px]" />
+            </span>
+            {s.live && (
+              <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.12em] text-[#05b957]">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#05b957] animate-pulse" />
+                Live
+              </span>
+            )}
           </div>
-          <p className={`text-lg font-black leading-tight ${stats ? "text-white" : "text-slate-700"}`}>{s.value}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{s.label}</p>
+          <p
+            className="mt-0.5 text-lg font-black leading-tight tabular-nums"
+            style={{ color: stats ? s.accent : "#3a3f4b" }}
+          >
+            {s.value}
+          </p>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ─── Custom fiat currency dropdown ─────────────────────────────────────────────
+
+function FiatSelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = FIAT_CURRENCIES.find((f) => f.code === value) ?? FIAT_CURRENCIES[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Currency"
+        className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] pl-2 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"
+      >
+        <span className="text-sm leading-none">{current.flag}</span>
+        {current.code}
+        <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+6px)] z-30 max-h-72 w-60 overflow-y-auto rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60 [scrollbar-width:thin]">
+          {FIAT_CURRENCIES.map((f) => (
+            <button
+              key={f.code}
+              type="button"
+              onClick={() => { onChange(f.code); setOpen(false); }}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                f.code === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"
+              }`}
+            >
+              <span className="text-base leading-none">{f.flag}</span>
+              <span className="text-xs font-black text-white">{f.code}</span>
+              <span className="truncate text-[11px] font-semibold text-slate-500">{f.name}</span>
+              {f.code === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -717,21 +793,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
               <div className="flex min-w-0 items-center gap-1.5 sm:ml-auto">
                 {/* Fiat currency selector */}
-                <div className="relative shrink-0">
-                  <select
-                    value={fiat}
-                    onChange={(e) => setFiat(e.target.value)}
-                    aria-label="Fiat currency"
-                    className="h-8 appearance-none rounded-md border border-white/[0.07] bg-white/[0.04] pl-2.5 pr-7 text-xs font-black text-white outline-none transition-colors hover:border-white/20 focus:border-[#087cff]"
-                  >
-                    {FIAT_CURRENCIES.map((f) => (
-                      <option key={f.code} value={f.code} className="bg-[#111118] text-white">
-                        {f.flag} {f.code}
-                      </option>
-                    ))}
-                  </select>
-                  <Icon name="expand_more" className="pointer-events-none absolute right-1 top-1/2 -translate-y-1/2 text-base text-slate-500" />
-                </div>
+                <FiatSelect value={fiat} onChange={setFiat} />
 
                 <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {[{ value: "", label: "All" }, ...paymentMethodsForFiat(fiat)].map((p) => (
