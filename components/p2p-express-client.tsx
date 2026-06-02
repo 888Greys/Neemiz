@@ -20,10 +20,11 @@ const COINS = [
 ];
 
 // ─── Tiny click-outside dropdown ───────────────────────────────────────────────
+type DropOption = { value: string; label: string; icon?: string };
 function Dropdown({ label, value, options, onChange }: {
   label: string;
   value: string;
-  options: { value: string; label: string }[];
+  options: DropOption[];
   onChange: (v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -39,22 +40,26 @@ function Dropdown({ label, value, options, onChange }: {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-12 w-full items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-sm font-bold text-white transition-colors hover:border-white/20"
+        className="flex h-10 w-full items-center justify-between gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-[13px] font-bold text-white transition-colors hover:border-white/20"
       >
-        <span>{current?.label ?? label}</span>
-        <Icon name={open ? "expand_less" : "expand_more"} className="text-[20px] text-slate-400" />
+        <span className="flex min-w-0 items-center gap-1.5 truncate">
+          {current?.icon && <img src={current.icon} alt="" width={16} height={16} className="h-4 w-4 shrink-0 rounded-full" />}
+          <span className="truncate">{current?.label ?? label}</span>
+        </span>
+        <Icon name={open ? "expand_less" : "expand_more"} className="shrink-0 text-[18px] text-slate-400" />
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#121824] py-1 shadow-2xl shadow-black/40 [scrollbar-width:thin]">
+        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-64 overflow-y-auto rounded-lg border border-white/10 bg-[#121824] py-1 shadow-2xl shadow-black/40 [scrollbar-width:thin]">
           {options.map((o) => (
             <button
               key={o.value}
               type="button"
               onClick={() => { onChange(o.value); setOpen(false); }}
-              className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm font-bold text-white transition hover:bg-white/[0.06]"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-bold text-white transition hover:bg-white/[0.06]"
             >
-              {o.label}
-              {o.value === value && <Icon name="check" className="text-[16px] text-[#087cff]" />}
+              {o.icon && <img src={o.icon} alt="" width={16} height={16} className="h-4 w-4 shrink-0 rounded-full" />}
+              <span className="flex-1 truncate">{o.label}</span>
+              {o.value === value && <Icon name="check" className="shrink-0 text-[15px] text-[#087cff]" />}
             </button>
           ))}
         </div>
@@ -123,107 +128,93 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
     <>
       <P2PSubNav />
 
-      <div className="mx-auto w-full max-w-md px-3 py-3 sm:px-4">
-        <div className="rounded-2xl border border-[#1e1e30] bg-[#111118] p-5">
+      <div className="mx-auto w-full max-w-sm px-3 py-2.5 sm:px-4">
+        <div className="rounded-xl border border-[#1e1e30] bg-[#111118] p-3.5">
           {/* Header */}
-          <div className="mb-4 flex items-center gap-2.5">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#087cff]/12 ring-1 ring-[#087cff]/25">
-              <Icon name="bolt" fill className="text-[20px] text-[#087cff]" />
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#087cff]/12 ring-1 ring-[#087cff]/25">
+              <Icon name="bolt" fill className="text-[16px] text-[#087cff]" />
             </div>
             <div>
-              <h1 className="text-lg font-black leading-tight text-white">Express Buy</h1>
-              <p className="text-[11px] font-semibold text-slate-500">Best price, auto-matched · escrow-protected</p>
+              <h1 className="text-[15px] font-black leading-tight text-white">Express Buy</h1>
+              <p className="text-[10px] font-semibold text-slate-500">Best price, auto-matched · escrow-protected</p>
             </div>
           </div>
 
-          {/* Coin picker */}
-          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Coin</p>
-          <div className="mb-4 flex flex-wrap gap-2">
-            {COINS.map((c) => (
-              <button
-                key={c.code}
-                type="button"
-                onClick={() => setCrypto(c.code)}
-                className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-black ring-1 transition ${
-                  crypto === c.code
-                    ? "bg-[#087cff]/12 text-white ring-[#087cff]/40"
-                    : "bg-white/[0.03] text-slate-400 ring-white/[0.07] hover:text-white"
-                }`}
-              >
-                <img src={c.icon} alt={c.code} width={18} height={18} className="h-[18px] w-[18px] rounded-full" />
-                {c.code}
-              </button>
-            ))}
+          {/* Coin + Currency dropdowns */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="mb-1 text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">Coin</p>
+              <Dropdown
+                label="Coin"
+                value={crypto}
+                onChange={setCrypto}
+                options={COINS.map((c) => ({ value: c.code, label: c.code, icon: c.icon }))}
+              />
+            </div>
+            <div>
+              <p className="mb-1 text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">Currency</p>
+              <Dropdown
+                label="Currency"
+                value={fiat}
+                onChange={setFiat}
+                options={FIAT_CURRENCIES.map((f) => ({ value: f.code, label: f.code }))}
+              />
+            </div>
           </div>
 
           {/* Amount */}
-          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">You pay</p>
-          <div className="flex h-14 items-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 focus-within:border-[#087cff]/50">
+          <p className="mb-1 mt-3 text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">You pay</p>
+          <div className="flex h-11 items-center rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 focus-within:border-[#087cff]/50">
             <input
               type="number"
               inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0"
-              className="w-full bg-transparent text-lg font-black text-white outline-none placeholder:text-slate-700"
+              className="w-full bg-transparent text-base font-black text-white outline-none placeholder:text-slate-700"
             />
-            <span className="ml-2 text-sm font-black text-slate-500">{fiat}</span>
+            <span className="ml-2 text-[13px] font-black text-slate-500">{fiat}</span>
           </div>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             {QUICK.map((q) => (
               <button
                 key={q}
                 type="button"
                 onClick={() => setAmount(String(q))}
-                className="rounded-lg bg-white/[0.04] px-2.5 py-1 text-[11px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:text-white"
+                className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:text-white"
               >
                 {q.toLocaleString()}
               </button>
             ))}
           </div>
 
-          {/* Currency + payment */}
-          <div className="mt-4 grid grid-cols-2 gap-2">
-            <div>
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Currency</p>
-              <Dropdown
-                label="Currency"
-                value={fiat}
-                onChange={setFiat}
-                options={FIAT_CURRENCIES.map((f) => ({ value: f.code, label: `${f.code} — ${f.name}` }))}
-              />
-            </div>
-            <div>
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Payment</p>
-              <Dropdown label="Payment" value={payment} onChange={setPayment} options={payments} />
-            </div>
-          </div>
+          {/* Payment */}
+          <p className="mb-1 mt-3 text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">Payment</p>
+          <Dropdown label="Payment" value={payment} onChange={setPayment} options={payments} />
 
           {/* Estimate */}
-          <div className="mt-4 rounded-xl bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
-            <div className="flex items-center justify-between text-[12px]">
+          <div className="mt-3 rounded-lg bg-white/[0.03] p-3 ring-1 ring-white/[0.06]">
+            <div className="flex items-center justify-between text-[11px]">
               <span className="text-slate-500">You receive (approx.)</span>
               <span className="font-black text-white">{estCrypto != null ? `≈ ${estCrypto.toFixed(6)} ${crypto}` : "—"}</span>
             </div>
-            <div className="mt-1 flex items-center justify-between text-[11px]">
+            <div className="mt-1 flex items-center justify-between text-[10px]">
               <span className="text-slate-600">Market rate</span>
               <span className="text-slate-500">{rate ? `1 ${crypto} ≈ ${formatFiat(rate, fiat)}` : "fetching…"}</span>
             </div>
-            <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
-              We match you to the best-priced verified merchant. Final price is the matched offer&apos;s rate.
-            </p>
           </div>
 
           <button
             type="button"
             onClick={buyNow}
             disabled={submitting || amountNum <= 0 || !payment}
-            className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#05b957] text-sm font-black text-white shadow-lg shadow-[#05b957]/20 transition hover:bg-[#04a64e] disabled:cursor-not-allowed disabled:opacity-40"
+            className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#05b957] text-[13px] font-black text-white shadow-lg shadow-[#05b957]/20 transition hover:bg-[#04a64e] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {submitting ? <LoadingDots /> : <><Icon name="bolt" fill className="text-[18px]" /> Buy {crypto} now</>}
+            {submitting ? <LoadingDots /> : <><Icon name="bolt" fill className="text-[16px]" /> Buy {crypto} now</>}
           </button>
 
-          <p className="mt-3 text-center text-[11px] text-slate-600">
+          <p className="mt-2.5 text-center text-[10px] text-slate-600">
             Prefer to choose a merchant yourself?{" "}
             <button onClick={() => router.push("/p2p")} className="font-bold text-[#087cff] hover:underline">Browse offers</button>
           </p>
