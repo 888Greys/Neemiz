@@ -845,7 +845,25 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     terms: ad?.terms ?? "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [cryptoOpen, setCryptoOpen] = useState(false);
+  const [spotRate, setSpotRate] = useState<number | null>(null);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
+
+  // Live market rate for the chosen crypto+fiat (for the margin readout).
+  useEffect(() => {
+    let cancelled = false;
+    setSpotRate(null);
+    fetch(`/api/p2p/spot?crypto=${form.crypto}&fiat=${form.fiat}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { rate?: number | null } | null) => {
+        if (!cancelled && typeof d?.rate === "number" && d.rate > 0) setSpotRate(d.rate);
+      })
+      .catch(() => { /* no live rate */ });
+    return () => { cancelled = true; };
+  }, [form.crypto, form.fiat]);
+
+  const priceNum = Number(form.pricePerUnit) || 0;
+  const marginPct = spotRate && priceNum > 0 ? ((priceNum / spotRate) - 1) * 100 : null;
 
   function togglePm(m: string) {
     setForm((p) => ({ ...p, paymentMethods: p.paymentMethods.includes(m) ? p.paymentMethods.filter((x) => x !== m) : [...p.paymentMethods, m] }));
@@ -908,33 +926,47 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
           </div>
 
-          {/* Crypto selector — icon grid */}
+          {/* Crypto dropdown */}
           <div>
             <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Crypto</label>
-            <div className="grid grid-cols-5 gap-1.5">
-              {P2P_CRYPTOS.map((c) => {
-                const active = form.crypto === c.symbol;
-                return (
-                  <button
-                    key={c.symbol}
-                    type="button"
-                    onClick={() => !isEditing && f("crypto", c.symbol)}
-                    disabled={isEditing}
-                    title={c.name}
-                    className={`flex flex-col items-center gap-1 rounded-lg border py-1.5 px-1 transition-all ${
-                      active
-                        ? "border-[#087cff] bg-[#087cff]/10"
-                        : "border-white/[0.08] bg-white/[0.03] hover:border-white/20 disabled:opacity-50"
-                    }`}
-                  >
+            <div className="relative">
+              <button
+                type="button"
+                disabled={isEditing}
+                onClick={() => !isEditing && setCryptoOpen((v) => !v)}
+                className="flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm font-bold text-white transition-colors hover:border-white/20 disabled:opacity-60"
+              >
+                {(() => { const m = P2P_CRYPTOS.find((c) => c.symbol === form.crypto); return m ? (
+                  <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={c.icon} alt={c.symbol} className="h-6 w-6 rounded-full" />
-                    <span className={`text-[10px] font-black ${active ? "text-[#087cff]" : "text-slate-400"}`}>
-                      {c.symbol}
-                    </span>
-                  </button>
-                );
-              })}
+                    <img src={m.icon} alt={m.symbol} className="h-5 w-5 rounded-full" />
+                    <span className="font-black">{m.symbol}</span>
+                    <span className="font-semibold text-slate-500">— {m.name}</span>
+                  </>
+                ) : <span>{form.crypto}</span>; })()}
+                {!isEditing && <Icon name="expand_more" className={`ml-auto text-lg text-slate-400 transition-transform ${cryptoOpen ? "rotate-180" : ""}`} />}
+              </button>
+              {cryptoOpen && !isEditing && (
+                <>
+                  <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setCryptoOpen(false)} />
+                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#16171d] p-1 shadow-2xl shadow-black/60">
+                    {P2P_CRYPTOS.map((c) => (
+                      <button
+                        key={c.symbol}
+                        type="button"
+                        onClick={() => { f("crypto", c.symbol); setCryptoOpen(false); }}
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${form.crypto === c.symbol ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={c.icon} alt={c.symbol} className="h-5 w-5 rounded-full" />
+                        <span className="text-sm font-black text-white">{c.symbol}</span>
+                        <span className="truncate text-xs font-semibold text-slate-500">{c.name}</span>
+                        {form.crypto === c.symbol && <Icon name="check" className="ml-auto shrink-0 text-[16px] text-[#087cff]" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -961,6 +993,17 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">{label}</label>
               <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
                 className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
+              {key === "pricePerUnit" && form.pricePerUnit && marginPct !== null && (
+                <p className="mt-1 text-[11px] font-bold">
+                  <span className={marginPct > 0.01 ? "text-amber-400" : marginPct < -0.01 ? "text-[#05b957]" : "text-slate-400"}>
+                    {marginPct > 0 ? "+" : ""}{marginPct.toFixed(2)}%
+                  </span>
+                  <span className="text-slate-500"> vs live market · {formatFiat(spotRate!, form.fiat)}/{form.crypto}</span>
+                </p>
+              )}
+              {key === "pricePerUnit" && form.pricePerUnit && marginPct === null && (
+                <p className="mt-1 text-[11px] font-semibold text-slate-600">Live market rate unavailable for {form.crypto}/{form.fiat}</p>
+              )}
             </div>
           ))}
 
