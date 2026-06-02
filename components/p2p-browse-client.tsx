@@ -60,11 +60,15 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
   const fiatNum    = inputMode === "fiat"   ? Number(rawInput) : Number(rawInput) * ad.pricePerUnit;
   const cryptoAmount = inputMode === "crypto" ? Number(rawInput) : (Number(rawInput) ? Number(rawInput) / ad.pricePerUnit : 0);
 
-  const belowMin          = !!rawInput && fiatNum < ad.minLimit;
-  const aboveMax          = !!rawInput && fiatNum > ad.maxLimit;
-  const exceedsAvailable  = !!rawInput && cryptoAmount > 0 && cryptoAmount > ad.availableAmount;
-  const valid             = fiatNum >= ad.minLimit && fiatNum <= ad.maxLimit && cryptoAmount > 0 && !exceedsAvailable;
   const isBuyingCrypto = ad.side === "SELL";
+  const hasOrderLimits = isBuyingCrypto;
+  const mustUseFullAmount = !hasOrderLimits && !!rawInput && Math.abs(cryptoAmount - ad.availableAmount) > 0.00000001;
+  const belowMin          = hasOrderLimits && !!rawInput && fiatNum < ad.minLimit;
+  const aboveMax          = hasOrderLimits && !!rawInput && fiatNum > ad.maxLimit;
+  const exceedsAvailable  = !!rawInput && cryptoAmount > 0 && cryptoAmount > ad.availableAmount;
+  const valid             = hasOrderLimits
+    ? fiatNum >= ad.minLimit && fiatNum <= ad.maxLimit && cryptoAmount > 0 && !exceedsAvailable
+    : cryptoAmount > 0 && !mustUseFullAmount && !exceedsAvailable;
   const actionTone = isBuyingCrypto ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-600";
 
   function toggleMode() {
@@ -170,10 +174,12 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
                 type="button"
                 onClick={() => {
                   if (inputMode === "fiat") {
-                    const maxFiat = Math.min(Math.floor(ad.maxLimit), Math.floor(ad.availableAmount * ad.pricePerUnit));
+                    const maxFiat = hasOrderLimits
+                      ? Math.min(Math.floor(ad.maxLimit), Math.floor(ad.availableAmount * ad.pricePerUnit))
+                      : ad.availableAmount * ad.pricePerUnit;
                     setRawInput(String(maxFiat));
                   } else {
-                    setRawInput(ad.availableAmount.toFixed(6));
+                    setRawInput(ad.availableAmount.toFixed(8));
                   }
                 }}
                 className="text-sm font-black text-[#f59e0b]"
@@ -181,18 +187,24 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
                 Max
               </button>
               </div>
-            <p className="mt-3 text-[11px] text-slate-500">Limits: {formatFiat(ad.minLimit, ad.fiat)} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</p>
+            {hasOrderLimits ? (
+              <p className="mt-3 text-[11px] text-slate-500">Limits: {formatFiat(ad.minLimit, ad.fiat)} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</p>
+            ) : (
+              <p className="mt-3 text-[11px] text-slate-500">Amount requested: {ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} {ad.crypto}</p>
+            )}
             <p className="mt-2 text-[12px] text-slate-500">
               {isBuyingCrypto ? "I will receive" : "I will send"}{" "}
               <span className="text-white">{cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "--"} {ad.crypto}</span>
             </p>
-            {(belowMin || aboveMax || exceedsAvailable) && (
+            {(belowMin || aboveMax || exceedsAvailable || mustUseFullAmount) && (
               <p className="mt-2 text-[11px] font-bold text-red-400">
                 {belowMin
                   ? `Minimum is ${formatFiat(ad.minLimit, ad.fiat)}`
                   : aboveMax
                   ? `Maximum is ${formatFiat(ad.maxLimit, ad.fiat)}`
-                  : `Only ${ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${ad.crypto} available`}
+                  : exceedsAvailable
+                  ? `Only ${ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 4 })} ${ad.crypto} available`
+                  : `Use the full requested amount of ${ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${ad.crypto}`}
               </p>
             )}
           </section>
@@ -491,9 +503,15 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
             </span>
           )}
         </div>
-        <p className="mt-1 text-[11px] font-semibold text-white/40">
-          Limits <span className="text-white/65">{formatFiat(ad.minLimit, ad.fiat, { symbol: false })} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</span>
-        </p>
+        {isMerchantSelling ? (
+          <p className="mt-1 text-[11px] font-semibold text-white/40">
+            Limits <span className="text-white/65">{formatFiat(ad.minLimit, ad.fiat, { symbol: false })} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</span>
+          </p>
+        ) : (
+          <p className="mt-1 text-[11px] font-semibold text-white/40">
+            Buying <span className="text-white/65">{ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 4 })} {ad.crypto}</span>
+          </p>
+        )}
       </div>
 
       {/* ── Payment ── */}
