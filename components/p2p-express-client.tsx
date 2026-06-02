@@ -11,6 +11,8 @@ import { LoadingDots } from "@/components/loading-dots";
 import { FIAT_CURRENCIES, formatFiat } from "@/lib/p2p/currencies";
 import { paymentMethodsForFiat } from "@/lib/p2p/payment-methods";
 
+const flagUrl = (code: string) => `https://flagcdn.com/w40/${code.slice(0, 2).toLowerCase()}.png`;
+
 const COINS = [
   { code: "USDT", name: "Tether",   icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg" },
   { code: "USDC", name: "USD Coin", icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg" },
@@ -46,7 +48,7 @@ function Dropdown({ label, value, options, onChange }: {
           {current?.icon && <img src={current.icon} alt="" width={16} height={16} className="h-4 w-4 shrink-0 rounded-full" />}
           <span className="truncate">{current?.label ?? label}</span>
         </span>
-        <Icon name={open ? "expand_less" : "expand_more"} className="shrink-0 text-[18px] text-slate-400" />
+        <Icon name="expand_more" className={`shrink-0 text-[15px] text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-64 overflow-y-auto rounded-lg border border-white/10 bg-[#121824] py-1 shadow-2xl shadow-black/40 [scrollbar-width:thin]">
@@ -158,7 +160,7 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
                 label="Currency"
                 value={fiat}
                 onChange={setFiat}
-                options={FIAT_CURRENCIES.map((f) => ({ value: f.code, label: f.code }))}
+                options={FIAT_CURRENCIES.map((f) => ({ value: f.code, label: f.code, icon: flagUrl(f.code) }))}
               />
             </div>
           </div>
