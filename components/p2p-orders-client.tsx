@@ -87,8 +87,8 @@ export function P2POrdersClient() {
     <div className="w-full px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
       {/* Header */}
       <div className="mb-3 lg:mb-2">
-        <h1 className="mb-1 text-2xl font-black text-white lg:text-xl">My P2P Orders</h1>
-        <p className="text-sm text-slate-500 lg:text-xs">Track all your buy and sell orders.</p>
+        <h1 className="mb-0.5 text-lg font-black text-white lg:text-base">My P2P Orders</h1>
+        <p className="text-xs text-slate-500">Track all your buy and sell orders.</p>
       </div>
 
       {/* Filter tabs */}
@@ -138,10 +138,10 @@ export function P2POrdersClient() {
             <Link
               key={order.id}
               href={`/p2p/order/${order.id}`}
-              className="group block rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-4 py-3 transition hover:bg-[#111118] lg:grid lg:grid-cols-[minmax(190px,1fr)_150px_minmax(360px,1.5fr)_240px] lg:items-center lg:gap-4 lg:rounded-lg lg:px-3 lg:py-2"
+              className="group block rounded-lg border border-[#1e1e30] bg-[#0e0e14] px-3 py-2.5 transition hover:bg-[#111118] lg:grid lg:grid-cols-[minmax(190px,1fr)_150px_minmax(360px,1.5fr)_240px] lg:items-center lg:gap-4 lg:px-3 lg:py-2"
             >
               {/* Row 1: type + status + chevron */}
-              <div className="mb-3 flex items-center justify-between gap-2 lg:mb-0">
+              <div className="mb-2 flex items-center justify-between gap-2 lg:mb-0">
                 <div className="flex min-w-0 items-center gap-2">
                   <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
                     order.isBuyer ? "bg-[#05b957]/15" : "bg-red-500/15"
@@ -155,15 +155,15 @@ export function P2POrdersClient() {
               </div>
 
               {/* Amount */}
-              <div className="mb-3 lg:mb-0">
+              <div className="mb-2 lg:mb-0">
                 <p className="text-[10px] font-semibold text-white/40">{order.fiat}</p>
-                <p className="text-[22px] font-black leading-tight text-white tabular-nums lg:text-lg">
+                <p className="text-[17px] font-black leading-tight text-white tabular-nums lg:text-base">
                   {formatFiat(Number(order.fiatAmount), order.fiat, { symbol: false, decimals: 2 })}
                 </p>
               </div>
 
               {/* Detail rows */}
-              <div className="mb-3 space-y-1.5 lg:mb-0 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
+              <div className="mb-2 space-y-1 lg:mb-0 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-white/40">Price</span>
                   <span className="font-semibold text-white/70">{formatFiat(Number(order.pricePerUnit), order.fiat)}</span>
