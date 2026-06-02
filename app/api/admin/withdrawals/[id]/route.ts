@@ -22,7 +22,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (!await requireAdmin()) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = params;
-  let body: { action: string };
+  let body: { action: string; txHash?: string };
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
 
   const txn = await db.transaction.findUnique({
@@ -46,6 +46,29 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   if (body.action === "approve") {
     const meta = txn.metadata as Record<string, unknown> | null;
+
+    // ── KES → crypto sell: admin sends crypto manually, then marks complete ──
+    if (txn.provider === "crypto_sell") {
+      const txHash = typeof body.txHash === "string" ? body.txHash.trim() : undefined;
+      await db.transaction.update({
+        where: { id },
+        data: {
+          status:   TransactionStatus.COMPLETED,
+          metadata: { ...(meta ?? {}), txHash, approvedAt: new Date().toISOString() },
+        },
+      });
+      await db.notification.create({
+        data: {
+          userId: txn.userId,
+          type:   "crypto_sell",
+          title:  `${(meta?.crypto as string) ?? "Crypto"} sent`,
+          body:   `≈ ${(meta?.cryptoAmount as number) ?? ""} ${(meta?.crypto as string) ?? ""} sent for your KSh ${Number(txn.amount).toLocaleString()} sale.`,
+          link:   "/wallet",
+        },
+      });
+      return Response.json({ ok: true, status: "completed" });
+    }
+
     const msisdn  = meta?.msisdn as string | undefined;
     const payout  = meta?.payout as number | undefined;
     const amount  = Number(txn.amount);
