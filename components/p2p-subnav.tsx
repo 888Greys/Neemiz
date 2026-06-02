@@ -7,6 +7,7 @@ import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 
 const TABS = [
   { href: "/p2p",          label: "Browse",          icon: "storefront" },
+  { href: "/p2p/express",  label: "Express",         icon: "bolt" },
   { href: "/p2p/orders",   label: "My Orders",       icon: "receipt_long" },
   { href: "/p2p/merchant", label: "Merchant Center",  icon: "verified_user" },
 ];
