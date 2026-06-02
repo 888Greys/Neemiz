@@ -42,6 +42,11 @@ interface Ad {
 
 const fmtPm = (m: string) => paymentMethodLabel(m);
 
+// Real flag image (flag emoji doesn't render on Windows). The first two letters
+// of every supported ISO-4217 code happen to be the ISO-3166 country (EUR→eu).
+const flagUrl = (currencyCode: string) =>
+  `https://flagcdn.com/w40/${currencyCode.slice(0, 2).toLowerCase()}.png`;
+
 // ─── Order Modal ──────────────────────────────────────────────────────────────
 
 function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
@@ -278,12 +283,12 @@ function FiatSelect({ value, onChange }: { value: string; onChange: (code: strin
         aria-label="Currency"
         className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] pl-2 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"
       >
-        <span className="text-sm leading-none">{current.flag}</span>
+        <img src={flagUrl(current.code)} alt="" className="h-4 w-[22px] rounded-sm object-cover" />
         {current.code}
         <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 max-h-72 w-60 overflow-y-auto rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60 [scrollbar-width:thin]">
+        <div className="absolute right-0 top-[calc(100%+6px)] z-50 max-h-72 w-60 overflow-y-auto rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60 [scrollbar-width:thin]">
           {FIAT_CURRENCIES.map((f) => (
             <button
               key={f.code}
@@ -293,7 +298,7 @@ function FiatSelect({ value, onChange }: { value: string; onChange: (code: strin
                 f.code === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"
               }`}
             >
-              <span className="text-base leading-none">{f.flag}</span>
+              <img src={flagUrl(f.code)} alt="" className="h-5 w-[26px] shrink-0 rounded-sm object-cover" />
               <span className="text-xs font-black text-white">{f.code}</span>
               <span className="truncate text-[11px] font-semibold text-slate-500">{f.name}</span>
               {f.code === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
@@ -327,7 +332,7 @@ function CryptoSelect({ value, onChange }: { value: string; onChange: (c: string
         <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
+        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
           {CRYPTOS.map((c) => (
             <button
               key={c}
@@ -370,7 +375,7 @@ function PaymentSelect({ value, fiat, onChange }: { value: string; fiat: string;
         <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 max-h-72 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60 [scrollbar-width:thin]">
+        <div className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-72 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60 [scrollbar-width:thin]">
           {options.map((o) => (
             <button
               key={o.value || "all"}
@@ -673,12 +678,14 @@ function AdSkeleton() {
 
 const CRYPTO_ICONS: Record<string, string> = {
   USDT:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
+  USDC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
   BTC:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
   ETH:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
   BNB:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
 };
 
-const CRYPTOS   = ["USDT", "BTC", "ETH", "BNB"];
+// All cryptos supported for P2P (must match the ads API's VALID_CRYPTOS).
+const CRYPTOS   = ["USDT", "USDC", "BTC", "ETH", "BNB"];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
