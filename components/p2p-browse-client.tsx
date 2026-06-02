@@ -273,7 +273,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
 
 // ─── Currency picker (searchable modal) ────────────────────────────────────────
 
-function FiatSelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+function FiatSelect({ value, onChange, inline = false }: { value: string; onChange: (code: string) => void; inline?: boolean }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const current = FIAT_CURRENCIES.find((f) => f.code === value) ?? FIAT_CURRENCIES[0];
@@ -291,10 +291,12 @@ function FiatSelect({ value, onChange }: { value: string; onChange: (code: strin
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Currency"
-        className="flex h-8 shrink-0 items-center gap-1 rounded-md border border-white/[0.07] bg-white/[0.04] pl-2.5 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"
+        className={inline
+          ? "flex shrink-0 items-center gap-0.5 rounded bg-white/[0.06] py-0.5 pl-1.5 pr-1 text-[10px] font-black text-slate-200 transition-colors hover:bg-white/[0.12]"
+          : "flex h-8 shrink-0 items-center gap-1 rounded-md border border-white/[0.07] bg-white/[0.04] pl-2.5 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"}
       >
         {current.code}
-        <Icon name="expand_more" className="text-base text-slate-400" />
+        <Icon name="expand_more" className={inline ? "text-[14px] text-slate-400" : "text-base text-slate-400"} />
       </button>
 
       {open && (
@@ -947,16 +949,12 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
                     <Icon name="close" className="text-[14px]" />
                   </button>
                 )}
-                <span className="shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-black text-slate-400">{fiat}</span>
+                {/* Currency filter — sits as the amount suffix */}
+                <FiatSelect value={fiat} onChange={setFiat} inline />
               </div>
 
               {/* Payment dropdown */}
               <PaymentSelect value={payment} fiat={fiat} onChange={setPayment} />
-
-              {/* Right cluster */}
-              <div className="flex items-center gap-1.5 sm:ml-auto">
-                <FiatSelect value={fiat} onChange={setFiat} />
-              </div>
             </div>
           </div>
         </div>
