@@ -7,21 +7,53 @@ export interface FiatCurrency {
   code: string;   // ISO 4217, e.g. "KES" — also what we store on P2PAd.fiat
   symbol: string; // display symbol, e.g. "KSh"
   name: string;   // human name
-  flag: string;   // emoji flag for selectors
   locale: string; // BCP-47 locale for number grouping
+  flag?: string;  // (optional) emoji — UI renders real flag images by code instead
 }
 
+// Popular world currencies. Flags are rendered from the code (first two letters
+// = ISO-3166 country) so no per-entry emoji is needed.
 export const FIAT_CURRENCIES: FiatCurrency[] = [
-  { code: "KES", symbol: "KSh", name: "Kenyan Shilling",     flag: "🇰🇪", locale: "en-KE" },
-  { code: "NGN", symbol: "₦",   name: "Nigerian Naira",      flag: "🇳🇬", locale: "en-NG" },
-  { code: "GHS", symbol: "GH₵", name: "Ghanaian Cedi",       flag: "🇬🇭", locale: "en-GH" },
-  { code: "ZAR", symbol: "R",   name: "South African Rand",  flag: "🇿🇦", locale: "en-ZA" },
-  { code: "TZS", symbol: "TSh", name: "Tanzanian Shilling",  flag: "🇹🇿", locale: "en-TZ" },
-  { code: "UGX", symbol: "USh", name: "Ugandan Shilling",    flag: "🇺🇬", locale: "en-UG" },
-  { code: "USD", symbol: "$",   name: "US Dollar",           flag: "🇺🇸", locale: "en-US" },
-  { code: "EUR", symbol: "€",   name: "Euro",                flag: "🇪🇺", locale: "en-IE" },
-  { code: "GBP", symbol: "£",   name: "British Pound",       flag: "🇬🇧", locale: "en-GB" },
-  { code: "INR", symbol: "₹",   name: "Indian Rupee",        flag: "🇮🇳", locale: "en-IN" },
+  { code: "KES", symbol: "KSh", name: "Kenyan Shilling",      locale: "en-KE" },
+  { code: "NGN", symbol: "₦",   name: "Nigerian Naira",       locale: "en-NG" },
+  { code: "GHS", symbol: "GH₵", name: "Ghanaian Cedi",        locale: "en-GH" },
+  { code: "ZAR", symbol: "R",   name: "South African Rand",   locale: "en-ZA" },
+  { code: "TZS", symbol: "TSh", name: "Tanzanian Shilling",   locale: "en-TZ" },
+  { code: "UGX", symbol: "USh", name: "Ugandan Shilling",     locale: "en-UG" },
+  { code: "USD", symbol: "$",   name: "US Dollar",            locale: "en-US" },
+  { code: "EUR", symbol: "€",   name: "Euro",                 locale: "en-IE" },
+  { code: "GBP", symbol: "£",   name: "British Pound",        locale: "en-GB" },
+  { code: "INR", symbol: "₹",   name: "Indian Rupee",         locale: "en-IN" },
+  { code: "JPY", symbol: "¥",   name: "Japanese Yen",         locale: "ja-JP" },
+  { code: "CNY", symbol: "¥",   name: "Chinese Yuan",         locale: "zh-CN" },
+  { code: "AED", symbol: "د.إ", name: "UAE Dirham",           locale: "en-AE" },
+  { code: "SAR", symbol: "﷼",   name: "Saudi Riyal",          locale: "en-SA" },
+  { code: "EGP", symbol: "E£",  name: "Egyptian Pound",       locale: "en-EG" },
+  { code: "MAD", symbol: "DH",  name: "Moroccan Dirham",      locale: "fr-MA" },
+  { code: "AUD", symbol: "A$",  name: "Australian Dollar",    locale: "en-AU" },
+  { code: "CAD", symbol: "C$",  name: "Canadian Dollar",      locale: "en-CA" },
+  { code: "CHF", symbol: "CHF", name: "Swiss Franc",          locale: "de-CH" },
+  { code: "BRL", symbol: "R$",  name: "Brazilian Real",       locale: "pt-BR" },
+  { code: "MXN", symbol: "MX$", name: "Mexican Peso",         locale: "es-MX" },
+  { code: "RUB", symbol: "₽",   name: "Russian Ruble",        locale: "ru-RU" },
+  { code: "TRY", symbol: "₺",   name: "Turkish Lira",         locale: "tr-TR" },
+  { code: "SGD", symbol: "S$",  name: "Singapore Dollar",     locale: "en-SG" },
+  { code: "HKD", symbol: "HK$", name: "Hong Kong Dollar",     locale: "en-HK" },
+  { code: "NZD", symbol: "NZ$", name: "New Zealand Dollar",   locale: "en-NZ" },
+  { code: "SEK", symbol: "kr",  name: "Swedish Krona",        locale: "sv-SE" },
+  { code: "NOK", symbol: "kr",  name: "Norwegian Krone",      locale: "nb-NO" },
+  { code: "DKK", symbol: "kr",  name: "Danish Krone",         locale: "da-DK" },
+  { code: "PLN", symbol: "zł",  name: "Polish Zloty",         locale: "pl-PL" },
+  { code: "THB", symbol: "฿",   name: "Thai Baht",            locale: "th-TH" },
+  { code: "IDR", symbol: "Rp",  name: "Indonesian Rupiah",    locale: "id-ID" },
+  { code: "MYR", symbol: "RM",  name: "Malaysian Ringgit",    locale: "ms-MY" },
+  { code: "PHP", symbol: "₱",   name: "Philippine Peso",      locale: "en-PH" },
+  { code: "VND", symbol: "₫",   name: "Vietnamese Dong",      locale: "vi-VN" },
+  { code: "KRW", symbol: "₩",   name: "South Korean Won",     locale: "ko-KR" },
+  { code: "PKR", symbol: "Rs",  name: "Pakistani Rupee",      locale: "en-PK" },
+  { code: "BDT", symbol: "৳",   name: "Bangladeshi Taka",     locale: "bn-BD" },
+  { code: "ARS", symbol: "AR$", name: "Argentine Peso",       locale: "es-AR" },
+  { code: "COP", symbol: "COL$",name: "Colombian Peso",       locale: "es-CO" },
 ];
 
 export const DEFAULT_FIAT = "KES";

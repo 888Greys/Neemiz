@@ -948,7 +948,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               }}
               className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm font-bold text-white outline-none transition-colors focus:border-[#087cff]/40">
               {FIAT_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code} style={{ background: "#1a1b22", color: "#fff" }}>{c.flag} {c.code} — {c.name}</option>
+                <option key={c.code} value={c.code} style={{ background: "#1a1b22", color: "#fff" }}>{c.code} — {c.name}</option>
               ))}
             </select>
           </div>
