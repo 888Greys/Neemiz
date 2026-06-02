@@ -467,8 +467,12 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
           </span>
           <span className="text-[12px] font-bold text-white/45">{ad.fiat}</span>
           {Math.abs(marginPct) >= 0.1 && (
-            <span className={`rounded px-1.5 py-0.5 text-[10px] font-black ${marginPct > 0 ? "bg-amber-500/12 text-amber-400" : "bg-[#05b957]/12 text-[#05b957]"}`}>
-              {marginPct > 0 ? "+" : ""}{marginPct.toFixed(1)}%
+            <span
+              title="Price vs live market rate"
+              className={`inline-flex items-center text-[11px] font-bold leading-none ${marginPct > 0 ? "text-amber-400/90" : "text-[#05b957]"}`}
+            >
+              <Icon name={marginPct > 0 ? "arrow_drop_up" : "arrow_drop_down"} className="-mr-0.5 text-[14px]" />
+              {Math.abs(marginPct).toFixed(1)}%
             </span>
           )}
         </div>
