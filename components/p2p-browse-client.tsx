@@ -416,17 +416,21 @@ const CRYPTO_COLOR: Record<string, string> = {
   BNB:  "#f0b90b",
 };
 
-function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; isSignedIn: boolean }) {
+const AD_COLS = "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_120px]";
+const AD_GRID = `lg:grid ${AD_COLS} lg:items-center lg:gap-4`;
+
+function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) => void; isSignedIn: boolean; marketRef: number }) {
   const isMerchantSelling = ad.side === "SELL";
   const color   = CRYPTO_COLOR[ad.crypto] ?? "#087cff";
   const actionLabel = isMerchantSelling ? "Buy" : "Sell";
+  const marginPct = marketRef > 0 ? ((ad.pricePerUnit / marketRef) - 1) * 100 : 0;
   const openOrder = () => {
     if (!isSignedIn) { toast.error("Please sign in to trade"); return; }
     onBuy(ad);
   };
 
   return (
-    <div className="border-b border-white/[0.06] px-3 py-3.5 transition-colors last:border-b-0 hover:bg-white/[0.02] sm:px-4 lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.2fr)_128px] lg:items-center lg:gap-4 lg:py-3">
+    <div className={`border-b border-white/[0.06] px-3 py-3.5 transition-colors last:border-b-0 hover:bg-white/[0.02] sm:px-4 lg:py-3 ${AD_GRID}`}>
       {/* ── Advertiser ── */}
       <div className="flex min-w-0 items-center gap-2.5">
         <div className="relative shrink-0">
@@ -453,22 +457,28 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
         </div>
       </div>
 
-      {/* ── Price + limits ── */}
+      {/* ── Price + margin + limits ── */}
       <div className="mt-3 lg:mt-0">
         <p className="lg:hidden text-[10px] font-bold uppercase tracking-wide text-white/35">Price</p>
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[20px] font-black leading-none text-white tabular-nums lg:text-[18px]">
             {formatFiat(ad.pricePerUnit, ad.fiat, { symbol: false, decimals: 2 })}
           </span>
           <span className="text-[12px] font-bold text-white/45">{ad.fiat}</span>
+          {Math.abs(marginPct) >= 0.1 && (
+            <span className={`rounded px-1.5 py-0.5 text-[10px] font-black ${marginPct > 0 ? "bg-amber-500/12 text-amber-400" : "bg-[#05b957]/12 text-[#05b957]"}`}>
+              {marginPct > 0 ? "+" : ""}{marginPct.toFixed(1)}%
+            </span>
+          )}
         </div>
         <p className="mt-1 text-[11px] font-semibold text-white/40">
           Limits <span className="text-white/65">{formatFiat(ad.minLimit, ad.fiat, { symbol: false })} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</span>
         </p>
       </div>
 
-      {/* ── Payment + available ── */}
+      {/* ── Payment ── */}
       <div className="mt-3 lg:mt-0">
+        <p className="lg:hidden text-[10px] font-bold uppercase tracking-wide text-white/35">Payment</p>
         <div className="flex flex-wrap items-center gap-1.5">
           {ad.paymentMethods.slice(0, 3).map((m) => (
             <span key={m} className="flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-1 text-[11px] font-semibold text-white/70">
@@ -477,8 +487,13 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
             </span>
           ))}
         </div>
-        <p className="mt-1.5 text-[11px] font-semibold text-white/40">
-          Available <span className="text-white/65">{ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })} {ad.crypto}</span>
+      </div>
+
+      {/* ── Available ── */}
+      <div className="mt-3 lg:mt-0">
+        <p className="lg:hidden text-[10px] font-bold uppercase tracking-wide text-white/35">Available</p>
+        <p className="text-[13px] font-bold text-white/80 tabular-nums">
+          {ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })} <span className="text-white/45">{ad.crypto}</span>
         </p>
       </div>
 
@@ -494,6 +509,61 @@ function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; is
           {actionLabel} {ad.crypto}
         </button>
       </div>
+    </div>
+  );
+}
+
+// ─── Direct-buy promo banner ───────────────────────────────────────────────────
+
+function DirectBuyBanner() {
+  return (
+    <div className="relative flex items-center justify-between gap-4 overflow-hidden rounded-xl border border-[#05b957]/20 bg-gradient-to-r from-[#0c2a1d] via-[#0e1a16] to-[#0e0e14] px-4 py-4 sm:px-5">
+      <div className="min-w-0">
+        <p className="text-base font-black text-white sm:text-lg">Need crypto <span className="text-[#05b957]">right now?</span></p>
+        <p className="mt-0.5 text-[11px] font-semibold text-slate-400 sm:text-xs">No time to chat? Top up instantly with M-Pesa or crypto.</p>
+      </div>
+      <Link
+        href="/wallet"
+        className="shrink-0 rounded-lg bg-[#05b957] px-4 py-2.5 text-[13px] font-black text-white transition hover:bg-[#06d169] active:scale-[0.98]"
+      >
+        Direct buy
+      </Link>
+    </div>
+  );
+}
+
+// ─── Offers table (one section: promoted or other) ─────────────────────────────
+
+function OffersTable({
+  title, ads, marketRef, onBuy, isSignedIn, promoted = false,
+}: {
+  title: string;
+  ads: Ad[];
+  marketRef: number;
+  onBuy: (ad: Ad) => void;
+  isSignedIn: boolean;
+  promoted?: boolean;
+}) {
+  if (ads.length === 0) return null;
+  return (
+    <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-[#0e0e14]">
+      <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-2.5">
+        <span className="flex items-center gap-1.5 text-[12px] font-black text-white">
+          {promoted && <Icon name="bolt" fill className="text-[13px] text-[#f59e0b]" />}
+          {title} <span className="text-white/40">({ads.length})</span>
+        </span>
+      </div>
+      {/* Column header — desktop only */}
+      <div className={`hidden border-b border-white/[0.05] px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white/30 lg:grid lg:gap-4 ${AD_COLS}`}>
+        <span>Advertiser</span>
+        <span>Price</span>
+        <span>Payment</span>
+        <span>Available</span>
+        <span className="text-right">Trade</span>
+      </div>
+      {ads.map((ad) => (
+        <AdCard key={ad.id} ad={ad} onBuy={onBuy} isSignedIn={isSignedIn} marketRef={marketRef} />
+      ))}
     </div>
   );
 }
@@ -711,6 +781,25 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   useEffect(() => { fetchAds(); }, [fetchAds]);
 
+  // Reference price = median of loaded offers (self-contained "market" proxy
+  // for the per-offer margin badge + the headline rate line).
+  const marketRef = (() => {
+    const prices = ads.map((a) => a.pricePerUnit).filter((p) => p > 0).sort((a, b) => a - b);
+    if (!prices.length) return 0;
+    const mid = Math.floor(prices.length / 2);
+    return prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
+  })();
+
+  // Promote the most active online merchants (heuristic until a paid-feature flag exists).
+  const promoted = [...ads]
+    .sort((a, b) =>
+      (Number(b.merchant.isOnline) - Number(a.merchant.isOnline)) ||
+      (b.merchant.completedTrades - a.merchant.completedTrades),
+    )
+    .slice(0, Math.min(2, ads.length));
+  const promotedIds = new Set(promoted.map((a) => a.id));
+  const otherAds = ads.filter((a) => !promotedIds.has(a.id));
+
   return (
     <>
       {selectedAd && <OrderModal ad={selectedAd} onClose={() => setSelectedAd(null)} />}
@@ -725,10 +814,18 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <div className="mb-2 flex min-w-0 items-center justify-between gap-3 lg:mb-1.5">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">Nezeem P2P</p>
-                <h1 className="text-lg font-black leading-tight text-white">Local crypto exchange</h1>
-                <p className="max-w-md text-xs font-semibold leading-5 text-slate-500 lg:leading-4">
-                  Verified merchants, local payments, escrow-protected orders.
-                </p>
+                <h1 className="text-lg font-black leading-tight text-white">{tab === "BUY" ? "Buy" : "Sell"} {crypto}</h1>
+                {marketRef > 0 ? (
+                  <p className="mt-0.5 flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                    <img src={CRYPTO_ICONS[crypto]} alt={crypto} width={14} height={14} className="h-3.5 w-3.5 rounded-full" />
+                    1 {crypto} ≈ <span className="text-white">{formatFiat(marketRef, fiat)}</span>
+                    <span className="hidden text-slate-600 sm:inline">· median market price</span>
+                  </p>
+                ) : (
+                  <p className="max-w-md text-xs font-semibold leading-5 text-slate-500 lg:leading-4">
+                    Verified merchants, local payments, escrow-protected orders.
+                  </p>
+                )}
               </div>
               <div className="hidden shrink-0 items-center gap-2 text-xs text-slate-500 sm:flex">
                 <span className="flex items-center gap-1.5 rounded-full bg-[#05b957]/10 px-2.5 py-1 text-[#05b957]">
@@ -817,31 +914,17 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
         </div>
 
         {/* Offers */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           {loading ? (
             <AdSkeleton />
           ) : ads.length === 0 ? (
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-[#0e0e14]">
-              {/* Section header */}
-              <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-2.5">
-                <span className="text-[12px] font-black text-white">
-                  {tab === "BUY" ? "Buy" : "Sell"} offers <span className="text-white/40">({ads.length})</span>
-                </span>
-                <span className="text-[11px] font-semibold text-white/35">{ads.length} merchants</span>
-              </div>
-              {/* Column header — desktop only */}
-              <div className="hidden border-b border-white/[0.05] px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white/30 lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.2fr)_128px] lg:gap-4">
-                <span>Advertiser</span>
-                <span>Price</span>
-                <span>Limits / Payment</span>
-                <span className="text-right">Trade</span>
-              </div>
-              {ads.map((ad) => (
-                <AdCard key={ad.id} ad={ad} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
-              ))}
-            </div>
+            <>
+              <OffersTable title="Promoted offers" ads={promoted} marketRef={marketRef} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} promoted />
+              <DirectBuyBanner />
+              <OffersTable title="Other offers" ads={otherAds} marketRef={marketRef} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
+            </>
           )}
 
           {ads.length > 0 && <MerchantPromoBanner isSignedIn={!!isSignedIn} />}
