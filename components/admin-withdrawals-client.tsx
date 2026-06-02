@@ -21,6 +21,7 @@ export function AdminWithdrawalsClient() {
   const [items, setItems]       = useState<PendingWithdrawal[]>([]);
   const [loading, setLoading]   = useState(true);
   const [acting, setActing]     = useState<string | null>(null);
+  const [txHashes, setTxHashes] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,13 +35,13 @@ export function AdminWithdrawalsClient() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function act(id: string, action: "approve" | "reject") {
+  async function act(id: string, action: "approve" | "reject", txHash?: string) {
     setActing(id);
     try {
       const res = await fetch(`/api/admin/withdrawals/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, ...(txHash ? { txHash } : {}) }),
       });
       if (res.ok) setItems((prev) => prev.filter((w) => w.id !== id));
     } finally {
@@ -132,9 +133,19 @@ export function AdminWithdrawalsClient() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex gap-3">
+                {isSell && (
+                  <input
+                    type="text"
+                    value={txHashes[w.id] ?? ""}
+                    onChange={(e) => setTxHashes((prev) => ({ ...prev, [w.id]: e.target.value }))}
+                    placeholder="On-chain tx hash (optional)"
+                    className="mt-4 w-full rounded-xl bg-white/[0.03] px-3 py-2.5 font-mono text-[12px] text-white outline-none ring-1 ring-white/[0.08] transition focus:ring-violet-500/40 placeholder:font-sans placeholder:text-slate-600"
+                  />
+                )}
+
+                <div className="mt-3 flex gap-3">
                   <button
-                    onClick={() => act(w.id, "approve")}
+                    onClick={() => act(w.id, "approve", isSell ? txHashes[w.id]?.trim() : undefined)}
                     disabled={acting === w.id}
                     className="flex-1 rounded-xl bg-emerald-500/10 py-2.5 text-sm font-black text-emerald-400 hover:bg-emerald-500/20 transition disabled:opacity-50"
                   >
