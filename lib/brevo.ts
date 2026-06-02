@@ -293,11 +293,13 @@ export async function sendAdCreatedEmail(
     merchantName,
     `Your ${isSell ? "Sell" : "Buy"} ${crypto} Ad is Live`,
     emailWrapper(`
-      <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:${sideColor};text-transform:uppercase;letter-spacing:1px;">${isSell ? "Sell" : "Buy"} Ad</p>
-      <h2 style="margin:0 0 16px;font-size:22px;font-weight:800;color:#1a1a2e;">Ad Created Successfully</h2>
-      <p style="margin:0 0 24px;font-size:15px;color:#4a5568;line-height:1.7;">
-        Your <strong>${isSell ? "Sell" : "Buy"} ${crypto}</strong> ad is now live on Nezeem P2P and visible to traders.
-      </p>
+      <div style="text-align:center;padding-bottom:28px;border-bottom:1px solid #f0f2f5;margin-bottom:28px;">
+        <div style="display:inline-block;width:56px;height:56px;background:#e6f9ee;border-radius:50%;line-height:56px;text-align:center;font-size:26px;margin-bottom:16px;">✓</div>
+        <h2 style="margin:0 0 10px;font-size:24px;font-weight:800;color:#1a1a2e;">Ad Created Successfully</h2>
+        <p style="margin:0;font-size:15px;color:#4a5568;line-height:1.7;">
+          Your <strong style="color:${sideColor};">${isSell ? "Sell" : "Buy"} ${crypto}</strong> ad is now live on Nezeem P2P and visible to traders.
+        </p>
+      </div>
 
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;border-radius:12px;margin-bottom:28px;">
         <tr><td style="padding:4px 24px;">
@@ -309,7 +311,7 @@ export async function sendAdCreatedEmail(
         </td></tr>
       </table>
 
-      ${ctaButton(`${APP_URL}/p2p/merchant`, "View Merchant Center →")}
+      ${ctaButton(`${APP_URL}/p2p/merchant`, "View Merchant Center →", "#05b957")}
     `)
   );
 }
