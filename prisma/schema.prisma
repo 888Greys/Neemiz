@@ -237,6 +237,7 @@ model P2PAd {
   terms           String?
 
   isActive        Boolean         @default(true) @map("is_active")
+  featured        Boolean         @default(false) // promoted/paid placement
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
 
