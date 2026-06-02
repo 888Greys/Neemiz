@@ -456,24 +456,24 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
   };
 
   return (
-    <div className={`border-b border-white/[0.06] px-3 py-3.5 transition-colors last:border-b-0 hover:bg-white/[0.02] sm:px-4 lg:py-3 ${AD_GRID}`}>
+    <div className={`border-b border-white/[0.06] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.02] sm:px-4 lg:py-2 ${AD_GRID}`}>
       {/* ── Advertiser ── */}
-      <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex min-w-0 items-center gap-2">
         <div className="relative shrink-0">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-black text-black" style={{ backgroundColor: color }}>
+          <div className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black text-black" style={{ backgroundColor: color }}>
             {ad.merchant.displayName.charAt(0).toUpperCase()}
           </div>
           {ad.merchant.isOnline && (
-            <span className="absolute -bottom-0 -right-0 h-2.5 w-2.5 rounded-full border-2 border-[#0e0e14] bg-[#05b957]" />
+            <span className="absolute -bottom-0 -right-0 h-2 w-2 rounded-full border-2 border-[#0e0e14] bg-[#05b957]" />
           )}
         </div>
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate text-[13px] font-black text-white">{ad.merchant.displayName}</span>
-            <Icon name="verified" className="shrink-0 text-[13px] text-[#05b957]" />
+          <div className="flex items-center gap-1">
+            <span className="truncate text-[12px] font-black text-white">{ad.merchant.displayName}</span>
+            <Icon name="verified" className="shrink-0 text-[12px] text-[#05b957]" />
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] font-semibold text-white/45">
-            <span className="flex items-center gap-1"><Icon name="thumb_up" className="text-[11px] text-[#05b957]" />{ad.merchant.completionRate.toFixed(0)}%</span>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-white/45">
+            <span className="flex items-center gap-0.5"><Icon name="thumb_up" className="text-[10px] text-[#05b957]" />{ad.merchant.completionRate.toFixed(0)}%</span>
             <span>{ad.merchant.completedTrades} trades</span>
             <span className="flex items-center gap-1">
               <span className={`h-1.5 w-1.5 rounded-full ${ad.merchant.isOnline ? "bg-[#05b957]" : "bg-slate-600"}`} />
@@ -484,44 +484,44 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
       </div>
 
       {/* ── Price + margin + limits ── */}
-      <div className="mt-3 lg:mt-0">
-        <p className="lg:hidden text-[10px] font-bold uppercase tracking-wide text-white/35">Price</p>
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="mt-2 lg:mt-0">
+        <p className="lg:hidden text-[9px] font-bold uppercase tracking-wide text-white/35">Price</p>
+        <div className="flex flex-wrap items-center gap-1">
           {CRYPTO_ICONS[ad.crypto] && (
-            <img src={CRYPTO_ICONS[ad.crypto]} alt={ad.crypto} width={18} height={18} className="h-[18px] w-[18px] shrink-0 rounded-full" />
+            <img src={CRYPTO_ICONS[ad.crypto]} alt={ad.crypto} width={14} height={14} className="h-[14px] w-[14px] shrink-0 rounded-full" />
           )}
-          <span className="text-[20px] font-black leading-none text-white tabular-nums lg:text-[18px]">
+          <span className="text-[15px] font-black leading-none text-white tabular-nums lg:text-[14px]">
             {formatFiat(ad.pricePerUnit, ad.fiat, { symbol: false, decimals: 2 })}
           </span>
-          <span className="text-[12px] font-bold text-white/45">{ad.fiat}</span>
+          <span className="text-[11px] font-bold text-white/45">{ad.fiat}</span>
           {Math.abs(marginPct) >= 0.1 && (
             <span
               title="Price vs live market rate"
-              className={`inline-flex items-center text-[11px] font-bold leading-none ${marginPct > 0 ? "text-amber-400/90" : "text-[#05b957]"}`}
+              className={`inline-flex items-center text-[10px] font-bold leading-none ${marginPct > 0 ? "text-amber-400/90" : "text-[#05b957]"}`}
             >
-              <Icon name={marginPct > 0 ? "arrow_drop_up" : "arrow_drop_down"} className="-mr-0.5 text-[14px]" />
+              <Icon name={marginPct > 0 ? "arrow_drop_up" : "arrow_drop_down"} className="-mr-0.5 text-[13px]" />
               {Math.abs(marginPct).toFixed(1)}%
             </span>
           )}
         </div>
         {isMerchantSelling ? (
-          <p className="mt-1 text-[11px] font-semibold text-white/40">
+          <p className="mt-0.5 text-[10px] font-semibold text-white/40">
             Limits <span className="text-white/65">{formatFiat(ad.minLimit, ad.fiat, { symbol: false })} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</span>
           </p>
         ) : (
-          <p className="mt-1 text-[11px] font-semibold text-white/40">
+          <p className="mt-0.5 text-[10px] font-semibold text-white/40">
             Buying <span className="text-white/65">{ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 4 })} {ad.crypto}</span>
           </p>
         )}
       </div>
 
       {/* ── Payment ── */}
-      <div className="mt-3 lg:mt-0">
-        <p className="lg:hidden text-[10px] font-bold uppercase tracking-wide text-white/35">Payment</p>
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="mt-2 lg:mt-0">
+        <p className="lg:hidden text-[9px] font-bold uppercase tracking-wide text-white/35">Payment</p>
+        <div className="flex flex-wrap items-center gap-1">
           {ad.paymentMethods.slice(0, 3).map((m) => (
-            <span key={m} className="flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-1 text-[11px] font-semibold text-white/70">
-              <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" || m === "AIRTEL" || m === "MTN_MOMO" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
+            <span key={m} className="flex items-center gap-1 rounded bg-white/[0.05] px-1.5 py-0.5 text-[10px] font-semibold text-white/70">
+              <span className={`h-2.5 w-0.5 rounded-full ${m === "MPESA" || m === "AIRTEL" || m === "MTN_MOMO" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
               {fmtPm(m)}
             </span>
           ))}
@@ -529,19 +529,19 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
       </div>
 
       {/* ── Available ── */}
-      <div className="mt-3 lg:mt-0">
-        <p className="lg:hidden text-[10px] font-bold uppercase tracking-wide text-white/35">Available</p>
-        <p className="text-[13px] font-bold text-white/80 tabular-nums">
+      <div className="mt-2 lg:mt-0">
+        <p className="lg:hidden text-[9px] font-bold uppercase tracking-wide text-white/35">Available</p>
+        <p className="text-[11px] font-bold text-white/80 tabular-nums">
           {ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })} <span className="text-white/45">{ad.crypto}</span>
         </p>
       </div>
 
       {/* ── Trade ── */}
-      <div className="mt-3 flex items-center justify-end lg:mt-0">
+      <div className="mt-2 flex items-center justify-end lg:mt-0">
         <button
           type="button"
           onClick={openOrder}
-          className={`flex h-10 w-full items-center justify-center gap-1.5 rounded-lg px-5 text-[13px] font-black text-white transition active:scale-[0.98] lg:w-auto ${
+          className={`flex h-8 w-full items-center justify-center gap-1.5 rounded-lg px-4 text-[12px] font-black text-white transition active:scale-[0.98] lg:w-auto ${
             isMerchantSelling ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-400"
           }`}
         >
@@ -556,14 +556,14 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
 
 function DirectBuyBanner() {
   return (
-    <div className="relative flex items-center justify-between gap-4 overflow-hidden rounded-xl border border-[#05b957]/20 bg-gradient-to-r from-[#0c2a1d] via-[#0e1a16] to-[#0e0e14] px-4 py-4 sm:px-5">
+    <div className="relative flex items-center justify-between gap-4 overflow-hidden rounded-lg border border-[#05b957]/20 bg-gradient-to-r from-[#0c2a1d] via-[#0e1a16] to-[#0e0e14] px-3 py-2.5 sm:px-4">
       <div className="min-w-0">
-        <p className="text-base font-black text-white sm:text-lg">Need crypto <span className="text-[#05b957]">right now?</span></p>
-        <p className="mt-0.5 text-[11px] font-semibold text-slate-400 sm:text-xs">No time to chat? Top up instantly with M-Pesa or crypto.</p>
+        <p className="text-[13px] font-black text-white sm:text-sm">Need crypto <span className="text-[#05b957]">right now?</span></p>
+        <p className="mt-0.5 text-[10px] font-semibold text-slate-400 sm:text-[11px]">No time to chat? Top up instantly with M-Pesa or crypto.</p>
       </div>
       <Link
         href="/wallet"
-        className="shrink-0 rounded-lg bg-[#05b957] px-4 py-2.5 text-[13px] font-black text-white transition hover:bg-[#06d169] active:scale-[0.98]"
+        className="shrink-0 rounded-lg bg-[#05b957] px-3 py-2 text-[12px] font-black text-white transition hover:bg-[#06d169] active:scale-[0.98]"
       >
         Direct buy
       </Link>
@@ -586,9 +586,9 @@ function OffersTable({
   if (ads.length === 0) return null;
   return (
     <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-[#0e0e14]">
-      <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-2.5">
-        <span className="flex items-center gap-1.5 text-[12px] font-black text-white">
-          {promoted && <Icon name="bolt" fill className="text-[13px] text-[#f59e0b]" />}
+      <div className="flex items-center justify-between border-b border-white/[0.07] px-3 py-1.5">
+        <span className="flex items-center gap-1.5 text-[11px] font-black text-white">
+          {promoted && <Icon name="bolt" fill className="text-[12px] text-[#f59e0b]" />}
           {title} <span className="text-white/40">({ads.length})</span>
         </span>
       </div>
@@ -883,7 +883,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <div className="mb-2 flex min-w-0 items-center justify-between gap-3 lg:mb-1.5">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">Nezeem P2P</p>
-                <h1 className="text-lg font-black leading-tight text-white">{tab === "BUY" ? "Buy" : "Sell"} {crypto}</h1>
+                <h1 className="text-[15px] font-black leading-tight text-white">{tab === "BUY" ? "Buy" : "Sell"} {crypto}</h1>
                 {marketRef > 0 ? (
                   <p className="mt-0.5 flex items-center gap-1.5 text-xs font-bold text-slate-400">
                     <img src={CRYPTO_ICONS[crypto]} alt={crypto} width={14} height={14} className="h-3.5 w-3.5 rounded-full" />

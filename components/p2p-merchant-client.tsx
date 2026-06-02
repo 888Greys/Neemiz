@@ -1149,7 +1149,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-4">
+    <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4">
       {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} />}
       {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} />}
 
@@ -1185,7 +1185,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
           </label>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-black text-white">{status.displayName}</h1>
+              <h1 className="text-base font-black text-white">{status.displayName}</h1>
               <div className="flex items-center gap-1 bg-[#05b957]/10 border border-[#05b957]/20 rounded-full px-2 py-0.5">
                 <Icon name="verified" className="text-[#05b957] text-xs" />
                 <span className="text-[#05b957] text-[10px] font-black">Verified</span>
@@ -1229,7 +1229,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                 <p className="text-slate-500 text-xs">Active Ads</p>
                 <Icon name="campaign" className="text-[#087cff] text-sm opacity-60" />
               </div>
-              <p className="text-xl font-black text-[#087cff]">{activeAds.length}</p>
+              <p className="text-lg font-black text-[#087cff]">{activeAds.length}</p>
               <p className="text-slate-600 text-[11px] mt-1">{ads.length} total · {ads.length - activeAds.length} paused</p>
             </div>
 
@@ -1239,7 +1239,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                 <p className="text-slate-500 text-xs">Listed Crypto</p>
                 <Icon name="currency_bitcoin" className="text-[#05b957] text-sm opacity-60" />
               </div>
-              <p className="text-xl font-black text-[#05b957]">{totalAvail.toFixed(4)}</p>
+              <p className="text-lg font-black text-[#05b957]">{totalAvail.toFixed(4)}</p>
               <p className="text-slate-600 text-[11px] mt-1">{totalListed.toFixed(4)} total · {cryptos.join(", ") || "—"}</p>
             </div>
 
@@ -1249,7 +1249,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                 <p className="text-slate-500 text-xs">Est. KES Value</p>
                 <Icon name="payments" className="text-amber-400 text-sm opacity-60" />
               </div>
-              <p className="text-xl font-black text-amber-400">
+              <p className="text-lg font-black text-amber-400">
                 {listedKES >= 1000 ? `${(listedKES/1000).toFixed(1)}K` : listedKES.toFixed(0)}
               </p>
               <p className="text-slate-600 text-[11px] mt-1">
@@ -1310,7 +1310,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
               const dotColor = P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)?.color ?? "#087cff";
               return (
-                <div key={ad.id} className="grid w-full grid-cols-[minmax(0,1fr)_90px] gap-3 rounded-2xl bg-[#16171d] px-3 py-3 ring-1 ring-white/[0.07] transition hover:bg-[#1a1b22] hover:ring-white/[0.14] sm:px-4 lg:grid-cols-[minmax(0,1fr)_120px] lg:items-center lg:gap-4">
+                <div key={ad.id} className="grid w-full grid-cols-[minmax(0,1fr)_90px] gap-3 rounded-lg bg-[#16171d] px-3 py-2.5 ring-1 ring-white/[0.07] transition hover:bg-[#1a1b22] hover:ring-white/[0.14] sm:px-4 lg:grid-cols-[minmax(0,1fr)_120px] lg:items-center lg:gap-4">
                   <div className="min-w-0">
                     {/* Row 1: crypto dot + name + side badge + status */}
                     <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-0">
@@ -1341,7 +1341,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                         <img src={flagUrl(ad.fiat)} alt="" className="h-3.5 w-5 rounded-sm object-cover" />
                         {ad.fiat}
                       </p>
-                      <p className="text-[21px] font-black leading-tight text-white tabular-nums lg:text-lg">
+                      <p className="text-[16px] font-black leading-tight text-white tabular-nums lg:text-base">
                         {formatFiat(Number(ad.pricePerUnit), ad.fiat, { symbol: false, decimals: 2 })}
                       </p>
                     </div>
