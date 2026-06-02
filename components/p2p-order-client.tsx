@@ -282,25 +282,26 @@ function MobileP2POrderView({
   // ── Cancel confirmation screen ────────────────────────────────────────────
   if (showCancelForm) {
     return (
-      <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-[#08080c] px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
-        <div className="mb-6 flex items-center gap-3 border-b border-white/[0.08] pb-3">
+      <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-[#08080c] text-white">
+        {/* Header */}
+        <div className="flex items-center gap-3 border-b border-[#1e1e30] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
             type="button"
             onClick={() => setShowCancelForm(false)}
-            className="grid h-9 w-9 place-items-center rounded-full text-white"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white"
           >
             <Icon name="arrow_back" className="text-[21px]" />
           </button>
-          <h1 className="text-[18px] font-black">Cancel Order</h1>
+          <h1 className="text-sm font-black">Cancel Order</h1>
         </div>
 
-        <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/5 px-4 py-3">
-          <p className="text-[12px] font-bold leading-5 text-red-400">
-            Are you sure you want to cancel this order? This action cannot be undone.
-          </p>
-        </div>
-
-        <div className="mb-6">
+        {/* Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
+          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+            <p className="text-[12px] font-bold leading-5 text-red-400">
+              Are you sure you want to cancel this order? This action cannot be undone.
+            </p>
+          </div>
           <label className="mb-2 block text-[11px] font-bold text-slate-500">Reason for cancellation (optional)</label>
           <textarea
             value={mobileCancelReason}
@@ -311,17 +312,20 @@ function MobileP2POrderView({
           />
         </div>
 
-        <button
-          type="button"
-          disabled={!!actionLoading}
-          onClick={async () => {
-            await onAction("cancel", { reason: mobileCancelReason || null }, "cancel");
-            setShowCancelForm(false);
-          }}
-          className="h-12 w-full rounded-full bg-red-500 text-sm font-black text-white disabled:opacity-50 hover:bg-red-600 transition-colors"
-        >
-          {actionLoading === "cancel" ? "Cancelling…" : "Confirm Cancel"}
-        </button>
+        {/* Footer action */}
+        <div className="border-t border-[#1e1e30] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            disabled={!!actionLoading}
+            onClick={async () => {
+              await onAction("cancel", { reason: mobileCancelReason || null }, "cancel");
+              setShowCancelForm(false);
+            }}
+            className="h-12 w-full rounded-full bg-red-500 text-sm font-black text-white disabled:opacity-50 hover:bg-red-600 transition-colors"
+          >
+            {actionLoading === "cancel" ? "Cancelling…" : "Confirm Cancel"}
+          </button>
+        </div>
       </div>
     );
   }
@@ -329,49 +333,53 @@ function MobileP2POrderView({
   // ── Dispute screen ───────────────────────────────────────────────────────
   if (showDisputeScreen) {
     return (
-      <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-[#08080c] px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
-        <div className="mb-6 flex items-center gap-3 border-b border-white/[0.08] pb-3">
+      <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-[#08080c] text-white">
+        {/* Header */}
+        <div className="flex items-center gap-3 border-b border-[#1e1e30] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
             type="button"
             onClick={() => setShowDisputeScreen(false)}
-            className="grid h-9 w-9 place-items-center rounded-full text-white"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white"
           >
             <Icon name="arrow_back" className="text-[21px]" />
           </button>
-          <h1 className="text-[18px] font-black">Raise a Dispute</h1>
+          <h1 className="text-sm font-black">Raise a Dispute</h1>
         </div>
 
-        <div className="mb-4 rounded-2xl border border-red-500/20 bg-red-500/5 px-4 py-3">
-          <p className="text-[12px] font-bold leading-5 text-red-400">
-            Only raise a dispute if you have paid and the merchant is not responding or refusing to release.
-            Our team will review within 24 hours.
-          </p>
-        </div>
-
-        <div className="mb-6">
+        {/* Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
+          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+            <p className="text-[12px] font-bold leading-5 text-red-400">
+              Only raise a dispute if you have paid and the merchant is not responding or refusing to release.
+              Our team will review within 24 hours.
+            </p>
+          </div>
           <label className="mb-2 block text-[11px] font-bold text-slate-500">Describe the issue</label>
           <textarea
             value={mobileDisputeReason}
             onChange={(e) => setMobileDisputeReason(e.target.value)}
             placeholder="e.g. I paid KSh 5,000 via M-Pesa (ref: QHJ2K3L) 30 minutes ago but merchant has not released…"
-            rows={5}
+            rows={6}
             className="w-full rounded-xl border border-white/[0.08] bg-[#16161f] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-700 resize-none"
           />
         </div>
 
-        <button
-          type="button"
-          disabled={!mobileDisputeReason.trim() || !!actionLoading}
-          onClick={async () => {
-            if (!mobileDisputeReason.trim()) return;
-            await onAction("dispute", { reason: mobileDisputeReason.trim() }, "dispute");
-            setShowDisputeScreen(false);
-            setMobileDisputeReason("");
-          }}
-          className="h-12 w-full rounded-full bg-red-500 text-sm font-black text-white disabled:opacity-50 hover:bg-red-600 transition-colors"
-        >
-          {actionLoading === "dispute" ? "Raising dispute…" : "Submit Dispute"}
-        </button>
+        {/* Footer action */}
+        <div className="border-t border-[#1e1e30] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            disabled={!mobileDisputeReason.trim() || !!actionLoading}
+            onClick={async () => {
+              if (!mobileDisputeReason.trim()) return;
+              await onAction("dispute", { reason: mobileDisputeReason.trim() }, "dispute");
+              setShowDisputeScreen(false);
+              setMobileDisputeReason("");
+            }}
+            className="h-12 w-full rounded-full bg-red-500 text-sm font-black text-white disabled:opacity-50 hover:bg-red-600 transition-colors"
+          >
+            {actionLoading === "dispute" ? "Raising dispute…" : "Submit Dispute"}
+          </button>
+        </div>
       </div>
     );
   }

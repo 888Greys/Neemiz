@@ -916,7 +916,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
       <div className="no-scrollbar w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0e0e14] shadow-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)]" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 flex items-center justify-between rounded-t-2xl border-b border-white/[0.07] bg-[#0e0e14] px-6 py-3">
           <h3 className="text-white font-black text-lg">{isEditing ? "Edit Ad" : "Create New Ad"}</h3>
@@ -1062,7 +1062,10 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             <textarea value={form.terms} onChange={(e) => f("terms", e.target.value)} placeholder="Any specific requirements for buyers…" rows={2}
               className="w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
           </div>
+        </div>
 
+        {/* Pinned action bar — always visible above the bottom nav */}
+        <div className="sticky bottom-0 border-t border-white/[0.07] bg-[#0e0e14] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <button onClick={submit} disabled={submitting}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] py-3 font-black text-white shadow-lg shadow-[#087cff]/20 transition-all hover:bg-[#0570e8] active:scale-[0.98] disabled:opacity-50">
             {submitting
