@@ -419,92 +419,82 @@ const CRYPTO_COLOR: Record<string, string> = {
 function AdCard({ ad, onBuy, isSignedIn }: { ad: Ad; onBuy: (ad: Ad) => void; isSignedIn: boolean }) {
   const isMerchantSelling = ad.side === "SELL";
   const color   = CRYPTO_COLOR[ad.crypto] ?? "#087cff";
+  const actionLabel = isMerchantSelling ? "Buy" : "Sell";
   const openOrder = () => {
-    if (!isSignedIn) {
-      toast.error("Please sign in to trade");
-      return;
-    }
+    if (!isSignedIn) { toast.error("Please sign in to trade"); return; }
     onBuy(ad);
   };
 
   return (
-    <button
-      type="button"
-      onClick={openOrder}
-      className="group grid min-h-[118px] w-full grid-cols-[minmax(0,1fr)_84px] gap-3 rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-3 py-3 text-left transition hover:bg-[#111118] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/60 sm:grid-cols-[minmax(0,1fr)_118px] sm:px-4 lg:min-h-[86px] lg:rounded-lg lg:px-3 lg:py-2"
-    >
-      <div className="min-w-0">
-        <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-1">
-          <div className="relative shrink-0">
-            <div
-              className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black text-black"
-              style={{ backgroundColor: color }}
-            >
-              {ad.merchant.displayName.charAt(0).toUpperCase()}
-            </div>
-            {ad.merchant.isOnline && (
-              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full border border-black bg-[#05b957]" />
-            )}
+    <div className="border-b border-white/[0.06] px-3 py-3.5 transition-colors last:border-b-0 hover:bg-white/[0.02] sm:px-4 lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.2fr)_128px] lg:items-center lg:gap-4 lg:py-3">
+      {/* ── Advertiser ── */}
+      <div className="flex min-w-0 items-center gap-2.5">
+        <div className="relative shrink-0">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-black text-black" style={{ backgroundColor: color }}>
+            {ad.merchant.displayName.charAt(0).toUpperCase()}
           </div>
-          <span className="truncate text-[12px] font-black text-white">{ad.merchant.displayName}</span>
-          <Icon name="verified" className="shrink-0 text-[12px] text-white/55" />
-          <span className="flex shrink-0 items-center gap-0.5 text-[10px] font-semibold text-white/35">
-            <Icon name="schedule" className="text-[11px]" />
-            {ad.merchant.avgReleaseTime || "<1"}m
+          {ad.merchant.isOnline && (
+            <span className="absolute -bottom-0 -right-0 h-2.5 w-2.5 rounded-full border-2 border-[#0e0e14] bg-[#05b957]" />
+          )}
+        </div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-[13px] font-black text-white">{ad.merchant.displayName}</span>
+            <Icon name="verified" className="shrink-0 text-[13px] text-[#05b957]" />
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] font-semibold text-white/45">
+            <span className="flex items-center gap-1"><Icon name="thumb_up" className="text-[11px] text-[#05b957]" />{ad.merchant.completionRate.toFixed(0)}%</span>
+            <span>{ad.merchant.completedTrades} trades</span>
+            <span className="flex items-center gap-1">
+              <span className={`h-1.5 w-1.5 rounded-full ${ad.merchant.isOnline ? "bg-[#05b957]" : "bg-slate-600"}`} />
+              {ad.merchant.isOnline ? "Active" : "Offline"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Price + limits ── */}
+      <div className="mt-3 lg:mt-0">
+        <p className="lg:hidden text-[10px] font-bold uppercase tracking-wide text-white/35">Price</p>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-[20px] font-black leading-none text-white tabular-nums lg:text-[18px]">
+            {formatFiat(ad.pricePerUnit, ad.fiat, { symbol: false, decimals: 2 })}
           </span>
-          <span className={`shrink-0 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[9px] font-black ${
-            isMerchantSelling ? "bg-[#05b957]/12 text-[#05b957]" : "bg-red-500/12 text-red-400"
-          }`}>
-            Fast release
-          </span>
+          <span className="text-[12px] font-bold text-white/45">{ad.fiat}</span>
         </div>
+        <p className="mt-1 text-[11px] font-semibold text-white/40">
+          Limits <span className="text-white/65">{formatFiat(ad.minLimit, ad.fiat, { symbol: false })} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</span>
+        </p>
+      </div>
 
-        <div className="mb-2.5 flex items-start justify-between gap-2 lg:mb-1">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold leading-3 text-white/45">{ad.fiat}</p>
-            <p className="text-[21px] font-black leading-tight text-white tabular-nums lg:text-[19px]">
-              {formatFiat(ad.pricePerUnit, ad.fiat, { symbol: false, decimals: 2 })}
-            </p>
-          </div>
-          <div className="hidden shrink-0 pt-1 text-right text-[10px] font-semibold text-white/35 sm:block">
-            {ad.merchant.completedTrades} Orders ({ad.merchant.completionRate.toFixed(0)}%)
-          </div>
-        </div>
-
-        <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40 lg:flex lg:flex-wrap lg:gap-x-4 lg:space-y-0">
-          <p>
-            Limits <span className="text-white/65">{formatFiat(ad.minLimit, ad.fiat, { symbol: false })} - {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })} {ad.fiat}</span>
-          </p>
-          <p>
-            Quantity <span className="text-white/65">{ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 4 })} {ad.crypto}</span>
-          </p>
-        </div>
-
-        <div className="mt-1.5 flex min-w-0 flex-wrap gap-x-2 gap-y-1 lg:mt-1">
-          {ad.paymentMethods.map((m) => (
-            <span key={m} className="flex items-center gap-1 text-[10px] font-semibold text-white/45">
-              <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
+      {/* ── Payment + available ── */}
+      <div className="mt-3 lg:mt-0">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {ad.paymentMethods.slice(0, 3).map((m) => (
+            <span key={m} className="flex items-center gap-1 rounded-md bg-white/[0.05] px-2 py-1 text-[11px] font-semibold text-white/70">
+              <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" || m === "AIRTEL" || m === "MTN_MOMO" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
               {fmtPm(m)}
             </span>
           ))}
         </div>
+        <p className="mt-1.5 text-[11px] font-semibold text-white/40">
+          Available <span className="text-white/65">{ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })} {ad.crypto}</span>
+        </p>
       </div>
 
-      <div className="flex min-w-0 flex-col items-end justify-center gap-4 lg:gap-2">
-        <span className="text-right text-[10px] font-semibold leading-3 text-white/35 sm:hidden">
-          {ad.merchant.completedTrades} Orders ({ad.merchant.completionRate.toFixed(0)}%)
-        </span>
-        <span
-          className={`grid h-8 w-[72px] place-items-center rounded-full text-[12px] font-black text-white shadow-[0_6px_16px_rgba(5,196,107,0.18)] transition group-active:scale-[0.98] sm:w-[86px] ${
-            isMerchantSelling
-              ? "bg-[#05b957] group-hover:bg-[#06d169]"
-              : "bg-red-500 group-hover:bg-red-400"
+      {/* ── Trade ── */}
+      <div className="mt-3 flex items-center justify-end lg:mt-0">
+        <button
+          type="button"
+          onClick={openOrder}
+          className={`flex h-10 w-full items-center justify-center gap-1.5 rounded-lg px-5 text-[13px] font-black text-white transition active:scale-[0.98] lg:w-auto ${
+            isMerchantSelling ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-400"
           }`}
         >
-          {isMerchantSelling ? "Buy" : "Sell"}
-        </span>
+          {actionLabel} {ad.crypto}
+        </button>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -826,14 +816,28 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
           </div>
         </div>
 
-        {/* Ad grid */}
+        {/* Offers */}
         <div className="space-y-2">
           {loading ? (
             <AdSkeleton />
           ) : ads.length === 0 ? (
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
-            <div className="flex flex-col gap-1.5">
+            <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-[#0e0e14]">
+              {/* Section header */}
+              <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-2.5">
+                <span className="text-[12px] font-black text-white">
+                  {tab === "BUY" ? "Buy" : "Sell"} offers <span className="text-white/40">({ads.length})</span>
+                </span>
+                <span className="text-[11px] font-semibold text-white/35">{ads.length} merchants</span>
+              </div>
+              {/* Column header — desktop only */}
+              <div className="hidden border-b border-white/[0.05] px-4 py-2 text-[10px] font-black uppercase tracking-wider text-white/30 lg:grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1.2fr)_128px] lg:gap-4">
+                <span>Advertiser</span>
+                <span>Price</span>
+                <span>Limits / Payment</span>
+                <span className="text-right">Trade</span>
+              </div>
               {ads.map((ad) => (
                 <AdCard key={ad.id} ad={ad} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
               ))}
