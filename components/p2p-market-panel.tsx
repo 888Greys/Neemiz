@@ -1,152 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface RateEntry {
-  bestBuy:  number | null;
-  bestSell: number | null;
-  buyCount:  number;
-  sellCount: number;
-}
-
-type RateMap = Record<string, RateEntry>;
-
-interface MarketRate {
-  kes:    number;
-  usd:    number;
-  change: number; // 24h % change
-}
-
-type MarketRateMap = Record<string, MarketRate>;
-
-interface Ad {
-  side:         "BUY" | "SELL";
-  crypto:       string;
-  pricePerUnit: number;
-}
-
-const CRYPTOS = ["USDT", "BTC", "ETH", "BNB"] as const;
-type Crypto = typeof CRYPTOS[number];
-
-const CRYPTO_ICONS: Record<string, string> = {
-  USDT: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
-  BTC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
-  ETH:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
-  BNB:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
-};
-
-const COINGECKO_IDS: Record<Crypto, string> = {
-  USDT: "tether",
-  BTC:  "bitcoin",
-  ETH:  "ethereum",
-  BNB:  "binancecoin",
-};
-
-function fmtKes(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString("en-KE");
-}
-
-function fmtChange(c: number): string {
-  return `${c >= 0 ? "+" : ""}${c.toFixed(2)}%`;
-}
-
-// ─── Rates Table ──────────────────────────────────────────────────────────────
-
-function RatesTable({ rates, market, loading }: { rates: RateMap; market: MarketRateMap; loading: boolean }) {
-  return (
-    <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden">
-      <div className="px-4 pt-3 pb-2 flex items-center justify-between">
-        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Best P2P Rates</p>
-        <span className="flex items-center gap-1 text-[10px] text-slate-600">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#05b957] animate-pulse" />
-          Live
-        </span>
-      </div>
-
-      {/* Column headers */}
-      <div className="grid grid-cols-[1fr_1fr_1fr_1fr] px-4 py-1.5 text-[9px] font-black text-slate-700 uppercase tracking-wider border-b border-white/[0.04]">
-        <span>Asset</span>
-        <span className="text-slate-600">Market</span>
-        <span className="text-[#05b957]">Buy</span>
-        <span className="text-red-400">Sell</span>
-      </div>
-
-      {loading ? (
-        <div className="space-y-px">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-10 bg-white/[0.02] animate-pulse" style={{ opacity: 1 - i * 0.15 }} />
-          ))}
-        </div>
-      ) : (
-        <div>
-          {CRYPTOS.map((c) => {
-            const r  = rates[c];
-            const mk = market[c];
-            return (
-              <div
-                key={c}
-                className="grid grid-cols-[1fr_1fr_1fr_1fr] px-4 py-2.5 items-center hover:bg-white/[0.03] transition-colors border-b border-white/[0.03] last:border-0"
-              >
-                {/* Asset */}
-                <div className="flex items-center gap-1.5">
-                  <img src={CRYPTO_ICONS[c]} alt={c} width={16} height={16} className="h-4 w-4 rounded-full shrink-0" />
-                  <div>
-                    <p className="text-xs font-black text-white leading-none">{c}</p>
-                    {mk?.change !== undefined && (
-                      <p className={`text-[9px] font-bold leading-none mt-0.5 ${mk.change >= 0 ? "text-[#05b957]" : "text-red-400"}`}>
-                        {fmtChange(mk.change)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Market rate */}
-                <div>
-                  {mk?.kes ? (
-                    <span className="text-[11px] font-bold text-slate-400">
-                      {fmtKes(mk.kes)}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-slate-700">—</span>
-                  )}
-                </div>
-
-                {/* Best P2P buy */}
-                <div>
-                  {r?.bestBuy ? (
-                    <span className="text-[11px] font-bold text-[#05b957]">
-                      {fmtKes(r.bestBuy)}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-slate-700">—</span>
-                  )}
-                </div>
-
-                {/* Best P2P sell */}
-                <div>
-                  {r?.bestSell ? (
-                    <span className="text-[11px] font-bold text-red-400">
-                      {fmtKes(r.bestSell)}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-slate-700">—</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── My Orders ────────────────────────────────────────────────────────────────
 
@@ -388,80 +245,7 @@ function TrustBlock() {
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 export function P2PMarketPanel() {
-  const { user }              = useSupabaseAuth();
-  const [rates, setRates]     = useState<RateMap>({});
-  const [market, setMarket]   = useState<MarketRateMap>({});
-  const [loading, setLoading] = useState(true);
-
-  const fetchMarket = useCallback(async () => {
-    try {
-      const ids = Object.values(COINGECKO_IDS).join(",");
-      const res = await fetch(
-        `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=kes,usd&include_24hr_change=true`,
-        { next: { revalidate: 60 } }
-      );
-      if (!res.ok) return;
-      const data = await res.json();
-
-      const map: MarketRateMap = {};
-      for (const crypto of CRYPTOS) {
-        const id = COINGECKO_IDS[crypto];
-        if (data[id]) {
-          map[crypto] = {
-            kes:    data[id].kes    ?? 0,
-            usd:    data[id].usd    ?? 0,
-            change: data[id].kes_24h_change ?? 0,
-          };
-        }
-      }
-      setMarket(map);
-    } catch {
-      // keep previous market data
-    }
-  }, []);
-
-  const fetchRates = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [buyAds, sellAds] = await Promise.all([
-        fetch("/api/p2p/ads?side=SELL").then((r) => r.json()),
-        fetch("/api/p2p/ads?side=BUY").then((r) => r.json()),
-      ]);
-
-      const all: Ad[] = [
-        ...(Array.isArray(buyAds)  ? buyAds  : []),
-        ...(Array.isArray(sellAds) ? sellAds : []),
-      ];
-
-      const map: RateMap = {};
-      for (const crypto of CRYPTOS) {
-        const sells = all.filter((a) => a.side === "SELL" && a.crypto === crypto);
-        const buys  = all.filter((a) => a.side === "BUY"  && a.crypto === crypto);
-        map[crypto] = {
-          bestBuy:   sells.length ? Math.min(...sells.map((a) => a.pricePerUnit)) : null,
-          bestSell:  buys.length  ? Math.max(...buys.map((a) => a.pricePerUnit))  : null,
-          buyCount:  sells.length,
-          sellCount: buys.length,
-        };
-      }
-      setRates(map);
-    } catch {
-      // keep empty rates
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const refresh = useCallback(() => {
-    fetchRates();
-    fetchMarket();
-  }, [fetchRates, fetchMarket]);
-
-  useEffect(() => {
-    refresh();
-    const interval = setInterval(refresh, 30_000);
-    return () => clearInterval(interval);
-  }, [refresh]);
+  const { user } = useSupabaseAuth();
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto no-scrollbar px-3 py-5">
@@ -470,16 +254,13 @@ export function P2PMarketPanel() {
       <div className="flex items-center justify-between px-1">
         <p className="text-sm font-black text-white">P2P Market</p>
         <button
-          onClick={refresh}
+          onClick={() => window.location.reload()}
           className="p-1.5 rounded-lg text-slate-600 hover:text-white hover:bg-white/[0.06] transition-colors"
           title="Refresh"
         >
           <Icon name="refresh" className="text-base" />
         </button>
       </div>
-
-      {/* Live rates table */}
-      <RatesTable rates={rates} market={market} loading={loading} />
 
       {/* Quick links */}
       <div className="grid grid-cols-2 gap-2">

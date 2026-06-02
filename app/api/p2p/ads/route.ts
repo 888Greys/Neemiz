@@ -99,7 +99,7 @@ export async function POST(req: Request) {
 
     const { side, crypto, fiat, pricePerUnit, totalAmount, minLimit, maxLimit, paymentMethods, paymentWindow, terms } = body;
 
-    if (!side || !crypto || pricePerUnit == null || totalAmount == null || minLimit == null || maxLimit == null || !(paymentMethods as unknown[])?.length) {
+    if (!side || !crypto || pricePerUnit == null || totalAmount == null || !(paymentMethods as unknown[])?.length) {
       return Response.json({ error: "Missing required fields" }, { status: 400 });
     }
     if (!VALID_SIDES.includes(side as AdSide)) {
@@ -109,17 +109,23 @@ export async function POST(req: Request) {
       return Response.json({ error: "Unsupported crypto" }, { status: 400 });
     }
     const fiatCode = typeof fiat === "string" && VALID_FIATS.has(fiat) ? fiat : DEFAULT_FIAT;
+    if (side === "SELL" && (minLimit == null || maxLimit == null)) {
+      return Response.json({ error: "Missing order limits" }, { status: 400 });
+    }
 
     const pricePerUnitNum  = Number(pricePerUnit);
     const totalAmountNum   = Number(totalAmount);
-    const minLimitNum      = Number(minLimit);
-    const maxLimitNum      = Number(maxLimit);
     const paymentWindowNum = Number(paymentWindow ?? 15);
 
     if (!Number.isFinite(pricePerUnitNum) || pricePerUnitNum <= 0)
       return Response.json({ error: "Invalid price per unit" }, { status: 400 });
     if (!Number.isFinite(totalAmountNum) || totalAmountNum <= 0)
       return Response.json({ error: "Invalid total amount" }, { status: 400 });
+
+    const fullOrderLimit = totalAmountNum * pricePerUnitNum;
+    const minLimitNum = side === "SELL" ? Number(minLimit) : fullOrderLimit;
+    const maxLimitNum = side === "SELL" ? Number(maxLimit) : fullOrderLimit;
+
     if (!Number.isFinite(minLimitNum) || minLimitNum <= 0)
       return Response.json({ error: "Invalid minimum limit" }, { status: 400 });
     if (!Number.isFinite(maxLimitNum) || maxLimitNum <= 0 || maxLimitNum < minLimitNum)

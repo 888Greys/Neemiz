@@ -154,7 +154,12 @@ export async function POST(req: Request) {
     }
 
     const fiatAmount = cryptoAmountNum * Number(ad.pricePerUnit);
-    if (fiatAmount < Number(ad.minLimit) || fiatAmount > Number(ad.maxLimit)) {
+    if (ad.side === "BUY" && Math.abs(cryptoAmountNum - Number(ad.availableAmount)) > 0.00000001) {
+      return Response.json({
+        error: `Order must match the requested ${ad.crypto} amount`,
+      }, { status: 400 });
+    }
+    if (ad.side === "SELL" && (fiatAmount < Number(ad.minLimit) || fiatAmount > Number(ad.maxLimit))) {
       return Response.json({
         error: `Order must be between KSh ${ad.minLimit} and KSh ${ad.maxLimit}`,
       }, { status: 400 });

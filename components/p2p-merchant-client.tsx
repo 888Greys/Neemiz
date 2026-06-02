@@ -20,6 +20,9 @@ const P2P_CRYPTOS: Array<{ symbol: string; name: string; icon: string; color: st
   { symbol: "BNB",  name: "BNB",          icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",  color: "#f0b90b" },
 ];
 
+const flagUrl = (currencyCode: string) =>
+  `https://flagcdn.com/w40/${currencyCode.slice(0, 2).toLowerCase()}.png`;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface MerchantStatus {
@@ -870,8 +873,18 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   }
 
   async function submit() {
-    if (!form.pricePerUnit || !form.totalAmount || !form.minLimit || !form.maxLimit || !form.paymentMethods.length)
+    if (
+      !form.pricePerUnit ||
+      !form.totalAmount ||
+      !form.paymentMethods.length ||
+      (form.side === "SELL" && (!form.minLimit || !form.maxLimit))
+    )
       return toast.error("Please fill all required fields");
+
+    const totalFiatValue = Number(form.totalAmount) * Number(form.pricePerUnit);
+    const minLimit = form.side === "SELL" ? Number(form.minLimit) : totalFiatValue;
+    const maxLimit = form.side === "SELL" ? Number(form.maxLimit) : totalFiatValue;
+
     setSubmitting(true);
     try {
       const r = await fetch(isEditing ? "/api/p2p/ads/mine" : "/api/p2p/ads", {
@@ -884,8 +897,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           fiat: form.fiat,
           pricePerUnit: Number(form.pricePerUnit),
           totalAmount: Number(form.totalAmount),
-          minLimit: Number(form.minLimit),
-          maxLimit: Number(form.maxLimit),
+          minLimit,
+          maxLimit,
           paymentMethods: form.paymentMethods,
           paymentWindow: Number(form.paymentWindow),
           terms: form.terms || null,
@@ -973,16 +986,20 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           {/* Fiat currency selector */}
           <div>
             <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Fiat currency</label>
-            <select value={form.fiat} onChange={(e) => {
-                const nextFiat = e.target.value;
-                const allowed = new Set(paymentMethodsForFiat(nextFiat).map((m) => m.value));
-                setForm((p) => ({ ...p, fiat: nextFiat, paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)) }));
-              }}
-              className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm font-bold text-white outline-none transition-colors focus:border-[#087cff]/40">
-              {FIAT_CURRENCIES.map((c) => (
-                <option key={c.code} value={c.code} style={{ background: "#1a1b22", color: "#fff" }}>{c.code} — {c.name}</option>
-              ))}
-            </select>
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={flagUrl(form.fiat)} alt="" className="pointer-events-none absolute left-3 top-1/2 h-4 w-6 -translate-y-1/2 rounded-sm object-cover" />
+              <select value={form.fiat} onChange={(e) => {
+                  const nextFiat = e.target.value;
+                  const allowed = new Set(paymentMethodsForFiat(nextFiat).map((m) => m.value));
+                  setForm((p) => ({ ...p, fiat: nextFiat, paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)) }));
+                }}
+                className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] py-2 pl-12 pr-3 text-sm font-bold text-white outline-none transition-colors focus:border-[#087cff]/40">
+                {FIAT_CURRENCIES.map((c) => (
+                  <option key={c.code} value={c.code} style={{ background: "#1a1b22", color: "#fff" }}>{c.code} - {c.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {[
@@ -1007,15 +1024,17 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
           ))}
 
-          <div className="grid grid-cols-2 gap-3">
-            {[{ label: `Min order (${form.fiat})`, key: "minLimit", ph: "500" }, { label: `Max order (${form.fiat})`, key: "maxLimit", ph: "50000" }].map(({ label, key, ph }) => (
-              <div key={key}>
-                <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">{label}</label>
-                <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
-                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
-              </div>
-            ))}
-          </div>
+          {form.side === "SELL" && (
+            <div className="grid grid-cols-2 gap-3">
+              {[{ label: `Min order (${form.fiat})`, key: "minLimit", ph: "500" }, { label: `Max order (${form.fiat})`, key: "maxLimit", ph: "50000" }].map(({ label, key, ph }) => (
+                <div key={key}>
+                  <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">{label}</label>
+                  <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
+                    className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div>
             <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Payment methods</label>
@@ -1270,7 +1289,11 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
                     {/* Row 2: large price */}
                     <div className="mb-2.5 lg:mb-0">
-                      <p className="text-[10px] font-semibold leading-3 text-white/45">{ad.fiat}</p>
+                      <p className="flex items-center gap-1.5 text-[10px] font-semibold leading-3 text-white/45">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={flagUrl(ad.fiat)} alt="" className="h-3.5 w-5 rounded-sm object-cover" />
+                        {ad.fiat}
+                      </p>
                       <p className="text-[21px] font-black leading-tight text-white tabular-nums lg:text-lg">
                         {formatFiat(Number(ad.pricePerUnit), ad.fiat, { symbol: false, decimals: 2 })}
                       </p>
@@ -1278,8 +1301,10 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
                     {/* Row 3: limits + quantity */}
                     <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40 lg:flex lg:flex-wrap lg:gap-x-4 lg:space-y-0">
-                      <p>Limits <span className="text-white/65">{formatFiat(Number(ad.minLimit), ad.fiat, { symbol: false })} – {formatFiat(Number(ad.maxLimit), ad.fiat, { symbol: false })} {ad.fiat}</span></p>
-                      <p>Quantity <span className="text-white/65">{Number(ad.availableAmount).toLocaleString("en-US", { maximumFractionDigits: 4 })} {ad.crypto}</span></p>
+                      {ad.side === "SELL" && (
+                        <p>Limits <span className="text-white/65">{formatFiat(Number(ad.minLimit), ad.fiat, { symbol: false })} – {formatFiat(Number(ad.maxLimit), ad.fiat, { symbol: false })} {ad.fiat}</span></p>
+                      )}
+                      <p>{ad.side === "SELL" ? "Quantity" : "Buying"} <span className="text-white/65">{Number(ad.availableAmount).toLocaleString("en-US", { maximumFractionDigits: 4 })} {ad.crypto}</span></p>
                     </div>
 
                     {/* Row 4: payment methods */}
