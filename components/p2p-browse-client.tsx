@@ -259,54 +259,81 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
   );
 }
 
-// ─── Custom fiat currency dropdown ─────────────────────────────────────────────
+// ─── Currency picker (searchable modal) ────────────────────────────────────────
 
 function FiatSelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [q, setQ] = useState("");
   const current = FIAT_CURRENCIES.find((f) => f.code === value) ?? FIAT_CURRENCIES[0];
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
+  const term = q.trim().toLowerCase();
+  const filtered = term
+    ? FIAT_CURRENCIES.filter((f) => f.code.toLowerCase().includes(term) || f.name.toLowerCase().includes(term))
+    : FIAT_CURRENCIES;
+
+  function pick(code: string) { onChange(code); setOpen(false); setQ(""); }
 
   return (
-    <div ref={ref} className="relative shrink-0">
+    <>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(true)}
         aria-label="Currency"
-        className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] pl-2 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"
+        className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] pl-2 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"
       >
         <img src={flagUrl(current.code)} alt="" className="h-4 w-[22px] rounded-sm object-cover" />
         {current.code}
-        <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+        <Icon name="expand_more" className="text-base text-slate-400" />
       </button>
+
       {open && (
-        <div className="absolute right-0 top-[calc(100%+6px)] z-50 max-h-72 w-60 overflow-y-auto rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60 [scrollbar-width:thin]">
-          {FIAT_CURRENCIES.map((f) => (
-            <button
-              key={f.code}
-              type="button"
-              onClick={() => { onChange(f.code); setOpen(false); }}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
-                f.code === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"
-              }`}
-            >
-              <img src={flagUrl(f.code)} alt="" className="h-5 w-[26px] shrink-0 rounded-sm object-cover" />
-              <span className="text-xs font-black text-white">{f.code}</span>
-              <span className="truncate text-[11px] font-semibold text-slate-500">{f.name}</span>
-              {f.code === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
-            </button>
-          ))}
+        <div
+          className="fixed inset-0 z-[120] flex items-start justify-center bg-black/80 px-4 pt-[8vh] backdrop-blur-sm"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-[#111118] shadow-2xl ring-1 ring-white/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3">
+              <h3 className="text-sm font-black text-white">Select currency</h3>
+              <button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white">
+                <Icon name="close" className="text-[18px]" />
+              </button>
+            </div>
+            <div className="shrink-0 p-3">
+              <div className="flex items-center gap-2 rounded-lg bg-white/[0.05] px-3 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+                <Icon name="search" className="text-[18px] text-slate-500" />
+                <input
+                  autoFocus
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Search currency"
+                  className="h-10 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
+                />
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 [scrollbar-width:thin]">
+              {filtered.length === 0 ? (
+                <p className="py-8 text-center text-xs text-slate-600">No currency matches “{q}”</p>
+              ) : filtered.map((f) => (
+                <button
+                  key={f.code}
+                  type="button"
+                  onClick={() => pick(f.code)}
+                  className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors ${f.code === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
+                >
+                  <img src={flagUrl(f.code)} alt="" className="h-6 w-8 shrink-0 rounded-sm object-cover" />
+                  <span className="text-sm font-black text-white">{f.code}</span>
+                  <span className="truncate text-xs font-semibold text-slate-500">{f.name}</span>
+                  {f.code === value && <Icon name="check" className="ml-auto shrink-0 text-[18px] text-[#087cff]" />}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -912,13 +939,6 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
               {/* Right cluster */}
               <div className="flex items-center gap-1.5 sm:ml-auto">
                 <FiatSelect value={fiat} onChange={setFiat} />
-                <button
-                  onClick={() => fetchAds(true)}
-                  title="Refresh"
-                  className="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-500 transition-colors hover:bg-white/[0.06] hover:text-white"
-                >
-                  <Icon name="refresh" className={`text-lg ${loading ? "animate-spin" : ""}`} />
-                </button>
               </div>
             </div>
           </div>
