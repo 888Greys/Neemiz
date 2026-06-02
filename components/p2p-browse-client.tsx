@@ -254,109 +254,6 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
   );
 }
 
-// ─── Stats Bar ────────────────────────────────────────────────────────────────
-
-interface PlatformStats {
-  volumeToday:    number;
-  onlineMerchants: number;
-  avgReleaseMin:  number;
-  feePct:         number;
-}
-
-function fmtVolume(kes: number | null | undefined): string {
-  const n = Number(kes ?? 0);
-  if (!Number.isFinite(n) || n <= 0) return "KSh 0";
-  if (n >= 1_000_000) return `KSh ${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000)     return `KSh ${(n / 1_000).toFixed(0)}K`;
-  return `KSh ${n.toLocaleString("en-KE")}`;
-}
-
-function StatsBar() {
-  const [stats, setStats]     = useState<PlatformStats | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const res  = await fetch("/api/p2p/stats");
-        const data = await res.json();
-        if (!cancelled) setStats(data);
-      } catch { /* keep null */ }
-    }
-    load();
-    const interval = setInterval(load, 30_000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
-
-  const cells = [
-    {
-      label: "Traded today",
-      value: stats ? fmtVolume(stats.volumeToday) : "—",
-      accent: "#05b957",
-      icon: "payments",
-    },
-    {
-      label: "Merchants online",
-      value: stats ? String(stats.onlineMerchants) : "—",
-      accent: "#087cff",
-      icon: "groups",
-      live: true,
-    },
-    {
-      label: "Avg release",
-      value: stats
-        ? stats.avgReleaseMin > 0 ? `~${stats.avgReleaseMin}m` : "< 1m"
-        : "—",
-      accent: "#a78bfa",
-      icon: "bolt",
-    },
-    {
-      label: "Platform fees",
-      value: stats ? `${stats.feePct}%` : "0%",
-      accent: "#f59e0b",
-      icon: "savings",
-    },
-  ];
-
-  return (
-    <div className="grid min-w-0 grid-cols-[repeat(2,minmax(0,1fr))] gap-2 xl:grid-cols-4">
-      {cells.map((s) => (
-        <div
-          key={s.label}
-          className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-gradient-to-br from-[#14151c] to-[#0d0e13] p-3 transition-colors hover:border-white/[0.16]"
-        >
-          {/* accent glow */}
-          <div
-            className="pointer-events-none absolute -right-5 -top-5 h-14 w-14 rounded-full blur-2xl"
-            style={{ background: `${s.accent}26` }}
-          />
-          <div className="mb-2 flex items-center justify-between">
-            <span
-              className="flex h-7 w-7 items-center justify-center rounded-lg"
-              style={{ background: `${s.accent}1f`, color: s.accent }}
-            >
-              <Icon name={s.icon} fill className="text-[15px]" />
-            </span>
-            {s.live && (
-              <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.12em] text-[#05b957]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#05b957] animate-pulse" />
-                Live
-              </span>
-            )}
-          </div>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{s.label}</p>
-          <p
-            className="mt-0.5 text-lg font-black leading-tight tabular-nums"
-            style={{ color: stats ? s.accent : "#3a3f4b" }}
-          >
-            {s.value}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ─── Custom fiat currency dropdown ─────────────────────────────────────────────
 
 function FiatSelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
@@ -928,7 +825,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
       <div className="w-full px-3 py-2 sm:px-4 lg:px-3">
 
         {/* Workspace header */}
-        <div className="mb-2 grid min-w-0 gap-2 xl:grid-cols-[minmax(0,1fr)_520px]">
+        <div className="mb-2 min-w-0">
           <div className="min-w-0 rounded-lg border border-[#1e1e30] bg-[#111118] px-3 py-2">
             <div className="mb-2 flex min-w-0 items-center justify-between gap-3 lg:mb-1.5">
               <div>
@@ -1017,10 +914,6 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
                 </button>
               </div>
             </div>
-          </div>
-
-          <div>
-            <StatsBar />
           </div>
         </div>
 
