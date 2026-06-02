@@ -462,6 +462,9 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
       <div className="mt-3 lg:mt-0">
         <p className="lg:hidden text-[10px] font-bold uppercase tracking-wide text-white/35">Price</p>
         <div className="flex flex-wrap items-center gap-1.5">
+          {CRYPTO_ICONS[ad.crypto] && (
+            <img src={CRYPTO_ICONS[ad.crypto]} alt={ad.crypto} width={18} height={18} className="h-[18px] w-[18px] shrink-0 rounded-full" />
+          )}
           <span className="text-[20px] font-black leading-none text-white tabular-nums lg:text-[18px]">
             {formatFiat(ad.pricePerUnit, ad.fiat, { symbol: false, decimals: 2 })}
           </span>
