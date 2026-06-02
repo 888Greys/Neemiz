@@ -39,7 +39,7 @@ export async function GET(req: Request) {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
       take: 50,
     });
 
@@ -57,6 +57,7 @@ export async function GET(req: Request) {
       side:            ad.side,
       crypto:          ad.crypto,
       fiat:            ad.fiat,
+      featured:        ad.featured,
       pricePerUnit:    Number(ad.pricePerUnit),
       availableAmount: Number(ad.availableAmount),
       minLimit:        Number(ad.minLimit),

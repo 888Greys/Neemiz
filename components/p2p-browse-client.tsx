@@ -27,6 +27,7 @@ interface Ad {
   side: "BUY" | "SELL";
   crypto: string;
   fiat: string;
+  featured?: boolean;
   pricePerUnit: number;
   availableAmount: number;
   minLimit: number;
@@ -781,22 +782,43 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   useEffect(() => { fetchAds(); }, [fetchAds]);
 
-  // Reference price = median of loaded offers (self-contained "market" proxy
-  // for the per-offer margin badge + the headline rate line).
-  const marketRef = (() => {
+  // Live spot rate (CoinGecko) for the selected crypto+fiat; null until loaded
+  // or if the provider is unavailable.
+  const [spotRate, setSpotRate] = useState<number | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setSpotRate(null);
+    fetch(`/api/p2p/spot?crypto=${crypto}&fiat=${fiat}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { rate?: number | null } | null) => {
+        if (!cancelled && typeof d?.rate === "number" && d.rate > 0) setSpotRate(d.rate);
+      })
+      .catch(() => { /* fall back to median */ });
+    return () => { cancelled = true; };
+  }, [crypto, fiat]);
+
+  // Reference price for the margin badge + headline: true market spot when
+  // available, else the median of loaded offers (works for any crypto).
+  const medianPrice = (() => {
     const prices = ads.map((a) => a.pricePerUnit).filter((p) => p > 0).sort((a, b) => a - b);
     if (!prices.length) return 0;
     const mid = Math.floor(prices.length / 2);
     return prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
   })();
+  const marketRef = spotRate ?? medianPrice;
+  const rateIsLive = spotRate != null;
 
-  // Promote the most active online merchants (heuristic until a paid-feature flag exists).
-  const promoted = [...ads]
-    .sort((a, b) =>
-      (Number(b.merchant.isOnline) - Number(a.merchant.isOnline)) ||
-      (b.merchant.completedTrades - a.merchant.completedTrades),
-    )
-    .slice(0, Math.min(2, ads.length));
+  // Promoted = merchant-paid featured ads. If none are featured yet, fall back
+  // to a heuristic (top active online merchants) so the section isn't empty.
+  const featuredAds = ads.filter((a) => a.featured);
+  const promoted = featuredAds.length > 0
+    ? featuredAds
+    : [...ads]
+        .sort((a, b) =>
+          (Number(b.merchant.isOnline) - Number(a.merchant.isOnline)) ||
+          (b.merchant.completedTrades - a.merchant.completedTrades),
+        )
+        .slice(0, Math.min(2, ads.length));
   const promotedIds = new Set(promoted.map((a) => a.id));
   const otherAds = ads.filter((a) => !promotedIds.has(a.id));
 
@@ -819,7 +841,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
                   <p className="mt-0.5 flex items-center gap-1.5 text-xs font-bold text-slate-400">
                     <img src={CRYPTO_ICONS[crypto]} alt={crypto} width={14} height={14} className="h-3.5 w-3.5 rounded-full" />
                     1 {crypto} ≈ <span className="text-white">{formatFiat(marketRef, fiat)}</span>
-                    <span className="hidden text-slate-600 sm:inline">· median market price</span>
+                    <span className="hidden text-slate-600 sm:inline">· {rateIsLive ? "live market price" : "median of offers"}</span>
                   </p>
                 ) : (
                   <p className="max-w-md text-xs font-semibold leading-5 text-slate-500 lg:leading-4">
