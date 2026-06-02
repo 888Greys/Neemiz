@@ -43,6 +43,10 @@ const CRYPTO_WITHDRAW_ASSETS = [
   { name: "Chainlink",        code: "LINK",  network: "ERC20",   displayNet: "ERC-20",  min: 0.5     },
 ] as const;
 
+// Cryptos a user can sell KES into — must have a live spot rate (lib/p2p/spot.ts).
+const SELL_SPOT_CRYPTOS = ["USDT", "USDC", "BTC", "ETH", "BNB"];
+const SELL_ASSETS = CRYPTO_WITHDRAW_ASSETS.filter((a) => SELL_SPOT_CRYPTOS.includes(a.code));
+
 type CryptoWithdrawAsset = (typeof CRYPTO_WITHDRAW_ASSETS)[number];
 type CryptoBalance = { crypto: string; network: string; available: number; locked: number };
 
@@ -83,7 +87,7 @@ export function WalletClient() {
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
 
   // ── fiat deposit state ──
-  const [tab, setTab]                     = useState<"deposit" | "withdraw" | "history">("deposit");
+  const [tab, setTab]                     = useState<"deposit" | "withdraw" | "sell" | "history">("deposit");
   const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">("mpesa");
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
@@ -108,6 +112,16 @@ export function WalletClient() {
   const [wdLoading, setWdLoading] = useState(false);
   const [wdError, setWdError]   = useState("");
   const [wdDone, setWdDone]     = useState<{ payout: number; fee: number } | null>(null);
+
+  // ── Sell KES → crypto state ──
+  const [sellAsset, setSellAsset]     = useState<CryptoWithdrawAsset>(SELL_ASSETS[0]);
+  const [sellKes, setSellKes]         = useState("");
+  const [sellAddress, setSellAddress] = useState("");
+  const [sellOpen, setSellOpen]       = useState(false);
+  const [sellRate, setSellRate]       = useState<number | null>(null);
+  const [sellLoading, setSellLoading] = useState(false);
+  const [sellError, setSellError]     = useState("");
+  const [sellDone, setSellDone]       = useState<{ cryptoAmount: number; crypto: string } | null>(null);
 
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCount = useRef(0);
@@ -256,6 +270,46 @@ export function WalletClient() {
     }
   }
 
+  // Live spot rate for the selected sell asset (KES per 1 crypto)
+  useEffect(() => {
+    let cancelled = false;
+    setSellRate(null);
+    fetch(`/api/p2p/spot?crypto=${sellAsset.code}&fiat=KES`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { rate?: number } | null) => { if (!cancelled) setSellRate(d?.rate ?? null); })
+      .catch(() => { if (!cancelled) setSellRate(null); });
+    return () => { cancelled = true; };
+  }, [sellAsset.code]);
+
+  async function handleSell() {
+    if (!isSignedIn) { openLogin(); return; }
+    const amt = Number(sellKes);
+    if (!amt || !sellAddress.trim()) return;
+    setSellLoading(true); setSellError("");
+    try {
+      const res  = await fetch("/api/wallet/sell", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ amountKes: amt, crypto: sellAsset.code, network: sellAsset.network, address: sellAddress.trim() }),
+      });
+      const data = await res.json() as { ok?: boolean; cryptoAmount?: number; crypto?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Sale failed");
+      setSellDone({ cryptoAmount: data.cryptoAmount!, crypto: data.crypto! });
+      refreshBalance();
+    } catch (err) {
+      setSellError(err instanceof Error ? err.message : "Sale failed");
+    } finally {
+      setSellLoading(false);
+    }
+  }
+
+  // Estimated crypto received for the entered KES (5% fee, matches server)
+  const sellEstimate = (() => {
+    const amt = Number(sellKes);
+    if (!amt || !sellRate || sellRate <= 0) return null;
+    return ((amt * 0.95) / sellRate);
+  })();
+
   function reset() { setDeposit({ step: "idle" }); setAmount(""); setError(""); pollCount.current = 0; }
 
   const fmtBalance = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
@@ -341,7 +395,7 @@ export function WalletClient() {
       {/* ── Tabs ── */}
       <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#0d0e11]">
         <div className="mx-auto flex max-w-2xl gap-0">
-          {(["deposit", "withdraw", "history"] as const).map((t) => (
+          {(["deposit", "withdraw", "sell", "history"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -353,7 +407,7 @@ export function WalletClient() {
               }`}
             >
               <Icon
-                name={t === "deposit" ? "add_circle" : t === "withdraw" ? "remove_circle" : "history"}
+                name={t === "deposit" ? "add_circle" : t === "withdraw" ? "remove_circle" : t === "sell" ? "currency_exchange" : "history"}
                 fill={tab === t}
                 className="text-[15px]"
               />
@@ -895,6 +949,168 @@ export function WalletClient() {
                   </>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ── SELL TAB (KES → crypto) ── */}
+        {tab === "sell" && (
+          <div className="space-y-5">
+            {sellDone ? (
+              <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-violet-500/25 text-center animate-in fade-in zoom-in-95 duration-300">
+                <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-violet-500/12 ring-1 ring-violet-500/20">
+                  <Icon name="schedule" fill className="text-[44px] text-violet-400" />
+                </div>
+                <h2 className="text-2xl font-black text-white">Sale Submitted</h2>
+                <p className="mt-2 text-sm text-slate-400">
+                  Your KES has been held. We&apos;ll send{" "}
+                  <span className="font-bold text-violet-300">≈ {sellDone.cryptoAmount} {sellDone.crypto}</span>{" "}
+                  to your address shortly (usually within a few hours).
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setSellDone(null); setSellKes(""); setSellAddress(""); }}
+                  className="mt-6 w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff]"
+                >
+                  Sell More
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start gap-3 rounded-2xl bg-violet-500/[0.07] p-4 ring-1 ring-violet-500/15">
+                  <Icon name="currency_exchange" fill className="mt-0.5 text-[18px] text-violet-400" />
+                  <p className="text-[12px] leading-relaxed text-slate-400">
+                    Sell your KES balance for crypto and withdraw it to your own wallet. We send the
+                    crypto to your address after a quick review.
+                  </p>
+                </div>
+
+                {/* KES amount */}
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount to sell (KES)</p>
+                    <button
+                      type="button"
+                      onClick={() => setSellKes(String(Math.floor(balance)))}
+                      className="text-[10px] font-black uppercase tracking-wider text-[#087cff] hover:text-[#2a90ff]"
+                    >
+                      Max · KSh {balance.toLocaleString("en-KE")}
+                    </button>
+                  </div>
+                  <div className="flex h-14 items-center rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-violet-500/40">
+                    <span className="mr-2 text-sm font-black text-slate-500">KSh</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      value={sellKes}
+                      onChange={(e) => setSellKes(e.target.value)}
+                      placeholder="0"
+                      className="w-full bg-transparent text-lg font-black text-white outline-none placeholder:text-slate-700"
+                    />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {QUICK_AMOUNTS.map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => setSellKes(String(q))}
+                        className="rounded-xl bg-white/[0.04] px-3 py-1.5 text-[11px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-white/[0.07] hover:text-white"
+                      >
+                        {q.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Crypto asset selector */}
+                <div>
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Receive as</p>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setSellOpen((o) => !o)}
+                      className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] transition hover:bg-white/[0.06]"
+                    >
+                      <span className="flex items-center gap-3">
+                        {COIN_ICON_URL[sellAsset.code] && (
+                          <img src={COIN_ICON_URL[sellAsset.code]} alt={sellAsset.code} width={28} height={28} className="h-7 w-7 rounded-full" />
+                        )}
+                        <span className="block text-sm font-black text-white">
+                          {sellAsset.code}
+                          <span className="ml-2 text-[11px] font-bold text-slate-500">{sellAsset.displayNet}</span>
+                        </span>
+                      </span>
+                      <Icon name={sellOpen ? "expand_less" : "expand_more"} className="text-[22px] text-slate-500" />
+                    </button>
+                    {sellOpen && (
+                      <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl bg-[#121824] shadow-2xl shadow-black/40 ring-1 ring-white/[0.09]">
+                        {SELL_ASSETS.map((a) => (
+                          <button
+                            key={`${a.code}:${a.network}`}
+                            type="button"
+                            onClick={() => { setSellAsset(a); setSellOpen(false); }}
+                            className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.06]"
+                          >
+                            {COIN_ICON_URL[a.code] && (
+                              <img src={COIN_ICON_URL[a.code]} alt={a.code} width={28} height={28} className="h-7 w-7 rounded-full" />
+                            )}
+                            <span className="flex-1 block text-sm font-black text-white">
+                              {a.code}
+                              <span className="ml-2 text-[11px] font-bold text-slate-500">{a.displayNet}</span>
+                            </span>
+                            {sellAsset.code === a.code && sellAsset.network === a.network && (
+                              <Icon name="check_circle" fill className="text-[18px] text-[#087cff]" />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Destination address */}
+                <div>
+                  <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
+                    Your {sellAsset.code} address ({sellAsset.displayNet})
+                  </p>
+                  <input
+                    type="text"
+                    value={sellAddress}
+                    onChange={(e) => setSellAddress(e.target.value)}
+                    placeholder={`Paste your ${sellAsset.code} wallet address`}
+                    className="h-14 w-full rounded-2xl bg-[#16171d] px-4 font-mono text-[13px] text-white outline-none ring-1 ring-white/[0.07] transition focus:ring-violet-500/40 placeholder:font-sans placeholder:text-slate-700"
+                  />
+                </div>
+
+                {/* Estimate */}
+                <div className="rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
+                  <div className="flex items-center justify-between text-[12px]">
+                    <span className="text-slate-500">You receive (after 5% fee)</span>
+                    <span className="font-black text-white">
+                      {sellEstimate != null ? `≈ ${sellEstimate.toFixed(6)} ${sellAsset.code}` : "—"}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-600">Live rate</span>
+                    <span className="text-slate-500">
+                      {sellRate ? `1 ${sellAsset.code} ≈ KSh ${sellRate.toLocaleString("en-KE", { maximumFractionDigits: 2 })}` : "fetching…"}
+                    </span>
+                  </div>
+                </div>
+
+                {sellError && (
+                  <p className="rounded-xl bg-red-500/10 px-4 py-3 text-[12px] font-bold text-red-400 ring-1 ring-red-500/20">{sellError}</p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleSell}
+                  disabled={sellLoading || !Number(sellKes) || !sellAddress.trim() || !sellRate}
+                  className="flex h-14 w-full items-center justify-center rounded-2xl bg-violet-600 text-sm font-black text-white shadow-lg shadow-violet-600/20 transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {sellLoading ? <LoadingDots /> : `Sell KSh ${Number(sellKes || 0).toLocaleString()} for ${sellAsset.code}`}
+                </button>
+              </>
             )}
           </div>
         )}
