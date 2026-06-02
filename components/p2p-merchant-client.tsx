@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
@@ -1082,6 +1083,36 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const [loading, setLoading]   = useState(true);
   const [createOpen, setCreate] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file || !user) return;
+    if (!file.type.startsWith("image/")) return toast.error("Please choose an image file");
+    if (file.size > 2 * 1024 * 1024) return toast.error("Image must be under 2 MB");
+
+    setAvatarUploading(true);
+    try {
+      const supabase = createClient();
+      const ext  = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
+      const { error: updErr } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
+      if (updErr) throw updErr;
+
+      toast.success("Profile picture updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
 
   const [fx, setFx] = useState<{ toKES: Record<string, number>; live: boolean }>({ toKES: { KES: 1 }, live: false });
 
@@ -1125,17 +1156,33 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       {/* Merchant header */}
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {user?.user_metadata?.avatar_url ? (
-            <img
-              src={user.user_metadata.avatar_url}
-              alt={status.displayName ?? "avatar"}
-              className="h-12 w-12 rounded-xl object-cover shadow-lg shadow-black/30 lg:h-10 lg:w-10 lg:rounded-lg"
+          <label
+            className="group relative h-12 w-12 shrink-0 cursor-pointer lg:h-10 lg:w-10"
+            title="Change profile picture"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              disabled={avatarUploading}
+              className="sr-only"
             />
-          ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#087cff] to-[#6366f1] text-xl font-black text-white shadow-lg shadow-[#087cff]/20 lg:h-10 lg:w-10 lg:rounded-lg lg:text-lg">
-              {status.displayName?.charAt(0).toUpperCase()}
+            {user?.user_metadata?.avatar_url ? (
+              <img
+                src={user.user_metadata.avatar_url}
+                alt={status.displayName ?? "avatar"}
+                className="h-full w-full rounded-xl object-cover shadow-lg shadow-black/30 lg:rounded-lg"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center rounded-xl bg-gradient-to-br from-[#087cff] to-[#6366f1] text-xl font-black text-white shadow-lg shadow-[#087cff]/20 lg:rounded-lg lg:text-lg">
+                {status.displayName?.charAt(0).toUpperCase()}
+              </div>
+            )}
+            {/* Hover / uploading overlay */}
+            <div className={`absolute inset-0 flex items-center justify-center rounded-xl bg-black/55 transition-opacity lg:rounded-lg ${avatarUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+              <Icon name={avatarUploading ? "progress_activity" : "photo_camera"} className={`text-[18px] text-white ${avatarUploading ? "animate-spin" : ""}`} />
             </div>
-          )}
+          </label>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-black text-white">{status.displayName}</h1>

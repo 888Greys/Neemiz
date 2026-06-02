@@ -291,9 +291,8 @@ function FiatSelect({ value, onChange }: { value: string; onChange: (code: strin
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Currency"
-        className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] pl-2 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"
+        className="flex h-8 shrink-0 items-center gap-1 rounded-md border border-white/[0.07] bg-white/[0.04] pl-2.5 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"
       >
-        <img src={flagUrl(current.code)} alt="" className="h-4 w-[22px] rounded-sm object-cover" />
         {current.code}
         <Icon name="expand_more" className="text-base text-slate-400" />
       </button>
