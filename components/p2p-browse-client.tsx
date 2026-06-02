@@ -408,6 +408,89 @@ function FiatSelect({ value, onChange }: { value: string; onChange: (code: strin
   );
 }
 
+function CryptoSelect({ value, onChange }: { value: string; onChange: (c: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Crypto"
+        className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] pl-1.5 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"
+      >
+        {CRYPTO_ICONS[value] && <img src={CRYPTO_ICONS[value]} alt={value} className="h-4 w-4 rounded-full" />}
+        {value}
+        <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
+          {CRYPTOS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => { onChange(c); setOpen(false); }}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${c === value ? "bg-[#05b957]/15" : "hover:bg-white/[0.06]"}`}
+            >
+              {CRYPTO_ICONS[c] && <img src={CRYPTO_ICONS[c]} alt={c} className="h-5 w-5 rounded-full" />}
+              <span className="text-xs font-black text-white">{c}</span>
+              {c === value && <Icon name="check" className="ml-auto text-[15px] text-[#05b957]" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PaymentSelect({ value, fiat, onChange }: { value: string; fiat: string; onChange: (p: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const options = [{ value: "", label: "All payments" }, ...paymentMethodsForFiat(fiat)];
+  const current = options.find((o) => o.value === value) ?? options[0];
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  return (
+    <div ref={ref} className="relative min-w-0 shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Payment method"
+        className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] px-2.5 text-xs font-bold text-white transition-colors hover:border-white/20"
+      >
+        <Icon name="account_balance_wallet" className="text-[14px] text-slate-400" />
+        <span className="max-w-[120px] truncate">{current.label}</span>
+        <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+6px)] z-30 max-h-72 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60 [scrollbar-width:thin]">
+          {options.map((o) => (
+            <button
+              key={o.value || "all"}
+              type="button"
+              onClick={() => { onChange(o.value); setOpen(false); }}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${o.value === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
+            >
+              <span className="text-xs font-bold text-white">{o.label}</span>
+              {o.value === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Ad Row ──────────────────────────────────────────────────────────────────
 
 const CRYPTO_COLOR: Record<string, string> = {
@@ -731,6 +814,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const [crypto, setCryptoState]    = useState(initCrypto);
   const [payment, setPaymentState]  = useState(initPayment);
   const [fiat, setFiatState]        = useState(initFiat);
+  const [amountInput, setAmountInput] = useState("");
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
 
   // Sync state to URL whenever filters change
@@ -804,10 +888,16 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     return () => { cancelled = true; };
   }, [crypto, fiat]);
 
+  // Amount filter — show only offers whose limits cover the entered amount (in fiat).
+  const amountNum = Number(amountInput) || 0;
+  const visibleAds = amountNum > 0
+    ? ads.filter((a) => amountNum >= a.minLimit && amountNum <= a.maxLimit)
+    : ads;
+
   // Reference price for the margin badge + headline: true market spot when
   // available, else the median of loaded offers (works for any crypto).
   const medianPrice = (() => {
-    const prices = ads.map((a) => a.pricePerUnit).filter((p) => p > 0).sort((a, b) => a - b);
+    const prices = visibleAds.map((a) => a.pricePerUnit).filter((p) => p > 0).sort((a, b) => a - b);
     if (!prices.length) return 0;
     const mid = Math.floor(prices.length / 2);
     return prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
@@ -817,17 +907,17 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   // Promoted = merchant-paid featured ads. If none are featured yet, fall back
   // to a heuristic (top active online merchants) so the section isn't empty.
-  const featuredAds = ads.filter((a) => a.featured);
+  const featuredAds = visibleAds.filter((a) => a.featured);
   const promoted = featuredAds.length > 0
     ? featuredAds
-    : [...ads]
+    : [...visibleAds]
         .sort((a, b) =>
           (Number(b.merchant.isOnline) - Number(a.merchant.isOnline)) ||
           (b.merchant.completedTrades - a.merchant.completedTrades),
         )
-        .slice(0, Math.min(2, ads.length));
+        .slice(0, Math.min(2, visibleAds.length));
   const promotedIds = new Set(promoted.map((a) => a.id));
-  const otherAds = ads.filter((a) => !promotedIds.has(a.id));
+  const otherAds = visibleAds.filter((a) => !promotedIds.has(a.id));
 
   return (
     <>
@@ -888,44 +978,36 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
                 ))}
               </div>
 
-              <div className="grid min-w-0 grid-cols-[repeat(4,minmax(0,1fr))] gap-1.5 sm:flex sm:items-center">
-                {CRYPTOS.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setCrypto(c)}
-                    className={`flex h-8 min-w-0 items-center justify-center gap-1 rounded-md border px-1.5 text-[11px] font-black transition-all sm:gap-1.5 sm:px-2.5 sm:text-xs ${
-                      crypto === c
-                        ? "bg-[#087cff] border-[#087cff] text-white shadow shadow-[#087cff]/20"
-                        : "bg-white/[0.04] border-white/[0.07] text-slate-400 hover:border-white/20 hover:text-white"
-                    }`}
-                  >
-                    {CRYPTO_ICONS[c] && (
-                      <img src={CRYPTO_ICONS[c]} alt={c} width={15} height={15} className="h-[15px] w-[15px] rounded-full" />
-                    )}
-                    {c}
-                  </button>
-                ))}
+              {/* Crypto dropdown + USING */}
+              <div className="flex items-center gap-1.5">
+                <CryptoSelect value={crypto} onChange={setCrypto} />
+                <span className="hidden rounded bg-white/[0.06] px-1.5 py-1 text-[9px] font-black uppercase tracking-wider text-slate-500 sm:inline">Using</span>
               </div>
 
-              <div className="flex min-w-0 items-center gap-1.5 sm:ml-auto">
-                {/* Fiat currency selector */}
-                <FiatSelect value={fiat} onChange={setFiat} />
+              {/* Amount */}
+              <div className="flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] px-2 sm:w-[170px]">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={amountInput}
+                  onChange={(e) => setAmountInput(e.target.value)}
+                  placeholder="Amount"
+                  className="min-w-0 flex-1 bg-transparent text-xs font-bold text-white outline-none placeholder:text-slate-600"
+                />
+                {amountInput && (
+                  <button type="button" onClick={() => setAmountInput("")} className="shrink-0 text-slate-600 hover:text-slate-300">
+                    <Icon name="close" className="text-[14px]" />
+                  </button>
+                )}
+                <span className="shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-black text-slate-400">{fiat}</span>
+              </div>
 
-                <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {[{ value: "", label: "All" }, ...paymentMethodsForFiat(fiat)].map((p) => (
-                    <button
-                      key={p.value || "all"}
-                      onClick={() => setPayment(p.value)}
-                      className={`h-8 shrink-0 rounded-md border px-2 text-xs font-bold transition-all sm:px-3 ${
-                        payment === p.value
-                          ? "bg-white/10 border-white/20 text-white"
-                          : "bg-white/[0.04] border-white/[0.05] text-slate-500 hover:border-white/15 hover:text-slate-300"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
+              {/* Payment dropdown */}
+              <PaymentSelect value={payment} fiat={fiat} onChange={setPayment} />
+
+              {/* Right cluster */}
+              <div className="flex items-center gap-1.5 sm:ml-auto">
+                <FiatSelect value={fiat} onChange={setFiat} />
                 <button
                   onClick={() => fetchAds(true)}
                   title="Refresh"
@@ -946,7 +1028,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
         <div className="space-y-3">
           {loading ? (
             <AdSkeleton />
-          ) : ads.length === 0 ? (
+          ) : visibleAds.length === 0 ? (
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
             <>
@@ -956,7 +1038,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             </>
           )}
 
-          {ads.length > 0 && <MerchantPromoBanner isSignedIn={!!isSignedIn} />}
+          {visibleAds.length > 0 && <MerchantPromoBanner isSignedIn={!!isSignedIn} />}
         </div>
       </div>
     </>
