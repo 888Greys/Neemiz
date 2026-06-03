@@ -19,10 +19,19 @@ export async function GET() {
 
     const count = await db.p2POrder.count({
       where: {
-        status: { in: ["PENDING", "PAID"] },
-        OR: [
-          { buyerId: dbUser.id },
-          ...(merchant ? [{ sellerId: merchant.id }] : []),
+        AND: [
+          // involves this user (as buyer or as the merchant/seller)
+          { OR: [
+            { buyerId: dbUser.id },
+            ...(merchant ? [{ sellerId: merchant.id }] : []),
+          ] },
+          // genuinely needs attention: awaiting release, or still within the
+          // payment window (PENDING orders past their window are effectively
+          // expired and shouldn't keep the badge lit)
+          { OR: [
+            { status: "PAID" },
+            { status: "PENDING", expiresAt: { gt: new Date() } },
+          ] },
         ],
       },
     });

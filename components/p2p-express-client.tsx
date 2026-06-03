@@ -20,6 +20,7 @@ const COINS = [
   { code: "BTC",  name: "Bitcoin",  icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg" },
   { code: "ETH",  name: "Ethereum", icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg" },
   { code: "BNB",  name: "BNB",      icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg" },
+  { code: "KES",  name: "KES Coin", icon: "https://flagcdn.com/w80/ke.png" },
 ];
 
 // ─── Tiny click-outside dropdown ───────────────────────────────────────────────
@@ -92,8 +93,9 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
     setPayment((p) => (opts.some((o) => o.value === p) ? p : opts[0]?.value ?? ""));
   }, [fiat]);
 
-  // Live spot rate for the estimate.
+  // Live spot rate for the estimate. The KES coin is pegged 1:1.
   useEffect(() => {
+    if (crypto === "KES") { setRate(1); return; }
     let cancelled = false;
     setRate(null);
     fetch(`/api/p2p/spot?crypto=${crypto}&fiat=${fiat}`)
