@@ -166,11 +166,62 @@ export async function POST(req: Request) {
     }
   }
 
+  // ── Step G: auto-void bets stuck beyond the data window ───────────────────
+  // The odds API only exposes scores for ~3 days. A bet still PENDING after
+  // that whose fixtures are no longer in the feed (game long over, result
+  // unavailable) can never be settled — void it and refund the stake so it
+  // doesn't sit PENDING forever. Fixtures that ARE still in the feed (future
+  // or live games) are left alone, so long-dated bets aren't wrongly voided.
+  const STUCK_MS = 3 * 24 * 60 * 60 * 1000;
+  const stuckCutoff = new Date(Date.now() - STUCK_MS);
+  const settledIds = new Set(settleableBets.map((b) => b.id));
+  const stuckBets = pendingBets.filter(
+    (b) =>
+      !settledIds.has(b.id) &&
+      b.createdAt < stuckCutoff &&
+      b.selections.every((s) => !fixtureMap.has(s.fixtureId)),
+  );
+
+  let voidedCount = 0;
+  for (const bet of stuckBets) {
+    try {
+      await db.$transaction(async (tx) => {
+        const fresh = await tx.bet.findUnique({ where: { id: bet.id }, select: { status: true } });
+        if (!fresh || fresh.status !== "PENDING") return;
+
+        await tx.betSelection.updateMany({ where: { betId: bet.id }, data: { result: "VOID" } });
+        await tx.bet.update({
+          where: { id: bet.id },
+          data: { status: "VOID", settledAt: new Date() },
+        });
+        await tx.user.update({
+          where: { id: bet.userId },
+          data: { walletBalance: { increment: Number(bet.stake) } },
+        });
+        await tx.transaction.create({
+          data: {
+            userId: bet.userId,
+            type: TransactionType.REFUND,
+            amount: Number(bet.stake),
+            currency: "KES",
+            status: TransactionStatus.COMPLETED,
+            reference: `betvoid_${bet.id}`,
+            metadata: { betId: bet.id, reason: "unsettleable_stuck" },
+          },
+        });
+      });
+      voidedCount++;
+    } catch (err) {
+      console.error(`Void failed for bet ${bet.id}:`, err);
+    }
+  }
+
   return Response.json({
     ok: true,
     pendingBetsChecked: pendingBets.length,
     fixturesFetched: fixtureIds.length,
     fixturesFinished: finishedFixtureIds.size,
     betsSettled: settledCount,
+    betsVoided: voidedCount,
   });
 }
