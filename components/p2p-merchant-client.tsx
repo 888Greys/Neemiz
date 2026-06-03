@@ -319,6 +319,101 @@ interface WalletCryptoBalance {
   locked: number;
 }
 
+// ─── Payment methods (where buyers send funds for the merchant's ads) ────────
+interface PayMethod {
+  id: string; type: string; name: string;
+  accountName: string; accountNo: string; bankName: string | null;
+}
+const PAY_RAILS = paymentMethodsForFiat("KES"); // M-Pesa / Airtel / Bank
+const BANKISH = new Set(["BANK", "KUDA", "FNB", "CAPITEC"]);
+
+function PaymentMethodsSection() {
+  const [methods, setMethods] = useState<PayMethod[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [method, setMethod]   = useState(PAY_RAILS[0]?.value ?? "MPESA");
+  const [accountName, setAccountName] = useState("");
+  const [accountNo, setAccountNo]     = useState("");
+  const [bankName, setBankName]       = useState("");
+  const [saving, setSaving]   = useState(false);
+  const isBank = BANKISH.has(method);
+
+  const load = useCallback(async () => {
+    try { const r = await fetch("/api/p2p/merchant/payment-methods"); if (r.ok) setMethods(await r.json()); }
+    finally { setLoading(false); }
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function add() {
+    if (accountName.trim().length < 2) return toast.error("Enter the account holder name");
+    if (accountNo.trim().length < 4)   return toast.error("Enter a valid account/phone number");
+    if (isBank && !bankName.trim())    return toast.error("Enter the bank name");
+    setSaving(true);
+    try {
+      const r = await fetch("/api/p2p/merchant/payment-methods", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method, accountName: accountName.trim(), accountNo: accountNo.trim(), bankName: isBank ? bankName.trim() : undefined }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed");
+      toast.success("Payment method saved");
+      setAccountName(""); setAccountNo(""); setBankName("");
+      load();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function del(id: string) {
+    setMethods((m) => m.filter((x) => x.id !== id));
+    await fetch(`/api/p2p/merchant/payment-methods/${id}`, { method: "DELETE" }).catch(() => {});
+  }
+
+  return (
+    <div className="mb-3 rounded-lg border border-white/[0.06] bg-[#111118] p-3">
+      <div className="mb-2">
+        <h2 className="text-white font-black text-sm">Payment Methods</h2>
+        <p className="text-slate-500 text-[11px] mt-0.5">Where buyers send funds for your ads. Without these, the order page can&apos;t show your details.</p>
+      </div>
+
+      {/* Saved methods */}
+      {!loading && methods.length > 0 && (
+        <div className="mb-3 space-y-1.5">
+          {methods.map((m) => (
+            <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/[0.03] px-3 py-2 ring-1 ring-white/[0.06]">
+              <div className="min-w-0">
+                <p className="text-[12px] font-black text-white">{paymentMethodLabel(m.name)}{m.bankName ? ` · ${m.bankName}` : ""}</p>
+                <p className="text-[11px] text-slate-400 truncate">{m.accountName} · <span className="font-mono">{m.accountNo}</span></p>
+              </div>
+              <button type="button" onClick={() => del(m.id)} className="shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition" aria-label="Delete">
+                <Icon name="delete" className="text-[16px]" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add form */}
+      <div className="grid grid-cols-2 gap-2">
+        <select value={method} onChange={(e) => setMethod(e.target.value)}
+          className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] font-bold text-white outline-none">
+          {PAY_RAILS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+        <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
+          className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
+        <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={isBank ? "Account number" : "Phone / Paybill"}
+          className={`${isBank ? "" : "col-span-2"} h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600`} />
+        {isBank && (
+          <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
+            className="h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
+        )}
+        <button type="button" onClick={add} disabled={saving}
+          className="col-span-2 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#087cff] text-[13px] font-black text-white transition hover:bg-[#0570e8] disabled:opacity-50">
+          <Icon name="add" className="text-base" /> {saving ? "Saving…" : "Add payment method"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DepositSection() {
   const [open, setOpen]                   = useState(false);
   const [fundOpen, setFundOpen]           = useState(false);
@@ -1278,6 +1373,9 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
           </div>
         );
       })()}
+
+      {/* Payment methods */}
+      <PaymentMethodsSection />
 
       {/* Deposits */}
       <DepositSection />
