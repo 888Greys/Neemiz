@@ -333,6 +333,7 @@ const BANKISH = new Set(["BANK", "KUDA", "FNB", "CAPITEC"]);
 function PaymentMethodsSection() {
   const [methods, setMethods] = useState<PayMethod[]>([]);
   const [loading, setLoading] = useState(true);
+  const [formOpen, setFormOpen] = useState(false);
   const [method, setMethod]   = useState(PAY_RAILS[0]?.value ?? "MPESA");
   const [accountName, setAccountName] = useState("");
   const [accountNo, setAccountNo]     = useState("");
@@ -360,6 +361,7 @@ function PaymentMethodsSection() {
       if (!r.ok) throw new Error(d.error ?? "Failed");
       toast.success("Payment method saved");
       setAccountName(""); setAccountNo(""); setBankName("");
+      setFormOpen(false);
       load();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
     finally { setSaving(false); }
@@ -370,16 +372,30 @@ function PaymentMethodsSection() {
     await fetch(`/api/p2p/merchant/payment-methods/${id}`, { method: "DELETE" }).catch(() => {});
   }
 
+  const showForm = formOpen || (!loading && methods.length === 0);
+
   return (
-    <div className="mb-3 rounded-lg border border-white/[0.06] bg-[#111118] p-3">
-      <div className="mb-2">
-        <h2 className="text-white font-black text-sm">Payment Methods</h2>
-        <p className="text-slate-500 text-[11px] mt-0.5">Where buyers send funds for your ads. Without these, the order page can&apos;t show your details.</p>
+    <div className="mb-3 overflow-hidden rounded-lg border border-white/[0.06] bg-[#111118]">
+      <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-3 py-3">
+        <div className="min-w-0">
+          <h2 className="text-sm font-black text-white">Payment Methods</h2>
+          <p className="mt-0.5 text-[11px] leading-4 text-slate-500">Where buyers send fiat after opening an order.</p>
+        </div>
+        {methods.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setFormOpen((v) => !v)}
+            className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#087cff] px-3 text-[11px] font-black text-white transition hover:bg-[#0570e8]"
+          >
+            <Icon name={formOpen ? "close" : "add"} className="text-sm" />
+            {formOpen ? "Close" : "Add"}
+          </button>
+        )}
       </div>
 
       {/* Saved methods */}
       {!loading && methods.length > 0 && (
-        <div className="mb-3 space-y-1.5">
+        <div className="space-y-1.5 px-3 py-3">
           {methods.map((m) => (
             <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/[0.03] px-3 py-2 ring-1 ring-white/[0.06]">
               <div className="min-w-0">
@@ -395,24 +411,26 @@ function PaymentMethodsSection() {
       )}
 
       {/* Add form */}
-      <div className="grid grid-cols-2 gap-2">
-        <select value={method} onChange={(e) => setMethod(e.target.value)}
-          className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] font-bold text-white outline-none">
-          {PAY_RAILS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-        </select>
-        <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
-          className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
-        <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={isBank ? "Account number" : "Phone / Paybill"}
-          className={`${isBank ? "" : "col-span-2"} h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600`} />
-        {isBank && (
-          <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
-            className="h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
-        )}
-        <button type="button" onClick={add} disabled={saving}
-          className="col-span-2 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#087cff] text-[13px] font-black text-white transition hover:bg-[#0570e8] disabled:opacity-50">
-          <Icon name="add" className="text-base" /> {saving ? "Saving…" : "Add payment method"}
-        </button>
-      </div>
+      {showForm && (
+        <div className="grid grid-cols-2 gap-2 border-t border-white/[0.05] px-3 py-3">
+          <select value={method} onChange={(e) => setMethod(e.target.value)}
+            className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] font-bold text-white outline-none">
+            {PAY_RAILS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
+            className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
+          <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={isBank ? "Account number" : "Phone / Paybill"}
+            className={`${isBank ? "" : "col-span-2"} h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600`} />
+          {isBank && (
+            <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
+              className="h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
+          )}
+          <button type="button" onClick={add} disabled={saving}
+            className="col-span-2 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#087cff] text-[13px] font-black text-white transition hover:bg-[#0570e8] disabled:opacity-50">
+            <Icon name="add" className="text-base" /> {saving ? "Saving..." : "Add payment method"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -642,8 +660,8 @@ function DepositSection() {
       {/* Header */}
       <div className="flex flex-col gap-3 border-b border-white/[0.06] px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:py-2.5">
         <div className="min-w-0">
-          <h2 className="text-white font-black text-base">Merchant Balances</h2>
-          <p className="text-slate-500 text-xs mt-0.5">Deposits land in your wallet — move to escrow when ready to trade</p>
+          <h2 className="text-base font-black text-white">Wallet &amp; Escrow</h2>
+          <p className="mt-0.5 text-xs leading-4 text-slate-500">Receive to wallet, fund escrow for ads, and track locked order funds.</p>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:items-center">
           <button
@@ -651,23 +669,21 @@ function DepositSection() {
             className="flex items-center justify-center gap-1.5 rounded-lg bg-[#087cff] px-2 py-2 text-[11px] font-black text-white shadow-lg shadow-[#087cff]/20 transition-colors hover:bg-[#0570e8] lg:h-9 lg:px-4 lg:text-sm"
           >
             <Icon name="currency_exchange" className="text-base" />
-            <span className="whitespace-nowrap">Convert</span>
-            <span className="hidden whitespace-nowrap lg:inline">KES</span>
+            <span className="whitespace-nowrap">Convert KES</span>
           </button>
           <button
             onClick={() => { setFundOpen((v) => !v); setConvertOpen(false); setE2wOpen(false); setOpen(false); }}
             className="flex items-center justify-center gap-1.5 rounded-lg bg-[#05b957] px-2 py-2 text-[11px] font-black text-white shadow-lg shadow-[#05b957]/20 transition-colors hover:bg-[#28af52] lg:h-9 lg:px-4 lg:text-sm"
           >
             <Icon name="arrow_upward" className="text-base" />
-            <span className="whitespace-nowrap">Fund</span>
-            <span className="hidden whitespace-nowrap lg:inline">Escrow</span>
+            <span className="whitespace-nowrap">Fund Escrow</span>
           </button>
           <button
             onClick={() => { setE2wOpen((v) => !v); setConvertOpen(false); setFundOpen(false); setOpen(false); }}
             className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2 py-2 text-[11px] font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9 lg:px-3 lg:text-sm"
           >
             <Icon name="arrow_downward" className="text-base" />
-            <span className="whitespace-nowrap">Wallet</span>
+            <span className="whitespace-nowrap">To Wallet</span>
           </button>
           <button
             onClick={() => { setOpen((v) => !v); setConvertOpen(false); setFundOpen(false); setE2wOpen(false); setAddress(null); }}
@@ -680,14 +696,21 @@ function DepositSection() {
       </div>
 
       {/* Wallet + Escrow balance rows */}
-      <div className="grid grid-cols-2 divide-x divide-white/[0.04] border-b border-white/[0.06] bg-white/[0.01]">
+      <div className="grid gap-0 border-b border-white/[0.06] bg-white/[0.01] lg:grid-cols-2 lg:divide-x lg:divide-white/[0.04]">
         {/* Wallet (UserCryptoBalance) */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-2.5 sm:grid-cols-3">
-          <p className="col-span-full mb-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">In Wallet</p>
+        <div className="px-4 py-3">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">In Wallet</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-600">Deposits arrive here first.</p>
+            </div>
+            <Icon name="account_balance_wallet" className="text-lg text-slate-600" />
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {walletDisplayRows.map((b) => (
-            <div key={`${b.crypto}-${b.network}`}>
-              <p className="text-[10px] font-bold text-slate-500">{b.crypto} <span className="text-slate-700">({b.network})</span></p>
-              <p className={Number(b.available) > 0 ? "text-sm font-black text-white" : "text-sm font-black text-slate-700"}>
+            <div key={`${b.crypto}-${b.network}`} className="min-w-0 rounded-lg bg-white/[0.025] px-2.5 py-2 ring-1 ring-white/[0.04]">
+              <p className="truncate text-[10px] font-bold text-slate-500">{b.crypto} <span className="text-slate-700">({b.network})</span></p>
+              <p className={Number(b.available) > 0 ? "truncate text-sm font-black text-white" : "truncate text-sm font-black text-slate-700"}>
                 {formatCoinAmount(b.crypto, b.available)}
               </p>
               {b.locked > 0 && (
@@ -695,14 +718,22 @@ function DepositSection() {
               )}
             </div>
           ))}
+          </div>
         </div>
         {/* Escrow (P2PCryptoBalance + KES Coin locked per order) */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-2.5 sm:grid-cols-3">
-          <p className="col-span-full mb-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">In Escrow</p>
+        <div className="border-t border-white/[0.05] px-4 py-3 lg:border-t-0">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">In Escrow</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-600">Available backs ads. Locked is in active orders.</p>
+            </div>
+            <Icon name="lock" className="text-lg text-slate-600" />
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {escrowDisplayRows.map((b) => (
-            <div key={b.crypto}>
+            <div key={b.crypto} className="min-w-0 rounded-lg bg-white/[0.025] px-2.5 py-2 ring-1 ring-white/[0.04]">
               <p className="text-[10px] font-bold text-slate-500">{b.crypto}</p>
-              <p className={Number(b.available) > 0 ? "text-sm font-black text-white" : "text-sm font-black text-slate-700"}>
+              <p className={Number(b.available) > 0 ? "truncate text-sm font-black text-white" : "truncate text-sm font-black text-slate-700"}>
                 {formatCoinAmount(b.crypto, b.available)}
               </p>
               {b.locked > 0 && (
@@ -710,6 +741,22 @@ function DepositSection() {
               )}
             </div>
           ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-2 border-b border-white/[0.06] px-4 py-3 text-[11px] text-slate-500 sm:grid-cols-3">
+        <div className="flex items-start gap-2">
+          <Icon name="download" className="mt-0.5 text-sm text-[#087cff]" />
+          <span>Receive crypto to wallet addresses.</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <Icon name="arrow_upward" className="mt-0.5 text-sm text-[#05b957]" />
+          <span>Fund escrow before creating sell ads.</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <Icon name="percent" className="mt-0.5 text-sm text-amber-400" />
+          <span>Trade fees are deducted on release.</span>
         </div>
       </div>
 
@@ -1020,7 +1067,14 @@ function DepositSection() {
         </div>
       )}
 
-      {/* Deposit history table */}
+      <div className="flex items-center justify-between border-b border-white/[0.05] px-4 py-2.5">
+        <div>
+          <p className="text-xs font-black text-white">Recent Escrow Movements</p>
+          <p className="mt-0.5 text-[11px] text-slate-600">Funds moved into merchant escrow.</p>
+        </div>
+      </div>
+
+      {/* Escrow movement history table */}
       {loading ? (
         <div className="flex items-center justify-center py-5">
           <div className="w-5 h-5 border-2 border-white/10 border-t-[#05b957] rounded-full animate-spin" />
@@ -1028,7 +1082,7 @@ function DepositSection() {
       ) : deposits.length === 0 ? (
         <div className="flex min-h-[78px] flex-col items-center justify-center px-4 py-3 text-center">
           <Icon name="account_balance_wallet" className="mb-2 text-2xl text-slate-700" />
-          <p className="text-slate-500 text-sm">No deposits yet</p>
+          <p className="text-slate-500 text-sm">No escrow movements yet</p>
           <p className="text-slate-600 text-xs mt-1">Use Fund Escrow above to move wallet crypto here</p>
         </div>
       ) : (
@@ -1289,7 +1343,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
           {needsKesCoin && (
             <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[12px] font-bold text-amber-300">
-              Buy KES Coin first in Wallet &gt; Convert. This ad needs KSh {requiredKesCoin.toLocaleString("en-KE")} KES Coin including the 1% seller fee; you have KSh {kesCoinAvailable.toLocaleString("en-KE")}.
+              Buy KES Coin first in Merchant Center &gt; Convert KES. This ad needs KSh {requiredKesCoin.toLocaleString("en-KE")} KES Coin including the 1% seller fee; you have KSh {kesCoinAvailable.toLocaleString("en-KE")}.
             </div>
           )}
 
@@ -1597,11 +1651,11 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         );
       })()}
 
+      {/* Wallet and escrow operations */}
+      <DepositSection />
+
       {/* Payment methods */}
       <PaymentMethodsSection />
-
-      {/* Deposits */}
-      <DepositSection />
 
       {/* Ads list */}
       <div>
