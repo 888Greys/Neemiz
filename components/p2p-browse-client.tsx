@@ -440,6 +440,7 @@ const CRYPTO_COLOR: Record<string, string> = {
   BTC:  "#f7931a",
   ETH:  "#627eea",
   BNB:  "#f0b90b",
+  KES:  "#0a7e3f",
 };
 
 const AD_COLS = "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_120px]";
@@ -728,10 +729,12 @@ const CRYPTO_ICONS: Record<string, string> = {
   BTC:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
   ETH:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
   BNB:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
+  KES:   "https://flagcdn.com/w80/ke.png",
 };
 
 // All cryptos supported for P2P (must match the ads API's VALID_CRYPTOS).
-const CRYPTOS   = ["USDT", "USDC", "BTC", "ETH", "BNB"];
+// "KES" is the in-app KES coin (escrowed from wallet balance).
+const CRYPTOS   = ["USDT", "USDC", "BTC", "ETH", "BNB", "KES"];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 

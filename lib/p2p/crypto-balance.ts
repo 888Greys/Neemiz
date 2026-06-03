@@ -98,6 +98,30 @@ export async function debitUserCrypto(
   });
 }
 
+// ─── KES coin (in-app fiat as a tradable P2P asset) ─────────────────────────
+// The "KES coin" is the user's fiat wallet balance (User.walletBalance), 1:1
+// with KES, non-withdrawable. When it's the traded asset in a P2P ad we escrow
+// it straight from walletBalance (debit-on-lock per order; refund on
+// cancel/expire; pay the recipient on release) — there's no separate locked
+// column, the order record tracks what's held.
+
+export const KES_COIN = "KES";
+export function isKesCoin(crypto: string): boolean {
+  return crypto?.toUpperCase() === KES_COIN;
+}
+
+/** Debit KES from a user's wallet balance (escrow lock). Throws if insufficient. */
+export async function debitWalletKes(tx: TxClient, userId: string, amount: number) {
+  const u = await tx.user.findUnique({ where: { id: userId }, select: { walletBalance: true } });
+  if (!u || Number(u.walletBalance) < amount) throw new Error("INSUFFICIENT_KES_BALANCE");
+  await tx.user.update({ where: { id: userId }, data: { walletBalance: { decrement: amount } } });
+}
+
+/** Credit KES to a user's wallet balance (refund or payout). */
+export async function creditWalletKes(tx: TxClient, userId: string, amount: number) {
+  await tx.user.update({ where: { id: userId }, data: { walletBalance: { increment: amount } } });
+}
+
 /**
  * Infer the default network for a given crypto symbol.
  * Update this as new networks are added.
