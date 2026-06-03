@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
-import { defaultNetwork, lockUserCrypto, unlockUserCrypto } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, lockUserCrypto, unlockUserCrypto, isKesCoin, debitWalletKes, creditWalletKes } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail } from "@/lib/brevo";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
@@ -29,7 +29,7 @@ export async function GET() {
           ...(merchant ? [{ sellerId: merchant.id }] : []),
         ],
       },
-      select: { id: true, adId: true, buyerId: true, crypto: true, cryptoAmount: true, ad: { select: { side: true } } },
+      select: { id: true, adId: true, buyerId: true, sellerId: true, crypto: true, cryptoAmount: true, ad: { select: { side: true } } },
     });
     if (expiredOrders.length > 0) {
       await db.$transaction(async (tx) => {
@@ -39,12 +39,18 @@ export async function GET() {
             data:  { status: "EXPIRED" },
           });
           if (expired.count === 0) continue;
+          const amt = Number(order.cryptoAmount);
           await tx.p2PAd.update({
             where: { id: order.adId },
-            data:  { availableAmount: { increment: Number(order.cryptoAmount) } },
+            data:  { availableAmount: { increment: amt } },
           });
-          if (order.ad.side === "BUY") {
-            await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), Number(order.cryptoAmount));
+          if (isKesCoin(order.crypto)) {
+            const giverUserId = order.ad.side === "SELL"
+              ? (await tx.merchantProfile.findUnique({ where: { id: order.sellerId }, select: { userId: true } }))?.userId
+              : order.buyerId;
+            if (giverUserId) await creditWalletKes(tx, giverUserId, amt);
+          } else if (order.ad.side === "BUY") {
+            await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), amt);
           }
         }
       });
@@ -179,7 +185,12 @@ export async function POST(req: Request) {
       });
       if (reserved.count === 0) throw new Error("INSUFFICIENT_AD_LIQUIDITY");
 
-      if (ad.side === "BUY") {
+      if (isKesCoin(ad.crypto)) {
+        // KES coin: escrow it from whoever is giving it — the merchant on a
+        // SELL ad, the taker on a BUY ad — straight from their wallet balance.
+        const giverUserId = ad.side === "SELL" ? ad.merchant.userId : dbUser.id;
+        await debitWalletKes(tx, giverUserId, cryptoAmountNum);
+      } else if (ad.side === "BUY") {
         await lockUserCrypto(tx, dbUser.id, ad.crypto, defaultNetwork(ad.crypto), cryptoAmountNum);
       }
 
@@ -197,13 +208,22 @@ export async function POST(req: Request) {
         },
       });
     }).catch((err: unknown) => {
-      if ((err as Error).message === "INSUFFICIENT_AD_LIQUIDITY") return null;
-      if ((err as Error).message === "INSUFFICIENT_CRYPTO_BALANCE") return "INSUFFICIENT_CRYPTO_BALANCE" as const;
+      const msg = (err as Error).message;
+      if (msg === "INSUFFICIENT_AD_LIQUIDITY") return null;
+      if (msg === "INSUFFICIENT_CRYPTO_BALANCE") return "INSUFFICIENT_CRYPTO_BALANCE" as const;
+      if (msg === "INSUFFICIENT_KES_BALANCE") return "INSUFFICIENT_KES_BALANCE" as const;
       throw err;
     });
 
     if (order === "INSUFFICIENT_CRYPTO_BALANCE") {
       return Response.json({ error: `Insufficient ${ad.crypto} balance to sell.` }, { status: 400 });
+    }
+    if (order === "INSUFFICIENT_KES_BALANCE") {
+      return Response.json({
+        error: ad.side === "SELL"
+          ? "The merchant doesn't have enough KES balance right now."
+          : "Insufficient KES balance to sell.",
+      }, { status: 400 });
     }
     if (!order) return Response.json({ error: "Insufficient ad liquidity" }, { status: 400 });
 

@@ -2,11 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
+import { isKesCoin } from "@/lib/p2p/crypto-balance";
 import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
 
-const VALID_CRYPTOS = ["USDT", "USDC", "BTC", "ETH", "BNB"];
+// "KES" is the in-app KES coin (escrowed from wallet balance, not a crypto balance).
+const VALID_CRYPTOS = ["USDT", "USDC", "BTC", "ETH", "BNB", "KES"];
 const VALID_SIDES: AdSide[] = ["BUY", "SELL"];
 const VALID_FIATS = new Set(FIAT_CURRENCIES.map((f) => f.code));
 
@@ -158,7 +160,10 @@ export async function POST(req: Request) {
       terms:           (terms as string | undefined) ?? null,
     };
 
-    if (side === "SELL") {
+    // Crypto SELL ads lock the merchant's crypto up-front. KES-coin SELL ads
+    // don't: the KES is escrowed per-order from the merchant's wallet balance
+    // (see /api/p2p/orders), so here we just create the ad like a BUY ad.
+    if (side === "SELL" && !isKesCoin(crypto as string)) {
       // Lock balance + create ad atomically — if ad creation fails, balance stays intact
       const ad = await db.$transaction(async (tx) => {
         const balance = await tx.p2PCryptoBalance.findUnique({
