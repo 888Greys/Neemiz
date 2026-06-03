@@ -12,6 +12,10 @@ const QUICK_AMOUNTS = [100, 250, 500, 1_000, 2_500, 5_000];
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
 
+// Flag for the local-currency "coin" (e.g. KES, NGN). First two letters of the
+// currency code map to the country flag for most local currencies.
+const flagUrl = (code: string) => `https://flagcdn.com/w40/${code.slice(0, 2).toLowerCase()}.png`;
+
 const COIN_ICON_URL: Record<string, string> = {
   USDT:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
   USDC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
@@ -352,6 +356,23 @@ export function WalletClient() {
           <p className="text-3xl font-black tracking-tight text-white sm:text-5xl">
             {isSignedIn ? fmtBalance : "—"}
           </p>
+
+          {/* Local-currency coin chip — the user's fiat presented as an in-app coin */}
+          {isSignedIn && (
+            <div className="mt-2 flex flex-col items-center gap-1">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[10px] font-black text-slate-200 ring-1 ring-white/[0.08]">
+                <img src={flagUrl(currency)} alt="" className="h-3 w-[18px] rounded-[2px] object-cover" />
+                {currency} Coin · 1:1 {currency}
+              </span>
+              <button
+                type="button"
+                onClick={() => setTab("sell")}
+                className="text-[10px] font-bold text-slate-500 transition hover:text-[#087cff]"
+              >
+                In-app balance — convert to crypto to cash out →
+              </button>
+            </div>
+          )}
 
           {!isSignedIn && (
             <button
