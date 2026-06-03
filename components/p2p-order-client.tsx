@@ -134,8 +134,16 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
     };
   }, [fetchMessages, orderId]);
 
+  const prevMsgCount = useRef(0);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Only scroll when a NEW message actually arrives. The 4s poll re-sets
+    // `messages` to a fresh array every time, which previously fired
+    // scrollIntoView on every tick and yanked the whole page. block:"nearest"
+    // also keeps it from moving the window when the chat is already in view.
+    if (messages.length > prevMsgCount.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    prevMsgCount.current = messages.length;
   }, [messages]);
 
   async function send() {

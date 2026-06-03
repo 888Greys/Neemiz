@@ -227,12 +227,25 @@ export async function POST(req: Request) {
     }
     if (!order) return Response.json({ error: "Insufficient ad liquidity" }, { status: 400 });
 
-    // Notify merchant — fire-and-forget (don't let email failure block the response)
+    // Notify merchant — fire-and-forget (don't let notify failures block the response)
+    const buyerName = dbUser.firstName
+      ? `${dbUser.firstName}${dbUser.lastName ? ` ${dbUser.lastName}` : ""}`.trim()
+      : dbUser.username ?? "A trader";
+
+    // In-app notification (bell)
+    db.notification.create({
+      data: {
+        userId: ad.merchant.userId,
+        type:   "p2p_new_order",
+        title:  "New P2P order",
+        body:   `${buyerName} placed an order for ${cryptoAmountNum} ${ad.crypto} (KSh ${fiatAmount.toLocaleString()}). Awaiting payment.`,
+        link:   `/p2p/order/${order.id}`,
+      },
+    }).catch((e) => console.error("P2P order notification failed:", e));
+
+    // Email
     const merchantEmail = ad.merchant.user.email;
     if (merchantEmail) {
-      const buyerName = dbUser.firstName
-        ? `${dbUser.firstName}${dbUser.lastName ? ` ${dbUser.lastName}` : ""}`.trim()
-        : dbUser.username ?? "A trader";
       sendNewP2POrderEmail(merchantEmail, ad.merchant.displayName, {
         orderId: order.id,
         buyerName,
