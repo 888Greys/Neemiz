@@ -315,22 +315,6 @@ export function WalletClient() {
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#087cff]/15 blur-3xl" />
         <div className="pointer-events-none absolute -left-12 bottom-0 h-44 w-44 rounded-full bg-[#05b957]/8 blur-2xl" />
 
-        {isSignedIn && (
-          <button
-            type="button"
-            onClick={() => setTab("history")}
-            aria-label="Transaction history"
-            className={`absolute right-3 top-3 z-10 flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-black uppercase tracking-wider ring-1 transition ${
-              tab === "history"
-                ? "bg-[#087cff]/15 text-[#087cff] ring-[#087cff]/30"
-                : "bg-white/[0.06] text-slate-400 ring-white/[0.08] hover:text-white"
-            }`}
-          >
-            <Icon name="history" fill={tab === "history"} className="text-[15px]" />
-            History
-          </button>
-        )}
-
         <div className="relative mx-auto max-w-2xl text-center">
           <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:text-[11px]">
             Available Balance
@@ -414,7 +398,7 @@ export function WalletClient() {
       {/* ── Tabs ── */}
       <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#0d0e11]">
         <div className="mx-auto flex max-w-2xl gap-0">
-          {(["deposit", "withdraw", "convert"] as const).map((t) => (
+          {(["deposit", "withdraw", "convert", "history"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -426,11 +410,19 @@ export function WalletClient() {
               }`}
             >
               <Icon
-                name={t === "deposit" ? "add_circle" : t === "withdraw" ? "remove_circle" : "currency_exchange"}
+                name={
+                  t === "deposit"
+                    ? "add_circle"
+                    : t === "withdraw"
+                      ? "remove_circle"
+                      : t === "convert"
+                        ? "currency_exchange"
+                        : "history"
+                }
                 fill={tab === t}
                 className="text-[15px]"
               />
-              {t === "convert" ? "Convert" : t.charAt(0).toUpperCase() + t.slice(1)}
+              {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
