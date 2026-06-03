@@ -206,7 +206,7 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
 
       {/* Input */}
       {!closed && (
-        <div className="p-3 border-t border-white/[0.06]">
+        <div className="border-t border-white/[0.06] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -264,7 +264,7 @@ function MobileP2POrderView({
   // ── Chat overlay ──────────────────────────────────────────────────────────
   if (showChat) {
     return (
-      <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-[#08080c] text-white">
+      <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#08080c] text-white">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-[#1e1e30] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
@@ -290,7 +290,7 @@ function MobileP2POrderView({
   // ── Cancel confirmation screen ────────────────────────────────────────────
   if (showCancelForm) {
     return (
-      <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-[#08080c] text-white">
+      <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#08080c] text-white">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-[#1e1e30] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
@@ -341,7 +341,7 @@ function MobileP2POrderView({
   // ── Dispute screen ───────────────────────────────────────────────────────
   if (showDisputeScreen) {
     return (
-      <div className="lg:hidden fixed inset-0 z-50 flex flex-col bg-[#08080c] text-white">
+      <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#08080c] text-white">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-[#1e1e30] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
