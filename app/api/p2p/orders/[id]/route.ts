@@ -71,9 +71,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     seller: {
       displayName: order.seller.displayName,
       userId:      order.seller.userId,
-      // Match the order's payment method to the seller's active method
-      paymentMethod: order.seller.paymentMethods.find(
-        (pm) => pm.type.toLowerCase() === order.paymentMethod.toLowerCase()
+      // Match the order's payment rail to the seller's saved details. We store
+      // the rail code in `name`, so match on that first; fall back to the
+      // MPESA/BANK enum type for older records.
+      paymentMethod: (
+        order.seller.paymentMethods.find((pm) => pm.name?.toLowerCase() === order.paymentMethod.toLowerCase())
+        ?? order.seller.paymentMethods.find((pm) => pm.type.toLowerCase() === order.paymentMethod.toLowerCase())
       ) ?? null,
     },
     ad:     order.ad,
