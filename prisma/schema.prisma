@@ -157,8 +157,10 @@ model MerchantProfile {
   user             User      @relation(fields: [userId], references: [id])
 
   displayName      String    @map("display_name")
+  avatarUrl        String?   @map("avatar_url")
   isVerified       Boolean   @default(false) @map("is_verified")
   isOnline         Boolean   @default(false) @map("is_online")
+  lastSeenAt       DateTime? @map("last_seen_at")
 
   // Stats
   totalTrades      Int       @default(0) @map("total_trades")

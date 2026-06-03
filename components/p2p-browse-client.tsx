@@ -16,6 +16,7 @@ import { LoadingDots } from "@/components/loading-dots";
 
 interface AdMerchant {
   displayName: string;
+  avatarUrl?: string | null;
   isOnline: boolean;
   completedTrades: number;
   completionRate: number;
@@ -461,9 +462,13 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
       {/* ── Advertiser ── */}
       <div className="flex min-w-0 items-center gap-2">
         <div className="relative shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black text-black" style={{ backgroundColor: color }}>
-            {ad.merchant.displayName.charAt(0).toUpperCase()}
-          </div>
+          {ad.merchant.avatarUrl ? (
+            <img src={ad.merchant.avatarUrl} alt={ad.merchant.displayName} className="h-7 w-7 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black text-black" style={{ backgroundColor: color }}>
+              {ad.merchant.displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
           {ad.merchant.isOnline && (
             <span className="absolute -bottom-0 -right-0 h-2 w-2 rounded-full border-2 border-[#0e0e14] bg-[#05b957]" />
           )}

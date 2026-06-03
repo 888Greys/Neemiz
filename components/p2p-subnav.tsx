@@ -23,7 +23,9 @@ export function P2PSubNav() {
   useEffect(() => {
     if (!isSignedIn) { setOrderCount(0); return; }
     let cancelled = false;
-    const fetchCount = async () => {
+    const tick = async () => {
+      // Presence heartbeat (no-op server-side for non-merchants) + order count.
+      fetch("/api/p2p/merchant/profile", { method: "POST" }).catch(() => {});
       try {
         const r = await fetch("/api/p2p/orders/active-count");
         if (!r.ok) return;
@@ -31,8 +33,8 @@ export function P2PSubNav() {
         if (!cancelled) setOrderCount(d.count ?? 0);
       } catch { /* ignore */ }
     };
-    fetchCount();
-    const id = setInterval(fetchCount, 20000);
+    tick();
+    const id = setInterval(tick, 20000);
     return () => { cancelled = true; clearInterval(id); };
   }, [isSignedIn, pathname]);
 
