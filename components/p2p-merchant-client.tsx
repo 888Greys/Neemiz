@@ -974,13 +974,13 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
       !form.pricePerUnit ||
       !form.totalAmount ||
       !form.paymentMethods.length ||
-      (form.side === "SELL" && (!form.minLimit || !form.maxLimit))
+      !form.minLimit || !form.maxLimit
     )
       return toast.error("Please fill all required fields");
 
-    const totalFiatValue = Number(form.totalAmount) * Number(form.pricePerUnit);
-    const minLimit = form.side === "SELL" ? Number(form.minLimit) : totalFiatValue;
-    const maxLimit = form.side === "SELL" ? Number(form.maxLimit) : totalFiatValue;
+    // Order limits now apply to both Buy and Sell ads.
+    const minLimit = Number(form.minLimit);
+    const maxLimit = Number(form.maxLimit);
 
     setSubmitting(true);
     try {
@@ -1121,17 +1121,16 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
           ))}
 
-          {form.side === "SELL" && (
-            <div className="grid grid-cols-2 gap-3">
-              {[{ label: `Min order (${form.fiat})`, key: "minLimit", ph: "500" }, { label: `Max order (${form.fiat})`, key: "maxLimit", ph: "50000" }].map(({ label, key, ph }) => (
-                <div key={key}>
-                  <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">{label}</label>
-                  <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
-                    className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-2 gap-3">
+            {[{ label: `Min order (${form.fiat})`, key: "minLimit", ph: "500" }, { label: `Max order (${form.fiat})`, key: "maxLimit", ph: "50000" }].map(({ label, key, ph }) => (
+              <div key={key}>
+                <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">{label}</label>
+                <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
+              </div>
+            ))}
+          </div>
+          <p className="-mt-1 text-[10px] text-slate-600">Order limits apply to both buy and sell ads.</p>
 
           <div>
             <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Payment methods</label>
@@ -1502,9 +1501,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
                     {/* Row 3: limits + quantity */}
                     <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40 lg:flex lg:flex-wrap lg:gap-x-4 lg:space-y-0">
-                      {ad.side === "SELL" && (
-                        <p>Limits <span className="text-white/65">{formatFiat(Number(ad.minLimit), ad.fiat, { symbol: false })} – {formatFiat(Number(ad.maxLimit), ad.fiat, { symbol: false })} {ad.fiat}</span></p>
-                      )}
+                      <p>Limits <span className="text-white/65">{formatFiat(Number(ad.minLimit), ad.fiat, { symbol: false })} – {formatFiat(Number(ad.maxLimit), ad.fiat, { symbol: false })} {ad.fiat}</span></p>
                       <p>{ad.side === "SELL" ? "Quantity" : "Buying"} <span className="text-white/65">{Number(ad.availableAmount).toLocaleString("en-US", { maximumFractionDigits: 4 })} {ad.crypto}</span></p>
                     </div>
 
