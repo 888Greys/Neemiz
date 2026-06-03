@@ -62,7 +62,7 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
   const cryptoAmount = inputMode === "crypto" ? Number(rawInput) : (Number(rawInput) ? Number(rawInput) / ad.pricePerUnit : 0);
 
   const isBuyingCrypto = ad.side === "SELL";
-  const hasOrderLimits = isBuyingCrypto;
+  const hasOrderLimits = true; // both buy and sell ads now have order limits (partial fills)
   const mustUseFullAmount = !hasOrderLimits && !!rawInput && Math.abs(cryptoAmount - ad.availableAmount) > 0.00000001;
   const belowMin          = hasOrderLimits && !!rawInput && fiatNum < ad.minLimit;
   const aboveMax          = hasOrderLimits && !!rawInput && fiatNum > ad.maxLimit;
@@ -510,15 +510,9 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
             </span>
           )}
         </div>
-        {isMerchantSelling ? (
-          <p className="mt-0.5 text-[10px] font-semibold text-white/40">
-            Limits <span className="text-white/65">{formatFiat(ad.minLimit, ad.fiat, { symbol: false })} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</span>
-          </p>
-        ) : (
-          <p className="mt-0.5 text-[10px] font-semibold text-white/40">
-            Buying <span className="text-white/65">{ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 4 })} {ad.crypto}</span>
-          </p>
-        )}
+        <p className="mt-0.5 text-[10px] font-semibold text-white/40">
+          Limits <span className="text-white/65">{formatFiat(ad.minLimit, ad.fiat, { symbol: false })} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</span>
+        </p>
       </div>
 
       {/* ── Payment ── */}

@@ -129,9 +129,11 @@ export async function POST(req: Request) {
     if (!Number.isFinite(totalAmountNum) || totalAmountNum <= 0)
       return Response.json({ error: "Invalid total amount" }, { status: 400 });
 
+    // Order limits apply to BOTH sides now. If a side omits them, default to
+    // the full order value (legacy behaviour for BUY ads without limits).
     const fullOrderLimit = totalAmountNum * pricePerUnitNum;
-    const minLimitNum = side === "SELL" ? Number(minLimit) : fullOrderLimit;
-    const maxLimitNum = side === "SELL" ? Number(maxLimit) : fullOrderLimit;
+    const minLimitNum = minLimit != null && minLimit !== "" ? Number(minLimit) : fullOrderLimit;
+    const maxLimitNum = maxLimit != null && maxLimit !== "" ? Number(maxLimit) : fullOrderLimit;
 
     if (!Number.isFinite(minLimitNum) || minLimitNum <= 0)
       return Response.json({ error: "Invalid minimum limit" }, { status: 400 });
