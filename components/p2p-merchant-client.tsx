@@ -695,71 +695,6 @@ function DepositSection() {
         </div>
       </div>
 
-      {/* Wallet + Escrow balance rows */}
-      <div className="grid gap-0 border-b border-white/[0.06] bg-white/[0.01] lg:grid-cols-2 lg:divide-x lg:divide-white/[0.04]">
-        {/* Wallet (UserCryptoBalance) */}
-        <div className="px-4 py-3">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">In Wallet</p>
-              <p className="mt-0.5 text-[11px] leading-4 text-slate-600">Deposits arrive here first.</p>
-            </div>
-            <Icon name="account_balance_wallet" className="text-lg text-slate-600" />
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {walletDisplayRows.map((b) => (
-            <div key={`${b.crypto}-${b.network}`} className="min-w-0 rounded-lg bg-white/[0.025] px-2.5 py-2 ring-1 ring-white/[0.04]">
-              <p className="truncate text-[10px] font-bold text-slate-500">{b.crypto} <span className="text-slate-700">({b.network})</span></p>
-              <p className={Number(b.available) > 0 ? "truncate text-sm font-black text-white" : "truncate text-sm font-black text-slate-700"}>
-                {formatCoinAmount(b.crypto, b.available)}
-              </p>
-              {b.locked > 0 && (
-                <p className="text-[10px] font-bold text-amber-400">{formatCoinAmount(b.crypto, b.locked)} locked</p>
-              )}
-            </div>
-          ))}
-          </div>
-        </div>
-        {/* Escrow (P2PCryptoBalance + KES Coin locked per order) */}
-        <div className="border-t border-white/[0.05] px-4 py-3 lg:border-t-0">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">In Escrow</p>
-              <p className="mt-0.5 text-[11px] leading-4 text-slate-600">Available backs ads. Locked is in active orders.</p>
-            </div>
-            <Icon name="lock" className="text-lg text-slate-600" />
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {escrowDisplayRows.map((b) => (
-            <div key={b.crypto} className="min-w-0 rounded-lg bg-white/[0.025] px-2.5 py-2 ring-1 ring-white/[0.04]">
-              <p className="text-[10px] font-bold text-slate-500">{b.crypto}</p>
-              <p className={Number(b.available) > 0 ? "truncate text-sm font-black text-white" : "truncate text-sm font-black text-slate-700"}>
-                {formatCoinAmount(b.crypto, b.available)}
-              </p>
-              {b.locked > 0 && (
-                <p className="text-[10px] font-bold text-amber-400">{formatCoinAmount(b.crypto, b.locked)} locked</p>
-              )}
-            </div>
-          ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-2 border-b border-white/[0.06] px-4 py-3 text-[11px] text-slate-500 sm:grid-cols-3">
-        <div className="flex items-start gap-2">
-          <Icon name="download" className="mt-0.5 text-sm text-[#087cff]" />
-          <span>Receive crypto to wallet addresses.</span>
-        </div>
-        <div className="flex items-start gap-2">
-          <Icon name="arrow_upward" className="mt-0.5 text-sm text-[#05b957]" />
-          <span>Fund escrow before creating sell ads.</span>
-        </div>
-        <div className="flex items-start gap-2">
-          <Icon name="percent" className="mt-0.5 text-sm text-amber-400" />
-          <span>Trade fees are deducted on release.</span>
-        </div>
-      </div>
-
       {/* Merchant KES Coin conversion panel */}
       {convertOpen && (
         <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
@@ -1066,6 +1001,71 @@ function DepositSection() {
           )}
         </div>
       )}
+
+      {/* Wallet + Escrow balance rows */}
+      <div className="grid gap-0 border-b border-white/[0.06] bg-white/[0.01] lg:grid-cols-2 lg:divide-x lg:divide-white/[0.04]">
+        {/* Wallet (UserCryptoBalance) */}
+        <div className="px-4 py-3">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">In Wallet</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-600">Deposits arrive here first.</p>
+            </div>
+            <Icon name="account_balance_wallet" className="text-lg text-slate-600" />
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {walletDisplayRows.map((b) => (
+              <div key={`${b.crypto}-${b.network}`} className="min-w-0 rounded-lg bg-white/[0.025] px-2.5 py-2 ring-1 ring-white/[0.04]">
+                <p className="truncate text-[10px] font-bold text-slate-500">{b.crypto} <span className="text-slate-700">({b.network})</span></p>
+                <p className={Number(b.available) > 0 ? "truncate text-sm font-black text-white" : "truncate text-sm font-black text-slate-700"}>
+                  {formatCoinAmount(b.crypto, b.available)}
+                </p>
+                {b.locked > 0 && (
+                  <p className="text-[10px] font-bold text-amber-400">{formatCoinAmount(b.crypto, b.locked)} locked</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* Escrow (P2PCryptoBalance + KES Coin locked per order) */}
+        <div className="border-t border-white/[0.05] px-4 py-3 lg:border-t-0">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">In Escrow</p>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-600">Available backs ads. Locked is in active orders.</p>
+            </div>
+            <Icon name="lock" className="text-lg text-slate-600" />
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {escrowDisplayRows.map((b) => (
+              <div key={b.crypto} className="min-w-0 rounded-lg bg-white/[0.025] px-2.5 py-2 ring-1 ring-white/[0.04]">
+                <p className="text-[10px] font-bold text-slate-500">{b.crypto}</p>
+                <p className={Number(b.available) > 0 ? "truncate text-sm font-black text-white" : "truncate text-sm font-black text-slate-700"}>
+                  {formatCoinAmount(b.crypto, b.available)}
+                </p>
+                {b.locked > 0 && (
+                  <p className="text-[10px] font-bold text-amber-400">{formatCoinAmount(b.crypto, b.locked)} locked</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-2 border-b border-white/[0.06] px-4 py-3 text-[11px] text-slate-500 sm:grid-cols-3">
+        <div className="flex items-start gap-2">
+          <Icon name="download" className="mt-0.5 text-sm text-[#087cff]" />
+          <span>Receive crypto to wallet addresses.</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <Icon name="arrow_upward" className="mt-0.5 text-sm text-[#05b957]" />
+          <span>Fund escrow before creating sell ads.</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <Icon name="percent" className="mt-0.5 text-sm text-amber-400" />
+          <span>Trade fees are deducted on release.</span>
+        </div>
+      </div>
 
       <div className="flex items-center justify-between border-b border-white/[0.05] px-4 py-2.5">
         <div>
