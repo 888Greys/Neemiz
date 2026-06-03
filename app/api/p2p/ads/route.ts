@@ -34,7 +34,8 @@ export async function GET(req: Request) {
         merchant: {
           select: {
             displayName:    true,
-            isOnline:       true,
+            avatarUrl:      true,
+            lastSeenAt:     true,
             completedTrades: true,
             completionRate: true,
             avgReleaseTime: true,
@@ -69,7 +70,9 @@ export async function GET(req: Request) {
       terms:           ad.terms,
       merchant: {
         displayName:     ad.merchant.displayName,
-        isOnline:        ad.merchant.isOnline,
+        avatarUrl:       ad.merchant.avatarUrl,
+        // Online = a heartbeat in the last 3 minutes.
+        isOnline:        !!ad.merchant.lastSeenAt && (Date.now() - new Date(ad.merchant.lastSeenAt).getTime() < 3 * 60 * 1000),
         completedTrades: ad.merchant.completedTrades,
         completionRate:  Number(ad.merchant.completionRate),
         avgReleaseTime:  ad.merchant.avgReleaseTime,

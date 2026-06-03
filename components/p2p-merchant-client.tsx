@@ -1182,6 +1182,29 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const [loading, setLoading]   = useState(true);
   const [createOpen, setCreate] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
+
+  // Editable display name
+  const [displayName, setDisplayName] = useState(status.displayName ?? "");
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput]     = useState(status.displayName ?? "");
+  const [savingName, setSavingName]   = useState(false);
+
+  async function saveName() {
+    const n = nameInput.trim();
+    if (n.length < 2 || n.length > 30) return toast.error("Name must be 2–30 characters");
+    setSavingName(true);
+    try {
+      const r = await fetch("/api/p2p/merchant/profile", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: n }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed");
+      setDisplayName(n); setEditingName(false);
+      toast.success("Display name updated");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    finally { setSavingName(false); }
+  }
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1204,6 +1227,12 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
       const { error: updErr } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
       if (updErr) throw updErr;
+
+      // Persist to the merchant profile too, so it shows on the public offer cards.
+      await fetch("/api/p2p/merchant/profile", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl: publicUrl }),
+      }).catch(() => {});
 
       toast.success("Profile picture updated");
     } catch (err) {
@@ -1284,7 +1313,30 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
           </label>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base font-black text-white">{status.displayName}</h1>
+              {editingName ? (
+                <span className="flex items-center gap-1">
+                  <input
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    autoFocus
+                    maxLength={30}
+                    className="h-7 w-40 rounded-md border border-white/[0.12] bg-[#0e0e14] px-2 text-base font-black text-white outline-none focus:border-[#087cff]/50"
+                  />
+                  <button type="button" onClick={saveName} disabled={savingName} className="grid h-7 w-7 place-items-center rounded-md bg-[#05b957]/15 text-[#05b957] hover:bg-[#05b957]/25 disabled:opacity-50" aria-label="Save">
+                    <Icon name="check" className="text-[16px]" />
+                  </button>
+                  <button type="button" onClick={() => { setEditingName(false); setNameInput(displayName); }} className="grid h-7 w-7 place-items-center rounded-md text-slate-400 hover:bg-white/[0.06]" aria-label="Cancel">
+                    <Icon name="close" className="text-[16px]" />
+                  </button>
+                </span>
+              ) : (
+                <>
+                  <h1 className="text-base font-black text-white">{displayName}</h1>
+                  <button type="button" onClick={() => { setNameInput(displayName); setEditingName(true); }} className="grid h-6 w-6 place-items-center rounded-md text-slate-500 hover:bg-white/[0.06] hover:text-white" aria-label="Edit name">
+                    <Icon name="edit" className="text-[14px]" />
+                  </button>
+                </>
+              )}
               <div className="flex items-center gap-1 bg-[#05b957]/10 border border-[#05b957]/20 rounded-full px-2 py-0.5">
                 <Icon name="verified" className="text-[#05b957] text-xs" />
                 <span className="text-[#05b957] text-[10px] font-black">Verified</span>
