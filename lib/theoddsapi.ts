@@ -25,16 +25,45 @@ const SPORT_META: Record<string, { league: string; country: string; flag: string
   cricket_icc_world_cup:        { league: "ICC World Cup",       country: "International",flag: ""            },
 };
 
-// Sports to fetch — keep this list short on the free tier (500 req/month).
-// 5 sports × 2 calls = 10 req per cache miss; at revalidate 7200s that's
-// ~10 × 12/day × 30 = 3,600/month → upgrade to Developer ($79/mo) for 10k.
-const FETCH_SPORTS = [
+// Fallback list if the /sports discovery call fails or the key is missing.
+const FALLBACK_SPORTS = [
   "soccer_epl",
   "soccer_spain_la_liga",
   "soccer_germany_bundesliga",
   "soccer_italy_serie_a",
   "basketball_nba",
 ];
+
+// We no longer hardcode leagues (they go off-season). Instead we ask the API
+// which sports are in season and pull odds for those — prioritising the most
+// popular groups first and capping the count to stay within quota.
+const PREFERRED_GROUPS = [
+  "Soccer", "Basketball", "American Football", "Ice Hockey", "Baseball",
+  "Tennis", "Mixed Martial Arts", "Boxing", "Cricket", "Rugby League", "Rugby Union",
+];
+const MAX_SPORTS = 12;
+
+interface SportInfo { key: string; group: string; title: string; active: boolean; has_outrights: boolean; }
+
+// The /sports endpoint is free (doesn't consume the odds quota). Cached 6h
+// since the in-season set changes slowly. Returns in-season sport keys,
+// most-popular groups first.
+async function getFetchSports(): Promise<string[]> {
+  if (!API_KEY) return FALLBACK_SPORTS;
+  try {
+    const res = await fetch(`${BASE}/sports?apiKey=${API_KEY}`, { next: { revalidate: 21600 } });
+    if (!res.ok) return FALLBACK_SPORTS;
+    const sports = (await res.json()) as SportInfo[];
+    const active = sports.filter((s) => s.active);
+    if (active.length === 0) return FALLBACK_SPORTS;
+    const rank = (g: string) => { const i = PREFERRED_GROUPS.indexOf(g); return i === -1 ? 999 : i; };
+    active.sort((a, b) => rank(a.group) - rank(b.group));
+    return active.slice(0, MAX_SPORTS).map((s) => s.key);
+  } catch (e) {
+    console.error("OddsAPI getFetchSports error:", e);
+    return FALLBACK_SPORTS;
+  }
+}
 
 // ── State IDs (mirrors Sportmonks convention so settle-bet.ts needs no changes)
 // 1 = Not Started, 2 = Live, 5 = Finished
@@ -304,7 +333,7 @@ async function fetchScores(sportKey: string, daysFrom = 1): Promise<ScoreEvent[]
   if (!API_KEY) return [];
   const url = `${BASE}/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=${daysFrom}`;
   try {
-    const res = await fetch(url, { next: { revalidate: 60 } });
+    const res = await fetch(url, { next: { revalidate: 120 } });
     if (!res.ok) return [];
     return (await res.json()) as ScoreEvent[];
   } catch (e) {
@@ -317,6 +346,7 @@ async function fetchScores(sportKey: string, daysFrom = 1): Promise<ScoreEvent[]
 
 export async function getLivescores(): Promise<Match[]> {
   const now = Date.now();
+  const FETCH_SPORTS = await getFetchSports();
   const results = await Promise.all(
     FETCH_SPORTS.map(async (sport) => {
       const [odds, scores] = await Promise.all([fetchOdds(sport), fetchScores(sport)]);
@@ -337,6 +367,7 @@ export async function getLivescores(): Promise<Match[]> {
 
 export async function getUpcomingFixtures(): Promise<Match[]> {
   const now = Date.now();
+  const FETCH_SPORTS = await getFetchSports();
   const results = await Promise.all(
     FETCH_SPORTS.map(async (sport) => {
       const [odds, scores] = await Promise.all([fetchOdds(sport), fetchScores(sport)]);
@@ -367,6 +398,7 @@ export async function getUpcomingFixtures(): Promise<Match[]> {
 // Searches all tracked sports for the event matching the numeric ID.
 // Returns empty events/stats/lineups — Odds API doesn't supply those.
 export async function getFixtureDetail(id: number): Promise<MatchDetail | null> {
+  const FETCH_SPORTS = await getFetchSports();
   for (const sport of FETCH_SPORTS) {
     const [odds, scores] = await Promise.all([
       fetchOdds(sport),
