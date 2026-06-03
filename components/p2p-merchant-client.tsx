@@ -22,6 +22,8 @@ const P2P_CRYPTOS: Array<{ symbol: string; name: string; icon: string; color: st
   { symbol: "KES",  name: "KES Coin · in-app", icon: "https://flagcdn.com/w80/ke.png",                                       color: "#0a7e3f" },
 ];
 
+const P2P_SYMBOLS = P2P_CRYPTOS.map((c) => c.symbol);
+
 const flagUrl = (currencyCode: string) =>
   `https://flagcdn.com/w40/${currencyCode.slice(0, 2).toLowerCase()}.png`;
 
@@ -517,6 +519,37 @@ function DepositSection() {
     balances.find((b) => b.crypto === e2wCrypto)?.available ?? 0,
   );
 
+  const formatCoinAmount = (crypto: string, amount: number) =>
+    Number(amount).toFixed(crypto === "KES" ? 2 : 6);
+
+  const balanceSymbols = [
+    ...P2P_SYMBOLS,
+    ...walletBalances.map((b) => b.crypto),
+    ...balances.map((b) => b.crypto),
+  ].filter((crypto, index, all) => all.indexOf(crypto) === index);
+
+  const walletDisplayRows = balanceSymbols.map((crypto) => {
+    const rows = walletBalances.filter((b) => b.crypto === crypto);
+    return {
+      crypto,
+      network: rows.length > 0
+        ? rows.map((b) => b.network).filter((n, i, arr) => arr.indexOf(n) === i).join(", ")
+        : crypto === "KES" ? "KES" : "wallet",
+      available: rows.reduce((sum, b) => sum + Number(b.available), 0),
+      locked: rows.reduce((sum, b) => sum + Number(b.locked), 0),
+    };
+  });
+
+  const escrowDisplayRows = balanceSymbols.map((crypto) => {
+    const escrow = balances.find((b) => b.crypto === crypto);
+    const kesWallet = walletBalances.find((b) => b.crypto === "KES" && b.network === "KES");
+    return {
+      crypto,
+      available: crypto === "KES" ? 0 : Number(escrow?.available ?? 0),
+      locked: crypto === "KES" ? Number(kesWallet?.locked ?? 0) : Number(escrow?.locked ?? 0),
+    };
+  });
+
   useEffect(() => { load(); }, [load]);
 
   // Auto-select first available wallet crypto/network when balances load
@@ -601,42 +634,38 @@ function DepositSection() {
       </div>
 
       {/* Wallet + Escrow balance rows */}
-      {(walletBalances.length > 0 || balances.length > 0) && (
-        <div className="grid grid-cols-2 divide-x divide-white/[0.04] border-b border-white/[0.06] bg-white/[0.01]">
-          {/* Wallet (UserCryptoBalance) */}
-          <div className="flex flex-wrap gap-4 px-4 py-2.5">
-            <p className="w-full text-[10px] font-black text-slate-600 uppercase tracking-wide mb-0.5">In Wallet</p>
-            {walletBalances.length === 0 ? (
-              <p className="text-slate-700 text-xs">—</p>
-            ) : walletBalances.map((b) => (
-              <div key={`${b.crypto}-${b.network}`}>
-                <p className="text-[10px] text-slate-500 font-bold">{b.crypto} <span className="text-slate-700">({b.network})</span></p>
-                <p className="text-white font-black text-sm">{Number(b.available).toFixed(6)}</p>
-              </div>
-            ))}
-          </div>
-          {/* Escrow (P2PCryptoBalance) */}
-          <div className="flex flex-wrap gap-4 px-4 py-2.5">
-            <p className="w-full text-[10px] font-black text-slate-600 uppercase tracking-wide mb-0.5">In Escrow</p>
-            {balances.length === 0 ? (
-              <p className="text-slate-700 text-xs">—</p>
-            ) : balances.map((b) => (
-              <div key={b.crypto} className="flex items-center gap-3">
-                <div>
-                  <p className="text-[10px] text-slate-500 font-bold">{b.crypto}</p>
-                  <p className="text-white font-black text-sm">{Number(b.available).toFixed(6)}</p>
-                </div>
-                {Number(b.locked) > 0 && (
-                  <div>
-                    <p className="text-[10px] text-slate-600 font-bold">Locked</p>
-                    <p className="text-amber-400 font-black text-sm">{Number(b.locked).toFixed(6)}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+      <div className="grid grid-cols-2 divide-x divide-white/[0.04] border-b border-white/[0.06] bg-white/[0.01]">
+        {/* Wallet (UserCryptoBalance) */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-2.5 sm:grid-cols-3">
+          <p className="col-span-full mb-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">In Wallet</p>
+          {walletDisplayRows.map((b) => (
+            <div key={`${b.crypto}-${b.network}`}>
+              <p className="text-[10px] font-bold text-slate-500">{b.crypto} <span className="text-slate-700">({b.network})</span></p>
+              <p className={Number(b.available) > 0 ? "text-sm font-black text-white" : "text-sm font-black text-slate-700"}>
+                {formatCoinAmount(b.crypto, b.available)}
+              </p>
+              {b.locked > 0 && (
+                <p className="text-[10px] font-bold text-amber-400">{formatCoinAmount(b.crypto, b.locked)} locked</p>
+              )}
+            </div>
+          ))}
         </div>
-      )}
+        {/* Escrow (P2PCryptoBalance + KES Coin locked per order) */}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-2.5 sm:grid-cols-3">
+          <p className="col-span-full mb-0.5 text-[10px] font-black uppercase tracking-wide text-slate-600">In Escrow</p>
+          {escrowDisplayRows.map((b) => (
+            <div key={b.crypto}>
+              <p className="text-[10px] font-bold text-slate-500">{b.crypto}</p>
+              <p className={Number(b.available) > 0 ? "text-sm font-black text-white" : "text-sm font-black text-slate-700"}>
+                {formatCoinAmount(b.crypto, b.available)}
+              </p>
+              {b.locked > 0 && (
+                <p className="text-[10px] font-bold text-amber-400">{formatCoinAmount(b.crypto, b.locked)} locked</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Fund Escrow panel */}
       {fundOpen && (
@@ -948,6 +977,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const [submitting, setSubmitting] = useState(false);
   const [cryptoOpen, setCryptoOpen] = useState(false);
   const [spotRate, setSpotRate] = useState<number | null>(null);
+  const [walletBalances, setWalletBalances] = useState<WalletCryptoBalance[]>([]);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
 
   // Live market rate for the chosen crypto+fiat (for the margin readout).
@@ -965,6 +995,23 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
   const priceNum = Number(form.pricePerUnit) || 0;
   const marginPct = spotRate && priceNum > 0 ? ((priceNum / spotRate) - 1) * 100 : null;
+  const totalAmountNum = Number(form.totalAmount) || 0;
+  const requiredKesCoin = totalAmountNum > 0 ? parseFloat((totalAmountNum * 1.01).toFixed(2)) : 0;
+  const kesCoinAvailable = walletBalances.find((b) => b.crypto === "KES" && b.network === "KES")?.available ?? 0;
+  const needsKesCoin = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesCoin > 0 && kesCoinAvailable < requiredKesCoin;
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/crypto/balance")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: unknown) => {
+        if (!cancelled && Array.isArray(data)) {
+          setWalletBalances(data as WalletCryptoBalance[]);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   function togglePm(m: string) {
     setForm((p) => ({ ...p, paymentMethods: p.paymentMethods.includes(m) ? p.paymentMethods.filter((x) => x !== m) : [...p.paymentMethods, m] }));
@@ -982,6 +1029,9 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     // Order limits now apply to both Buy and Sell ads.
     const minLimit = Number(form.minLimit);
     const maxLimit = Number(form.maxLimit);
+    if (needsKesCoin) {
+      return toast.error(`Buy KES Coin first. You need KSh ${requiredKesCoin.toLocaleString("en-KE")} KES Coin for this sell ad.`);
+    }
 
     setSubmitting(true);
     try {
@@ -1121,6 +1171,12 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               )}
             </div>
           ))}
+
+          {needsKesCoin && (
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[12px] font-bold text-amber-300">
+              Buy KES Coin first in Wallet &gt; Convert. This ad needs KSh {requiredKesCoin.toLocaleString("en-KE")} KES Coin including the 1% seller fee; you have KSh {kesCoinAvailable.toLocaleString("en-KE")}.
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             {[{ label: `Min order (${form.fiat})`, key: "minLimit", ph: "500" }, { label: `Max order (${form.fiat})`, key: "maxLimit", ph: "50000" }].map(({ label, key, ph }) => (

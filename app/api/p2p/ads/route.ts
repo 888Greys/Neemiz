@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
-import { isKesCoin } from "@/lib/p2p/crypto-balance";
+import { isKesCoin, kesLockAmount } from "@/lib/p2p/crypto-balance";
 import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
@@ -167,9 +167,22 @@ export async function POST(req: Request) {
       terms:           (terms as string | undefined) ?? null,
     };
 
+    if (side === "SELL" && isKesCoin(crypto as string)) {
+      const requiredKesCoin = kesLockAmount(totalAmountNum);
+      const kesBalance = await db.userCryptoBalance.findUnique({
+        where: { userId_crypto_network: { userId: dbUser.id, crypto: "KES", network: "KES" } },
+        select: { available: true },
+      });
+      if (Number(kesBalance?.available ?? 0) < requiredKesCoin) {
+        return Response.json({
+          error: `You need at least KSh ${requiredKesCoin.toLocaleString("en-KE")} KES Coin to create this sell ad. Buy KES Coin first in Wallet > Convert.`,
+        }, { status: 400 });
+      }
+    }
+
     // Crypto SELL ads lock the merchant's crypto up-front. KES Coin SELL ads
-    // don't: KES is escrowed per-order from the merchant's KES/KES balance
-    // (see /api/p2p/orders), so here we just create the ad like a BUY ad.
+    // don't: KES is checked at ad creation and escrowed per-order from the
+    // merchant's KES/KES balance (see /api/p2p/orders).
     if (side === "SELL" && !isKesCoin(crypto as string)) {
       // Lock balance + create ad atomically — if ad creation fails, balance stays intact
       const ad = await db.$transaction(async (tx) => {
