@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
+import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
@@ -74,6 +75,7 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
   const { isSignedIn } = useSupabaseAuth();
   const { openLogin }  = useAuthModal();
   const router         = useRouter();
+  const { balance: coinBalance, currency: coinCurrency } = useWalletBalance();
 
   const [crypto, setCrypto]   = useState("USDT");
   const [fiat, setFiat]       = useState(FIAT_CURRENCIES.some((f) => f.code === defaultFiat) ? defaultFiat : "KES");
@@ -165,9 +167,21 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
             </div>
           </div>
 
-          {/* Amount */}
-          <p className="mb-1 mt-3 text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">You pay</p>
+          {/* Amount — paid from the local "coin" balance */}
+          <div className="mb-1 mt-3 flex items-center justify-between">
+            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">Pay with {fiat} Coin</p>
+            {isSignedIn && coinCurrency === fiat && (
+              <button
+                type="button"
+                onClick={() => setAmount(String(Math.floor(coinBalance)))}
+                className="text-[10px] font-black uppercase tracking-wider text-[#087cff] hover:text-[#2a90ff]"
+              >
+                Bal {formatFiat(coinBalance, fiat, { symbol: false })} · Max
+              </button>
+            )}
+          </div>
           <div className="flex h-11 items-center rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 focus-within:border-[#087cff]/50">
+            <img src={flagUrl(fiat)} alt="" className="mr-2 h-3.5 w-5 shrink-0 rounded-[2px] object-cover" />
             <input
               type="number"
               inputMode="decimal"
