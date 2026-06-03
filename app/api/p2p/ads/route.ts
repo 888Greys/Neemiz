@@ -115,7 +115,9 @@ export async function POST(req: Request) {
       return Response.json({ error: "Missing order limits" }, { status: 400 });
     }
 
-    const pricePerUnitNum  = Number(pricePerUnit);
+    // The KES coin is pegged 1:1 to KES — force the price so merchants can't
+    // mis-price it (e.g. 130 like a crypto), which would make "you receive" wrong.
+    const pricePerUnitNum  = isKesCoin(crypto as string) ? 1 : Number(pricePerUnit);
     const totalAmountNum   = Number(totalAmount);
     const paymentWindowNum = Number(paymentWindow ?? 15);
 
