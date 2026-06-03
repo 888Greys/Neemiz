@@ -38,6 +38,13 @@ export async function POST(req: Request) {
     }
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
+    const merchant = await db.merchantProfile.findUnique({
+      where: { userId: dbUser.id },
+      select: { isVerified: true },
+    });
+    if (!merchant?.isVerified) {
+      return Response.json({ error: "Merchant account required to convert KES Coin" }, { status: 403 });
+    }
 
     const result = await db.$transaction(async (tx) => {
       if (direction === "fiat_to_kes") {

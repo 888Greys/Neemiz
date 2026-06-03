@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
+import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { createClient } from "@/lib/supabase/client";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
@@ -417,8 +418,10 @@ function PaymentMethodsSection() {
 }
 
 function DepositSection() {
+  const { balance: fiatBalance, refresh: refreshFiatBalance } = useWalletBalance();
   const [open, setOpen]                   = useState(false);
   const [fundOpen, setFundOpen]           = useState(false);
+  const [convertOpen, setConvertOpen]     = useState(false);
   const [deposits, setDeposits]           = useState<Deposit[]>([]);
   const [loading, setLoading]             = useState(true);
   const [balances, setBalances]           = useState<CryptoBalance[]>([]);
@@ -438,6 +441,10 @@ function DepositSection() {
   const [e2wCrypto, setE2wCrypto]         = useState("USDT");
   const [e2wAmount, setE2wAmount]         = useState("");
   const [e2wLoading, setE2wLoading]       = useState(false);
+  // Fiat ⇄ KES Coin form state
+  const [convertDirection, setConvertDirection] = useState<"fiat_to_kes" | "kes_to_fiat">("fiat_to_kes");
+  const [convertAmount, setConvertAmount]       = useState("");
+  const [convertLoading, setConvertLoading]     = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -499,6 +506,33 @@ function DepositSection() {
     }
   }
 
+  async function convertKesCoin() {
+    const amt = Number(convertAmount);
+    if (!convertAmount || !Number.isFinite(amt) || amt <= 0) return toast.error("Enter a valid amount");
+    setConvertLoading(true);
+    try {
+      const r = await fetch("/api/wallet/convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: amt, direction: convertDirection }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Conversion failed");
+      toast.success(
+        convertDirection === "fiat_to_kes"
+          ? `Bought KSh ${amt.toLocaleString("en-KE")} KES Coin`
+          : `Sold KSh ${amt.toLocaleString("en-KE")} KES Coin`,
+      );
+      setConvertAmount("");
+      load();
+      refreshFiatBalance();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Conversion failed");
+    } finally {
+      setConvertLoading(false);
+    }
+  }
+
   // Unique cryptos the user actually holds in their wallet
   const fundableWalletBalances = walletBalances.filter((b) => b.crypto !== "KES");
   const walletCryptos = fundableWalletBalances
@@ -518,6 +552,10 @@ function DepositSection() {
   const e2wEscrowBal = Number(
     balances.find((b) => b.crypto === e2wCrypto)?.available ?? 0,
   );
+  const kesCoinAvailable = Number(
+    walletBalances.find((b) => b.crypto === "KES" && b.network === "KES")?.available ?? 0,
+  );
+  const convertMax = convertDirection === "fiat_to_kes" ? fiatBalance : kesCoinAvailable;
 
   const formatCoinAmount = (crypto: string, amount: number) =>
     Number(amount).toFixed(crypto === "KES" ? 2 : 6);
@@ -607,9 +645,17 @@ function DepositSection() {
           <h2 className="text-white font-black text-base">Merchant Balances</h2>
           <p className="text-slate-500 text-xs mt-0.5">Deposits land in your wallet — move to escrow when ready to trade</p>
         </div>
-        <div className="grid grid-cols-3 gap-2 lg:flex lg:items-center">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:items-center">
           <button
-            onClick={() => { setFundOpen((v) => !v); setE2wOpen(false); setOpen(false); }}
+            onClick={() => { setConvertOpen((v) => !v); setFundOpen(false); setE2wOpen(false); setOpen(false); }}
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-[#087cff] px-2 py-2 text-[11px] font-black text-white shadow-lg shadow-[#087cff]/20 transition-colors hover:bg-[#0570e8] lg:h-9 lg:px-4 lg:text-sm"
+          >
+            <Icon name="currency_exchange" className="text-base" />
+            <span className="whitespace-nowrap">Convert</span>
+            <span className="hidden whitespace-nowrap lg:inline">KES</span>
+          </button>
+          <button
+            onClick={() => { setFundOpen((v) => !v); setConvertOpen(false); setE2wOpen(false); setOpen(false); }}
             className="flex items-center justify-center gap-1.5 rounded-lg bg-[#05b957] px-2 py-2 text-[11px] font-black text-white shadow-lg shadow-[#05b957]/20 transition-colors hover:bg-[#28af52] lg:h-9 lg:px-4 lg:text-sm"
           >
             <Icon name="arrow_upward" className="text-base" />
@@ -617,14 +663,14 @@ function DepositSection() {
             <span className="hidden whitespace-nowrap lg:inline">Escrow</span>
           </button>
           <button
-            onClick={() => { setE2wOpen((v) => !v); setFundOpen(false); setOpen(false); }}
+            onClick={() => { setE2wOpen((v) => !v); setConvertOpen(false); setFundOpen(false); setOpen(false); }}
             className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2 py-2 text-[11px] font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9 lg:px-3 lg:text-sm"
           >
             <Icon name="arrow_downward" className="text-base" />
             <span className="whitespace-nowrap">Wallet</span>
           </button>
           <button
-            onClick={() => { setOpen((v) => !v); setFundOpen(false); setE2wOpen(false); setAddress(null); }}
+            onClick={() => { setOpen((v) => !v); setConvertOpen(false); setFundOpen(false); setE2wOpen(false); setAddress(null); }}
             className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2 py-2 text-[11px] font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9 lg:px-3 lg:text-sm"
           >
             <Icon name="qr_code" className="text-base" />
@@ -666,6 +712,75 @@ function DepositSection() {
           ))}
         </div>
       </div>
+
+      {/* Merchant KES Coin conversion panel */}
+      {convertOpen && (
+        <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
+          <p className="mb-3 text-xs text-slate-400">
+            Convert your merchant fiat balance into KES Coin for P2P ads, or sell KES Coin back to fiat at 1:1.
+          </p>
+          <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_140px] lg:items-end">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Direction</label>
+              <div className="grid grid-cols-2 rounded-xl bg-white/[0.045] p-1 ring-1 ring-white/[0.07]">
+                <button
+                  type="button"
+                  onClick={() => setConvertDirection("fiat_to_kes")}
+                  className={`rounded-lg py-2 text-xs font-black transition ${
+                    convertDirection === "fiat_to_kes" ? "bg-[#087cff] text-white" : "text-slate-500 hover:text-white"
+                  }`}
+                >
+                  Buy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConvertDirection("kes_to_fiat")}
+                  className={`rounded-lg py-2 text-xs font-black transition ${
+                    convertDirection === "kes_to_fiat" ? "bg-[#087cff] text-white" : "text-slate-500 hover:text-white"
+                  }`}
+                >
+                  Sell
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
+                Amount
+                {convertMax > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setConvertAmount(convertMax.toFixed(2))}
+                    className="ml-2 normal-case text-[#087cff] hover:underline"
+                  >
+                    max KSh {convertMax.toLocaleString("en-KE")}
+                  </button>
+                )}
+              </label>
+              <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 focus-within:border-[#087cff]/40">
+                <span className="mr-2 text-sm font-black text-slate-500">KSh</span>
+                <input
+                  type="number"
+                  value={convertAmount}
+                  onChange={(e) => setConvertAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="min-w-0 flex-1 bg-transparent py-2 text-sm text-white outline-none placeholder:text-slate-700"
+                />
+              </div>
+              <p className="mt-1 text-[11px] font-semibold text-slate-600">
+                Fiat: KSh {fiatBalance.toLocaleString("en-KE", { minimumFractionDigits: 2 })} · KES Coin: KSh {kesCoinAvailable.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={convertKesCoin}
+              disabled={convertLoading || !convertAmount || Number(convertAmount) <= 0 || Number(convertAmount) > convertMax}
+              className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#087cff] px-4 text-sm font-black text-white transition hover:bg-[#0570e8] disabled:opacity-50"
+            >
+              {convertLoading ? <LoadingDots label="Converting" /> : `${convertDirection === "fiat_to_kes" ? "Buy" : "Sell"} KES Coin`}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Fund Escrow panel */}
       {fundOpen && (
