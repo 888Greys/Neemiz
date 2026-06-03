@@ -173,28 +173,33 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
   return (
     <div className="flex flex-col h-full">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0 bg-[#0c0c12]">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center py-10">
-            <Icon name="chat_bubble_outline" className="text-3xl text-slate-700 mb-2" />
-            <p className="text-slate-600 text-sm">No messages yet.<br />Chat with the merchant here.</p>
+            <div className="w-12 h-12 rounded-full bg-white/[0.04] flex items-center justify-center mb-3">
+              <Icon name="chat_bubble_outline" className="text-2xl text-slate-600" />
+            </div>
+            <p className="text-slate-400 text-sm font-semibold">No messages yet</p>
+            <p className="text-slate-600 text-xs mt-1">Send a message to coordinate the trade.</p>
           </div>
         )}
-        {messages.map((m) => {
+        {messages.map((m, i) => {
           const mine = m.sender?.id === currentUserId;
+          // Group consecutive messages from the same sender (tighter spacing, hide repeat name).
+          const prev = messages[i - 1];
+          const grouped = prev && prev.sender?.id === m.sender?.id;
           return (
-            <div key={m.id} className={`flex gap-2 ${mine ? "flex-row-reverse" : ""}`}>
-              <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#087cff] to-[#05b957] flex items-center justify-center text-white text-[10px] font-black shrink-0">
-                {senderName(m.sender).charAt(0).toUpperCase()}
-              </div>
-              <div className={`max-w-[70%] ${mine ? "items-end" : "items-start"} flex flex-col gap-1`}>
-                <span className="text-slate-600 text-[10px] font-medium">{senderName(m.sender)}</span>
-                <div className={`px-3 py-2 rounded-2xl text-sm leading-relaxed ${
-                  mine ? "bg-[#087cff] text-white rounded-tr-sm" : "bg-white/8 text-slate-200 rounded-tl-sm"
-                }`}>
-                  {m.content}
-                </div>
-                <span className="text-slate-700 text-[10px]">
+            <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"} ${grouped ? "mt-0.5" : "mt-3 first:mt-0"}`}>
+              {!grouped && !mine && (
+                <span className="text-slate-500 text-[11px] font-semibold mb-1 px-1">{senderName(m.sender)}</span>
+              )}
+              <div className={`group max-w-[78%] px-3.5 py-2 text-sm leading-relaxed shadow-sm ${
+                mine
+                  ? "bg-[#05b957] text-white rounded-2xl rounded-br-md"
+                  : "bg-white/[0.07] text-slate-100 rounded-2xl rounded-bl-md border border-white/[0.05]"
+              }`}>
+                <span className="break-words whitespace-pre-wrap">{m.content}</span>
+                <span className={`ml-2 align-bottom text-[10px] tabular-nums ${mine ? "text-white/60" : "text-slate-500"}`}>
                   {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
               </div>
@@ -206,7 +211,7 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
 
       {/* Input */}
       {!closed && (
-        <div className="border-t border-white/[0.06] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div className="border-t border-white/[0.06] bg-[#111118] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -214,12 +219,12 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
               placeholder="Type a message…"
-              className="flex-1 bg-white/5 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none border border-white/[0.06] focus:border-[#087cff]/40"
+              className="flex-1 bg-white/5 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none border border-white/[0.06] focus:border-[#05b957]/50 transition-colors"
             />
             <button
               onClick={send}
               disabled={!input.trim() || sending}
-              className="w-10 h-10 rounded-xl bg-[#087cff] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#0570e8] transition-colors shrink-0"
+              className="w-10 h-10 rounded-xl bg-[#05b957] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#04a44d] transition-colors shrink-0"
             >
               {sending
                 ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -757,18 +762,18 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
         onBack={() => router.push("/p2p/orders")}
         onAction={doAction}
       />
-    <div className="hidden max-w-5xl mx-auto px-4 py-6 lg:block">
+    <div className="hidden max-w-5xl mx-auto px-4 py-4 lg:flex lg:flex-col lg:h-[calc(100vh-8rem)] lg:overflow-hidden">
       {/* Back */}
       <button
         onClick={() => router.push("/p2p/orders")}
-        className="flex items-center gap-1.5 text-slate-500 hover:text-white text-sm font-bold mb-6 transition-colors"
+        className="flex shrink-0 items-center gap-1.5 text-slate-500 hover:text-white text-sm font-bold mb-3 transition-colors"
       >
         <Icon name="arrow_back" className="text-base" />
         Back to P2P
       </button>
 
       {/* Order header */}
-      <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-5 mb-4">
+      <div className="shrink-0 bg-[#111118] border border-white/[0.06] rounded-2xl p-4 mb-3">
         <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
@@ -831,10 +836,10 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
       </div>
 
       {/* Two-column layout: actions + chat */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4 lg:flex-1 lg:min-h-0">
 
         {/* LEFT: Instructions + Actions */}
-        <div className="space-y-4">
+        <div className="space-y-4 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
 
           {/* Instructions card */}
           {!isClosed && (
@@ -1122,13 +1127,25 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
         </div>
 
         {/* RIGHT: Chat */}
-        <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col" style={{ minHeight: "420px" }}>
-          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-2">
-            <Icon name="chat" className="text-slate-500 text-base" />
-            <span className="text-slate-300 font-bold text-sm">Order Chat</span>
-            {!isClosed && (
-              <span className="ml-auto w-2 h-2 rounded-full bg-[#05b957] animate-pulse" title="Live" />
-            )}
+        <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col lg:min-h-0 lg:h-full min-h-[420px]">
+          <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-3 bg-white/[0.02]">
+            <div className="relative">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#05b957] to-[#039648] flex items-center justify-center text-white font-black text-sm">
+                {(order.isBuyer ? order.seller.displayName : (order.buyer.firstName || order.buyer.username || "?")).charAt(0).toUpperCase()}
+              </div>
+              {!isClosed && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#05b957] border-2 border-[#111118]" title="Live" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-white font-bold text-sm leading-tight truncate">
+                {order.isBuyer ? order.seller.displayName : (order.buyer.firstName ? `${order.buyer.firstName} ${order.buyer.lastName ?? ""}`.trim() : order.buyer.username ?? "Buyer")}
+              </p>
+              <p className="text-slate-500 text-[11px] leading-tight">{order.isBuyer ? "Merchant" : "Buyer"} · Order chat</p>
+            </div>
+            <span className="ml-auto flex items-center gap-1 text-slate-600" title="Secured by escrow">
+              <Icon name="lock" className="text-sm" />
+            </span>
           </div>
           <div className="flex-1 min-h-0">
             <Chat orderId={orderId} currentUserId={currentUserId} closed={isClosed} />
