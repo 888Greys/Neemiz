@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 
@@ -15,6 +16,25 @@ const TABS = [
 export function P2PSubNav() {
   const pathname    = usePathname();
   const { isSignedIn } = useSupabaseAuth();
+  const [orderCount, setOrderCount] = useState(0);
+
+  // Poll the count of live orders needing attention (new incoming as a seller,
+  // or awaiting pay/release) → drives the red-dot badge on "My Orders".
+  useEffect(() => {
+    if (!isSignedIn) { setOrderCount(0); return; }
+    let cancelled = false;
+    const fetchCount = async () => {
+      try {
+        const r = await fetch("/api/p2p/orders/active-count");
+        if (!r.ok) return;
+        const d = await r.json() as { count?: number };
+        if (!cancelled) setOrderCount(d.count ?? 0);
+      } catch { /* ignore */ }
+    };
+    fetchCount();
+    const id = setInterval(fetchCount, 20000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [isSignedIn, pathname]);
 
   // Determine active tab — order room counts as "My Orders"
   const effectivePath = pathname.startsWith("/p2p/order/") ? "/p2p/orders" : pathname;
@@ -31,7 +51,7 @@ export function P2PSubNav() {
               <Link
                 key={t.href}
                 href={t.href}
-                className={`flex h-9 items-center gap-2 rounded-md px-3 text-sm font-black transition-all lg:h-8 lg:px-3 lg:text-[13px] ${
+                className={`relative flex h-9 items-center gap-2 rounded-md px-3 text-sm font-black transition-all lg:h-8 lg:px-3 lg:text-[13px] ${
                   active
                     ? "bg-[#087cff] text-white shadow-lg shadow-[#087cff]/20"
                     : "text-slate-500 hover:bg-white/[0.04] hover:text-slate-300"
@@ -39,6 +59,11 @@ export function P2PSubNav() {
               >
                 <Icon name={t.icon} fill={active} className="text-[16px]" />
                 <span className="hidden sm:inline">{t.label}</span>
+                {t.href === "/p2p/orders" && orderCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#111118]">
+                    {orderCount > 9 ? "9+" : orderCount}
+                  </span>
+                )}
               </Link>
             );
           })}
