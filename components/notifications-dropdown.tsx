@@ -134,6 +134,21 @@ function dbToNotification(n: DbNotification): Notification {
 
 const LAST_READ_KEY = "nezeem_notif_last_read";
 
+// Single source of truth for "is this notification unread", shared by the bell
+// badge and the dropdown header pill so the two counts never disagree.
+// - DB notifications: unread iff isRead === false.
+// - Transactions: only PENDING ones can be unread, and only if they arrived
+//   after the user's last "mark all read" (older pending tx are considered seen).
+function noteUnread(n: Notification, lastRead: number): boolean {
+  if (n.source === "tx") return !n.read && n.rawDate > lastRead;
+  return !n.read;
+}
+
+function readLastRead(): number {
+  if (typeof window === "undefined") return 0;
+  return Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
+}
+
 type Props = { onClose: () => void };
 
 export function NotificationsDropdown({ onClose }: Props) {
@@ -185,7 +200,8 @@ export function NotificationsDropdown({ onClose }: Props) {
     return true;
   });
 
-  const unread = notes.filter((n) => !n.read).length;
+  const lastRead = readLastRead();
+  const unread = notes.filter((n) => noteUnread(n, lastRead)).length;
 
   async function markAllRead() {
     localStorage.setItem(LAST_READ_KEY, String(Date.now()));
@@ -263,20 +279,21 @@ export function NotificationsDropdown({ onClose }: Props) {
           </div>
         ) : (
           filtered.map((n, i) => {
+            const un = noteUnread(n, lastRead);
             const inner = (
               <div
                 className={`relative flex w-full items-start gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.03] ${
-                  !n.read ? "bg-[#087cff]/[0.04]" : ""
+                  un ? "bg-[#087cff]/[0.04]" : ""
                 }`}
               >
-                {!n.read && (
+                {un && (
                   <span className="absolute left-2 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#087cff]" />
                 )}
-                <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${!n.read ? "bg-[#087cff]/15" : "bg-white/[0.05]"}`}>
+                <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${un ? "bg-[#087cff]/15" : "bg-white/[0.05]"}`}>
                   <Icon
                     name={n.type === "personal" ? "person" : n.type === "system" ? "info" : "campaign"}
                     fill
-                    className={`text-[17px] ${!n.read ? "text-[#087cff]" : "text-slate-500"}`}
+                    className={`text-[17px] ${un ? "text-[#087cff]" : "text-slate-500"}`}
                   />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -286,7 +303,7 @@ export function NotificationsDropdown({ onClose }: Props) {
                     </span>
                     <span className="ml-auto text-[10px] text-slate-600">{n.time}</span>
                   </div>
-                  <p className={`text-[12px] font-black leading-snug ${!n.read ? "text-white" : "text-slate-300"}`}>
+                  <p className={`text-[12px] font-black leading-snug ${un ? "text-white" : "text-slate-300"}`}>
                     {n.title}
                   </p>
                   <p className="mt-0.5 text-[11px] leading-snug text-slate-500 line-clamp-2">{n.body}</p>
