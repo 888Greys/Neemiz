@@ -373,6 +373,53 @@ async function fetchScores(sportKey: string, daysFrom = 1): Promise<ScoreEvent[]
   }
 }
 
+// ── Team badge enrichment (TheSportsDB) ────────────────────────────────────────
+// TheOddsAPI gives no team logos, so we look up a badge by team name from
+// TheSportsDB (free). Cached 30 days (badges never change); any miss/failure
+// falls back to the coloured-initial avatar in the UI.
+const SPORTSDB_KEY = "3"; // public test key
+
+async function fetchTeamBadge(name: string): Promise<string | undefined> {
+  if (!name) return undefined;
+  try {
+    const res = await fetch(
+      `https://www.thesportsdb.com/api/v1/json/${SPORTSDB_KEY}/searchteams.php?t=${encodeURIComponent(name)}`,
+      { next: { revalidate: 2_592_000 } },
+    );
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { teams?: { strBadge?: string; strTeamBadge?: string }[] } | null;
+    const t = data?.teams?.[0];
+    return t?.strBadge || t?.strTeamBadge || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Attach team badges to the first `cap` matches (bounded concurrency so we
+// don't burst TheSportsDB on a cold cache). Beyond the cap, matches keep their
+// initial-avatar fallback; the 30-day cache warms more over time.
+async function enrichBadges(matches: Match[], cap: number): Promise<Match[]> {
+  const names = [...new Set(
+    matches.slice(0, cap).flatMap((m) => [m.home.name, m.away.name]),
+  )].filter(Boolean);
+
+  const badges = new Map<string, string | undefined>();
+  const BATCH = 8;
+  for (let i = 0; i < names.length; i += BATCH) {
+    const batch = names.slice(i, i + BATCH);
+    const found = await Promise.all(batch.map(fetchTeamBadge));
+    batch.forEach((n, j) => badges.set(n, found[j]));
+  }
+
+  return matches.map((m, idx) =>
+    idx >= cap ? m : {
+      ...m,
+      home: { ...m.home, logo: m.home.logo ?? badges.get(m.home.name) },
+      away: { ...m.away, logo: m.away.logo ?? badges.get(m.away.name) },
+    },
+  );
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export async function getLivescores(): Promise<Match[]> {
@@ -393,7 +440,7 @@ export async function getLivescores(): Promise<Match[]> {
         .map((e) => normalizeOddsEvent(e, scoreMap.get(e.id)));
     }),
   );
-  return results.flat();
+  return enrichBadges(results.flat(), 30);
 }
 
 export async function getUpcomingFixtures(): Promise<Match[]> {
@@ -420,9 +467,10 @@ export async function getUpcomingFixtures(): Promise<Match[]> {
         .map((e) => normalizeOddsEvent(e));
     }),
   );
-  return results.flat().sort(
+  const fixtures = results.flat().sort(
     (a, b) => new Date(a.startingAt).getTime() - new Date(b.startingAt).getTime(),
   ).slice(0, 200);
+  return enrichBadges(fixtures, 60);
 }
 
 // Fetch full match detail for the fixture detail page and bet verification.
@@ -447,6 +495,12 @@ export async function getFixtureDetail(id: number): Promise<MatchDetail | null> 
     const stateId = isFinished ? 5 : isLive ? 2 : 1;
 
     const match   = normalizeOddsEvent(event, score ?? undefined);
+    const [homeBadge, awayBadge] = await Promise.all([
+      fetchTeamBadge(match.home.name),
+      fetchTeamBadge(match.away.name),
+    ]);
+    match.home.logo = match.home.logo ?? homeBadge;
+    match.away.logo = match.away.logo ?? awayBadge;
     const markets = buildMarketsFromEvent(event);
 
     return {
