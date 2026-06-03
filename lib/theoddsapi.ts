@@ -3,26 +3,69 @@ const API_KEY = process.env.ODDS_API_KEY ?? "";
 
 const FLAG = (code: string) => `https://flagcdn.com/w40/${code}.png`;
 
-// Map sport_key → display info
+// Map sport_key → display info. `un` (United Nations) flag stands in for
+// international competitions (World Cup, cricket internationals, boxing).
 const SPORT_META: Record<string, { league: string; country: string; flag: string }> = {
-  soccer_epl:                   { league: "Premier League",      country: "England",     flag: FLAG("gb-eng") },
-  soccer_spain_la_liga:         { league: "La Liga",             country: "Spain",       flag: FLAG("es")     },
-  soccer_germany_bundesliga:    { league: "Bundesliga",          country: "Germany",     flag: FLAG("de")     },
-  soccer_italy_serie_a:         { league: "Serie A",             country: "Italy",       flag: FLAG("it")     },
-  soccer_france_ligue_one:      { league: "Ligue 1",             country: "France",      flag: FLAG("fr")     },
-  soccer_uefa_champs_league:    { league: "Champions League",    country: "Europe",      flag: FLAG("eu")     },
-  soccer_uefa_europa_league:    { league: "Europa League",       country: "Europe",      flag: FLAG("eu")     },
-  soccer_africa_cup_of_nations: { league: "AFCON",               country: "Africa",      flag: ""             },
-  soccer_kenya_premier_league:  { league: "KPL",                 country: "Kenya",       flag: FLAG("ke")     },
-  soccer_turkey_super_league:   { league: "Süper Lig",          country: "Turkey",      flag: FLAG("tr")     },
-  soccer_netherlands_eredivisie:{ league: "Eredivisie",          country: "Netherlands", flag: FLAG("nl")     },
-  soccer_portugal_primeira_liga:{ league: "Primeira Liga",       country: "Portugal",    flag: FLAG("pt")     },
-  basketball_nba:               { league: "NBA",                 country: "USA",         flag: FLAG("us")     },
-  basketball_euroleague:        { league: "EuroLeague",          country: "Europe",      flag: FLAG("eu")     },
-  americanfootball_nfl:         { league: "NFL",                 country: "USA",         flag: FLAG("us")     },
-  tennis_atp_french_open:       { league: "French Open",         country: "France",      flag: FLAG("fr")     },
-  mma_mixed_martial_arts:       { league: "MMA / UFC",           country: "USA",         flag: FLAG("us")     },
-  cricket_icc_world_cup:        { league: "ICC World Cup",       country: "International",flag: ""            },
+  // ── Soccer ──
+  soccer_epl:                        { league: "Premier League",   country: "England",       flag: FLAG("gb-eng") },
+  soccer_spain_la_liga:              { league: "La Liga",          country: "Spain",         flag: FLAG("es")     },
+  soccer_germany_bundesliga:         { league: "Bundesliga",       country: "Germany",       flag: FLAG("de")     },
+  soccer_italy_serie_a:              { league: "Serie A",          country: "Italy",         flag: FLAG("it")     },
+  soccer_france_ligue_one:           { league: "Ligue 1",          country: "France",        flag: FLAG("fr")     },
+  soccer_uefa_champs_league:         { league: "Champions League", country: "Europe",        flag: FLAG("eu")     },
+  soccer_uefa_europa_league:         { league: "Europa League",    country: "Europe",        flag: FLAG("eu")     },
+  soccer_africa_cup_of_nations:      { league: "AFCON",            country: "Africa",        flag: FLAG("un")     },
+  soccer_kenya_premier_league:       { league: "KPL",              country: "Kenya",         flag: FLAG("ke")     },
+  soccer_turkey_super_league:        { league: "Süper Lig",        country: "Turkey",        flag: FLAG("tr")     },
+  soccer_netherlands_eredivisie:     { league: "Eredivisie",       country: "Netherlands",   flag: FLAG("nl")     },
+  soccer_portugal_primeira_liga:     { league: "Primeira Liga",    country: "Portugal",      flag: FLAG("pt")     },
+  soccer_fifa_world_cup:             { league: "FIFA World Cup",   country: "World",         flag: FLAG("un")     },
+  soccer_conmebol_copa_libertadores: { league: "Copa Libertadores",country: "South America", flag: FLAG("un")     },
+  soccer_conmebol_copa_sudamericana: { league: "Copa Sudamericana",country: "South America", flag: FLAG("un")     },
+  soccer_brazil_serie_b:             { league: "Brazil Série B",   country: "Brazil",        flag: FLAG("br")     },
+  soccer_chile_campeonato:           { league: "Primera División", country: "Chile",         flag: FLAG("cl")     },
+  soccer_china_superleague:          { league: "Super League",     country: "China",         flag: FLAG("cn")     },
+  soccer_japan_j_league:             { league: "J League",         country: "Japan",         flag: FLAG("jp")     },
+  soccer_norway_eliteserien:         { league: "Eliteserien",      country: "Norway",        flag: FLAG("no")     },
+  soccer_spain_segunda_division:     { league: "La Liga 2",        country: "Spain",         flag: FLAG("es")     },
+  soccer_sweden_allsvenskan:         { league: "Allsvenskan",      country: "Sweden",        flag: FLAG("se")     },
+  soccer_sweden_superettan:          { league: "Superettan",       country: "Sweden",        flag: FLAG("se")     },
+  // ── Basketball ──
+  basketball_nba:                    { league: "NBA",              country: "USA",           flag: FLAG("us")     },
+  basketball_wnba:                   { league: "WNBA",             country: "USA",           flag: FLAG("us")     },
+  basketball_euroleague:             { league: "EuroLeague",       country: "Europe",        flag: FLAG("eu")     },
+  // ── American Football ──
+  americanfootball_nfl:              { league: "NFL",              country: "USA",           flag: FLAG("us")     },
+  americanfootball_nfl_preseason:    { league: "NFL Preseason",    country: "USA",           flag: FLAG("us")     },
+  americanfootball_ncaaf:            { league: "NCAAF",            country: "USA",           flag: FLAG("us")     },
+  americanfootball_cfl:              { league: "CFL",              country: "Canada",        flag: FLAG("ca")     },
+  americanfootball_ufl:              { league: "UFL",              country: "USA",           flag: FLAG("us")     },
+  // ── Baseball ──
+  baseball_mlb:                      { league: "MLB",              country: "USA",           flag: FLAG("us")     },
+  baseball_kbo:                      { league: "KBO",              country: "South Korea",   flag: FLAG("kr")     },
+  baseball_npb:                      { league: "NPB",              country: "Japan",         flag: FLAG("jp")     },
+  baseball_ncaa:                     { league: "NCAA Baseball",    country: "USA",           flag: FLAG("us")     },
+  // ── Ice Hockey ──
+  icehockey_nhl:                     { league: "NHL",              country: "USA",           flag: FLAG("us")     },
+  icehockey_ahl:                     { league: "AHL",              country: "USA",           flag: FLAG("us")     },
+  // ── Rugby League ──
+  rugbyleague_nrl:                   { league: "NRL",              country: "Australia",     flag: FLAG("au")     },
+  rugbyleague_nrl_state_of_origin:   { league: "State of Origin",  country: "Australia",     flag: FLAG("au")     },
+  // ── Other ──
+  aussierules_afl:                   { league: "AFL",              country: "Australia",     flag: FLAG("au")     },
+  handball_germany_bundesliga:       { league: "Handball-Bundesliga", country: "Germany",    flag: FLAG("de")     },
+  lacrosse_pll:                      { league: "PLL",              country: "USA",           flag: FLAG("us")     },
+  // ── Cricket ──
+  cricket_odi:                       { league: "One Day Internationals", country: "International", flag: FLAG("un") },
+  cricket_test_match:                { league: "Test Matches",     country: "International",  flag: FLAG("un")     },
+  cricket_t20_blast:                 { league: "T20 Blast",        country: "England",        flag: FLAG("gb-eng") },
+  cricket_icc_world_cup:             { league: "ICC World Cup",    country: "International",   flag: FLAG("un")     },
+  // ── Tennis ──
+  tennis_atp_french_open:            { league: "French Open (ATP)", country: "France",       flag: FLAG("fr")     },
+  tennis_wta_french_open:            { league: "French Open (WTA)", country: "France",       flag: FLAG("fr")     },
+  // ── Combat ──
+  mma_mixed_martial_arts:            { league: "MMA / UFC",        country: "USA",           flag: FLAG("us")     },
+  boxing_boxing:                     { league: "Boxing",           country: "International",  flag: FLAG("un")     },
 };
 
 // Fallback list if the /sports discovery call fails or the key is missing.
