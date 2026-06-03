@@ -397,13 +397,13 @@ export function WalletClient() {
 
       {/* ── Tabs ── */}
       <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#0d0e11]">
-        <div className="mx-auto flex max-w-2xl gap-0">
+        <div className="mx-auto grid max-w-2xl grid-cols-4 gap-0">
           {(["deposit", "withdraw", "convert", "history"] as const).map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
-              className={`flex flex-1 items-center justify-center gap-1.5 py-3.5 text-[12px] font-black uppercase tracking-wider transition ${
+              className={`flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2.5 text-[10px] font-black transition sm:flex-row sm:gap-1.5 sm:py-3.5 sm:text-[12px] sm:uppercase sm:tracking-wider ${
                 tab === t
                   ? "border-b-2 border-[#087cff] text-[#087cff]"
                   : "text-slate-500 hover:text-slate-300"
@@ -420,9 +420,9 @@ export function WalletClient() {
                         : "history"
                 }
                 fill={tab === t}
-                className="text-[15px]"
+                className="text-[18px] sm:text-[15px]"
               />
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              <span className="truncate leading-none">{t.charAt(0).toUpperCase() + t.slice(1)}</span>
             </button>
           ))}
         </div>
