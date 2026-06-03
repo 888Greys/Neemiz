@@ -969,7 +969,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                       <button
                         key={c.symbol}
                         type="button"
-                        onClick={() => { f("crypto", c.symbol); setCryptoOpen(false); }}
+                        onClick={() => { f("crypto", c.symbol); if (c.symbol === "KES") f("pricePerUnit", "1"); setCryptoOpen(false); }}
                         className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${form.crypto === c.symbol ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
