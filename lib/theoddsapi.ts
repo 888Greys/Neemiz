@@ -48,17 +48,48 @@ interface SportInfo { key: string; group: string; title: string; active: boolean
 // The /sports endpoint is free (doesn't consume the odds quota). Cached 6h
 // since the in-season set changes slowly. Returns in-season sport keys,
 // most-popular groups first.
+// Marquee competitions floated to the front of their group.
+const MARQUEE_KEYS = [
+  "world_cup", "uefa_champs", "uefa_europa", "libertadores", "sudamericana",
+  "epl", "la_liga", "serie_a", "bundesliga", "ligue_one",
+  "nba", "nfl", "nhl", "mlb",
+];
+
 async function getFetchSports(): Promise<string[]> {
   if (!API_KEY) return FALLBACK_SPORTS;
   try {
     const res = await fetch(`${BASE}/sports?apiKey=${API_KEY}`, { next: { revalidate: 21600 } });
     if (!res.ok) return FALLBACK_SPORTS;
     const sports = (await res.json()) as SportInfo[];
-    const active = sports.filter((s) => s.active);
+    // In-season + real match markets only (skip tournament-winner / outright futures).
+    const active = sports.filter((s) => s.active && !s.has_outrights);
     if (active.length === 0) return FALLBACK_SPORTS;
-    const rank = (g: string) => { const i = PREFERRED_GROUPS.indexOf(g); return i === -1 ? 999 : i; };
-    active.sort((a, b) => rank(a.group) - rank(b.group));
-    return active.slice(0, MAX_SPORTS).map((s) => s.key);
+
+    const groupRank   = (g: string) => { const i = PREFERRED_GROUPS.indexOf(g); return i === -1 ? 999 : i; };
+    const marqueeRank = (k: string) => { const i = MARQUEE_KEYS.findIndex((m) => k.includes(m)); return i === -1 ? 99 : i; };
+
+    // Bucket by group, marquee competitions first within each.
+    const buckets = new Map<number, SportInfo[]>();
+    for (const s of active) {
+      const key = groupRank(s.group);
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key)!.push(s);
+    }
+    for (const arr of buckets.values()) arr.sort((a, b) => marqueeRank(a.key) - marqueeRank(b.key));
+
+    // Round-robin across groups (preferred order) so the mix is varied,
+    // not 12 soccer leagues.
+    const order = [...buckets.keys()].sort((a, b) => a - b);
+    const picked: string[] = [];
+    for (let i = 0; picked.length < MAX_SPORTS; i++) {
+      let added = false;
+      for (const g of order) {
+        const s = buckets.get(g)![i];
+        if (s) { picked.push(s.key); added = true; if (picked.length >= MAX_SPORTS) break; }
+      }
+      if (!added) break;
+    }
+    return picked.length ? picked : FALLBACK_SPORTS;
   } catch (e) {
     console.error("OddsAPI getFetchSports error:", e);
     return FALLBACK_SPORTS;
