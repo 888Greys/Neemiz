@@ -498,16 +498,17 @@ function DepositSection() {
   }
 
   // Unique cryptos the user actually holds in their wallet
-  const walletCryptos = walletBalances
+  const fundableWalletBalances = walletBalances.filter((b) => b.crypto !== "KES");
+  const walletCryptos = fundableWalletBalances
     .map((b) => b.crypto)
     .filter((c, i, arr) => arr.indexOf(c) === i);
   // Networks available for the currently selected fund crypto
-  const fundNetworks  = walletBalances
+  const fundNetworks  = fundableWalletBalances
     .filter((b) => b.crypto === fundCrypto && b.available > 0)
     .map((b) => b.network);
 
   // Wallet balance for the currently selected fund crypto/network
-  const fundWalletBal = walletBalances.find(
+  const fundWalletBal = fundableWalletBalances.find(
     (b) => b.crypto === fundCrypto && b.network === fundNetwork,
   )?.available ?? 0;
 
@@ -520,13 +521,13 @@ function DepositSection() {
 
   // Auto-select first available wallet crypto/network when balances load
   useEffect(() => {
-    if (walletBalances.length === 0) return;
-    const match = walletBalances.find((b) => b.crypto === fundCrypto && b.available > 0);
+    if (fundableWalletBalances.length === 0) return;
+    const match = fundableWalletBalances.find((b) => b.crypto === fundCrypto && b.available > 0);
     if (!match) {
-      const first = walletBalances.find((b) => b.available > 0) ?? walletBalances[0];
+      const first = fundableWalletBalances.find((b) => b.available > 0) ?? fundableWalletBalances[0];
       setFundCrypto(first.crypto);
       setFundNetwork(first.network);
-    } else if (!walletBalances.find((b) => b.crypto === fundCrypto && b.network === fundNetwork)) {
+    } else if (!fundableWalletBalances.find((b) => b.crypto === fundCrypto && b.network === fundNetwork)) {
       setFundNetwork(match.network);
     }
   }, [walletBalances]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -641,8 +642,8 @@ function DepositSection() {
       {fundOpen && (
         <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
           <p className="text-xs text-slate-400 mb-3">Move crypto from your wallet to merchant escrow so you can list sell ads.</p>
-          {walletBalances.length === 0 ? (
-            <p className="text-slate-600 text-sm">No wallet crypto balance to move. Receive crypto first.</p>
+          {fundableWalletBalances.length === 0 ? (
+            <p className="text-slate-600 text-sm">No fundable wallet crypto to move. KES Coin is escrowed per order.</p>
           ) : (
           <div className="grid gap-3 sm:grid-cols-[160px_160px_minmax(0,1fr)_140px] sm:items-end">
             {/* Crypto — driven by actual wallet holdings */}
