@@ -13,7 +13,7 @@
  *  - BUY ad: unlock the buyer's escrowed crypto.
  */
 import { db } from "@/lib/db";
-import { defaultNetwork, unlockUserCrypto, isKesCoin, creditWalletKes } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, unlockUserCrypto, isKesCoin, creditWalletKes, kesLockAmount } from "@/lib/p2p/crypto-balance";
 
 export const runtime = "nodejs";
 
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
           const giverUserId = order.ad.side === "SELL"
             ? (await tx.merchantProfile.findUnique({ where: { id: order.sellerId }, select: { userId: true } }))?.userId
             : order.buyerId;
-          if (giverUserId) await creditWalletKes(tx, giverUserId, amt);
+          if (giverUserId) await creditWalletKes(tx, giverUserId, kesLockAmount(amt));
         } else if (order.ad.side === "BUY") {
           await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), amt);
         }

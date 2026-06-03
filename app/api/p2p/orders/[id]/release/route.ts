@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { creditUserCrypto, defaultNetwork, isKesCoin, creditWalletKes } from "@/lib/p2p/crypto-balance";
+import { creditUserCrypto, defaultNetwork, isKesCoin, creditWalletKes, kesPayoutAmount } from "@/lib/p2p/crypto-balance";
 import { sendTradeCompletedEmail } from "@/lib/brevo";
 
 // POST /api/p2p/orders/[id]/release — merchant confirms fiat received & releases crypto
@@ -55,10 +55,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
 
       if (isKesCoin(order.crypto)) {
-        // KES coin: the giver's wallet was already debited at order creation
-        // (merchant on a SELL ad, taker on a BUY ad). Pay the receiver 98%
-        // into their wallet balance — the 2% platform fee stays retained.
-        await creditWalletKes(tx, isMerchantSell ? order.buyerId : merchant.userId, netCryptoAmt);
+        // KES coin: 1% from each side. The giver was escrowed amount+1% at
+        // order creation; pay the receiver amount−1% (platform keeps the 2%).
+        await creditWalletKes(tx, isMerchantSell ? order.buyerId : merchant.userId, kesPayoutAmount(cryptoAmt));
       } else if (isMerchantSell) {
         await tx.p2PCryptoBalance.update({
           where: { merchantId_crypto: { merchantId: merchant.id, crypto: order.crypto } },

@@ -122,6 +122,14 @@ export async function creditWalletKes(tx: TxClient, userId: string, amount: numb
   await tx.user.update({ where: { id: userId }, data: { walletBalance: { increment: amount } } });
 }
 
+// KES coin trades charge 1% from EACH side (2% total). The giver is escrowed
+// amount + 1%, the receiver is paid amount − 1%, the platform keeps the 2%.
+export const KES_FEE_RATE = 0.01;
+/** What the giver is debited / refunded (order amount + their 1% fee). */
+export const kesLockAmount   = (amount: number) => parseFloat((amount * (1 + KES_FEE_RATE)).toFixed(2));
+/** What the receiver is paid (order amount − their 1% fee). */
+export const kesPayoutAmount = (amount: number) => parseFloat((amount * (1 - KES_FEE_RATE)).toFixed(2));
+
 /**
  * Infer the default network for a given crypto symbol.
  * Update this as new networks are added.

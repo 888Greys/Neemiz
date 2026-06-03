@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { defaultNetwork, unlockUserCrypto, isKesCoin, creditWalletKes } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, unlockUserCrypto, isKesCoin, creditWalletKes, kesLockAmount } from "@/lib/p2p/crypto-balance";
 
 // POST /api/p2p/orders/[id]/cancel
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -47,7 +47,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         const giverUserId = order.ad.side === "SELL"
           ? (await tx.merchantProfile.findUnique({ where: { id: order.sellerId }, select: { userId: true } }))?.userId
           : order.buyerId;
-        if (giverUserId) await creditWalletKes(tx, giverUserId, cryptoAmt);
+        if (giverUserId) await creditWalletKes(tx, giverUserId, kesLockAmount(cryptoAmt));
       } else if (order.ad.side === "BUY") {
         await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), cryptoAmt);
       }

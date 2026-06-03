@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { isP2PAdTradable } from "@/lib/p2p/ad-guards";
-import { isKesCoin, debitWalletKes } from "@/lib/p2p/crypto-balance";
+import { isKesCoin, debitWalletKes, kesLockAmount } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 
@@ -99,7 +99,7 @@ export async function POST(req: Request) {
       // KES coin SELL ad: escrow the KES from the merchant's wallet (it isn't
       // locked up-front like a crypto ad).
       if (isKesCoin(match.crypto)) {
-        await debitWalletKes(tx, match.merchant.userId, cryptoAmount);
+        await debitWalletKes(tx, match.merchant.userId, kesLockAmount(cryptoAmount));
       }
 
       return tx.p2POrder.create({
