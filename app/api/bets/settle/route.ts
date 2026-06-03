@@ -3,6 +3,12 @@ import { getFixtureDetail, FINISHED_STATE_IDS } from "@/lib/theoddsapi";
 import { resolveSelection, determineBetOutcome, calculateWinAmount } from "@/lib/settle-bet";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
+// Vercel Cron invokes endpoints with GET (and an Authorization: Bearer
+// <CRON_SECRET> header when CRON_SECRET is set). Reuse the same handler.
+export async function GET(req: Request) {
+  return POST(req);
+}
+
 export async function POST(req: Request) {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const authHeader = req.headers.get("authorization");

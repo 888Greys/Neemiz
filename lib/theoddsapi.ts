@@ -478,44 +478,67 @@ export async function getUpcomingFixtures(): Promise<Match[]> {
 // Returns empty events/stats/lineups — Odds API doesn't supply those.
 export async function getFixtureDetail(id: number): Promise<MatchDetail | null> {
   const FETCH_SPORTS = await getFetchSports();
+  const blank = {
+    homeParticipantId: 0, awayParticipantId: 0,
+    events: [] as MatchEvent[], stats: [] as MatchStat[],
+    homeLineup: [] as LineupEntry[], awayLineup: [] as LineupEntry[],
+    homePeriodScores: [null, null] as (number | null)[],
+    awayPeriodScores: [null, null] as (number | null)[],
+  };
+
   for (const sport of FETCH_SPORTS) {
     const [odds, scores] = await Promise.all([
       fetchOdds(sport),
-      fetchScores(sport, 2),   // daysFrom=2 to catch recently finished matches
+      fetchScores(sport, 3),   // daysFrom=3 (API max) so settlement catches finished games
     ]);
 
+    // ── Path 1: game still in the odds feed (upcoming / live) ──
     const event = odds.find((e) => toNumericId(e.id) === id);
-    if (!event) continue;
+    if (event) {
+      const score      = scores.find((s) => s.id === event.id);
+      const isFinished = !!score?.completed;
+      const isLive     = !!score && !score.completed && new Date(event.commence_time).getTime() <= Date.now();
+      const stateId    = isFinished ? 5 : isLive ? 2 : 1;
 
-    const score      = scores.find((s) => s.id === event.id);
-    const isFinished = !!score?.completed;
-    const isLive     = !!score && !score.completed && new Date(event.commence_time).getTime() <= Date.now();
+      const match = normalizeOddsEvent(event, score ?? undefined);
+      const [homeBadge, awayBadge] = await Promise.all([
+        fetchTeamBadge(match.home.name),
+        fetchTeamBadge(match.away.name),
+      ]);
+      match.home.logo = match.home.logo ?? homeBadge;
+      match.away.logo = match.away.logo ?? awayBadge;
 
-    // stateId: 5=Finished, 2=Live, 1=Not Started
-    const stateId = isFinished ? 5 : isLive ? 2 : 1;
+      return { match, stateId, ...blank, markets: buildMarketsFromEvent(event) };
+    }
 
-    const match   = normalizeOddsEvent(event, score ?? undefined);
-    const [homeBadge, awayBadge] = await Promise.all([
-      fetchTeamBadge(match.home.name),
-      fetchTeamBadge(match.away.name),
-    ]);
-    match.home.logo = match.home.logo ?? homeBadge;
-    match.away.logo = match.away.logo ?? awayBadge;
-    const markets = buildMarketsFromEvent(event);
+    // ── Path 2: finished game that's left the odds feed — settle from scores ──
+    const score = scores.find((s) => toNumericId(s.id) === id);
+    if (score) {
+      const isFinished = !!score.completed;
+      const isLive     = !score.completed && new Date(score.commence_time).getTime() <= Date.now();
+      const stateId    = isFinished ? 5 : isLive ? 2 : 1;
+      const meta       = SPORT_META[score.sport_key];
+      const homeRaw    = score.scores?.find((s) => s.name === score.home_team)?.score ?? null;
+      const awayRaw    = score.scores?.find((s) => s.name === score.away_team)?.score ?? null;
 
-    return {
-      match,
-      stateId,
-      homeParticipantId: 0,
-      awayParticipantId: 0,
-      events:           [],
-      stats:            [],
-      homeLineup:       [],
-      awayLineup:       [],
-      homePeriodScores: [null, null],
-      awayPeriodScores: [null, null],
-      markets,
-    };
+      const match: Match = {
+        id,
+        eventId:     score.id,
+        sportKey:    score.sport_key,
+        league:      meta?.league ?? score.sport_title,
+        country:     meta?.country ?? "",
+        countryFlag: meta?.flag ?? undefined,
+        home: { name: score.home_team, score: homeRaw !== null ? Number(homeRaw) : null },
+        away: { name: score.away_team, score: awayRaw !== null ? Number(awayRaw) : null },
+        period:      isFinished ? "FT" : isLive ? "Live" : formatKickoffTime(score.commence_time),
+        isLive,
+        startingAt:  score.commence_time,
+        odds:        [],
+        extraMarkets: 0,
+      };
+
+      return { match, stateId, ...blank, markets: [] };
+    }
   }
   return null;
 }
