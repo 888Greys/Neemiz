@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { isP2PAdTradable } from "@/lib/p2p/ad-guards";
-import { isKesCoin, debitWalletKes, kesLockAmount } from "@/lib/p2p/crypto-balance";
+import { isKesCoin, lockKesCoinBalance, kesLockAmount } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 
@@ -96,10 +96,10 @@ export async function POST(req: Request) {
       });
       if (reserved.count === 0) throw new Error("INSUFFICIENT_AD_LIQUIDITY");
 
-      // KES coin SELL ad: escrow the KES from the merchant's wallet (it isn't
+      // KES coin SELL ad: escrow KES from the merchant's KES Coin balance (it isn't
       // locked up-front like a crypto ad).
       if (isKesCoin(match.crypto)) {
-        await debitWalletKes(tx, match.merchant.userId, kesLockAmount(cryptoAmount));
+        await lockKesCoinBalance(tx, match.merchant.userId, kesLockAmount(cryptoAmount));
       }
 
       return tx.p2POrder.create({
@@ -118,12 +118,12 @@ export async function POST(req: Request) {
     }).catch((err: unknown) => {
       const msg = (err as Error).message;
       if (msg === "INSUFFICIENT_AD_LIQUIDITY") return null;
-      if (msg === "INSUFFICIENT_KES_BALANCE") return "INSUFFICIENT_KES_BALANCE" as const;
+      if (msg === "INSUFFICIENT_KES_COIN_BALANCE") return "INSUFFICIENT_KES_COIN_BALANCE" as const;
       throw err;
     });
 
-    if (order === "INSUFFICIENT_KES_BALANCE") {
-      return Response.json({ error: "That merchant ran out of KES — try a different amount." }, { status: 409 });
+    if (order === "INSUFFICIENT_KES_COIN_BALANCE") {
+      return Response.json({ error: "That merchant ran out of KES Coin — try a different amount." }, { status: 409 });
     }
     if (!order) {
       return Response.json({ error: "That offer was just taken — try again" }, { status: 409 });

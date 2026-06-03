@@ -7,7 +7,7 @@ import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
 
-// "KES" is the in-app KES coin (escrowed from wallet balance, not a crypto balance).
+// "KES" is the in-app KES coin (stored as UserCryptoBalance with network KES).
 const VALID_CRYPTOS = ["USDT", "USDC", "BTC", "ETH", "BNB", "KES"];
 const VALID_SIDES: AdSide[] = ["BUY", "SELL"];
 const VALID_FIATS = new Set(FIAT_CURRENCIES.map((f) => f.code));
@@ -167,8 +167,8 @@ export async function POST(req: Request) {
       terms:           (terms as string | undefined) ?? null,
     };
 
-    // Crypto SELL ads lock the merchant's crypto up-front. KES-coin SELL ads
-    // don't: the KES is escrowed per-order from the merchant's wallet balance
+    // Crypto SELL ads lock the merchant's crypto up-front. KES Coin SELL ads
+    // don't: KES is escrowed per-order from the merchant's KES/KES balance
     // (see /api/p2p/orders), so here we just create the ad like a BUY ad.
     if (side === "SELL" && !isKesCoin(crypto as string)) {
       // Lock balance + create ad atomically — if ad creation fails, balance stays intact

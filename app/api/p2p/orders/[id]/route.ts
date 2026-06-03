@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { defaultNetwork, unlockUserCrypto } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount } from "@/lib/p2p/crypto-balance";
 
 // GET /api/p2p/orders/[id] — fetch single order (buyer or seller only)
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -47,7 +47,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         where: { id: order.adId },
         data:  { availableAmount: { increment: Number(order.cryptoAmount) } },
       });
-      if (order.ad.side === "BUY") {
+      if (isKesCoin(order.crypto)) {
+        const giverUserId = order.ad.side === "SELL" ? order.seller.userId : order.buyerId;
+        await unlockKesCoinBalance(tx, giverUserId, kesLockAmount(Number(order.cryptoAmount)));
+      } else if (order.ad.side === "BUY") {
         await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), Number(order.cryptoAmount));
       }
     });

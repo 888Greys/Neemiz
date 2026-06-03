@@ -99,27 +99,76 @@ export async function debitUserCrypto(
 }
 
 // ─── KES coin (in-app fiat as a tradable P2P asset) ─────────────────────────
-// The "KES coin" is the user's fiat wallet balance (User.walletBalance), 1:1
-// with KES, non-withdrawable. When it's the traded asset in a P2P ad we escrow
-// it straight from walletBalance (debit-on-lock per order; refund on
-// cancel/expire; pay the recipient on release) — there's no separate locked
-// column, the order record tracks what's held.
+// KES Coin is separate from the user's fiat wallet balance. Users buy it from
+// fiat 1:1, and P2P order escrow uses UserCryptoBalance(KES/KES).
 
 export const KES_COIN = "KES";
+export const KES_NETWORK = "KES";
 export function isKesCoin(crypto: string): boolean {
   return crypto?.toUpperCase() === KES_COIN;
 }
 
-/** Debit KES from a user's wallet balance (escrow lock). Throws if insufficient. */
-export async function debitWalletKes(tx: TxClient, userId: string, amount: number) {
-  const u = await tx.user.findUnique({ where: { id: userId }, select: { walletBalance: true } });
-  if (!u || Number(u.walletBalance) < amount) throw new Error("INSUFFICIENT_KES_BALANCE");
-  await tx.user.update({ where: { id: userId }, data: { walletBalance: { decrement: amount } } });
+/** Credit spendable KES Coin to a user's crypto balance. */
+export async function creditKesCoinBalance(tx: TxClient, userId: string, amount: number) {
+  await creditUserCrypto(tx, userId, KES_COIN, KES_NETWORK, amount);
 }
 
-/** Credit KES to a user's wallet balance (refund or payout). */
-export async function creditWalletKes(tx: TxClient, userId: string, amount: number) {
-  await tx.user.update({ where: { id: userId }, data: { walletBalance: { increment: amount } } });
+/** Debit spendable KES Coin. Throws if insufficient. */
+export async function debitKesCoinBalance(tx: TxClient, userId: string, amount: number) {
+  const balance = await tx.userCryptoBalance.findUnique({
+    where: { userId_crypto_network: { userId, crypto: KES_COIN, network: KES_NETWORK } },
+  });
+  const avail = Number(balance?.available ?? 0);
+  if (avail < amount) throw new Error("INSUFFICIENT_KES_COIN_BALANCE");
+
+  await tx.userCryptoBalance.update({
+    where: { userId_crypto_network: { userId, crypto: KES_COIN, network: KES_NETWORK } },
+    data: { available: { decrement: amount } },
+  });
+}
+
+/** Lock KES Coin from available into escrow. Throws if insufficient. */
+export async function lockKesCoinBalance(tx: TxClient, userId: string, amount: number) {
+  const balance = await tx.userCryptoBalance.findUnique({
+    where: { userId_crypto_network: { userId, crypto: KES_COIN, network: KES_NETWORK } },
+  });
+  const avail = Number(balance?.available ?? 0);
+  if (avail < amount) throw new Error("INSUFFICIENT_KES_COIN_BALANCE");
+
+  await tx.userCryptoBalance.update({
+    where: { userId_crypto_network: { userId, crypto: KES_COIN, network: KES_NETWORK } },
+    data: {
+      available: { decrement: amount },
+      locked:    { increment: amount },
+    },
+  });
+}
+
+/** Release locked KES Coin back to available, used for refunds/expirations. */
+export async function unlockKesCoinBalance(tx: TxClient, userId: string, amount: number) {
+  await tx.userCryptoBalance.updateMany({
+    where: { userId, crypto: KES_COIN, network: KES_NETWORK, locked: { gte: amount } },
+    data: {
+      locked:    { decrement: amount },
+      available: { increment: amount },
+    },
+  });
+}
+
+/** Complete a KES Coin escrow transfer: remove locked from giver, credit receiver. */
+export async function releaseKesCoinBalance(
+  tx: TxClient,
+  giverUserId: string,
+  receiverUserId: string,
+  lockedAmount: number,
+  payoutAmount: number,
+) {
+  const released = await tx.userCryptoBalance.updateMany({
+    where: { userId: giverUserId, crypto: KES_COIN, network: KES_NETWORK, locked: { gte: lockedAmount } },
+    data:  { locked: { decrement: lockedAmount } },
+  });
+  if (released.count === 0) throw new Error("INSUFFICIENT_LOCKED_KES_COIN");
+  await creditKesCoinBalance(tx, receiverUserId, payoutAmount);
 }
 
 // KES coin trades charge 1% from EACH side (2% total). The giver is escrowed
@@ -136,6 +185,7 @@ export const kesPayoutAmount = (amount: number) => parseFloat((amount * (1 - KES
  */
 export function defaultNetwork(crypto: string): string {
   const map: Record<string, string> = {
+    KES:   KES_NETWORK,
     USDT:  "TRC20",
     USDC:  "ERC20",
     BTC:   "BTC",

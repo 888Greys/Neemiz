@@ -732,7 +732,7 @@ const CRYPTO_ICONS: Record<string, string> = {
 };
 
 // All cryptos supported for P2P (must match the ads API's VALID_CRYPTOS).
-// "KES" is the in-app KES coin (escrowed from wallet balance).
+// "KES" is the in-app KES coin, stored as UserCryptoBalance(KES/KES).
 const CRYPTOS   = ["USDT", "USDC", "BTC", "ETH", "BNB", "KES"];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
