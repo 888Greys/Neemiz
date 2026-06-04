@@ -53,6 +53,8 @@ const EVM_RPC: Record<number, string> = {
 
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const BSC_LOG_SCAN_BLOCKS = 45_000;
+const BSC_BACKFILL_SCAN_BLOCKS = 180_000;
+const BSC_BACKFILL_CHUNK_BLOCKS = 1_500;
 
 async function rpcRequest<T>(chainId: number, method: string, params: unknown[]): Promise<T | null> {
   const rpc = EVM_RPC[chainId];
@@ -82,7 +84,38 @@ function formatUnits(value: string | bigint, decimals: number, fixed = 8): strin
   return `${whole}.${fractionText}`;
 }
 
-async function checkBscTokenDeposits(address: string, crypto: string, network: string): Promise<DepositTx[]> {
+async function getBscTokenLogs(
+  chainId: number,
+  contract: string,
+  address: string,
+  fromBlock: number,
+  toBlock: number | "latest",
+): Promise<Array<{
+  blockNumber: string;
+  data: string;
+  topics: string[];
+  transactionHash: string;
+}>> {
+  const logs = await rpcRequest<Array<{
+    blockNumber: string;
+    data: string;
+    topics: string[];
+    transactionHash: string;
+  }>>(chainId, "eth_getLogs", [{
+    fromBlock: `0x${fromBlock.toString(16)}`,
+    toBlock:   toBlock === "latest" ? "latest" : `0x${toBlock.toString(16)}`,
+    address:   contract,
+    topics:    [TRANSFER_TOPIC, null, addressTopic(address)],
+  }]);
+  return Array.isArray(logs) ? logs : [];
+}
+
+async function checkBscTokenDeposits(
+  address: string,
+  crypto: string,
+  network: string,
+  opts: { backfill?: boolean } = {},
+): Promise<DepositTx[]> {
   const token = EVM_TOKENS[`${crypto}:${network}`];
   if (!token?.contract) return [];
 
@@ -91,18 +124,15 @@ async function checkBscTokenDeposits(address: string, crypto: string, network: s
   const latest = Number(BigInt(latestHex));
   const from = Math.max(0, latest - BSC_LOG_SCAN_BLOCKS);
 
-  const logs = await rpcRequest<Array<{
-    blockNumber: string;
-    data: string;
-    topics: string[];
-    transactionHash: string;
-  }>>(token.chainId, "eth_getLogs", [{
-    fromBlock: `0x${from.toString(16)}`,
-    toBlock:   "latest",
-    address:   token.contract,
-    topics:    [TRANSFER_TOPIC, null, addressTopic(address)],
-  }]);
-  if (!Array.isArray(logs)) return [];
+  let logs = await getBscTokenLogs(token.chainId, token.contract, address, from, "latest");
+
+  if (opts.backfill) {
+    const oldest = Math.max(0, latest - BSC_BACKFILL_SCAN_BLOCKS);
+    for (let end = from - 1; end >= oldest; end -= BSC_BACKFILL_CHUNK_BLOCKS) {
+      const start = Math.max(oldest, end - BSC_BACKFILL_CHUNK_BLOCKS + 1);
+      logs = logs.concat(await getBscTokenLogs(token.chainId, token.contract, address, start, end));
+    }
+  }
 
   return logs
     .map((log) => ({
@@ -120,11 +150,12 @@ export async function checkEVMDeposits(
   address: string,
   crypto:  string,
   network: string,
+  opts: { backfillBep20?: boolean } = {},
 ): Promise<DepositTx[]> {
   const token = EVM_TOKENS[`${crypto}:${network}`];
   if (!token) return [];
   if (token.chainId === 56 && token.contract) {
-    return checkBscTokenDeposits(address, crypto, network);
+    return checkBscTokenDeposits(address, crypto, network, { backfill: opts.backfillBep20 });
   }
 
   const apiKey = process.env.ETHERSCAN_API_KEY;
@@ -280,13 +311,14 @@ export async function checkDeposits(
   address: string,
   crypto:  string,
   network: string,
+  opts: { backfillBep20?: boolean } = {},
 ): Promise<DepositTx[]> {
   if (network === "BITCOIN") return checkBTCDeposits(address);
   if (network === "TRC20") {
     if (crypto === "TRX") return checkTronTRXDeposits(address);
     return checkTronTRC20Deposits(address, crypto);
   }
-  return checkEVMDeposits(address, crypto, network);
+  return checkEVMDeposits(address, crypto, network, opts);
 }
 
 // ─── On-chain balance queries (for UI sync) ───────────────────────────────────

@@ -20,6 +20,9 @@ export const runtime = "nodejs";
 export async function GET(req: Request) {
   const auth   = req.headers.get("authorization") ?? "";
   const secret = process.env.CRON_SECRET;
+  const params = new URL(req.url).searchParams;
+  const backfillBep20 = params.get("backfill") === "1";
+  const addressFilter = params.get("address");
   if (!secret) {
     return Response.json({ error: "CRON_SECRET is not configured" }, { status: 503 });
   }
@@ -28,6 +31,7 @@ export async function GET(req: Request) {
   }
 
   const addresses = await db.cryptoDepositAddress.findMany({
+    where: addressFilter ? { address: { equals: addressFilter, mode: "insensitive" } } : undefined,
     include: { user: { include: { merchantProfile: true } } },
   });
 
@@ -54,7 +58,7 @@ export async function GET(req: Request) {
     };
 
     try {
-      const txs = await checkDeposits(addr.address, addr.crypto, addr.network);
+      const txs = await checkDeposits(addr.address, addr.crypto, addr.network, { backfillBep20 });
       addrDetail.txsFound = txs.length;
 
       for (const tx of txs) {
