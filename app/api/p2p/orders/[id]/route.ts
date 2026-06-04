@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount } from "@/lib/p2p/crypto-balance";
 
+export const dynamic = "force-dynamic";
+
 // GET /api/p2p/orders/[id] — fetch single order (buyer or seller only)
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -86,5 +88,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     side:            order.ad.side,
     isBuyer,
     isSeller,
+  }, {
+    headers: {
+      "Cache-Control": "no-store, max-age=0",
+    },
   });
 }

@@ -46,6 +46,35 @@ interface Message {
   sender: { id: string; firstName: string | null; lastName: string | null; username: string | null; imageUrl: string | null };
 }
 
+function isMerchantSelling(order: OrderData): boolean {
+  return order.side === "SELL";
+}
+
+function isPaymentActor(order: OrderData): boolean {
+  const merchantIsSelling = isMerchantSelling(order);
+  return merchantIsSelling ? order.isBuyer : order.isSeller;
+}
+
+function isReleaseActor(order: OrderData): boolean {
+  const merchantIsSelling = isMerchantSelling(order);
+  return merchantIsSelling ? order.isSeller : order.isBuyer;
+}
+
+function orderStageTitle(order: OrderData): string {
+  if (order.status === "RELEASED") return "Trade Completed";
+  if (order.status === "CANCELLED") return "Order Cancelled";
+  if (order.status === "EXPIRED") return "Order Expired";
+  if (order.status === "DISPUTED") return "Dispute in Progress";
+  if (order.status === "PAID") {
+    return isReleaseActor(order) ? "Payment Received" : "Payment Completed";
+  }
+  return isPaymentActor(order) ? "Pending for Payment" : "Waiting for Payment";
+}
+
+function releaseButtonLabel(order: OrderData, loading: boolean): string {
+  return loading ? "Releasing..." : "Release Coins";
+}
+
 // ─── Countdown ────────────────────────────────────────────────────────────────
 
 function Countdown({ expiresAt, onExpire }: { expiresAt: string; onExpire: () => void }) {
@@ -262,7 +291,9 @@ function MobileP2POrderView({
 
   const merchantIsSelling = order.side === "SELL";
   const paymentName = paymentMethodLabel(order.paymentMethod);
-  const canMarkPaid = order.isBuyer && order.status === "PENDING" && merchantIsSelling;
+  const canMarkPaid = order.status === "PENDING" && isPaymentActor(order);
+  const canRelease = order.status === "PAID" && isReleaseActor(order);
+  const waitingForRelease = order.status === "PAID" && !canRelease;
   const currentUserId = order.isBuyer ? order.buyer.id : order.seller.userId;
   const orderClosed = ["RELEASED", "CANCELLED", "EXPIRED", "DISPUTED"].includes(order.status);
 
@@ -397,10 +428,11 @@ function MobileP2POrderView({
     );
   }
 
-  // ── Terminal state screen (Completed / Cancelled / Expired) ─────────────
-  if (["RELEASED", "CANCELLED", "EXPIRED"].includes(order.status)) {
+  // ── Terminal state screen (Completed / Cancelled / Expired / Disputed) ──
+  if (["RELEASED", "CANCELLED", "EXPIRED", "DISPUTED"].includes(order.status)) {
     const isSuccess = order.status === "RELEASED";
     const isCancelled = order.status === "CANCELLED";
+    const isDisputed = order.status === "DISPUTED";
     const paymentLabel = paymentMethodLabel(order.paymentMethod);
     const rows = [
       { label: "Amount",            value: formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 }) },
@@ -425,18 +457,24 @@ function MobileP2POrderView({
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-[calc(3rem+env(safe-area-inset-bottom))]">
           {/* Title */}
           <h1 className="mb-4 text-[20px] font-black leading-snug">
-            {isSuccess ? "Trade completed!" : isCancelled ? "Your order has been canceled." : "Your order has expired."}
+            {isSuccess ? "Trade completed!" : isCancelled ? "Your order has been canceled." : isDisputed ? "This order is in dispute." : "Your order has expired."}
           </h1>
 
           {/* Info box */}
-          {!isSuccess && (
+          {isDisputed ? (
+            <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+              <p className="text-[12px] leading-5 text-red-300">
+                Our team is reviewing this order. Keep all payment proof in chat and wait for admin resolution before taking any further action.
+              </p>
+            </div>
+          ) : !isSuccess && (
             <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
               <p className="text-[12px] leading-5 text-slate-400">
                 This order has concluded, and the assets are no longer locked in escrow. Do not blindly trust strangers or release funds without confirming.
               </p>
             </div>
           )}
-          {!isSuccess && (
+          {!isSuccess && !isDisputed && (
             <p className="mb-4 text-[12px] leading-5 text-slate-500">
               {order.cancelReason
                 ? order.cancelReason
@@ -537,13 +575,42 @@ function MobileP2POrderView({
       </div>
 
       <h1 className="mb-2 text-[20px] font-black">
-        {order.status === "PENDING" ? "Pending for Payment" : order.status === "PAID" ? "Payment Sent" : order.status}
+        {orderStageTitle(order)}
       </h1>
       {order.status === "PENDING" && (
         <div className="mb-5 text-[12px] font-bold leading-4 text-red-500">
-          <p>Note: The order will be automatically cancelled if the button is not clicked by the deadline.</p>
+          <p>
+            {canMarkPaid
+              ? "Note: The order will be automatically cancelled if payment is not marked completed before the deadline."
+              : "Waiting for the payer to complete payment before the deadline."}
+          </p>
           <div className="mt-1 scale-75 origin-left">
             <Countdown expiresAt={order.expiresAt} onExpire={() => {}} />
+          </div>
+        </div>
+      )}
+      {order.status === "PAID" && (
+        <div className={`mb-5 rounded-2xl border px-4 py-3 ${
+          canRelease
+            ? "border-[#05b957]/25 bg-[#05b957]/10"
+            : "border-[#087cff]/25 bg-[#087cff]/10"
+        }`}>
+          <div className="flex items-start gap-3">
+            <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${
+              canRelease ? "bg-[#05b957]/15 text-[#05b957]" : "bg-[#087cff]/15 text-[#087cff]"
+            }`}>
+              <Icon name={canRelease ? "lock_open" : "hourglass_top"} className="text-[18px]" />
+            </span>
+            <div>
+              <p className="text-sm font-black text-white">
+                {canRelease ? "Confirm money, then release coins" : "Payment completed"}
+              </p>
+              <p className="mt-1 text-[12px] leading-5 text-slate-400">
+                {canRelease
+                  ? `Check your ${paymentName} account for ${formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })}. Only tap Release Coins after the money is visible in your account.`
+                  : "The payer has marked payment completed. The coin holder now needs to verify the money and release the coins from escrow."}
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -562,6 +629,7 @@ function MobileP2POrderView({
         </button>
       </div>
 
+      {order.status === "PENDING" && canMarkPaid && (
       <section className="mb-5">
         <div className="mb-3 flex items-center gap-2">
           <span className="grid h-5 w-5 place-items-center rounded-full border border-[#087cff]/30 bg-[#087cff]/15 text-[11px] font-black text-[#087cff]">1</span>
@@ -588,11 +656,13 @@ function MobileP2POrderView({
           </p>
         </div>
       </section>
+      )}
 
+      {order.status === "PENDING" && canMarkPaid && (
       <section className="mb-5">
         <div className="mb-3 flex items-start gap-2">
           <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-[#087cff]/30 bg-[#087cff]/15 text-[11px] font-black text-[#087cff]">2</span>
-          <h2 className="text-sm font-black">After payment, click the button below so the seller can release the crypto.</h2>
+          <h2 className="text-sm font-black">After sending money, click Payment Completed so the coin holder can release the coins.</h2>
         </div>
         <div className="ml-7 space-y-1 text-[11px] leading-4 text-slate-500">
           <p>1. Always use a payment account that matches your verified name.</p>
@@ -600,6 +670,27 @@ function MobileP2POrderView({
           <p>3. Real-time payment is strongly recommended.</p>
         </div>
       </section>
+      )}
+
+      {order.status === "PENDING" && !canMarkPaid && (
+        <section className="mb-5 rounded-2xl border border-white/[0.08] bg-[#111118] px-4 py-4">
+          <div className="flex items-start gap-3">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#f59e0b]/15 text-[#f59e0b]">
+              <Icon name="schedule" className="text-[18px]" />
+            </span>
+            <div>
+              <h2 className="text-sm font-black text-white">
+                {isReleaseActor(order) ? "Wait for payment confirmation" : "Waiting for the other trader"}
+              </h2>
+              <p className="mt-1 text-[12px] leading-5 text-slate-400">
+                {isReleaseActor(order)
+                  ? "Do not release coins yet. Once the other trader marks payment completed, this page will change and show the Release Coins button."
+                  : "The other trader must complete the next step before you can continue."}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {canMarkPaid && (
         <div className="mb-4">
@@ -613,7 +704,7 @@ function MobileP2POrderView({
         </div>
       )}
 
-      {order.status === "PAID" && order.isBuyer && merchantIsSelling && (
+      {waitingForRelease && order.isBuyer && merchantIsSelling && (
         <button
           type="button"
           onClick={() => setShowDisputeScreen(true)}
@@ -627,7 +718,7 @@ function MobileP2POrderView({
         </button>
       )}
 
-      {order.status !== "PAID" && (
+      {order.status === "PENDING" && (
         <button type="button" className="mb-5 flex w-full items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3 text-left">
           <span className="flex items-center gap-2 text-xs text-white">
             <Icon name="tips_and_updates" className="text-[16px] text-[#f59e0b]" />
@@ -637,6 +728,7 @@ function MobileP2POrderView({
         </button>
       )}
 
+      {(canMarkPaid || canRelease) && (
       <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-[#1e1e30] bg-[#08080c] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
         {canMarkPaid && (
           <button
@@ -648,27 +740,18 @@ function MobileP2POrderView({
             {actionLoading === "paid" ? "Confirming..." : "Payment Completed"}
           </button>
         )}
-        {order.status === "PAID" && order.isSeller && merchantIsSelling && (
+        {canRelease && (
           <button
             type="button"
             disabled={!!actionLoading}
             onClick={() => onAction("release", {}, "release")}
             className="h-12 w-full rounded-full bg-[#05b957] text-sm font-black text-white disabled:opacity-50 hover:bg-[#28af52] transition-colors"
           >
-            {actionLoading === "release" ? "Releasing…" : `Release ${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}`}
-          </button>
-        )}
-        {order.status === "PAID" && order.isBuyer && !merchantIsSelling && (
-          <button
-            type="button"
-            disabled={!!actionLoading}
-            onClick={() => onAction("release", {}, "release")}
-            className="h-12 w-full rounded-full bg-[#05b957] text-sm font-black text-white disabled:opacity-50 hover:bg-[#28af52] transition-colors"
-          >
-            {actionLoading === "release" ? "Releasing…" : `Release ${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}`}
+            {releaseButtonLabel(order, actionLoading === "release")}
           </button>
         )}
       </div>
+      )}
     </div>
   );
 }
@@ -702,7 +785,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
 
   const fetchOrder = useCallback(async () => {
     try {
-      const res = await fetch(`/api/p2p/orders/${orderId}`);
+      const res = await fetch(`/api/p2p/orders/${orderId}?ts=${Date.now()}`, { cache: "no-store" });
       if (res.ok) setOrder(await res.json());
       else if (res.status === 404) router.push("/p2p");
     } catch { /* ignore */ } finally {
@@ -712,9 +795,17 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
 
   useEffect(() => {
     fetchOrder();
-    const id = setInterval(fetchOrder, 10000);
+    const id = setInterval(fetchOrder, 4000);
     return () => clearInterval(id);
   }, [fetchOrder]);
+
+  function successMessage(status?: string): string {
+    if (status === "PAID") return "Payment completed";
+    if (status === "RELEASED") return "Coins released";
+    if (status === "CANCELLED") return "Order cancelled";
+    if (status === "DISPUTED") return "Dispute submitted";
+    return "Order updated";
+  }
 
   async function doAction(endpoint: string, body: object, label: string) {
     setActionLoading(label);
@@ -727,7 +818,8 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Action failed");
       await fetchOrder();
-      toast.success(`Order ${data.status?.toLowerCase()}`);
+      router.refresh();
+      toast.success(successMessage(data.status));
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -864,7 +956,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
-                    <span>Enter your M-Pesa transaction code or reference below, then click <strong className="text-white">I&apos;ve Paid</strong>.</span>
+                    <span>Enter your M-Pesa transaction code or reference below, then click <strong className="text-white">Payment Completed</strong>.</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">3</span>
@@ -881,7 +973,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
-                    <span>Once you receive the payment, click <strong className="text-white">Release Crypto</strong> to complete the trade.</span>
+                    <span>Once you receive the payment, click <strong className="text-white">Release Coins</strong> to complete the trade.</span>
                   </li>
                 </ol>
               )}
@@ -901,7 +993,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
-                    <span>After sending payment, click <strong className="text-white">Payment Sent</strong>. The trader will then release {order.crypto} from escrow.</span>
+                    <span>After sending payment, click <strong className="text-white">Payment Completed</strong>. The trader will then release {order.crypto} from escrow.</span>
                   </li>
                 </ol>
               )}
@@ -914,7 +1006,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#05b957]/20 text-[#05b957] text-xs font-black flex items-center justify-center shrink-0">2</span>
-                    <span>Once confirmed, click <strong className="text-white">Release Crypto</strong> to complete the trade.</span>
+                    <span>Once confirmed, click <strong className="text-white">Release Coins</strong> to complete the trade.</span>
                   </li>
                 </ol>
               )}
@@ -978,7 +1070,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           {!isClosed && (
             <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-5 space-y-4">
 
-              {/* Buyer: I've Paid */}
+              {/* Payer: payment completed */}
               {order.isBuyer && order.status === "PENDING" && merchantIsSelling && (
                 <div className="space-y-3">
                   <div>
@@ -1000,7 +1092,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                   >
                     {actionLoading === "paid"
                       ? <LoadingDots label="Confirming" />
-                      : "✓ I've Paid"}
+                      : "Payment Completed"}
                   </button>
                 </div>
               )}
@@ -1013,7 +1105,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 >
                   {actionLoading === "paid"
                     ? <span className="flex items-center justify-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Confirming…</span>
-                    : "Payment Sent"}
+                    : "Payment Completed"}
                 </button>
               )}
 
@@ -1026,7 +1118,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 >
                   {actionLoading === "release"
                     ? <LoadingDots label="Releasing" />
-                    : `Release ${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}`}
+                    : releaseButtonLabel(order, actionLoading === "release")}
                 </button>
               )}
 
@@ -1038,7 +1130,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 >
                   {actionLoading === "release"
                     ? <LoadingDots label="Releasing" />
-                    : `Release ${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}`}
+                    : releaseButtonLabel(order, actionLoading === "release")}
                 </button>
               )}
 
