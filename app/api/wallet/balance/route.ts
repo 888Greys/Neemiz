@@ -18,11 +18,10 @@ export async function GET() {
       lastName:  user.user_metadata?.last_name,
     });
 
-    // ── Crypto balances from UserCryptoBalance table ──────────────────────────
-    // UserCryptoBalance is maintained by increment/decrement only (never overwritten
-    // by on-chain queries), so it always reflects the true platform balance.
+    // ── Blockchain crypto balances from UserCryptoBalance table ───────────────
+    // KES Coin is fiat-backed by walletBalance, so legacy KES/KES rows are hidden.
     const rows = await db.userCryptoBalance.findMany({
-      where:   { userId: dbUser.id },
+      where:   { userId: dbUser.id, NOT: { crypto: "KES", network: "KES" } },
       orderBy: { crypto: "asc" },
     });
 

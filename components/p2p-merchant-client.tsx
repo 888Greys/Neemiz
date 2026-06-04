@@ -436,10 +436,9 @@ function PaymentMethodsSection() {
 }
 
 function DepositSection() {
-  const { balance: fiatBalance, refresh: refreshFiatBalance } = useWalletBalance();
+  const { balance: fiatBalance } = useWalletBalance();
   const [open, setOpen]                   = useState(false);
   const [fundOpen, setFundOpen]           = useState(false);
-  const [convertOpen, setConvertOpen]     = useState(false);
   const [deposits, setDeposits]           = useState<Deposit[]>([]);
   const [loading, setLoading]             = useState(true);
   const [balances, setBalances]           = useState<CryptoBalance[]>([]);
@@ -459,10 +458,6 @@ function DepositSection() {
   const [e2wCrypto, setE2wCrypto]         = useState("USDT");
   const [e2wAmount, setE2wAmount]         = useState("");
   const [e2wLoading, setE2wLoading]       = useState(false);
-  // Fiat ⇄ KES Coin form state
-  const [convertDirection, setConvertDirection] = useState<"fiat_to_kes" | "kes_to_fiat">("fiat_to_kes");
-  const [convertAmount, setConvertAmount]       = useState("");
-  const [convertLoading, setConvertLoading]     = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -524,33 +519,6 @@ function DepositSection() {
     }
   }
 
-  async function convertKesCoin() {
-    const amt = Number(convertAmount);
-    if (!convertAmount || !Number.isFinite(amt) || amt <= 0) return toast.error("Enter a valid amount");
-    setConvertLoading(true);
-    try {
-      const r = await fetch("/api/wallet/convert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: amt, direction: convertDirection }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "Conversion failed");
-      toast.success(
-        convertDirection === "fiat_to_kes"
-          ? `Bought KSh ${amt.toLocaleString("en-KE")} KES Coin`
-          : `Sold KSh ${amt.toLocaleString("en-KE")} KES Coin`,
-      );
-      setConvertAmount("");
-      load();
-      refreshFiatBalance();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Conversion failed");
-    } finally {
-      setConvertLoading(false);
-    }
-  }
-
   // Unique cryptos the user actually holds in their wallet
   const fundableWalletBalances = walletBalances.filter((b) => b.crypto !== "KES");
   const walletCryptos = fundableWalletBalances
@@ -567,14 +535,10 @@ function DepositSection() {
   )?.available ?? 0;
 
   // Escrow available for currently selected e2w crypto
+  const movableEscrowBalances = balances.filter((b) => b.crypto !== "KES" && Number(b.available) > 0);
   const e2wEscrowBal = Number(
-    balances.find((b) => b.crypto === e2wCrypto)?.available ?? 0,
+    movableEscrowBalances.find((b) => b.crypto === e2wCrypto)?.available ?? 0,
   );
-  const kesCoinAvailable = Number(
-    walletBalances.find((b) => b.crypto === "KES" && b.network === "KES")?.available ?? 0,
-  );
-  const convertMax = convertDirection === "fiat_to_kes" ? fiatBalance : kesCoinAvailable;
-
   const formatCoinAmount = (crypto: string, amount: number) =>
     Number(amount).toFixed(crypto === "KES" ? 2 : 6);
 
@@ -585,6 +549,14 @@ function DepositSection() {
   ].filter((crypto, index, all) => all.indexOf(crypto) === index);
 
   const walletDisplayRows = balanceSymbols.map((crypto) => {
+    if (crypto === "KES") {
+      return {
+        crypto,
+        network: "fiat",
+        available: fiatBalance,
+        locked: 0,
+      };
+    }
     const rows = walletBalances.filter((b) => b.crypto === crypto);
     return {
       crypto,
@@ -598,11 +570,10 @@ function DepositSection() {
 
   const escrowDisplayRows = balanceSymbols.map((crypto) => {
     const escrow = balances.find((b) => b.crypto === crypto);
-    const kesWallet = walletBalances.find((b) => b.crypto === "KES" && b.network === "KES");
     return {
       crypto,
       available: crypto === "KES" ? 0 : Number(escrow?.available ?? 0),
-      locked: crypto === "KES" ? Number(kesWallet?.locked ?? 0) : Number(escrow?.locked ?? 0),
+      locked: Number(escrow?.locked ?? 0),
     };
   });
 
@@ -661,32 +632,25 @@ function DepositSection() {
       <div className="flex flex-col gap-3 border-b border-white/[0.06] px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:py-2.5">
         <div className="min-w-0">
           <h2 className="text-base font-black text-white">Wallet &amp; Escrow</h2>
-          <p className="mt-0.5 text-xs leading-4 text-slate-500">Receive to wallet, fund escrow for ads, and track locked order funds.</p>
+          <p className="mt-0.5 text-xs leading-4 text-slate-500">Receive crypto, fund escrow, and track KES Coin backed by your fiat wallet.</p>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:items-center">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:items-center">
           <button
-            onClick={() => { setConvertOpen((v) => !v); setFundOpen(false); setE2wOpen(false); setOpen(false); }}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-[#087cff] px-2 py-2 text-[11px] font-black text-white shadow-lg shadow-[#087cff]/20 transition-colors hover:bg-[#0570e8] lg:h-9 lg:px-4 lg:text-sm"
-          >
-            <Icon name="currency_exchange" className="text-base" />
-            <span className="whitespace-nowrap">Convert KES</span>
-          </button>
-          <button
-            onClick={() => { setFundOpen((v) => !v); setConvertOpen(false); setE2wOpen(false); setOpen(false); }}
+            onClick={() => { setFundOpen((v) => !v); setE2wOpen(false); setOpen(false); }}
             className="flex items-center justify-center gap-1.5 rounded-lg bg-[#05b957] px-2 py-2 text-[11px] font-black text-white shadow-lg shadow-[#05b957]/20 transition-colors hover:bg-[#28af52] lg:h-9 lg:px-4 lg:text-sm"
           >
             <Icon name="arrow_upward" className="text-base" />
             <span className="whitespace-nowrap">Fund Escrow</span>
           </button>
           <button
-            onClick={() => { setE2wOpen((v) => !v); setConvertOpen(false); setFundOpen(false); setOpen(false); }}
+            onClick={() => { setE2wOpen((v) => !v); setFundOpen(false); setOpen(false); }}
             className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2 py-2 text-[11px] font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9 lg:px-3 lg:text-sm"
           >
             <Icon name="arrow_downward" className="text-base" />
             <span className="whitespace-nowrap">To Wallet</span>
           </button>
           <button
-            onClick={() => { setOpen((v) => !v); setConvertOpen(false); setFundOpen(false); setE2wOpen(false); setAddress(null); }}
+            onClick={() => { setOpen((v) => !v); setFundOpen(false); setE2wOpen(false); setAddress(null); }}
             className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2 py-2 text-[11px] font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9 lg:px-3 lg:text-sm"
           >
             <Icon name="qr_code" className="text-base" />
@@ -695,81 +659,12 @@ function DepositSection() {
         </div>
       </div>
 
-      {/* Merchant KES Coin conversion panel */}
-      {convertOpen && (
-        <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
-          <p className="mb-3 text-xs text-slate-400">
-            Convert your merchant fiat balance into KES Coin for P2P ads, or sell KES Coin back to fiat at 1:1.
-          </p>
-          <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_140px] lg:items-end">
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Direction</label>
-              <div className="grid grid-cols-2 rounded-xl bg-white/[0.045] p-1 ring-1 ring-white/[0.07]">
-                <button
-                  type="button"
-                  onClick={() => setConvertDirection("fiat_to_kes")}
-                  className={`rounded-lg py-2 text-xs font-black transition ${
-                    convertDirection === "fiat_to_kes" ? "bg-[#087cff] text-white" : "text-slate-500 hover:text-white"
-                  }`}
-                >
-                  Buy
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConvertDirection("kes_to_fiat")}
-                  className={`rounded-lg py-2 text-xs font-black transition ${
-                    convertDirection === "kes_to_fiat" ? "bg-[#087cff] text-white" : "text-slate-500 hover:text-white"
-                  }`}
-                >
-                  Sell
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">
-                Amount
-                {convertMax > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setConvertAmount(convertMax.toFixed(2))}
-                    className="ml-2 normal-case text-[#087cff] hover:underline"
-                  >
-                    max KSh {convertMax.toLocaleString("en-KE")}
-                  </button>
-                )}
-              </label>
-              <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 focus-within:border-[#087cff]/40">
-                <span className="mr-2 text-sm font-black text-slate-500">KSh</span>
-                <input
-                  type="number"
-                  value={convertAmount}
-                  onChange={(e) => setConvertAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="min-w-0 flex-1 bg-transparent py-2 text-sm text-white outline-none placeholder:text-slate-700"
-                />
-              </div>
-              <p className="mt-1 text-[11px] font-semibold text-slate-600">
-                Fiat: KSh {fiatBalance.toLocaleString("en-KE", { minimumFractionDigits: 2 })} · KES Coin: KSh {kesCoinAvailable.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={convertKesCoin}
-              disabled={convertLoading || !convertAmount || Number(convertAmount) <= 0 || Number(convertAmount) > convertMax}
-              className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#087cff] px-4 text-sm font-black text-white transition hover:bg-[#0570e8] disabled:opacity-50"
-            >
-              {convertLoading ? <LoadingDots label="Converting" /> : `${convertDirection === "fiat_to_kes" ? "Buy" : "Sell"} KES Coin`}
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Fund Escrow panel */}
       {fundOpen && (
         <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
           <p className="text-xs text-slate-400 mb-3">Move crypto from your wallet to merchant escrow so you can list sell ads.</p>
           {fundableWalletBalances.length === 0 ? (
-            <p className="text-slate-600 text-sm">No fundable wallet crypto to move. KES Coin is escrowed per order.</p>
+            <p className="text-slate-600 text-sm">No fundable wallet crypto to move. KES Coin uses fiat wallet balance automatically.</p>
           ) : (
           <div className="grid gap-3 sm:grid-cols-[160px_160px_minmax(0,1fr)_140px] sm:items-end">
             {/* Crypto — driven by actual wallet holdings */}
@@ -839,15 +734,15 @@ function DepositSection() {
       {e2wOpen && (
         <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
           <p className="text-xs text-slate-400 mb-3">Move crypto from your merchant escrow back into your normal wallet.</p>
-          {balances.length === 0 ? (
-            <p className="text-slate-600 text-sm">No escrow balance to move.</p>
+          {movableEscrowBalances.length === 0 ? (
+            <p className="text-slate-600 text-sm">No movable blockchain crypto in escrow. KES Coin is already backed by the fiat wallet.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)_140px] sm:items-end">
               {/* Crypto selector */}
               <div>
                 <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
                 <div className="flex gap-1.5 flex-wrap">
-                  {balances.map((b) => (
+                  {movableEscrowBalances.map((b) => (
                     <button key={b.crypto} onClick={() => setE2wCrypto(b.crypto)}
                       className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${
                         e2wCrypto === b.crypto ? "bg-[#05b957]/15 border-[#05b957] text-[#05b957]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
@@ -1059,7 +954,7 @@ function DepositSection() {
         </div>
         <div className="flex items-start gap-2">
           <Icon name="arrow_upward" className="mt-0.5 text-sm text-[#05b957]" />
-          <span>Fund escrow before creating sell ads.</span>
+          <span>Fund escrow for crypto ads. KES Coin uses fiat wallet automatically.</span>
         </div>
         <div className="flex items-start gap-2">
           <Icon name="percent" className="mt-0.5 text-sm text-amber-400" />
@@ -1131,6 +1026,7 @@ function DepositSection() {
 
 function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: () => void; onCreated: () => void }) {
   const isEditing = !!ad;
+  const { balance: fiatBalance } = useWalletBalance();
   const [form, setForm] = useState({
     side: ad?.side ?? "SELL",
     crypto: ad?.crypto ?? "USDT",
@@ -1146,7 +1042,6 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const [submitting, setSubmitting] = useState(false);
   const [cryptoOpen, setCryptoOpen] = useState(false);
   const [spotRate, setSpotRate] = useState<number | null>(null);
-  const [walletBalances, setWalletBalances] = useState<WalletCryptoBalance[]>([]);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
 
   // Live market rate for the chosen crypto+fiat (for the margin readout).
@@ -1165,22 +1060,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const priceNum = Number(form.pricePerUnit) || 0;
   const marginPct = spotRate && priceNum > 0 ? ((priceNum / spotRate) - 1) * 100 : null;
   const totalAmountNum = Number(form.totalAmount) || 0;
-  const requiredKesCoin = totalAmountNum > 0 ? parseFloat((totalAmountNum * 1.01).toFixed(2)) : 0;
-  const kesCoinAvailable = walletBalances.find((b) => b.crypto === "KES" && b.network === "KES")?.available ?? 0;
-  const needsKesCoin = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesCoin > 0 && kesCoinAvailable < requiredKesCoin;
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/crypto/balance")
-      .then((r) => r.ok ? r.json() : [])
-      .then((data: unknown) => {
-        if (!cancelled && Array.isArray(data)) {
-          setWalletBalances(data as WalletCryptoBalance[]);
-        }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+  const requiredKesBacking = totalAmountNum > 0 ? parseFloat((totalAmountNum * 1.01).toFixed(2)) : 0;
+  const needsKesBacking = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesBacking > 0 && fiatBalance < requiredKesBacking;
 
   function togglePm(m: string) {
     setForm((p) => ({ ...p, paymentMethods: p.paymentMethods.includes(m) ? p.paymentMethods.filter((x) => x !== m) : [...p.paymentMethods, m] }));
@@ -1198,8 +1079,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     // Order limits now apply to both Buy and Sell ads.
     const minLimit = Number(form.minLimit);
     const maxLimit = Number(form.maxLimit);
-    if (needsKesCoin) {
-      return toast.error(`Buy KES Coin first. You need KSh ${requiredKesCoin.toLocaleString("en-KE")} KES Coin for this sell ad.`);
+    if (needsKesBacking) {
+      return toast.error(`Top up your fiat wallet first. This KES Coin sell ad needs KSh ${requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee.`);
     }
 
     setSubmitting(true);
@@ -1341,9 +1222,9 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
           ))}
 
-          {needsKesCoin && (
+          {needsKesBacking && (
             <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[12px] font-bold text-amber-300">
-              Buy KES Coin first in Merchant Center &gt; Convert KES. This ad needs KSh {requiredKesCoin.toLocaleString("en-KE")} KES Coin including the 1% seller fee; you have KSh {kesCoinAvailable.toLocaleString("en-KE")}.
+              Top up your fiat wallet first. This KES Coin sell ad needs KSh {requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee; you have KSh {fiatBalance.toLocaleString("en-KE")}.
             </div>
           )}
 

@@ -11,7 +11,7 @@ export async function GET() {
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
   const balances = await db.userCryptoBalance.findMany({
-    where:   { userId: dbUser.id },
+    where:   { userId: dbUser.id, NOT: { crypto: "KES", network: "KES" } },
     orderBy: { crypto: "asc" },
     select: {
       crypto:    true,

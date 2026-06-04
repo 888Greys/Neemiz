@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +51,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       });
       if (isKesCoin(order.crypto)) {
         const giverUserId = order.ad.side === "SELL" ? order.seller.userId : order.buyerId;
-        await unlockKesCoinBalance(tx, giverUserId, kesLockAmount(Number(order.cryptoAmount)));
+        const refundAmount = kesLockAmount(Number(order.cryptoAmount));
+        await unlockKesCoinBalance(tx, giverUserId, refundAmount);
+        await recordKesWalletMovement(tx, {
+          userId: giverUserId,
+          amount: refundAmount,
+          action: "refund",
+          orderId: order.id,
+          role: "giver",
+        });
       } else if (order.ad.side === "BUY") {
         await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), Number(order.cryptoAmount));
       }

@@ -7,7 +7,7 @@ import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
 
-// "KES" is the in-app KES coin (stored as UserCryptoBalance with network KES).
+// "KES" is the in-app KES Coin, backed 1:1 by fiat wallet balance.
 const VALID_CRYPTOS = ["USDT", "USDC", "BTC", "ETH", "BNB", "KES"];
 const VALID_SIDES: AdSide[] = ["BUY", "SELL"];
 const VALID_FIATS = new Set(FIAT_CURRENCIES.map((f) => f.code));
@@ -168,21 +168,16 @@ export async function POST(req: Request) {
     };
 
     if (side === "SELL" && isKesCoin(crypto as string)) {
-      const requiredKesCoin = kesLockAmount(totalAmountNum);
-      const kesBalance = await db.userCryptoBalance.findUnique({
-        where: { userId_crypto_network: { userId: dbUser.id, crypto: "KES", network: "KES" } },
-        select: { available: true },
-      });
-      if (Number(kesBalance?.available ?? 0) < requiredKesCoin) {
+      const requiredKesBacking = kesLockAmount(totalAmountNum);
+      if (Number(dbUser.walletBalance ?? 0) < requiredKesBacking) {
         return Response.json({
-          error: `You need at least KSh ${requiredKesCoin.toLocaleString("en-KE")} KES Coin to create this sell ad. Buy KES Coin first in Wallet > Convert.`,
+          error: `You need at least KSh ${requiredKesBacking.toLocaleString("en-KE")} in your fiat wallet to back this KES Coin sell ad, including the 1% seller fee.`,
         }, { status: 400 });
       }
     }
 
-    // Crypto SELL ads lock the merchant's crypto up-front. KES Coin SELL ads
-    // don't: KES is checked at ad creation and escrowed per-order from the
-    // merchant's KES/KES balance (see /api/p2p/orders).
+    // Crypto SELL ads lock the merchant's crypto up-front. KES Coin SELL ads do
+    // not: KES is fiat-backed and escrowed per order from User.walletBalance.
     if (side === "SELL" && !isKesCoin(crypto as string)) {
       // Lock balance + create ad atomically — if ad creation fails, balance stays intact
       const ad = await db.$transaction(async (tx) => {
