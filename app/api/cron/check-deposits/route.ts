@@ -12,8 +12,7 @@
  */
 import { db } from "@/lib/db";
 import { checkDeposits } from "@/lib/crypto/deposit-checker";
-import { sendCryptoDepositEmail } from "@/lib/brevo";
-import { TransactionType, TransactionStatus } from "@prisma/client";
+import { creditOnChainDeposit } from "@/lib/crypto/deposit-credit";
 
 export const runtime = "nodejs";
 
@@ -63,66 +62,27 @@ export async function GET(req: Request) {
       addrDetail.txsFound = txs.length;
 
       for (const tx of txs) {
-        // Skip if already processed (dedup via Transaction reference)
-        const [alreadyDeposit, alreadyTx] = await Promise.all([
-          db.p2PCryptoDeposit.findFirst({ where: { txHash: tx.txHash } }),
-          db.transaction.findFirst({ where: { reference: `crypto-${tx.txHash}` } }),
-        ]);
-        if (alreadyDeposit || alreadyTx) { addrDetail.skipped++; continue; }
-
         const amount = parseFloat(tx.amount);
         if (amount <= 0) { addrDetail.skipped++; continue; }
 
-        const isMerchant = !!addr.user.merchantProfile;
-
-        await db.$transaction(async (t) => {
-          // ── Credit balance (increment — never overwrite) ──────────────────
-          await t.userCryptoBalance.upsert({
-            where:  { userId_crypto_network: { userId: addr.userId, crypto: addr.crypto, network: addr.network } },
-            create: { userId: addr.userId, crypto: addr.crypto, network: addr.network, available: amount, locked: 0 },
-            update: { available: { increment: amount } },
-          });
-
-          // ── Ledger record (also serves as dedup key) ──────────────────────
-          await t.transaction.create({
-            data: {
-              userId:    addr.userId,
-              type:      TransactionType.DEPOSIT,
-              amount,
-              currency:  addr.crypto,
-              status:    TransactionStatus.COMPLETED,
-              reference: `crypto-${tx.txHash}`,
-              provider:  "crypto",
-              metadata:  { txHash: tx.txHash, crypto: addr.crypto, network: addr.network },
-            },
-          });
-
-          // ── In-app notification ───────────────────────────────────────────
-          await t.notification.create({
-            data: {
-              userId: addr.userId,
-              type:   "wallet_deposit",
-              title:  "Crypto deposit received",
-              body:   isMerchant
-                ? `${tx.amount} ${addr.crypto} (${addr.network}) credited to your wallet. Go to Merchant Center to fund your escrow.`
-                : `${tx.amount} ${addr.crypto} (${addr.network}) credited to your wallet.`,
-              link:   isMerchant ? "/p2p/merchant" : "/dashboard",
-            },
-          });
+        const result = await creditOnChainDeposit({
+          user:           addr.user,
+          depositAddress: addr.address,
+          crypto:         addr.crypto,
+          network:        addr.network,
+          amount,
+          txHash:         tx.txHash,
+          logIndex:       tx.logIndex,
+          from:           tx.from,
+          source:         txHash ? "tx_hash_recovery" : "cron",
+          metadata:       { blockTimestamp: tx.timestamp },
         });
-
-        // ── Email (non-blocking, outside DB transaction) ──────────────────
-        if (addr.user.email) {
-          sendCryptoDepositEmail(addr.user.email, addr.user.username ?? addr.user.email, {
-            crypto:       addr.crypto,
-            network:      addr.network,
-            cryptoAmount: amount,
-            txHash:       tx.txHash,
-          }).catch((e) => console.warn("[check-deposits] email failed:", e));
+        if (result.credited) {
+          credited++;
+          addrDetail.credited++;
+        } else {
+          addrDetail.skipped++;
         }
-
-        credited++;
-        addrDetail.credited++;
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "error";

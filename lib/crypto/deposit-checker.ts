@@ -5,33 +5,10 @@
  *   Tron       — TRC-20 tokens + native TRX
  */
 
+import { EVM_TOKENS } from "@/lib/crypto/token-registry";
+
 const ETHERSCAN = "https://api.etherscan.io/v2/api";
 const TRONGRID  = "https://api.trongrid.io";
-
-// ─── EVM token registry ───────────────────────────────────────────────────────
-// chainId 1 = Ethereum, 56 = BSC, 137 = Polygon
-// Empty contract string = native coin (ETH, BNB, MATIC)
-
-const EVM_TOKENS: Record<string, { chainId: number; contract: string; decimals: number }> = {
-  // ── Ethereum (chainId 1) ──
-  "ETH:ERC20":   { chainId: 1,   contract: "", decimals: 18 },                                         // native
-  "USDT:ERC20":  { chainId: 1,   contract: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 },
-  "USDC:ERC20":  { chainId: 1,   contract: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
-  "DAI:ERC20":   { chainId: 1,   contract: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18 },
-  "WBTC:ERC20":  { chainId: 1,   contract: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8 },
-  "LINK:ERC20":  { chainId: 1,   contract: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18 },
-  // ── BSC (chainId 56) ──
-  "BNB:BEP20":   { chainId: 56,  contract: "", decimals: 18 },                                         // native
-  "USDT:BEP20":  { chainId: 56,  contract: "0x55d398326f99059fF775485246999027B3197955", decimals: 18 },
-  "BUSD:BEP20":  { chainId: 56,  contract: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", decimals: 18 },
-  // ── Polygon (chainId 137) ──
-  "MATIC:POLYGON": { chainId: 137, contract: "", decimals: 18 },                                       // native
-  // Native USDC on Polygon (0x3c499c...) — Binance and most exchanges send this
-  // USDC.e (bridged, 0x2791...) is legacy; kept as fallback key
-  "USDC:POLYGON":  { chainId: 137, contract: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", decimals: 6 },
-  "USDCE:POLYGON": { chainId: 137, contract: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", decimals: 6 },
-  "USDT:POLYGON":  { chainId: 137, contract: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6 },
-};
 
 // ─── Tron TRC-20 token contracts ──────────────────────────────────────────────
 const TRC20_CONTRACTS: Record<string, string> = {
@@ -43,6 +20,7 @@ export interface DepositTx {
   amount:    string; // human-readable, e.g. "100.000000"
   from:      string;
   timestamp: number; // ms
+  logIndex?: string;
 }
 
 interface DepositCheckOptions {
@@ -100,12 +78,14 @@ async function getBscTokenLogs(
   data: string;
   topics: string[];
   transactionHash: string;
+  logIndex?: string;
 }>> {
   const logs = await rpcRequest<Array<{
     blockNumber: string;
     data: string;
     topics: string[];
     transactionHash: string;
+    logIndex?: string;
   }>>(chainId, "eth_getLogs", [{
     fromBlock: `0x${fromBlock.toString(16)}`,
     toBlock:   toBlock === "latest" ? "latest" : `0x${toBlock.toString(16)}`,
@@ -131,6 +111,7 @@ async function checkBscTokenDepositByHash(
       data: string;
       topics: string[];
       transactionHash: string;
+      logIndex?: string;
       blockTimestamp?: string;
     }>;
   }>(token.chainId, "eth_getTransactionReceipt", [txHash]);
@@ -148,6 +129,7 @@ async function checkBscTokenDepositByHash(
       amount:    formatUnits(log.data, token.decimals, 8),
       from:      log.topics?.[1] ? `0x${log.topics[1].slice(-40)}` : "",
       timestamp: log.blockTimestamp ? Number(BigInt(log.blockTimestamp)) * 1000 : Date.now(),
+      logIndex:  log.logIndex,
     }))
     .filter((tx) => Number(tx.amount) > 0);
 }
@@ -184,6 +166,7 @@ async function checkBscTokenDeposits(
       amount:    formatUnits(log.data, token.decimals, 8),
       from:      log.topics?.[1] ? `0x${log.topics[1].slice(-40)}` : "",
       timestamp: Date.now(),
+      logIndex:  log.logIndex,
     }))
     .filter((tx) => Number(tx.amount) > 0);
 }
@@ -239,9 +222,10 @@ export async function checkEVMDeposits(
       .map((tx) => ({
         txHash:    tx.hash,
         amount:    (Number(BigInt(tx.value)) / 1e18).toFixed(8),
-        from:      tx.from,
-        timestamp: Number(tx.timeStamp) * 1000,
-      }));
+      from:      tx.from,
+      timestamp: Number(tx.timeStamp) * 1000,
+      logIndex:  tx.transactionIndex,
+    }));
   }
 
   return (data.result as Record<string, string>[])
@@ -251,6 +235,7 @@ export async function checkEVMDeposits(
       amount:    (Number(tx.value) / 10 ** Number(tx.tokenDecimal)).toFixed(6),
       from:      tx.from,
       timestamp: Number(tx.timeStamp) * 1000,
+      logIndex:  tx.logIndex,
     }));
 }
 
