@@ -17,6 +17,12 @@ export interface PolymarketMarket {
   tags:          string[];
 }
 
+export type PolymarketResolution =
+  | { status: "resolved"; winningOutcome: string; market: PolymarketMarket }
+  | { status: "unresolved"; market: PolymarketMarket }
+  | { status: "mismatch"; market: PolymarketMarket }
+  | { status: "not_found" };
+
 interface GammaMarket {
   id:            string;
   conditionId:   string;
@@ -67,6 +73,19 @@ function isOpenMarket(m: PolymarketMarket) {
   return m.active && !m.closed && !hasEnded && !isResolvedPrice;
 }
 
+function normalizeQuestion(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function questionsMatch(a: string, b: string) {
+  return normalizeQuestion(a) === normalizeQuestion(b);
+}
+
+function hasEnded(market: PolymarketMarket) {
+  const endTime = new Date(market.endDate).getTime();
+  return Number.isFinite(endTime) && endTime <= Date.now();
+}
+
 export async function fetchMarkets(params?: {
   limit?:     number;
   offset?:    number;
@@ -110,11 +129,30 @@ export async function fetchMarket(
   return options?.includeClosed || isOpenMarket(market) ? market : null;
 }
 
-/** Returns the resolved winning outcome string, or null if not resolved */
-export async function fetchResolution(conditionId: string): Promise<string | null> {
+export async function fetchResolutionDetail(
+  conditionId: string,
+  options?: { expectedQuestion?: string },
+): Promise<PolymarketResolution> {
   const market = await fetchMarket(conditionId, { cache: "no-store", includeClosed: true });
-  if (!market || !market.closed) return null;
-  // When closed, the winning outcome has price = 1.0
+  if (!market) return { status: "not_found" };
+  if (options?.expectedQuestion && !questionsMatch(market.question, options.expectedQuestion)) {
+    return { status: "mismatch", market };
+  }
+
+  // Gamma can lag flipping `closed` after the end time. When the event has
+  // ended and a side is effectively 1.0, settle from the terminal price.
+  if (!market.closed && !hasEnded(market)) return { status: "unresolved", market };
   const winIdx = market.outcomePrices.findIndex((p) => p >= 0.99);
-  return winIdx >= 0 ? market.outcomes[winIdx] : null;
+  return winIdx >= 0
+    ? { status: "resolved", winningOutcome: market.outcomes[winIdx], market }
+    : { status: "unresolved", market };
+}
+
+/** Returns the resolved winning outcome string, or null if not resolved */
+export async function fetchResolution(
+  conditionId: string,
+  options?: { expectedQuestion?: string },
+): Promise<string | null> {
+  const resolution = await fetchResolutionDetail(conditionId, options);
+  return resolution.status === "resolved" ? resolution.winningOutcome : null;
 }

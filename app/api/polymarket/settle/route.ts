@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { fetchResolution } from "@/lib/polymarket";
+import { fetchResolutionDetail } from "@/lib/polymarket";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -24,25 +24,37 @@ async function settlePolymarket(req: Request) {
   // Find all pending bets, grouped by market
   const pending = await db.polymarketBet.findMany({
     where: { status: "PENDING" },
-    select: { marketId: true },
-    distinct: ["marketId"],
+    select: { marketId: true, question: true },
+    distinct: ["marketId", "question"],
   });
 
   let settled = 0;
   let voided  = 0;
   let checkedMarkets = 0;
   let unresolvedMarkets = 0;
+  let mismatchedMarkets = 0;
+  let notFoundMarkets = 0;
 
-  for (const { marketId } of pending) {
+  for (const { marketId, question } of pending) {
     checkedMarkets++;
-    const winningOutcome = await fetchResolution(marketId);
-    if (winningOutcome === null) {
+    const resolution = await fetchResolutionDetail(marketId, { expectedQuestion: question });
+    if (resolution.status === "unresolved") {
       unresolvedMarkets++;
       continue;
     }
+    if (resolution.status === "mismatch") {
+      mismatchedMarkets++;
+      continue;
+    }
+    if (resolution.status === "not_found") {
+      notFoundMarkets++;
+      continue;
+    }
+
+    const winningOutcome = resolution.winningOutcome;
 
     const bets = await db.polymarketBet.findMany({
-      where: { marketId, status: "PENDING" },
+      where: { marketId, question, status: "PENDING" },
     });
 
     for (const bet of bets) {
@@ -86,6 +98,8 @@ async function settlePolymarket(req: Request) {
     ok: true,
     checkedMarkets,
     unresolvedMarkets,
+    mismatchedMarkets,
+    notFoundMarkets,
     settled,
     voided,
   });
