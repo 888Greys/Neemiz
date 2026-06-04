@@ -45,6 +45,11 @@ export interface DepositTx {
   timestamp: number; // ms
 }
 
+interface DepositCheckOptions {
+  backfillBep20?: boolean;
+  txHash?:        string;
+}
+
 const EVM_RPC: Record<number, string> = {
   1:   "https://ethereum-rpc.publicnode.com",
   56:  "https://bsc-rpc.publicnode.com",
@@ -110,14 +115,53 @@ async function getBscTokenLogs(
   return Array.isArray(logs) ? logs : [];
 }
 
+async function checkBscTokenDepositByHash(
+  address: string,
+  crypto: string,
+  network: string,
+  txHash: string,
+): Promise<DepositTx[]> {
+  const token = EVM_TOKENS[`${crypto}:${network}`];
+  if (!token?.contract) return [];
+
+  const receipt = await rpcRequest<{
+    status?: string;
+    logs?: Array<{
+      address: string;
+      data: string;
+      topics: string[];
+      transactionHash: string;
+      blockTimestamp?: string;
+    }>;
+  }>(token.chainId, "eth_getTransactionReceipt", [txHash]);
+
+  if (!receipt || receipt.status !== "0x1" || !Array.isArray(receipt.logs)) return [];
+
+  return receipt.logs
+    .filter((log) =>
+      log.address?.toLowerCase() === token.contract.toLowerCase() &&
+      log.topics?.[0]?.toLowerCase() === TRANSFER_TOPIC &&
+      log.topics?.[2]?.toLowerCase() === addressTopic(address),
+    )
+    .map((log) => ({
+      txHash:    log.transactionHash,
+      amount:    formatUnits(log.data, token.decimals, 8),
+      from:      log.topics?.[1] ? `0x${log.topics[1].slice(-40)}` : "",
+      timestamp: log.blockTimestamp ? Number(BigInt(log.blockTimestamp)) * 1000 : Date.now(),
+    }))
+    .filter((tx) => Number(tx.amount) > 0);
+}
+
 async function checkBscTokenDeposits(
   address: string,
   crypto: string,
   network: string,
-  opts: { backfill?: boolean } = {},
+  opts: { backfill?: boolean; txHash?: string } = {},
 ): Promise<DepositTx[]> {
   const token = EVM_TOKENS[`${crypto}:${network}`];
   if (!token?.contract) return [];
+
+  if (opts.txHash) return checkBscTokenDepositByHash(address, crypto, network, opts.txHash);
 
   const latestHex = await rpcRequest<string>(token.chainId, "eth_blockNumber", []);
   if (!latestHex) return [];
@@ -150,12 +194,15 @@ export async function checkEVMDeposits(
   address: string,
   crypto:  string,
   network: string,
-  opts: { backfillBep20?: boolean } = {},
+  opts: DepositCheckOptions = {},
 ): Promise<DepositTx[]> {
   const token = EVM_TOKENS[`${crypto}:${network}`];
   if (!token) return [];
   if (token.chainId === 56 && token.contract) {
-    return checkBscTokenDeposits(address, crypto, network, { backfill: opts.backfillBep20 });
+    return checkBscTokenDeposits(address, crypto, network, {
+      backfill: opts.backfillBep20,
+      txHash:   opts.txHash,
+    });
   }
 
   const apiKey = process.env.ETHERSCAN_API_KEY;
@@ -311,7 +358,7 @@ export async function checkDeposits(
   address: string,
   crypto:  string,
   network: string,
-  opts: { backfillBep20?: boolean } = {},
+  opts: DepositCheckOptions = {},
 ): Promise<DepositTx[]> {
   if (network === "BITCOIN") return checkBTCDeposits(address);
   if (network === "TRC20") {
