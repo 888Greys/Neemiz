@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
-import { defaultNetwork, lockUserCrypto, unlockUserCrypto, isKesCoin, lockKesCoinBalance, unlockKesCoinBalance, kesLockAmount } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, lockUserCrypto, unlockUserCrypto, isKesCoin, lockKesCoinBalance, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail } from "@/lib/brevo";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
@@ -48,7 +48,17 @@ export async function GET() {
             const giverUserId = order.ad.side === "SELL"
               ? (await tx.merchantProfile.findUnique({ where: { id: order.sellerId }, select: { userId: true } }))?.userId
               : order.buyerId;
-            if (giverUserId) await unlockKesCoinBalance(tx, giverUserId, kesLockAmount(amt));
+            if (giverUserId) {
+              const refundAmount = kesLockAmount(amt);
+              await unlockKesCoinBalance(tx, giverUserId, refundAmount);
+              await recordKesWalletMovement(tx, {
+                userId: giverUserId,
+                amount: refundAmount,
+                action: "refund",
+                orderId: order.id,
+                role: "giver",
+              });
+            }
           } else if (order.ad.side === "BUY") {
             await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), amt);
           }
@@ -182,10 +192,32 @@ export async function POST(req: Request) {
       if (reserved.count === 0) throw new Error("INSUFFICIENT_AD_LIQUIDITY");
 
       if (isKesCoin(ad.crypto)) {
-        // KES coin: escrow it from whoever is giving it — the merchant on a
-        // SELL ad, the taker on a BUY ad — from their KES/KES crypto balance.
+        // KES Coin is backed 1:1 by fiat. Escrow comes from whoever is giving
+        // it: the merchant on a SELL ad, the taker on a BUY ad.
         const giverUserId = ad.side === "SELL" ? ad.merchant.userId : dbUser.id;
-        await lockKesCoinBalance(tx, giverUserId, kesLockAmount(cryptoAmountNum));
+        const lockedAmount = kesLockAmount(cryptoAmountNum);
+        await lockKesCoinBalance(tx, giverUserId, lockedAmount);
+        const createdOrder = await tx.p2POrder.create({
+          data: {
+            adId:         adId as string,
+            buyerId:      dbUser.id,
+            sellerId:     ad.merchantId,
+            crypto:       ad.crypto,
+            cryptoAmount: cryptoAmountNum,
+            fiatAmount,
+            pricePerUnit: Number(ad.pricePerUnit),
+            paymentMethod: paymentMethod as string,
+            expiresAt:    new Date(Date.now() + ad.paymentWindow * 60 * 1000),
+          },
+        });
+        await recordKesWalletMovement(tx, {
+          userId: giverUserId,
+          amount: lockedAmount,
+          action: "lock",
+          orderId: createdOrder.id,
+          role: "giver",
+        });
+        return createdOrder;
       } else if (ad.side === "BUY") {
         await lockUserCrypto(tx, dbUser.id, ad.crypto, defaultNetwork(ad.crypto), cryptoAmountNum);
       }
@@ -207,18 +239,18 @@ export async function POST(req: Request) {
       const msg = (err as Error).message;
       if (msg === "INSUFFICIENT_AD_LIQUIDITY") return null;
       if (msg === "INSUFFICIENT_CRYPTO_BALANCE") return "INSUFFICIENT_CRYPTO_BALANCE" as const;
-      if (msg === "INSUFFICIENT_KES_COIN_BALANCE") return "INSUFFICIENT_KES_COIN_BALANCE" as const;
+      if (msg === "INSUFFICIENT_FIAT_BALANCE") return "INSUFFICIENT_FIAT_BALANCE" as const;
       throw err;
     });
 
     if (order === "INSUFFICIENT_CRYPTO_BALANCE") {
       return Response.json({ error: `Insufficient ${ad.crypto} balance to sell.` }, { status: 400 });
     }
-    if (order === "INSUFFICIENT_KES_COIN_BALANCE") {
+    if (order === "INSUFFICIENT_FIAT_BALANCE") {
       return Response.json({
         error: ad.side === "SELL"
-          ? "The merchant doesn't have enough KES Coin right now."
-          : "Insufficient KES Coin balance to sell.",
+          ? "The merchant doesn't have enough fiat wallet balance to back this KES Coin order right now."
+          : "Insufficient fiat wallet balance to sell KES Coin.",
       }, { status: 400 });
     }
     if (!order) return Response.json({ error: "Insufficient ad liquidity" }, { status: 400 });

@@ -1,7 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { creditUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
+import {
+  creditUserCrypto,
+  defaultNetwork,
+  isKesCoin,
+  kesLockAmount,
+  kesPayoutAmount,
+  recordKesWalletMovement,
+  releaseKesCoinBalance,
+  unlockKesCoinBalance,
+  unlockUserCrypto,
+} from "@/lib/p2p/crypto-balance";
 
 // POST /api/admin/p2p/disputes/[id] — resolve a dispute
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -26,10 +36,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       order: {
         select: {
           id: true,
+          adId: true,
           buyerId: true,
           crypto: true,
           cryptoAmount: true,
           fiatAmount: true,
+          ad: { select: { side: true } },
           seller: { select: { userId: true } },
         },
       },
@@ -42,6 +54,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const buyerId = order.buyerId;
   const sellerUserId = order.seller.userId;
   const orderRef = `#${order.id.slice(0, 8).toUpperCase()}`;
+  const cryptoAmt = Number(order.cryptoAmount);
+  const kesGiverUserId = order.ad.side === "SELL" ? sellerUserId : buyerId;
+  const kesReceiverUserId = order.ad.side === "SELL" ? buyerId : sellerUserId;
 
   await db.$transaction(async (tx) => {
     // Update dispute
@@ -60,6 +75,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         where: { id: order.id },
         data: { status: "CANCELLED" },
       });
+      await tx.p2PAd.update({
+        where: { id: order.adId },
+        data:  { availableAmount: { increment: cryptoAmt } },
+      });
+
+      if (isKesCoin(order.crypto)) {
+        const refundAmount = kesLockAmount(cryptoAmt);
+        await unlockKesCoinBalance(tx, kesGiverUserId, refundAmount);
+        await recordKesWalletMovement(tx, {
+          userId: kesGiverUserId,
+          amount: refundAmount,
+          action: "refund",
+          orderId: order.id,
+          role: "giver",
+        });
+      } else if (order.ad.side === "BUY") {
+        await unlockUserCrypto(tx, buyerId, order.crypto, defaultNetwork(order.crypto), cryptoAmt);
+      }
 
       // Notify buyer
       await tx.notification.create({
@@ -84,7 +117,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       });
     } else {
       // BUYER_WINS — release the locked crypto, mark order RELEASED
-      const cryptoAmt = Number(order.cryptoAmount);
       const network   = defaultNetwork(order.crypto);
 
       await tx.p2POrder.update({
@@ -92,19 +124,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         data: { status: "RELEASED", escrowReleased: true, releasedAt: new Date() },
       });
 
-      // Deduct from merchant's P2PCryptoBalance (locked + total)
-      const sellerMerchant = await tx.merchantProfile.findUnique({
-        where: { userId: sellerUserId },
-      });
-      if (sellerMerchant) {
-        await tx.p2PCryptoBalance.updateMany({
-          where: { merchantId: sellerMerchant.id, crypto: order.crypto },
-          data:  { locked: { decrement: cryptoAmt }, total: { decrement: cryptoAmt } },
+      if (isKesCoin(order.crypto)) {
+        const payoutAmount = kesPayoutAmount(cryptoAmt);
+        await releaseKesCoinBalance(tx, kesGiverUserId, kesReceiverUserId, kesLockAmount(cryptoAmt), payoutAmount);
+        await recordKesWalletMovement(tx, {
+          userId: kesReceiverUserId,
+          amount: payoutAmount,
+          action: "release",
+          orderId: order.id,
+          role: "receiver",
         });
-      }
+      } else {
+        // Deduct from merchant's P2PCryptoBalance (locked + total)
+        const sellerMerchant = await tx.merchantProfile.findUnique({
+          where: { userId: sellerUserId },
+        });
+        if (sellerMerchant) {
+          await tx.p2PCryptoBalance.updateMany({
+            where: { merchantId: sellerMerchant.id, crypto: order.crypto },
+            data:  { locked: { decrement: cryptoAmt }, total: { decrement: cryptoAmt } },
+          });
+        }
 
-      // Credit buyer's UserCryptoBalance (works for any user)
-      await creditUserCrypto(tx, buyerId, order.crypto, network, cryptoAmt);
+        // Credit buyer's UserCryptoBalance (works for any user)
+        await creditUserCrypto(tx, buyerId, order.crypto, network, cryptoAmt);
+      }
 
       // Notify buyer
       await tx.notification.create({

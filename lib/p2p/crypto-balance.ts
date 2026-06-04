@@ -5,7 +5,7 @@
  * so the logic stays in one place as we add on-chain settlement in phase 2.
  */
 
-import type { Prisma } from "@prisma/client";
+import { TransactionStatus, TransactionType, type Prisma } from "@prisma/client";
 
 // The tx parameter accepts either the full PrismaClient or a transaction client.
 type TxClient = Omit<
@@ -98,9 +98,14 @@ export async function debitUserCrypto(
   });
 }
 
-// ─── KES coin (in-app fiat as a tradable P2P asset) ─────────────────────────
-// KES Coin is separate from the user's fiat wallet balance. Users buy it from
-// fiat 1:1, and P2P order escrow uses UserCryptoBalance(KES/KES).
+// ─── KES coin (fiat-backed in-app P2P asset) ────────────────────────────────
+// KES Coin is not on-chain and is no longer a separate converted balance.
+// It is a 1:1 P2P alias of the user's fiat KES wallet balance:
+// - placing a KES order debits/locks User.walletBalance
+// - cancelling/expiring refunds User.walletBalance
+// - releasing credits the receiver's User.walletBalance
+// Existing UserCryptoBalance(KES/KES) rows are legacy-only and should not be
+// used for new KES order accounting.
 
 export const KES_COIN = "KES";
 export const KES_NETWORK = "KES";
@@ -108,67 +113,79 @@ export function isKesCoin(crypto: string): boolean {
   return crypto?.toUpperCase() === KES_COIN;
 }
 
-/** Credit spendable KES Coin to a user's crypto balance. */
+/** Credit spendable KES Coin, backed directly by the user's fiat wallet. */
 export async function creditKesCoinBalance(tx: TxClient, userId: string, amount: number) {
-  await creditUserCrypto(tx, userId, KES_COIN, KES_NETWORK, amount);
+  await tx.user.update({
+    where: { id: userId },
+    data:  { walletBalance: { increment: amount } },
+  });
 }
 
-/** Debit spendable KES Coin. Throws if insufficient. */
+/** Debit spendable KES Coin from the fiat wallet. Throws if insufficient. */
 export async function debitKesCoinBalance(tx: TxClient, userId: string, amount: number) {
-  const balance = await tx.userCryptoBalance.findUnique({
-    where: { userId_crypto_network: { userId, crypto: KES_COIN, network: KES_NETWORK } },
+  const debited = await tx.user.updateMany({
+    where: { id: userId, walletBalance: { gte: amount } },
+    data:  { walletBalance: { decrement: amount } },
   });
-  const avail = Number(balance?.available ?? 0);
-  if (avail < amount) throw new Error("INSUFFICIENT_KES_COIN_BALANCE");
-
-  await tx.userCryptoBalance.update({
-    where: { userId_crypto_network: { userId, crypto: KES_COIN, network: KES_NETWORK } },
-    data: { available: { decrement: amount } },
-  });
+  if (debited.count === 0) throw new Error("INSUFFICIENT_FIAT_BALANCE");
 }
 
-/** Lock KES Coin from available into escrow. Throws if insufficient. */
+/** Lock KES Coin by debiting the fiat wallet. Throws if insufficient. */
 export async function lockKesCoinBalance(tx: TxClient, userId: string, amount: number) {
-  const balance = await tx.userCryptoBalance.findUnique({
-    where: { userId_crypto_network: { userId, crypto: KES_COIN, network: KES_NETWORK } },
+  const locked = await tx.user.updateMany({
+    where: { id: userId, walletBalance: { gte: amount } },
+    data:  { walletBalance: { decrement: amount } },
   });
-  const avail = Number(balance?.available ?? 0);
-  if (avail < amount) throw new Error("INSUFFICIENT_KES_COIN_BALANCE");
-
-  await tx.userCryptoBalance.update({
-    where: { userId_crypto_network: { userId, crypto: KES_COIN, network: KES_NETWORK } },
-    data: {
-      available: { decrement: amount },
-      locked:    { increment: amount },
-    },
-  });
+  if (locked.count === 0) throw new Error("INSUFFICIENT_FIAT_BALANCE");
 }
 
-/** Release locked KES Coin back to available, used for refunds/expirations. */
+/** Refund locked KES Coin back to the fiat wallet, used for cancellations/expirations. */
 export async function unlockKesCoinBalance(tx: TxClient, userId: string, amount: number) {
-  await tx.userCryptoBalance.updateMany({
-    where: { userId, crypto: KES_COIN, network: KES_NETWORK, locked: { gte: amount } },
-    data: {
-      locked:    { decrement: amount },
-      available: { increment: amount },
-    },
+  await tx.user.update({
+    where: { id: userId },
+    data:  { walletBalance: { increment: amount } },
   });
 }
 
-/** Complete a KES Coin escrow transfer: remove locked from giver, credit receiver. */
+/** Complete a KES Coin escrow transfer by crediting the receiver's fiat wallet. */
 export async function releaseKesCoinBalance(
   tx: TxClient,
-  giverUserId: string,
+  _giverUserId: string,
   receiverUserId: string,
-  lockedAmount: number,
+  _lockedAmount: number,
   payoutAmount: number,
 ) {
-  const released = await tx.userCryptoBalance.updateMany({
-    where: { userId: giverUserId, crypto: KES_COIN, network: KES_NETWORK, locked: { gte: lockedAmount } },
-    data:  { locked: { decrement: lockedAmount } },
-  });
-  if (released.count === 0) throw new Error("INSUFFICIENT_LOCKED_KES_COIN");
   await creditKesCoinBalance(tx, receiverUserId, payoutAmount);
+}
+
+export async function recordKesWalletMovement(
+  tx: TxClient,
+  input: {
+    userId: string;
+    amount: number;
+    action: "lock" | "refund" | "release";
+    orderId: string;
+    role: "giver" | "receiver";
+  },
+) {
+  await tx.transaction.create({
+    data: {
+      userId:   input.userId,
+      type:     input.action === "refund" ? TransactionType.REFUND : input.action === "release" ? TransactionType.DEPOSIT : TransactionType.WITHDRAWAL,
+      amount:   input.amount,
+      currency: "KES",
+      status:   TransactionStatus.COMPLETED,
+      reference: `p2p-kes-${input.action}-${input.orderId}-${input.userId}`,
+      provider: "p2p_kes_escrow",
+      metadata: {
+        action:  input.action,
+        orderId: input.orderId,
+        role:    input.role,
+        asset:   "KES",
+        rate:    1,
+      },
+    },
+  });
 }
 
 // KES coin trades charge 1% from EACH side (2% total). The giver is escrowed

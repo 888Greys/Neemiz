@@ -15,7 +15,7 @@ export async function GET() {
     const txns = await db.transaction.findMany({
       where: {
         userId: dbUser.id,
-        type: { in: ["DEPOSIT", "WITHDRAWAL"] },
+        type: { in: ["DEPOSIT", "WITHDRAWAL", "REFUND"] },
       },
       orderBy: { createdAt: "desc" },
       take: 50,

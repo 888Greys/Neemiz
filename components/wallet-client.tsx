@@ -263,15 +263,14 @@ export function WalletClient() {
   function reset() { setDeposit({ step: "idle" }); setAmount(""); setError(""); pollCount.current = 0; }
 
   const fmtBalance = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
-  const kesCoinBalance = cryptoBalances.find((b) => b.crypto === "KES" && b.network === "KES");
-  const kesCoinAvailable = kesCoinBalance?.available ?? 0;
+  const kesCoinAvailable = currency === "KES" ? balance : 0;
 
   // Crypto balance for currently selected withdraw asset
   const cwBalance = cryptoBalances.find(
     (b) => b.crypto === cwAsset.code && b.network === cwAsset.network,
   );
   // Non-zero crypto balances for hero display
-  const nonZeroBalances = cryptoBalances.filter((b) => b.available > 0 || b.locked > 0);
+  const nonZeroBalances = cryptoBalances.filter((b) => b.crypto !== "KES" && (b.available > 0 || b.locked > 0));
   const formatCryptoAmount = (b: CryptoBalance) =>
     b.available.toFixed(b.crypto === "KES" ? 2 : b.crypto === "BTC" || b.crypto === "ETH" ? 8 : 4);
 
@@ -299,7 +298,7 @@ export function WalletClient() {
                 {currency} Coin · KSh {kesCoinAvailable.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
               </span>
               <p className="text-[10px] font-bold text-slate-500">
-                KES Coin conversion is managed in Merchant Center
+                KES Coin is backed by your fiat wallet at 1:1
               </p>
             </div>
           )}

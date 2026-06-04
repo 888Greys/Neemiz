@@ -273,12 +273,47 @@ UI: `/wallet` → Withdraw tab → Crypto
 
 1. Merchant applies at `/p2p/merchant` — submits display name + KYC document
 2. Admin approves KYC at `/admin/p2p` → merchant gets verified badge
-3. Merchant deposits USDT to their escrow balance at `/wallet` → Deposit → Crypto
+3. Merchant deposits crypto to the normal wallet, then moves it to merchant escrow from Merchant Center
 4. Merchant creates a SELL ad with price, limits, and payment method
 5. Buyer browses ads at `/p2p`, clicks Buy → creates an order
-6. Order locks crypto in escrow. Buyer pays fiat (M-Pesa / bank) and marks as paid
+6. Order locks crypto in escrow, or fiat wallet backing for KES Coin. Buyer pays fiat (M-Pesa / bank) and marks as paid
 7. Merchant verifies fiat and clicks Release — 2% platform fee deducted, buyer receives 98%
 8. If dispute: either party raises dispute → admin resolves at `/admin/p2p` → Disputes
+
+### KES Coin accounting
+
+KES Coin is an internal P2P asset, not blockchain crypto and not a separate converted balance.
+
+- `KES` remains listed in the P2P asset list so users can buy/sell local-currency value.
+- There is no manual fiat-to-KES conversion UI or active conversion API.
+- Spendable KES Coin equals `User.walletBalance` at a 1:1 rate.
+- When a KES order opens, the giver's `User.walletBalance` is debited by `amount + 1%`.
+- When a KES order is cancelled or expires, that same debited amount is refunded to `User.walletBalance`.
+- When a KES order is released, the receiver gets `amount - 1%` credited to `User.walletBalance`.
+- The retained difference is the 2% P2P platform fee.
+- Merchant Center derives locked KES from active `P2POrder` rows, not from `UserCryptoBalance(KES/KES)`.
+
+Legacy converted KES balances should be folded back into fiat once after deploying this model:
+
+```sql
+BEGIN;
+
+UPDATE users u
+SET wallet_balance = wallet_balance + k.available
+FROM user_crypto_balances k
+WHERE k.user_id = u.id
+  AND k.crypto = 'KES'
+  AND k.network = 'KES'
+  AND k.available > 0;
+
+UPDATE user_crypto_balances
+SET available = 0,
+    locked = 0
+WHERE crypto = 'KES'
+  AND network = 'KES';
+
+COMMIT;
+```
 
 ### Escrow fee
 
@@ -419,7 +454,7 @@ Key models (see `prisma/schema.prisma` for full schema):
 | `P2POrder` | Live escrow orders — PENDING → PAID → RELEASED/DISPUTED |
 | `P2PDispute` | Dispute records with resolution |
 | `P2PCryptoBalance` | Merchant escrow balance (available/locked per coin) |
-| `UserCryptoBalance` | Regular user crypto balance per coin/network |
+| `UserCryptoBalance` | Regular blockchain crypto balance per coin/network; KES is legacy-only |
 | `CryptoDepositAddress` | HD-wallet-derived deposit addresses |
 | `P2PCryptoDeposit` | Manual deposit submissions requiring admin approval |
 | `Transaction` | Fiat and crypto transaction log |
