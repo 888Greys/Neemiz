@@ -106,7 +106,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_WEBHOOK_SECRET=
 
 # Database
-DATABASE_URL=
+DATABASE_URL=                    # Vercel: Supabase transaction pooler with pgbouncer=true
 
 # M-Pesa (MegaPay)
 MEGAPAY_API_KEY=
@@ -150,6 +150,18 @@ POLYMARKET_TRADING_MODE=internal
 
 ```bash
 vercel env ls
+```
+
+For Vercel/Prisma, use the Supabase transaction pooler URL with Prisma's PgBouncer flags:
+
+```env
+DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<region>.pooler.supabase.com:6543/postgres?sslmode=require&pgbouncer=true&connection_limit=1
+```
+
+For one-off `psql` checks on the VPS, omit the Prisma-only flags:
+
+```env
+DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<region>.pooler.supabase.com:6543/postgres?sslmode=require
 ```
 
 ---
