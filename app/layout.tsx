@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono, Pacifico } from "next/font/google";
 import { PageTransition } from "./page-transition";
 import { Toaster } from "@/lib/toast";
@@ -28,6 +28,12 @@ export const metadata: Metadata = {
     template: "%s | Nezeem",
   },
   description: "A premium betting, predictions, P2P, forex, binary, and Aviator prototype.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

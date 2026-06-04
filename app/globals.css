@@ -4,6 +4,8 @@
 
 html {
   color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
@@ -262,6 +264,17 @@ input[type="email"] {
 input[type="email"]:focus {
   border-color: rgba(139, 92, 246, 0.6);
   box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+}
+
+/* iOS Safari auto-zooms the page when focused form controls are under 16px. */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 768px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
 }
 
 /* ── Page & UI transitions ───────────────────────────── */
