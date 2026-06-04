@@ -123,9 +123,10 @@ export async function fetchMarket(
   const res = await fetch(url, options?.cache ? { cache: options.cache } : { next: { revalidate: 30 } });
   if (!res.ok) return null;
   const data: GammaMarket[] = await res.json();
-  if (!data[0]) return null;
-  const market = parseMarket(data[0]);
-  if (market.conditionId.toLowerCase() !== conditionId.toLowerCase()) return null;
+  const rawMarket = data.find((m) => m.conditionId.toLowerCase() === conditionId.toLowerCase());
+  if (!rawMarket) return null;
+
+  const market = parseMarket(rawMarket);
   return options?.includeClosed || isOpenMarket(market) ? market : null;
 }
 
