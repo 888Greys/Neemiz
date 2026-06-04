@@ -96,7 +96,10 @@ export async function fetchMarkets(params?: {
   return data.map(parseMarket).filter(isOpenMarket).slice(0, limit);
 }
 
-export async function fetchMarket(conditionId: string, options?: { cache?: RequestCache }): Promise<PolymarketMarket | null> {
+export async function fetchMarket(
+  conditionId: string,
+  options?: { cache?: RequestCache; includeClosed?: boolean },
+): Promise<PolymarketMarket | null> {
   const url = `${GAMMA_API}/markets?condition_ids=${encodeURIComponent(conditionId)}&limit=1`;
   const res = await fetch(url, options?.cache ? { cache: options.cache } : { next: { revalidate: 30 } });
   if (!res.ok) return null;
@@ -104,12 +107,12 @@ export async function fetchMarket(conditionId: string, options?: { cache?: Reque
   if (!data[0]) return null;
   const market = parseMarket(data[0]);
   if (market.conditionId.toLowerCase() !== conditionId.toLowerCase()) return null;
-  return isOpenMarket(market) ? market : null;
+  return options?.includeClosed || isOpenMarket(market) ? market : null;
 }
 
 /** Returns the resolved winning outcome string, or null if not resolved */
 export async function fetchResolution(conditionId: string): Promise<string | null> {
-  const market = await fetchMarket(conditionId);
+  const market = await fetchMarket(conditionId, { cache: "no-store", includeClosed: true });
   if (!market || !market.closed) return null;
   // When closed, the winning outcome has price = 1.0
   const winIdx = market.outcomePrices.findIndex((p) => p >= 0.99);

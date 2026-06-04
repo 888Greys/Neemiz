@@ -2,15 +2,22 @@ import { db } from "@/lib/db";
 import { fetchResolution } from "@/lib/polymarket";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
-const AUTH = process.env.SETTLE_SECRET;
+export const runtime = "nodejs";
 
-export async function POST(req: Request) {
-  if (!AUTH) {
+function isAuthorized(req: Request) {
+  const secrets = [process.env.SETTLE_SECRET, process.env.CRON_SECRET].filter(Boolean);
+  if (secrets.length === 0) return false;
+
+  const header = req.headers.get("authorization") ?? "";
+  return secrets.some((secret) => header === `Bearer ${secret}`);
+}
+
+async function settlePolymarket(req: Request) {
+  if (!process.env.SETTLE_SECRET && !process.env.CRON_SECRET) {
     return Response.json({ error: "Settlement secret not configured" }, { status: 503 });
   }
 
-  const header = req.headers.get("authorization") ?? "";
-  if (header !== `Bearer ${AUTH}`) {
+  if (!isAuthorized(req)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -23,10 +30,16 @@ export async function POST(req: Request) {
 
   let settled = 0;
   let voided  = 0;
+  let checkedMarkets = 0;
+  let unresolvedMarkets = 0;
 
   for (const { marketId } of pending) {
+    checkedMarkets++;
     const winningOutcome = await fetchResolution(marketId);
-    if (winningOutcome === null) continue; // not resolved yet
+    if (winningOutcome === null) {
+      unresolvedMarkets++;
+      continue;
+    }
 
     const bets = await db.polymarketBet.findMany({
       where: { marketId, status: "PENDING" },
@@ -69,5 +82,19 @@ export async function POST(req: Request) {
     }
   }
 
-  return Response.json({ ok: true, settled, voided });
+  return Response.json({
+    ok: true,
+    checkedMarkets,
+    unresolvedMarkets,
+    settled,
+    voided,
+  });
+}
+
+export async function GET(req: Request) {
+  return settlePolymarket(req);
+}
+
+export async function POST(req: Request) {
+  return settlePolymarket(req);
 }

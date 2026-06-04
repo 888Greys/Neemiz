@@ -229,6 +229,7 @@ Current VPS cron:
 ```cron
 * * * * * /opt/neemiz/check-deposits.sh
 */5 * * * * /opt/neemiz/settle-bets.sh >> /var/log/neemiz-settle.log 2>&1
+*/30 * * * * /opt/neemiz/settle-polymarket.sh >> /var/log/neemiz-polymarket-settle.log 2>&1
 ```
 
 ### KES conversion rates
@@ -378,6 +379,9 @@ SETTLE_SECRET=...
 
 # Bet settlement — every 30 min
 */30 * * * * /opt/neemiz/settle-bets.sh >> /var/log/neemiz-settle.log 2>&1
+
+# Polymarket settlement — every 30 min
+*/30 * * * * /opt/neemiz/settle-polymarket.sh >> /var/log/neemiz-polymarket-settle.log 2>&1
 ```
 
 > **Note:** Use `https://www.nezeem.com` (with `www`) not `https://nezeem.com` — the bare domain redirects (307) and cron calls without `-L` will silently fail.
@@ -389,6 +393,7 @@ tail -f /var/log/neemiz-deposits.log
 # [2026-05-27 14:35] {"ok":true,"checked":7,"credited":0,"errors":[]}
 
 tail -n 50 /var/log/neemiz-settle.log
+tail -n 50 /var/log/neemiz-polymarket-settle.log
 ```
 
 ### Manual trigger
@@ -401,6 +406,9 @@ curl -sL -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/api/cron
 
 # Settle bets now
 curl -sL -X POST -H "Authorization: Bearer $SETTLE_SECRET" https://www.nezeem.com/api/bets/settle
+
+# Settle Polymarket bets now
+curl -sL -H "Authorization: Bearer $SETTLE_SECRET" https://www.nezeem.com/api/polymarket/settle
 ```
 
 ---
