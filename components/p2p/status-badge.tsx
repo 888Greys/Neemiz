@@ -19,7 +19,7 @@ const LABELS_COMPACT: Record<P2POrderStatus, string> = {
 };
 
 const LABELS_DETAILED: Record<P2POrderStatus, string> = {
-  PENDING: "Awaiting Payment", PAID: "Payment Sent", RELEASED: "Completed",
+  PENDING: "Awaiting Payment", PAID: "Payment Completed", RELEASED: "Completed",
   DISPUTED: "In Dispute", CANCELLED: "Cancelled", EXPIRED: "Expired",
 };
 

@@ -116,8 +116,13 @@ MEGAPAY_PAYBILL=
 
 # Crypto deposits (HD wallet)
 MASTER_WALLET_MNEMONIC=        # 12-word BIP44 mnemonic — keep secret
-ETHERSCAN_API_KEY=             # For ERC20/BEP20 deposit detection
-TRONGRID_API_KEY=              # For TRC20 deposit detection
+ETHERSCAN_API_KEY=             # EVM cron fallback / manual recovery
+TRONGRID_API_KEY=              # TRC20 cron fallback / manual recovery
+MORALIS_API_KEY=               # Moralis Streams API key for EVM realtime deposits
+MORALIS_EVM_STREAM_ID=         # Moralis EVM stream ID
+MORALIS_STREAM_SECRET=         # Moralis webhook signature secret
+TATUM_API_KEY=                 # Tatum Notifications API key for BTC/TRC20 realtime deposits
+TATUM_WEBHOOK_SECRET=          # Tatum webhook HMAC secret
 
 # Crypto withdrawal
 NOWPAYMENTS_API_KEY=
@@ -156,27 +161,37 @@ vercel env ls
 
 Each user gets a unique blockchain deposit address per coin/network combination. Addresses are derived deterministically from a single BIP44 HD wallet mnemonic so all funds can be recovered from one phrase.
 
+Deposit detection is webhook-first with cron fallback:
+
+- **Moralis Streams** handles realtime EVM deposits: ERC20, BEP20, Polygon.
+- **Tatum Notifications** handles realtime BTC/TRC20 deposits for subscribed addresses. The free plan has a subscription limit, so cron remains the universal fallback.
+- **VPS cron** runs `/opt/neemiz/check-deposits.sh` every minute and scans all deposit addresses through the chain APIs.
+
 ```
 MASTER_WALLET_MNEMONIC
        │
        ▼
   BIP44 HD Wallet
        │
-       ├── m/44'/60'/0'/0/N  →  EVM address  (USDT ERC20, USDT BEP20, ETH, BNB)
-       └── m/44'/195'/0'/0/N →  Tron address (USDT TRC20)
+       ├── m/44'/60'/0'/0/N  →  EVM address  (ERC20, BEP20, Polygon)
+       ├── m/44'/195'/0'/0/N →  Tron address (TRC20)
+       └── m/44'/0'/0'/0/N   →  BTC address  (Bitcoin)
 ```
 
 `N` is a global sequential index — the Nth deposit address ever created on the platform.
 
 ### Supported coins
 
-| Coin | Network | Detection API |
-|------|---------|---------------|
-| USDT | TRC20 (Tron) | TronGrid |
-| USDT | ERC20 (Ethereum) | Etherscan API V2 |
-| USDT | BEP20 (BSC) | Etherscan API V2 |
-| ETH  | ERC20 | Etherscan API V2 |
-| BNB  | BEP20 | Etherscan API V2 |
+| Coin | Network | Primary detection | Fallback / recovery |
+|------|---------|-------------------|---------------------|
+| USDT | TRC20 (Tron) | Tatum Notifications | TronGrid cron + tx hash recovery |
+| TRX  | TRC20 (Tron) | Tatum Notifications | TronGrid cron |
+| BTC  | Bitcoin | Tatum Notifications | Blockstream cron + tx hash recovery |
+| USDT | ERC20 (Ethereum) | Moralis Streams | Etherscan API V2 |
+| USDT | BEP20 (BSC) | Moralis Streams | BSC RPC + tx hash recovery |
+| USDC | Polygon | Moralis Streams | Etherscan / Polygon RPC |
+| ETH  | ERC20 | Moralis Streams | Etherscan API V2 |
+| BNB  | BEP20 | Moralis Streams | BSC RPC |
 
 ### Deposit flow
 
@@ -184,12 +199,37 @@ MASTER_WALLET_MNEMONIC
 2. Clicks "Get Deposit Address" → `POST /api/crypto/address`
 3. Server derives unique address from mnemonic, stores in `crypto_deposit_addresses`
 4. User sends coins to that address on-chain
-5. VPS cron runs every 5 minutes → `GET https://www.nezeem.com/api/cron/check-deposits`
-6. Cron scans all addresses via TronGrid / Etherscan, finds new inbound transactions
-7. For each new deposit:
-   - **Merchant user** → credits `P2PCryptoBalance` (available for sell ads)
-   - **Regular user** → converts to KES at the configured rate, credits `walletBalance`
-8. User gets an in-app notification
+5. Realtime webhook fires when available:
+   - Moralis → `POST /api/webhooks/moralis`
+   - Tatum → `POST /api/webhooks/tatum`
+6. VPS cron also runs every minute → `GET https://www.nezeem.com/api/cron/check-deposits`
+7. Each new on-chain deposit goes through `creditOnChainDeposit`, which creates an idempotent ledger reference, credits `UserCryptoBalance`, sends an in-app notification, and sends the deposit email.
+8. If a provider misses a deposit, support can recover by calling `/api/cron/check-deposits?address=...&txHash=...`.
+
+### Realtime address sync
+
+After setting the provider env vars in Vercel and redeploying, sync existing deposit addresses:
+
+```bash
+source /opt/neemiz/settle.env
+
+curl -sL --max-time 120 \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  https://www.nezeem.com/api/cron/sync-moralis-addresses \
+  | python3 -m json.tool
+
+curl -sL --max-time 120 \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  https://www.nezeem.com/api/cron/sync-tatum-addresses \
+  | python3 -m json.tool
+```
+
+Current VPS cron:
+
+```cron
+* * * * * /opt/neemiz/check-deposits.sh
+*/5 * * * * /opt/neemiz/settle-bets.sh >> /var/log/neemiz-settle.log 2>&1
+```
 
 ### KES conversion rates
 
