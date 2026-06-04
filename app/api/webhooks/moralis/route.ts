@@ -91,9 +91,14 @@ async function creditToDepositAddress(input: {
 }
 
 export async function POST(req: Request) {
+  const rawBody = await req.text();
+  if (!rawBody.trim()) {
+    return Response.json({ ok: true, test: true });
+  }
+
   let payload: MoralisWebhookPayload;
   try {
-    payload = JSON.parse(await req.text()) as MoralisWebhookPayload;
+    payload = JSON.parse(rawBody) as MoralisWebhookPayload;
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
