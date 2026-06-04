@@ -440,7 +440,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     }));
     await fetchBalance();
     window.dispatchEvent(new Event("wallet-refresh"));
-  }, [userId, username]);
+  }, [userId, username, fetchBalance]);
 
   const handleCashout = useCallback(async (panelIndex: 0 | 1) => {
     const bet = myBets[panelIndex];

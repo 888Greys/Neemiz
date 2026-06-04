@@ -365,8 +365,9 @@ docker ps           # aviator_app, aviator_redis_1, aviator_psql_bp_1
 | Script | Schedule | Function |
 |--------|----------|---------|
 | `aviator-tick.sh` | Every 10s | Drives Aviator game rounds |
-| `bets-settle.sh` | Every 60s | Settles pending sports/binary/forex bets |
-| `polymarket-settle.sh` | Every 1h | Settles resolved Polymarket markets |
+| `check-deposits.sh` | Every 1 min | Scans crypto deposit addresses and credits missed webhooks |
+| `settle-bets.sh` | Every 5 min | Settles pending sports/binary/forex bets |
+| `settle-polymarket.sh` | Every 30 min | Settles resolved Polymarket markets |
 
 ---
 
@@ -384,11 +385,11 @@ CRON_SECRET=...
 ### Current crontab
 
 ```cron
-# Deposit checker — every 5 min
-*/5 * * * * source /opt/neemiz/settle.env && echo -n "[$(date +"%Y-%m-%d %H:%M")] " >> /var/log/neemiz-deposits.log && curl -sL -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/api/cron/check-deposits >> /var/log/neemiz-deposits.log 2>&1 && echo "" >> /var/log/neemiz-deposits.log
+# Deposit checker — every minute
+* * * * * /opt/neemiz/check-deposits.sh
 
-# Bet settlement — every 30 min
-*/30 * * * * /opt/neemiz/settle-bets.sh >> /var/log/neemiz-settle.log 2>&1
+# Bet settlement — every 5 min
+*/5 * * * * /opt/neemiz/settle-bets.sh >> /var/log/neemiz-settle.log 2>&1
 
 # Polymarket settlement — every 30 min
 */30 * * * * /opt/neemiz/settle-polymarket.sh >> /var/log/neemiz-polymarket-settle.log 2>&1
