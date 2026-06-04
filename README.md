@@ -134,7 +134,6 @@ BNB_KES_RATE=84000
 
 # Cron auth (must match /opt/neemiz/settle.env on VPS)
 CRON_SECRET=
-SETTLE_SECRET=
 
 # Sports
 SPORTMONKS_API_KEY=
@@ -368,7 +367,6 @@ All cron jobs run on `root@vmi3292677` and call Vercel endpoints.
 ```bash
 # /opt/neemiz/settle.env
 CRON_SECRET=...
-SETTLE_SECRET=...
 ```
 
 ### Current crontab
@@ -405,10 +403,10 @@ source /opt/neemiz/settle.env
 curl -sL -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/api/cron/check-deposits
 
 # Settle bets now
-curl -sL -X POST -H "Authorization: Bearer $SETTLE_SECRET" https://www.nezeem.com/api/bets/settle
+curl -sL -X POST -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/api/bets/settle
 
 # Settle Polymarket bets now
-curl -sL -H "Authorization: Bearer $SETTLE_SECRET" https://www.nezeem.com/api/polymarket/settle
+curl -sL -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/api/polymarket/settle
 ```
 
 ---
@@ -504,7 +502,7 @@ Production always uses `www.nezeem.com`. Bare `nezeem.com` → 307 redirect to `
 ## Security Notes
 
 - `MASTER_WALLET_MNEMONIC` controls all deposit funds — rotate if exposed, sweep first
-- `CRON_SECRET` and `SETTLE_SECRET` authenticate VPS → Vercel calls — rotate if logged/exposed
+- `CRON_SECRET` authenticates VPS → Vercel cron calls — rotate if logged/exposed
 - Admin access requires `isAdmin = true` in the database — no UI to self-promote
 - All money-moving API routes require Supabase session auth
 - P2P escrow: crypto is locked in `P2PCryptoBalance.locked` until released/refunded atomically
