@@ -23,6 +23,7 @@ export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
   const backfillBep20 = params.get("backfill") === "1";
   const addressFilter = params.get("address");
+  const txHash = params.get("txHash") ?? undefined;
   if (!secret) {
     return Response.json({ error: "CRON_SECRET is not configured" }, { status: 503 });
   }
@@ -58,7 +59,7 @@ export async function GET(req: Request) {
     };
 
     try {
-      const txs = await checkDeposits(addr.address, addr.crypto, addr.network, { backfillBep20 });
+      const txs = await checkDeposits(addr.address, addr.crypto, addr.network, { backfillBep20, txHash });
       addrDetail.txsFound = txs.length;
 
       for (const tx of txs) {
