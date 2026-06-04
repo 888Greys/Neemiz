@@ -12,25 +12,25 @@ const TRONGRID  = "https://api.trongrid.io";
 // chainId 1 = Ethereum, 56 = BSC, 137 = Polygon
 // Empty contract string = native coin (ETH, BNB, MATIC)
 
-const EVM_TOKENS: Record<string, { chainId: number; contract: string }> = {
+const EVM_TOKENS: Record<string, { chainId: number; contract: string; decimals: number }> = {
   // ── Ethereum (chainId 1) ──
-  "ETH:ERC20":   { chainId: 1,   contract: "" },                                         // native
-  "USDT:ERC20":  { chainId: 1,   contract: "0xdAC17F958D2ee523a2206206994597C13D831ec7" },
-  "USDC:ERC20":  { chainId: 1,   contract: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
-  "DAI:ERC20":   { chainId: 1,   contract: "0x6B175474E89094C44Da98b954EedeAC495271d0F" },
-  "WBTC:ERC20":  { chainId: 1,   contract: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599" },
-  "LINK:ERC20":  { chainId: 1,   contract: "0x514910771AF9Ca656af840dff83E8264EcF986CA" },
+  "ETH:ERC20":   { chainId: 1,   contract: "", decimals: 18 },                                         // native
+  "USDT:ERC20":  { chainId: 1,   contract: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 },
+  "USDC:ERC20":  { chainId: 1,   contract: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
+  "DAI:ERC20":   { chainId: 1,   contract: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18 },
+  "WBTC:ERC20":  { chainId: 1,   contract: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8 },
+  "LINK:ERC20":  { chainId: 1,   contract: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18 },
   // ── BSC (chainId 56) ──
-  "BNB:BEP20":   { chainId: 56,  contract: "" },                                         // native
-  "USDT:BEP20":  { chainId: 56,  contract: "0x55d398326f99059fF775485246999027B3197955" },
-  "BUSD:BEP20":  { chainId: 56,  contract: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56" },
+  "BNB:BEP20":   { chainId: 56,  contract: "", decimals: 18 },                                         // native
+  "USDT:BEP20":  { chainId: 56,  contract: "0x55d398326f99059fF775485246999027B3197955", decimals: 18 },
+  "BUSD:BEP20":  { chainId: 56,  contract: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", decimals: 18 },
   // ── Polygon (chainId 137) ──
-  "MATIC:POLYGON": { chainId: 137, contract: "" },                                       // native
+  "MATIC:POLYGON": { chainId: 137, contract: "", decimals: 18 },                                       // native
   // Native USDC on Polygon (0x3c499c...) — Binance and most exchanges send this
   // USDC.e (bridged, 0x2791...) is legacy; kept as fallback key
-  "USDC:POLYGON":  { chainId: 137, contract: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359" },
-  "USDCE:POLYGON": { chainId: 137, contract: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174" },
-  "USDT:POLYGON":  { chainId: 137, contract: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F" },
+  "USDC:POLYGON":  { chainId: 137, contract: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", decimals: 6 },
+  "USDCE:POLYGON": { chainId: 137, contract: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", decimals: 6 },
+  "USDT:POLYGON":  { chainId: 137, contract: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6 },
 };
 
 // ─── Tron TRC-20 token contracts ──────────────────────────────────────────────
@@ -45,6 +45,75 @@ export interface DepositTx {
   timestamp: number; // ms
 }
 
+const EVM_RPC: Record<number, string> = {
+  1:   "https://ethereum-rpc.publicnode.com",
+  56:  "https://bsc-rpc.publicnode.com",
+  137: "https://polygon-bor-rpc.publicnode.com",
+};
+
+const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+const BSC_LOG_SCAN_BLOCKS = 45_000;
+
+async function rpcRequest<T>(chainId: number, method: string, params: unknown[]): Promise<T | null> {
+  const rpc = EVM_RPC[chainId];
+  if (!rpc) return null;
+  const res = await fetch(rpc, {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    signal:  AbortSignal.timeout(8000),
+  });
+  if (!res.ok) return null;
+  const data = await res.json();
+  if (data?.error) return null;
+  return data?.result ?? null;
+}
+
+function addressTopic(address: string): string {
+  return `0x${address.toLowerCase().replace(/^0x/, "").padStart(64, "0")}`;
+}
+
+function formatUnits(value: string | bigint, decimals: number, fixed = 8): string {
+  const raw = typeof value === "bigint" ? value : BigInt(value);
+  const base = BigInt(10) ** BigInt(decimals);
+  const whole = raw / base;
+  const fraction = raw % base;
+  const fractionText = fraction.toString().padStart(decimals, "0").slice(0, fixed).padEnd(fixed, "0");
+  return `${whole}.${fractionText}`;
+}
+
+async function checkBscTokenDeposits(address: string, crypto: string, network: string): Promise<DepositTx[]> {
+  const token = EVM_TOKENS[`${crypto}:${network}`];
+  if (!token?.contract) return [];
+
+  const latestHex = await rpcRequest<string>(token.chainId, "eth_blockNumber", []);
+  if (!latestHex) return [];
+  const latest = Number(BigInt(latestHex));
+  const from = Math.max(0, latest - BSC_LOG_SCAN_BLOCKS);
+
+  const logs = await rpcRequest<Array<{
+    blockNumber: string;
+    data: string;
+    topics: string[];
+    transactionHash: string;
+  }>>(token.chainId, "eth_getLogs", [{
+    fromBlock: `0x${from.toString(16)}`,
+    toBlock:   "latest",
+    address:   token.contract,
+    topics:    [TRANSFER_TOPIC, null, addressTopic(address)],
+  }]);
+  if (!Array.isArray(logs)) return [];
+
+  return logs
+    .map((log) => ({
+      txHash:    log.transactionHash,
+      amount:    formatUnits(log.data, token.decimals, 8),
+      from:      log.topics?.[1] ? `0x${log.topics[1].slice(-40)}` : "",
+      timestamp: Date.now(),
+    }))
+    .filter((tx) => Number(tx.amount) > 0);
+}
+
 // ─── EVM (multi-chain) via Etherscan API V2 ───────────────────────────────────
 
 export async function checkEVMDeposits(
@@ -54,6 +123,9 @@ export async function checkEVMDeposits(
 ): Promise<DepositTx[]> {
   const token = EVM_TOKENS[`${crypto}:${network}`];
   if (!token) return [];
+  if (token.chainId === 56 && token.contract) {
+    return checkBscTokenDeposits(address, crypto, network);
+  }
 
   const apiKey = process.env.ETHERSCAN_API_KEY;
   if (!apiKey) throw new Error("ETHERSCAN_API_KEY not set");
@@ -220,44 +292,22 @@ export async function checkDeposits(
 // ─── On-chain balance queries (for UI sync) ───────────────────────────────────
 // Uses public RPC endpoints — no API key required, always reliable.
 
-// Public RPC endpoints — publicnode.com (free, no key, reliable)
-const EVM_RPC: Record<number, string> = {
-  1:   "https://ethereum-rpc.publicnode.com",
-  56:  "https://bsc-rpc.publicnode.com",
-  137: "https://polygon-bor-rpc.publicnode.com",
-};
-
-async function rpcCall(chainId: number, method: string, params: unknown[]): Promise<string | null> {
-  const rpc = EVM_RPC[chainId];
-  if (!rpc) return null;
-  const res  = await fetch(rpc, {
-    method:  "POST",
-    headers: { "Content-Type": "application/json" },
-    body:    JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    signal:  AbortSignal.timeout(6000),
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return data?.result ?? null;
-}
-
 async function getEVMBalance(address: string, crypto: string, network: string): Promise<number> {
   const token = EVM_TOKENS[`${crypto}:${network}`];
   if (!token) return 0;
 
   if (!token.contract) {
     // Native coin — eth_getBalance
-    const hex = await rpcCall(token.chainId, "eth_getBalance", [address, "latest"]);
+    const hex = await rpcRequest<string>(token.chainId, "eth_getBalance", [address, "latest"]);
     if (!hex) return 0;
-    return Number(BigInt(hex)) / 1e18;
+    return Number(BigInt(hex)) / Math.pow(10, token.decimals);
   }
 
   // ERC-20 token — call balanceOf(address)
-  const decimals = ["USDT", "USDC", "BUSD", "DAI", "USDCE"].includes(crypto) ? 6 : 18;
   const data = "0x70a08231" + address.slice(2).toLowerCase().padStart(64, "0");
-  const hex  = await rpcCall(token.chainId, "eth_call", [{ to: token.contract, data }, "latest"]);
+  const hex  = await rpcRequest<string>(token.chainId, "eth_call", [{ to: token.contract, data }, "latest"]);
   if (!hex || hex === "0x") return 0;
-  return Number(BigInt(hex)) / Math.pow(10, decimals);
+  return Number(BigInt(hex)) / Math.pow(10, token.decimals);
 }
 
 async function getTRXBalance(address: string): Promise<number> {
