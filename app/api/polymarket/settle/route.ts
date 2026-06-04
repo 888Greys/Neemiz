@@ -4,12 +4,67 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
 
+const STALE_MARKET_MS = 24 * 60 * 60 * 1000;
+
 function isAuthorized(req: Request) {
   const secrets = [process.env.SETTLE_SECRET, process.env.CRON_SECRET].filter(Boolean);
   if (secrets.length === 0) return false;
 
   const header = req.headers.get("authorization") ?? "";
   return secrets.some((secret) => header === `Bearer ${secret}`);
+}
+
+async function voidStalePolymarketBets(
+  marketId: string,
+  question: string,
+  reason: "market_not_found" | "market_question_mismatch",
+) {
+  const cutoff = new Date(Date.now() - STALE_MARKET_MS);
+  const bets = await db.polymarketBet.findMany({
+    where: {
+      marketId,
+      question,
+      status: "PENDING",
+      createdAt: { lt: cutoff },
+    },
+  });
+
+  let voided = 0;
+  for (const bet of bets) {
+    let didVoid = false;
+    await db.$transaction(async (tx) => {
+      const updated = await tx.polymarketBet.updateMany({
+        where: { id: bet.id, status: "PENDING" },
+        data: {
+          status: "VOID",
+          settledAt: new Date(),
+          winAmount: null,
+        },
+      });
+      if (updated.count === 0) return;
+      didVoid = true;
+
+      await tx.user.update({
+        where: { id: bet.userId },
+        data: { walletBalance: { increment: bet.stake } },
+      });
+
+      await tx.transaction.create({
+        data: {
+          userId: bet.userId,
+          type: TransactionType.REFUND,
+          amount: bet.stake,
+          currency: "KES",
+          status: TransactionStatus.COMPLETED,
+          reference: `poly-void-${bet.id}`,
+          metadata: { game: "polymarket", marketId, reason },
+        },
+      });
+    });
+    if (didVoid) voided++;
+  }
+
+  return voided;
 }
 
 async function settlePolymarket(req: Request) {
@@ -44,10 +99,12 @@ async function settlePolymarket(req: Request) {
     }
     if (resolution.status === "mismatch") {
       mismatchedMarkets++;
+      voided += await voidStalePolymarketBets(marketId, question, "market_question_mismatch");
       continue;
     }
     if (resolution.status === "not_found") {
       notFoundMarkets++;
+      voided += await voidStalePolymarketBets(marketId, question, "market_not_found");
       continue;
     }
 

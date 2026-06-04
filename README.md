@@ -431,6 +431,12 @@ POLYMARKET_TRADING_MODE=internal   # recommended — no funded account needed
 
 In `internal` mode: real Polymarket markets/prices/charts, but positions are Nezeem ledger entries settled internally.
 
+Settlement is conservative:
+
+- Resolved/ended markets are settled from the winning terminal price.
+- Open markets remain `PENDING`.
+- If Polymarket no longer returns a market, or the returned question no longer matches the stored bet question, bets older than 24 hours are marked `VOID` and the stake is refunded. This prevents stale or corrupted test rows from locking balances while avoiding accidental settlement against the wrong event.
+
 To place real CLOB orders (requires funded Polymarket account):
 
 ```env
