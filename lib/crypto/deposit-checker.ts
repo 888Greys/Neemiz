@@ -5,6 +5,7 @@
  *   Tron       — TRC-20 tokens + native TRX
  */
 
+import { createHash } from "crypto";
 import { EVM_TOKENS } from "@/lib/crypto/token-registry";
 
 const ETHERSCAN = "https://api.etherscan.io/v2/api";
@@ -13,6 +14,10 @@ const TRONGRID  = "https://api.trongrid.io";
 // ─── Tron TRC-20 token contracts ──────────────────────────────────────────────
 const TRC20_CONTRACTS: Record<string, string> = {
   USDT: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+};
+
+const TRC20_CONTRACT_HEX: Record<string, string> = {
+  USDT: "41a614f803b6fd780986a42c78ec9c7f77e6ded13c",
 };
 
 export interface DepositTx {
@@ -38,6 +43,35 @@ const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a
 const BSC_LOG_SCAN_BLOCKS = 45_000;
 const BSC_BACKFILL_SCAN_BLOCKS = 180_000;
 const BSC_BACKFILL_CHUNK_BLOCKS = 1_500;
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+function base58Encode(buf: Buffer): string {
+  const digits: number[] = [0];
+  for (let i = 0; i < buf.length; i++) {
+    let carry = buf[i];
+    for (let j = 0; j < digits.length; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = Math.floor(carry / 58);
+    }
+    while (carry > 0) {
+      digits.push(carry % 58);
+      carry = Math.floor(carry / 58);
+    }
+  }
+  let leading = 0;
+  for (let i = 0; i < buf.length && buf[i] === 0; i++) leading++;
+  return "1".repeat(leading) + digits.reverse().map((d) => B58[d]).join("");
+}
+
+function tronHexToBase58(value: string): string {
+  const hex = value.toLowerCase().replace(/^0x/, "");
+  if (!/^41[0-9a-f]{40}$/.test(hex)) return value;
+  const raw = Buffer.from(hex, "hex");
+  const h1 = createHash("sha256").update(raw).digest();
+  const h2 = createHash("sha256").update(h1).digest();
+  return base58Encode(Buffer.concat([raw, h2.slice(0, 4)]));
+}
 
 async function rpcRequest<T>(chainId: number, method: string, params: unknown[]): Promise<T | null> {
   const rpc = EVM_RPC[chainId];
@@ -244,9 +278,12 @@ export async function checkEVMDeposits(
 export async function checkTronTRC20Deposits(
   address:  string,
   crypto:   string,
+  opts:     DepositCheckOptions = {},
 ): Promise<DepositTx[]> {
   const contract = TRC20_CONTRACTS[crypto];
   if (!contract) return [];
+
+  if (opts.txHash) return checkTronTRC20DepositByHash(address, crypto, opts.txHash);
 
   const apiKey  = process.env.TRONGRID_API_KEY;
   const headers: Record<string, string> = apiKey ? { "TRON-PRO-API-KEY": apiKey } : {};
@@ -269,12 +306,86 @@ export async function checkTronTRC20Deposits(
       amount:    (Number(tx.value) / 1_000_000).toFixed(6),
       from:      tx.from as string,
       timestamp: Number(tx.block_timestamp),
+      logIndex:  tx.transaction_id as string,
     }));
+}
+
+async function checkTronTRC20DepositByHash(
+  address: string,
+  crypto: string,
+  txHash: string,
+): Promise<DepositTx[]> {
+  const contract = TRC20_CONTRACTS[crypto];
+  if (!contract) return [];
+
+  const apiKey  = process.env.TRONGRID_API_KEY;
+  const headers: Record<string, string> = apiKey ? { "TRON-PRO-API-KEY": apiKey } : {};
+
+  const accountUrl = `${TRONGRID}/v1/accounts/${address}/transactions/trc20` +
+    `?contract_address=${contract}&only_confirmed=true&limit=200`;
+  const accountRes = await fetch(accountUrl, { headers, cache: "no-store" });
+  if (accountRes.ok) {
+    const accountData = await accountRes.json();
+    if (Array.isArray(accountData.data)) {
+      const accountMatches = (accountData.data as Record<string, unknown>[])
+        .filter((tx) => {
+          const info = tx.token_info as Record<string, unknown> | undefined;
+          return tx.transaction_id === txHash &&
+            tx.to === address &&
+            info?.symbol === crypto;
+        })
+        .map((tx) => ({
+          txHash:    tx.transaction_id as string,
+          amount:    (Number(tx.value) / 1_000_000).toFixed(6),
+          from:      tx.from as string,
+          timestamp: Number(tx.block_timestamp),
+          logIndex:  tx.transaction_id as string,
+        }))
+        .filter((tx) => Number(tx.amount) > 0);
+      if (accountMatches.length > 0) return accountMatches;
+    }
+  }
+
+  const eventRes = await fetch(`${TRONGRID}/v1/transactions/${txHash}/events?only_confirmed=true`, {
+    headers,
+    cache: "no-store",
+  });
+  if (!eventRes.ok) return [];
+  const eventData = await eventRes.json();
+  if (!Array.isArray(eventData.data)) return [];
+
+  const contractHex = TRC20_CONTRACT_HEX[crypto]?.toLowerCase();
+  return (eventData.data as Record<string, unknown>[])
+    .filter((event) => {
+      const result = event.result as Record<string, unknown> | undefined;
+      const eventContract = String(event.contract_address ?? "").toLowerCase().replace(/^0x/, "");
+      const to = tronHexToBase58(String(result?.to ?? ""));
+      const contractMatches = !eventContract ||
+        eventContract === contract.toLowerCase() ||
+        eventContract === contractHex;
+      return event.event_name === "Transfer" &&
+        contractMatches &&
+        to === address;
+    })
+    .map((event) => {
+      const result = event.result as Record<string, unknown> | undefined;
+      return {
+        txHash,
+        amount:    (Number(result?.value ?? 0) / 1_000_000).toFixed(6),
+        from:      tronHexToBase58(String(result?.from ?? "")),
+        timestamp: Number(event.block_timestamp ?? Date.now()),
+        logIndex:  String(event.event_index ?? event.log_index ?? txHash),
+      };
+    })
+    .filter((tx) => Number(tx.amount) > 0);
 }
 
 // ─── Tron native TRX via TronGrid ────────────────────────────────────────────
 
-export async function checkTronTRXDeposits(address: string): Promise<DepositTx[]> {
+export async function checkTronTRXDeposits(
+  address: string,
+  opts:    DepositCheckOptions = {},
+): Promise<DepositTx[]> {
   const apiKey  = process.env.TRONGRID_API_KEY;
   const headers: Record<string, string> = apiKey ? { "TRON-PRO-API-KEY": apiKey } : {};
 
@@ -286,7 +397,7 @@ export async function checkTronTRXDeposits(address: string): Promise<DepositTx[]
   const data = await res.json();
   if (!Array.isArray(data.data)) return [];
 
-  return (data.data as Record<string, unknown>[])
+  const txs = (data.data as Record<string, unknown>[])
     .filter((tx) => {
       // Only plain TRX transfers (TransferContract), not TRC-20 calls
       const contracts = (tx.raw_data as Record<string, unknown>)?.contract as unknown[];
@@ -303,14 +414,53 @@ export async function checkTronTRXDeposits(address: string): Promise<DepositTx[]
         amount:    (Number(value) / 1_000_000).toFixed(6), // TRX has 6 decimals (sun)
         from:      ((val?.value as Record<string, unknown>)?.owner_address ?? "") as string,
         timestamp: Number(tx.block_timestamp),
+        logIndex:  (tx.txID ?? tx.transaction_id) as string,
       };
     })
     .filter((tx) => Number(tx.amount) > 0);
+  return opts.txHash ? txs.filter((tx) => tx.txHash === opts.txHash) : txs;
 }
 
 // ─── Bitcoin via Blockstream API (free, no key) ───────────────────────────────
 
-export async function checkBTCDeposits(address: string): Promise<DepositTx[]> {
+function btcDepositOutputs(address: string, tx: Record<string, unknown>): DepositTx[] {
+  if (!(tx.status as Record<string, unknown>)?.confirmed) return [];
+  const vout = tx.vout as Record<string, unknown>[] | undefined;
+  if (!Array.isArray(vout)) return [];
+
+  const firstInput = (tx.vin as Array<{ prevout?: { scriptpubkey_address?: string } }> | undefined)?.[0];
+  const from = firstInput?.prevout?.scriptpubkey_address ?? "";
+  const timestamp = Number((tx.status as Record<string, unknown>)?.block_time ?? 0) * 1000;
+
+  const results: DepositTx[] = [];
+  vout.forEach((out, index) => {
+    if (out.scriptpubkey_address !== address) return;
+    const satoshis = Number(out.value ?? 0);
+    if (satoshis <= 0) return;
+    results.push({
+      txHash:   tx.txid as string,
+      amount:   (satoshis / 1e8).toFixed(8),
+      from,
+      timestamp,
+      logIndex: String(index),
+    });
+  });
+  return results;
+}
+
+async function checkBTCDepositByHash(address: string, txHash: string): Promise<DepositTx[]> {
+  const res = await fetch(`https://blockstream.info/api/tx/${txHash}`, { cache: "no-store" });
+  if (!res.ok) return [];
+  const tx = await res.json() as Record<string, unknown>;
+  return btcDepositOutputs(address, tx);
+}
+
+export async function checkBTCDeposits(
+  address: string,
+  opts:    DepositCheckOptions = {},
+): Promise<DepositTx[]> {
+  if (opts.txHash) return checkBTCDepositByHash(address, opts.txHash);
+
   const url = `https://blockstream.info/api/address/${address}/txs`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) return [];
@@ -319,20 +469,7 @@ export async function checkBTCDeposits(address: string): Promise<DepositTx[]> {
 
   const results: DepositTx[] = [];
   for (const tx of txs) {
-    if (!(tx.status as Record<string, unknown>)?.confirmed) continue; // skip unconfirmed
-    const vout = tx.vout as Record<string, unknown>[] | undefined;
-    if (!Array.isArray(vout)) continue;
-    for (const out of vout) {
-      if (out.scriptpubkey_address !== address) continue;
-      const satoshis = Number(out.value ?? 0);
-      if (satoshis <= 0) continue;
-      results.push({
-        txHash:    tx.txid as string,
-        amount:    (satoshis / 1e8).toFixed(8),
-        from:      "", // Blockstream doesn't give input address easily
-        timestamp: Number((tx.status as Record<string, unknown>)?.block_time ?? 0) * 1000,
-      });
-    }
+    results.push(...btcDepositOutputs(address, tx));
   }
   return results;
 }
@@ -345,10 +482,10 @@ export async function checkDeposits(
   network: string,
   opts: DepositCheckOptions = {},
 ): Promise<DepositTx[]> {
-  if (network === "BITCOIN") return checkBTCDeposits(address);
+  if (network === "BITCOIN") return checkBTCDeposits(address, opts);
   if (network === "TRC20") {
-    if (crypto === "TRX") return checkTronTRXDeposits(address);
-    return checkTronTRC20Deposits(address, crypto);
+    if (crypto === "TRX") return checkTronTRXDeposits(address, opts);
+    return checkTronTRC20Deposits(address, crypto, opts);
   }
   return checkEVMDeposits(address, crypto, network, opts);
 }

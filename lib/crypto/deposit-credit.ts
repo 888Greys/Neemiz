@@ -19,7 +19,7 @@ export interface OnChainDepositCreditInput {
   txHash: string;
   logIndex?: string | null;
   from?: string | null;
-  source: "cron" | "moralis" | "tx_hash_recovery";
+  source: "cron" | "moralis" | "tatum" | "tx_hash_recovery";
   metadata?: Record<string, unknown>;
 }
 
