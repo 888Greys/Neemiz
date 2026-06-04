@@ -17,6 +17,8 @@ interface MoralisWebhookPayload {
     hash?: string;
     timestamp?: string;
   };
+  logs?: Array<unknown>;
+  txsInternal?: Array<unknown>;
   erc20Transfers?: Array<{
     transactionHash?: string;
     logIndex?: string;
@@ -27,6 +29,8 @@ interface MoralisWebhookPayload {
     tokenDecimals?: string;
     valueWithDecimals?: string;
   }>;
+  erc20Approvals?: Array<unknown>;
+  nftTransfers?: Array<unknown>;
   txs?: Array<{
     hash?: string;
     transactionHash?: string;
@@ -50,6 +54,18 @@ function formatRawUnits(value: string, decimals: number): number {
   const whole = raw / base;
   const fraction = raw % base;
   return Number(`${whole}.${fraction.toString().padStart(decimals, "0").slice(0, 8)}`);
+}
+
+function isMoralisTestWebhook(payload: MoralisWebhookPayload): boolean {
+  return payload.confirmed === true &&
+    !payload.chainId &&
+    !payload.streamId &&
+    (payload.txs?.length ?? 0) === 0 &&
+    (payload.txsInternal?.length ?? 0) === 0 &&
+    (payload.logs?.length ?? 0) === 0 &&
+    (payload.erc20Transfers?.length ?? 0) === 0 &&
+    (payload.erc20Approvals?.length ?? 0) === 0 &&
+    (payload.nftTransfers?.length ?? 0) === 0;
 }
 
 async function creditToDepositAddress(input: {
@@ -101,6 +117,10 @@ export async function POST(req: Request) {
     payload = JSON.parse(rawBody) as MoralisWebhookPayload;
   } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  if (isMoralisTestWebhook(payload)) {
+    return Response.json({ ok: true, test: true });
   }
 
   if (!verifyMoralisSignature(payload, req.headers.get("x-signature"))) {
