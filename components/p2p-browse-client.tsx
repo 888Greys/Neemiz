@@ -15,12 +15,15 @@ import { LoadingDots } from "@/components/loading-dots";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface AdMerchant {
+  id?: string;
   displayName: string;
   avatarUrl?: string | null;
   isOnline: boolean;
+  totalTrades?: number;
   completedTrades: number;
   completionRate: number;
   avgReleaseTime: number;
+  joinedAt?: string;
 }
 
 interface Ad {
@@ -39,6 +42,35 @@ interface Ad {
   merchant: AdMerchant;
 }
 
+interface MerchantOffer {
+  id: string;
+  side: "BUY" | "SELL";
+  crypto: string;
+  fiat: string;
+  pricePerUnit: number;
+  availableAmount: number;
+  minLimit: number;
+  maxLimit: number;
+  paymentMethods: string[];
+}
+
+interface MerchantProfile {
+  id: string;
+  displayName: string;
+  avatarUrl?: string | null;
+  isOnline: boolean;
+  isVerified: boolean;
+  kycStatus?: string;
+  completedTrades: number;
+  completionRate: number;
+  avgReleaseTime: number;
+  totalTrades: number;
+  joinedAt: string;
+  activeAds: number;
+  paymentRails: string[];
+  offers: MerchantOffer[];
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const fmtPm = (m: string) => paymentMethodLabel(m);
@@ -48,9 +80,207 @@ const fmtPm = (m: string) => paymentMethodLabel(m);
 const flagUrl = (currencyCode: string) =>
   `https://flagcdn.com/w40/${currencyCode.slice(0, 2).toLowerCase()}.png`;
 
+const formatJoined = (value?: string) => {
+  if (!value) return "Recently";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Recently";
+  return new Intl.DateTimeFormat("en-KE", { month: "short", year: "numeric" }).format(date);
+};
+
+const formatReleaseTime = (minutes: number) => {
+  if (!Number.isFinite(minutes) || minutes <= 0) return "New";
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  return `${(minutes / 60).toFixed(1)}h`;
+};
+
+// ─── Merchant Profile Modal ──────────────────────────────────────────────────
+
+function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onClose: () => void }) {
+  const router = useRouter();
+  const [profile, setProfile] = useState<MerchantProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setProfile(null);
+    setError("");
+    setLoading(true);
+
+    if (!merchant.id) {
+      setError("Refresh offers to load this merchant profile.");
+      setLoading(false);
+      return;
+    }
+
+    fetch(`/api/p2p/merchants/${merchant.id}`)
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error("Merchant profile is unavailable")))
+      .then((data: MerchantProfile) => {
+        if (!cancelled) setProfile(data);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Merchant profile is unavailable");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [merchant.id]);
+
+  const viewOffers = (offer?: MerchantOffer) => {
+    const crypto = offer?.crypto ?? profile?.offers[0]?.crypto;
+    const side = offer?.side ?? profile?.offers[0]?.side;
+    const params = new URLSearchParams();
+    if (crypto) params.set("crypto", crypto);
+    if (side === "BUY") params.set("side", "SELL");
+    onClose();
+    router.push(`/p2p${params.toString() ? `?${params.toString()}` : ""}`);
+  };
+
+  const source = profile ?? merchant;
+  const rails = profile?.paymentRails ?? [];
+  const offers = profile?.offers ?? [];
+
+  return (
+    <div
+      className="fixed inset-0 z-[130] flex items-end justify-center bg-black/85 backdrop-blur-sm pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[calc(100dvh-3.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0e0e14] text-white shadow-2xl sm:max-h-[88dvh] sm:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3">
+          <p className="text-sm font-black">Merchant Profile</p>
+          <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white">
+            <Icon name="close" className="text-[18px]" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+          <div className="mb-4 flex items-start gap-3">
+            {source.avatarUrl ? (
+              <img src={source.avatarUrl} alt={source.displayName} className="h-12 w-12 rounded-2xl object-cover" />
+            ) : (
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#087cff] text-lg font-black text-white">
+                {source.displayName.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <h3 className="truncate text-lg font-black">{source.displayName}</h3>
+                {(profile?.isVerified ?? true) && <Icon name="verified" className="text-[17px] text-[#05b957]" />}
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500">
+                <span className="flex items-center gap-1">
+                  <span className={`h-1.5 w-1.5 rounded-full ${source.isOnline ? "bg-[#05b957]" : "bg-slate-600"}`} />
+                  {source.isOnline ? "Online now" : "Offline"}
+                </span>
+                <span>Joined {formatJoined(profile?.joinedAt ?? merchant.joinedAt)}</span>
+                {profile?.kycStatus && <span>{profile.kycStatus.replace(/_/g, " ")}</span>}
+              </div>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] py-8 text-center text-xs font-bold text-slate-500">
+              <LoadingDots label="Loading merchant" />
+            </div>
+          ) : error ? (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-3 text-sm font-semibold text-red-300">
+              {error}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
+                  <p className="text-lg font-black">{profile?.completedTrades ?? merchant.completedTrades}</p>
+                  <p className="text-[10px] font-bold text-slate-600">Completed</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
+                  <p className="text-lg font-black text-[#05b957]">{Number(profile?.completionRate ?? merchant.completionRate).toFixed(0)}%</p>
+                  <p className="text-[10px] font-bold text-slate-600">Completion</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
+                  <p className="text-lg font-black">{profile?.totalTrades ?? merchant.totalTrades ?? merchant.completedTrades}</p>
+                  <p className="text-[10px] font-bold text-slate-600">Total trades</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
+                  <p className="text-lg font-black">{formatReleaseTime(profile?.avgReleaseTime ?? merchant.avgReleaseTime)}</p>
+                  <p className="text-[10px] font-bold text-slate-600">Avg release</p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-[#087cff]/20 bg-[#087cff]/10 px-3 py-3">
+                <div className="flex items-start gap-2">
+                  <Icon name="shield" className="mt-0.5 text-[18px] text-[#8bc3ff]" />
+                  <div>
+                    <p className="text-sm font-black">Escrow protected merchant</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-400">
+                      Trade only through the order page. Payments and crypto release are tracked by Nezeem so disputes have evidence.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {rails.length > 0 && (
+                <div className="mt-4">
+                  <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-slate-600">Payment rails</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {rails.map((rail) => (
+                      <span key={rail} className="rounded-lg bg-white/[0.05] px-2.5 py-1 text-[11px] font-bold text-slate-300">
+                        {fmtPm(rail)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-600">Active offers</p>
+                  <span className="text-[11px] font-bold text-slate-500">{profile?.activeAds ?? offers.length}</span>
+                </div>
+                {offers.length === 0 ? (
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-4 text-center text-xs font-semibold text-slate-500">
+                    No active offers right now.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {offers.map((offer) => (
+                      <button
+                        key={offer.id}
+                        type="button"
+                        onClick={() => viewOffers(offer)}
+                        className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
+                      >
+                        <span className={`rounded-lg px-2 py-1 text-[10px] font-black ${offer.side === "SELL" ? "bg-[#05b957]/15 text-[#05b957]" : "bg-red-500/15 text-red-300"}`}>
+                          {offer.side === "SELL" ? "Buy" : "Sell"}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-white">{offer.crypto} at {formatFiat(offer.pricePerUnit, offer.fiat)}</p>
+                          <p className="text-[11px] font-semibold text-slate-500">
+                            {formatFiat(offer.minLimit, offer.fiat)} - {formatFiat(offer.maxLimit, offer.fiat, { symbol: false })} limits
+                          </p>
+                        </div>
+                        <Icon name="chevron_right" className="text-[17px] text-slate-600" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Order Modal ──────────────────────────────────────────────────────────────
 
-function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
+function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => void; onMerchantClick: (merchant: AdMerchant) => void }) {
   const router = useRouter();
   const [inputMode, setInputMode]         = useState<"fiat" | "crypto">("fiat");
   const [rawInput, setRawInput]           = useState("");
@@ -231,7 +461,11 @@ function OrderModal({ ad, onClose }: { ad: Ad; onClose: () => void }) {
 
           <section className="border-t border-white/[0.05] pt-4">
             <div className="mb-4 flex items-center justify-between">
-              <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
+              <button
+                type="button"
+                onClick={() => onMerchantClick(ad.merchant)}
+                className="flex min-w-0 items-center gap-1 text-left text-sm font-bold text-white transition hover:text-[#8bc3ff]"
+              >
                 {ad.merchant.displayName}
                 <Icon name="chevron_right" className="text-[15px] text-slate-500" />
               </button>
@@ -447,7 +681,19 @@ const CRYPTO_COLOR: Record<string, string> = {
 const AD_COLS = "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_120px]";
 const AD_GRID = `lg:grid ${AD_COLS} lg:items-center lg:gap-4`;
 
-function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) => void; isSignedIn: boolean; marketRef: number }) {
+function AdCard({
+  ad,
+  onBuy,
+  onMerchantClick,
+  isSignedIn,
+  marketRef,
+}: {
+  ad: Ad;
+  onBuy: (ad: Ad) => void;
+  onMerchantClick: (merchant: AdMerchant) => void;
+  isSignedIn: boolean;
+  marketRef: number;
+}) {
   const isMerchantSelling = ad.side === "SELL";
   const color   = CRYPTO_COLOR[ad.crypto] ?? "#087cff";
   const actionLabel = isMerchantSelling ? "Buy" : "Sell";
@@ -460,7 +706,12 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
   return (
     <div className={`border-b border-white/[0.06] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.02] sm:px-4 lg:py-2 ${AD_GRID}`}>
       {/* ── Advertiser ── */}
-      <div className="flex min-w-0 items-center gap-2">
+      <button
+        type="button"
+        onClick={() => onMerchantClick(ad.merchant)}
+        className="flex min-w-0 items-center gap-2 rounded-lg text-left transition hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-[#087cff]/40"
+        title={`View ${ad.merchant.displayName}`}
+      >
         <div className="relative shrink-0">
           {ad.merchant.avatarUrl ? (
             <img src={ad.merchant.avatarUrl} alt={ad.merchant.displayName} className="h-7 w-7 rounded-full object-cover" />
@@ -487,7 +738,7 @@ function AdCard({ ad, onBuy, isSignedIn, marketRef }: { ad: Ad; onBuy: (ad: Ad) 
             </span>
           </div>
         </div>
-      </div>
+      </button>
 
       {/* ── Price + margin + limits ── */}
       <div className="mt-2 lg:mt-0">
@@ -574,12 +825,13 @@ function DirectBuyBanner() {
 // ─── Offers table (one section: promoted or other) ─────────────────────────────
 
 function OffersTable({
-  title, ads, marketRef, onBuy, isSignedIn, promoted = false,
+  title, ads, marketRef, onBuy, onMerchantClick, isSignedIn, promoted = false,
 }: {
   title: string;
   ads: Ad[];
   marketRef: number;
   onBuy: (ad: Ad) => void;
+  onMerchantClick: (merchant: AdMerchant) => void;
   isSignedIn: boolean;
   promoted?: boolean;
 }) {
@@ -601,7 +853,7 @@ function OffersTable({
         <span className="text-right">Trade</span>
       </div>
       {ads.map((ad) => (
-        <AdCard key={ad.id} ad={ad} onBuy={onBuy} isSignedIn={isSignedIn} marketRef={marketRef} />
+        <AdCard key={ad.id} ad={ad} onBuy={onBuy} onMerchantClick={onMerchantClick} isSignedIn={isSignedIn} marketRef={marketRef} />
       ))}
     </div>
   );
@@ -768,6 +1020,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const [fiat, setFiatState]        = useState(initFiat);
   const [amountInput, setAmountInput] = useState("");
   const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
+  const [selectedMerchant, setSelectedMerchant] = useState<AdMerchant | null>(null);
 
   // Sync state to URL whenever filters change
   const pushUrl = useCallback((newTab: string, newCrypto: string, newPayment: string, newFiat: string) => {
@@ -873,7 +1126,8 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   return (
     <>
-      {selectedAd && <OrderModal ad={selectedAd} onClose={() => setSelectedAd(null)} />}
+      {selectedAd && <OrderModal ad={selectedAd} onClose={() => setSelectedAd(null)} onMerchantClick={setSelectedMerchant} />}
+      {selectedMerchant && <MerchantProfileModal merchant={selectedMerchant} onClose={() => setSelectedMerchant(null)} />}
 
       <P2PSubNav />
 
@@ -969,9 +1223,9 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
             <>
-              <OffersTable title="Promoted offers" ads={promoted} marketRef={marketRef} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} promoted />
+              <OffersTable title="Promoted offers" ads={promoted} marketRef={marketRef} onBuy={setSelectedAd} onMerchantClick={setSelectedMerchant} isSignedIn={!!isSignedIn} promoted />
               <DirectBuyBanner />
-              <OffersTable title="Other offers" ads={otherAds} marketRef={marketRef} onBuy={setSelectedAd} isSignedIn={!!isSignedIn} />
+              <OffersTable title="Other offers" ads={otherAds} marketRef={marketRef} onBuy={setSelectedAd} onMerchantClick={setSelectedMerchant} isSignedIn={!!isSignedIn} />
             </>
           )}
 

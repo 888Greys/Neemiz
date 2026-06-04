@@ -33,12 +33,15 @@ export async function GET(req: Request) {
       include: {
         merchant: {
           select: {
+            id:             true,
             displayName:    true,
             avatarUrl:      true,
             lastSeenAt:     true,
+            totalTrades:     true,
             completedTrades: true,
             completionRate: true,
             avgReleaseTime: true,
+            createdAt:       true,
           },
         },
       },
@@ -69,13 +72,16 @@ export async function GET(req: Request) {
       paymentWindow:   ad.paymentWindow,
       terms:           ad.terms,
       merchant: {
+        id:              ad.merchant.id,
         displayName:     ad.merchant.displayName,
         avatarUrl:       ad.merchant.avatarUrl,
         // Online = a heartbeat in the last 3 minutes.
         isOnline:        !!ad.merchant.lastSeenAt && (Date.now() - new Date(ad.merchant.lastSeenAt).getTime() < 3 * 60 * 1000),
+        totalTrades:     ad.merchant.totalTrades,
         completedTrades: ad.merchant.completedTrades,
         completionRate:  Number(ad.merchant.completionRate),
         avgReleaseTime:  ad.merchant.avgReleaseTime,
+        joinedAt:        ad.merchant.createdAt.toISOString(),
       },
     })), { headers: { "Cache-Control": "public, s-maxage=20, stale-while-revalidate=60" } });
   } catch (err) {

@@ -6,13 +6,18 @@ import { defaultNetwork, lockUserCrypto, unlockUserCrypto, isKesCoin, lockKesCoi
 import { sendNewP2POrderEmail } from "@/lib/brevo";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
+    const url = new URL(req.url);
+    const requestedLimit = Number(url.searchParams.get("limit") ?? 50);
+    const take = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(Math.floor(requestedLimit), 1), 50)
+      : 50;
 
     const merchant = await db.merchantProfile.findUnique({
       where: { userId: dbUser.id },
@@ -74,7 +79,7 @@ export async function GET() {
         ],
       },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take,
       select: {
         id: true,
         status: true,

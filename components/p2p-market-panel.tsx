@@ -31,16 +31,16 @@ function MyOrders({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/p2p/orders?limit=4")
+    fetch("/api/p2p/orders?limit=3")
       .then((r) => r.ok ? r.json() : [])
-      .then((data) => setOrders(Array.isArray(data) ? data.slice(0, 4) : []))
+      .then((data) => setOrders(Array.isArray(data) ? data.slice(0, 3) : []))
       .catch(() => setOrders([]))
       .finally(() => setLoading(false));
   }, [userId]);
 
   return (
-    <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden">
-      <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+    <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#111118]">
+      <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">My Orders</p>
         <Link href="/p2p/orders" className="text-[10px] text-[#087cff] hover:text-blue-300 font-bold transition-colors">
           View all
@@ -48,13 +48,13 @@ function MyOrders({ userId }: { userId: string }) {
       </div>
 
       {loading ? (
-        <div className="px-4 pb-3 space-y-2">
+        <div className="space-y-2 px-3 pb-3">
           {[1,2,3].map((i) => (
             <div key={i} className="h-10 rounded-xl bg-white/[0.03] animate-pulse" />
           ))}
         </div>
       ) : orders.length === 0 ? (
-        <div className="px-4 pb-4 text-center">
+        <div className="px-3 pb-4 text-center">
           <Icon name="receipt_long" className="text-slate-700 text-2xl mb-1" />
           <p className="text-[11px] text-slate-600">No orders yet</p>
           <Link href="/p2p" className="text-[10px] text-[#05b957] font-bold hover:underline">
@@ -62,17 +62,17 @@ function MyOrders({ userId }: { userId: string }) {
           </Link>
         </div>
       ) : (
-        <div className="px-3 pb-3 space-y-1.5">
+        <div className="max-h-[148px] space-y-1.5 overflow-y-auto px-3 pb-3 pr-2 [scrollbar-width:thin]">
           {orders.map((o) => (
             <Link
               key={o.id}
-              href={`/p2p/orders/${o.id}`}
+              href={`/p2p/order/${o.id}`}
               className="flex items-center gap-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.05] rounded-xl px-3 py-2 transition-colors"
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-black text-white">
-                    {o.cryptoAmount} {o.crypto}
+                    {Number(o.cryptoAmount).toLocaleString("en-US", { maximumFractionDigits: 4 })} {o.crypto}
                   </span>
                   <span className="text-[9px] text-slate-600">·</span>
                   <span className="text-[10px] text-slate-500">
@@ -158,8 +158,8 @@ function MerchantCenter({ userId }: { userId: string }) {
 
   // Active merchant dashboard
   return (
-    <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden">
-      <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+    <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#111118]">
+      <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Merchant Center</p>
         <Link href="/p2p/merchant" className="text-[10px] text-[#087cff] hover:text-blue-300 font-bold transition-colors">
           Manage
@@ -167,7 +167,7 @@ function MerchantCenter({ userId }: { userId: string }) {
       </div>
 
       {/* Merchant info */}
-      <div className="px-4 pb-3 space-y-3">
+      <div className="space-y-3 px-3 pb-3">
         {/* Name + online toggle */}
         <div className="flex items-center justify-between">
           <div>
@@ -189,14 +189,18 @@ function MerchantCenter({ userId }: { userId: string }) {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2 text-center">
-            <p className="text-base font-black text-white">{info.activeAds}</p>
-            <p className="text-[10px] text-slate-600">Active Ads</p>
+        <div className="grid grid-cols-3 gap-1.5">
+          <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-2 text-center">
+            <p className="text-sm font-black text-white">{info.activeAds}</p>
+            <p className="text-[9px] text-slate-600">Ads</p>
           </div>
-          <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2 text-center">
-            <p className="text-base font-black text-[#05b957]">{Number(info.completionRate).toFixed(0)}%</p>
-            <p className="text-[10px] text-slate-600">Completion</p>
+          <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-2 text-center">
+            <p className="text-sm font-black text-white">{info.completedTrades}</p>
+            <p className="text-[9px] text-slate-600">Trades</p>
+          </div>
+          <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-2 text-center">
+            <p className="text-sm font-black text-[#05b957]">{Number(info.completionRate).toFixed(0)}%</p>
+            <p className="text-[9px] text-slate-600">Done</p>
           </div>
         </div>
 
