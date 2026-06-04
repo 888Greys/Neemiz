@@ -13,6 +13,7 @@
 import { HDNodeWallet, Mnemonic } from "ethers";
 import { createHash } from "crypto";
 import { db } from "@/lib/db";
+import { registerMoralisEvmAddress } from "@/lib/crypto/moralis";
 
 // ─── Base58 encoder (for Tron T… addresses) ──────────────────────────────────
 
@@ -121,6 +122,14 @@ function derivePrivateKeyAtIndex(index: number, network: string): string {
   return deriveEVM(index).privateKey;
 }
 
+async function registerEvmDepositAddress(address: string, network: string) {
+  if (!["ERC20", "BEP20", "POLYGON"].includes(network)) return;
+  const result = await registerMoralisEvmAddress(address);
+  if (!result.ok && !result.skipped) {
+    console.warn(`[moralis] failed to register ${address}: ${result.error ?? result.status}`);
+  }
+}
+
 // ─── Public: create/get deposit address ──────────────────────────────────────
 
 /**
@@ -136,7 +145,10 @@ export async function getOrCreateDepositAddress(
   const existing = await db.cryptoDepositAddress.findUnique({
     where: { userId_crypto_network: { userId, crypto, network } },
   });
-  if (existing) return existing.address;
+  if (existing) {
+    await registerEvmDepositAddress(existing.address, network);
+    return existing.address;
+  }
 
   const isTron = network === "TRC20";
   const isBTC  = network === "BITCOIN";
@@ -152,6 +164,7 @@ export async function getOrCreateDepositAddress(
       await db.cryptoDepositAddress.create({
         data: { userId, crypto, network, address: evmRow.address, hdIndex: evmRow.hdIndex },
       });
+      await registerEvmDepositAddress(evmRow.address, network);
       return evmRow.address;
     }
   }
@@ -167,5 +180,6 @@ export async function getOrCreateDepositAddress(
     data: { userId, crypto, network, address, hdIndex: index },
   });
 
+  await registerEvmDepositAddress(address, network);
   return address;
 }
