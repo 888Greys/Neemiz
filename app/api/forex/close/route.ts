@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
+import { applyForexProfitRetention } from "@/lib/house-retention";
 
 type CloseBody = {
   tradeId: string;
@@ -48,7 +49,9 @@ export async function POST(req: Request) {
   const profitLoss = parseFloat((pips * (trade.size / 10000)).toFixed(2));
 
   // Return is margin + P/L, floored at 0 (max loss = full margin)
-  const returnAmount = Math.max(0, margin + profitLoss);
+  const grossReturnAmount = Math.max(0, margin + profitLoss);
+  const returnAmount = applyForexProfitRetention(margin, profitLoss);
+  const retainedAmount = Number((grossReturnAmount - returnAmount).toFixed(2));
 
   try {
     await db.$transaction(async (tx) => {
@@ -83,6 +86,8 @@ export async function POST(req: Request) {
               direction: trade.direction,
               pips: parseFloat(pips.toFixed(1)),
               profitLoss,
+              grossReturnAmount,
+              retainedAmount,
             },
           },
         });
@@ -99,6 +104,8 @@ export async function POST(req: Request) {
       pips: parseFloat(pips.toFixed(1)),
       profitLoss,
       returnAmount,
+      grossReturnAmount,
+      retainedAmount,
       newBalance: Number(updatedUser?.walletBalance ?? 0),
     });
   } catch (err) {

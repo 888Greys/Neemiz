@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { getFixtureDetail, FINISHED_STATE_IDS } from "@/lib/theoddsapi";
 import { resolveSelection, determineBetOutcome, calculateWinAmount } from "@/lib/settle-bet";
 import { TransactionType, TransactionStatus } from "@prisma/client";
+import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
 
 // Vercel Cron invokes endpoints with GET (and an Authorization: Bearer
 // <CRON_SECRET> header when CRON_SECRET is set). Reuse the same handler.
@@ -82,7 +83,7 @@ export async function POST(req: Request) {
     });
 
     const betOutcome = determineBetOutcome(selectionOutcomes);
-    const winAmount =
+    const grossWinAmount =
       betOutcome === "WON"
         ? calculateWinAmount(
             Number(bet.stake),
@@ -91,6 +92,8 @@ export async function POST(req: Request) {
             bet.betType as "SINGLE" | "MULTI",
           )
         : 0;
+    const winAmount = grossWinAmount > 0 ? applyProfitRetention(Number(bet.stake), grossWinAmount) : 0;
+    const retainedAmount = grossWinAmount > 0 ? retainedProfit(Number(bet.stake), grossWinAmount) : 0;
 
     try {
       await db.$transaction(async (tx) => {
@@ -135,7 +138,7 @@ export async function POST(req: Request) {
               currency: "KES",
               status: TransactionStatus.COMPLETED,
               reference: `betwin_${bet.id}`,
-              metadata: { betId: bet.id },
+              metadata: { betId: bet.id, grossWinAmount, retainedAmount },
             },
           });
         }

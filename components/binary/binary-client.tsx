@@ -59,7 +59,7 @@ const MARKETS: BinaryMarket[] = [
   { symbol: "Jump 10", derivSymbol: "JD10", name: "Deriv jump index", price: 119.56, volatility: 1.1, speedMs: 1050 },
 ];
 
-const STAKE_PRESETS_LIVE = [2000, 2500, 3000, 5000, 7500, 10000];
+const STAKE_PRESETS_LIVE = [10, 50, 100, 500, 1000, 5000];
 const STAKE_PRESETS_DEMO = [1, 5, 10, 25, 50, 100];
 const DIGITS = Array.from({ length: 10 }, (_, index) => index);
 const TICK_SECONDS = 1;
@@ -117,10 +117,24 @@ function formatQuote(value: number) {
   return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function payoutRate(side: ContractSide) {
+function payoutRate(side: ContractSide, targetDigit: number) {
   if (side === "Matches") return 9.15;
-  if (side === "Differs") return 1.12;
-  return 1.952;
+  if (side === "Differs") return 1.05;
+  if (side === "Even" || side === "Odd") return 1.90;
+  if (side === "Over") {
+    const wins = 9 - targetDigit;
+    return wins > 0 ? Math.floor((9.5 / wins) * 100) / 100 : 0;
+  }
+  return targetDigit > 0 ? Math.floor((9.5 / targetDigit) * 100) / 100 : 0;
+}
+
+function retainedPayout(stake: number, grossPayout: number) {
+  if (grossPayout <= stake) return grossPayout;
+  return stake + (grossPayout - stake) * 0.70;
+}
+
+function displayedPayout(stake: number, side: ContractSide, targetDigit: number) {
+  return retainedPayout(stake, stake * payoutRate(side, targetDigit));
 }
 
 function familyLabel(family: ContractFamily) {
@@ -251,7 +265,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
   const [ticks, setTicks] = useState(() => seedTicks(market));
   const [family, setFamily] = useState<ContractFamily>("evenOdd");
-  const [stake, setStake] = useState(isLive ? 2000 : 10);
+  const [stake, setStake] = useState(10);
   const [targetDigit, setTargetDigit] = useState(5);
   const [duration, setDuration] = useState(5);
   const [autoMode, setAutoMode] = useState(false);
@@ -422,7 +436,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const change = latest.quote - (ticks[0]?.quote ?? latest.quote);
   const changePct = (change / Math.max(1, ticks[0]?.quote ?? latest.quote)) * 100;
   const selectedSides = familySides(family);
-  const payout = stake * payoutRate(selectedSides[0]);
+  const payout = displayedPayout(stake, selectedSides[0], targetDigit);
 
   const digitStats = useMemo(() => {
     const recent = ticks.slice(-80);
@@ -545,7 +559,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           market:      market.symbol,
           side,
           stake,
-          payout:      data.payout ?? stake * payoutRate(side),
+          payout:      data.payout ?? displayedPayout(stake, side, targetDigit),
           entryDigit:  latest.digit,
           targetDigit,
           openedAt:    Date.now(),
@@ -566,7 +580,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         market:      market.symbol,
         side,
         stake,
-        payout:      stake * payoutRate(side),
+        payout:      displayedPayout(stake, side, targetDigit),
         entryDigit:  latest.digit,
         targetDigit,
         openedAt:    Date.now(),
@@ -719,7 +733,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
               <div>
                 <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Stake amount</div>
-                <Stepper value={stake} min={isLive ? 2000 : 1} prefix={isLive ? "KSh" : "$"} onChange={setStake} compact />
+                <Stepper value={stake} min={isLive ? 10 : 1} prefix={isLive ? "KSh" : "$"} onChange={setStake} compact />
                 <div className="mt-1.5 grid grid-cols-6 gap-1">
                   {(isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO).map((amount) => (
                     <button key={amount} type="button" onClick={() => setStake(amount)} className={`rounded px-1 py-1.5 text-[10px] font-black transition sm:px-2 sm:text-[11px] ${stake === amount ? "bg-sky-500 text-white" : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
@@ -760,8 +774,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 >
                   <div className="text-sm font-black">{placing ? <LoadingDots /> : actionLabel(side)}</div>
                   <div className="text-right">
-                    <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side), isLive)}</div>
-                    <div className="text-[10px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
+                    <div className="font-mono text-sm font-black">{formatMoney(displayedPayout(stake, side, targetDigit), isLive)}</div>
+                    <div className="text-[10px] font-black text-emerald-100/80">{(((displayedPayout(stake, side, targetDigit) / stake) - 1) * 100).toFixed(1)}%</div>
                   </div>
                 </button>
               ))}
@@ -789,8 +803,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           >
             <div className="text-sm font-black">{placing ? <LoadingDots /> : actionLabel(side)}</div>
             <div className="text-right">
-              <div className="font-mono text-sm font-black">{formatMoney(stake * payoutRate(side), isLive)}</div>
-              <div className="text-[10px] font-black text-emerald-100/80">{((payoutRate(side) - 1) * 100).toFixed(1)}%</div>
+              <div className="font-mono text-sm font-black">{formatMoney(displayedPayout(stake, side, targetDigit), isLive)}</div>
+              <div className="text-[10px] font-black text-emerald-100/80">{(((displayedPayout(stake, side, targetDigit) / stake) - 1) * 100).toFixed(1)}%</div>
             </div>
           </button>
         ))}

@@ -3,6 +3,9 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { BetType, TransactionType, TransactionStatus } from "@prisma/client";
 import { getFixtureDetail } from "@/lib/theoddsapi";
+import { applyProfitRetention } from "@/lib/house-retention";
+
+const MIN_STAKE = 10;
 
 type BetSelectionInput = {
   fixtureId: string;
@@ -72,7 +75,7 @@ export async function POST(req: Request) {
 
   const { type, stake, selections } = body;
 
-  if (!Number.isFinite(stake) || stake <= 0) return Response.json({ error: "Invalid stake" }, { status: 400 });
+  if (!Number.isFinite(stake) || stake < MIN_STAKE) return Response.json({ error: `Minimum bet is KSh ${MIN_STAKE}` }, { status: 400 });
   if (!selections?.length) return Response.json({ error: "No selections" }, { status: 400 });
   if (type === "SINGLE" && selections.length !== 1) return Response.json({ error: "Single bets require one selection" }, { status: 400 });
   if (selections.length > 20) return Response.json({ error: "Too many selections" }, { status: 400 });
@@ -88,7 +91,8 @@ export async function POST(req: Request) {
   }
 
   const totalOdds = verifiedSelections.reduce((acc, s) => acc * s.odds, 1);
-  const potentialWin = stake * totalOdds;
+  const grossPotentialWin = stake * totalOdds;
+  const potentialWin = applyProfitRetention(stake, grossPotentialWin);
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
   let result: { bet: unknown; newBalance: number };

@@ -30,16 +30,27 @@ export function aviatorServiceUrl() {
   return (process.env.AVIATOR_SERVICE_URL ?? DEFAULT_AVIATOR_SERVICE_URL).replace(/\/+$/, "");
 }
 
+function aviatorServiceHeaders(init?: RequestInit) {
+  const headers = new Headers(init?.headers);
+
+  if (!headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (process.env.AVIATOR_SERVICE_SECRET) {
+    headers.set("X-Aviator-Service-Secret", process.env.AVIATOR_SERVICE_SECRET);
+  }
+
+  return headers;
+}
+
 export async function callAviatorService<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
   const response = await fetch(`${aviatorServiceUrl()}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers: aviatorServiceHeaders(init),
     cache: "no-store",
   });
 

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
+import { retainedProfit } from "@/lib/house-retention";
 
 function evaluateTrade(side: string, exitDigit: number, targetDigit: number): boolean {
   if (side === "Even")    return exitDigit % 2 === 0;
@@ -10,6 +11,14 @@ function evaluateTrade(side: string, exitDigit: number, targetDigit: number): bo
   if (side === "Differs") return exitDigit !== targetDigit;
   if (side === "Over")    return exitDigit > targetDigit;
   return exitDigit < targetDigit; // Under
+}
+
+function payoutRate(side: string, targetDigit: number): number {
+  if (side === "Matches") return 9.15;
+  if (side === "Differs") return 1.05;
+  if (side === "Even" || side === "Odd") return 1.90;
+  if (side === "Over") return Math.floor((9.5 / (9 - targetDigit)) * 100) / 100;
+  return Math.floor((9.5 / targetDigit) * 100) / 100;
 }
 
 export async function POST(req: Request) {
@@ -41,6 +50,8 @@ export async function POST(req: Request) {
 
   const won = evaluateTrade(trade.side, exitDigit, trade.targetDigit);
   const winAmount = won ? Number(trade.payout) : 0;
+  const grossPayout = Number((Number(trade.stake) * payoutRate(trade.side, trade.targetDigit)).toFixed(2));
+  const retainedAmount = won ? retainedProfit(Number(trade.stake), grossPayout) : 0;
 
   try {
     const updated = await db.$transaction(async (tx) => {
@@ -63,7 +74,7 @@ export async function POST(req: Request) {
             status:    TransactionStatus.COMPLETED,
             reference: `binary-win-${dbUser.id}-${tradeId}`,
             provider:  "binary",
-            metadata:  { game: "binary", tradeId, market: trade.market, side: trade.side, exitDigit, multiplier: Number(trade.payout) / Number(trade.stake) },
+            metadata:  { game: "binary", tradeId, market: trade.market, side: trade.side, exitDigit, multiplier: Number(trade.payout) / Number(trade.stake), retainedAmount },
           },
         });
       }

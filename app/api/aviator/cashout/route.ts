@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { callAviatorService, type GoCashoutResponse } from "@/lib/aviator/service";
+import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -39,8 +40,20 @@ export async function POST(req: Request) {
     return Response.json({ error: cashed.message || "Cashout failed" }, { status: 409 });
   }
 
-  const winAmount = Number(cashed.payout.toFixed(2));
+  const grossPayout = Number(cashed.payout.toFixed(2));
   const cashoutAt = Number(cashed.multiplier.toFixed(2));
+  const stakeTxn = await db.transaction.findFirst({
+    where: {
+      userId: dbUser.id,
+      type: TransactionType.BET_STAKE,
+      provider: "aviator-service",
+      metadata: { path: ["betId"], equals: body.betId },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  const stakeAmount = stakeTxn ? Number(stakeTxn.amount) : Number((grossPayout / cashoutAt).toFixed(2));
+  const winAmount = applyProfitRetention(stakeAmount, grossPayout);
+  const retainedAmount = retainedProfit(stakeAmount, grossPayout);
 
   try {
     await db.$transaction(async (tx) => {
@@ -63,6 +76,9 @@ export async function POST(req: Request) {
             betId: body.betId,
             panelIndex: body.panelIndex ?? null,
             multiplier: cashoutAt,
+            stakeAmount,
+            grossPayout,
+            retainedAmount,
           },
         },
       });
@@ -76,6 +92,8 @@ export async function POST(req: Request) {
     ok: true,
     cashoutAt,
     winAmount,
+    grossPayout,
+    retainedAmount,
     betId: body.betId,
   });
 }

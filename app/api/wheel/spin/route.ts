@@ -3,6 +3,9 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { randomInt } from "crypto";
+import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
+
+const MIN_SPIN_AMOUNT = 10;
 
 // Wheel segments — must match the client definition exactly (same order, same index)
 const SEGMENTS = [
@@ -43,13 +46,15 @@ export async function POST(req: Request) {
   }
 
   const { amount } = body;
-  if (!amount || amount < 12.96) {
-    return Response.json({ error: "Minimum spin amount is KSh 12.96" }, { status: 400 });
+  if (!amount || amount < MIN_SPIN_AMOUNT) {
+    return Response.json({ error: `Minimum spin amount is KSh ${MIN_SPIN_AMOUNT}` }, { status: 400 });
   }
 
   const segIdx    = weightedRandom();
   const segment   = SEGMENTS[segIdx];
-  const winAmount = parseFloat((amount * segment.mult).toFixed(2));
+  const grossWinAmount = parseFloat((amount * segment.mult).toFixed(2));
+  const winAmount = applyProfitRetention(amount, grossWinAmount);
+  const retainedAmount = retainedProfit(amount, grossWinAmount);
   const netChange = parseFloat((winAmount - amount).toFixed(2)); // negative if mult=0
 
   try {
@@ -71,7 +76,7 @@ export async function POST(req: Request) {
           currency: "KES",
           status:   TransactionStatus.COMPLETED,
           reference: `wheel-spin-${Date.now()}`,
-          metadata: { game: "wheel", segment: segment.label, multiplier: segment.mult },
+          metadata: { game: "wheel", segment: segment.label, multiplier: segment.mult, grossWinAmount, retainedAmount },
         },
       });
 
@@ -109,6 +114,8 @@ export async function POST(req: Request) {
     multiplier:   segment.mult,
     stake:        amount,
     winAmount:    winAmount,
+    grossWinAmount,
+    retainedAmount,
     netChange:    netChange,
   });
 }
