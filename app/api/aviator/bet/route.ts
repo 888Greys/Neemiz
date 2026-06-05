@@ -8,7 +8,7 @@ import {
   type GoBetResponse,
 } from "@/lib/aviator/service";
 
-const MIN_BET = 100;
+const MIN_BET = 10;
 const MAX_BET = 10_000;
 
 export async function POST(req: Request) {
@@ -43,6 +43,7 @@ export async function POST(req: Request) {
   }
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
+  const stakeReference = `aviator-stake-${dbUser.id}-${state.round_id}-${panelIndex}-${Date.now()}`;
 
   try {
     await db.$transaction(async (tx) => {
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
           amount: betAmount,
           currency: "KES",
           status: TransactionStatus.COMPLETED,
-          reference: `aviator-stake-${dbUser.id}-${state.round_id}-${panelIndex}-${Date.now()}`,
+          reference: stakeReference,
           provider: "aviator-service",
           metadata: { game: "aviator", roundId: state.round_id, panelIndex },
         },
@@ -91,6 +92,13 @@ export async function POST(req: Request) {
     if (!placed.success || !placed.bet_id) {
       throw new Error(placed.message || "Aviator service rejected bet");
     }
+
+    await db.transaction.update({
+      where: { reference: stakeReference },
+      data: {
+        metadata: { game: "aviator", roundId: state.round_id, panelIndex, betId: placed.bet_id },
+      },
+    });
 
     return Response.json({
       ok: true,

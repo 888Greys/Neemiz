@@ -2,10 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
+import { applyProfitRetention } from "@/lib/house-retention";
 
 const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_SIDES   = ["Even", "Odd", "Matches", "Differs", "Over", "Under"];
-const MIN_STAKE     = 2_000;
+const MIN_STAKE     = 10;
 const MAX_STAKE     = 10_000;
 
 // House edge ~5% on all contract types.
@@ -49,7 +50,8 @@ export async function POST(req: Request) {
 
   const ticks       = Math.max(1, Math.min(30, durationTicks ?? 5));
   const stakeVal    = stake!;
-  const payoutVal   = Number((stakeVal * payoutRate(side, targetDigit!)).toFixed(2));
+  const grossPayout = Number((stakeVal * payoutRate(side, targetDigit!)).toFixed(2));
+  const payoutVal   = applyProfitRetention(stakeVal, grossPayout);
   const settleBefore = new Date(Date.now() + ticks * 1000 + 90_000); // +90s buffer — covers tick-stream stalls
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
@@ -86,7 +88,7 @@ export async function POST(req: Request) {
           status:    TransactionStatus.COMPLETED,
           reference: `binary-stake-${dbUser.id}-${trade.id}`,
           provider:  "binary",
-          metadata:  { game: "binary", tradeId: trade.id, market, side, targetDigit, durationTicks: ticks },
+          metadata:  { game: "binary", tradeId: trade.id, market, side, targetDigit, durationTicks: ticks, grossPayout },
         },
       });
 

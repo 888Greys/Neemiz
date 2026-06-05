@@ -54,8 +54,8 @@ export async function POST(req: Request) {
   if (!["buy", "sell"].includes(direction)) {
     return Response.json({ error: "Invalid direction" }, { status: 400 });
   }
-  if (size < 2000 || size > 50000) {
-    return Response.json({ error: "Size must be between 2000 and 50000" }, { status: 400 });
+  if (size < 1000 || size > 50000) {
+    return Response.json({ error: "Size must be between 1000 and 50000" }, { status: 400 });
   }
 
   const margin = calcMargin(size);

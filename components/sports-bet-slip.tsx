@@ -75,6 +75,14 @@ function slicePath(i: number) {
 
 type WheelResult = { segmentIndex: number; label: string; multiplier: number; stake: number; winAmount: number; netChange: number };
 
+const MIN_PLAY_AMOUNT = 10;
+const USER_PROFIT_RATE = 0.70;
+
+function retainedPayout(stake: number, grossPayout: number) {
+  if (grossPayout <= stake) return grossPayout;
+  return stake + (grossPayout - stake) * USER_PROFIT_RATE;
+}
+
 function WheelOfFortune({
   balance,
   isSignedIn,
@@ -241,7 +249,7 @@ function WheelOfFortune({
         }`}>
           <span className="shrink-0 text-[11px] font-black text-slate-500">KSh</span>
           <input
-            type="number" min="12.96" placeholder="Bet amount"
+            type="number" min={MIN_PLAY_AMOUNT} placeholder="Bet amount"
             value={amount}
             onChange={(e) => { setAmount(e.target.value); setError(null); }}
             className="min-w-0 flex-1 bg-transparent text-[13px] font-black text-white outline-none placeholder:text-slate-600"
@@ -256,7 +264,7 @@ function WheelOfFortune({
 
       {/* Range hint */}
       <p className="mb-2.5 text-[10px] text-slate-600 self-start">
-        from KSh 12.96 to KSh {balance > 0 ? balance.toLocaleString("en-KE", { maximumFractionDigits: 2 }) : "—"}
+        from KSh {MIN_PLAY_AMOUNT} to KSh {balance > 0 ? balance.toLocaleString("en-KE", { maximumFractionDigits: 2 }) : "—"}
       </p>
 
       {/* Multiplier quick-pick */}
@@ -284,7 +292,7 @@ function WheelOfFortune({
         </Link>
       ) : (
         <button type="button" onClick={spin}
-          disabled={spinning || loading || !amt || amt < 12.96}
+          disabled={spinning || loading || !amt || amt < MIN_PLAY_AMOUNT}
           className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-[0_4px_20px_rgba(8,124,255,.35)] hover:bg-[#0570e8] active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
           {(spinning || loading) ? (
             <LoadingDots label={loading ? "Placing" : "Spinning"} />
@@ -401,7 +409,7 @@ export function SportsBetSlip() {
 
   const totalOdds  = bets.reduce((acc, b) => acc * parseFloat(b.value || "1"), 1);
   const multiStake = parseFloat(amounts["__multi__"] || "0");
-  const multiPayout= multiStake > 0 ? (multiStake * totalOdds).toFixed(2) : null;
+  const multiPayout= multiStake > 0 ? retainedPayout(multiStake, multiStake * totalOdds).toFixed(2) : null;
 
   const fetchMyBets = useCallback(async () => {
     if (!isSignedIn) return;
@@ -432,8 +440,8 @@ export function SportsBetSlip() {
     setPlacedMsg(null);
     try {
       if (tab === "multi") {
-        if (!multiStake || multiStake <= 0) {
-          setPlacedMsg({ ok: false, text: "Enter a stake amount" });
+        if (!multiStake || multiStake < MIN_PLAY_AMOUNT) {
+          setPlacedMsg({ ok: false, text: `Minimum stake is KSh ${MIN_PLAY_AMOUNT}` });
           return;
         }
         const res = await fetch("/api/bets", {
@@ -459,7 +467,7 @@ export function SportsBetSlip() {
         const results = await Promise.all(
           bets.map(async (bet) => {
             const stake = parseFloat(amounts[bet.id] || "0");
-            if (!stake || stake <= 0) return { ok: false, error: "No stake" };
+            if (!stake || stake < MIN_PLAY_AMOUNT) return { ok: false, error: `Minimum stake is KSh ${MIN_PLAY_AMOUNT}` };
             const res = await fetch("/api/bets", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -655,7 +663,8 @@ export function SportsBetSlip() {
             <div className="divide-y divide-white/[0.05]">
               {bets.map((bet) => {
                 const stake  = parseFloat(amounts[bet.id] || "0");
-                const payout = stake > 0 ? (stake * parseFloat(bet.value)).toFixed(2) : null;
+                const grossPayout = stake > 0 ? stake * parseFloat(bet.value) : 0;
+                const payout = stake > 0 ? retainedPayout(stake, grossPayout).toFixed(2) : null;
                 return (
                   <div key={bet.id} className="px-4 py-3">
                     <div className="mb-2.5 flex items-start justify-between gap-2">
@@ -785,7 +794,7 @@ export function SportsBetSlip() {
                         ? (multiPayout ?? "0.00")
                         : bets.reduce((s, b) => {
                             const stake = parseFloat(amounts[b.id] || "0");
-                            return s + (stake > 0 ? stake * parseFloat(b.value) : 0);
+                            return s + (stake > 0 ? retainedPayout(stake, stake * parseFloat(b.value)) : 0);
                           }, 0).toFixed(2)}
                     </span>
                     {/* Share button */}
