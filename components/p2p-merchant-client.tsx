@@ -1032,6 +1032,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     crypto: ad?.crypto ?? "USDT",
     fiat: ad?.fiat ?? "KES",
     pricePerUnit: ad ? String(ad.pricePerUnit) : "",
+    profitMarginPct: "",
     totalAmount: ad ? String(ad.totalAmount) : "",
     minLimit: ad ? String(ad.minLimit) : "",
     maxLimit: ad ? String(ad.maxLimit) : "",
@@ -1044,6 +1045,36 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const [spotRate, setSpotRate] = useState<number | null>(null);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
 
+  function formatPriceInput(value: number, fiat: string): string {
+    if (!Number.isFinite(value) || value <= 0) return "";
+    const decimals = fiat === "KES" ? 2 : 4;
+    return value.toFixed(decimals).replace(/\.?0+$/, "");
+  }
+
+  function setPriceFromMargin(value: string) {
+    setForm((p) => {
+      const pct = Number(value);
+      if (!spotRate || p.crypto === "KES" || value === "" || !Number.isFinite(pct)) {
+        return { ...p, profitMarginPct: value };
+      }
+      return {
+        ...p,
+        profitMarginPct: value,
+        pricePerUnit: formatPriceInput(spotRate * (1 + pct / 100), p.fiat),
+      };
+    });
+  }
+
+  function setPriceManually(value: string) {
+    setForm((p) => {
+      const price = Number(value);
+      const nextMargin = spotRate && p.crypto !== "KES" && price > 0
+        ? (((price / spotRate) - 1) * 100).toFixed(2)
+        : p.profitMarginPct;
+      return { ...p, pricePerUnit: value, profitMarginPct: nextMargin };
+    });
+  }
+
   // Live market rate for the chosen crypto+fiat (for the margin readout).
   useEffect(() => {
     let cancelled = false;
@@ -1051,7 +1082,14 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     fetch(`/api/p2p/spot?crypto=${form.crypto}&fiat=${form.fiat}`)
       .then((r) => r.ok ? r.json() : null)
       .then((d: { rate?: number | null } | null) => {
-        if (!cancelled && typeof d?.rate === "number" && d.rate > 0) setSpotRate(d.rate);
+        if (!cancelled && typeof d?.rate === "number" && d.rate > 0) {
+          setSpotRate(d.rate);
+          setForm((p) => {
+            const currentPrice = Number(p.pricePerUnit);
+            if (p.crypto === "KES" || currentPrice <= 0) return p;
+            return { ...p, profitMarginPct: (((currentPrice / d.rate!) - 1) * 100).toFixed(2) };
+          });
+        }
       })
       .catch(() => { /* no live rate */ });
     return () => { cancelled = true; };
@@ -1059,6 +1097,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
   const priceNum = Number(form.pricePerUnit) || 0;
   const marginPct = spotRate && priceNum > 0 ? ((priceNum / spotRate) - 1) * 100 : null;
+  const canUseMarginPricing = !!spotRate && form.crypto !== "KES";
   const totalAmountNum = Number(form.totalAmount) || 0;
   const requiredKesBacking = totalAmountNum > 0 ? parseFloat((totalAmountNum * 1.01).toFixed(2)) : 0;
   const needsKesBacking = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesBacking > 0 && fiatBalance < requiredKesBacking;
@@ -1165,7 +1204,15 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                       <button
                         key={c.symbol}
                         type="button"
-                        onClick={() => { f("crypto", c.symbol); if (c.symbol === "KES") f("pricePerUnit", "1"); setCryptoOpen(false); }}
+                        onClick={() => {
+                          setForm((p) => ({
+                            ...p,
+                            crypto: c.symbol,
+                            pricePerUnit: c.symbol === "KES" ? "1" : p.pricePerUnit,
+                            profitMarginPct: c.symbol === "KES" ? "0" : "",
+                          }));
+                          setCryptoOpen(false);
+                        }}
                         className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${form.crypto === c.symbol ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1200,27 +1247,78 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
           </div>
 
-          {[
-            { label: `Price per ${form.crypto} (${form.fiat})`, key: "pricePerUnit", ph: form.crypto === "BTC" ? "e.g. 14000000" : form.crypto === "ETH" ? "e.g. 420000" : "e.g. 135" },
-            ...(!isEditing ? [{ label: `Total ${form.crypto} to ${form.side === "SELL" ? "sell" : "buy"}`, key: "totalAmount", ph: form.crypto === "BTC" ? "e.g. 0.001" : form.crypto === "ETH" ? "e.g. 0.01" : "e.g. 10" }] : []),
-          ].map(({ label, key, ph }) => (
-            <div key={key}>
-              <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">{label}</label>
-              <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
-              {key === "pricePerUnit" && form.pricePerUnit && marginPct !== null && (
-                <p className="mt-1 text-[11px] font-bold">
-                  <span className={marginPct > 0.01 ? "text-amber-400" : marginPct < -0.01 ? "text-[#05b957]" : "text-slate-400"}>
-                    {marginPct > 0 ? "+" : ""}{marginPct.toFixed(2)}%
-                  </span>
-                  <span className="text-slate-500"> vs live market · {formatFiat(spotRate!, form.fiat)}/{form.crypto}</span>
-                </p>
-              )}
-              {key === "pricePerUnit" && form.pricePerUnit && marginPct === null && (
-                <p className="mt-1 text-[11px] font-semibold text-slate-600">Live market rate unavailable for {form.crypto}/{form.fiat}</p>
-              )}
+          <div>
+            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">
+              Profit / margin (%)
+            </label>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input
+                type="number"
+                step="0.01"
+                value={form.profitMarginPct}
+                onChange={(e) => setPriceFromMargin(e.target.value)}
+                disabled={!canUseMarginPricing}
+                placeholder={canUseMarginPricing ? "e.g. 3.5" : "Market rate unavailable"}
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <button
+                type="button"
+                disabled={!canUseMarginPricing}
+                onClick={() => setPriceFromMargin("0")}
+                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-xs font-black text-slate-300 transition-colors hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Market
+              </button>
             </div>
-          ))}
+            {canUseMarginPricing ? (
+              <p className="mt-1 text-[11px] font-semibold text-slate-500">
+                Uses live market {formatFiat(spotRate!, form.fiat)}/{form.crypto} to calculate your price.
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] font-semibold text-slate-600">
+                Percentage pricing is not available for {form.crypto}/{form.fiat}; enter the price directly.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">
+              Price per {form.crypto} ({form.fiat})
+            </label>
+            <input
+              type="number"
+              value={form.pricePerUnit}
+              onChange={(e) => setPriceManually(e.target.value)}
+              placeholder={form.crypto === "BTC" ? "e.g. 14000000" : form.crypto === "ETH" ? "e.g. 420000" : "e.g. 135"}
+              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40"
+            />
+            {form.pricePerUnit && marginPct !== null && (
+              <p className="mt-1 text-[11px] font-bold">
+                <span className={marginPct > 0.01 ? "text-amber-400" : marginPct < -0.01 ? "text-[#05b957]" : "text-slate-400"}>
+                  {marginPct > 0 ? "+" : ""}{marginPct.toFixed(2)}%
+                </span>
+                <span className="text-slate-500"> vs live market · {formatFiat(spotRate!, form.fiat)}/{form.crypto}</span>
+              </p>
+            )}
+            {form.pricePerUnit && marginPct === null && (
+              <p className="mt-1 text-[11px] font-semibold text-slate-600">Live market rate unavailable for {form.crypto}/{form.fiat}</p>
+            )}
+          </div>
+
+          {!isEditing && (
+            <div>
+              <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">
+                Total {form.crypto} to {form.side === "SELL" ? "sell" : "buy"}
+              </label>
+              <input
+                type="number"
+                value={form.totalAmount}
+                onChange={(e) => f("totalAmount", e.target.value)}
+                placeholder={form.crypto === "BTC" ? "e.g. 0.001" : form.crypto === "ETH" ? "e.g. 0.01" : "e.g. 10"}
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40"
+              />
+            </div>
+          )}
 
           {needsKesBacking && (
             <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[12px] font-bold text-amber-300">
