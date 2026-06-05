@@ -727,10 +727,13 @@ function AdCard({
         <div className="min-w-0">
           <div className="flex items-center gap-1">
             <span className="truncate text-[12px] font-black text-white">{ad.merchant.displayName}</span>
-            <Icon name="verified" className="shrink-0 text-[12px] text-[#05b957]" />
+            <Icon name="verified" className="shrink-0 text-[10px] text-[#05b957]" />
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-white/45">
-            <span className="flex items-center gap-0.5"><Icon name="thumb_up" className="text-[10px] text-[#05b957]" />{ad.merchant.completionRate.toFixed(0)}%</span>
+            <span className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#05b957]" />
+              {ad.merchant.completionRate.toFixed(0)}%
+            </span>
             <span>{ad.merchant.completedTrades} trades</span>
             <span className="flex items-center gap-1">
               <span className={`h-1.5 w-1.5 rounded-full ${ad.merchant.isOnline ? "bg-[#05b957]" : "bg-slate-600"}`} />
@@ -754,10 +757,9 @@ function AdCard({
           {Math.abs(marginPct) >= 0.1 && (
             <span
               title="Price vs live market rate"
-              className={`inline-flex items-center text-[10px] font-bold leading-none ${marginPct > 0 ? "text-amber-400/90" : "text-[#05b957]"}`}
+              className={`inline-flex items-center rounded-full px-1 text-[10px] font-bold leading-none ${marginPct > 0 ? "text-amber-400/90" : "text-[#05b957]"}`}
             >
-              <Icon name={marginPct > 0 ? "arrow_drop_up" : "arrow_drop_down"} className="-mr-0.5 text-[13px]" />
-              {Math.abs(marginPct).toFixed(1)}%
+              {marginPct > 0 ? "+" : ""}{marginPct.toFixed(1)}%
             </span>
           )}
         </div>
