@@ -839,6 +839,13 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
 
   const isClosed = ["RELEASED", "CANCELLED", "EXPIRED"].includes(order.status);
   const merchantIsSelling = order.side === "SELL";
+  const paymentName = paymentMethodLabel(order.paymentMethod);
+  const tradeVerb = order.isBuyer ? "BUYING" : "SELLING";
+  const counterpartyName = order.isBuyer
+    ? order.seller.displayName
+    : order.buyer.firstName
+    ? `${order.buyer.firstName} ${order.buyer.lastName ?? ""}`.trim()
+    : order.buyer.username ?? "Trader";
   // Use dbUser IDs (CUIDs) — not the Supabase auth UUID — so the Chat "mine" check matches sender.id
   const currentUserId = order.isBuyer ? order.buyer.id : order.seller.userId;
 
@@ -870,7 +877,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <h1 className="text-white font-black text-lg">
-                {order.isBuyer ? "Buy" : "Sell"} {order.crypto}
+                {counterpartyName}
               </h1>
               <P2PStatusBadge status={order.status} size="md" detailed />
             </div>
@@ -886,6 +893,14 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               />
             </div>
           )}
+        </div>
+
+        <div className="mb-4 flex items-center gap-2 rounded-xl bg-[#05b957] px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-[#05b957]/10">
+          <Icon name="shield" className="text-[18px]" />
+          <span className="min-w-0 truncate">
+            {tradeVerb} {Number(order.cryptoAmount).toFixed(6)} {order.crypto} FOR {formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })} {paymentName}
+          </span>
+          <Icon name="expand_more" className="ml-auto text-[18px]" />
         </div>
 
         {/* Trade details grid */}
