@@ -15,9 +15,8 @@ import type {
 } from "@/lib/aviator/types";
 
 const WS_URL = process.env.NEXT_PUBLIC_AVIATOR_WS_URL ?? "wss://aviator.nezeem.com/ws";
-const ENGINE_SOUND_SRC = "/aviator/engine.mp3";
-const CRASH_SOUND_SRC = "/aviator/crash.mp3";
 const HISTORY_STORAGE_KEY = "nezeem_aviator_rounds";
+const SOUND_STORAGE_KEY = "nezeem_aviator_sound_enabled";
 
 function loadStoredHistory(): HistoryRound[] {
   if (typeof window === "undefined") return [];
@@ -33,6 +32,13 @@ function appendStoredHistory(entry: HistoryRound) {
     const updated = [...existing, entry].slice(-80);
     localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
   } catch { /* non-critical */ }
+}
+
+function loadSoundEnabled(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return localStorage.getItem(SOUND_STORAGE_KEY) !== "0";
+  } catch { return true; }
 }
 
 interface HistoryRound {
@@ -81,14 +87,16 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [prevRoundBets,  setPrevRoundBets]  = useState<AviatorBetPublic[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [dualPanel,      setDualPanel]      = useState(false);
+  const [soundEnabled,   setSoundEnabled]   = useState(loadSoundEnabled);
 
   const wsRef          = useRef<WebSocket | null>(null);
   const rafRef         = useRef<number>(0);
   const roundRef       = useRef<AviatorRound | null>(null);
   const liveBetsRef    = useRef<AviatorBetPublic[]>([]);
   const roundCountRef  = useRef(0);
-  const engineAudioRef = useRef<HTMLAudioElement | null>(null);
-  const crashAudioRef  = useRef<HTMLAudioElement | null>(null);
+  const audioCtxRef    = useRef<AudioContext | null>(null);
+  const engineNodesRef = useRef<{ osc: OscillatorNode; gain: GainNode } | null>(null);
+  const soundEnabledRef = useRef(soundEnabled);
   const previousRoundStateRef = useRef<AviatorRoundState | null>(null);
   // tracks which panel index has a pending bet awaiting a bet_id response
   const pendingBetRef  = useRef<{ panelIndex: 0 | 1; amount: number } | null>(null);
@@ -96,57 +104,125 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   useEffect(() => { roundRef.current  = round;     }, [round]);
   useEffect(() => { liveBetsRef.current = liveBets; }, [liveBets]);
+  useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
+
+  const getAudioContext = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    const AudioCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtor) return null;
+    if (!audioCtxRef.current) audioCtxRef.current = new AudioCtor();
+    const ctx = audioCtxRef.current;
+    if (ctx.state === "suspended") ctx.resume().catch(() => undefined);
+    return ctx;
+  }, []);
+
+  const stopEngineSound = useCallback(() => {
+    const ctx = audioCtxRef.current;
+    const nodes = engineNodesRef.current;
+    if (!ctx || !nodes) return;
+    const now = ctx.currentTime;
+    nodes.gain.gain.cancelScheduledValues(now);
+    nodes.gain.gain.setTargetAtTime(0.0001, now, 0.08);
+    window.setTimeout(() => {
+      try { nodes.osc.stop(); } catch { /* already stopped */ }
+      nodes.osc.disconnect();
+      nodes.gain.disconnect();
+      if (engineNodesRef.current === nodes) engineNodesRef.current = null;
+    }, 180);
+  }, []);
+
+  const playTone = useCallback((
+    frequency: number,
+    duration = 0.16,
+    type: OscillatorType = "sine",
+    volume = 0.08,
+    delay = 0,
+  ) => {
+    if (!soundEnabledRef.current) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const start = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(frequency, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(volume, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + duration + 0.03);
+  }, [getAudioContext]);
+
+  const playCrashSound = useCallback(() => {
+    if (!soundEnabledRef.current) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const noiseBuffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.38), ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    const noise = ctx.createBufferSource();
+    const filter = ctx.createBiquadFilter();
+    const gain = ctx.createGain();
+    noise.buffer = noiseBuffer;
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(900, now);
+    filter.frequency.exponentialRampToValueAtTime(120, now + 0.35);
+    gain.gain.setValueAtTime(0.22, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start(now);
+    noise.stop(now + 0.42);
+    playTone(92, 0.28, "sawtooth", 0.12);
+  }, [getAudioContext, playTone]);
+
+  const startEngineSound = useCallback(() => {
+    if (!soundEnabledRef.current || engineNodesRef.current) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(58, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(82, ctx.currentTime + 1.2);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.035, ctx.currentTime + 0.2);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    engineNodesRef.current = { osc, gain };
+  }, [getAudioContext]);
 
   useEffect(() => {
-    const engine = new Audio(ENGINE_SOUND_SRC);
-    engine.loop = true;
-    engine.volume = 0.32;
-    const crash = new Audio(CRASH_SOUND_SRC);
-    crash.volume = 0.62;
-    engineAudioRef.current = engine;
-    crashAudioRef.current = crash;
-
-    const unlockAudio = () => {
-      engine.play()
-        .then(() => {
-          engine.pause();
-          engine.currentTime = 0;
-        })
-        .catch(() => undefined);
-      crash.load();
-    };
-
+    const unlockAudio = () => { getAudioContext(); };
     window.addEventListener("pointerdown", unlockAudio, { once: true });
     return () => {
       window.removeEventListener("pointerdown", unlockAudio);
-      engine.pause();
-      engineAudioRef.current = null;
-      crashAudioRef.current = null;
+      stopEngineSound();
+      audioCtxRef.current?.close().catch(() => undefined);
+      audioCtxRef.current = null;
     };
-  }, []);
+  }, [getAudioContext, stopEngineSound]);
+
+  useEffect(() => {
+    try { localStorage.setItem(SOUND_STORAGE_KEY, soundEnabled ? "1" : "0"); } catch { /* non-critical */ }
+    if (!soundEnabled) stopEngineSound();
+  }, [soundEnabled, stopEngineSound]);
 
   useEffect(() => {
     const state = round?.state ?? "WAITING";
     const previousState = previousRoundStateRef.current;
-    const engine = engineAudioRef.current;
-    const crash = crashAudioRef.current;
 
     if (state === "FLYING") {
-      engine?.play().catch(() => undefined);
+      startEngineSound();
     } else {
-      if (engine) {
-        engine.pause();
-        engine.currentTime = 0;
-      }
+      stopEngineSound();
     }
 
-    if (state === "CRASHED" && previousState !== "CRASHED" && crash) {
-      crash.currentTime = 0;
-      crash.play().catch(() => undefined);
-    }
+    if (state === "CRASHED" && previousState !== "CRASHED") playCrashSound();
 
     previousRoundStateRef.current = state;
-  }, [round?.state]);
+  }, [round?.state, playCrashSound, startEngineSound, stopEngineSound]);
 
   // ── Balance ────────────────────────────────────────────────────────────────
   const fetchBalance = useCallback(async () => {
@@ -415,6 +491,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
     setMyBets((prev) => ({ ...prev, [panelIndex]: tempBet }));
     setBalance((b) => b - amount);
+    playTone(660, 0.09, "triangle", 0.06);
+    playTone(880, 0.12, "triangle", 0.05, 0.08);
 
     const res = await fetch("/api/aviator/bet", {
       method: "POST",
@@ -440,7 +518,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     }));
     await fetchBalance();
     window.dispatchEvent(new Event("wallet-refresh"));
-  }, [userId, username, fetchBalance]);
+  }, [userId, username, fetchBalance, playTone]);
 
   const handleCashout = useCallback(async (panelIndex: 0 | 1) => {
     const bet = myBets[panelIndex];
@@ -474,6 +552,9 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         `Cashed out at ${serverMult.toFixed(2)}×`,
         `+KSh ${serverWin.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       );
+      playTone(720, 0.1, "sine", 0.08);
+      playTone(960, 0.13, "sine", 0.07, 0.08);
+      playTone(1280, 0.16, "sine", 0.06, 0.18);
       window.dispatchEvent(new Event("wallet-refresh"));
     } catch (err) {
       // Server rejected — revert balance
@@ -491,7 +572,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         toast.error("Cashout failed", "Round ended before cashout was processed");
       }
     }
-  }, [multiplier, myBets]);
+  }, [multiplier, myBets, playTone]);
 
   const displayMult = round?.state === "CRASHED" ? (round.crashPoint ?? multiplier) : multiplier;
 
@@ -517,6 +598,17 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             </div>
             <button className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#1f2022] text-white/75" type="button">
               <Icon name="history" className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setSoundEnabled((v) => !v)}
+              className={`grid h-7 w-7 shrink-0 place-items-center rounded-full transition-colors ${
+                soundEnabled ? "bg-[#1f2022] text-[#31c45d]" : "bg-[#1f2022] text-white/35"
+              }`}
+              aria-label={soundEnabled ? "Mute Aviator sounds" : "Enable Aviator sounds"}
+              title={soundEnabled ? "Sound on" : "Sound off"}
+            >
+              <Icon name={soundEnabled ? "notifications" : "notifications_off"} className="h-4 w-4" />
             </button>
           </div>
 
