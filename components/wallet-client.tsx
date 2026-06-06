@@ -8,6 +8,7 @@ import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { LoadingDots } from "@/components/loading-dots";
 import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown";
+import { cachedFetch, getCached } from "@/lib/client-cache";
 
 const QUICK_AMOUNTS = [100, 250, 500, 1_000, 2_500, 5_000];
 const POLL_INTERVAL = 4_000;
@@ -1262,20 +1263,53 @@ function fmtTxAmount(amount: number, currency: string): string {
   return `${amount.toFixed(decimals).replace(/\.?0+$/, "")} ${currency}`;
 }
 
+type WalletTransaction = {
+  id: string;
+  type: string;
+  amount: number;
+  currency: string;
+  status: string;
+  provider?: string | null;
+  reference?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt?: string;
+};
+
+const WALLET_HISTORY_KEY = "/api/wallet/transactions";
+
+function transactionContext(transaction: WalletTransaction): Array<{ label: string; value: string }> {
+  const metadata = transaction.metadata ?? {};
+  const rows: Array<{ label: string; value: string }> = [];
+  const add = (label: string, value: unknown) => {
+    if (typeof value === "string" && value.trim()) rows.push({ label, value });
+    if (typeof value === "number" && Number.isFinite(value)) rows.push({ label, value: String(value) });
+  };
+
+  add("Recipient", metadata.to);
+  add("Sender", metadata.from);
+  add("Phone number", metadata.msisdn ?? metadata.phoneNumber);
+  add("Network", metadata.network);
+  add("Asset", metadata.crypto);
+  add("Wallet address", metadata.address);
+  add("Fee", metadata.feeKes);
+  add("Payout", metadata.payoutKes);
+  return rows;
+}
+
 function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
-  const [txns, setTxns] = useState<
-    Array<{ id: string; type: string; amount: number; currency: string; status: string; provider?: string; createdAt: string }>
-  >([]);
-  const [loading, setLoading] = useState(false);
+  const [initialTransactions] = useState(() => getCached<WalletTransaction[]>(WALLET_HISTORY_KEY));
+  const [txns, setTxns] = useState<WalletTransaction[]>(() => initialTransactions ?? []);
+  const [selected, setSelected] = useState<WalletTransaction | null>(null);
+  const [loading, setLoading] = useState(!initialTransactions);
 
   useEffect(() => {
     if (!isSignedIn) return;
-    setLoading(true);
-    fetch("/api/wallet/transactions")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: unknown) => setTxns(Array.isArray(data) ? data as typeof txns : []))
+    if (!initialTransactions) setLoading(true);
+    cachedFetch<WalletTransaction[]>(WALLET_HISTORY_KEY, true)
+      .then((data) => { if (data) setTxns(data); })
       .finally(() => setLoading(false));
-  }, [isSignedIn]);
+  }, [isSignedIn, initialTransactions]);
 
   if (!isSignedIn) {
     return (
@@ -1317,14 +1351,68 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
     );
   }
 
+  if (selected) {
+    const meta = TXN_META[selected.type] ?? { label: selected.type, icon: "swap_horiz", color: "text-white", sign: "+" as const };
+    const context = transactionContext(selected);
+    return (
+      <div className="animate-in slide-in-from-right-4 fade-in duration-300">
+        <button
+          type="button"
+          onClick={() => setSelected(null)}
+          className="mb-4 flex items-center gap-2 text-sm font-black text-slate-400 transition hover:text-white"
+        >
+          <Icon name="arrow_back" className="text-[18px]" />
+          Transaction history
+        </button>
+
+        <div className="overflow-hidden rounded-3xl bg-[#14161c] ring-1 ring-white/[0.08]">
+          <div className="bg-[radial-gradient(circle_at_top,rgba(8,124,255,0.18),transparent_65%)] px-5 py-7 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.06] ring-1 ring-white/[0.08]">
+              <Icon name={meta.icon} fill className={`text-[30px] ${meta.color}`} />
+            </div>
+            <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-slate-500">{meta.label}</p>
+            <p className={`mt-2 text-3xl font-black ${meta.color}`}>
+              {meta.sign}{fmtTxAmount(selected.amount, selected.currency)}
+            </p>
+            <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase ${
+              selected.status === "COMPLETED"
+                ? "bg-emerald-400/10 text-emerald-400"
+                : selected.status === "FAILED"
+                  ? "bg-red-400/10 text-red-400"
+                  : "bg-amber-400/10 text-amber-400"
+            }`}>
+              {selected.status}
+            </span>
+          </div>
+
+          <div className="space-y-0 border-t border-white/[0.06] px-5 py-2">
+            {[
+              { label: "Date and time", value: new Date(selected.createdAt).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" }) },
+              { label: "Payment method", value: selected.provider ? selected.provider.replace(/_/g, " ").toUpperCase() : "Nezeem wallet" },
+              ...context,
+              { label: "Reference", value: selected.reference ?? selected.id },
+            ].map((row) => (
+              <div key={row.label} className="flex items-start justify-between gap-4 border-b border-white/[0.05] py-3.5 last:border-0">
+                <span className="text-xs font-bold text-slate-500">{row.label}</span>
+                <span className="max-w-[65%] break-all text-right text-xs font-black text-slate-200">{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-2">
+    <div className="animate-in slide-in-from-left-2 fade-in space-y-2 duration-200">
       {txns.map((t) => {
         const meta = TXN_META[t.type] ?? { label: t.type, icon: "swap_horiz", color: "text-white", sign: "+" as const };
         return (
-          <div
+          <button
+            type="button"
             key={t.id}
-            className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 py-3.5 ring-1 ring-white/[0.06]"
+            onClick={() => setSelected(t)}
+            className="flex w-full items-center gap-3 rounded-2xl bg-[#16171d] px-4 py-3.5 text-left ring-1 ring-white/[0.06] transition hover:bg-[#1b1d24] hover:ring-white/[0.12] active:scale-[0.99]"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05]">
               <Icon name={meta.icon} fill className={`text-[18px] ${meta.color}`} />
@@ -1356,7 +1444,8 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
                 {t.status}
               </p>
             </div>
-          </div>
+            <Icon name="chevron_right" className="text-[18px] text-slate-700" />
+          </button>
         );
       })}
     </div>
