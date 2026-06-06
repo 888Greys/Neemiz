@@ -22,56 +22,6 @@ interface ToastItem {
   description?: string;
 }
 
-/* ── Audio feedback ── */
-function playToastSound(type: ToastType) {
-  if (typeof window === "undefined") return;
-  try {
-    const ctx = new AudioContext();
-    const master = ctx.createGain();
-    master.gain.setValueAtTime(0.18, ctx.currentTime);
-    master.connect(ctx.destination);
-
-    const tone = (freq: number, start: number, duration: number, endFreq?: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(master);
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
-      if (endFreq) osc.frequency.linearRampToValueAtTime(endFreq, ctx.currentTime + start + duration);
-      gain.gain.setValueAtTime(0, ctx.currentTime + start);
-      gain.gain.linearRampToValueAtTime(1, ctx.currentTime + start + 0.01);
-      gain.gain.setValueAtTime(1, ctx.currentTime + start + duration - 0.04);
-      gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + duration);
-      osc.start(ctx.currentTime + start);
-      osc.stop(ctx.currentTime + start + duration);
-    }
-
-    if (type === "cashout") {
-      // Ascending win fanfare: C5 E5 G5 C6
-      tone(523, 0,    0.12);
-      tone(659, 0.1,  0.12);
-      tone(784, 0.2,  0.12);
-      tone(1047, 0.3, 0.22);
-    } else if (type === "success") {
-      // Two-note positive chime
-      tone(660, 0,   0.12);
-      tone(880, 0.13, 0.18);
-    } else if (type === "error") {
-      // Descending dull thud
-      tone(330, 0,   0.14, 220);
-      tone(220, 0.15, 0.18);
-    } else {
-      // Info: single soft beep
-      tone(660, 0, 0.14);
-    }
-
-    setTimeout(() => ctx.close(), 1500);
-  } catch {
-    // AudioContext blocked (e.g. no user gesture yet) — silently ignore
-  }
-}
-
 /* ── Global queue — modules call toast.success() outside React ── */
 type Listener = (t: ToastItem) => void;
 const listeners: Set<Listener> = new Set();
@@ -79,7 +29,6 @@ const listeners: Set<Listener> = new Set();
 function fire(type: ToastType, title: string, description?: string) {
   const id = Math.random().toString(36).slice(2, 9);
   const item: ToastItem = { id, type, title, description };
-  playToastSound(type);
   listeners.forEach((fn) => fn(item));
 }
 
@@ -121,23 +70,30 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
     : item.type === "error" ? "ring-red-500/20"
     : "ring-[#087cff]/20";
 
-  const bgColor = item.type === "cashout" ? "bg-[#1c1500]" : "bg-[#17181e]";
+  const accentColor =
+    item.type === "success" ? "bg-emerald-400"
+    : item.type === "cashout" ? "bg-amber-400"
+    : item.type === "error" ? "bg-red-400"
+    : "bg-[#2a90ff]";
 
   return (
     <div
-      className={`flex items-start gap-3 rounded-2xl ${bgColor} px-4 py-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.6)] ring-1 ${ringColor} transition-all duration-300 ${
-        visible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"
+      className={`relative flex items-start gap-3 overflow-hidden rounded-2xl bg-[#111319]/95 px-4 py-4 shadow-[0_18px_55px_rgba(0,0,0,0.65)] ring-1 backdrop-blur-xl ${ringColor} transition-[transform,opacity] duration-500 ease-out ${
+        visible ? "translate-x-0 scale-100 opacity-100" : "translate-x-10 scale-[0.96] opacity-0"
       }`}
-      style={{ minWidth: 260, maxWidth: 340 }}
+      style={{ minWidth: 300, maxWidth: 380 }}
     >
+      <div className={`absolute inset-y-0 left-0 w-1 ${accentColor}`} />
       {/* Icon */}
-      <IconComponent className={`shrink-0 mt-0.5 ${iconColor}`} size={20} strokeWidth={2.5} />
+      <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] ${iconColor}`}>
+        <IconComponent size={21} strokeWidth={2.5} />
+      </div>
 
       {/* Text */}
       <div className="min-w-0 flex-1">
-        <p className="text-[13px] font-black text-white leading-snug">{item.title}</p>
+        <p className="text-sm font-black leading-snug text-white">{item.title}</p>
         {item.description && (
-          <p className="mt-0.5 text-[11px] text-slate-400 leading-snug">{item.description}</p>
+          <p className="mt-1 text-xs font-medium leading-relaxed text-slate-300">{item.description}</p>
         )}
       </div>
 
@@ -149,6 +105,10 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
       >
         <X size={15} strokeWidth={2} />
       </button>
+      <div
+        className={`absolute bottom-0 left-0 h-0.5 ${accentColor} transition-[width] ease-linear`}
+        style={{ width: visible ? "0%" : "100%", transitionDuration: visible ? "3800ms" : "0ms" }}
+      />
     </div>
   );
 }
@@ -177,7 +137,7 @@ export function Toaster() {
   return createPortal(
     <div
       aria-live="polite"
-      className="pointer-events-none fixed top-4 right-4 z-[9999] flex flex-col items-end gap-2"
+      className="pointer-events-none fixed right-3 top-3 z-[9999] flex flex-col items-end gap-3 sm:right-5 sm:top-5"
     >
       {items.map((item) => (
         <div key={item.id} className="pointer-events-auto">
