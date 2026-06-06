@@ -24,8 +24,12 @@ const MIN_WITHDRAWAL: Record<string, number> = {
   LINK:  0.1,
 };
 
-// Platform fee (5%) deducted from requested amount
-const FEE_RATE = 0.05;
+// Keep the platform fee configurable. It is disabled while withdrawals are
+// being tested; network gas is funded separately by the platform hot wallet.
+const configuredFeeRate = Number(process.env.CRYPTO_WITHDRAWAL_FEE_RATE ?? "0");
+const FEE_RATE = Number.isFinite(configuredFeeRate)
+  ? Math.min(Math.max(configuredFeeRate, 0), 1)
+  : 0;
 
 /**
  * POST /api/crypto/withdraw
