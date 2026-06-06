@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 
 type UserData = {
   email?: string | null;
@@ -25,15 +26,28 @@ export async function getOrCreateUser(supabaseId: string, data?: UserData) {
     return existing;
   }
 
-  return db.user.create({
-    data: {
-      supabaseId,
-      email: data?.email ?? null,
-      phone: data?.phone ?? null,
-      username: data?.username ?? null,
-      firstName: data?.firstName ?? null,
-      lastName: data?.lastName ?? null,
-      imageUrl: data?.imageUrl ?? null,
-    },
-  });
+  try {
+    return await db.user.create({
+      data: {
+        supabaseId,
+        email: data?.email ?? null,
+        phone: data?.phone ?? null,
+        username: data?.username ?? null,
+        firstName: data?.firstName ?? null,
+        lastName: data?.lastName ?? null,
+        imageUrl: data?.imageUrl ?? null,
+      },
+    });
+  } catch (error) {
+    // Concurrent authenticated requests can both observe a missing user. The
+    // request that loses the unique-key race should use the row just created.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const created = await db.user.findUnique({ where: { supabaseId } });
+      if (created) {
+        if (!created.isActive) throw new SuspendedAccountError();
+        return created;
+      }
+    }
+    throw error;
+  }
 }
