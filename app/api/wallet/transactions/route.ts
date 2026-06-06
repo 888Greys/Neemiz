@@ -26,7 +26,10 @@ export async function GET() {
         currency: true,
         status: true,
         provider: true,
+        reference: true,
+        metadata: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -38,8 +41,12 @@ export async function GET() {
         currency: t.currency,
         status: t.status,
         provider: t.provider,
+        reference: t.reference,
+        metadata: t.metadata,
         createdAt: t.createdAt,
-      }))
+        updatedAt: t.updatedAt,
+      })),
+      { headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=30" } },
     );
   } catch (err) {
     console.error("Wallet transactions route error:", err);
