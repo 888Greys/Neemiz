@@ -5,6 +5,10 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "toxicgreys001@gmail.com";
 
 async function sendEmail(to: string, toName: string, subject: string, htmlContent: string) {
+  if (!BREVO_API_KEY || !BREVO_SENDER_EMAIL) {
+    console.error("Brevo send skipped: email configuration is missing");
+    return;
+  }
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" },
@@ -14,51 +18,70 @@ async function sendEmail(to: string, toName: string, subject: string, htmlConten
       subject,
       htmlContent,
     }),
+    signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) console.error("Brevo send failed:", await res.text());
+  if (!res.ok) throw new Error(`Brevo send failed: ${await res.text()}`);
 }
 
 // ─── Shared Layout ────────────────────────────────────────────────────────────
 
-function emailWrapper(content: string, footerExtra?: string) {
+function emailWrapper(content: string, footerExtra?: string, preheader = "An update from your Nezeem account") {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+    table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
+    table { border-collapse:collapse !important; }
+    @media only screen and (max-width:620px) {
+      .outer-pad { padding:0 !important; }
+      .email-shell { width:100% !important; max-width:100% !important; }
+      .email-card { border-radius:0 !important; border-left:0 !important; border-right:0 !important; }
+      .email-pad { padding:26px 20px !important; }
+      .logo-pad { padding:22px 16px !important; }
+      .footer-pad { padding:20px 16px 28px !important; }
+      .cta-table, .cta-cell, .cta-link { width:100% !important; }
+      .cta-link { box-sizing:border-box !important; text-align:center !important; padding:14px 18px !important; }
+      .detail-label, .detail-value { display:block !important; width:100% !important; text-align:left !important; }
+      .detail-value { padding-top:4px !important; }
+    }
+  </style>
 </head>
-<body style="margin:0;padding:0;background:#f0f2f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:40px 16px;">
+<body style="margin:0;padding:0;background:#eef1f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preheader}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="outer-pad" style="background:#eef1f5;padding:32px 16px;">
     <tr><td align="center">
-      <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="email-shell" style="max-width:600px;width:100%;">
 
         <!-- Logo header -->
-        <tr><td align="center" style="padding-bottom:24px;">
+        <tr><td align="center" class="logo-pad" style="padding:4px 16px 24px;">
           <a href="${APP_URL}" style="text-decoration:none;">
-            <span style="font-size:28px;font-weight:900;letter-spacing:-0.5px;color:#1a1a2e;">Ne<span style="color:#087cff;">zeem</span></span>
+            <span style="font-size:28px;font-weight:900;letter-spacing:0;color:#17192a;">Ne<span style="color:#1687ff;">zeem</span></span>
           </a>
         </td></tr>
 
         <!-- Card -->
-        <tr><td style="background:#ffffff;border-radius:16px;border:1px solid #e2e6ea;overflow:hidden;">
+        <tr><td class="email-card" style="background:#ffffff;border-radius:8px;border:1px solid #dfe3e9;overflow:hidden;">
           <table width="100%" cellpadding="0" cellspacing="0">
-            <tr><td style="padding:36px 40px;">
+            <tr><td class="email-pad" style="padding:38px 42px;">
               ${content}
             </td></tr>
           </table>
         </td></tr>
 
         <!-- Footer -->
-        <tr><td style="padding-top:24px;text-align:center;">
-          ${footerExtra ? `<p style="margin:0 0 10px;font-size:12px;color:#8a94a6;">${footerExtra}</p>` : ""}
-          <p style="margin:0 0 6px;font-size:12px;color:#8a94a6;">
-            <a href="${APP_URL}" style="color:#087cff;text-decoration:none;">nezeem.com</a>
+        <tr><td class="footer-pad" style="padding:22px 16px 8px;text-align:center;">
+          ${footerExtra ? `<p style="margin:0 0 10px;font-size:12px;color:#8991a3;line-height:1.6;">${footerExtra}</p>` : ""}
+          <p style="margin:0 0 6px;font-size:12px;color:#8991a3;">
+            <a href="${APP_URL}" style="color:#1687ff;text-decoration:none;">nezeem.com</a>
             &nbsp;·&nbsp;
             <a href="${APP_URL}/support" style="color:#8a94a6;text-decoration:none;">Support</a>
             &nbsp;·&nbsp;
             <a href="${APP_URL}/legal/privacy" style="color:#8a94a6;text-decoration:none;">Privacy</a>
           </p>
-          <p style="margin:0;font-size:11px;color:#b0b8c4;">© ${new Date().getFullYear()} Nezeem. All rights reserved.</p>
+          <p style="margin:0;font-size:11px;color:#626a7a;">&copy; ${new Date().getFullYear()} Nezeem. All rights reserved.</p>
         </td></tr>
 
       </table>
@@ -70,23 +93,72 @@ function emailWrapper(content: string, footerExtra?: string) {
 
 function detailRow(label: string, value: string, last = false) {
   return `<tr>
-    <td style="padding:12px 0;${last ? "" : "border-bottom:1px solid #f0f2f5;"}">
+    <td style="padding:13px 0;${last ? "" : "border-bottom:1px solid #e8ebef;"}">
       <table width="100%" cellpadding="0" cellspacing="0"><tr>
-        <td style="font-size:13px;color:#8a94a6;">${label}</td>
-        <td align="right" style="font-size:13px;font-weight:600;color:#1a1a2e;">${value}</td>
+        <td class="detail-label" style="font-size:13px;color:#8991a3;">${label}</td>
+        <td class="detail-value" align="right" style="font-size:13px;font-weight:700;color:#1a1a2e;">${value}</td>
       </tr></table>
     </td>
   </tr>`;
 }
 
 function ctaButton(href: string, label: string, color = "#087cff") {
-  return `<table cellpadding="0" cellspacing="0" style="margin-top:28px;">
-    <tr><td align="center">
-      <a href="${href}" style="display:inline-block;background:${color};color:#ffffff;font-weight:700;font-size:15px;padding:14px 36px;border-radius:10px;text-decoration:none;letter-spacing:0.2px;">
+  return `<table role="presentation" cellpadding="0" cellspacing="0" class="cta-table" style="margin-top:28px;">
+    <tr><td align="center" class="cta-cell">
+      <a href="${href}" class="cta-link" style="display:inline-block;background:${color};color:#ffffff;font-weight:800;font-size:15px;padding:14px 36px;border-radius:8px;text-decoration:none;letter-spacing:0;">
         ${label}
       </a>
     </td></tr>
   </table>`;
+}
+
+export async function sendGameResultEmail(
+  to: string,
+  displayName: string,
+  opts: {
+    game: string;
+    outcome: "WON" | "LOST" | "VOID";
+    stake: number;
+    payout?: number;
+    reference: string;
+    summary?: string;
+    href: string;
+  },
+) {
+  const won = opts.outcome === "WON";
+  const voided = opts.outcome === "VOID";
+  const color = won ? "#05c46b" : voided ? "#f5a524" : "#ff4d5e";
+  const title = won ? "You won!" : voided ? "Bet refunded" : "Bet settled";
+  const subject = won
+    ? `You won KSh ${Number(opts.payout ?? 0).toLocaleString("en-KE")} on Nezeem`
+    : voided
+      ? `${opts.game} bet refunded`
+      : `${opts.game} bet result`;
+
+  await sendEmail(
+    to,
+    displayName || "Trader",
+    subject,
+    emailWrapper(`
+      <div style="text-align:center;padding-bottom:26px;border-bottom:1px solid #e8ebef;margin-bottom:24px;">
+        <div style="display:inline-block;width:54px;height:54px;background:${color}20;border-radius:50%;line-height:54px;text-align:center;font-size:25px;font-weight:900;color:${color};margin-bottom:15px;">${won ? "&#10003;" : voided ? "&#8634;" : "&#8212;"}</div>
+        <p style="margin:0 0 5px;font-size:12px;font-weight:800;color:${color};text-transform:uppercase;letter-spacing:1px;">${opts.game}</p>
+        <h1 style="margin:0 0 9px;font-size:25px;font-weight:900;color:#17192a;letter-spacing:0;">${title}</h1>
+        <p style="margin:0;font-size:14px;color:#667085;line-height:1.65;">${opts.summary ?? (won ? "Your winnings have been credited to your wallet." : voided ? "Your stake has been returned to your wallet." : "This bet did not win.")}</p>
+      </div>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f7fa;border-radius:8px;margin-bottom:4px;">
+        <tr><td style="padding:4px 20px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            ${detailRow("Result", `<strong style="color:${color};">${opts.outcome}</strong>`)}
+            ${detailRow("Stake", `KSh ${opts.stake.toLocaleString("en-KE")}`)}
+            ${opts.payout !== undefined ? detailRow(won ? "Credited" : "Returned", `KSh ${opts.payout.toLocaleString("en-KE")}`) : ""}
+            ${detailRow("Reference", opts.reference.slice(0, 18).toUpperCase(), true)}
+          </table>
+        </td></tr>
+      </table>
+      ${ctaButton(opts.href, "View details", color)}
+    `, "This is a transactional account notification.", `${opts.game} result: ${opts.outcome}`)
+  );
 }
 
 // ─── Welcome Email ────────────────────────────────────────────────────────────

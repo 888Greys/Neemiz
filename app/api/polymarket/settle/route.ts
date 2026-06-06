@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { fetchResolutionDetail } from "@/lib/polymarket";
 import { TransactionType, TransactionStatus } from "@prisma/client";
+import { sendGameResultEmail } from "@/lib/brevo";
 
 export const runtime = "nodejs";
 
@@ -27,6 +28,7 @@ async function voidStalePolymarketBets(
       status: "PENDING",
       createdAt: { lt: cutoff },
     },
+    include: { user: { select: { email: true, firstName: true, username: true } } },
   });
 
   let voided = 0;
@@ -60,8 +62,28 @@ async function voidStalePolymarketBets(
           metadata: { game: "polymarket", marketId, reason },
         },
       });
+      await tx.notification.create({
+        data: {
+          userId: bet.userId,
+          type: "POLYMARKET_VOID",
+          title: "Prediction refunded",
+          body: `Your KSh ${Number(bet.stake).toLocaleString("en-KE")} stake was refunded.`,
+          link: "/polymarket",
+        },
+      });
     });
-    if (didVoid) voided++;
+    if (didVoid) {
+      voided++;
+      if (bet.user.email) sendGameResultEmail(bet.user.email, bet.user.firstName || bet.user.username || "Trader", {
+        game: "Polymarket",
+        outcome: "VOID",
+        stake: Number(bet.stake),
+        payout: Number(bet.stake),
+        reference: bet.id,
+        summary: "The market could not be resolved safely, so your stake was returned.",
+        href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/polymarket`,
+      }).catch((err) => console.error(`Polymarket void email failed for ${bet.id}:`, err));
+    }
   }
 
   return voided;
@@ -112,20 +134,22 @@ async function settlePolymarket(req: Request) {
 
     const bets = await db.polymarketBet.findMany({
       where: { marketId, question, status: "PENDING" },
+      include: { user: { select: { email: true, firstName: true, username: true } } },
     });
 
     for (const bet of bets) {
       const won = bet.outcome.toLowerCase() === winningOutcome.toLowerCase();
 
-      await db.$transaction(async (tx) => {
-        await tx.polymarketBet.update({
-          where: { id: bet.id },
+      const didSettle = await db.$transaction(async (tx) => {
+        const updated = await tx.polymarketBet.updateMany({
+          where: { id: bet.id, status: "PENDING" },
           data: {
             status:    won ? "WON" : "LOST",
             settledAt: new Date(),
             winAmount: won ? bet.potentialWin : null,
           },
         });
+        if (updated.count === 0) return false;
 
         if (won) {
           await tx.user.update({
@@ -145,9 +169,32 @@ async function settlePolymarket(req: Request) {
             },
           });
         }
+        await tx.notification.create({
+          data: {
+            userId: bet.userId,
+            type: won ? "POLYMARKET_WON" : "POLYMARKET_LOST",
+            title: won ? "Prediction won" : "Prediction settled",
+            body: won
+              ? `KSh ${Number(bet.potentialWin).toLocaleString("en-KE")} was credited to your wallet.`
+              : "Your market prediction did not win.",
+            link: "/polymarket",
+          },
+        });
+        return true;
       });
 
-      settled++;
+      if (didSettle) {
+        settled++;
+        if (bet.user.email) sendGameResultEmail(bet.user.email, bet.user.firstName || bet.user.username || "Trader", {
+          game: "Polymarket",
+          outcome: won ? "WON" : "LOST",
+          stake: Number(bet.stake),
+          payout: won ? Number(bet.potentialWin) : undefined,
+          reference: bet.id,
+          summary: `${question} - your prediction was ${bet.outcome}.`,
+          href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/polymarket`,
+        }).catch((err) => console.error(`Polymarket result email failed for ${bet.id}:`, err));
+      }
     }
   }
 
