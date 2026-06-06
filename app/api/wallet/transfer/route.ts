@@ -92,14 +92,23 @@ export async function POST(req: Request) {
           },
         ],
       });
-      await tx.notification.create({
-        data: {
-          userId: recipient.id,
-          type: "wallet_deposit",
-          title: "Money received",
-          body: `@${sender.username} sent you KSh ${amount.toLocaleString("en-KE")}.`,
-          link: "/wallet",
-        },
+      await tx.notification.createMany({
+        data: [
+          {
+            userId: sender.id,
+            type: "wallet_transfer_sent",
+            title: "Money sent",
+            body: `You sent KSh ${amount.toLocaleString("en-KE")} to @${recipient.username}.`,
+            link: "/wallet",
+          },
+          {
+            userId: recipient.id,
+            type: "wallet_transfer_received",
+            title: "Money received",
+            body: `@${sender.username} sent you KSh ${amount.toLocaleString("en-KE")}.`,
+            link: "/wallet",
+          },
+        ],
       });
       const updated = await tx.user.findUnique({ where: { id: sender.id }, select: { walletBalance: true } });
       return Number(updated?.walletBalance ?? 0);
