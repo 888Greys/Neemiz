@@ -8,108 +8,109 @@ datasource db {
 }
 
 model User {
-  id             String        @id @default(cuid())
-  supabaseId     String        @unique @map("supabase_id")
-  email          String?       @unique
-  phone          String?       @unique
-  username       String?       @unique
-  usernameChangedAt DateTime?  @map("username_changed_at")
-  firstName      String?       @map("first_name")
-  lastName       String?       @map("last_name")
-  imageUrl       String?       @map("image_url")
-  walletBalance  Decimal       @default(0.00) @map("wallet_balance") @db.Decimal(18, 2)
-  currency       String        @default("KES")
-  isActive       Boolean       @default(true) @map("is_active")
-  isAdmin        Boolean       @default(false) @map("is_admin")
-  totpSecret     String?       @map("totp_secret")
-  totpEnabled    Boolean       @default(false) @map("totp_enabled")
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
+  id                String    @id @default(cuid())
+  supabaseId        String    @unique @map("supabase_id")
+  email             String?   @unique
+  phone             String?   @unique
+  username          String?   @unique
+  usernameChangedAt DateTime? @map("username_changed_at")
+  firstName         String?   @map("first_name")
+  lastName          String?   @map("last_name")
+  imageUrl          String?   @map("image_url")
+  walletBalance     Decimal   @default(0.00) @map("wallet_balance") @db.Decimal(18, 2)
+  currency          String    @default("KES")
+  isActive          Boolean   @default(true) @map("is_active")
+  isAdmin           Boolean   @default(false) @map("is_admin")
+  totpSecret        String?   @map("totp_secret")
+  totpEnabled       Boolean   @default(false) @map("totp_enabled")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
 
-  bets              Bet[]
-  transactions      Transaction[]
+  bets         Bet[]
+  transactions Transaction[]
 
   // P2P
-  merchantProfile   MerchantProfile?
-  p2pBuyOrders      P2POrder[]        @relation("P2PBuyer")
-  p2pMessages       P2PMessage[]
-  notifications     Notification[]
-  cryptoBalances    UserCryptoBalance[]
-  depositAddresses  CryptoDepositAddress[]
+  merchantProfile  MerchantProfile?
+  p2pBuyOrders     P2POrder[]             @relation("P2PBuyer")
+  p2pMessages      P2PMessage[]
+  notifications    Notification[]
+  cryptoBalances   UserCryptoBalance[]
+  depositAddresses CryptoDepositAddress[]
 
   // Aviator
-  aviatorBets       AviatorBet[]
+  aviatorBets AviatorBet[]
 
   // Polymarket
-  polymarketBets    PolymarketBet[]
+  polymarketBets PolymarketBet[]
 
   // Binary
-  binaryTrades      BinaryTrade[]
+  binaryTrades BinaryTrade[]
 
   // Forex
-  forexTrades       ForexTrade[]
+  forexTrades ForexTrade[]
 
   @@map("users")
 }
 
 model Bet {
-  id           String    @id @default(cuid())
-  userId       String    @map("user_id")
-  user         User      @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
 
   // Bet details
   betType      BetType   @default(SINGLE) @map("bet_type")
   stake        Decimal   @db.Decimal(18, 2)
-  totalOdds    Decimal   @db.Decimal(10, 4) @map("total_odds")
-  potentialWin Decimal   @db.Decimal(18, 2) @map("potential_win")
+  totalOdds    Decimal   @map("total_odds") @db.Decimal(10, 4)
+  potentialWin Decimal   @map("potential_win") @db.Decimal(18, 2)
   status       BetStatus @default(PENDING)
 
   // Settlement
-  settledAt    DateTime? @map("settled_at")
-  winAmount    Decimal?  @db.Decimal(18, 2) @map("win_amount")
+  settledAt DateTime? @map("settled_at")
+  winAmount Decimal?  @map("win_amount") @db.Decimal(18, 2)
 
-  selections   BetSelection[]
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  selections BetSelection[]
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
 
   @@map("bets")
 }
 
 model BetSelection {
-  id          String  @id @default(cuid())
-  betId       String  @map("bet_id")
-  bet         Bet     @relation(fields: [betId], references: [id])
+  id    String @id @default(cuid())
+  betId String @map("bet_id")
+  bet   Bet    @relation(fields: [betId], references: [id])
 
-  fixtureId   String  @map("fixture_id")
-  matchName   String  @map("match_name")
-  market      String
-  label       String
-  odds        Decimal @db.Decimal(10, 4)
+  fixtureId String  @map("fixture_id")
+  matchName String  @map("match_name")
+  market    String
+  label     String
+  odds      Decimal @db.Decimal(10, 4)
 
   // Settlement
-  result      SelectionResult @default(PENDING)
+  result SelectionResult @default(PENDING)
 
   @@map("bet_selections")
 }
 
 model Transaction {
-  id          String            @id @default(cuid())
-  userId      String            @map("user_id")
-  user        User              @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
 
-  type        TransactionType
-  amount      Decimal           @db.Decimal(18, 2)
-  currency    String            @default("KES")
-  status      TransactionStatus @default(PENDING)
+  type     TransactionType
+  amount   Decimal           @db.Decimal(18, 2)
+  currency String            @default("KES")
+  status   TransactionStatus @default(PENDING)
 
   // Payment provider reference
-  reference   String?           @unique
-  provider    String?           // "megapay", "crypto", "manual"
-  metadata    Json?
+  reference String? @unique
+  provider  String? // "megapay", "crypto", "manual"
+  metadata  Json?
 
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([userId, createdAt(sort: Desc)])
   @@map("transactions")
 }
 
@@ -153,172 +154,177 @@ enum TransactionStatus {
 // ─── P2P Trading ────────────────────────────────────────────────────────────
 
 model MerchantProfile {
-  id               String    @id @default(cuid())
-  userId           String    @unique @map("user_id")
-  user             User      @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
 
-  displayName      String    @map("display_name")
-  avatarUrl        String?   @map("avatar_url")
-  isVerified       Boolean   @default(false) @map("is_verified")
-  isOnline         Boolean   @default(false) @map("is_online")
-  lastSeenAt       DateTime? @map("last_seen_at")
+  displayName String    @map("display_name")
+  avatarUrl   String?   @map("avatar_url")
+  isVerified  Boolean   @default(false) @map("is_verified")
+  isOnline    Boolean   @default(false) @map("is_online")
+  lastSeenAt  DateTime? @map("last_seen_at")
 
   // Stats
-  totalTrades      Int       @default(0) @map("total_trades")
-  completedTrades  Int       @default(0) @map("completed_trades")
-  completionRate   Decimal   @default(100) @map("completion_rate") @db.Decimal(5, 2)
-  avgReleaseTime   Int       @default(0) @map("avg_release_time") // minutes
+  totalTrades     Int     @default(0) @map("total_trades")
+  completedTrades Int     @default(0) @map("completed_trades")
+  completionRate  Decimal @default(100) @map("completion_rate") @db.Decimal(5, 2)
+  avgReleaseTime  Int     @default(0) @map("avg_release_time") // minutes
 
   // KYC
-  kycStatus        KycStatus @default(PENDING) @map("kyc_status")
-  kycDocumentUrl   String?   @map("kyc_document_url")
-  kycNote          String?   @map("kyc_note")
+  kycStatus      KycStatus @default(PENDING) @map("kyc_status")
+  kycDocumentUrl String?   @map("kyc_document_url")
+  kycNote        String?   @map("kyc_note")
 
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  ads              P2PAd[]
-  sellOrders       P2POrder[] @relation("P2PSeller")
-  paymentMethods   P2PPaymentMethod[]
-  cryptoBalances   P2PCryptoBalance[]
-  cryptoDeposits   P2PCryptoDeposit[]
+  ads            P2PAd[]
+  sellOrders     P2POrder[]         @relation("P2PSeller")
+  paymentMethods P2PPaymentMethod[]
+  cryptoBalances P2PCryptoBalance[]
+  cryptoDeposits P2PCryptoDeposit[]
 
   @@map("merchant_profiles")
 }
 
 model P2PPaymentMethod {
-  id           String          @id @default(cuid())
-  merchantId   String          @map("merchant_id")
-  merchant     MerchantProfile @relation(fields: [merchantId], references: [id])
+  id         String          @id @default(cuid())
+  merchantId String          @map("merchant_id")
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
 
-  type         PaymentType     // MPESA | BANK
-  name         String          // e.g. "Equity Bank", "Safaricom M-Pesa"
-  accountName  String          @map("account_name")
-  accountNo    String          @map("account_no")  // phone or account number
-  bankName     String?         @map("bank_name")
-  isActive     Boolean         @default(true) @map("is_active")
+  type        PaymentType // MPESA | BANK
+  name        String // e.g. "Equity Bank", "Safaricom M-Pesa"
+  accountName String      @map("account_name")
+  accountNo   String      @map("account_no") // phone or account number
+  bankName    String?     @map("bank_name")
+  isActive    Boolean     @default(true) @map("is_active")
 
-  createdAt    DateTime        @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@map("p2p_payment_methods")
 }
 
 model P2PCryptoBalance {
-  id           String          @id @default(cuid())
-  merchantId   String          @map("merchant_id")
-  merchant     MerchantProfile @relation(fields: [merchantId], references: [id])
+  id         String          @id @default(cuid())
+  merchantId String          @map("merchant_id")
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
 
-  crypto       String          // "USDT", "BTC", "ETH"
-  total        Decimal         @default(0) @db.Decimal(18, 8)
-  locked       Decimal         @default(0) @db.Decimal(18, 8) // in active orders
-  available    Decimal         @default(0) @db.Decimal(18, 8) // total - locked
+  crypto    String // "USDT", "BTC", "ETH"
+  total     Decimal @default(0) @db.Decimal(18, 8)
+  locked    Decimal @default(0) @db.Decimal(18, 8) // in active orders
+  available Decimal @default(0) @db.Decimal(18, 8) // total - locked
 
-  updatedAt    DateTime        @updatedAt @map("updated_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@unique([merchantId, crypto])
   @@map("p2p_crypto_balances")
 }
 
 model P2PAd {
-  id              String          @id @default(cuid())
-  merchantId      String          @map("merchant_id")
-  merchant        MerchantProfile @relation(fields: [merchantId], references: [id])
+  id         String          @id @default(cuid())
+  merchantId String          @map("merchant_id")
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
 
-  side            AdSide          // BUY | SELL
-  crypto          String          // "USDT", "BTC", "ETH"
-  fiat            String          @default("KES")
+  side   AdSide // BUY | SELL
+  crypto String // "USDT", "BTC", "ETH"
+  fiat   String @default("KES")
 
-  pricePerUnit    Decimal         @map("price_per_unit") @db.Decimal(18, 2) // KES per 1 crypto
-  totalAmount     Decimal         @map("total_amount") @db.Decimal(18, 8)   // total crypto
-  availableAmount Decimal         @map("available_amount") @db.Decimal(18, 8)
+  pricePerUnit    Decimal @map("price_per_unit") @db.Decimal(18, 2) // KES per 1 crypto
+  totalAmount     Decimal @map("total_amount") @db.Decimal(18, 8) // total crypto
+  availableAmount Decimal @map("available_amount") @db.Decimal(18, 8)
 
-  minLimit        Decimal         @map("min_limit") @db.Decimal(18, 2) // min KES
-  maxLimit        Decimal         @map("max_limit") @db.Decimal(18, 2) // max KES
+  minLimit Decimal @map("min_limit") @db.Decimal(18, 2) // min KES
+  maxLimit Decimal @map("max_limit") @db.Decimal(18, 2) // max KES
 
-  paymentMethods  String[]        @map("payment_methods") // ["mpesa","bank"]
-  paymentWindow   Int             @default(15) @map("payment_window") // minutes
-  terms           String?
+  paymentMethods String[] @map("payment_methods") // ["mpesa","bank"]
+  paymentWindow  Int      @default(15) @map("payment_window") // minutes
+  terms          String?
 
-  isActive        Boolean         @default(true) @map("is_active")
-  featured        Boolean         @default(false) // promoted/paid placement
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  isActive  Boolean  @default(true) @map("is_active")
+  featured  Boolean  @default(false) // promoted/paid placement
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  orders          P2POrder[]
+  orders P2POrder[]
 
+  @@index([isActive, side, crypto, fiat, featured, createdAt(sort: Desc)])
+  @@index([merchantId, createdAt(sort: Desc)])
   @@map("p2p_ads")
 }
 
 model P2POrder {
-  id              String          @id @default(cuid())
-  adId            String          @map("ad_id")
-  ad              P2PAd           @relation(fields: [adId], references: [id])
+  id   String @id @default(cuid())
+  adId String @map("ad_id")
+  ad   P2PAd  @relation(fields: [adId], references: [id])
 
-  buyerId         String          @map("buyer_id")
-  buyer           User            @relation("P2PBuyer", fields: [buyerId], references: [id])
-  sellerId        String          @map("seller_id")
-  seller          MerchantProfile @relation("P2PSeller", fields: [sellerId], references: [id])
+  buyerId  String          @map("buyer_id")
+  buyer    User            @relation("P2PBuyer", fields: [buyerId], references: [id])
+  sellerId String          @map("seller_id")
+  seller   MerchantProfile @relation("P2PSeller", fields: [sellerId], references: [id])
 
-  crypto          String
-  cryptoAmount    Decimal         @map("crypto_amount") @db.Decimal(18, 8)
-  fiatAmount      Decimal         @map("fiat_amount") @db.Decimal(18, 2)   // KES
-  pricePerUnit    Decimal         @map("price_per_unit") @db.Decimal(18, 2)
+  crypto       String
+  cryptoAmount Decimal @map("crypto_amount") @db.Decimal(18, 8)
+  fiatAmount   Decimal @map("fiat_amount") @db.Decimal(18, 2) // KES
+  pricePerUnit Decimal @map("price_per_unit") @db.Decimal(18, 2)
 
-  status          OrderStatus     @default(PENDING)
-  paymentMethod   String          @map("payment_method") // "mpesa" | "bank"
+  status        OrderStatus @default(PENDING)
+  paymentMethod String      @map("payment_method") // "mpesa" | "bank"
 
   // Payment proof from buyer
-  paymentRef      String?         @map("payment_ref")
-  paymentProofUrl String?         @map("payment_proof_url")
-  paidAt          DateTime?       @map("paid_at")
+  paymentRef      String?   @map("payment_ref")
+  paymentProofUrl String?   @map("payment_proof_url")
+  paidAt          DateTime? @map("paid_at")
 
   // Escrow
-  escrowReleased  Boolean         @default(false) @map("escrow_released")
-  releasedAt      DateTime?       @map("released_at")
+  escrowReleased Boolean   @default(false) @map("escrow_released")
+  releasedAt     DateTime? @map("released_at")
 
   // Cancellation
-  cancelledBy     String?         @map("cancelled_by")
-  cancelReason    String?         @map("cancel_reason")
+  cancelledBy  String? @map("cancelled_by")
+  cancelReason String? @map("cancel_reason")
 
-  expiresAt       DateTime        @map("expires_at")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt @map("updated_at")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  messages        P2PMessage[]
-  dispute         P2PDispute?
+  messages P2PMessage[]
+  dispute  P2PDispute?
 
+  @@index([buyerId, createdAt(sort: Desc)])
+  @@index([sellerId, createdAt(sort: Desc)])
+  @@index([status, expiresAt])
   @@map("p2p_orders")
 }
 
 model P2PMessage {
-  id        String    @id @default(cuid())
-  orderId   String    @map("order_id")
-  order     P2POrder  @relation(fields: [orderId], references: [id])
-  senderId  String    @map("sender_id")
-  sender    User      @relation(fields: [senderId], references: [id])
+  id       String   @id @default(cuid())
+  orderId  String   @map("order_id")
+  order    P2POrder @relation(fields: [orderId], references: [id])
+  senderId String   @map("sender_id")
+  sender   User     @relation(fields: [senderId], references: [id])
 
-  content   String
-  imageUrl  String?   @map("image_url") // for payment screenshots
+  content  String
+  imageUrl String? @map("image_url") // for payment screenshots
 
-  createdAt DateTime  @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@map("p2p_messages")
 }
 
 model P2PDispute {
-  id          String        @id @default(cuid())
-  orderId     String        @unique @map("order_id")
-  order       P2POrder      @relation(fields: [orderId], references: [id])
+  id      String   @id @default(cuid())
+  orderId String   @unique @map("order_id")
+  order   P2POrder @relation(fields: [orderId], references: [id])
 
-  raisedById  String        @map("raised_by_id")
-  reason      String
-  evidence    String?       // URL to screenshot/proof
+  raisedById String  @map("raised_by_id")
+  reason     String
+  evidence   String? // URL to screenshot/proof
 
-  status      DisputeStatus @default(OPEN)
-  resolution  String?
-  resolvedAt  DateTime?     @map("resolved_at")
+  status     DisputeStatus @default(OPEN)
+  resolution String?
+  resolvedAt DateTime?     @map("resolved_at")
 
-  createdAt   DateTime      @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@map("p2p_disputes")
 }
@@ -327,28 +333,30 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String   @map("user_id")
   user      User     @relation(fields: [userId], references: [id])
-  type      String   // "p2p_paid", "p2p_released", "p2p_dispute", "p2p_cancelled", "kyc_approved", "kyc_rejected"
+  type      String // "p2p_paid", "p2p_released", "p2p_dispute", "p2p_cancelled", "kyc_approved", "kyc_rejected"
   title     String
   body      String
   link      String?
   isRead    Boolean  @default(false) @map("is_read")
   createdAt DateTime @default(now()) @map("created_at")
 
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, isRead, createdAt(sort: Desc)])
   @@map("notifications")
 }
 
 model P2PCryptoDeposit {
-  id          String          @id @default(cuid())
-  merchantId  String          @map("merchant_id")
-  merchant    MerchantProfile @relation(fields: [merchantId], references: [id])
-  crypto      String          // "USDT", "BTC", "ETH"
-  amount      Decimal         @db.Decimal(18, 8)
-  txHash      String?         @map("tx_hash")
-  network     String          @default("TRC20")
-  status      DepositStatus   @default(PENDING)
-  adminNote   String?         @map("admin_note")
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  id         String          @id @default(cuid())
+  merchantId String          @map("merchant_id")
+  merchant   MerchantProfile @relation(fields: [merchantId], references: [id])
+  crypto     String // "USDT", "BTC", "ETH"
+  amount     Decimal         @db.Decimal(18, 8)
+  txHash     String?         @map("tx_hash")
+  network    String          @default("TRC20")
+  status     DepositStatus   @default(PENDING)
+  adminNote  String?         @map("admin_note")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
 
   @@map("p2p_crypto_deposits")
 }
@@ -358,14 +366,14 @@ model P2PCryptoDeposit {
 // Credited when a P2P trade completes; debited on withdrawal.
 
 model UserCryptoBalance {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
 
-  crypto    String   // "USDT", "BTC", "ETH", "USDC" …
-  network   String   @default("TRC20") // "TRC20", "ERC20", "BTC", "BEP20" …
-  available Decimal  @default(0) @db.Decimal(18, 8) // spendable
-  locked    Decimal  @default(0) @db.Decimal(18, 8) // held in active orders
+  crypto    String // "USDT", "BTC", "ETH", "USDC" …
+  network   String  @default("TRC20") // "TRC20", "ERC20", "BTC", "BEP20" …
+  available Decimal @default(0) @db.Decimal(18, 8) // spendable
+  locked    Decimal @default(0) @db.Decimal(18, 8) // held in active orders
 
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -378,14 +386,14 @@ model UserCryptoBalance {
 // Generated via HD wallet derivation from MASTER_WALLET_MNEMONIC.
 
 model CryptoDepositAddress {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
 
-  crypto    String   // "USDT", "ETH", "BNB"
-  network   String   // "TRC20", "ERC20", "BEP20"
-  address   String   // the blockchain address
-  hdIndex   Int?     @map("hd_index") // BIP44 derivation index — used to sign withdrawals
+  crypto  String // "USDT", "ETH", "BNB"
+  network String // "TRC20", "ERC20", "BEP20"
+  address String // the blockchain address
+  hdIndex Int?   @map("hd_index") // BIP44 derivation index — used to sign withdrawals
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -401,12 +409,12 @@ enum AdSide {
 }
 
 enum OrderStatus {
-  PENDING    // order created, waiting for buyer to pay
-  PAID       // buyer marked as paid, waiting merchant to release
-  RELEASED   // crypto released to buyer ✅
-  CANCELLED  // cancelled before payment
-  DISPUTED   // dispute raised
-  EXPIRED    // payment window passed
+  PENDING // order created, waiting for buyer to pay
+  PAID // buyer marked as paid, waiting merchant to release
+  RELEASED // crypto released to buyer ✅
+  CANCELLED // cancelled before payment
+  DISPUTED // dispute raised
+  EXPIRED // payment window passed
 }
 
 enum KycStatus {
@@ -442,29 +450,29 @@ enum PolymarketBetStatus {
 }
 
 model PolymarketBet {
-  id           String               @id @default(cuid())
-  userId       String               @map("user_id")
-  user         User                 @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
 
-  marketId     String               @map("market_id")       // Polymarket conditionId
+  marketId     String  @map("market_id") // Polymarket conditionId
   question     String
-  outcome      String               // "Yes" or "No"
-  price        Decimal              @db.Decimal(10, 6)       // 0–1 at time of bet
-  stake        Decimal              @db.Decimal(18, 2)
-  potentialWin Decimal              @db.Decimal(18, 2) @map("potential_win")
+  outcome      String // "Yes" or "No"
+  price        Decimal @db.Decimal(10, 6) // 0–1 at time of bet
+  stake        Decimal @db.Decimal(18, 2)
+  potentialWin Decimal @map("potential_win") @db.Decimal(18, 2)
 
-  status       PolymarketBetStatus  @default(PENDING)
-  settledAt    DateTime?            @map("settled_at")
-  winAmount    Decimal?             @db.Decimal(18, 2) @map("win_amount")
+  status        PolymarketBetStatus @default(PENDING)
+  settledAt     DateTime?           @map("settled_at")
+  winAmount     Decimal?            @map("win_amount") @db.Decimal(18, 2)
   executionMode String              @default("internal") @map("execution_mode")
-  clobOrderId  String?              @map("clob_order_id")
-  clobStatus   String?              @map("clob_status")
-  clobTokenId  String?              @map("clob_token_id")
-  clobTradeIds String[]             @default([]) @map("clob_trade_ids")
-  clobTxHashes String[]             @default([]) @map("clob_tx_hashes")
-  clobRaw      Json?                @map("clob_raw")
+  clobOrderId   String?             @map("clob_order_id")
+  clobStatus    String?             @map("clob_status")
+  clobTokenId   String?             @map("clob_token_id")
+  clobTradeIds  String[]            @default([]) @map("clob_trade_ids")
+  clobTxHashes  String[]            @default([]) @map("clob_tx_hashes")
+  clobRaw       Json?               @map("clob_raw")
 
-  createdAt    DateTime             @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@map("polymarket_bets")
 }
@@ -472,31 +480,31 @@ model PolymarketBet {
 // ─── Aviator Crash Game ───────────────────────────────────────────────────────
 
 enum AviatorRoundState {
-  WAITING   // countdown between rounds (~5s)
-  BETTING   // players placing bets (~10s)
-  FLYING    // multiplier climbing — cash out before crash
-  CRASHED   // round over, showing result (~3s)
+  WAITING // countdown between rounds (~5s)
+  BETTING // players placing bets (~10s)
+  FLYING // multiplier climbing — cash out before crash
+  CRASHED // round over, showing result (~3s)
 }
 
 enum AviatorBetStatus {
-  ACTIVE     // bet placed, round still flying
-  CASHEDOUT  // player cashed out successfully
-  LOST       // plane crashed before cashout
+  ACTIVE // bet placed, round still flying
+  CASHEDOUT // player cashed out successfully
+  LOST // plane crashed before cashout
 }
 
 model AviatorRound {
   id              String            @id @default(cuid())
   roundNumber     Int               @unique @default(autoincrement())
-  serverSeed      String            @map("server_seed")      // revealed post-crash
+  serverSeed      String            @map("server_seed") // revealed post-crash
   serverSeedHash  String            @map("server_seed_hash") // shown before round starts
-  crashPoint      Decimal           @db.Decimal(10, 2) @map("crash_point")
+  crashPoint      Decimal           @map("crash_point") @db.Decimal(10, 2)
   state           AviatorRoundState @default(WAITING)
   bettingEndsAt   DateTime?         @map("betting_ends_at")
   flyingStartedAt DateTime?         @map("flying_started_at")
   crashedAt       DateTime?         @map("crashed_at")
   createdAt       DateTime          @default(now()) @map("created_at")
 
-  bets            AviatorBet[]
+  bets AviatorBet[]
 
   @@map("aviator_rounds")
 }
@@ -508,10 +516,10 @@ model AviatorBet {
   userId      String           @map("user_id")
   user        User             @relation(fields: [userId], references: [id])
   panelIndex  Int              @default(0) @map("panel_index") // 0 or 1
-  betAmount   Decimal          @db.Decimal(10, 2) @map("bet_amount")
-  autoCashout Decimal?         @db.Decimal(10, 2) @map("auto_cashout")
-  cashoutAt   Decimal?         @db.Decimal(10, 2) @map("cashout_at")
-  winAmount   Decimal?         @db.Decimal(10, 2) @map("win_amount")
+  betAmount   Decimal          @map("bet_amount") @db.Decimal(10, 2)
+  autoCashout Decimal?         @map("auto_cashout") @db.Decimal(10, 2)
+  cashoutAt   Decimal?         @map("cashout_at") @db.Decimal(10, 2)
+  winAmount   Decimal?         @map("win_amount") @db.Decimal(10, 2)
   status      AviatorBetStatus @default(ACTIVE)
   placedAt    DateTime         @default(now()) @map("placed_at")
 
@@ -532,23 +540,23 @@ enum ForexTradeStatus {
 }
 
 model ForexTrade {
-  id          String              @id @default(cuid())
-  userId      String              @map("user_id")
-  user        User                @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
 
-  symbol      String              // "EUR/USD", "GBP/USD", etc.
-  direction   ForexTradeDirection
-  size        Int                 // position size in units (1000, 5000, etc.)
-  entryPrice  Decimal             @map("entry_price") @db.Decimal(12, 6)
-  closePrice  Decimal?            @map("close_price") @db.Decimal(12, 6)
-  stopLoss    Decimal             @map("stop_loss") @db.Decimal(12, 6)
-  takeProfit  Decimal             @map("take_profit") @db.Decimal(12, 6)
-  precision   Int                 @default(5)
-  margin      Decimal             @db.Decimal(18, 2) // KES reserved
-  profitLoss  Decimal?            @map("profit_loss") @db.Decimal(18, 2) // KES
-  status      ForexTradeStatus    @default(OPEN)
-  openedAt    DateTime            @default(now()) @map("opened_at")
-  closedAt    DateTime?           @map("closed_at")
+  symbol     String // "EUR/USD", "GBP/USD", etc.
+  direction  ForexTradeDirection
+  size       Int // position size in units (1000, 5000, etc.)
+  entryPrice Decimal             @map("entry_price") @db.Decimal(12, 6)
+  closePrice Decimal?            @map("close_price") @db.Decimal(12, 6)
+  stopLoss   Decimal             @map("stop_loss") @db.Decimal(12, 6)
+  takeProfit Decimal             @map("take_profit") @db.Decimal(12, 6)
+  precision  Int                 @default(5)
+  margin     Decimal             @db.Decimal(18, 2) // KES reserved
+  profitLoss Decimal?            @map("profit_loss") @db.Decimal(18, 2) // KES
+  status     ForexTradeStatus    @default(OPEN)
+  openedAt   DateTime            @default(now()) @map("opened_at")
+  closedAt   DateTime?           @map("closed_at")
 
   @@map("forex_trades")
 }
@@ -562,25 +570,25 @@ enum BinaryTradeStatus {
 }
 
 model BinaryTrade {
-  id            String            @id @default(cuid())
-  userId        String            @map("user_id")
-  user          User              @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
 
-  market        String            // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
-  side          String            // "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under"
-  stake         Decimal           @db.Decimal(18, 2)
-  payout        Decimal           @db.Decimal(18, 2)
-  targetDigit   Int               @map("target_digit")
-  entryDigit    Int               @map("entry_digit")
-  exitDigit     Int?              @map("exit_digit")
-  durationTicks Int               @map("duration_ticks")
-  settleBefore  DateTime          @map("settle_before")
+  market        String // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
+  side          String // "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under"
+  stake         Decimal  @db.Decimal(18, 2)
+  payout        Decimal  @db.Decimal(18, 2)
+  targetDigit   Int      @map("target_digit")
+  entryDigit    Int      @map("entry_digit")
+  exitDigit     Int?     @map("exit_digit")
+  durationTicks Int      @map("duration_ticks")
+  settleBefore  DateTime @map("settle_before")
 
-  status        BinaryTradeStatus @default(PENDING)
-  settledAt     DateTime?         @map("settled_at")
+  status    BinaryTradeStatus @default(PENDING)
+  settledAt DateTime?         @map("settled_at")
 
-  createdAt     DateTime          @default(now()) @map("created_at")
-  updatedAt     DateTime          @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("binary_trades")
 }

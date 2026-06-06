@@ -56,13 +56,13 @@ export function P2POrdersClient() {
   const [filter, setFilter]   = useState<FilterTab>("all");
 
   const fetchOrders = useCallback(async (force = false) => {
-    setLoading(true);
+    if (!orders.length) setLoading(true);
     const data = await cachedFetch<OrderSummary[]>(ORDERS_KEY, force);
     if (data) setOrders(data);
     setLoading(false);
-  }, []);
+  }, [orders.length]);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => { fetchOrders(true); }, [fetchOrders]);
 
   const filtered = orders.filter((o) => {
     if (filter === "all")       return true;

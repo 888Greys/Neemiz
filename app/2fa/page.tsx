@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { Suspense, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/icon";
 
-export default function TwoFactorPage() {
+function TwoFactorContent() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const next         = searchParams.get("next") ?? "/";
@@ -96,5 +96,13 @@ export default function TwoFactorPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function TwoFactorPage() {
+  return (
+    <Suspense fallback={<div className="min-h-dvh bg-[#0c0d10]" />}>
+      <TwoFactorContent />
+    </Suspense>
   );
 }

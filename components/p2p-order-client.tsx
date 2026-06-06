@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { invalidate } from "@/lib/client-cache";
 import { createClient } from "@/lib/supabase/client";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat } from "@/lib/p2p/currencies";
@@ -795,8 +796,15 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
 
   useEffect(() => {
     fetchOrder();
-    const id = setInterval(fetchOrder, 4000);
-    return () => clearInterval(id);
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") fetchOrder();
+    };
+    const id = setInterval(refreshVisible, 10_000);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", refreshVisible);
+    };
   }, [fetchOrder]);
 
   function successMessage(status?: string): string {
@@ -808,7 +816,20 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
   }
 
   async function doAction(endpoint: string, body: object, label: string) {
+    const previousOrder = order;
+    const optimisticStatus = endpoint === "paid"
+      ? "PAID"
+      : endpoint === "release"
+        ? "RELEASED"
+        : endpoint === "cancel"
+          ? "CANCELLED"
+          : endpoint === "dispute"
+            ? "DISPUTED"
+            : null;
     setActionLoading(label);
+    if (optimisticStatus) {
+      setOrder((current) => current ? { ...current, status: optimisticStatus } : current);
+    }
     try {
       const res = await fetch(`/api/p2p/orders/${orderId}/${endpoint}`, {
         method: "POST",
@@ -817,10 +838,10 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Action failed");
-      await fetchOrder();
-      router.refresh();
+      invalidate("/api/p2p/orders");
       toast.success(successMessage(data.status));
     } catch (err: unknown) {
+      setOrder(previousOrder);
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
       setActionLoading(null);
