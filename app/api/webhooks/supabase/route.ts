@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { sendWelcomeEmail } from "@/lib/brevo";
+import { generateUniqueUsername } from "@/lib/user-identity";
 
 // Supabase Auth webhook — fires on user.created, user.updated, user.deleted
 // Set SUPABASE_WEBHOOK_SECRET in env and configure the endpoint in:
@@ -48,6 +49,12 @@ export async function POST(req: Request) {
 
   if (event.type === "INSERT" && event.record) {
     const { id, email, phone, raw_user_meta_data } = event.record;
+    const username = await generateUniqueUsername(db, {
+      username: raw_user_meta_data?.username,
+      email,
+      phone,
+      firstName: raw_user_meta_data?.first_name,
+    });
 
     await db.user.upsert({
       where: { supabaseId: id },
@@ -56,7 +63,7 @@ export async function POST(req: Request) {
         supabaseId: id,
         email: email ?? null,
         phone: phone ?? null,
-        username: raw_user_meta_data?.username ?? null,
+        username,
         firstName: raw_user_meta_data?.first_name ?? null,
         lastName: raw_user_meta_data?.last_name ?? null,
         imageUrl: raw_user_meta_data?.avatar_url ?? null,
@@ -80,7 +87,6 @@ export async function POST(req: Request) {
       data: {
         email: email ?? null,
         phone: phone ?? null,
-        username: raw_user_meta_data?.username ?? null,
         firstName: raw_user_meta_data?.first_name ?? null,
         lastName: raw_user_meta_data?.last_name ?? null,
         imageUrl: raw_user_meta_data?.avatar_url ?? null,

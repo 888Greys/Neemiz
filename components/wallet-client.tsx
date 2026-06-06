@@ -87,7 +87,7 @@ export function WalletClient() {
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
 
   // ── fiat deposit state ──
-  const [tab, setTab]                     = useState<"deposit" | "withdraw" | "history">("deposit");
+  const [tab, setTab]                     = useState<"deposit" | "send" | "withdraw" | "history">("deposit");
   const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">("mpesa");
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
@@ -360,8 +360,8 @@ export function WalletClient() {
 
       {/* ── Tabs ── */}
       <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#0d0e11]">
-        <div className="mx-auto grid max-w-2xl grid-cols-3 gap-0">
-          {(["deposit", "withdraw", "history"] as const).map((t) => (
+        <div className="mx-auto grid max-w-2xl grid-cols-4 gap-0">
+          {(["deposit", "send", "withdraw", "history"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -376,6 +376,8 @@ export function WalletClient() {
                 name={
                   t === "deposit"
                     ? "add_circle"
+                    : t === "send"
+                      ? "send"
                     : t === "withdraw"
                       ? "remove_circle"
                       : "history"
@@ -594,6 +596,15 @@ export function WalletClient() {
               </div>
             )}
           </>
+        )}
+
+        {tab === "send" && (
+          <WalletTransferPanel
+            isSignedIn={!!isSignedIn}
+            balance={balance}
+            openLogin={openLogin}
+            refreshBalance={refreshBalance}
+          />
         )}
 
         {/* ── WITHDRAW TAB ── */}
@@ -933,6 +944,174 @@ export function WalletClient() {
 }
 
 /* ────────────────────────────────────────────────────────── */
+
+type TransferRecipient = {
+  id: string;
+  username: string;
+  displayName: string;
+  imageUrl: string | null;
+};
+
+function WalletTransferPanel({
+  isSignedIn,
+  balance,
+  openLogin,
+  refreshBalance,
+}: {
+  isSignedIn: boolean;
+  balance: number;
+  openLogin: () => void;
+  refreshBalance: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<TransferRecipient[]>([]);
+  const [recipient, setRecipient] = useState<TransferRecipient | null>(null);
+  const [amount, setAmount] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!isSignedIn || recipient || query.trim().length < 2) {
+      setResults([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const response = await fetch(`/api/wallet/transfer?q=${encodeURIComponent(query.trim())}`, {
+          signal: controller.signal,
+        });
+        const data = await response.json();
+        setResults(response.ok && Array.isArray(data) ? data : []);
+      } catch {
+        if (!controller.signal.aborted) setResults([]);
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [isSignedIn, query, recipient]);
+
+  async function sendMoney() {
+    if (!isSignedIn) { openLogin(); return; }
+    if (!recipient) { setError("Select a recipient from the search results"); return; }
+    setSending(true);
+    setError("");
+    try {
+      const response = await fetch("/api/wallet/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId: recipient.id, amount: Number(amount) }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Transfer failed");
+      toast.success("Money sent", `KSh ${Number(amount).toLocaleString("en-KE")} sent to @${recipient.username}`);
+      setQuery("");
+      setRecipient(null);
+      setAmount("");
+      refreshBalance();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Transfer failed");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
+          Find recipient
+        </p>
+        {recipient ? (
+          <button
+            type="button"
+            onClick={() => { setRecipient(null); setQuery(""); }}
+            className="flex w-full items-center gap-3 rounded-2xl bg-[#16171d] p-4 text-left ring-1 ring-[#087cff]/40"
+          >
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#087cff]/20 font-black text-[#75b8ff]">
+              {recipient.imageUrl
+                ? <img src={recipient.imageUrl} alt="" className="h-full w-full object-cover" />
+                : recipient.displayName.charAt(0).toUpperCase()}
+            </div>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-black text-white">{recipient.displayName}</span>
+              <span className="block truncate text-xs font-bold text-[#75b8ff]">@{recipient.username}</span>
+            </span>
+            <span className="text-xs font-bold text-slate-500">Change</span>
+          </button>
+        ) : (
+          <div className="relative">
+            <input
+              value={query}
+              onChange={(event) => { setQuery(event.target.value); setError(""); }}
+              placeholder="Username, email or phone number"
+              className="w-full rounded-2xl bg-[#16171d] px-4 py-4 text-sm font-bold text-white outline-none ring-1 ring-white/[0.07] placeholder:text-slate-700 focus:ring-[#087cff]/50"
+            />
+            {(searching || results.length > 0) && (
+              <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl bg-[#1a1b22] shadow-2xl ring-1 ring-white/[0.1]">
+                {searching ? (
+                  <p className="px-4 py-3 text-xs font-bold text-slate-500">Searching...</p>
+                ) : results.map((user) => (
+                  <button
+                    key={user.id}
+                    type="button"
+                    onClick={() => { setRecipient(user); setQuery(`@${user.username}`); setResults([]); }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.06]"
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white/[0.07] text-sm font-black text-white">
+                      {user.imageUrl
+                        ? <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
+                        : user.displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <span>
+                      <span className="block text-sm font-black text-white">{user.displayName}</span>
+                      <span className="block text-xs font-bold text-slate-500">@{user.username}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount</p>
+          <p className="text-xs font-bold text-slate-500">Balance: KSh {balance.toLocaleString("en-KE")}</p>
+        </div>
+        <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+          <span className="text-sm font-black text-slate-500">KSh</span>
+          <input
+            type="number"
+            min="1"
+            max={balance}
+            value={amount}
+            onChange={(event) => { setAmount(event.target.value); setError(""); }}
+            placeholder="0.00"
+            className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
+          />
+        </div>
+      </div>
+
+      {error && <p className="text-xs font-bold text-red-400">{error}</p>}
+      <button
+        type="button"
+        onClick={sendMoney}
+        disabled={sending || !recipient || !amount || Number(amount) <= 0}
+        className="w-full rounded-2xl bg-[#087cff] py-4 text-base font-black text-white transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
+      >
+        {sending ? <LoadingDots label="Sending" /> : "Send Money"}
+      </button>
+    </div>
+  );
+}
 
 function CryptoWithdrawalHistory({ isSignedIn }: { isSignedIn: boolean }) {
   const [items, setItems] = useState<
