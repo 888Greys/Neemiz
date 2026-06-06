@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { retainedProfit } from "@/lib/house-retention";
+import { sendGameResultEmail } from "@/lib/brevo";
 
 function evaluateTrade(side: string, exitDigit: number, targetDigit: number): boolean {
   if (side === "Even")    return exitDigit % 2 === 0;
@@ -78,9 +79,29 @@ export async function POST(req: Request) {
           },
         });
       }
+      await tx.notification.create({
+        data: {
+          userId: dbUser.id,
+          type: won ? "BINARY_WON" : "BINARY_LOST",
+          title: won ? "Binary trade won" : "Binary trade settled",
+          body: won
+            ? `KSh ${winAmount.toLocaleString("en-KE")} was credited to your wallet.`
+            : `Your KSh ${Number(trade.stake).toLocaleString("en-KE")} trade did not win.`,
+          link: "/binary",
+        },
+      });
 
       return result;
     });
+
+    if (dbUser.email) sendGameResultEmail(dbUser.email, dbUser.firstName || dbUser.username || "Trader", {
+      game: "Binary",
+      outcome: won ? "WON" : "LOST",
+      stake: Number(trade.stake),
+      payout: won ? winAmount : undefined,
+      reference: tradeId,
+      href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/binary`,
+    }).catch((err) => console.error(`Binary result email failed for ${tradeId}:`, err));
 
     return Response.json({ won, winAmount, status: updated.status });
   } catch (err) {

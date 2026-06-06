@@ -3,6 +3,7 @@ import { getFixtureDetail, FINISHED_STATE_IDS } from "@/lib/theoddsapi";
 import { resolveSelection, determineBetOutcome, calculateWinAmount } from "@/lib/settle-bet";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
+import { sendGameResultEmail } from "@/lib/brevo";
 
 // Vercel Cron invokes endpoints with GET (and an Authorization: Bearer
 // <CRON_SECRET> header when CRON_SECRET is set). Reuse the same handler.
@@ -27,7 +28,10 @@ export async function POST(req: Request) {
   // ── Step A: find all PENDING bets ────────────────────────────────────────
   const pendingBets = await db.bet.findMany({
     where: { status: "PENDING" },
-    include: { selections: true },
+    include: {
+      selections: true,
+      user: { select: { email: true, firstName: true, username: true } },
+    },
     orderBy: { createdAt: "asc" },
     take: 200,
   });
@@ -96,13 +100,13 @@ export async function POST(req: Request) {
     const retainedAmount = grossWinAmount > 0 ? retainedProfit(Number(bet.stake), grossWinAmount) : 0;
 
     try {
-      await db.$transaction(async (tx) => {
+      const didSettle = await db.$transaction(async (tx) => {
         // Idempotency: bail if already settled
         const fresh = await tx.bet.findUnique({
           where: { id: bet.id },
           select: { status: true },
         });
-        if (!fresh || fresh.status !== "PENDING") return;
+        if (!fresh || fresh.status !== "PENDING") return false;
 
         // Update each selection result
         await Promise.all(
@@ -161,9 +165,33 @@ export async function POST(req: Request) {
             },
           });
         }
+        await tx.notification.create({
+          data: {
+            userId: bet.userId,
+            type: `BET_${betOutcome}`,
+            title: betOutcome === "WON" ? "Bet won" : betOutcome === "VOID" ? "Bet refunded" : "Bet settled",
+            body: betOutcome === "WON"
+              ? `KSh ${winAmount.toLocaleString("en-KE")} was credited to your wallet.`
+              : betOutcome === "VOID"
+                ? `Your KSh ${Number(bet.stake).toLocaleString("en-KE")} stake was refunded.`
+                : "Your sports bet did not win.",
+            link: "/my-bets",
+          },
+        });
+        return true;
       });
 
-      settledCount++;
+      if (didSettle) {
+        settledCount++;
+        if (bet.user.email) sendGameResultEmail(bet.user.email, bet.user.firstName || bet.user.username || "Trader", {
+          game: "Sports bet",
+          outcome: betOutcome,
+          stake: Number(bet.stake),
+          payout: betOutcome === "WON" ? winAmount : betOutcome === "VOID" ? Number(bet.stake) : undefined,
+          reference: bet.id,
+          href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/my-bets`,
+        }).catch((err) => console.error(`Sports result email failed for ${bet.id}:`, err));
+      }
     } catch (err) {
       console.error(`Settlement failed for bet ${bet.id}:`, err);
     }
@@ -188,9 +216,9 @@ export async function POST(req: Request) {
   let voidedCount = 0;
   for (const bet of stuckBets) {
     try {
-      await db.$transaction(async (tx) => {
+      const didVoid = await db.$transaction(async (tx) => {
         const fresh = await tx.bet.findUnique({ where: { id: bet.id }, select: { status: true } });
-        if (!fresh || fresh.status !== "PENDING") return;
+        if (!fresh || fresh.status !== "PENDING") return false;
 
         await tx.betSelection.updateMany({ where: { betId: bet.id }, data: { result: "VOID" } });
         await tx.bet.update({
@@ -212,8 +240,28 @@ export async function POST(req: Request) {
             metadata: { betId: bet.id, reason: "unsettleable_stuck" },
           },
         });
+        await tx.notification.create({
+          data: {
+            userId: bet.userId,
+            type: "BET_VOID",
+            title: "Bet refunded",
+            body: `Your KSh ${Number(bet.stake).toLocaleString("en-KE")} stake was refunded.`,
+            link: "/my-bets",
+          },
+        });
+        return true;
       });
-      voidedCount++;
+      if (didVoid) {
+        voidedCount++;
+        if (bet.user.email) sendGameResultEmail(bet.user.email, bet.user.firstName || bet.user.username || "Trader", {
+          game: "Sports bet",
+          outcome: "VOID",
+          stake: Number(bet.stake),
+          payout: Number(bet.stake),
+          reference: bet.id,
+          href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/my-bets`,
+        }).catch((err) => console.error(`Sports void email failed for ${bet.id}:`, err));
+      }
     } catch (err) {
       console.error(`Void failed for bet ${bet.id}:`, err);
     }
