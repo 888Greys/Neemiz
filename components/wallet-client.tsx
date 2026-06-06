@@ -1037,7 +1037,7 @@ function WalletTransferPanel({
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#087cff]/20 font-black text-[#75b8ff]">
               {recipient.imageUrl
                 ? <img src={recipient.imageUrl} alt="" className="h-full w-full object-cover" />
-                : recipient.displayName.charAt(0).toUpperCase()}
+                : (recipient.displayName || recipient.username || "U").charAt(0).toUpperCase()}
             </div>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-black text-white">{recipient.displayName}</span>
@@ -1067,7 +1067,7 @@ function WalletTransferPanel({
                     <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white/[0.07] text-sm font-black text-white">
                       {user.imageUrl
                         ? <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
-                        : user.displayName.charAt(0).toUpperCase()}
+                        : (user.displayName || user.username || "U").charAt(0).toUpperCase()}
                     </div>
                     <span>
                       <span className="block text-sm font-black text-white">{user.displayName}</span>
