@@ -41,7 +41,8 @@ model User {
   aviatorBets AviatorBet[]
 
   // Polymarket
-  polymarketBets PolymarketBet[]
+  polymarketBets     PolymarketBet[]
+  polymarketComments PolymarketComment[]
 
   // Binary
   binaryTrades BinaryTrade[]
@@ -306,8 +307,11 @@ model P2PMessage {
   content  String
   imageUrl String? @map("image_url") // for payment screenshots
 
-  createdAt DateTime @default(now()) @map("created_at")
+  deliveredAt DateTime? @map("delivered_at")
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
 
+  @@index([orderId, createdAt])
   @@map("p2p_messages")
 }
 
@@ -475,6 +479,21 @@ model PolymarketBet {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("polymarket_bets")
+}
+
+model PolymarketComment {
+  id       String @id @default(cuid())
+  marketId String @map("market_id")
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id])
+  body     String
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([marketId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("polymarket_comments")
 }
 
 // ─── Aviator Crash Game ───────────────────────────────────────────────────────

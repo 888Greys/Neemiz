@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
@@ -43,6 +44,8 @@ interface Message {
   id: string;
   content: string;
   imageUrl: string | null;
+  deliveredAt: string | null;
+  readAt: string | null;
   createdAt: string;
   sender: { id: string; firstName: string | null; lastName: string | null; username: string | null; imageUrl: string | null };
 }
@@ -112,57 +115,86 @@ function Countdown({ expiresAt, onExpire }: { expiresAt: string; onExpire: () =>
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
-function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUserId: string; closed: boolean }) {
+function Chat({ orderId, currentUserId, closed, mode }: { orderId: string; currentUserId: string; closed: boolean; mode: "mobile" | "desktop" }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [partnerTyping, setPartnerTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const partnerTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const update = () => setActive(mode === "desktop" ? query.matches : !query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, [mode]);
 
   const fetchMessages = useCallback(async () => {
+    if (!active) return;
     try {
-      const res = await fetch(`/api/p2p/orders/${orderId}/messages`);
+      const markRead = document.visibilityState === "visible" ? "1" : "0";
+      const res = await fetch(`/api/p2p/orders/${orderId}/messages?read=${markRead}`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setMessages(Array.isArray(data) ? data : []);
       }
     } catch { /* ignore */ }
-  }, [orderId]);
+  }, [active, orderId]);
 
   useEffect(() => {
+    if (!active) return;
     fetchMessages();
 
-    // Poll every 4s as a reliable fallback (realtime requires DB replication enabled)
-    const poll = setInterval(fetchMessages, 4000);
+    // Poll as a fallback when realtime is unavailable.
+    const poll = setInterval(fetchMessages, 8000);
 
-    // Unique channel name per mount — the desktop and mobile-overlay Chat can be
-    // mounted simultaneously, and subscribing two channels with the same topic on
-    // the shared browser client throws "subscribe multiple times" (which, thrown
-    // inside this effect, would blank the whole page). The poll covers realtime
-    // either way, so wrap setup defensively.
+    // Only the visible responsive chat subscribes. Polling remains the fallback
+    // when realtime is unavailable or blocked by the user's network.
     let cleanup = () => {};
     try {
       const supabase = createClient();
       const channel = supabase
-        .channel(`p2p-order-${orderId}-${Math.random().toString(36).slice(2)}`)
+        .channel(`p2p-order-${orderId}`)
         .on(
           "postgres_changes",
           {
-            event: "INSERT",
+            event: "*",
             schema: "public",
             table: "p2p_messages",
             filter: `order_id=eq.${orderId}`,
           },
           () => { fetchMessages(); }
         )
+        .on("broadcast", { event: "typing" }, ({ payload }) => {
+          if (payload?.userId === currentUserId) return;
+          setPartnerTyping(Boolean(payload?.active));
+          if (partnerTypingTimerRef.current) clearTimeout(partnerTypingTimerRef.current);
+          if (payload?.active) {
+            partnerTypingTimerRef.current = setTimeout(() => setPartnerTyping(false), 2500);
+          }
+        })
         .subscribe();
+      channelRef.current = channel;
       cleanup = () => { supabase.removeChannel(channel); };
     } catch { /* realtime unavailable — poll still works */ }
 
     return () => {
       clearInterval(poll);
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+      if (partnerTypingTimerRef.current) clearTimeout(partnerTypingTimerRef.current);
+      channelRef.current = null;
       cleanup();
     };
-  }, [fetchMessages, orderId]);
+  }, [active, currentUserId, fetchMessages, orderId]);
 
   const prevMsgCount = useRef(0);
   useEffect(() => {
@@ -177,21 +209,69 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
   }, [messages]);
 
   async function send() {
-    if (!input.trim()) return;
+    if (!input.trim() && !pendingImage) return;
     setSending(true);
     try {
       const res = await fetch(`/api/p2p/orders/${orderId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: input.trim() }),
+        body: JSON.stringify({ content: input.trim(), imageUrl: pendingImage }),
       });
-      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
       setInput("");
-      await fetchMessages();
-    } catch {
-      toast.error("Failed to send message");
+      setPendingImage(null);
+      channelRef.current?.send({ type: "broadcast", event: "typing", payload: { userId: currentUserId, active: false } });
+      setMessages((current) => current.some((item) => item.id === data.id) ? current : [...current, data]);
+      void fetchMessages();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to send message");
     } finally {
       setSending(false);
+    }
+  }
+
+  function updateTyping(value: string) {
+    setInput(value);
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "typing",
+      payload: { userId: currentUserId, active: Boolean(value.trim()) },
+    });
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "typing",
+        payload: { userId: currentUserId, active: false },
+      });
+    }, 1400);
+  }
+
+  async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("Choose an image file");
+    if (file.size > 5 * 1024 * 1024) return toast.error("Image must be under 5 MB");
+
+    setUploading(true);
+    try {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Sign in again to upload");
+      const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${user.id}/${orderId}/${Date.now()}.${extension}`;
+      const { error } = await supabase.storage
+        .from("p2p-chat")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from("p2p-chat").getPublicUrl(path);
+      setPendingImage(publicUrl);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Image upload failed");
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -204,6 +284,10 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
     <div className="flex flex-col h-full">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0 bg-[#0c0c12]">
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-[#087cff]/15 bg-[#087cff]/5 px-3 py-2 text-[10px] font-bold text-slate-500">
+          <Icon name="lock" className="text-[13px] text-[#087cff]" />
+          Messages and images are attached to this order for dispute evidence.
+        </div>
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center py-10">
             <div className="w-12 h-12 rounded-full bg-white/[0.04] flex items-center justify-center mb-3">
@@ -228,32 +312,70 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
                   ? "bg-[#05b957] text-white rounded-2xl rounded-br-md"
                   : "bg-white/[0.07] text-slate-100 rounded-2xl rounded-bl-md border border-white/[0.05]"
               }`}>
-                <span className="break-words whitespace-pre-wrap">{m.content}</span>
-                <span className={`ml-2 align-bottom text-[10px] tabular-nums ${mine ? "text-white/60" : "text-slate-500"}`}>
+                {m.imageUrl && (
+                  <button type="button" onClick={() => setViewingImage(m.imageUrl)} className="mb-1 block overflow-hidden rounded-xl">
+                    <img src={m.imageUrl} alt="Shared attachment" className="max-h-64 w-full object-cover transition hover:scale-[1.02]" />
+                  </button>
+                )}
+                {m.content && <span className="break-words whitespace-pre-wrap">{m.content}</span>}
+                <span className={`ml-2 inline-flex items-center gap-0.5 align-bottom text-[10px] tabular-nums ${mine ? "text-white/60" : "text-slate-500"}`}>
                   {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {mine && (
+                    <Icon
+                      name={m.deliveredAt ? "done_all" : "done"}
+                      className={`text-[13px] ${m.readAt ? "text-sky-300" : "text-white/60"}`}
+                    />
+                  )}
                 </span>
               </div>
             </div>
           );
         })}
+        {partnerTyping && (
+          <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-bold text-slate-500">
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500 [animation-delay:-0.2s]" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500 [animation-delay:-0.1s]" />
+            <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500" />
+            typing
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
       {!closed && (
         <div className="border-t border-white/[0.06] bg-[#111118] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          {pendingImage && (
+            <div className="relative mb-2 inline-block overflow-hidden rounded-xl border border-white/10">
+              <img src={pendingImage} alt="Image ready to send" className="h-24 w-32 object-cover" />
+              <button type="button" onClick={() => setPendingImage(null)} className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-black/70 text-white">
+                <Icon name="close" className="text-[14px]" />
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2">
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={uploadImage} className="hidden" />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading || sending}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-white/[0.07] bg-white/5 text-slate-400 transition hover:text-white disabled:opacity-40"
+              aria-label="Attach image"
+            >
+              <Icon name={uploading ? "progress_activity" : "add_photo_alternate"} className={`text-[18px] ${uploading ? "animate-spin" : ""}`} />
+            </button>
             <input
               type="text"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => updateTyping(e.target.value)}
+              onBlur={() => channelRef.current?.send({ type: "broadcast", event: "typing", payload: { userId: currentUserId, active: false } })}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
               placeholder="Type a message…"
               className="flex-1 bg-white/5 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none border border-white/[0.06] focus:border-[#05b957]/50 transition-colors"
             />
             <button
               onClick={send}
-              disabled={!input.trim() || sending}
+              disabled={(!input.trim() && !pendingImage) || sending || uploading}
               className="w-10 h-10 rounded-xl bg-[#05b957] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#04a44d] transition-colors shrink-0"
             >
               {sending
@@ -262,6 +384,19 @@ function Chat({ orderId, currentUserId, closed }: { orderId: string; currentUser
             </button>
           </div>
         </div>
+      )}
+      {viewingImage && (
+        <button
+          type="button"
+          onClick={() => setViewingImage(null)}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
+          aria-label="Close image preview"
+        >
+          <img src={viewingImage} alt="Shared attachment preview" className="max-h-[90vh] max-w-[95vw] rounded-xl object-contain" />
+          <span className="absolute right-5 top-5 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white">
+            <Icon name="close" className="text-[22px]" />
+          </span>
+        </button>
       )}
     </div>
   );
@@ -318,7 +453,7 @@ function MobileP2POrderView({
         </div>
         {/* Chat body */}
         <div className="flex-1 min-h-0">
-          <Chat orderId={orderId} currentUserId={currentUserId} closed={orderClosed} />
+          <Chat orderId={orderId} currentUserId={currentUserId} closed={orderClosed} mode="mobile" />
         </div>
       </div>
     );
@@ -1276,7 +1411,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
             </span>
           </div>
           <div className="flex-1 min-h-0">
-            <Chat orderId={orderId} currentUserId={currentUserId} closed={isClosed} />
+            <Chat orderId={orderId} currentUserId={currentUserId} closed={isClosed} mode="desktop" />
           </div>
         </div>
       </div>

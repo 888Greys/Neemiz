@@ -7,6 +7,7 @@ import { formatEndDate, formatMarketMoney, formatMarketMoneyKes } from "./market
 import { ProbabilityChart } from "./probability-chart";
 import { toast }      from "@/lib/toast";
 import type { PolymarketMarket } from "@/lib/polymarket";
+import { createClient } from "@/lib/supabase/client";
 
 const TAGS = [
   "Trending", "Breaking", "New",
@@ -41,11 +42,12 @@ interface Props {
 
 interface DetailComment {
   id: string;
+  authorId: string;
   author: string;
+  avatarUrl: string | null;
   body: string;
   createdAt: Date;
-  likes: number;
-  holder?: string;
+  holder?: string | null;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -961,7 +963,7 @@ function MarketDetailView({
   onViewBets: () => void;
   onOpen: (m: PolymarketMarket) => void;
   comments: DetailComment[];
-  onAddComment: (body: string) => void;
+  onAddComment: (body: string) => Promise<boolean>;
 }) {
   const topIndex = market.outcomePrices.reduce((best, price, index) => price > (market.outcomePrices[best] ?? 0) ? index : best, 0);
   const [selectedOutcome, setSelectedOutcome] = useState(market.outcomes[topIndex] ?? market.outcomes[0] ?? "Yes");
@@ -1290,18 +1292,21 @@ function ActivityPanel({ market }: { market: PolymarketMarket }) {
   );
 }
 
-function CommentsPanel({ comments, onAddComment }: { comments: DetailComment[]; onAddComment: (body: string) => void }) {
+function CommentsPanel({ comments, onAddComment }: { comments: DetailComment[]; onAddComment: (body: string) => Promise<boolean> }) {
   const [draft, setDraft] = useState("");
-  const [sort, setSort] = useState<"newest" | "popular">("newest");
-  const shown = [...comments].sort((a, b) =>
-    sort === "popular" ? b.likes - a.likes : b.createdAt.getTime() - a.createdAt.getTime()
-  );
+  const [holdersOnly, setHoldersOnly] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const shown = comments
+    .filter((comment) => !holdersOnly || Boolean(comment.holder))
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  function submit() {
+  async function submit() {
     const body = draft.trim();
-    if (!body) return;
-    onAddComment(body);
-    setDraft("");
+    if (!body || posting) return;
+    setPosting(true);
+    const posted = await onAddComment(body);
+    if (posted) setDraft("");
+    setPosting(false);
   }
 
   return (
@@ -1317,28 +1322,43 @@ function CommentsPanel({ comments, onAddComment }: { comments: DetailComment[]; 
           <span className="text-[11px] font-semibold text-white/25">{draft.length}/280</span>
           <button
             onClick={submit}
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || posting || draft.length > 280}
             className="rounded-lg bg-[#087cff] px-4 py-2 text-[12px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Post
+            {posting ? "Posting..." : "Post"}
           </button>
         </div>
       </div>
 
       <div className="mb-5 flex items-center gap-4">
-        <button onClick={() => setSort("newest")} className={`text-[13px] font-black ${sort === "newest" ? "text-white" : "text-white/40"}`}>Newest</button>
-        <button onClick={() => setSort("popular")} className={`text-[13px] font-black ${sort === "popular" ? "text-white" : "text-white/40"}`}>Popular</button>
-        <label className="ml-2 flex items-center gap-2 text-[12px] font-bold text-white/45">
-          <input type="checkbox" className="h-4 w-4 rounded accent-[#087cff]" />
+        <span className="text-[13px] font-black text-white">Newest</span>
+        <label className="flex items-center gap-2 text-[12px] font-bold text-white/45">
+          <input
+            type="checkbox"
+            checked={holdersOnly}
+            onChange={(event) => setHoldersOnly(event.target.checked)}
+            className="h-4 w-4 rounded accent-[#087cff]"
+          />
           Holders
         </label>
         <span className="ml-auto rounded-full bg-white/[0.05] px-3 py-1 text-[11px] font-semibold text-white/35">Beware of external links.</span>
       </div>
 
       <div className="space-y-6">
+        {shown.length === 0 && (
+          <div className="rounded-xl border border-dashed border-white/10 px-5 py-8 text-center text-[13px] font-semibold text-white/35">
+            {holdersOnly ? "No holder comments yet." : "No comments yet. Start the discussion."}
+          </div>
+        )}
         {shown.map((comment) => (
           <div key={comment.id} className="flex gap-3">
-            <div className="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-amber-300" />
+            {comment.avatarUrl ? (
+              <img src={comment.avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
+            ) : (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-amber-300 text-[12px] font-black text-white">
+                {comment.author.slice(0, 1).toUpperCase()}
+              </div>
+            )}
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-black text-white">
                 {comment.author}
@@ -1346,7 +1366,6 @@ function CommentsPanel({ comments, onAddComment }: { comments: DetailComment[]; 
                 <span className="ml-2 font-semibold text-white/35">{timeAgo(comment.createdAt)}</span>
               </p>
               <p className="mt-1 text-[14px] font-semibold text-white/85">{comment.body}</p>
-              <button className="mt-2 text-[12px] font-bold text-white/35 hover:text-white/70">♡ {comment.likes}</button>
             </div>
           </div>
         ))}
@@ -1362,33 +1381,6 @@ function timeAgo(date: Date) {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
-}
-
-function seedComments(market: PolymarketMarket): DetailComment[] {
-  return [
-    {
-      id: `${market.conditionId}-seed-1`,
-      author: "MarketWatcher",
-      body: `Watching liquidity on ${market.outcomes[0] ?? "this outcome"}. The chart move is the key signal here.`,
-      createdAt: new Date(Date.now() - 28 * 60_000),
-      likes: 7,
-      holder: market.outcomes[0],
-    },
-    {
-      id: `${market.conditionId}-seed-2`,
-      author: "Lee35-076",
-      body: "Price moved fast after the latest update.",
-      createdAt: new Date(Date.now() - 8 * 60 * 60_000),
-      likes: 3,
-    },
-    {
-      id: `${market.conditionId}-seed-3`,
-      author: "Oto1b",
-      body: "Need one more source before I size this up.",
-      createdAt: new Date(Date.now() - 9 * 60 * 60_000),
-      likes: 2,
-    },
-  ];
 }
 
 /* ── Trade sheet (replaces old BetModal on browse cards) ───────────────── */
@@ -1648,21 +1640,70 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
         ?? market.outcomes[0];
     setTicket({ market, outcome: normalizedOutcome, amount });
   };
-  const selectedComments = selectedMarket ? commentsByMarket[selectedMarket.conditionId] ?? seedComments(selectedMarket) : [];
-  const addComment = (body: string) => {
-    if (!selectedMarket) return;
-    const next: DetailComment = {
-      id: `${selectedMarket.conditionId}-${Date.now()}`,
-      author: userId ? "You" : "Guest",
-      body,
-      createdAt: new Date(),
-      likes: 0,
-    };
+  const selectedComments = selectedMarket ? commentsByMarket[selectedMarket.conditionId] ?? [] : [];
+
+  const fetchComments = useCallback(async (marketId: string) => {
+    const res = await fetch(`/api/polymarket/comments?marketId=${encodeURIComponent(marketId)}`);
+    if (!res.ok) return;
+    const data = await res.json() as Array<Omit<DetailComment, "createdAt"> & { createdAt: string }>;
     setCommentsByMarket((current) => ({
       ...current,
-      [selectedMarket.conditionId]: [next, ...(current[selectedMarket.conditionId] ?? seedComments(selectedMarket))],
+      [marketId]: data.map((comment) => ({ ...comment, createdAt: new Date(comment.createdAt) })),
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedMarket) return;
+    const marketId = selectedMarket.conditionId;
+    void fetchComments(marketId);
+
+    let cleanup = () => {};
+    try {
+      const supabase = createClient();
+      const channel = supabase
+        .channel(`polymarket-comments-${marketId}`)
+        .on("postgres_changes", {
+          event: "INSERT",
+          schema: "public",
+          table: "polymarket_comments",
+          filter: `market_id=eq.${marketId}`,
+        }, () => { void fetchComments(marketId); })
+        .subscribe();
+      cleanup = () => { void supabase.removeChannel(channel); };
+    } catch { /* short polling-free fallback: refresh on next market open */ }
+    return cleanup;
+  }, [selectedMarket, fetchComments]);
+
+  const addComment = async (body: string) => {
+    if (!selectedMarket) return false;
+    if (!userId) {
+      toast.error("Sign in to comment");
+      return false;
+    }
+    const res = await fetch("/api/polymarket/comments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        marketId: selectedMarket.conditionId,
+        question: selectedMarket.question,
+        body,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.error ?? "Could not post comment");
+      return false;
+    }
+    const comment = { ...data, createdAt: new Date(data.createdAt) } as DetailComment;
+    setCommentsByMarket((current) => ({
+      ...current,
+      [selectedMarket.conditionId]: [
+        comment,
+        ...(current[selectedMarket.conditionId] ?? []).filter((item) => item.id !== comment.id),
+      ],
     }));
     toast.success("Comment posted");
+    return true;
   };
 
   return (
