@@ -266,14 +266,14 @@ Sweep regularly to a cold wallet after large deposits.
 
 ## Crypto Withdrawal System
 
-Users withdraw crypto via NOWPayments:
+Users withdraw crypto through the self-custody broadcaster:
 
 - API: `POST /api/crypto/withdraw` → body `{ crypto, network, amount, address }`
-- 5% platform fee deducted from requested amount
-- Minimum amounts: USDT 10, ETH 0.005, BNB 0.01, BTC 0.0001
-- Debits `UserCryptoBalance`, creates a PENDING `Transaction`, submits payout to NOWPayments
-- On success: NOWPayments calls `POST /api/crypto/withdraw-webhook`
-- On failure: balance automatically refunded
+- Platform fee is controlled by `CRYPTO_WITHDRAWAL_FEE_RATE` and currently defaults to 0 during testing
+- Minimum amounts include USDT 1, ETH 0.001, BNB 0.005, and BTC 0.00001
+- Debits `UserCryptoBalance`, creates a PENDING `Transaction`, signs, and broadcasts on-chain
+- TRON gas thresholds are controlled by `TRON_MIN_GAS_TRX` and `TRON_GAS_TOPUP_TRX`
+- On broadcast failure, the user's balance is automatically refunded
 
 UI: `/wallet` → Withdraw tab → Crypto
 
@@ -463,7 +463,7 @@ POLYMARKET_ORDER_TYPE=FOK
 | Forex | 3-pip spread | Spread baked into entry price |
 | Aviator | ~3% | Provably fair with configurable house cut |
 | P2P | 2% | Fee on crypto release |
-| Crypto withdrawal | 5% | Fee on withdrawal amount |
+| Crypto withdrawal | Configurable | `CRYPTO_WITHDRAWAL_FEE_RATE` (currently 0 during testing) |
 
 ---
 

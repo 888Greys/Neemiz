@@ -7,8 +7,8 @@
  *
  * Gas model:
  *   - If the user's address already has enough native coin for gas → use it
- *   - If not → hot wallet (index 0) sends a tiny gas top-up first
- *     The gas cost is negligible ($0.001 on Polygon) and covered by the 5% fee.
+ *   - If not → hot wallet (index 0) sends a gas top-up first
+ *   - The platform funds network gas separately from the withdrawal amount
  *
  * Hot wallet (index 0) only needs gas coins — NOT token float:
  *   Polygon: MATIC  |  Ethereum: ETH  |  BSC: BNB  |  Tron: TRX
@@ -92,7 +92,8 @@ function getHotTronKey(): string { return getRoot().derivePath("m/44'/195'/0'/0/
 
 export function getHotWalletAddresses(): Record<string, string> {
   const evm = getRoot().derivePath("m/44'/60'/0'/0/0");
-  return { EVM: evm.address, Tron: hexToTron(evm.address) };
+  const tron = getRoot().derivePath("m/44'/195'/0'/0/0");
+  return { EVM: evm.address, Tron: hexToTron(tron.address) };
 }
 
 // ─── Chain config ─────────────────────────────────────────────────────────────
@@ -189,8 +190,14 @@ async function broadcastEVM(
 
 const TRON_USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 const TRONGRID           = "https://api.trongrid.io";
-const MIN_TRX            = 30_000_000;   // 30 TRX in sun
-const TOPUP_TRX          = 50_000_000;   // 50 TRX
+
+function trxToSun(value: string | undefined, fallback: number): number {
+  const trx = Number(value ?? fallback);
+  return Math.round((Number.isFinite(trx) ? Math.max(trx, 1) : fallback) * 1_000_000);
+}
+
+const MIN_TRX   = trxToSun(process.env.TRON_MIN_GAS_TRX, 15);
+const TOPUP_TRX = trxToSun(process.env.TRON_GAS_TOPUP_TRX, 20);
 
 function encodeTRC20Transfer(toHex: string, amount: bigint): string {
   const addr = toHex.slice(2).toLowerCase().padStart(64, "0");
