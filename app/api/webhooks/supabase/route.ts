@@ -17,6 +17,7 @@ type SupabaseAuthEvent = {
       first_name?: string;
       last_name?: string;
       avatar_url?: string;
+      picture?: string;
       full_name?: string;
     } | null;
   } | null;
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
         username,
         firstName: raw_user_meta_data?.first_name ?? null,
         lastName: raw_user_meta_data?.last_name ?? null,
-        imageUrl: raw_user_meta_data?.avatar_url ?? null,
+        imageUrl: raw_user_meta_data?.avatar_url ?? raw_user_meta_data?.picture ?? null,
       },
     });
 
@@ -89,7 +90,7 @@ export async function POST(req: Request) {
         phone: phone ?? null,
         firstName: raw_user_meta_data?.first_name ?? null,
         lastName: raw_user_meta_data?.last_name ?? null,
-        imageUrl: raw_user_meta_data?.avatar_url ?? null,
+        imageUrl: raw_user_meta_data?.avatar_url ?? raw_user_meta_data?.picture ?? null,
       },
     });
   }

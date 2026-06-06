@@ -1437,6 +1437,13 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       const { error: updErr } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
       if (updErr) throw updErr;
 
+      const avatarSync = await fetch("/api/profile/avatar", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: publicUrl }),
+      });
+      if (!avatarSync.ok) throw new Error("Failed to save profile picture");
+
       // Persist to the merchant profile too, so it shows on the public offer cards.
       await fetch("/api/p2p/merchant/profile", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
