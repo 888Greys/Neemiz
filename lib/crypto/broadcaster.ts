@@ -22,6 +22,18 @@ import { getPrivateKeyForAddress } from "./hd-wallet";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
+function getTronTxId(tx: Record<string, unknown>): string {
+  const provided = typeof tx.txID === "string" ? tx.txID : "";
+  if (/^[0-9a-fA-F]{64}$/.test(provided)) return provided;
+
+  const rawDataHex = typeof tx.raw_data_hex === "string" ? tx.raw_data_hex : "";
+  if (!/^[0-9a-fA-F]+$/.test(rawDataHex) || rawDataHex.length % 2 !== 0) {
+    throw new Error("TronGrid returned an invalid unsigned transaction");
+  }
+
+  return createHash("sha256").update(Buffer.from(rawDataHex, "hex")).digest("hex");
+}
+
 function base58Decode(str: string): Buffer {
   const digits = [0];
   for (let ci = 0; ci < str.length; ci++) {
@@ -203,7 +215,7 @@ async function sendTRXFromHotWallet(toTronAddress: string, sunAmount: number, ap
   const res  = await fetch(`${TRONGRID}/wallet/createtransaction`, { method: "POST", headers, body: JSON.stringify(body) });
   const tx   = await res.json() as Record<string, unknown>;
 
-  const txID = tx.txID as string;
+  const txID = getTronTxId(tx);
   const signingKey = new ethers.SigningKey(getHotTronKey());
   const sig        = signingKey.sign("0x" + txID);
   const tronSig    = sig.r.slice(2) + sig.s.slice(2) + (sig.v - 27).toString(16).padStart(2, "0");
@@ -263,7 +275,7 @@ async function broadcastTron(
   }
 
   const tx     = triggerData.transaction!;
-  const txID   = tx.txID as string;
+  const txID   = getTronTxId(tx);
   const sig    = new ethers.SigningKey(userEVMNode.privateKey).sign("0x" + txID);
   const tronSig = sig.r.slice(2) + sig.s.slice(2) + (sig.v - 27).toString(16).padStart(2, "0");
 

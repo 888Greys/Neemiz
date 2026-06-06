@@ -146,10 +146,21 @@ export async function POST(req: Request) {
         where: { id: txRecord.id },
         data:  { status: TransactionStatus.FAILED },
       });
+      await tx.notification.create({
+        data: {
+          userId: dbUser.id,
+          type: "crypto_withdrawal_failed",
+          title: `${crypto} withdrawal failed`,
+          body: `Your ${amount} ${crypto} was returned to your balance. Please retry shortly.`,
+          link: "/wallet",
+        },
+      });
     });
     const msg = err instanceof Error ? err.message : "Broadcast failed";
     console.error("[crypto/withdraw] broadcast error:", msg);
-    return Response.json({ error: `${msg} — funds returned to your balance` }, { status: 502 });
+    return Response.json({
+      error: `Withdrawal could not be sent. Your ${amount} ${crypto} was returned to your balance. Please retry shortly.`,
+    }, { status: 502 });
   }
 }
 
