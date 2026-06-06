@@ -41,11 +41,12 @@ const nextConfig = {
 };
 
 export default withSentryConfig(nextConfig, {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
+  org: process.env.SENTRY_ORG ?? "brand2d",
+  project: process.env.SENTRY_PROJECT ?? "javascript-nextjs",
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
-  widenClientFileUpload: false,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
   sourcemaps: {
     disable: !process.env.SENTRY_AUTH_TOKEN,
   },
