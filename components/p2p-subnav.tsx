@@ -62,7 +62,7 @@ export function P2PSubNav() {
                 <Icon name={t.icon} fill={active} className="text-[16px]" />
                 <span className="hidden sm:inline">{t.label}</span>
                 {t.href === "/p2p/orders" && orderCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#111118]">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-[13px] min-w-[13px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[8px] font-black leading-none text-white ring-1 ring-[#111118]">
                     {orderCount > 9 ? "9+" : orderCount}
                   </span>
                 )}
