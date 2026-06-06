@@ -30,6 +30,8 @@ const TX_META: Record<string, { badge: string; badgeColor: string; icon: string;
 };
 
 const DB_NOTIF_META: Record<string, { badge: string; badgeColor: string }> = {
+  wallet_transfer_sent:     { badge: "SENT",     badgeColor: "bg-sky-500/15 text-sky-400" },
+  wallet_transfer_received: { badge: "RECEIVED", badgeColor: "bg-emerald-500/15 text-emerald-400" },
   p2p_paid:      { badge: "P2P",       badgeColor: "bg-[#087cff]/15 text-[#087cff]" },
   p2p_released:  { badge: "RELEASED",  badgeColor: "bg-[#31c45d]/15 text-[#31c45d]" },
   p2p_dispute:   { badge: "DISPUTE",   badgeColor: "bg-red-500/15 text-red-400" },
@@ -134,10 +136,13 @@ function dbToNotification(n: DbNotification): Notification {
 
 const LAST_READ_KEY = "nezeem_notif_last_read";
 const NOTIFICATION_CACHE_MS = 60_000;
+const NOTIFICATION_POLL_MS = 10_000;
+export const NOTIFICATIONS_REFRESH_EVENT = "nezeem:notifications-refresh";
 let notificationCache: { notes: Notification[]; fetchedAt: number } | null = null;
 let notificationRequest: Promise<Notification[]> | null = null;
 
-async function fetchNotifications(): Promise<Notification[]> {
+async function fetchNotifications(force = false): Promise<Notification[]> {
+  if (force) notificationCache = null;
   if (notificationRequest) return notificationRequest;
 
   notificationRequest = Promise.allSettled([
@@ -374,15 +379,32 @@ export function NotificationsBell() {
 
   useEffect(() => {
     refreshUnread();
-    const timer = window.setInterval(refreshUnread, NOTIFICATION_CACHE_MS);
-    return () => window.clearInterval(timer);
+    const refreshNow = () => {
+      notificationCache = null;
+      refreshUnread();
+    };
+    const refreshVisible = () => {
+      if (document.visibilityState === "visible") refreshNow();
+    };
+    const timer = window.setInterval(refreshNow, NOTIFICATION_POLL_MS);
+    window.addEventListener(NOTIFICATIONS_REFRESH_EVENT, refreshNow);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener(NOTIFICATIONS_REFRESH_EVENT, refreshNow);
+      document.removeEventListener("visibilitychange", refreshVisible);
+    };
   }, [refreshUnread]);
 
   return (
     <div className="relative">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((value) => !value);
+          notificationCache = null;
+          refreshUnread();
+        }}
         className={`relative flex h-9 w-9 items-center justify-center rounded-xl transition ${
           open ? "bg-[#087cff]/20 text-[#087cff]" : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.10] hover:text-white"
         }`}

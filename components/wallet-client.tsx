@@ -7,6 +7,7 @@ import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { LoadingDots } from "@/components/loading-dots";
+import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown";
 
 const QUICK_AMOUNTS = [100, 250, 500, 1_000, 2_500, 5_000];
 const POLL_INTERVAL = 4_000;
@@ -1022,6 +1023,7 @@ function WalletTransferPanel({
         recipient,
         reference: typeof data.reference === "string" ? data.reference : "Completed",
       });
+      window.dispatchEvent(new Event(NOTIFICATIONS_REFRESH_EVENT));
       refreshBalance();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Transfer failed");
