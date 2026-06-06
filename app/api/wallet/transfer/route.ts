@@ -2,7 +2,7 @@ import { TransactionStatus, TransactionType } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { recipientLookupWhere } from "@/lib/user-identity";
+import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
 
 const recipientSelect = {
   id: true,
@@ -10,6 +10,8 @@ const recipientSelect = {
   firstName: true,
   lastName: true,
   imageUrl: true,
+  email: true,
+  phone: true,
 } as const;
 
 export async function GET(req: Request) {
@@ -27,10 +29,20 @@ export async function GET(req: Request) {
     take: 6,
   });
 
-  return Response.json(users.map((recipient) => ({
-    ...recipient,
-    displayName: [recipient.firstName, recipient.lastName].filter(Boolean).join(" ") || recipient.username,
-  })));
+  const recipients = await Promise.all(users.map(async (recipient) => {
+    const username = recipient.username ?? await generateUniqueUsername(db, recipient);
+    if (!recipient.username) {
+      await db.user.update({ where: { id: recipient.id }, data: { username } });
+    }
+    return {
+      id: recipient.id,
+      username,
+      imageUrl: recipient.imageUrl,
+      displayName: [recipient.firstName, recipient.lastName].filter(Boolean).join(" ") || username,
+    };
+  }));
+
+  return Response.json(recipients);
 }
 
 export async function POST(req: Request) {
