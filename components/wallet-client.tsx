@@ -952,6 +952,12 @@ type TransferRecipient = {
   imageUrl: string | null;
 };
 
+type TransferReceipt = {
+  amount: number;
+  recipient: TransferRecipient;
+  reference: string;
+};
+
 function WalletTransferPanel({
   isSignedIn,
   balance,
@@ -970,6 +976,7 @@ function WalletTransferPanel({
   const [searching, setSearching] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [receipt, setReceipt] = useState<TransferReceipt | null>(null);
 
   useEffect(() => {
     if (!isSignedIn || recipient || query.trim().length < 2) {
@@ -1010,16 +1017,60 @@ function WalletTransferPanel({
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ?? "Transfer failed");
-      toast.success("Money sent", `KSh ${Number(amount).toLocaleString("en-KE")} sent to @${recipient.username}`);
-      setQuery("");
-      setRecipient(null);
-      setAmount("");
+      setReceipt({
+        amount: Number(amount),
+        recipient,
+        reference: typeof data.reference === "string" ? data.reference : "Completed",
+      });
       refreshBalance();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Transfer failed");
     } finally {
       setSending(false);
     }
+  }
+
+  if (receipt) {
+    return (
+      <div className="overflow-hidden rounded-3xl bg-[radial-gradient(circle_at_top,#123c35_0%,#11161b_48%,#101116_100%)] p-6 text-center ring-1 ring-emerald-400/20">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-400/10 ring-1 ring-emerald-400/30">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400 text-[#07251b] shadow-[0_0_40px_rgba(52,211,153,0.35)]">
+            <Icon name="check" className="text-[32px] font-black" />
+          </div>
+        </div>
+        <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-emerald-400">Transfer successful</p>
+        <h2 className="mt-2 text-4xl font-black tracking-tight text-white">
+          KSh {receipt.amount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+        </h2>
+
+        <div className="mx-auto mt-6 flex max-w-sm items-center gap-3 rounded-2xl bg-white/[0.05] p-4 text-left ring-1 ring-white/[0.08]">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#087cff]/20 font-black text-[#75b8ff]">
+            {receipt.recipient.imageUrl
+              ? <img src={receipt.recipient.imageUrl} alt="" className="h-full w-full object-cover" />
+              : receipt.recipient.displayName.charAt(0).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-black text-white">{receipt.recipient.displayName}</p>
+            <p className="truncate text-xs font-bold text-slate-400">@{receipt.recipient.username}</p>
+          </div>
+          <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-400">Completed</span>
+        </div>
+
+        <p className="mt-4 text-xs font-medium text-slate-500">The recipient&apos;s Nezeem wallet was credited instantly.</p>
+        <button
+          type="button"
+          onClick={() => {
+            setReceipt(null);
+            setQuery("");
+            setRecipient(null);
+            setAmount("");
+          }}
+          className="mt-6 w-full rounded-2xl bg-[#087cff] py-4 text-sm font-black text-white transition hover:bg-[#2a90ff] active:scale-[0.98]"
+        >
+          Send Again
+        </button>
+      </div>
+    );
   }
 
   return (

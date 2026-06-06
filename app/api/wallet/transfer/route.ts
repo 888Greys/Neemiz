@@ -105,7 +105,7 @@ export async function POST(req: Request) {
       return Number(updated?.walletBalance ?? 0);
     });
 
-    return Response.json({ ok: true, newBalance: result, to: recipient.username });
+    return Response.json({ ok: true, newBalance: result, to: recipient.username, reference });
   } catch (error) {
     if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
