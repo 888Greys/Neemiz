@@ -1072,13 +1072,13 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const [loading, setLoading] = useState(!getCached(adsKey));
 
   const fetchAds = useCallback(async (force = false) => {
-    setLoading(true);
+    if (!ads.length) setLoading(true);
     const data = await cachedFetch<Ad[]>(adsKey, force);
-    setAds(data ?? []);
+    if (data) setAds(data);
     setLoading(false);
-  }, [adsKey]);
+  }, [adsKey, ads.length]);
 
-  useEffect(() => { fetchAds(); }, [fetchAds]);
+  useEffect(() => { fetchAds(true); }, [fetchAds]);
 
   // Live spot rate (CoinGecko) for the selected crypto+fiat; null until loaded
   // or if the provider is unavailable.

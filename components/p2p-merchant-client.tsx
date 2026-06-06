@@ -1477,6 +1477,8 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   }, []);
 
   async function toggleActive(ad: Ad) {
+    const previousAds = ads;
+    setAds((current) => current.map((item) => item.id === ad.id ? { ...item, isActive: !item.isActive } : item));
     try {
       const r = await fetch("/api/p2p/ads/mine", {
         method: "PATCH",
@@ -1486,8 +1488,8 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed");
       toast.success(!ad.isActive ? "Ad reactivated" : "Ad paused");
-      loadAds();
     } catch (err: unknown) {
+      setAds(previousAds);
       toast.error(err instanceof Error ? err.message : "Failed");
     }
   }

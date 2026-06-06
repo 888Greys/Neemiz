@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { createClient } from "@/lib/supabase/client";
 
 type Tab = "all" | "personal" | "general";
 
@@ -140,21 +141,18 @@ const NOTIFICATION_POLL_MS = 10_000;
 export const NOTIFICATIONS_REFRESH_EVENT = "nezeem:notifications-refresh";
 let notificationCache: { notes: Notification[]; fetchedAt: number } | null = null;
 let notificationRequest: Promise<Notification[]> | null = null;
+let notificationUserId: string | null = null;
 
 async function fetchNotifications(force = false): Promise<Notification[]> {
   if (force) notificationCache = null;
   if (notificationRequest) return notificationRequest;
 
-  notificationRequest = Promise.allSettled([
-    fetch("/api/wallet/transactions").then((r) => r.ok ? r.json() : []),
-    fetch("/api/notifications").then((r) => r.ok ? r.json() : []),
-  ]).then(([txRes, dbRes]) => {
-    const txNotes: Notification[] = txRes.status === "fulfilled" && Array.isArray(txRes.value)
-      ? txRes.value.map(txToNotification)
-      : [];
-    const dbNotes: Notification[] = dbRes.status === "fulfilled" && Array.isArray(dbRes.value)
-      ? dbRes.value.map(dbToNotification)
-      : [];
+  notificationRequest = fetch("/api/notifications")
+  .then(async (response) => response.ok ? response.json() : { notifications: [], transactions: [] })
+  .then((data: { userId?: string; notifications?: DbNotification[]; transactions?: Array<{ id: string; type: string; amount: number; status: string; createdAt: string }> }) => {
+    notificationUserId = data.userId ?? notificationUserId;
+    const txNotes = Array.isArray(data.transactions) ? data.transactions.map(txToNotification) : [];
+    const dbNotes = Array.isArray(data.notifications) ? data.notifications.map(dbToNotification) : [];
     const notes = [...txNotes, ...dbNotes].sort((a, b) => b.rawDate - a.rawDate);
     notificationCache = { notes, fetchedAt: Date.now() };
     return notes;
@@ -378,7 +376,9 @@ export function NotificationsBell() {
   }, []);
 
   useEffect(() => {
-    refreshUnread();
+    let disposed = false;
+    let realtimeChannel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null;
+    const supabase = createClient();
     const refreshNow = () => {
       notificationCache = null;
       refreshUnread();
@@ -386,13 +386,31 @@ export function NotificationsBell() {
     const refreshVisible = () => {
       if (document.visibilityState === "visible") refreshNow();
     };
+    void refreshUnread().then(() => {
+      if (disposed || !notificationUserId) return;
+      realtimeChannel = supabase
+        .channel(`notifications:${notificationUserId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${notificationUserId}`,
+          },
+          refreshNow,
+        )
+        .subscribe();
+    });
     const timer = window.setInterval(refreshNow, NOTIFICATION_POLL_MS);
     window.addEventListener(NOTIFICATIONS_REFRESH_EVENT, refreshNow);
     document.addEventListener("visibilitychange", refreshVisible);
     return () => {
+      disposed = true;
       window.clearInterval(timer);
       window.removeEventListener(NOTIFICATIONS_REFRESH_EVENT, refreshNow);
       document.removeEventListener("visibilitychange", refreshVisible);
+      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
     };
   }, [refreshUnread]);
 

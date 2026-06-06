@@ -33,6 +33,7 @@ type AppShellProps = {
 
 export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = true }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const isLogin = pathname === "/login";
   const isSportsPage = pathname.startsWith("/sports");
   const { isSignedIn, user } = useSupabaseAuth();
@@ -73,6 +74,21 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: "instant" });
   }, [pathname]);
+
+  useEffect(() => {
+    const prefetch = () => {
+      ["/dashboard", "/sports", "/p2p", "/p2p/orders", "/aviator", "/predictions", "/binary", "/forex"]
+        .forEach((route) => router.prefetch(route));
+      fetch("/api/p2p/ads?side=SELL&crypto=USDT&fiat=KES").catch(() => {});
+      fetch("/api/notifications").catch(() => {});
+    };
+    const idle = window.requestIdleCallback?.(prefetch, { timeout: 2000 });
+    const timer = idle == null ? window.setTimeout(prefetch, 800) : null;
+    return () => {
+      if (idle != null) window.cancelIdleCallback?.(idle);
+      if (timer != null) window.clearTimeout(timer);
+    };
+  }, [router]);
 
   if (isLogin) return <>{children}</>;
 
