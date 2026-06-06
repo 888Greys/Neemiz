@@ -1054,7 +1054,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   function setPriceFromMargin(value: string) {
     setForm((p) => {
       const pct = Number(value);
-      if (!spotRate || p.crypto === "KES" || value === "" || !Number.isFinite(pct)) {
+      const isPartialNumber = value === "" || value === "-" || value === "+" || value === "." || value === "-." || value === "+.";
+      if (!spotRate || p.crypto === "KES" || isPartialNumber || !Number.isFinite(pct) || pct <= -100) {
         return { ...p, profitMarginPct: value };
       }
       return {
@@ -1118,6 +1119,10 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     // Order limits now apply to both Buy and Sell ads.
     const minLimit = Number(form.minLimit);
     const maxLimit = Number(form.maxLimit);
+    const profitMarginPct = Number(form.profitMarginPct);
+    if (canUseMarginPricing && (!Number.isFinite(profitMarginPct) || profitMarginPct <= -100)) {
+      return toast.error("Margin must be greater than -100%");
+    }
     if (needsKesBacking) {
       return toast.error(`Top up your fiat wallet first. This KES Coin sell ad needs KSh ${requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee.`);
     }
@@ -1253,12 +1258,12 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </label>
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="text"
                 value={form.profitMarginPct}
                 onChange={(e) => setPriceFromMargin(e.target.value)}
                 disabled={!canUseMarginPricing}
-                placeholder={canUseMarginPricing ? "e.g. 3.5" : "Market rate unavailable"}
+                placeholder={canUseMarginPricing ? "e.g. 3.5 or -10" : "Market rate unavailable"}
                 className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40 disabled:cursor-not-allowed disabled:opacity-50"
               />
               <button
@@ -1272,7 +1277,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
             {canUseMarginPricing ? (
               <p className="mt-1 text-[11px] font-semibold text-slate-500">
-                Uses live market {formatFiat(spotRate!, form.fiat)}/{form.crypto} to calculate your price.
+                Uses live market {formatFiat(spotRate!, form.fiat)}/{form.crypto} to calculate your price. Negative margins such as -10% are allowed.
               </p>
             ) : (
               <p className="mt-1 text-[11px] font-semibold text-slate-600">

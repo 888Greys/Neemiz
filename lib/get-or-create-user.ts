@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
+import { generateUniqueUsername } from "@/lib/user-identity";
 
 type UserData = {
   email?: string | null;
@@ -23,16 +24,21 @@ export async function getOrCreateUser(supabaseId: string, data?: UserData) {
   const existing = await db.user.findUnique({ where: { supabaseId } });
   if (existing) {
     if (!existing.isActive) throw new SuspendedAccountError();
+    if (!existing.username) {
+      const username = await generateUniqueUsername(db, data);
+      return db.user.update({ where: { id: existing.id }, data: { username } });
+    }
     return existing;
   }
 
   try {
+    const username = await generateUniqueUsername(db, data);
     return await db.user.create({
       data: {
         supabaseId,
         email: data?.email ?? null,
         phone: data?.phone ?? null,
-        username: data?.username ?? null,
+        username,
         firstName: data?.firstName ?? null,
         lastName: data?.lastName ?? null,
         imageUrl: data?.imageUrl ?? null,
