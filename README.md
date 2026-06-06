@@ -1,5 +1,8 @@
 # Nezeem
 
+Performance implementation notes are documented in
+[`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
+
 Nezeem is a mobile-first betting and trading platform built with Next.js, TypeScript, Tailwind CSS, Prisma, Supabase Auth, and Bun. It combines a full sportsbook, P2P crypto trading, Aviator crash game, binary options, forex, and Polymarket prediction markets — all backed by real wallets, escrow, and live settlement.
 
 ## Live URLs

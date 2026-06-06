@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { creditUserCrypto, defaultNetwork, isKesCoin, releaseKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
+import { creditUserCrypto, debitUserCrypto, defaultNetwork, isKesCoin, releaseKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { sendTradeCompletedEmail } from "@/lib/brevo";
 
 // POST /api/p2p/orders/[id]/release — merchant confirms fiat received & releases crypto
@@ -43,14 +43,15 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const netCryptoAmt    = parseFloat((cryptoAmt * (1 - ESCROW_FEE_RATE)).toFixed(8));
 
     await db.$transaction(async (tx) => {
-      await tx.p2POrder.update({
-        where: { id },
+      const released = await tx.p2POrder.updateMany({
+        where: { id, status: "PAID", escrowReleased: false },
         data: {
           status:         "RELEASED",
           escrowReleased: true,
           releasedAt:     new Date(),
         },
       });
+      if (released.count === 0) throw new Error("ORDER_ALREADY_PROCESSED");
 
       if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
 
@@ -74,13 +75,30 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           role: "receiver",
         });
       } else if (isMerchantSell) {
-        await tx.p2PCryptoBalance.update({
+        const escrowBalance = await tx.p2PCryptoBalance.findUnique({
           where: { merchantId_crypto: { merchantId: merchant.id, crypto: order.crypto } },
-          data: {
-            locked: { decrement: cryptoAmt },
-            total:  { decrement: cryptoAmt },
-          },
         });
+
+        // Orders created before merchant escrow balances were introduced have
+        // no P2PCryptoBalance row. Settle those from the merchant's wallet when
+        // they explicitly release, while still enforcing sufficient funds.
+        if (!escrowBalance) {
+          await debitUserCrypto(tx, merchant.userId, order.crypto, network, cryptoAmt);
+        } else {
+          const escrowDebit = await tx.p2PCryptoBalance.updateMany({
+            where: {
+              merchantId: merchant.id,
+              crypto: order.crypto,
+              total:  { gte: cryptoAmt },
+              locked: { gte: cryptoAmt },
+            },
+            data: {
+              locked: { decrement: cryptoAmt },
+              total:  { decrement: cryptoAmt },
+            },
+          });
+          if (escrowDebit.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
+        }
 
         // Buyer (user) receives 98% — 2% platform fee stays in escrow
         await creditUserCrypto(tx, order.buyerId, order.crypto, network, netCryptoAmt);
@@ -153,7 +171,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     return Response.json({ status: "RELEASED" });
   } catch (err) {
-    console.error("POST /api/p2p/orders/[id]/release:", err instanceof Error ? err.message : "Unknown error");
+    const message = err instanceof Error ? err.message : "Unknown error";
+    if (message === "INSUFFICIENT_CRYPTO_BALANCE") {
+      return Response.json({
+        error: "This legacy order has no funded escrow. Add enough crypto to your wallet, then release again.",
+      }, { status: 409 });
+    }
+    if (message === "INSUFFICIENT_LOCKED_CRYPTO") {
+      return Response.json({ error: "The seller's locked crypto is no longer available." }, { status: 409 });
+    }
+    if (message === "ORDER_ALREADY_PROCESSED") {
+      return Response.json({ error: "This order has already been processed. Refreshing the order." }, { status: 409 });
+    }
+    console.error("POST /api/p2p/orders/[id]/release:", message);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }
