@@ -112,6 +112,16 @@ function ctaButton(href: string, label: string, color = "#087cff") {
   </table>`;
 }
 
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#039;",
+  })[char] ?? char);
+}
+
 export async function sendGameResultEmail(
   to: string,
   displayName: string,
@@ -435,6 +445,36 @@ export async function sendNewP2POrderEmail(
     `,
     "Never release crypto before confirming payment has arrived in your account."
   ));
+}
+
+export async function sendP2PMessageEmail(
+  to: string,
+  recipientName: string,
+  opts: {
+    orderId: string;
+    senderName: string;
+    message: string;
+    hasImage: boolean;
+  },
+) {
+  const senderName = escapeHtml(opts.senderName);
+  const subjectSender = opts.senderName.replace(/[\r\n]+/g, " ").trim() || "a trader";
+  const message = escapeHtml(opts.message || (opts.hasImage ? "Sent an image" : "Sent you a message"));
+  await sendEmail(
+    to,
+    recipientName,
+    `New message from ${subjectSender} on Nezeem P2P`,
+    emailWrapper(`
+      <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#087cff;text-transform:uppercase;letter-spacing:1px;">P2P Message</p>
+      <h2 style="margin:0 0 16px;font-size:22px;font-weight:800;color:#1a1a2e;">${senderName} sent you a message</h2>
+      <div style="background:#f7f9fc;border-left:4px solid #087cff;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:24px;">
+        <p style="margin:0;font-size:14px;color:#344054;line-height:1.7;white-space:pre-wrap;">${message}</p>
+        ${opts.hasImage ? `<p style="margin:10px 0 0;font-size:12px;font-weight:700;color:#087cff;">Image attached in the order chat</p>` : ""}
+      </div>
+      <p style="margin:0;font-size:13px;color:#667085;">Order #${opts.orderId.slice(0, 12).toUpperCase()}</p>
+      ${ctaButton(`${APP_URL}/p2p/order/${opts.orderId}`, "Open Chat and Reply")}
+    `, "Open the order page to reply securely. Never move a P2P conversation outside Nezeem.")
+  );
 }
 
 // ─── Crypto Deposit Email ─────────────────────────────────────────────────────

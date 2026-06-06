@@ -50,6 +50,10 @@ The notification dropdown keeps a short-lived local cache and subscribes to
 Supabase Realtime for new notification rows. A slower polling fallback remains
 for browsers or networks where the realtime connection is unavailable.
 
+P2P chat uses the same realtime connection for new messages, receipt updates,
+and ephemeral typing indicators. An eight-second polling fallback keeps chat
+usable when realtime is blocked.
+
 ### Fewer requests
 
 `GET /api/notifications` returns the notification list and unread count in one
@@ -86,3 +90,14 @@ For performance regressions:
 4. Run the relevant statements in `scripts/profile-performance.sql` against a
    production-sized dataset.
 5. Check Vercel runtime logs for slow or repeated endpoints.
+
+## Database Activation
+
+Run Prisma migrations before enabling features that add tables, columns, storage
+buckets, or realtime publications. For persistent Polymarket comments and P2P
+chat receipts/images, run:
+
+`prisma/migrations/20260606170000_comments_and_chat_receipts/migration.sql`
+
+The application keeps legacy text chat operational if this migration has not
+yet been applied, but comments, image uploads, and receipt states require it.

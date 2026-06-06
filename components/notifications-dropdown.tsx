@@ -34,11 +34,13 @@ const DB_NOTIF_META: Record<string, { badge: string; badgeColor: string }> = {
   wallet_transfer_sent:     { badge: "SENT",     badgeColor: "bg-sky-500/15 text-sky-400" },
   wallet_transfer_received: { badge: "RECEIVED", badgeColor: "bg-emerald-500/15 text-emerald-400" },
   p2p_paid:      { badge: "P2P",       badgeColor: "bg-[#087cff]/15 text-[#087cff]" },
+  p2p_message:   { badge: "MESSAGE",   badgeColor: "bg-sky-500/15 text-sky-400" },
   p2p_released:  { badge: "RELEASED",  badgeColor: "bg-[#31c45d]/15 text-[#31c45d]" },
   p2p_dispute:   { badge: "DISPUTE",   badgeColor: "bg-red-500/15 text-red-400" },
   p2p_cancelled: { badge: "CANCELLED", badgeColor: "bg-slate-500/15 text-slate-400" },
   kyc_approved:  { badge: "KYC ✓",    badgeColor: "bg-[#31c45d]/15 text-[#31c45d]" },
   kyc_rejected:  { badge: "KYC ✗",    badgeColor: "bg-red-500/15 text-red-400" },
+  polymarket_comment: { badge: "COMMENT", badgeColor: "bg-violet-500/15 text-violet-300" },
 };
 
 function timeAgo(dateStr: string): string {
