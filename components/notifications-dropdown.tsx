@@ -133,6 +133,32 @@ function dbToNotification(n: DbNotification): Notification {
 }
 
 const LAST_READ_KEY = "nezeem_notif_last_read";
+const NOTIFICATION_CACHE_MS = 60_000;
+let notificationCache: { notes: Notification[]; fetchedAt: number } | null = null;
+let notificationRequest: Promise<Notification[]> | null = null;
+
+async function fetchNotifications(): Promise<Notification[]> {
+  if (notificationRequest) return notificationRequest;
+
+  notificationRequest = Promise.allSettled([
+    fetch("/api/wallet/transactions").then((r) => r.ok ? r.json() : []),
+    fetch("/api/notifications").then((r) => r.ok ? r.json() : []),
+  ]).then(([txRes, dbRes]) => {
+    const txNotes: Notification[] = txRes.status === "fulfilled" && Array.isArray(txRes.value)
+      ? txRes.value.map(txToNotification)
+      : [];
+    const dbNotes: Notification[] = dbRes.status === "fulfilled" && Array.isArray(dbRes.value)
+      ? dbRes.value.map(dbToNotification)
+      : [];
+    const notes = [...txNotes, ...dbNotes].sort((a, b) => b.rawDate - a.rawDate);
+    notificationCache = { notes, fetchedAt: Date.now() };
+    return notes;
+  }).finally(() => {
+    notificationRequest = null;
+  });
+
+  return notificationRequest;
+}
 
 // Single source of truth for "is this notification unread", shared by the bell
 // badge and the dropdown header pill so the two counts never disagree.
@@ -153,8 +179,8 @@ type Props = { onClose: () => void };
 
 export function NotificationsDropdown({ onClose }: Props) {
   const [tab, setTab]         = useState<Tab>("all");
-  const [notes, setNotes]     = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [notes, setNotes]     = useState<Notification[]>(() => notificationCache?.notes ?? []);
+  const [loading, setLoading] = useState(() => !notificationCache);
   const ref                   = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -166,25 +192,12 @@ export function NotificationsDropdown({ onClose }: Props) {
   }, [onClose]);
 
   const loadNotifications = useCallback(async () => {
-    setLoading(true);
+    const hasCachedNotes = !!notificationCache;
+    if (!hasCachedNotes) setLoading(true);
     try {
-      const [txRes, dbRes] = await Promise.allSettled([
-        fetch("/api/wallet/transactions").then((r) => r.ok ? r.json() : []),
-        fetch("/api/notifications").then((r) => r.ok ? r.json() : []),
-      ]);
-
-      const txNotes: Notification[] = txRes.status === "fulfilled" && Array.isArray(txRes.value)
-        ? txRes.value.map(txToNotification)
-        : [];
-
-      const dbNotes: Notification[] = dbRes.status === "fulfilled" && Array.isArray(dbRes.value)
-        ? dbRes.value.map(dbToNotification)
-        : [];
-
-      const merged = [...txNotes, ...dbNotes].sort((a, b) => b.rawDate - a.rawDate);
-      setNotes(merged);
+      setNotes(await fetchNotifications());
     } catch {
-      setNotes([]);
+      if (!hasCachedNotes) setNotes([]);
     } finally {
       setLoading(false);
     }
@@ -205,14 +218,22 @@ export function NotificationsDropdown({ onClose }: Props) {
 
   async function markAllRead() {
     localStorage.setItem(LAST_READ_KEY, String(Date.now()));
-    setNotes((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotes((prev) => {
+      const next = prev.map((n) => ({ ...n, read: true }));
+      notificationCache = { notes: next, fetchedAt: Date.now() };
+      return next;
+    });
     try {
       await fetch("/api/notifications", { method: "PATCH" });
     } catch { /* ignore */ }
   }
 
   function markRead(id: string) {
-    setNotes((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+    setNotes((prev) => {
+      const next = prev.map((n) => n.id === id ? { ...n, read: true } : n);
+      notificationCache = { notes: next, fetchedAt: Date.now() };
+      return next;
+    });
   }
 
   return (
@@ -345,34 +366,17 @@ export function NotificationsBell() {
   const refreshUnread = useCallback(async () => {
     try {
       const lastRead = Number(localStorage.getItem(LAST_READ_KEY) ?? 0);
-
-      const [txRes, dbRes] = await Promise.allSettled([
-        fetch("/api/wallet/transactions").then((r) => r.ok ? r.json() : []),
-        fetch("/api/notifications").then((r) => r.ok ? r.json() : []),
-      ]);
-
-      let count = 0;
-
-      if (txRes.status === "fulfilled" && Array.isArray(txRes.value)) {
-        count += txRes.value.filter(
-          (t: { status: string; createdAt: string }) =>
-            t.status === "PENDING" && new Date(t.createdAt).getTime() > lastRead
-        ).length;
-      }
-
-      if (dbRes.status === "fulfilled" && Array.isArray(dbRes.value)) {
-        count += dbRes.value.filter(
-          (n: { isRead: boolean }) => n.isRead === false
-        ).length;
-      }
-
-      setUnread(count);
+      const cacheFresh = notificationCache && Date.now() - notificationCache.fetchedAt < NOTIFICATION_CACHE_MS;
+      const notes = cacheFresh ? notificationCache!.notes : await fetchNotifications();
+      setUnread(notes.filter((note) => noteUnread(note, lastRead)).length);
     } catch { /* ignore */ }
   }, []);
 
   useEffect(() => {
     refreshUnread();
-  }, [open, refreshUnread]);
+    const timer = window.setInterval(refreshUnread, NOTIFICATION_CACHE_MS);
+    return () => window.clearInterval(timer);
+  }, [refreshUnread]);
 
   return (
     <div className="relative">
