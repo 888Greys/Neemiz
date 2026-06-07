@@ -405,6 +405,7 @@ export function SportsBetSlip() {
   const [placedMsg,  setPlacedMsg]  = useState<{ ok: boolean; text: string } | null>(null);
   const [myBets,     setMyBets]     = useState<MyBet[]>([]);
   const [betsLoading,setBetsLoading]= useState(false);
+  const [expandedBet,setExpandedBet]= useState<string | null>(null);
   const [showShare,  setShowShare]  = useState(false);
 
   const totalOdds  = bets.reduce((acc, b) => acc * parseFloat(b.value || "1"), 1);
@@ -593,42 +594,66 @@ export function SportsBetSlip() {
                   <p className="text-sm font-black text-slate-500">No bets yet</p>
                 </div>
               ) : (
-                myBets.map((bet) => (
-                  <div key={bet.id} className="px-4 py-3.5">
-                    <div className="mb-2.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {bet.status === "PENDING" && (
-                          <span className="relative flex h-2 w-2">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
-                          </span>
-                        )}
-                        <StatusBadge status={bet.status} />
-                        <span className="text-[10px] font-bold text-slate-600 uppercase">{bet.type}</span>
-                      </div>
-                      <span className="text-[10px] text-slate-600">
-                        {new Date(bet.createdAt).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                    {bet.selections.map((s, i) => (
-                      <div key={i} className="mb-2 flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-[10px] text-slate-500">{s.matchName}</div>
-                          <div className="truncate text-[12px] font-black text-white">
-                            {s.label}
-                            <span className="ml-1 text-[10px] font-bold text-slate-500">· {s.market}</span>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 flex-col items-end gap-0.5">
-                          <span className="rounded-md bg-[#087cff]/15 px-1.5 py-0.5 text-[11px] font-black text-[#75b8ff]">
-                            {s.odds.toFixed(2)}
-                          </span>
-                          {s.result !== "PENDING" && (
-                            <span className={`text-[9px] font-black uppercase ${statusColor(s.result)}`}>{s.result}</span>
+                myBets.map((bet) => {
+                  const isOpen = expandedBet === bet.id;
+                  const shownSelections = isOpen ? bet.selections : bet.selections.slice(0, 1);
+                  const hiddenCount = bet.selections.length - shownSelections.length;
+                  return (
+                  <div key={bet.id} className={`px-4 py-3.5 transition-colors ${isOpen ? "bg-white/[0.03]" : ""}`}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedBet(isOpen ? null : bet.id)}
+                      aria-expanded={isOpen}
+                      className="w-full text-left transition active:scale-[0.99]"
+                    >
+                      <div className="mb-2.5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {bet.status === "PENDING" && (
+                            <span className="relative flex h-2 w-2">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                              <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
+                            </span>
+                          )}
+                          <StatusBadge status={bet.status} />
+                          <span className="text-[10px] font-bold text-slate-600 uppercase">{bet.type}</span>
+                          {bet.selections.length > 1 && (
+                            <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-black text-slate-400">
+                              {bet.selections.length} LEGS
+                            </span>
                           )}
                         </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-slate-600">
+                            {new Date(bet.createdAt).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          <Icon name="expand_more" className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                        </div>
                       </div>
-                    ))}
+                      {shownSelections.map((s, i) => (
+                        <div key={i} className="mb-2 flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[10px] text-slate-500">{s.matchName}</div>
+                            <div className="truncate text-[12px] font-black text-white">
+                              {s.label}
+                              <span className="ml-1 text-[10px] font-bold text-slate-500">· {s.market}</span>
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 flex-col items-end gap-0.5">
+                            <span className="rounded-md bg-[#087cff]/15 px-1.5 py-0.5 text-[11px] font-black text-[#75b8ff]">
+                              {s.odds.toFixed(2)}
+                            </span>
+                            {s.result !== "PENDING" && (
+                              <span className={`text-[9px] font-black uppercase ${statusColor(s.result)}`}>{s.result}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {hiddenCount > 0 && (
+                        <div className="mb-2 text-[10px] font-black text-[#75b8ff]">
+                          + {hiddenCount} more selection{hiddenCount > 1 ? "s" : ""} — tap to view
+                        </div>
+                      )}
+                    </button>
                     <div className="mt-2 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 text-[11px]">
                       <span className="text-slate-500">Stake <span className="font-black text-white">KSh {bet.stake.toFixed(2)}</span></span>
                       {bet.status === "WON" && bet.winAmount ? (
@@ -639,8 +664,36 @@ export function SportsBetSlip() {
                         <span className="text-slate-500">To win <span className="font-black text-amber-400">KSh {bet.potentialWin.toFixed(2)}</span></span>
                       )}
                     </div>
+                    {isOpen && (
+                      <div className="mt-2 space-y-1.5 rounded-xl bg-white/[0.02] px-3 py-2.5 text-[11px] ring-1 ring-white/[0.05]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Total odds</span>
+                          <span className="font-black text-white">{bet.totalOdds.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Potential win</span>
+                          <span className="font-black text-amber-400">KSh {bet.potentialWin.toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Placed</span>
+                          <span className="font-bold text-slate-300">
+                            {new Date(bet.createdAt).toLocaleString("en-KE", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Bet ID</span>
+                          <span className="font-mono text-[10px] text-slate-400">#{bet.id.slice(-8).toUpperCase()}</span>
+                        </div>
+                        <Link href="/my-bets"
+                          className="mt-1 flex items-center justify-center gap-1 rounded-lg bg-[#087cff]/15 py-1.5 text-[11px] font-black text-[#75b8ff] transition hover:bg-[#087cff]/25">
+                          View full details
+                          <Icon name="arrow_forward" className="w-3 h-3" />
+                        </Link>
+                      </div>
+                    )}
                   </div>
-                ))
+                  );
+                })
               )}
               <Link href="/my-bets"
                 className="mx-3 my-3 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.06] transition hover:bg-white/[0.08]">
