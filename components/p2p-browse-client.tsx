@@ -603,20 +603,26 @@ function CryptoSelect({ value, onChange }: { value: string; onChange: (c: string
         className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] pl-1.5 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"
       >
         {CRYPTO_ICONS[value] && <img src={CRYPTO_ICONS[value]} alt={value} className="h-4 w-4 rounded-full" />}
-        {value}
+        {value === "ALL" ? "All" : value}
         <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
-          {CRYPTOS.map((c) => (
+          {["ALL", ...CRYPTOS].map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => { onChange(c); setOpen(false); }}
               className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${c === value ? "bg-[#05b957]/15" : "hover:bg-white/[0.06]"}`}
             >
-              {CRYPTO_ICONS[c] && <img src={CRYPTO_ICONS[c]} alt={c} className="h-5 w-5 rounded-full" />}
-              <span className="text-xs font-black text-white">{c}</span>
+              {c === "ALL" ? (
+                <span className="grid h-5 w-5 place-items-center rounded-full bg-white/[0.08]">
+                  <Icon name="apps" className="text-[13px] text-[#75b8ff]" />
+                </span>
+              ) : (
+                CRYPTO_ICONS[c] && <img src={CRYPTO_ICONS[c]} alt={c} className="h-5 w-5 rounded-full" />
+              )}
+              <span className="text-xs font-black text-white">{c === "ALL" ? "All assets" : c}</span>
               {c === value && <Icon name="check" className="ml-auto text-[15px] text-[#05b957]" />}
             </button>
           ))}
@@ -1008,7 +1014,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     : "BUY";
   const initCrypto  = VALID_CRYPTOS_SET.has(searchParams?.get("crypto") ?? "")
     ? searchParams?.get("crypto")!
-    : "USDT";
+    : "ALL";
   const initPayment = VALID_PAYMENTS_SET.has(searchParams?.get("payment") ?? "")
     ? (searchParams?.get("payment") ?? "")
     : "";
@@ -1028,7 +1034,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const pushUrl = useCallback((newTab: string, newCrypto: string, newPayment: string, newFiat: string) => {
     const p = new URLSearchParams();
     if (newTab !== "BUY")     p.set("side",    newTab);
-    if (newCrypto !== "USDT") p.set("crypto",  newCrypto);
+    if (newCrypto !== "ALL")  p.set("crypto",  newCrypto);
     if (newPayment)           p.set("payment", newPayment);
     if (newFiat !== "KES")    p.set("fiat",    newFiat);
     const qs = p.toString();
@@ -1086,6 +1092,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   useEffect(() => {
     let cancelled = false;
     setSpotRate(null);
+    if (crypto === "ALL") return () => { cancelled = true; };
     fetch(`/api/p2p/spot?crypto=${crypto}&fiat=${fiat}`)
       .then((r) => r.ok ? r.json() : null)
       .then((d: { rate?: number | null } | null) => {
@@ -1141,8 +1148,8 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <div className="mb-2 flex min-w-0 items-center justify-between gap-3 lg:mb-1.5">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">Nezeem P2P</p>
-                <h1 className="text-[15px] font-black leading-tight text-white">{tab === "BUY" ? "Buy" : "Sell"} {crypto}</h1>
-                {marketRef > 0 ? (
+                <h1 className="text-[15px] font-black leading-tight text-white">{tab === "BUY" ? "Buy" : "Sell"} {crypto === "ALL" ? "Crypto" : crypto}</h1>
+                {marketRef > 0 && crypto !== "ALL" ? (
                   <p className="mt-0.5 flex items-center gap-1.5 text-xs font-bold text-slate-400">
                     <img src={CRYPTO_ICONS[crypto]} alt={crypto} width={14} height={14} className="h-3.5 w-3.5 rounded-full" />
                     1 {crypto} ≈ <span className="text-white">{formatFiat(marketRef, fiat)}</span>
