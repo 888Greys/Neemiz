@@ -1074,8 +1074,19 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     ...(payment ? { payment } : {}),
   })}`;
 
-  const [ads, setAds]         = useState<Ad[]>(() => getCached<Ad[]>(adsKey) ?? []);
-  const [loading, setLoading] = useState(!getCached(adsKey));
+  // Initialise to SSR-consistent values (empty + loading). Reading the
+  // client-only cache here would diverge from the server render and trigger a
+  // hydration mismatch, so we seed from cache in an effect after mount instead.
+  const [ads, setAds]         = useState<Ad[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Seed instantly from the session cache once mounted (post-hydration).
+  useEffect(() => {
+    const cached = getCached<Ad[]>(adsKey);
+    if (cached) { setAds(cached); setLoading(false); }
+    // Only on mount — the fetch effect below keeps it fresh thereafter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchAds = useCallback(async (force = false) => {
     if (!ads.length) setLoading(true);

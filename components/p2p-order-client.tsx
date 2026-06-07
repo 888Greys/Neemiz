@@ -1394,7 +1394,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-3 bg-white/[0.02]">
             <div className="relative">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#05b957] to-[#039648] flex items-center justify-center text-white font-black text-sm">
-                {(order.isBuyer ? order.seller.displayName : (order.buyer.firstName || order.buyer.username || "?")).charAt(0).toUpperCase()}
+                {((order.isBuyer ? order.seller.displayName : (order.buyer.firstName || order.buyer.username)) || "?").charAt(0).toUpperCase()}
               </div>
               {!isClosed && (
                 <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#05b957] border-2 border-[#111118]" title="Live" />
