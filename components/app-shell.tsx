@@ -45,11 +45,13 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const fmtBalance = isSignedIn
     ? `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : null;
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    if (typeof window === "undefined") return true;
+  // Start collapsed on both server and first client render to avoid a hydration
+  // mismatch, then sync the persisted preference from localStorage after mount.
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  useEffect(() => {
     const stored = localStorage.getItem("sidebar-collapsed");
-    return stored === null ? true : stored === "true";
-  });
+    if (stored !== null) setSidebarCollapsed(stored === "true");
+  }, []);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loginOpen, setLoginOpen]             = useState(false);
   const [registerOpen, setRegisterOpen]       = useState(false);

@@ -164,7 +164,7 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
               <img src={source.avatarUrl} alt={source.displayName} className="h-12 w-12 rounded-2xl object-cover" />
             ) : (
               <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#087cff] text-lg font-black text-white">
-                {source.displayName.charAt(0).toUpperCase()}
+                {(source.displayName || "?").charAt(0).toUpperCase()}
               </div>
             )}
             <div className="min-w-0 flex-1">
@@ -717,7 +717,7 @@ function AdCard({
             <img src={ad.merchant.avatarUrl} alt={ad.merchant.displayName} className="h-7 w-7 rounded-full object-cover" />
           ) : (
             <div className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black text-black" style={{ backgroundColor: color }}>
-              {ad.merchant.displayName.charAt(0).toUpperCase()}
+              {(ad.merchant.displayName || "?").charAt(0).toUpperCase()}
             </div>
           )}
           {ad.merchant.isOnline && (
@@ -1003,17 +1003,17 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const searchParams     = useSearchParams();
 
   // Initialise from URL params — falls back to safe defaults
-  const initTab     = (VALID_SIDES as readonly string[]).includes(searchParams.get("side") ?? "")
-    ? (searchParams.get("side") as "BUY" | "SELL")
+  const initTab     = (VALID_SIDES as readonly string[]).includes(searchParams?.get("side") ?? "")
+    ? (searchParams?.get("side") as "BUY" | "SELL")
     : "BUY";
-  const initCrypto  = VALID_CRYPTOS_SET.has(searchParams.get("crypto") ?? "")
-    ? searchParams.get("crypto")!
+  const initCrypto  = VALID_CRYPTOS_SET.has(searchParams?.get("crypto") ?? "")
+    ? searchParams?.get("crypto")!
     : "USDT";
-  const initPayment = VALID_PAYMENTS_SET.has(searchParams.get("payment") ?? "")
-    ? (searchParams.get("payment") ?? "")
+  const initPayment = VALID_PAYMENTS_SET.has(searchParams?.get("payment") ?? "")
+    ? (searchParams?.get("payment") ?? "")
     : "";
-  const initFiat    = VALID_FIAT_SET.has(searchParams.get("fiat") ?? "")
-    ? searchParams.get("fiat")!
+  const initFiat    = VALID_FIAT_SET.has(searchParams?.get("fiat") ?? "")
+    ? searchParams?.get("fiat")!
     : (VALID_FIAT_SET.has(defaultFiat) ? defaultFiat : "KES");
 
   const [tab, setTabState]          = useState<"BUY" | "SELL">(initTab);
