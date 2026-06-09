@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getSettlementFixtures, FINISHED_STATE_IDS, type MatchDetail } from "@/lib/theoddsapi";
 import { getKnownResults, persistFinishedDetail } from "@/lib/fixtures-cache";
+import { getThesportsdbResult, parseMatchName } from "@/lib/thesportsdb";
 import { resolveSelection, determineBetOutcome, calculateWinAmount } from "@/lib/settle-bet";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
@@ -85,11 +86,38 @@ export async function POST(req: Request) {
     if (r) fixtureMap.set(String(id), { detail: r.detail, stateId: r.stateId });
   }
 
-  // Persist any newly-finished fixtures we fetched so the next run reads them
-  // from the cache table instead of the API.
+  // 3) TheSportsDB fallback (free) for fixtures the Odds API couldn't resolve —
+  //    its /scores feed misses or fails to mark many finished games. Look the
+  //    game up by team name and settle from the real result.
+  const sdbResolved = new Map<number, { detail: MatchDetail; stateId: number }>();
+  // fixtureId → { matchName, latest bet date } (the game is on/after the bet,
+  // so the bet date anchors which game in a series to settle).
+  const metaById = new Map<string, { name: string; date: Date }>();
+  for (const b of pendingBets) for (const s of b.selections) {
+    const prev = metaById.get(s.fixtureId);
+    if (!prev || b.createdAt > prev.date) metaById.set(s.fixtureId, { name: s.matchName, date: b.createdAt });
+  }
+  const stillUnresolved = numericIds.filter((id) => !fixtureMap.has(String(id))).slice(0, 25);
+  for (const id of stillUnresolved) {
+    const meta = metaById.get(String(id));
+    const teams = parseMatchName(meta?.name ?? "");
+    if (!teams) continue;
+    try {
+      const res = await getThesportsdbResult(teams.home, teams.away, meta?.date);
+      if (res) {
+        sdbResolved.set(id, res);
+        fixtureMap.set(String(id), res);
+      }
+    } catch (err) {
+      console.error(`TheSportsDB lookup failed for fixture ${id}:`, err);
+    }
+  }
+
+  // Persist any newly-finished fixtures (Odds API or TheSportsDB) so the next
+  // run reads them from the cache table instead of re-fetching.
   await Promise.all(
-    Array.from(fetched.entries())
-      .filter(([id, v]) => !known.has(id) && (FINISHED_STATE_IDS.has(v.stateId) || v.stateId === 13 || v.stateId === 17))
+    [...Array.from(fetched.entries()).filter(([id]) => !known.has(id)), ...Array.from(sdbResolved.entries())]
+      .filter(([, v]) => FINISHED_STATE_IDS.has(v.stateId) || v.stateId === 13 || v.stateId === 17)
       .map(([id, v]) => persistFinishedDetail(id, v.detail, v.stateId).catch(() => {})),
   );
 
