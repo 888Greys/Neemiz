@@ -107,6 +107,20 @@ console.log("── Market resolution ──");
   check("DNB away on home win", resolveSelection({ market: "Draw No Bet", label: "2" }, homeWin.detail, homeWin.stateId), "LOST");
 }
 
+// Handicap / spreads
+{
+  const homeBy2 = fixture(3, 1); // home wins by 2
+  const homeBy1 = fixture(2, 1); // home wins by 1
+  const draw = fixture(1, 1);
+  check("HCAP home -0.5 when home wins", resolveSelection({ market: "Handicap", label: "1 -0.5" }, homeBy2.detail, homeBy2.stateId), "WON");
+  check("HCAP home -1.5 covered (win by 2)", resolveSelection({ market: "Handicap", label: "1 -1.5" }, homeBy2.detail, homeBy2.stateId), "WON");
+  check("HCAP home -1.5 NOT covered (win by 1)", resolveSelection({ market: "Handicap", label: "1 -1.5" }, homeBy1.detail, homeBy1.stateId), "LOST");
+  check("HCAP home -1 push (win by exactly 1)", resolveSelection({ market: "Handicap", label: "1 -1" }, homeBy1.detail, homeBy1.stateId), "VOID");
+  check("HCAP away +0.5 on draw", resolveSelection({ market: "Asian Handicap", label: "2 +0.5" }, draw.detail, draw.stateId), "WON");
+  check("HCAP away +1.5 when home wins by 1", resolveSelection({ market: "Handicap", label: "2 +1.5" }, homeBy1.detail, homeBy1.stateId), "WON");
+  check("HCAP malformed label → VOID", resolveSelection({ market: "Handicap", label: "Over 9.5" }, homeBy1.detail, homeBy1.stateId), "VOID");
+}
+
 // State-driven voids + unknown markets
 {
   const fx = fixture(2, 1, 13); // abandoned
