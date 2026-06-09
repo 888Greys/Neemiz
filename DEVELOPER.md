@@ -7,6 +7,8 @@
 
 ## Table of Contents
 
+> **Sports data & bet settlement** has its own detailed doc: [`docs/SPORTS-SETTLEMENT.md`](docs/SPORTS-SETTLEMENT.md) — data sources (The Odds API + TheSportsDB), the fixture cache, the settlement pipeline, crons, and the credit budget.
+
 1. [Architecture Overview](#1-architecture-overview)
 2. [Infrastructure](#2-infrastructure)
 3. [Environment Variables](#3-environment-variables)
