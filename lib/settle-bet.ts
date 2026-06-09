@@ -48,6 +48,24 @@ function resolveDrawNoBet(label: string, detail: MatchDetail): SelectionOutcome 
   return "VOID";
 }
 
+// Handicap / spread. Label is "<1|2> <signed line>", e.g. "1 -0.5", "2 +1".
+// The line is added to the selected team's score; an exact tie on the adjusted
+// line is a push (VOID → stake refunded).
+function resolveHandicap(label: string, detail: MatchDetail): SelectionOutcome {
+  const m = label.trim().match(/^([12])\s+([+-]?\d+(?:\.\d+)?)$/);
+  if (!m) return "VOID";
+  const team = m[1];
+  const line = parseFloat(m[2]);
+  if (!Number.isFinite(line)) return "VOID";
+  const h = detail.match.home.score ?? 0;
+  const a = detail.match.away.score ?? 0;
+  // Margin of the selected team after applying its handicap line.
+  const margin = team === "1" ? h + line - a : a + line - h;
+  if (margin > 0) return "WON";
+  if (margin < 0) return "LOST";
+  return "VOID"; // push
+}
+
 export function resolveSelection(
   selection: { market: string; label: string },
   detail: MatchDetail,
@@ -70,6 +88,11 @@ export function resolveSelection(
       return resolveDoubleChance(selection.label, detail);
     case "draw no bet":
       return resolveDrawNoBet(selection.label, detail);
+    case "handicap":
+    case "asian handicap":
+    case "spread":
+    case "spreads":
+      return resolveHandicap(selection.label, detail);
     default:
       // Unknown market — void rather than wrongly settling as LOST
       return "VOID";
