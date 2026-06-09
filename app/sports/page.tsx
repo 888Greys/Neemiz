@@ -12,13 +12,8 @@ import {
   Tv2,
   CircleDot,
 } from "lucide-react";
-import {
-  getLivescores,
-  getUpcomingFixtures,
-  MOCK_LIVE,
-  MOCK_UPCOMING,
-  type Match,
-} from "@/lib/theoddsapi";
+import { MOCK_LIVE, MOCK_UPCOMING, type Match } from "@/lib/theoddsapi";
+import { readLivescores, readUpcoming } from "@/lib/fixtures-cache";
 import Image from "next/image";
 import Link from "next/link";
 import { OddButton } from "@/components/odd-button";
@@ -34,9 +29,16 @@ export default async function SportsPage({ searchParams }: Props) {
 
   const hasToken = Boolean(process.env.ODDS_API_KEY);
 
-  const [liveMatches, upcomingMatches] = hasToken
-    ? await Promise.all([getLivescores(), getUpcomingFixtures()])
+  // Read from the server-side cache (populated by the refresh-fixtures cron) —
+  // zero Odds API credits per page load. Fall back to mocks when there's no key
+  // or the cache hasn't been warmed yet.
+  let [liveMatches, upcomingMatches] = hasToken
+    ? await Promise.all([readLivescores(), readUpcoming()])
     : [MOCK_LIVE, MOCK_UPCOMING];
+  if (liveMatches.length === 0 && upcomingMatches.length === 0) {
+    liveMatches = MOCK_LIVE;
+    upcomingMatches = MOCK_UPCOMING;
+  }
 
   const filterMatches = (matches: Match[]) =>
     leagueFilter

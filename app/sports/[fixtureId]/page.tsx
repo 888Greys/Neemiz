@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { SportsBetSlip } from "@/components/sports-bet-slip";
 import { getFixtureDetail, type MatchEvent, type LineupEntry } from "@/lib/theoddsapi";
+import { readFixtureDetail } from "@/lib/fixtures-cache";
 import { MarketsSection } from "@/components/markets-section";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,7 +14,9 @@ export default async function FixtureDetailPage({ params }: Props) {
   const id = Number(params.fixtureId);
   if (isNaN(id)) notFound();
 
-  const detail = await getFixtureDetail(id);
+  // Served from the cache table (0 API credits). Fall back to a direct API
+  // lookup only if the fixture isn't cached yet.
+  const detail = (await readFixtureDetail(id)) ?? (await getFixtureDetail(id));
   if (!detail) notFound();
 
   const { match: m, homeParticipantId, events, stats, homeLineup, awayLineup, homePeriodScores, awayPeriodScores, markets } = detail;

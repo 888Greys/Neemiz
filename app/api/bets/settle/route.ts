@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
-import { getFixtureDetail, FINISHED_STATE_IDS } from "@/lib/theoddsapi";
+import { getSettlementFixtures, FINISHED_STATE_IDS, type MatchDetail } from "@/lib/theoddsapi";
+import { getKnownResults, persistFinishedDetail } from "@/lib/fixtures-cache";
 import { resolveSelection, determineBetOutcome, calculateWinAmount } from "@/lib/settle-bet";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
@@ -45,21 +46,52 @@ export async function POST(req: Request) {
     new Set(pendingBets.flatMap((b) => b.selections.map((s) => s.fixtureId))),
   );
 
-  // ── Step C: fetch fixture details in parallel ─────────────────────────────
-  const fetchResults = await Promise.allSettled(
-    fixtureIds.map((id) => getFixtureDetail(Number(id))),
+  // ── Step C: resolve fixtures, cheapest source first ──────────────────────
+  // 1) Permanent finished results from the cache table → zero API credits.
+  // 2) Only fixtures with no recorded result hit the Odds API, and only for the
+  //    sports those bets belong to (one or two targeted calls, not a 12-sport
+  //    scan per fixture). apiHealthy is false on a genuine outage / quota
+  //    exhaustion, which gates the refund-on-stuck step below.
+  const numericIds = fixtureIds.map((id) => Number(id));
+  const known = await getKnownResults(numericIds);
+
+  const unresolvedIds = numericIds.filter((id) => !known.has(id));
+  const unresolvedSet = new Set(unresolvedIds.map(String));
+  const sportKeysForUnresolved = Array.from(
+    new Set(
+      pendingBets
+        .flatMap((b) => b.selections)
+        .filter((s) => unresolvedSet.has(s.fixtureId) && s.sportKey)
+        .map((s) => s.sportKey as string),
+    ),
+  );
+  // If every unresolved fixture has a known sportKey we can target; otherwise
+  // (legacy rows with null sportKey) fall back to the full in-season scan.
+  const everyUnresolvedHasSport = unresolvedIds.every((id) =>
+    pendingBets.some((b) =>
+      b.selections.some((s) => s.fixtureId === String(id) && s.sportKey),
+    ),
   );
 
-  const fixtureMap = new Map<
-    string,
-    { detail: NonNullable<Awaited<ReturnType<typeof getFixtureDetail>>>; stateId: number }
-  >();
-  fixtureIds.forEach((id, i) => {
-    const r = fetchResults[i];
-    if (r.status === "fulfilled" && r.value) {
-      fixtureMap.set(id, { detail: r.value, stateId: r.value.stateId });
-    }
-  });
+  const { fixtures: fetched, apiHealthy } = unresolvedIds.length === 0
+    ? { fixtures: new Map<number, { detail: MatchDetail; stateId: number }>(), apiHealthy: true }
+    : await getSettlementFixtures(unresolvedIds, {
+        sportKeys: everyUnresolvedHasSport ? sportKeysForUnresolved : undefined,
+      });
+
+  const fixtureMap = new Map<string, { detail: MatchDetail; stateId: number }>();
+  for (const id of numericIds) {
+    const r = known.get(id) ?? fetched.get(id);
+    if (r) fixtureMap.set(String(id), { detail: r.detail, stateId: r.stateId });
+  }
+
+  // Persist any newly-finished fixtures we fetched so the next run reads them
+  // from the cache table instead of the API.
+  await Promise.all(
+    Array.from(fetched.entries())
+      .filter(([id, v]) => !known.has(id) && (FINISHED_STATE_IDS.has(v.stateId) || v.stateId === 13 || v.stateId === 17))
+      .map(([id, v]) => persistFinishedDetail(id, v.detail, v.stateId).catch(() => {})),
+  );
 
   // ── Step D: which fixtures are finished ──────────────────────────────────
   const finishedFixtureIds = new Set(
@@ -203,10 +235,14 @@ export async function POST(req: Request) {
   // unavailable) can never be settled — void it and refund the stake so it
   // doesn't sit PENDING forever. Fixtures that ARE still in the feed (future
   // or live games) are left alone, so long-dated bets aren't wrongly voided.
+  // CRITICAL: only auto-void when the feed is healthy. During an outage / quota
+  // exhaustion every fetch returns empty, so EVERY fixture looks "missing" — and
+  // we'd wrongly refund bets that actually lost. Skip the void pass entirely
+  // until the API is reachable again.
   const STUCK_MS = 3 * 24 * 60 * 60 * 1000;
   const stuckCutoff = new Date(Date.now() - STUCK_MS);
   const settledIds = new Set(settleableBets.map((b) => b.id));
-  const stuckBets = pendingBets.filter(
+  const stuckBets = !apiHealthy ? [] : pendingBets.filter(
     (b) =>
       !settledIds.has(b.id) &&
       b.createdAt < stuckCutoff &&
@@ -269,10 +305,12 @@ export async function POST(req: Request) {
 
   return Response.json({
     ok: true,
+    apiHealthy,
     pendingBetsChecked: pendingBets.length,
-    fixturesFetched: fixtureIds.length,
+    fixturesFetched: fixtureMap.size,
     fixturesFinished: finishedFixtureIds.size,
     betsSettled: settledCount,
     betsVoided: voidedCount,
+    ...(apiHealthy ? {} : { warning: "Odds API unreachable (out of credits / rate limited) — settlement & auto-void paused this run." }),
   });
 }

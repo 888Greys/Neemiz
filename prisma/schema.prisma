@@ -87,10 +87,52 @@ model BetSelection {
   label     String
   odds      Decimal @db.Decimal(10, 4)
 
+  // Settlement targeting — lets the settler query only the relevant sport /
+  // event instead of scanning every in-season sport (saves Odds API credits).
+  // Nullable: rows created before this column existed simply fall back to the
+  // full scan.
+  sportKey String? @map("sport_key")
+  eventId  String? @map("event_id")
+
   // Settlement
   result SelectionResult @default(PENDING)
 
+  @@index([fixtureId])
   @@map("bet_selections")
+}
+
+// Server-side cache of normalized fixtures so user page loads never hit the
+// Odds API directly. Refreshed by the refresh-fixtures cron. `data` holds the
+// full normalized Match (including detail markets) as JSON.
+model FixtureCache {
+  numericId    Int      @id @map("numeric_id")
+  eventId      String   @unique @map("event_id")
+  sportKey     String   @map("sport_key")
+  commenceTime DateTime @map("commence_time")
+  category     String // "live" | "upcoming"
+  completed    Boolean  @default(false)
+  data         Json
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([category, commenceTime])
+  @@map("fixtures_cache")
+}
+
+// Permanent record of finished games. A finished result never changes, so once
+// written the settler reads it from here at zero API cost.
+model FixtureResult {
+  numericId  Int      @id @map("numeric_id")
+  eventId    String   @unique @map("event_id")
+  sportKey   String   @map("sport_key")
+  homeTeam   String   @map("home_team")
+  awayTeam   String   @map("away_team")
+  homeScore  Int?     @map("home_score")
+  awayScore  Int?     @map("away_score")
+  stateId    Int      @map("state_id") // 5 = finished, 13/17 = void
+  data       Json // normalized Match snapshot at finish time
+  finishedAt DateTime @default(now()) @map("finished_at")
+
+  @@map("fixture_results")
 }
 
 model Transaction {
