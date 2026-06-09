@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { BetType, TransactionType, TransactionStatus } from "@prisma/client";
 import { getFixtureDetail } from "@/lib/theoddsapi";
+import { readFixtureDetail } from "@/lib/fixtures-cache";
 import { applyProfitRetention } from "@/lib/house-retention";
 
 const MIN_STAKE = 10;
@@ -13,6 +14,8 @@ type BetSelectionInput = {
   market: string;
   label: string;
   odds: number;
+  sportKey?: string;
+  eventId?: string;
 };
 
 type PlaceBetBody = {
@@ -24,7 +27,11 @@ type PlaceBetBody = {
 async function resolveLiveSelections(selections: BetSelectionInput[]) {
   return Promise.all(
     selections.map(async (selection) => {
-      const detail = await getFixtureDetail(Number(selection.fixtureId));
+      // Verify from the cache first (0 API credits); fall back to a direct
+      // lookup if the fixture isn't cached yet.
+      const detail =
+        (await readFixtureDetail(Number(selection.fixtureId))) ??
+        (await getFixtureDetail(Number(selection.fixtureId)));
       if (!detail) {
         throw new Error("MARKET_UNAVAILABLE");
       }
@@ -56,6 +63,8 @@ async function resolveLiveSelections(selections: BetSelectionInput[]) {
         market: market.name,
         label: odd.extra ? `${odd.label} ${odd.extra}` : odd.label,
         odds,
+        sportKey: detail.match.sportKey,
+        eventId: detail.match.eventId,
       };
     }),
   );
@@ -136,6 +145,8 @@ export async function POST(req: Request) {
               market: s.market,
               label: s.label,
               odds: s.odds,
+              sportKey: s.sportKey ?? null,
+              eventId: s.eventId ?? null,
             })),
           },
         },

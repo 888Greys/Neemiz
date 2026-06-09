@@ -98,7 +98,7 @@ const MARQUEE_KEYS = [
   "nba", "nfl", "nhl", "mlb",
 ];
 
-async function getFetchSports(): Promise<string[]> {
+export async function getFetchSports(): Promise<string[]> {
   if (!API_KEY) return FALLBACK_SPORTS;
   try {
     const res = await fetch(`${BASE}/sports?apiKey=${API_KEY}`, { next: { revalidate: 21600 } });
@@ -151,7 +151,7 @@ interface OddsOutcome {
   point?: number;   // used by totals (Over/Under) and spreads (Handicap)
 }
 
-interface OddsEvent {
+export interface OddsEvent {
   id: string;
   sport_key: string;
   sport_title: string;
@@ -168,7 +168,7 @@ interface OddsEvent {
   }[];
 }
 
-interface ScoreEvent {
+export interface ScoreEvent {
   id: string;
   sport_key: string;
   sport_title: string;
@@ -258,7 +258,7 @@ export interface MatchDetail {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Convert hex event ID to stable integer for URL params / DB storage
-function toNumericId(eventId: string): number {
+export function toNumericId(eventId: string): number {
   return parseInt(eventId.replace(/[^0-9a-f]/gi, "").slice(0, 8), 16) || 0;
 }
 
@@ -294,7 +294,7 @@ function extractH2hOdds(
   return { odds: [], extraMarkets: 0 };
 }
 
-function normalizeOddsEvent(event: OddsEvent, liveScore?: ScoreEvent): Match {
+export function normalizeOddsEvent(event: OddsEvent, liveScore?: ScoreEvent): Match {
   const meta  = SPORT_META[event.sport_key];
   const { odds, extraMarkets } = extractH2hOdds(event);
 
@@ -327,7 +327,7 @@ function normalizeOddsEvent(event: OddsEvent, liveScore?: ScoreEvent): Match {
 
 // Build BettingMarket[] from all bookmaker markets on an event.
 // Picks the bookmaker with the most market types, then normalises each market.
-function buildMarketsFromEvent(event: OddsEvent): BettingMarket[] {
+export function buildMarketsFromEvent(event: OddsEvent): BettingMarket[] {
   if (!event.bookmakers?.length) return [];
 
   // Pick the bookmaker with the most distinct market keys
@@ -387,33 +387,53 @@ function buildMarketsFromEvent(event: OddsEvent): BettingMarket[] {
 
 // ── Fetchers ──────────────────────────────────────────────────────────────────
 
-async function fetchOdds(sportKey: string): Promise<OddsEvent[]> {
-  if (!API_KEY) return [];
+// A 401 (out of credits / bad key) or 429 (rate limited) means the API is
+// genuinely unavailable — distinct from 404 (sport simply has no current
+// games). Callers that make financial decisions (settlement / refunds) must
+// not treat an outage as "no data".
+function isApiOutage(status: number): boolean {
+  return status === 401 || status === 429 || status >= 500;
+}
+
+export async function fetchOddsStatus(sportKey: string): Promise<{ data: OddsEvent[]; failed: boolean }> {
+  if (!API_KEY) return { data: [], failed: true };
   const url = `${BASE}/sports/${sportKey}/odds?apiKey=${API_KEY}&regions=eu&markets=h2h,totals,spreads&oddsFormat=decimal`;
   try {
     const res = await fetch(url, { next: { revalidate: 7200 } });
     if (!res.ok) {
-      if (res.status !== 404) console.error(`OddsAPI odds ${sportKey} → ${res.status}`);
-      return [];
+      if (isApiOutage(res.status)) console.error(`OddsAPI odds ${sportKey} → ${res.status} (API outage / quota)`);
+      else if (res.status !== 404) console.error(`OddsAPI odds ${sportKey} → ${res.status}`);
+      return { data: [], failed: isApiOutage(res.status) };
     }
-    return (await res.json()) as OddsEvent[];
+    return { data: (await res.json()) as OddsEvent[], failed: false };
   } catch (e) {
     console.error("OddsAPI fetchOdds error:", e);
-    return [];
+    return { data: [], failed: true };
   }
 }
 
-async function fetchScores(sportKey: string, daysFrom = 1): Promise<ScoreEvent[]> {
-  if (!API_KEY) return [];
+export async function fetchScoresStatus(sportKey: string, daysFrom = 1): Promise<{ data: ScoreEvent[]; failed: boolean }> {
+  if (!API_KEY) return { data: [], failed: true };
   const url = `${BASE}/sports/${sportKey}/scores?apiKey=${API_KEY}&daysFrom=${daysFrom}`;
   try {
     const res = await fetch(url, { next: { revalidate: 120 } });
-    if (!res.ok) return [];
-    return (await res.json()) as ScoreEvent[];
+    if (!res.ok) {
+      if (isApiOutage(res.status)) console.error(`OddsAPI scores ${sportKey} → ${res.status} (API outage / quota)`);
+      return { data: [], failed: isApiOutage(res.status) };
+    }
+    return { data: (await res.json()) as ScoreEvent[], failed: false };
   } catch (e) {
     console.error("OddsAPI fetchScores error:", e);
-    return [];
+    return { data: [], failed: true };
   }
+}
+
+async function fetchOdds(sportKey: string): Promise<OddsEvent[]> {
+  return (await fetchOddsStatus(sportKey)).data;
+}
+
+async function fetchScores(sportKey: string, daysFrom = 1): Promise<ScoreEvent[]> {
+  return (await fetchScoresStatus(sportKey, daysFrom)).data;
 }
 
 // ── Team badge enrichment (TheSportsDB) ────────────────────────────────────────
@@ -441,7 +461,7 @@ async function fetchTeamBadge(name: string): Promise<string | undefined> {
 // Attach team badges to the first `cap` matches (bounded concurrency so we
 // don't burst TheSportsDB on a cold cache). Beyond the cap, matches keep their
 // initial-avatar fallback; the 30-day cache warms more over time.
-async function enrichBadges(matches: Match[], cap: number): Promise<Match[]> {
+export async function enrichBadges(matches: Match[], cap: number): Promise<Match[]> {
   const names = [...new Set(
     matches.slice(0, cap).flatMap((m) => [m.home.name, m.away.name]),
   )].filter(Boolean);
@@ -519,15 +539,106 @@ export async function getUpcomingFixtures(): Promise<Match[]> {
 // Fetch full match detail for the fixture detail page and bet verification.
 // Searches all tracked sports for the event matching the numeric ID.
 // Returns empty events/stats/lineups — Odds API doesn't supply those.
+// Stub fields the Odds API can't supply, shared by every MatchDetail we build.
+export const BLANK_DETAIL = {
+  homeParticipantId: 0, awayParticipantId: 0,
+  events: [] as MatchEvent[], stats: [] as MatchStat[],
+  homeLineup: [] as LineupEntry[], awayLineup: [] as LineupEntry[],
+  homePeriodScores: [null, null] as (number | null)[],
+  awayPeriodScores: [null, null] as (number | null)[],
+};
+
+// Build a MatchDetail for a finished/aged game that only exists in the scores
+// feed (left the odds feed). Shared by getFixtureDetail and getSettlementFixtures.
+export function detailFromScore(id: number, score: ScoreEvent): { detail: MatchDetail; stateId: number } {
+  const isFinished = !!score.completed;
+  const isLive     = !score.completed && new Date(score.commence_time).getTime() <= Date.now();
+  const stateId    = isFinished ? 5 : isLive ? 2 : 1;
+  const meta       = SPORT_META[score.sport_key];
+  const homeRaw    = score.scores?.find((s) => s.name === score.home_team)?.score ?? null;
+  const awayRaw    = score.scores?.find((s) => s.name === score.away_team)?.score ?? null;
+
+  const match: Match = {
+    id,
+    eventId:     score.id,
+    sportKey:    score.sport_key,
+    league:      meta?.league ?? score.sport_title,
+    country:     meta?.country ?? "",
+    countryFlag: meta?.flag ?? undefined,
+    home: { name: score.home_team, score: homeRaw !== null ? Number(homeRaw) : null },
+    away: { name: score.away_team, score: awayRaw !== null ? Number(awayRaw) : null },
+    period:      isFinished ? "FT" : isLive ? "Live" : formatKickoffTime(score.commence_time),
+    isLive,
+    startingAt:  score.commence_time,
+    odds:        [],
+    extraMarkets: 0,
+  };
+  return { detail: { match, stateId, ...BLANK_DETAIL, markets: [] }, stateId };
+}
+
+// Resolve many fixtures for settlement in a SINGLE pass over the in-season
+// sports. The old approach called getFixtureDetail once per fixture, and each
+// of those looped every sport (fetchOdds + fetchScores) — O(fixtures × sports)
+// API credits per cron run, which exhausted the Odds API plan within hours.
+// This fetches each sport's feeds exactly once → O(sports), constant in the
+// number of pending fixtures. `apiHealthy` is false when any sport's feed call
+// hit a genuine outage (401 out-of-credits / 429 / 5xx), so the caller can
+// avoid making refund/void decisions from missing data.
+export async function getSettlementFixtures(
+  ids: number[],
+  opts?: { sportKeys?: string[] },
+): Promise<{ fixtures: Map<number, { detail: MatchDetail; stateId: number }>; apiHealthy: boolean }> {
+  const wanted = new Set(ids);
+  const fixtures = new Map<number, { detail: MatchDetail; stateId: number }>();
+  if (!API_KEY || wanted.size === 0) return { fixtures, apiHealthy: !!API_KEY };
+
+  // Narrow to the sports the pending bets actually belong to when known —
+  // turns an all-sports scan into a couple of targeted calls. Falls back to the
+  // full in-season list when any fixture's sport is unknown (legacy rows).
+  const narrowed = opts?.sportKeys?.filter(Boolean);
+  const FETCH_SPORTS = narrowed && narrowed.length > 0 ? Array.from(new Set(narrowed)) : await getFetchSports();
+  let apiHealthy = true;
+
+  const perSport = await Promise.all(
+    FETCH_SPORTS.map(async (sport) => {
+      const [odds, scores] = await Promise.all([
+        fetchOddsStatus(sport),
+        fetchScoresStatus(sport, 3), // daysFrom=3 (API max) to catch recently-finished games
+      ]);
+      if (odds.failed || scores.failed) apiHealthy = false;
+      return { odds: odds.data, scores: scores.data };
+    }),
+  );
+
+  for (const { odds, scores } of perSport) {
+    const scoreById = new Map(scores.map((s) => [s.id, s]));
+
+    // Path 1: games still in the odds feed (upcoming / live / just-finished).
+    for (const event of odds) {
+      const nid = toNumericId(event.id);
+      if (!wanted.has(nid) || fixtures.has(nid)) continue;
+      const score      = scoreById.get(event.id);
+      const isFinished = !!score?.completed;
+      const isLive     = !!score && !score.completed && new Date(event.commence_time).getTime() <= Date.now();
+      const stateId    = isFinished ? 5 : isLive ? 2 : 1;
+      const match      = normalizeOddsEvent(event, score ?? undefined);
+      fixtures.set(nid, { detail: { match, stateId, ...BLANK_DETAIL, markets: buildMarketsFromEvent(event) }, stateId });
+    }
+
+    // Path 2: finished games that have left the odds feed but are still in scores.
+    for (const score of scores) {
+      const nid = toNumericId(score.id);
+      if (!wanted.has(nid) || fixtures.has(nid)) continue;
+      fixtures.set(nid, detailFromScore(nid, score));
+    }
+  }
+
+  return { fixtures, apiHealthy };
+}
+
 export async function getFixtureDetail(id: number): Promise<MatchDetail | null> {
   const FETCH_SPORTS = await getFetchSports();
-  const blank = {
-    homeParticipantId: 0, awayParticipantId: 0,
-    events: [] as MatchEvent[], stats: [] as MatchStat[],
-    homeLineup: [] as LineupEntry[], awayLineup: [] as LineupEntry[],
-    homePeriodScores: [null, null] as (number | null)[],
-    awayPeriodScores: [null, null] as (number | null)[],
-  };
+  const blank = BLANK_DETAIL;
 
   for (const sport of FETCH_SPORTS) {
     const [odds, scores] = await Promise.all([
