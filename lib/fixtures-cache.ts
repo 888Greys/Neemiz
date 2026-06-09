@@ -34,6 +34,12 @@ import {
 
 type CachedFixture = { match: Match; markets: BettingMarket[] };
 
+// Prisma's Json input rejects nested `undefined` (optional logo/flag fields on
+// Match are often undefined). Round-trip through JSON to drop them safely.
+function toJson<T>(value: T): object {
+  return JSON.parse(JSON.stringify(value));
+}
+
 // ── Refresh (cron-driven) ───────────────────────────────────────────────────
 
 export interface RefreshResult {
@@ -82,7 +88,7 @@ export async function refreshFixtureCache(): Promise<RefreshResult> {
       const completed = !!score?.completed;
       const isLive = !!score && !score.completed && new Date(event.commence_time).getTime() <= now;
       const category = isLive ? "live" : "upcoming";
-      const data = { match, markets } as unknown as object;
+      const data = toJson({ match, markets });
 
       await db.fixtureCache.upsert({
         where: { numericId },
@@ -151,13 +157,13 @@ async function recordFinished(
       homeScore: match.home.score,
       awayScore: match.away.score,
       stateId,
-      data: match as unknown as object,
+      data: toJson(match),
     },
     update: {
       homeScore: match.home.score,
       awayScore: match.away.score,
       stateId,
-      data: match as unknown as object,
+      data: toJson(match),
     },
   });
 }
