@@ -11,6 +11,7 @@
  * Auth mirrors the other cron routes: Bearer CRON_SECRET.
  */
 import { refreshFixtureCache } from "@/lib/fixtures-cache";
+import { refreshSoccerFromApiSports } from "@/lib/apisports";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,8 +22,15 @@ export async function GET(req: Request) {
   if (!secret) return Response.json({ error: "CRON_SECRET is not configured" }, { status: 503 });
   if (auth !== `Bearer ${secret}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Opt-in evaluation path: ?provider=apisports fills the same cache from
+  // API-Football (soccer) so the UI can render its logos/odds, without touching
+  // the live the-odds-api path.
+  const provider = new URL(req.url).searchParams.get("provider");
+
   try {
-    const result = await refreshFixtureCache();
+    const result = provider === "apisports"
+      ? await refreshSoccerFromApiSports()
+      : await refreshFixtureCache();
     return Response.json(result);
   } catch (err) {
     console.error("refresh-fixtures failed:", err);
