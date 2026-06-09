@@ -1099,10 +1099,10 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
       </div>
 
       {/* Two-column layout: actions + chat */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4 lg:flex-1 lg:min-h-0">
+      <div className="flex flex-col lg:flex-row gap-4 lg:flex-1 lg:min-h-0">
 
         {/* LEFT: Instructions + Actions */}
-        <div className="space-y-4 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
+        <div className="space-y-4 lg:flex-1 lg:min-w-0 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
 
           {/* Instructions card */}
           {!isClosed && (
@@ -1390,7 +1390,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
         </div>
 
         {/* RIGHT: Chat */}
-        <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col lg:min-h-0 lg:h-full min-h-[420px]">
+        <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col lg:w-[380px] lg:shrink-0 lg:min-h-0 lg:h-full min-h-[420px]">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-3 bg-white/[0.02]">
             <div className="relative">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#05b957] to-[#039648] flex items-center justify-center text-white font-black text-sm">
