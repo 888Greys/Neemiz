@@ -91,9 +91,9 @@ export async function refreshFixtureCache(): Promise<RefreshResult> {
       const data = toJson({ match, markets });
 
       await db.fixtureCache.upsert({
-        where: { numericId },
+        where: { numericId: BigInt(numericId) },
         create: {
-          numericId,
+          numericId: BigInt(numericId),
           eventId: event.id,
           sportKey: event.sport_key,
           commenceTime: new Date(event.commence_time),
@@ -122,7 +122,7 @@ export async function refreshFixtureCache(): Promise<RefreshResult> {
     for (const score of scores.data) {
       if (!score.completed) continue;
       const numericId = toNumericId(score.id);
-      const existing = await db.fixtureResult.findUnique({ where: { numericId }, select: { numericId: true } });
+      const existing = await db.fixtureResult.findUnique({ where: { numericId: BigInt(numericId) }, select: { numericId: true } });
       if (existing) continue;
       const match = scoreToMatch(numericId, score);
       await recordFinished(numericId, score.id, score.sport_key, match, 5);
@@ -147,9 +147,9 @@ async function recordFinished(
   stateId: number,
 ) {
   await db.fixtureResult.upsert({
-    where: { numericId },
+    where: { numericId: BigInt(numericId) },
     create: {
-      numericId,
+      numericId: BigInt(numericId),
       eventId,
       sportKey,
       homeTeam: match.home.name,
@@ -226,13 +226,13 @@ export async function readUpcoming(): Promise<Match[]> {
 
 export async function readFixtureDetail(numericId: number): Promise<MatchDetail | null> {
   // Finished game → permanent result (0 credits, never changes).
-  const result = await db.fixtureResult.findUnique({ where: { numericId } });
+  const result = await db.fixtureResult.findUnique({ where: { numericId: BigInt(numericId) } });
   if (result) {
     const match = result.data as unknown as Match;
     return { match, stateId: result.stateId, ...BLANK_DETAIL, markets: [] };
   }
   // Live / upcoming → cached match + markets.
-  const cached = await db.fixtureCache.findUnique({ where: { numericId } });
+  const cached = await db.fixtureCache.findUnique({ where: { numericId: BigInt(numericId) } });
   if (cached) {
     const { match, markets } = cached.data as unknown as CachedFixture;
     const stateId = cached.completed ? 5 : cached.category === "live" ? 2 : 1;
@@ -247,10 +247,10 @@ export async function getKnownResults(
 ): Promise<Map<number, { detail: MatchDetail; stateId: number }>> {
   const out = new Map<number, { detail: MatchDetail; stateId: number }>();
   if (ids.length === 0) return out;
-  const rows = await db.fixtureResult.findMany({ where: { numericId: { in: ids } } });
+  const rows = await db.fixtureResult.findMany({ where: { numericId: { in: ids.map((n) => BigInt(n)) } } });
   for (const r of rows) {
     const match = r.data as unknown as Match;
-    out.set(r.numericId, { detail: { match, stateId: r.stateId, ...BLANK_DETAIL, markets: [] }, stateId: r.stateId });
+    out.set(Number(r.numericId), { detail: { match, stateId: r.stateId, ...BLANK_DETAIL, markets: [] }, stateId: r.stateId });
   }
   return out;
 }
