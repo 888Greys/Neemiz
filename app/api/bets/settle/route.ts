@@ -337,6 +337,7 @@ export async function POST(req: Request) {
     pendingBetsChecked: pendingBets.length,
     fixturesFetched: fixtureMap.size,
     fixturesFinished: finishedFixtureIds.size,
+    resolvedViaSportsdb: sdbResolved.size,
     betsSettled: settledCount,
     betsVoided: voidedCount,
     ...(apiHealthy ? {} : { warning: "Odds API unreachable (out of credits / rate limited) — settlement & auto-void paused this run." }),
