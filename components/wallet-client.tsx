@@ -1482,6 +1482,7 @@ type CryptoAddrPhase =
 
 function CryptoDepositPanel() {
   const [idx, setIdx]       = useState(0);
+  const [assetOpen, setAssetOpen] = useState(false);
   const [addr, setAddr]     = useState<CryptoAddrPhase>({ phase: "checking" });
   const [copied, setCopied] = useState(false);
   const asset = CRYPTO_DEPOSIT_ASSETS[idx];
@@ -1524,18 +1525,51 @@ function CryptoDepositPanel() {
       <div>
         <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Select asset & network</p>
         <div className="relative">
-          <select
-            value={idx}
-            onChange={(e) => setIdx(Number(e.target.value))}
-            className="h-12 w-full appearance-none rounded-2xl bg-[#16171d] pl-4 pr-10 text-sm font-black text-white outline-none ring-1 ring-white/[0.07] transition focus:ring-[#f59e0b]/50"
+          {/* Trigger */}
+          <button
+            type="button"
+            onClick={() => setAssetOpen((o) => !o)}
+            className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] transition hover:bg-white/[0.06]"
           >
-            {CRYPTO_DEPOSIT_ASSETS.map((a, i) => (
-              <option key={`${a.code}-${a.network}`} value={i} className="bg-[#16171d]">
-                {a.code} · {a.displayNet}
-              </option>
-            ))}
-          </select>
-          <Icon name="expand_more" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-slate-500" />
+            <span className="flex items-center gap-3">
+              {COIN_ICON_URL[asset.code] && (
+                <img src={COIN_ICON_URL[asset.code]} alt={asset.code} width={28} height={28} className="h-7 w-7 rounded-full" />
+              )}
+              <span className="block text-sm font-black text-white">
+                {asset.code}
+                <span className="ml-2 text-[11px] font-bold text-slate-500">{asset.displayNet}</span>
+              </span>
+            </span>
+            <Icon name={assetOpen ? "expand_less" : "expand_more"} className="text-[22px] text-slate-500" />
+          </button>
+
+          {/* Dropdown */}
+          {assetOpen && (
+            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-72 overflow-y-auto rounded-2xl bg-[#121824] shadow-2xl shadow-black/40 ring-1 ring-white/[0.09]">
+              {CRYPTO_DEPOSIT_ASSETS.map((a, i) => (
+                <button
+                  key={`${a.code}-${a.network}`}
+                  type="button"
+                  onClick={() => { setIdx(i); setAssetOpen(false); }}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.06]"
+                >
+                  {COIN_ICON_URL[a.code] && (
+                    <img src={COIN_ICON_URL[a.code]} alt={a.code} width={28} height={28} className="h-7 w-7 rounded-full" />
+                  )}
+                  <span className="flex-1">
+                    <span className="block text-sm font-black text-white">
+                      {a.code}
+                      <span className="ml-2 text-[11px] font-bold text-slate-500">{a.displayNet}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-600">min {a.min} {a.code}</span>
+                  </span>
+                  {asset.code === a.code && asset.network === a.network && (
+                    <Icon name="check_circle" fill className="text-[18px] text-[#f59e0b]" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
