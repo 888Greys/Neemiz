@@ -10,7 +10,7 @@ CREATE INDEX IF NOT EXISTS "bet_selections_fixture_id_idx" ON "bet_selections" (
 
 -- 2. Cache of normalized fixtures (live + upcoming), refreshed by the cron
 CREATE TABLE IF NOT EXISTS "fixtures_cache" (
-  "numeric_id"    INTEGER      NOT NULL,
+  "numeric_id"    BIGINT       NOT NULL,
   "event_id"      TEXT         NOT NULL,
   "sport_key"     TEXT         NOT NULL,
   "commence_time" TIMESTAMP(3) NOT NULL,

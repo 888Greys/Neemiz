@@ -105,7 +105,7 @@ model BetSelection {
 // Odds API directly. Refreshed by the refresh-fixtures cron. `data` holds the
 // full normalized Match (including detail markets) as JSON.
 model FixtureCache {
-  numericId    Int      @id @map("numeric_id")
+  numericId    BigInt   @id @map("numeric_id")
   eventId      String   @unique @map("event_id")
   sportKey     String   @map("sport_key")
   commenceTime DateTime @map("commence_time")
@@ -121,7 +121,7 @@ model FixtureCache {
 // Permanent record of finished games. A finished result never changes, so once
 // written the settler reads it from here at zero API cost.
 model FixtureResult {
-  numericId  Int      @id @map("numeric_id")
+  numericId  BigInt   @id @map("numeric_id")
   eventId    String   @unique @map("event_id")
   sportKey   String   @map("sport_key")
   homeTeam   String   @map("home_team")
