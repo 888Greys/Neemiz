@@ -93,8 +93,12 @@ export async function getThesportsdbResult(
   // 2. Among finished events whose other side matches the away team, pick the
   //    one nearest the bet's placement date. Teams in a playoff series meet
   //    repeatedly, so name alone is not enough — without a date anchor we could
-  //    settle the wrong game. Require the match within ±5 days of the bet.
-  const WINDOW = 5 * 24 * 60 * 60 * 1000;
+  //    settle the wrong game. The game is played on or after the bet was
+    //    placed (you can't bet on a past game), so anchor to the bet date but
+    //    look FORWARD: take the earliest finished meeting at/after the bet
+    //    (with a small back-buffer for timezone skew). This handles bets placed
+    //    days/weeks ahead of kickoff, not just same-day bets.
+  const BACK_BUFFER = 36 * 60 * 60 * 1000; // tolerate TZ skew on the bet date
   const candidates = events
     .map((e) => ({ e, opp: Math.max(similarity(e.strAwayTeam, awayName), similarity(e.strHomeTeam, awayName)) }))
     .filter((x) => x.opp >= 0.5 && isFinished(x.e));
@@ -102,10 +106,11 @@ export async function getThesportsdbResult(
 
   let ev: SdbEvent | undefined;
   if (targetDate) {
-    const tgt = targetDate.getTime();
-    const within = candidates.filter((x) => Math.abs(new Date(x.e.dateEvent).getTime() - tgt) <= WINDOW);
-    if (within.length === 0) return null; // no game near the bet date — don't risk the wrong one
-    ev = within.sort((a, b) => Math.abs(new Date(a.e.dateEvent).getTime() - tgt) - Math.abs(new Date(b.e.dateEvent).getTime() - tgt))[0].e;
+    const floor = targetDate.getTime() - BACK_BUFFER;
+    ev = candidates
+      .filter((x) => new Date(x.e.dateEvent).getTime() >= floor)
+      .sort((a, b) => new Date(a.e.dateEvent).getTime() - new Date(b.e.dateEvent).getTime())[0]?.e; // earliest meeting on/after the bet
+    if (!ev) return null; // no game at/after the bet date — don't risk the wrong one
   } else {
     ev = candidates.sort((a, b) => b.opp - a.opp)[0].e;
   }
