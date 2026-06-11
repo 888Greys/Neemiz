@@ -34,7 +34,7 @@ interface OrderData {
     userId: string;
     paymentMethod: { type: string; accountName: string; accountNo: string; bankName: string | null; name: string } | null;
   };
-  ad: { fiat: string; paymentMethods: string[] };
+  ad: { fiat: string; paymentMethods: string[]; terms?: string | null };
   side: "BUY" | "SELL";
   isBuyer: boolean;
   isSeller: boolean;
@@ -1118,6 +1118,13 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 {order.status === "PAID" && order.isSeller && !merchantIsSelling && "Payment marked sent"}
                 {order.status === "DISPUTED" && "Dispute in progress"}
               </h2>
+
+              {order.ad.terms?.trim() && (
+                <div className="mb-4 rounded-xl border border-[#087cff]/20 bg-[#087cff]/[0.07] p-3">
+                  <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#75b8ff]">Merchant instructions</p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{order.ad.terms}</p>
+                </div>
+              )}
 
               {order.status === "PENDING" && order.isBuyer && merchantIsSelling && (
                 <ol className="space-y-3 text-sm text-slate-400">
