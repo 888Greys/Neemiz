@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { Icon } from "@/components/icon";
 
 interface UserRow {
@@ -129,6 +130,13 @@ export function AdminUsersClient() {
                     )}
                   </td>
                   <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/admin/users/${u.id}`}
+                        className="rounded-xl bg-[#087cff]/10 px-3 py-1.5 text-[11px] font-black text-[#55a7ff] hover:bg-[#087cff]/20"
+                      >
+                        Inspect
+                      </Link>
                     {!u.isAdmin && (
                       <button
                         onClick={() => toggleSuspend(u)}
@@ -142,6 +150,7 @@ export function AdminUsersClient() {
                         {acting === u.id ? "…" : u.isActive ? "Suspend" : "Reactivate"}
                       </button>
                     )}
+                    </div>
                   </td>
                 </tr>
               ))}
