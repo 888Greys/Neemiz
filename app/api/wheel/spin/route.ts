@@ -19,9 +19,10 @@ const SEGMENTS = [
   { label: "×3",   mult: 3   },
 ];
 
-// Weighted random: 70% loss (×0), 30% win across the rest
+// Weighted random: ~50% land on ×0, ~50% win (mostly small ×1.5).
+// House stays profitable (RTP ≈ 0.89) because wins skew to the low multipliers.
 // Segment indices:   0   1    2   3   4   5  6  7
-const WEIGHTS =     [ 5,  5,  70,  5,  5,  5, 2, 3]; // out of 100 total
+const WEIGHTS =     [ 20, 6,  50,  2, 16,  3, 1, 2]; // out of 100 total
 
 function weightedRandom(): number {
   const total = WEIGHTS.reduce((a, b) => a + b, 0);
