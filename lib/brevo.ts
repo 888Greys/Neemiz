@@ -1,26 +1,33 @@
-const BREVO_API_KEY = process.env.BREVO_API_KEY!;
-const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL!;
-const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME ?? "Nezeem";
+// Transactional email via Mailjet Send API v3.1.
+const MAILJET_API_KEY = process.env.MAILJET_API_KEY!;
+const MAILJET_SECRET_KEY = process.env.MAILJET_SECRET_KEY!;
+const SENDER_EMAIL = process.env.MAIL_SENDER_EMAIL ?? process.env.BREVO_SENDER_EMAIL ?? "noreply@nezeem.com";
+const SENDER_NAME = process.env.MAIL_SENDER_NAME ?? process.env.BREVO_SENDER_NAME ?? "Nezeem";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "toxicgreys001@gmail.com";
 
 async function sendEmail(to: string, toName: string, subject: string, htmlContent: string) {
-  if (!BREVO_API_KEY || !BREVO_SENDER_EMAIL) {
-    console.error("Brevo send skipped: email configuration is missing");
+  if (!MAILJET_API_KEY || !MAILJET_SECRET_KEY) {
+    console.error("Mailjet send skipped: email configuration is missing");
     return;
   }
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+  const auth = Buffer.from(`${MAILJET_API_KEY}:${MAILJET_SECRET_KEY}`).toString("base64");
+  const res = await fetch("https://api.mailjet.com/v3.1/send", {
     method: "POST",
-    headers: { "api-key": BREVO_API_KEY, "Content-Type": "application/json" },
+    headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      sender: { name: BREVO_SENDER_NAME, email: BREVO_SENDER_EMAIL },
-      to: [{ email: to, name: toName }],
-      subject,
-      htmlContent,
+      Messages: [
+        {
+          From: { Email: SENDER_EMAIL, Name: SENDER_NAME },
+          To: [{ Email: to, Name: toName }],
+          Subject: subject,
+          HTMLPart: htmlContent,
+        },
+      ],
     }),
     signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) throw new Error(`Brevo send failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Mailjet send failed: ${await res.text()}`);
 }
 
 // ─── Shared Layout ────────────────────────────────────────────────────────────
