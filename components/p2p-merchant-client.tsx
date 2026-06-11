@@ -1099,6 +1099,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const priceNum = Number(form.pricePerUnit) || 0;
   const marginPct = spotRate && priceNum > 0 ? ((priceNum / spotRate) - 1) * 100 : null;
   const canUseMarginPricing = !!spotRate && form.crypto !== "KES";
+  const isKesCoinForm = form.crypto === "KES"; // pegged 1:1 — show a fixed 0% indicator, no editable margin
   const totalAmountNum = Number(form.totalAmount) || 0;
   const requiredKesBacking = totalAmountNum > 0 ? parseFloat((totalAmountNum * 1.01).toFixed(2)) : 0;
   const needsKesBacking = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesBacking > 0 && fiatBalance < requiredKesBacking;
@@ -1279,6 +1280,10 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               <p className="mt-1 text-[11px] font-semibold text-slate-500">
                 Uses live market {formatFiat(spotRate!, form.fiat)}/{form.crypto} to calculate your price. Negative margins such as -10% are allowed.
               </p>
+            ) : isKesCoinForm ? (
+              <p className="mt-1 text-[11px] font-semibold text-slate-600">
+                KES Coin is pegged 1:1 to fiat KES — fixed price, 0% spread.
+              </p>
             ) : (
               <p className="mt-1 text-[11px] font-semibold text-slate-600">
                 Percentage pricing is not available for {form.crypto}/{form.fiat}; enter the price directly.
@@ -1294,20 +1299,25 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               type="number"
               value={form.pricePerUnit}
               onChange={(e) => setPriceManually(e.target.value)}
+              disabled={isKesCoinForm}
               placeholder={form.crypto === "BTC" ? "e.g. 14000000" : form.crypto === "ETH" ? "e.g. 420000" : "e.g. 135"}
-              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40"
+              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40 disabled:cursor-not-allowed disabled:opacity-60"
             />
-            {form.pricePerUnit && marginPct !== null && (
+            {isKesCoinForm ? (
+              <p className="mt-1 text-[11px] font-bold">
+                <span className="text-slate-400">0.00%</span>
+                <span className="text-slate-500"> · Pegged 1:1 · KSh 1.00/KES Coin</span>
+              </p>
+            ) : form.pricePerUnit && marginPct !== null ? (
               <p className="mt-1 text-[11px] font-bold">
                 <span className={marginPct > 0.01 ? "text-amber-400" : marginPct < -0.01 ? "text-[#05b957]" : "text-slate-400"}>
                   {marginPct > 0 ? "+" : ""}{marginPct.toFixed(2)}%
                 </span>
                 <span className="text-slate-500"> vs live market · {formatFiat(spotRate!, form.fiat)}/{form.crypto}</span>
               </p>
-            )}
-            {form.pricePerUnit && marginPct === null && (
+            ) : form.pricePerUnit && marginPct === null ? (
               <p className="mt-1 text-[11px] font-semibold text-slate-600">Live market rate unavailable for {form.crypto}/{form.fiat}</p>
-            )}
+            ) : null}
           </div>
 
           {!isEditing && (
