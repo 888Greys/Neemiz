@@ -48,14 +48,14 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Wheel of Fortune ─────────────────────────────────────────────────────────
 
 const WHEEL_SEGS = [
-  { label: "×1.5", mult: 1.5, fill: "#1a3a6c", text: "#75b8ff" },
-  { label: "×2",   mult: 2,   fill: "#087cff", text: "#fff"    },
-  { label: "×0",   mult: 0,   fill: "#111420", text: "#3a4060" },
-  { label: "×3",   mult: 3,   fill: "#0055b3", text: "#fff"    },
-  { label: "×1.5", mult: 1.5, fill: "#1a3a6c", text: "#75b8ff" },
-  { label: "×2",   mult: 2,   fill: "#087cff", text: "#fff"    },
-  { label: "×5",   mult: 5,   fill: "#b45309", text: "#fde68a" },
-  { label: "×3",   mult: 3,   fill: "#0055b3", text: "#fff"    },
+  { label: "×1.25", mult: 1.25, fill: "#14532d", text: "#86efac" },
+  { label: "×0",    mult: 0,    fill: "#111420", text: "#3a4060" },
+  { label: "×1.5",  mult: 1.5,  fill: "#1a3a6c", text: "#75b8ff" },
+  { label: "×1.25", mult: 1.25, fill: "#14532d", text: "#86efac" },
+  { label: "×2",    mult: 2,    fill: "#087cff", text: "#fff"    },
+  { label: "×0",    mult: 0,    fill: "#111420", text: "#3a4060" },
+  { label: "×5",    mult: 5,    fill: "#b45309", text: "#fde68a" },
+  { label: "×1.25", mult: 1.25, fill: "#14532d", text: "#86efac" },
 ];
 
 const N = WHEEL_SEGS.length;
