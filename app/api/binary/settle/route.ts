@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { retainedProfit } from "@/lib/house-retention";
-import { sendGameResultEmail } from "@/lib/brevo";
 
 function evaluateTrade(side: string, exitDigit: number, targetDigit: number): boolean {
   if (side === "Even")    return exitDigit % 2 === 0;
@@ -93,15 +92,6 @@ export async function POST(req: Request) {
 
       return result;
     });
-
-    if (dbUser.email) sendGameResultEmail(dbUser.email, dbUser.firstName || dbUser.username || "Trader", {
-      game: "Binary",
-      outcome: won ? "WON" : "LOST",
-      stake: Number(trade.stake),
-      payout: won ? winAmount : undefined,
-      reference: tradeId,
-      href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/binary`,
-    }).catch((err) => console.error(`Binary result email failed for ${tradeId}:`, err));
 
     return Response.json({ won, winAmount, status: updated.status });
   } catch (err) {
