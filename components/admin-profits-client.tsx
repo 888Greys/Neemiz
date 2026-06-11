@@ -76,7 +76,7 @@ export function AdminProfitsClient() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-black text-white">Profits & Revenue</h1>
-          <p className="text-slate-600 text-xs mt-0.5">Daily platform P&amp;L breakdown</p>
+          <p className="text-slate-600 text-xs mt-0.5">Verified cash flow and platform P&amp;L</p>
         </div>
         <div className="flex gap-1.5">
           {RANGE_OPTIONS.map((o) => (
@@ -98,8 +98,8 @@ export function AdminProfitsClient() {
           {/* Summary cards */}
           <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <StatCard label="Gross Profit"    value={fmt(t.grossProfit)}    color={t.grossProfit >= 0 ? "text-emerald-400" : "text-red-400"} />
-            <StatCard label="Deposits In"     value={fmt(t.deposits)}       color="text-sky-400" />
-            <StatCard label="Withdrawals Out" value={fmt(t.withdrawals)}    color="text-orange-400" />
+            <StatCard label="Real Cash In"    value={fmt(t.deposits)}       sub="Completed MegaPay deposits" color="text-sky-400" />
+            <StatCard label="Real Cash Out"   value={fmt(t.withdrawals)}    sub="Completed provider payouts" color="text-orange-400" />
             <StatCard label="Bet Stakes"      value={fmt(t.betStakes)}      color="text-violet-400" />
             <StatCard label="Bet Wins Paid"   value={fmt(t.betWins)}        color="text-rose-400" />
             <StatCard label="Fees Collected"  value={fmt(t.feesCollected)}  color="text-amber-400" />
@@ -142,7 +142,7 @@ export function AdminProfitsClient() {
           {/* Deposits vs Withdrawals chart */}
           <div className="rounded-2xl border border-white/[0.06] bg-[#0f1623] p-5">
             <p className="mb-4 text-[11px] font-black uppercase tracking-[0.12em] text-slate-600">
-              Deposits vs Withdrawals (KSh)
+              Verified Cash In vs Cash Out (KSh)
             </p>
             <ResponsiveContainer width="100%" height={180}>
               <AreaChart data={data!.days} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -164,15 +164,15 @@ export function AdminProfitsClient() {
                 <Tooltip
                   contentStyle={{ background: "#0f1623", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, fontSize: 12 }}
                   labelStyle={{ color: "#94a3b8" }}
-                  formatter={(v, name) => [`KSh ${Number(v ?? 0).toLocaleString()}`, name === "deposits" ? "Deposits" : "Withdrawals"]}
+                  formatter={(v, name) => [`KSh ${Number(v ?? 0).toLocaleString()}`, name === "deposits" ? "Real Cash In" : "Real Cash Out"]}
                 />
                 <Area type="monotone" dataKey="deposits"    stroke="#10b981" strokeWidth={1.5} fill="url(#depGrad)" dot={false} />
                 <Area type="monotone" dataKey="withdrawals" stroke="#f97316" strokeWidth={1.5} fill="url(#wdGrad)"  dot={false} />
               </AreaChart>
             </ResponsiveContainer>
             <div className="mt-3 flex gap-4 justify-end">
-              <span className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="h-2 w-4 rounded bg-emerald-500/60 inline-block" /> Deposits</span>
-              <span className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="h-2 w-4 rounded bg-orange-500/60 inline-block" /> Withdrawals</span>
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="h-2 w-4 rounded bg-emerald-500/60 inline-block" /> MegaPay cash in</span>
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="h-2 w-4 rounded bg-orange-500/60 inline-block" /> Provider cash out</span>
             </div>
           </div>
 
@@ -181,7 +181,7 @@ export function AdminProfitsClient() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/[0.06]">
-                  {["Date", "Deposits", "Withdrawals", "Bet Stakes", "Bet Wins", "Gross P&L"].map((h) => (
+                  {["Date", "Real Cash In", "Real Cash Out", "Bet Stakes", "Bet Wins", "Gross P&L"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] text-slate-600">{h}</th>
                   ))}
                 </tr>
