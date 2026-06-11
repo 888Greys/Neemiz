@@ -23,12 +23,18 @@ type Props = {
   onSwitchToRegister?: () => void;
 };
 
+type RecoveryStep = "login" | "email" | "code" | "password";
+
 export function LoginModal({ onClose, onSwitchToRegister }: Props) {
   const [tab, setTab]           = useState<"phone" | "email">("email");
   const [country, setCountry]   = useState<Country>(COUNTRIES[0]);
   const [phone, setPhone]       = useState("");
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
+  const [recoveryStep, setRecoveryStep] = useState<RecoveryStep>("login");
+  const [recoveryCode, setRecoveryCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPw, setShowPw]     = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
@@ -83,6 +89,102 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     }
   }
 
+  async function handleSendRecoveryCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) {
+      setError("Enter your email address.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      const supabase = createClient();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim());
+      if (resetError) {
+        setError(resetError.message);
+        return;
+      }
+      setRecoveryStep("code");
+      toast.info("Code sent", "Check your email for the password reset code.");
+    } catch {
+      setError("Could not send the reset code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyRecoveryCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (recoveryCode.trim().length < 6) {
+      setError("Enter the six-digit code from your email.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      const supabase = createClient();
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: recoveryCode.trim(),
+        type: "recovery",
+      });
+      if (verifyError) {
+        setError(verifyError.message);
+        return;
+      }
+      setRecoveryStep("password");
+    } catch {
+      setError("Could not verify the code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpdatePassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      const supabase = createClient();
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+      toast.success("Password updated", "You can now log in with your new password.");
+      setPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setRecoveryCode("");
+      setRecoveryStep("login");
+    } catch {
+      setError("Could not update your password. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function returnToLogin() {
+    setError("");
+    setRecoveryCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setRecoveryStep("login");
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div
@@ -94,7 +196,15 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4 sm:px-7 sm:pt-7 sm:pb-5">
-          <h2 className="text-2xl font-black text-white">Login</h2>
+          <h2 className="text-2xl font-black text-white">
+            {recoveryStep === "login"
+              ? "Login"
+              : recoveryStep === "email"
+                ? "Reset password"
+                : recoveryStep === "code"
+                  ? "Enter code"
+                  : "New password"}
+          </h2>
           <button
             onClick={onClose}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06] text-slate-400 transition hover:bg-white/10 hover:text-white"
@@ -106,6 +216,8 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
         </div>
 
         <div className="overflow-y-auto px-6 pb-8 sm:px-7 sm:pb-7" style={{ maxHeight: "85dvh" }}>
+          {recoveryStep === "login" ? (
+          <>
           {/* Tab switcher */}
           <div className="mb-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-[#18191f] p-1">
             {(["phone", "email"] as const).map((t) => (
@@ -172,7 +284,11 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
             <div className="text-right">
               <button
                 type="button"
-                onClick={() => toast.info("Password reset", "Check your email for a reset link after entering your email above and clicking below.")}
+                onClick={() => {
+                  setTab("email");
+                  setError("");
+                  setRecoveryStep("email");
+                }}
                 className="text-xs font-bold text-[#087cff] transition hover:text-blue-400"
               >
                 Forgot your password?
@@ -226,6 +342,58 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
               Register
             </button>
           </p>
+          </>
+          ) : (
+            <div>
+              <p className="mb-5 text-sm leading-6 text-slate-400">
+                {recoveryStep === "email" && "Enter the email address connected to your account."}
+                {recoveryStep === "code" && <>Enter the six-digit code sent to <strong className="text-white">{email}</strong>.</>}
+                {recoveryStep === "password" && "Choose a new password for your account."}
+              </p>
+
+              {recoveryStep === "email" && (
+                <form onSubmit={handleSendRecoveryCode} className="space-y-3">
+                  <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+                    <Icon name="mail" fill className="shrink-0 text-[18px] text-slate-500" />
+                    <input type="email" autoFocus required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder-slate-600 outline-none" />
+                  </div>
+                  {error && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-xs font-bold text-red-400">{error}</p>}
+                  <button type="submit" disabled={loading} className="w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white disabled:opacity-60">
+                    {loading ? <LoadingDots label="Sending code" /> : "Send reset code"}
+                  </button>
+                </form>
+              )}
+
+              {recoveryStep === "code" && (
+                <form onSubmit={handleVerifyRecoveryCode} className="space-y-3">
+                  <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+                    <Icon name="verified" fill className="shrink-0 text-[18px] text-slate-500" />
+                    <input type="text" inputMode="numeric" autoComplete="one-time-code" autoFocus required maxLength={6} value={recoveryCode} onChange={(e) => setRecoveryCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" className="flex-1 bg-transparent py-3.5 text-center text-xl font-black tracking-[0.45em] text-white placeholder-slate-600 outline-none" />
+                  </div>
+                  {error && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-xs font-bold text-red-400">{error}</p>}
+                  <button type="submit" disabled={loading || recoveryCode.length !== 6} className="w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white disabled:opacity-60">
+                    {loading ? <LoadingDots label="Verifying" /> : "Verify code"}
+                  </button>
+                  <button type="button" onClick={() => setRecoveryStep("email")} className="w-full text-xs font-bold text-[#087cff]">Send another code</button>
+                </form>
+              )}
+
+              {recoveryStep === "password" && (
+                <form onSubmit={handleUpdatePassword} className="space-y-3">
+                  <input type="password" autoFocus required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password" className="w-full rounded-2xl bg-[#18191f] px-4 py-3.5 text-sm text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/50" />
+                  <input type="password" required minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm new password" className="w-full rounded-2xl bg-[#18191f] px-4 py-3.5 text-sm text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/50" />
+                  {error && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-xs font-bold text-red-400">{error}</p>}
+                  <button type="submit" disabled={loading} className="w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white disabled:opacity-60">
+                    {loading ? <LoadingDots label="Updating password" /> : "Update password"}
+                  </button>
+                </form>
+              )}
+
+              <button type="button" onClick={returnToLogin} className="mt-5 w-full text-sm font-bold text-slate-400 transition hover:text-white">
+                Back to login
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
