@@ -2,7 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus, ForexTradeDirection } from "@prisma/client";
+import { getServerForexPrice, forexPrecision, isKnownForexSymbol } from "@/lib/forex-price";
 
+// NOTE: entryPrice/stopLoss/takeProfit from the client are NOT trusted for
+// settlement. The entry is sourced server-side from the live Deriv feed; the
+// client values are only used to derive relative SL/TP offsets.
 type OpenBody = {
   symbol: string;
   direction: "buy" | "sell";
@@ -46,20 +50,42 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { symbol, direction, size, entryPrice, stopLoss, takeProfit, precision } = body;
+  const { symbol, direction, size, entryPrice, stopLoss, takeProfit } = body;
 
-  if (!symbol || !direction || !size || !entryPrice) {
+  if (!symbol || !direction || !size) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }
   if (!["buy", "sell"].includes(direction)) {
     return Response.json({ error: "Invalid direction" }, { status: 400 });
   }
+  if (!isKnownForexSymbol(symbol)) {
+    return Response.json({ error: "Unsupported symbol" }, { status: 400 });
+  }
   if (size < 1000 || size > 50000) {
     return Response.json({ error: "Size must be between 1000 and 50000" }, { status: 400 });
   }
 
+  // Server-authoritative entry price — the client value is ignored for settlement.
+  const precision = forexPrecision(symbol);
+  let livePrice: number;
+  try {
+    livePrice = await getServerForexPrice(symbol);
+  } catch (err) {
+    console.error("forex/open price fetch:", err instanceof Error ? err.message : err);
+    return Response.json({ error: "Live price unavailable, try again" }, { status: 503 });
+  }
+
   const margin = calcMargin(size);
-  const effectiveEntry = applySpread(entryPrice, direction, precision ?? 5);
+  const effectiveEntry = applySpread(livePrice, direction, precision);
+
+  // SL/TP are kept only as the client's relative offsets re-anchored to the
+  // real entry; settlement no longer depends on them, but storing sane values
+  // keeps the UI auto-close behaviour correct.
+  const slOffset = Number.isFinite(entryPrice) && Number.isFinite(stopLoss) ? stopLoss - entryPrice : 0;
+  const tpOffset = Number.isFinite(entryPrice) && Number.isFinite(takeProfit) ? takeProfit - entryPrice : 0;
+  const effectiveStopLoss = parseFloat((effectiveEntry + slOffset).toFixed(precision));
+  const effectiveTakeProfit = parseFloat((effectiveEntry + tpOffset).toFixed(precision));
+
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
   try {
@@ -94,9 +120,9 @@ export async function POST(req: Request) {
           direction: direction === "buy" ? ForexTradeDirection.BUY : ForexTradeDirection.SELL,
           size,
           entryPrice: effectiveEntry, // spread already baked in
-          stopLoss,
-          takeProfit,
-          precision: precision ?? 5,
+          stopLoss: effectiveStopLoss,
+          takeProfit: effectiveTakeProfit,
+          precision,
           margin,
         },
       });
