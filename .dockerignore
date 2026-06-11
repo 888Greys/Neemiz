@@ -1,0 +1,8 @@
+.git
+.next
+.vercel
+node_modules
+npm-debug.log*
+.env*
+scripts/test-email.ts
+tsconfig.tsbuildinfo
