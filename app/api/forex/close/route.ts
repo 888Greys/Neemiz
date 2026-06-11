@@ -4,10 +4,12 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyForexProfitRetention } from "@/lib/house-retention";
 import { sendGameResultEmail } from "@/lib/brevo";
+import { getServerForexPrice } from "@/lib/forex-price";
 
+// NOTE: closePrice from the client is ignored for settlement. The close price
+// is fetched server-side from the live Deriv feed.
 type CloseBody = {
   tradeId: string;
-  closePrice: number;
 };
 
 function pipSize(precision: number) {
@@ -26,8 +28,8 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid request body" }, { status: 400 });
   }
 
-  const { tradeId, closePrice } = body;
-  if (!tradeId || !closePrice) {
+  const { tradeId } = body;
+  if (!tradeId) {
     return Response.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -37,6 +39,15 @@ export async function POST(req: Request) {
   if (!trade) return Response.json({ error: "Trade not found" }, { status: 404 });
   if (trade.userId !== dbUser.id) return Response.json({ error: "Forbidden" }, { status: 403 });
   if (trade.status !== "OPEN") return Response.json({ error: "Trade already closed" }, { status: 409 });
+
+  // Server-authoritative close price — the client value is ignored.
+  let closePrice: number;
+  try {
+    closePrice = await getServerForexPrice(trade.symbol);
+  } catch (err) {
+    console.error("forex/close price fetch:", err instanceof Error ? err.message : err);
+    return Response.json({ error: "Live price unavailable, try again" }, { status: 503 });
+  }
 
   const pip = pipSize(trade.precision);
   const entry = Number(trade.entryPrice);
