@@ -28,7 +28,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         },
       },
       buyer: { select: { id: true, firstName: true, lastName: true, username: true } },
-      ad: { select: { fiat: true, paymentMethods: true, side: true } },
+      ad: { select: { fiat: true, paymentMethods: true, side: true, terms: true } },
     },
   });
 
