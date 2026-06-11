@@ -4,7 +4,6 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { callAviatorService, type GoCashoutResponse } from "@/lib/aviator/service";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
-import { sendGameResultEmail } from "@/lib/brevo";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -97,16 +96,6 @@ export async function POST(req: Request) {
     console.error("Aviator wallet credit failed after service cashout:", err);
     return Response.json({ error: "Cashout succeeded but wallet credit failed; contact support" }, { status: 500 });
   }
-
-  if (dbUser.email) sendGameResultEmail(dbUser.email, dbUser.firstName || dbUser.username || "Trader", {
-    game: "Aviator",
-    outcome: "WON",
-    stake: stakeAmount,
-    payout: winAmount,
-    reference: body.betId,
-    summary: `You cashed out at ${cashoutAt.toFixed(2)}x. Your winnings are now in your wallet.`,
-    href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/aviator`,
-  }).catch((err) => console.error(`Aviator result email failed for ${body.betId}:`, err));
 
   return Response.json({
     ok: true,

@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyForexProfitRetention } from "@/lib/house-retention";
-import { sendGameResultEmail } from "@/lib/brevo";
 import { getServerForexPrice } from "@/lib/forex-price";
 
 // NOTE: closePrice from the client is ignored for settlement. The close price
@@ -114,16 +113,6 @@ export async function POST(req: Request) {
         },
       });
     });
-
-    if (dbUser.email) sendGameResultEmail(dbUser.email, dbUser.firstName || dbUser.username || "Trader", {
-      game: "Forex",
-      outcome: profitLoss >= 0 ? "WON" : "LOST",
-      stake: margin,
-      payout: returnAmount,
-      reference: tradeId,
-      summary: `${trade.symbol} ${trade.direction} closed with ${profitLoss >= 0 ? "a profit of" : "a result of"} KSh ${profitLoss.toLocaleString("en-KE")}.`,
-      href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/forex`,
-    }).catch((err) => console.error(`Forex result email failed for ${tradeId}:`, err));
 
     const updatedUser = await db.user.findUnique({
       where: { id: dbUser.id },
