@@ -9,20 +9,22 @@ const MIN_SPIN_AMOUNT = 10;
 
 // Wheel segments — must match the client definition exactly (same order, same index)
 const SEGMENTS = [
-  { label: "×1.5", mult: 1.5 },
-  { label: "×2",   mult: 2   },
-  { label: "×0",   mult: 0   },
-  { label: "×3",   mult: 3   },
-  { label: "×1.5", mult: 1.5 },
-  { label: "×2",   mult: 2   },
-  { label: "×5",   mult: 5   },
-  { label: "×3",   mult: 3   },
+  { label: "×1.25", mult: 1.25 },
+  { label: "×0",    mult: 0    },
+  { label: "×1.5",  mult: 1.5  },
+  { label: "×1.25", mult: 1.25 },
+  { label: "×2",    mult: 2    },
+  { label: "×0",    mult: 0    },
+  { label: "×5",    mult: 5    },
+  { label: "×1.25", mult: 1.25 },
 ];
 
-// Weighted random: ~50% land on ×0, ~50% win (mostly small ×1.5).
-// House stays profitable (RTP ≈ 0.89) because wins skew to the low multipliers.
-// Segment indices:   0   1    2   3   4   5  6  7
-const WEIGHTS =     [ 20, 6,  50,  2, 16,  3, 1, 2]; // out of 100 total
+// Professional payout curve: frequent small ×1.25 wins, a chunk of ×0, rare ×5.
+// Players win ~65% of spins (mostly the small ×1.25) so it feels rewarding,
+// while the house keeps an edge: raw RTP ≈ 0.92, effective ≈ 0.84 after the
+// 30% profit retention applied to winnings.
+// Segment indices:   0    1   2    3   4   5  6   7
+const WEIGHTS =     [ 22, 18,  8,  22,  6, 17, 1,  6]; // out of 100 total
 
 function weightedRandom(): number {
   const total = WEIGHTS.reduce((a, b) => a + b, 0);
