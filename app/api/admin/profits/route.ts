@@ -3,6 +3,9 @@ import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { cookies } from "next/headers";
 
+const REAL_DEPOSIT_PROVIDERS = ["megapay"];
+const REAL_WITHDRAWAL_PROVIDERS = ["relworx", "megapay"];
+
 async function requireAdmin() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -27,19 +30,28 @@ export async function GET(req: Request) {
   since.setHours(0, 0, 0, 0);
 
   const [deposits, withdrawals, betStakes, betWins, fees] = await Promise.all([
-    // Completed deposits per day
+    // Real cash received through the configured payment gateway.
     db.transaction.groupBy({
       by: ["createdAt"],
-      where: { type: "DEPOSIT", status: "COMPLETED", createdAt: { gte: since } },
+      where: {
+        type: "DEPOSIT",
+        status: "COMPLETED",
+        currency: "KES",
+        provider: { in: REAL_DEPOSIT_PROVIDERS },
+        createdAt: { gte: since },
+      },
       _sum: { amount: true },
       _count: true,
     }),
-    // Completed withdrawals per day
+    // Real provider-confirmed cash payouts. Internal transfers and held payouts
+    // must not be reported as money leaving the platform.
     db.transaction.groupBy({
       by: ["createdAt"],
       where: {
         type: "WITHDRAWAL",
-        status: { in: ["COMPLETED", "PENDING"] },
+        status: "COMPLETED",
+        currency: "KES",
+        provider: { in: REAL_WITHDRAWAL_PROVIDERS },
         createdAt: { gte: since },
       },
       _sum: { amount: true },
@@ -59,11 +71,13 @@ export async function GET(req: Request) {
       _sum: { amount: true },
       _count: true,
     }),
-    // Withdrawal fees collected (5% of each withdrawal amount)
+    // Fees are earned only when a real provider payout completes.
     db.transaction.aggregate({
       where: {
         type: "WITHDRAWAL",
-        status: { in: ["COMPLETED", "PENDING"] },
+        status: "COMPLETED",
+        currency: "KES",
+        provider: { in: REAL_WITHDRAWAL_PROVIDERS },
         createdAt: { gte: since },
       },
       _sum: { amount: true },
