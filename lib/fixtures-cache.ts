@@ -254,3 +254,25 @@ export async function getKnownResults(
   }
   return out;
 }
+
+/** Cached live/upcoming fixtures plus permanent results for settlement. */
+export async function getCachedFixtures(
+  ids: number[],
+): Promise<Map<number, { detail: MatchDetail; stateId: number }>> {
+  const out = await getKnownResults(ids);
+  const unresolved = ids.filter((id) => !out.has(id));
+  if (unresolved.length === 0) return out;
+
+  const rows = await db.fixtureCache.findMany({
+    where: { numericId: { in: unresolved.map((id) => BigInt(id)) } },
+  });
+  for (const row of rows) {
+    const { match, markets } = row.data as unknown as CachedFixture;
+    const stateId = row.completed ? 5 : row.category === "live" ? 2 : 1;
+    out.set(Number(row.numericId), {
+      detail: { match, stateId, ...BLANK_DETAIL, markets },
+      stateId,
+    });
+  }
+  return out;
+}
