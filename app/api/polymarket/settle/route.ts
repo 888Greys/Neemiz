@@ -1,7 +1,6 @@
 import { db } from "@/lib/db";
 import { fetchResolutionDetail } from "@/lib/polymarket";
 import { TransactionType, TransactionStatus } from "@prisma/client";
-import { sendGameResultEmail } from "@/lib/brevo";
 
 export const runtime = "nodejs";
 
@@ -74,15 +73,6 @@ async function voidStalePolymarketBets(
     });
     if (didVoid) {
       voided++;
-      if (bet.user.email) sendGameResultEmail(bet.user.email, bet.user.firstName || bet.user.username || "Trader", {
-        game: "Polymarket",
-        outcome: "VOID",
-        stake: Number(bet.stake),
-        payout: Number(bet.stake),
-        reference: bet.id,
-        summary: "The market could not be resolved safely, so your stake was returned.",
-        href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/polymarket`,
-      }).catch((err) => console.error(`Polymarket void email failed for ${bet.id}:`, err));
     }
   }
 
@@ -185,15 +175,6 @@ async function settlePolymarket(req: Request) {
 
       if (didSettle) {
         settled++;
-        if (bet.user.email) sendGameResultEmail(bet.user.email, bet.user.firstName || bet.user.username || "Trader", {
-          game: "Polymarket",
-          outcome: won ? "WON" : "LOST",
-          stake: Number(bet.stake),
-          payout: won ? Number(bet.potentialWin) : undefined,
-          reference: bet.id,
-          summary: `${question} - your prediction was ${bet.outcome}.`,
-          href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/polymarket`,
-        }).catch((err) => console.error(`Polymarket result email failed for ${bet.id}:`, err));
       }
     }
   }

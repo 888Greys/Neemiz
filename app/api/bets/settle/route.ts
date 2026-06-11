@@ -5,7 +5,6 @@ import { getThesportsdbResult, parseMatchName } from "@/lib/thesportsdb";
 import { resolveSelection, determineBetOutcome, calculateWinAmount } from "@/lib/settle-bet";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
-import { sendGameResultEmail } from "@/lib/brevo";
 
 // Vercel Cron invokes endpoints with GET (and an Authorization: Bearer
 // <CRON_SECRET> header when CRON_SECRET is set). Reuse the same handler.
@@ -214,14 +213,6 @@ export async function POST(req: Request) {
 
       if (didSettle) {
         settledCount++;
-        if (bet.user.email) sendGameResultEmail(bet.user.email, bet.user.firstName || bet.user.username || "Trader", {
-          game: "Sports bet",
-          outcome: betOutcome,
-          stake: Number(bet.stake),
-          payout: betOutcome === "WON" ? winAmount : betOutcome === "VOID" ? Number(bet.stake) : undefined,
-          reference: bet.id,
-          href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/my-bets`,
-        }).catch((err) => console.error(`Sports result email failed for ${bet.id}:`, err));
       }
     } catch (err) {
       console.error(`Settlement failed for bet ${bet.id}:`, err);
@@ -282,14 +273,6 @@ export async function POST(req: Request) {
       });
       if (didVoid) {
         voidedCount++;
-        if (bet.user.email) sendGameResultEmail(bet.user.email, bet.user.firstName || bet.user.username || "Trader", {
-          game: "Sports bet",
-          outcome: "VOID",
-          stake: Number(bet.stake),
-          payout: Number(bet.stake),
-          reference: bet.id,
-          href: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com"}/my-bets`,
-        }).catch((err) => console.error(`Sports void email failed for ${bet.id}:`, err));
       }
     } catch (err) {
       console.error(`Void failed for bet ${bet.id}:`, err);
