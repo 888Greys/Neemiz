@@ -36,6 +36,8 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPw, setShowPw]     = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
 
@@ -380,8 +382,20 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
 
               {recoveryStep === "password" && (
                 <form onSubmit={handleUpdatePassword} className="space-y-3">
-                  <input type="password" autoFocus required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password" className="w-full rounded-2xl bg-[#18191f] px-4 py-3.5 text-sm text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/50" />
-                  <input type="password" required minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm new password" className="w-full rounded-2xl bg-[#18191f] px-4 py-3.5 text-sm text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/50" />
+                  <div className="flex items-center gap-3 rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+                    <Icon name="lock" fill className="shrink-0 text-[18px] text-slate-500" />
+                    <input type={showNewPw ? "text" : "password"} autoFocus required minLength={8} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password" className="flex-1 bg-transparent py-3.5 text-sm text-white outline-none" />
+                    <button type="button" onClick={() => setShowNewPw((v) => !v)} aria-label={showNewPw ? "Hide new password" : "Show new password"} className="text-slate-500 transition hover:text-slate-300">
+                      <Icon name={showNewPw ? "visibility_off" : "visibility"} className="text-[18px]" />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+                    <Icon name="lock" fill className="shrink-0 text-[18px] text-slate-500" />
+                    <input type={showConfirmPw ? "text" : "password"} required minLength={8} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm new password" className="flex-1 bg-transparent py-3.5 text-sm text-white outline-none" />
+                    <button type="button" onClick={() => setShowConfirmPw((v) => !v)} aria-label={showConfirmPw ? "Hide confirmed password" : "Show confirmed password"} className="text-slate-500 transition hover:text-slate-300">
+                      <Icon name={showConfirmPw ? "visibility_off" : "visibility"} className="text-[18px]" />
+                    </button>
+                  </div>
                   {error && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-xs font-bold text-red-400">{error}</p>}
                   <button type="submit" disabled={loading} className="w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white disabled:opacity-60">
                     {loading ? <LoadingDots label="Updating password" /> : "Update password"}
