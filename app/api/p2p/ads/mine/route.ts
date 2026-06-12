@@ -85,6 +85,9 @@ export async function PATCH(req: Request) {
   if (!Number.isFinite(pricePerUnit) || pricePerUnit <= 0) {
     return Response.json({ error: "Invalid price per unit" }, { status: 400 });
   }
+  if (ad.crypto.toUpperCase() === "KES" && (pricePerUnit < 0.5 || pricePerUnit > 2)) {
+    return Response.json({ error: "KES Coin price must be between 0.50 and 2.00 (max ±100% spread on the 1:1 peg)." }, { status: 400 });
+  }
   if (!Number.isFinite(minLimit) || minLimit <= 0) {
     return Response.json({ error: "Invalid minimum limit" }, { status: 400 });
   }

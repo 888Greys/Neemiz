@@ -1,9 +1,11 @@
 const DEFAULT_REFERENCE_RATES: Record<string, number> = {
   USDT: 129.5,
+  KES: 1, // KES Coin is pegged 1:1; merchants set a spread around this.
 };
 
 const DEFAULT_RATE_BOUNDS: Record<string, { minPct: number; maxPct: number }> = {
   USDT: { minPct: 0.9, maxPct: 1.2 },
+  KES: { minPct: 0.5, maxPct: 2.0 }, // allow up to ±100% spread on the 1:1 peg
 };
 
 export interface P2PAdGuardInput {

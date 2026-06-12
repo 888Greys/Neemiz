@@ -124,14 +124,20 @@ export async function POST(req: Request) {
       return Response.json({ error: "Missing order limits" }, { status: 400 });
     }
 
-    // The KES coin is pegged 1:1 to KES — force the price so merchants can't
-    // mis-price it (e.g. 130 like a crypto), which would make "you receive" wrong.
-    const pricePerUnitNum  = isKesCoin(crypto as string) ? 1 : Number(pricePerUnit);
+    // KES Coin is a 1:1-pegged stablecoin, but merchants may set a spread on top
+    // (their cash-in/out rate) — e.g. 1.05 = +5%. The on-platform escrow is
+    // amount-based (lib/p2p/crypto-balance), so the price only sets how much fiat
+    // the buyer pays the merchant. Use the merchant's price for every asset.
+    const pricePerUnitNum  = Number(pricePerUnit);
     const totalAmountNum   = Number(totalAmount);
     const paymentWindowNum = Number(paymentWindow ?? 15);
 
     if (!Number.isFinite(pricePerUnitNum) || pricePerUnitNum <= 0)
       return Response.json({ error: "Invalid price per unit" }, { status: 400 });
+    // Guard against fat-fingering KES Coin like a crypto (e.g. 130) — keep its
+    // spread within ±100% of the 1:1 peg.
+    if (isKesCoin(crypto as string) && (pricePerUnitNum < 0.5 || pricePerUnitNum > 2))
+      return Response.json({ error: "KES Coin price must be between 0.50 and 2.00 (max ±100% spread on the 1:1 peg)." }, { status: 400 });
     if (!Number.isFinite(totalAmountNum) || totalAmountNum <= 0)
       return Response.json({ error: "Invalid total amount" }, { status: 400 });
 
