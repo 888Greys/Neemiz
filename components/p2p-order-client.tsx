@@ -54,6 +54,11 @@ function isMerchantSelling(order: OrderData): boolean {
   return order.side === "SELL";
 }
 
+function isKesCoinOrder(order: OrderData): boolean {
+  const crypto = order.crypto.trim().toUpperCase().replace(/[\s_-]+/g, "");
+  return crypto === "KES" || crypto === "KESCOIN";
+}
+
 function isPaymentActor(order: OrderData): boolean {
   const merchantIsSelling = isMerchantSelling(order);
   return merchantIsSelling ? order.isBuyer : order.isSeller;
@@ -765,6 +770,15 @@ function MobileP2POrderView({
         </button>
       </div>
 
+      {isKesCoinOrder(order) && (
+        <div className="mb-5 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-3">
+          <p className="text-xs font-black text-amber-300">KES Coin fee and escrow</p>
+          <p className="mt-1 text-[11px] leading-5 text-slate-400">
+            Each party pays a 1% platform fee. The KES Coin principal stays locked in escrow until the receiver confirms payment and releases the trade.
+          </p>
+        </div>
+      )}
+
       {order.status === "PENDING" && canMarkPaid && (
       <section className="mb-5">
         <div className="mb-3 flex items-center gap-2">
@@ -1058,6 +1072,15 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           </span>
           <Icon name="expand_more" className="ml-auto text-[18px]" />
         </div>
+
+        {isKesCoinOrder(order) && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2.5">
+            <Icon name="percent" className="mt-0.5 text-[15px] text-amber-300" />
+            <p className="text-[11px] leading-5 text-slate-400">
+              KES Coin charges 1% per party. The principal remains secured in escrow until the trade is released.
+            </p>
+          </div>
+        )}
 
         {/* Trade details grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

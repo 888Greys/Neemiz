@@ -73,6 +73,14 @@ function isOpenMarket(m: PolymarketMarket) {
   return m.active && !m.closed && !hasEnded && !isResolvedPrice;
 }
 
+function isTradableMarket(m: PolymarketMarket) {
+  const validPrices =
+    m.outcomes.length >= 2 &&
+    m.outcomes.length === m.outcomePrices.length &&
+    m.outcomePrices.every((price) => Number.isFinite(price) && price > 0.005 && price < 0.995);
+  return validPrices && m.clobTokenIds.length >= m.outcomes.length && m.liquidity >= 1_000;
+}
+
 function normalizeQuestion(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
@@ -112,7 +120,15 @@ export async function fetchMarkets(params?: {
   });
   if (!res.ok) return [];
   const data: GammaMarket[] = await res.json();
-  return data.map(parseMarket).filter(isOpenMarket).slice(0, limit);
+  return data
+    .map(parseMarket)
+    .filter((market) => isOpenMarket(market) && isTradableMarket(market))
+    .sort((a, b) => {
+      const aScore = Math.log10(a.volume + 1) + Math.log10(a.liquidity + 1) * 1.5;
+      const bScore = Math.log10(b.volume + 1) + Math.log10(b.liquidity + 1) * 1.5;
+      return bScore - aScore;
+    })
+    .slice(0, limit);
 }
 
 export async function fetchMarket(
