@@ -24,6 +24,7 @@ export async function GET() {
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   const [
     totalUsers,
@@ -36,6 +37,16 @@ export async function GET() {
     activeOrders,
     totalDepositsMonth,
     pendingWithdrawals,
+    totalWalletBalance,
+    suspendedUsers,
+    pendingSportsBets,
+    pendingPredictionBets,
+    pendingBinaryTrades,
+    openForexTrades,
+    activeAviatorBets,
+    stakesToday,
+    winsToday,
+    recentTransactions,
   ] = await Promise.all([
     db.user.count(),
     db.user.count({ where: { createdAt: { gte: startOfDay } } }),
@@ -55,6 +66,38 @@ export async function GET() {
       _count: true,
     }),
     db.transaction.count({ where: { type: "WITHDRAWAL", status: "PENDING_APPROVAL" as TransactionStatus } }),
+    db.user.aggregate({ _sum: { walletBalance: true } }),
+    db.user.count({ where: { isActive: false } }),
+    db.bet.count({ where: { status: "PENDING" } }),
+    db.polymarketBet.count({ where: { status: "PENDING" } }),
+    db.binaryTrade.count({ where: { status: "PENDING" } }),
+    db.forexTrade.count({ where: { status: "OPEN" } }),
+    db.aviatorBet.count({ where: { status: "ACTIVE" } }),
+    db.transaction.aggregate({
+      where: { type: "BET_STAKE", status: "COMPLETED", createdAt: { gte: startOfDay } },
+      _sum: { amount: true },
+      _count: true,
+    }),
+    db.transaction.aggregate({
+      where: { type: "BET_WIN", status: "COMPLETED", createdAt: { gte: startOfDay } },
+      _sum: { amount: true },
+      _count: true,
+    }),
+    db.transaction.findMany({
+      where: { createdAt: { gte: last24Hours } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        type: true,
+        amount: true,
+        currency: true,
+        status: true,
+        provider: true,
+        createdAt: true,
+        user: { select: { id: true, email: true, username: true } },
+      },
+    }),
   ]);
 
   return Response.json({
@@ -74,5 +117,24 @@ export async function GET() {
       count:  totalDepositsMonth._count,
       amount: Number(totalDepositsMonth._sum.amount ?? 0),
     },
+    totalWalletBalance: Number(totalWalletBalance._sum.walletBalance ?? 0),
+    suspendedUsers,
+    exposure: {
+      sports: pendingSportsBets,
+      predictions: pendingPredictionBets,
+      binary: pendingBinaryTrades,
+      forex: openForexTrades,
+      aviator: activeAviatorBets,
+    },
+    bettingToday: {
+      stakes: Number(stakesToday._sum.amount ?? 0),
+      stakeCount: stakesToday._count,
+      wins: Number(winsToday._sum.amount ?? 0),
+      winCount: winsToday._count,
+    },
+    recentTransactions: recentTransactions.map((transaction) => ({
+      ...transaction,
+      amount: Number(transaction.amount),
+    })),
   });
 }

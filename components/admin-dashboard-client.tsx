@@ -1,8 +1,28 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Icon } from "@/components/icon";
+
+interface TransactionRow {
+  id: string;
+  type: string;
+  amount: number;
+  currency: string;
+  status: string;
+  provider: string | null;
+  createdAt: string;
+  user: { id: string; email: string | null; username: string | null };
+}
 
 interface Stats {
   totalUsers: number;
@@ -13,241 +33,232 @@ interface Stats {
   pendingWithdrawals: number;
   totalMerchants: number;
   activeOrders: number;
+  suspendedUsers: number;
+  totalWalletBalance: number;
   depositsToday: { count: number; amount: number };
   depositsMonth: { count: number; amount: number };
+  bettingToday: { stakes: number; stakeCount: number; wins: number; winCount: number };
+  exposure: { sports: number; predictions: number; binary: number; forex: number; aviator: number };
+  recentTransactions: TransactionRow[];
 }
 
-function StatCard({
-  label, value, sub, icon, color, href, alert,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  icon: string;
-  color: string;
-  href?: string;
-  alert?: boolean;
+interface ProfitData {
+  days: Array<{ date: string; deposits: number; withdrawals: number; grossProfit: number }>;
+  totals: { grossProfit: number };
+}
+
+const money = (value: number) =>
+  value >= 1_000_000
+    ? `KSh ${(value / 1_000_000).toFixed(2)}M`
+    : value >= 1_000
+      ? `KSh ${(value / 1_000).toFixed(1)}K`
+      : `KSh ${value.toLocaleString("en-KE")}`;
+
+function Metric({ label, value, detail, icon, tone = "blue" }: {
+  label: string; value: string; detail: string; icon: string; tone?: "blue" | "green" | "amber" | "violet";
 }) {
-  const inner = (
-    <div className={`relative overflow-hidden rounded-2xl bg-[#0f1623] border border-white/[0.06] p-5 transition-colors ${href ? "hover:bg-white/[0.03] cursor-pointer" : ""}`}>
-      <div className="flex items-start justify-between">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-          <Icon name={icon} fill className="text-[20px]" />
-        </div>
-        {alert && <span className="flex h-2 w-2 rounded-full bg-amber-400"><span className="absolute inline-flex h-2 w-2 animate-ping rounded-full bg-amber-400 opacity-75" /></span>}
+  const tones = {
+    blue: "bg-blue-500/10 text-blue-400",
+    green: "bg-emerald-500/10 text-emerald-400",
+    amber: "bg-amber-500/10 text-amber-400",
+    violet: "bg-violet-500/10 text-violet-400",
+  };
+  return (
+    <div className="border-b border-r border-white/[0.06] bg-[#0a0d13] p-4">
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">{label}</p>
+        <span className={`rounded-lg p-1.5 ${tones[tone]}`}><Icon name={icon} size={14} /></span>
       </div>
-      <div className="mt-4">
-        <p className="text-3xl font-black text-white">{value}</p>
-        <p className="mt-0.5 text-xs font-black text-slate-500 uppercase tracking-wide">{label}</p>
-        {sub && <p className="mt-1 text-[11px] text-slate-600">{sub}</p>}
-      </div>
+      <p className="mt-4 text-2xl font-black tracking-tight text-white">{value}</p>
+      <p className="mt-1 text-[10px] font-medium text-slate-600">{detail}</p>
     </div>
   );
-  return href ? <Link href={href}>{inner}</Link> : <div>{inner}</div>;
 }
 
-function Spinner() {
-  return <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />;
+function Panel({ title, action, children, className = "" }: {
+  title: string; action?: React.ReactNode; children: React.ReactNode; className?: string;
+}) {
+  return (
+    <section className={`overflow-hidden rounded-xl border border-white/[0.07] bg-[#090c12] ${className}`}>
+      <div className="flex h-11 items-center justify-between border-b border-white/[0.06] px-4">
+        <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
 }
 
 export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
-  const [stats, setStats]   = useState<Stats | null>(null);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [profits, setProfits] = useState<ProfitData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
-  const fetchStats = useCallback(async () => {
+  const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/admin/stats");
-      if (res.ok) setStats(await res.json());
+      const [statsRes, profitsRes] = await Promise.all([
+        fetch("/api/admin/stats", { cache: "no-store" }),
+        fetch("/api/admin/profits?days=30", { cache: "no-store" }),
+      ]);
+      if (statsRes.ok) setStats(await statsRes.json());
+      if (profitsRes.ok) setProfits(await profitsRes.json());
+      setUpdatedAt(new Date());
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { load(); }, [load]);
+
+  if (loading && !stats) {
+    return <div className="flex min-h-screen items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-white/10 border-t-blue-500" /></div>;
+  }
+  if (!stats) return <div className="p-8 text-sm text-red-400">Command center data could not be loaded.</div>;
+
+  const alerts = [
+    { label: "Withdrawal approvals", count: stats.pendingWithdrawals, href: "/admin/withdrawals", tone: "text-orange-400" },
+    { label: "Open disputes", count: stats.openDisputes, href: "/admin/p2p", tone: "text-red-400" },
+    { label: "KYC reviews", count: stats.pendingKyc, href: "/admin/p2p", tone: "text-amber-400" },
+    { label: "Merchant deposits", count: stats.pendingDeposits, href: "/admin/p2p", tone: "text-blue-400" },
+  ];
+
+  const exposure = [
+    ["Sports", stats.exposure.sports, "sports_soccer"],
+    ["Predictions", stats.exposure.predictions, "online_prediction"],
+    ["Binary", stats.exposure.binary, "candlestick_chart"],
+    ["Forex", stats.exposure.forex, "currency_exchange"],
+    ["Aviator", stats.exposure.aviator, "flight_takeoff"],
+  ] as const;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Page header */}
-      <div className="mb-8 flex items-center justify-between">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(8,124,255,.08),transparent_25%)] px-3 py-4 sm:px-5 lg:px-6">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-black text-white">Overview</h1>
-          <p className="text-slate-600 text-xs mt-0.5">Live platform stats</p>
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Platform operational</p>
+          </div>
+          <h1 className="mt-1 text-xl font-black tracking-tight">Owner Command Center</h1>
+          <p className="text-[11px] text-slate-600">{adminEmail} · {updatedAt ? `Synced ${updatedAt.toLocaleTimeString()}` : "Connecting"}</p>
         </div>
-        <button
-          type="button"
-          onClick={fetchStats}
-          className="flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2 text-xs font-bold text-slate-500 hover:text-white hover:bg-white/[0.07] transition-colors"
-        >
-          <Icon name="refresh" className="text-[13px]" />
-          Refresh
+        <button onClick={load} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] font-black text-slate-400 hover:text-white">
+          <Icon name="refresh" size={13} /> Refresh terminal
         </button>
+      </header>
+
+      <div className="mb-4 grid overflow-hidden rounded-xl border border-white/[0.07] sm:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Customer funds" value={money(stats.totalWalletBalance)} detail={`${stats.totalUsers.toLocaleString()} user wallets`} icon="account_balance_wallet" />
+        <Metric label="Cash in today" value={money(stats.depositsToday.amount)} detail={`${stats.depositsToday.count} completed deposits`} icon="arrow_downward" tone="green" />
+        <Metric label="Bet turnover today" value={money(stats.bettingToday.stakes)} detail={`${stats.bettingToday.stakeCount} stakes placed`} icon="bolt" tone="violet" />
+        <Metric label="30D gross P&L" value={money(profits?.totals.grossProfit ?? 0)} detail={`${money(stats.bettingToday.wins)} wins paid today`} icon="trending_up" tone="amber" />
       </div>
 
-      {loading ? (
-        <div className="flex justify-center py-20"><Spinner /></div>
-      ) : stats ? (
-        <>
-          {/* Alerts row */}
-          {(stats.pendingKyc > 0 || stats.openDisputes > 0 || stats.pendingDeposits > 0 || stats.pendingWithdrawals > 0) && (
-            <div className="mb-6 flex flex-wrap gap-3">
-              {stats.pendingKyc > 0 && (
-                <Link href="/admin/p2p" className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2.5 text-xs font-black text-amber-400 hover:bg-amber-500/15 transition-colors">
-                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                  {stats.pendingKyc} KYC request{stats.pendingKyc !== 1 ? "s" : ""} pending
-                  <Icon name="chevron_right" className="text-[14px]" />
-                </Link>
-              )}
-              {stats.openDisputes > 0 && (
-                <Link href="/admin/p2p" className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-2.5 text-xs font-black text-red-400 hover:bg-red-500/15 transition-colors">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-pulse" />
-                  {stats.openDisputes} open dispute{stats.openDisputes !== 1 ? "s" : ""}
-                  <Icon name="chevron_right" className="text-[14px]" />
-                </Link>
-              )}
-              {stats.pendingDeposits > 0 && (
-                <Link href="/admin/p2p" className="flex items-center gap-2 rounded-xl bg-blue-500/10 border border-blue-500/20 px-4 py-2.5 text-xs font-black text-blue-400 hover:bg-blue-500/15 transition-colors">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
-                  {stats.pendingDeposits} deposit{stats.pendingDeposits !== 1 ? "s" : ""} to review
-                  <Icon name="chevron_right" className="text-[14px]" />
-                </Link>
-              )}
-              {stats.pendingWithdrawals > 0 && (
-                <Link href="/admin/withdrawals" className="flex items-center gap-2 rounded-xl bg-orange-500/10 border border-orange-500/20 px-4 py-2.5 text-xs font-black text-orange-400 hover:bg-orange-500/15 transition-colors">
-                  <span className="h-1.5 w-1.5 rounded-full bg-orange-400 animate-pulse" />
-                  {stats.pendingWithdrawals} withdrawal{stats.pendingWithdrawals !== 1 ? "s" : ""} awaiting approval
-                  <Icon name="chevron_right" className="text-[14px]" />
-                </Link>
-              )}
+      <div className="grid gap-4 xl:grid-cols-[1.65fr_1fr]">
+        <div className="space-y-4">
+          <Panel title="30-day financial telemetry" action={<Link href="/admin/profits" className="text-[10px] font-black text-blue-400">OPEN FINANCE</Link>}>
+            <div className="h-[260px] p-3">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={profits?.days ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="adminCashIn" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.3} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="adminProfit" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#087cff" stopOpacity={0.25} /><stop offset="100%" stopColor="#087cff" stopOpacity={0} /></linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="rgba(255,255,255,.04)" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={(v: string) => v.slice(5)} tick={{ fill: "#475569", fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v / 1000)}K` : String(v)} tick={{ fill: "#475569", fontSize: 9 }} axisLine={false} tickLine={false} width={45} />
+                  <Tooltip contentStyle={{ background: "#0b0f16", border: "1px solid rgba(255,255,255,.08)", borderRadius: 8, fontSize: 11 }} formatter={(v) => money(Number(v ?? 0))} />
+                  <Area type="monotone" dataKey="deposits" stroke="#10b981" fill="url(#adminCashIn)" strokeWidth={1.5} dot={false} />
+                  <Area type="monotone" dataKey="grossProfit" stroke="#087cff" fill="url(#adminProfit)" strokeWidth={1.5} dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
-          )}
+          </Panel>
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
-            <StatCard
-              label="Total Users"
-              value={stats.totalUsers.toLocaleString()}
-              sub={`+${stats.newUsersToday} today`}
-              icon="groups"
-              color="bg-violet-500/15 text-violet-300"
-            />
-            <StatCard
-              label="Merchants"
-              value={stats.totalMerchants.toLocaleString()}
-              sub="KYC approved"
-              icon="storefront"
-              color="bg-emerald-500/15 text-emerald-300"
-              href="/admin/p2p"
-            />
-            <StatCard
-              label="Active Orders"
-              value={stats.activeOrders.toLocaleString()}
-              sub="Pending + Paid"
-              icon="swap_horiz"
-              color="bg-blue-500/15 text-blue-300"
-            />
-            <StatCard
-              label="KYC Pending"
-              value={stats.pendingKyc}
-              sub="awaiting review"
-              icon="verified_user"
-              color="bg-amber-500/15 text-amber-300"
-              href="/admin/p2p"
-              alert={stats.pendingKyc > 0}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-            <StatCard
-              label="Open Disputes"
-              value={stats.openDisputes}
-              sub="requires resolution"
-              icon="gavel"
-              color="bg-red-500/15 text-red-300"
-              href="/admin/p2p"
-              alert={stats.openDisputes > 0}
-            />
-            <StatCard
-              label="Deposits Today"
-              value={`KSh ${stats.depositsToday.amount.toLocaleString("en-KE")}`}
-              sub={`${stats.depositsToday.count} transactions`}
-              icon="add_circle"
-              color="bg-[#05b957]/15 text-[#05b957]"
-            />
-            <StatCard
-              label="Month Deposits"
-              value={`KSh ${stats.depositsMonth.amount.toLocaleString("en-KE")}`}
-              sub={`${stats.depositsMonth.count} transactions`}
-              icon="calendar_month"
-              color="bg-sky-500/15 text-sky-300"
-            />
-            <StatCard
-              label="Pending Deposits"
-              value={stats.pendingDeposits}
-              sub="merchant crypto"
-              icon="pending"
-              color="bg-slate-500/15 text-slate-300"
-              href="/admin/p2p"
-              alert={stats.pendingDeposits > 0}
-            />
-          </div>
-
-          {/* Quick links */}
-          <div>
-            <h2 className="text-sm font-black text-slate-500 uppercase tracking-widest mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Link
-                href="/admin/p2p"
-                className="flex items-center gap-4 rounded-2xl bg-[#0f1623] border border-white/[0.06] p-5 hover:bg-white/[0.03] transition-colors"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087cff]/15">
-                  <Icon name="swap_horiz" fill className="text-[22px] text-[#087cff]" />
+          <Panel title="Product exposure">
+            <div className="grid grid-cols-2 sm:grid-cols-5">
+              {exposure.map(([label, count, icon]) => (
+                <div key={label} className="border-b border-r border-white/[0.05] p-4 last:border-r-0">
+                  <Icon name={icon} size={17} className="text-slate-500" />
+                  <p className="mt-4 text-2xl font-black">{count}</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">{label}</p>
+                  <p className="mt-1 text-[9px] text-slate-700">Open positions</p>
                 </div>
-                <div>
-                  <p className="font-black text-white text-sm">P2P Management</p>
-                  <p className="text-slate-500 text-xs">KYC · Disputes · Deposits</p>
-                </div>
-                <Icon name="chevron_right" className="text-[18px] text-slate-600 ml-auto" />
-              </Link>
-
-              <Link
-                href="/admin/p2p"
-                className="flex items-center gap-4 rounded-2xl bg-[#0f1623] border border-white/[0.06] p-5 hover:bg-white/[0.03] transition-colors"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/15">
-                  <Icon name="verified_user" fill className="text-[22px] text-amber-400" />
-                </div>
-                <div>
-                  <p className="font-black text-white text-sm">KYC Requests</p>
-                  <p className="text-slate-500 text-xs">
-                    {stats.pendingKyc > 0 ? <span className="text-amber-400">{stats.pendingKyc} pending</span> : "All cleared"}
-                  </p>
-                </div>
-                <Icon name="chevron_right" className="text-[18px] text-slate-600 ml-auto" />
-              </Link>
-
-              <Link
-                href="/admin/p2p"
-                className="flex items-center gap-4 rounded-2xl bg-[#0f1623] border border-white/[0.06] p-5 hover:bg-white/[0.03] transition-colors"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-500/15">
-                  <Icon name="gavel" fill className="text-[22px] text-red-400" />
-                </div>
-                <div>
-                  <p className="font-black text-white text-sm">Disputes</p>
-                  <p className="text-slate-500 text-xs">
-                    {stats.openDisputes > 0 ? <span className="text-red-400">{stats.openDisputes} open</span> : "None open"}
-                  </p>
-                </div>
-                <Icon name="chevron_right" className="text-[18px] text-slate-600 ml-auto" />
-              </Link>
+              ))}
             </div>
-          </div>
-        </>
-      ) : (
-        <div className="rounded-2xl bg-[#0f1623] border border-white/[0.06] p-12 text-center">
-          <p className="text-slate-500 font-bold">Failed to load stats</p>
+          </Panel>
+
+          <Panel title="Latest ledger activity" action={<Link href="/admin/users" className="text-[10px] font-black text-blue-400">INVESTIGATE USERS</Link>}>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[650px] text-left">
+                <thead><tr className="border-b border-white/[0.05] text-[9px] uppercase tracking-widest text-slate-700">
+                  <th className="px-4 py-2.5">Account</th><th>Event</th><th>Provider</th><th>Status</th><th className="pr-4 text-right">Amount</th>
+                </tr></thead>
+                <tbody>
+                  {stats.recentTransactions.map((tx) => (
+                    <tr key={tx.id} className="border-b border-white/[0.04] text-[11px] hover:bg-white/[0.02]">
+                      <td className="px-4 py-3"><Link href={`/admin/users/${tx.user.id}`} className="font-bold text-slate-300 hover:text-blue-400">{tx.user.email ?? tx.user.username ?? "Unknown"}</Link><p className="text-[9px] text-slate-700">{new Date(tx.createdAt).toLocaleString()}</p></td>
+                      <td className="font-black text-slate-500">{tx.type.replaceAll("_", " ")}</td>
+                      <td className="text-slate-600">{tx.provider ?? "internal"}</td>
+                      <td><span className={tx.status === "COMPLETED" ? "text-emerald-400" : tx.status === "FAILED" ? "text-red-400" : "text-amber-400"}>{tx.status}</span></td>
+                      <td className="pr-4 text-right font-mono font-bold text-white">{money(tx.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Panel>
         </div>
-      )}
+
+        <div className="space-y-4">
+          <Panel title="Action queue">
+            <div className="divide-y divide-white/[0.05]">
+              {alerts.map((alert) => (
+                <Link key={alert.label} href={alert.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-white/[0.025]">
+                  <div><p className="text-xs font-bold text-slate-300">{alert.label}</p><p className="text-[9px] text-slate-700">Requires owner review</p></div>
+                  <span className={`font-mono text-xl font-black ${alert.count ? alert.tone : "text-slate-700"}`}>{alert.count}</span>
+                </Link>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Accounts & network">
+            <div className="grid grid-cols-2">
+              <div className="border-b border-r border-white/[0.05] p-4"><p className="text-2xl font-black">{stats.totalUsers.toLocaleString()}</p><p className="text-[9px] uppercase tracking-widest text-slate-600">Total users</p><p className="mt-1 text-[9px] text-emerald-400">+{stats.newUsersToday} today</p></div>
+              <div className="border-b border-white/[0.05] p-4"><p className="text-2xl font-black">{stats.totalMerchants}</p><p className="text-[9px] uppercase tracking-widest text-slate-600">Merchants</p><p className="mt-1 text-[9px] text-blue-400">{stats.activeOrders} live orders</p></div>
+              <div className="border-r border-white/[0.05] p-4"><p className="text-2xl font-black">{stats.suspendedUsers}</p><p className="text-[9px] uppercase tracking-widest text-slate-600">Suspended</p></div>
+              <div className="p-4"><p className="text-2xl font-black">{money(stats.depositsMonth.amount)}</p><p className="text-[9px] uppercase tracking-widest text-slate-600">Month deposits</p></div>
+            </div>
+          </Panel>
+
+          <Panel title="Control modules">
+            <div className="grid grid-cols-2 gap-2 p-3">
+              {[
+                ["/admin/activity", "Product activity", "Players and breakdowns", "bar_chart"],
+                ["/admin/users", "User control", "Search, inspect, suspend", "groups"],
+                ["/admin/p2p", "P2P desk", "KYC, disputes, wallets", "handshake"],
+                ["/admin/withdrawals", "Approvals", "Approve or refund", "hourglass_top"],
+                ["/admin/profits", "Finance", "Cash flow and P&L", "analytics"],
+              ].map(([href, title, detail, icon]) => (
+                <Link key={href} href={href} className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3 hover:border-blue-500/20 hover:bg-blue-500/[0.04]">
+                  <Icon name={icon} size={16} className="text-blue-400" />
+                  <p className="mt-3 text-[11px] font-black">{title}</p>
+                  <p className="mt-0.5 text-[9px] leading-4 text-slate-600">{detail}</p>
+                </Link>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Security posture">
+            <div className="space-y-3 p-4 text-[10px]">
+              <div className="flex items-center justify-between"><span className="text-slate-500">Admin authentication</span><span className="font-black text-emerald-400">2FA ENFORCED</span></div>
+              <div className="flex items-center justify-between"><span className="text-slate-500">Session boundary</span><span className="font-black text-emerald-400">SERVER VERIFIED</span></div>
+              <div className="flex items-center justify-between"><span className="text-slate-500">Financial mutations</span><span className="font-black text-emerald-400">GUARDED</span></div>
+            </div>
+          </Panel>
+        </div>
+      </div>
     </div>
   );
 }
