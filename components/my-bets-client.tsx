@@ -13,7 +13,21 @@ type Selection = {
   label: string;
   odds: number;
   result: string;
+  kickoff: string | null;
 };
+
+// Format a kickoff time in East Africa Time (Nairobi) regardless of the user's
+// device timezone, e.g. "Thu 12 Jun, 5:00 AM".
+function formatKickoffEAT(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleString("en-KE", {
+    timeZone: "Africa/Nairobi",
+    weekday: "short", day: "numeric", month: "short",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+}
 
 type Bet = {
   id: string;
@@ -77,7 +91,7 @@ function BetCard({ bet }: { bet: Bet }) {
         </div>
 
         <div className="shrink-0 text-right">
-          <p className="text-[11px] text-slate-500">{new Date(bet.createdAt).toLocaleDateString("en-KE", { day: "numeric", month: "short" })}</p>
+          <p className="text-[11px] text-slate-500">{new Date(bet.createdAt).toLocaleDateString("en-KE", { timeZone: "Africa/Nairobi", day: "numeric", month: "short" })}</p>
           <p className="text-[12px] font-black text-white tabular-nums">{fmt(bet.stake)}</p>
         </div>
 
@@ -96,6 +110,12 @@ function BetCard({ bet }: { bet: Bet }) {
                 <p className="truncate text-[11px] text-slate-500">{s.matchName}</p>
                 <p className="text-[13px] font-black text-white">{s.label}</p>
                 <p className="text-[11px] text-slate-500">{s.market}</p>
+                {formatKickoffEAT(s.kickoff) && (
+                  <p className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                    <Icon name="schedule" className="h-3 w-3" />
+                    {formatKickoffEAT(s.kickoff)}
+                  </p>
+                )}
               </div>
               <div className="shrink-0 text-right">
                 <span className="rounded-lg bg-[#087cff]/15 px-2 py-0.5 text-[12px] font-black text-[#75b8ff]">

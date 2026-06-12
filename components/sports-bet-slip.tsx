@@ -20,7 +20,7 @@ type MyBet = {
   winAmount: number | null;
   status: string;
   createdAt: string;
-  selections: { matchName: string; market: string; label: string; odds: number; result: string }[];
+  selections: { matchName: string; market: string; label: string; odds: number; result: string; kickoff?: string | null }[];
 };
 
 function statusColor(s: string) {
@@ -77,6 +77,18 @@ type WheelResult = { segmentIndex: number; label: string; multiplier: number; st
 
 const MIN_PLAY_AMOUNT = 10;
 const USER_PROFIT_RATE = 0.70;
+
+// Kickoff time in East Africa Time (Nairobi), independent of the device clock.
+function kickoffEAT(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  return d.toLocaleString("en-KE", {
+    timeZone: "Africa/Nairobi",
+    weekday: "short", day: "numeric", month: "short",
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+}
 
 function retainedPayout(stake: number, grossPayout: number) {
   if (grossPayout <= stake) return grossPayout;
@@ -624,7 +636,7 @@ export function SportsBetSlip() {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] text-slate-600">
-                            {new Date(bet.createdAt).toLocaleDateString("en-KE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            {new Date(bet.createdAt).toLocaleString("en-KE", { timeZone: "Africa/Nairobi", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                           </span>
                           <Icon name="expand_more" className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                         </div>
@@ -637,6 +649,12 @@ export function SportsBetSlip() {
                               {s.label}
                               <span className="ml-1 text-[10px] font-bold text-slate-500">· {s.market}</span>
                             </div>
+                            {kickoffEAT(s.kickoff) && (
+                              <div className="mt-0.5 flex items-center gap-1 text-[9px] font-semibold text-slate-600">
+                                <Icon name="schedule" className="h-2.5 w-2.5" />
+                                {kickoffEAT(s.kickoff)}
+                              </div>
+                            )}
                           </div>
                           <div className="flex shrink-0 flex-col items-end gap-0.5">
                             <span className="rounded-md bg-[#087cff]/15 px-1.5 py-0.5 text-[11px] font-black text-[#75b8ff]">
