@@ -21,6 +21,20 @@ export async function GET(req: Request) {
     },
   });
 
+  // Look up each fixture's kickoff time from the cache so the UI can show
+  // when a match is played (selections don't store the time themselves).
+  const fixtureIds = Array.from(
+    new Set(bets.flatMap((b) => b.selections.map((s) => s.fixtureId)).filter((id) => /^\d+$/.test(id))),
+  );
+  const kickoffMap = new Map<string, Date>();
+  if (fixtureIds.length) {
+    const fixtures = await db.fixtureCache.findMany({
+      where: { numericId: { in: fixtureIds.map((id) => BigInt(id)) } },
+      select: { numericId: true, commenceTime: true },
+    });
+    for (const fx of fixtures) kickoffMap.set(fx.numericId.toString(), fx.commenceTime);
+  }
+
   return Response.json(
     bets.map((b) => ({
       id: b.id,
@@ -37,6 +51,7 @@ export async function GET(req: Request) {
         label: s.label,
         odds: Number(s.odds),
         result: s.result,
+        kickoff: kickoffMap.get(s.fixtureId) ?? null,
       })),
     })),
     { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=30" } }
