@@ -48,14 +48,14 @@ function StatusBadge({ status }: { status: string }) {
 // ─── Wheel of Fortune ─────────────────────────────────────────────────────────
 
 const WHEEL_SEGS = [
-  { label: "×1.25", mult: 1.25, fill: "#14532d", text: "#86efac" },
-  { label: "×0",    mult: 0,    fill: "#111420", text: "#3a4060" },
-  { label: "×1.5",  mult: 1.5,  fill: "#1a3a6c", text: "#75b8ff" },
-  { label: "×1.25", mult: 1.25, fill: "#14532d", text: "#86efac" },
-  { label: "×2",    mult: 2,    fill: "#087cff", text: "#fff"    },
-  { label: "×0",    mult: 0,    fill: "#111420", text: "#3a4060" },
-  { label: "×5",    mult: 5,    fill: "#b45309", text: "#fde68a" },
-  { label: "×1.25", mult: 1.25, fill: "#14532d", text: "#86efac" },
+  { label: "×1.5", mult: 1.5, fill: "#1a3a6c", text: "#75b8ff" },
+  { label: "×2",   mult: 2,   fill: "#087cff", text: "#fff"    },
+  { label: "×0.5", mult: 0.5, fill: "#111420", text: "#8b94b8" },
+  { label: "×3",   mult: 3,   fill: "#0055b3", text: "#fff"    },
+  { label: "×1.5", mult: 1.5, fill: "#1a3a6c", text: "#75b8ff" },
+  { label: "×2",   mult: 2,   fill: "#087cff", text: "#fff"    },
+  { label: "×5",   mult: 5,   fill: "#b45309", text: "#fde68a" },
+  { label: "×3",   mult: 3,   fill: "#0055b3", text: "#fff"    },
 ];
 
 const N = WHEEL_SEGS.length;
@@ -78,15 +78,18 @@ type WheelResult = { segmentIndex: number; label: string; multiplier: number; st
 const MIN_PLAY_AMOUNT = 10;
 const USER_PROFIT_RATE = 0.70;
 
-// Kickoff time in East Africa Time (Nairobi), independent of the device clock.
 function kickoffEAT(iso: string | null | undefined): string | null {
   if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  return d.toLocaleString("en-KE", {
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return null;
+  return date.toLocaleString("en-KE", {
     timeZone: "Africa/Nairobi",
-    weekday: "short", day: "numeric", month: "short",
-    hour: "numeric", minute: "2-digit", hour12: true,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
   });
 }
 
@@ -223,21 +226,23 @@ function WheelOfFortune({
       {/* Win/loss result */}
       {result && (
         <div className={`mb-3 w-full rounded-2xl px-4 py-3 text-center ring-1 transition-all ${
-          result.multiplier === 0
+          result.netChange < 0
             ? "bg-red-500/10 ring-red-500/20"
             : result.multiplier >= 5
             ? "bg-amber-500/10 ring-amber-500/20"
             : "bg-emerald-500/10 ring-emerald-500/20"
         }`}>
           <p className={`text-[11px] font-bold mb-0.5 ${
-            result.multiplier === 0 ? "text-red-400" : result.multiplier >= 5 ? "text-amber-400" : "text-emerald-400"
+            result.netChange < 0 ? "text-red-400" : result.multiplier >= 5 ? "text-amber-400" : "text-emerald-400"
           }`}>
-            {result.multiplier === 0 ? "Better luck next time!" : result.multiplier >= 5 ? "🎉 Big win!" : "You won!"}
+            {result.netChange < 0 ? "Partial return" : result.multiplier >= 5 ? "Big win!" : "You won!"}
           </p>
           <p className={`text-xl font-black tabular-nums ${
-            result.multiplier === 0 ? "text-red-400" : result.multiplier >= 5 ? "text-amber-400" : "text-emerald-400"
+            result.netChange < 0 ? "text-red-400" : result.multiplier >= 5 ? "text-amber-400" : "text-emerald-400"
           }`}>
-            {result.multiplier === 0 ? `-KSh ${result.stake.toFixed(2)}` : `+KSh ${result.winAmount.toFixed(2)}`}
+            {result.netChange < 0
+              ? `KSh ${result.winAmount.toFixed(2)} returned`
+              : `+KSh ${result.netChange.toFixed(2)} profit`}
           </p>
         </div>
       )}
@@ -247,9 +252,9 @@ function WheelOfFortune({
         <div className="flex items-center justify-between text-[11px]">
           <span className="text-slate-500">Win</span>
           <span className={`font-black tabular-nums ${
-            result ? result.multiplier === 0 ? "text-red-400" : "text-emerald-400" : "text-slate-300"
+            result ? result.netChange < 0 ? "text-red-400" : "text-emerald-400" : "text-slate-300"
           }`}>
-            KSh {result ? result.multiplier === 0 ? "0.00" : result.winAmount.toFixed(2) : "—"}
+            KSh {result ? result.winAmount.toFixed(2) : "—"}
           </span>
         </div>
       </div>

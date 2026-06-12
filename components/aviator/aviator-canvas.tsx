@@ -199,7 +199,10 @@ function draw(
   const normX  = (t: number) => ORIGIN_X + (t / refElapsed) * (MAX_X - ORIGIN_X);
   const normYT = (t: number) => {
     const frac = Math.min(t / refElapsed, 1);
-    return ORIGIN_Y + frac * frac * (MAX_Y - ORIGIN_Y);
+    // A smooth rising arc keeps the early flight visible while still bending
+    // clearly upward as the multiplier grows.
+    const eased = Math.pow(frac, 1.55);
+    return ORIGIN_Y + eased * (MAX_Y - ORIGIN_Y);
   };
 
   const STEPS = 80;
@@ -227,8 +230,8 @@ function draw(
     const t = (i / STEPS) * curElapsed;
     ctx.lineTo(normX(t), normYT(t));
   }
-  ctx.strokeStyle = "#ff1838";
-  ctx.lineWidth   = compact ? 2 : 2.5;
+  ctx.strokeStyle = "#ff3150";
+  ctx.lineWidth   = compact ? 3 : 3.5;
   ctx.shadowColor = "#ff1838";
   ctx.shadowBlur  = 16;
   ctx.stroke();

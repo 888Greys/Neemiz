@@ -9,19 +9,20 @@ const MIN_SPIN_AMOUNT = 10;
 
 // Wheel segments — must match the client definition exactly (same order, same index)
 const SEGMENTS = [
-  { label: "×1.25", mult: 1.25 },
-  { label: "×0",    mult: 0    },
-  { label: "×1.5",  mult: 1.5  },
-  { label: "×1.25", mult: 1.25 },
-  { label: "×2",    mult: 2    },
-  { label: "×0",    mult: 0    },
-  { label: "×5",    mult: 5    },
-  { label: "×1.25", mult: 1.25 },
+  { label: "×1.5", mult: 1.5 },
+  { label: "×2",   mult: 2   },
+  { label: "×0.5", mult: 0.5 },
+  { label: "×3",   mult: 3   },
+  { label: "×1.5", mult: 1.5 },
+  { label: "×2",   mult: 2   },
+  { label: "×5",   mult: 5   },
+  { label: "×3",   mult: 3   },
 ];
 
-// ~30% win rate (70% land on ×0); wins still skew to the small ×1.25, rare ×5.
-// Segment indices:   0    1   2    3   4   5  6   7
-const WEIGHTS =     [ 10, 35,  4,  10,  3, 35, 1,  2]; // out of 100 total
+// Weighted random: 70% partial return (×0.5), 30% win across the rest.
+// The wheel never displays or awards a zero result.
+// Segment indices:   0   1    2   3   4   5  6  7
+const WEIGHTS =     [ 5,  5,  70,  5,  5,  5, 2, 3]; // out of 100 total
 
 function weightedRandom(): number {
   const total = WEIGHTS.reduce((a, b) => a + b, 0);
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
   }
 
   const { amount } = body;
-  if (!amount || amount < MIN_SPIN_AMOUNT) {
+  if (!Number.isFinite(amount) || amount < MIN_SPIN_AMOUNT) {
     return Response.json({ error: `Minimum spin amount is KSh ${MIN_SPIN_AMOUNT}` }, { status: 400 });
   }
 
@@ -55,7 +56,7 @@ export async function POST(req: Request) {
   const grossWinAmount = parseFloat((amount * segment.mult).toFixed(2));
   const winAmount = applyProfitRetention(amount, grossWinAmount);
   const retainedAmount = retainedProfit(amount, grossWinAmount);
-  const netChange = parseFloat((winAmount - amount).toFixed(2)); // negative if mult=0
+  const netChange = parseFloat((winAmount - amount).toFixed(2));
 
   try {
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
