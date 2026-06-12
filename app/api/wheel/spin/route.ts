@@ -19,12 +19,9 @@ const SEGMENTS = [
   { label: "×1.25", mult: 1.25 },
 ];
 
-// Professional payout curve: frequent small ×1.25 wins, a chunk of ×0, rare ×5.
-// Players win ~65% of spins (mostly the small ×1.25) so it feels rewarding,
-// while the house keeps an edge: raw RTP ≈ 0.92, effective ≈ 0.84 after the
-// 30% profit retention applied to winnings.
+// ~30% win rate (70% land on ×0); wins still skew to the small ×1.25, rare ×5.
 // Segment indices:   0    1   2    3   4   5  6   7
-const WEIGHTS =     [ 22, 18,  8,  22,  6, 17, 1,  6]; // out of 100 total
+const WEIGHTS =     [ 10, 35,  4,  10,  3, 35, 1,  2]; // out of 100 total
 
 function weightedRandom(): number {
   const total = WEIGHTS.reduce((a, b) => a + b, 0);
