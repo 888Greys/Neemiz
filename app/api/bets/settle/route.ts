@@ -68,7 +68,17 @@ export async function POST(req: Request) {
     const prev = metaById.get(s.fixtureId);
     if (!prev || b.createdAt > prev.date) metaById.set(s.fixtureId, { name: s.matchName, date: b.createdAt });
   }
-  const stillUnresolved = numericIds.filter((id) => !fixtureMap.has(String(id))).slice(0, 25);
+  // Run the free TheSportsDB fallback for fixtures the cache has not resolved —
+  // AND for fixtures that ARE cached but still aren't marked finished. The Odds
+  // API often never flips a soccer game to completed, so a cached-but-unfinished
+  // fixture would otherwise never settle (it's "in" the cache, so the old filter
+  // skipped it). Including it lets a finished game resolve via TheSportsDB.
+  const stillUnresolved = numericIds
+    .filter((id) => {
+      const r = fixtureMap.get(String(id));
+      return !r || !FINISHED_STATE_IDS.has(r.stateId);
+    })
+    .slice(0, 25);
   for (const id of stillUnresolved) {
     const meta = metaById.get(String(id));
     const teams = parseMatchName(meta?.name ?? "");
