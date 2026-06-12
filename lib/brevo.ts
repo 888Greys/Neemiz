@@ -1,33 +1,27 @@
-// Transactional email via Mailjet Send API v3.1.
-const MAILJET_API_KEY = process.env.MAILJET_API_KEY!;
-const MAILJET_SECRET_KEY = process.env.MAILJET_SECRET_KEY!;
+// Transactional email via Resend.
+const RESEND_API_KEY = process.env.RESEND_API_KEY!;
 const SENDER_EMAIL = process.env.MAIL_SENDER_EMAIL ?? process.env.BREVO_SENDER_EMAIL ?? "noreply@nezeem.com";
 const SENDER_NAME = process.env.MAIL_SENDER_NAME ?? process.env.BREVO_SENDER_NAME ?? "Nezeem";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "toxicgreys001@gmail.com";
 
 async function sendEmail(to: string, toName: string, subject: string, htmlContent: string) {
-  if (!MAILJET_API_KEY || !MAILJET_SECRET_KEY) {
-    console.error("Mailjet send skipped: email configuration is missing");
+  if (!RESEND_API_KEY) {
+    console.error("Resend send skipped: email configuration is missing");
     return;
   }
-  const auth = Buffer.from(`${MAILJET_API_KEY}:${MAILJET_SECRET_KEY}`).toString("base64");
-  const res = await fetch("https://api.mailjet.com/v3.1/send", {
+  const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      Messages: [
-        {
-          From: { Email: SENDER_EMAIL, Name: SENDER_NAME },
-          To: [{ Email: to, Name: toName }],
-          Subject: subject,
-          HTMLPart: htmlContent,
-        },
-      ],
+      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      to: [toName ? `${toName} <${to}>` : to],
+      subject,
+      html: htmlContent,
     }),
     signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) throw new Error(`Mailjet send failed: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Resend send failed: ${await res.text()}`);
 }
 
 // ─── Shared Layout ────────────────────────────────────────────────────────────
