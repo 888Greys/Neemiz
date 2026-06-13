@@ -5,6 +5,7 @@ import { isP2PAdTradable } from "@/lib/p2p/ad-guards";
 import { isKesCoin, lockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES } from "@/lib/p2p/currencies";
+import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 
 const VALID_CRYPTOS = new Set(["USDT", "USDC", "BTC", "ETH", "BNB", "KES"]);
 const VALID_FIATS   = new Set(FIAT_CURRENCIES.map((f) => f.code));
@@ -26,6 +27,8 @@ export async function POST(req: Request) {
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
+    const restriction = await assertCanCreateP2POrder(dbUser.id);
+    if (restriction) return restriction;
 
     let body: Record<string, unknown>;
     try { body = await req.json(); }

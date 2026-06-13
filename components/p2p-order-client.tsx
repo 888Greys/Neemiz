@@ -434,7 +434,8 @@ function MobileP2POrderView({
   const paymentName = paymentMethodLabel(order.paymentMethod);
   const canMarkPaid = order.status === "PENDING" && isPaymentActor(order);
   const canRelease = order.status === "PAID" && isReleaseActor(order);
-  const waitingForRelease = order.status === "PAID" && !canRelease;
+  const canCancel = order.status === "PENDING" && isPaymentActor(order);
+  const canDispute = order.status === "PAID" && (order.isBuyer || order.isSeller);
   const currentUserId = order.isBuyer ? order.buyer.id : order.seller.userId;
   const chatReadOnly = order.status === "RELEASED";
 
@@ -487,7 +488,7 @@ function MobileP2POrderView({
               Are you sure you want to cancel this order? This action cannot be undone.
             </p>
           </div>
-          <label className="mb-2 block text-[11px] font-bold text-slate-500">Reason for cancellation (optional)</label>
+          <label className="mb-2 block text-[11px] font-bold text-slate-500">Reason for cancellation</label>
           <textarea
             value={mobileCancelReason}
             onChange={(e) => setMobileCancelReason(e.target.value)}
@@ -501,9 +502,10 @@ function MobileP2POrderView({
         <div className="border-t border-[#1e1e30] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button
             type="button"
-            disabled={!!actionLoading}
+            disabled={!!actionLoading || !mobileCancelReason.trim()}
             onClick={async () => {
-              await onAction("cancel", { reason: mobileCancelReason || null }, "cancel");
+              if (!mobileCancelReason.trim()) return;
+              await onAction("cancel", { reason: mobileCancelReason.trim() }, "cancel");
               setShowCancelForm(false);
             }}
             className="h-12 w-full rounded-full bg-red-500 text-sm font-black text-white disabled:opacity-50 hover:bg-red-600 transition-colors"
@@ -704,7 +706,7 @@ function MobileP2POrderView({
           <Icon name="arrow_back" className="text-[21px]" />
         </button>
         <div />
-        {order.status === "PENDING" && (
+        {canCancel && (
           <button
             type="button"
             onClick={() => setShowCancelForm(true)}
@@ -854,7 +856,7 @@ function MobileP2POrderView({
         </div>
       )}
 
-      {waitingForRelease && order.isBuyer && merchantIsSelling && (
+      {canDispute && (
         <button
           type="button"
           onClick={() => setShowDisputeScreen(true)}
@@ -862,7 +864,7 @@ function MobileP2POrderView({
         >
           <span className="flex items-center gap-2 text-xs text-red-400 font-bold">
             <Icon name="gavel" className="text-[16px]" />
-            Merchant not releasing? Raise a dispute
+            Payment issue? Raise a dispute
           </span>
           <Icon name="chevron_right" className="text-[16px] text-red-500/50" />
         </button>
@@ -1332,8 +1334,8 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 </button>
               )}
 
-              {/* Buyer: Dispute (only after PAID) */}
-              {order.isBuyer && order.status === "PAID" && (
+              {/* Either party may dispute after payment is marked. */}
+              {(order.isBuyer || order.isSeller) && order.status === "PAID" && (
                 <>
                   {showDisputeForm ? (
                     <div className="space-y-3">
@@ -1375,7 +1377,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               )}
 
               {/* Cancel — only PENDING */}
-              {order.status === "PENDING" && (order.isBuyer || order.isSeller) && (
+              {order.status === "PENDING" && isPaymentActor(order) && (
                 <>
                   {showCancelForm ? (
                     <div className="space-y-3">
@@ -1383,7 +1385,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                         type="text"
                         value={cancelReason}
                         onChange={(e) => setCancelReason(e.target.value)}
-                        placeholder="Reason for cancelling (optional)"
+                        placeholder="Reason for cancelling"
                         className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none"
                       />
                       <div className="flex gap-2">
@@ -1394,8 +1396,11 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                           Keep Order
                         </button>
                         <button
-                          onClick={() => doAction("cancel", { reason: cancelReason || null }, "cancel").then(() => setShowCancelForm(false))}
-                          disabled={!!actionLoading}
+                          onClick={() => {
+                            if (!cancelReason.trim()) return toast.error("Enter a cancellation reason");
+                            doAction("cancel", { reason: cancelReason.trim() }, "cancel").then(() => setShowCancelForm(false));
+                          }}
+                          disabled={!!actionLoading || !cancelReason.trim()}
                           className="flex-1 py-2.5 rounded-xl font-black text-slate-300 bg-white/10 hover:bg-white/15 disabled:opacity-50 transition-colors"
                         >
                           {actionLoading === "cancel" ? "Cancelling…" : "Confirm Cancel"}
