@@ -33,6 +33,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       status: true,
       createdAt: true,
       evidence: true,
+      raisedById: true,
       order: {
         select: {
           id: true,

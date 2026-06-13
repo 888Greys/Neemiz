@@ -34,6 +34,7 @@ interface Dispute {
   status: string;
   createdAt: string;
   evidence: string | null;
+  raisedById?: string;
   order: {
     id: string;
     crypto: string;
@@ -386,6 +387,20 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
     // per-case detail fetch (detail ?? listItem keeps both paths typed).
     const d = (detail ?? listItem)!;
     const msgs = detail?.order.messages ?? [];
+    // Plain-language framing of who raised the dispute against whom.
+    const buyerIsCryptoBuyerTop = d.order.ad.side === "SELL";
+    const orderBuyerName = buyerName(d);
+    const merchantName   = d.order.seller.displayName;
+    const raiserIsBuyer  = detail?.raisedById === d.order.buyer.id;
+    const raiserIsSeller = detail?.raisedById === d.order.seller.userId;
+    const raiserName = raiserIsBuyer ? orderBuyerName : raiserIsSeller ? merchantName : null;
+    const raiserRole = raiserIsBuyer
+      ? (buyerIsCryptoBuyerTop ? "crypto buyer" : "crypto seller")
+      : (buyerIsCryptoBuyerTop ? "crypto seller" : "crypto buyer");
+    const otherName = raiserIsBuyer ? merchantName : orderBuyerName;
+    const otherRole = raiserIsBuyer
+      ? (buyerIsCryptoBuyerTop ? "crypto seller" : "crypto buyer")
+      : (buyerIsCryptoBuyerTop ? "crypto buyer" : "crypto seller");
     return (
       <div>
         <div className="mb-5 flex items-center gap-3">
@@ -410,6 +425,17 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
         </div>
 
         <div className="admin-panel p-5">
+              {/* Dispute reason — stated in plain language, up top */}
+              <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/[0.06] px-4 py-3">
+                <p className="mb-1 text-[10px] font-black tracking-wide text-red-400">DISPUTE REASON</p>
+                {raiserName && (
+                  <p className="mb-1 text-sm font-bold text-white">
+                    {raiserName} <span className="font-medium text-slate-400">({raiserRole})</span> raised this against {otherName} <span className="font-medium text-slate-400">({otherRole})</span> · KSh {Number(d.order.fiatAmount).toLocaleString("en-KE")}
+                  </p>
+                )}
+                <p className="text-sm text-slate-300">&ldquo;{d.reason}&rdquo;</p>
+              </div>
+
               {/* Side-by-side: each party's own messages + evidence */}
               {!detail ? (
                 <div className="mb-4 flex justify-center py-12"><Spinner /></div>
@@ -425,7 +451,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                   list.length === 0
                     ? <p className="px-1 py-2 text-xs italic text-slate-600">No messages yet</p>
                     : list.map((m) => (
-                        <div key={m.id} className="rounded-lg bg-white/[0.05] px-3 py-2">
+                        <div key={m.id} className="w-fit max-w-full rounded-lg bg-white/[0.05] px-3 py-2">
                           <p className="whitespace-pre-wrap break-words text-xs text-slate-300">{m.content}</p>
                           {m.imageUrl && (
                             <a href={m.imageUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#55aaff] underline">
@@ -459,7 +485,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                           ))}
                         </div>
                       )}
-                      <div className="max-h-56 space-y-2 overflow-y-auto p-3">{renderMsgs(buyerMsgs)}</div>
+                      <div className="space-y-2 p-3">{renderMsgs(buyerMsgs)}</div>
                     </div>
 
                     {/* Order seller (merchant) column */}
@@ -468,7 +494,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                         <p className="truncate text-sm font-black text-white">{d.order.seller.displayName}</p>
                         <RoleChip crypto={!buyerIsCryptoBuyer} />
                       </div>
-                      <div className="max-h-56 space-y-2 overflow-y-auto p-3">{renderMsgs(sellerMsgs)}</div>
+                      <div className="space-y-2 p-3">{renderMsgs(sellerMsgs)}</div>
                     </div>
 
                     {/* Support / admin messages, full width */}
@@ -476,7 +502,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                       <div className="md:col-span-2 space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3">
                         <p className="text-[10px] font-black tracking-wide text-amber-400">SUPPORT MESSAGES</p>
                         {supportMsgs.map((m) => (
-                          <div key={m.id} className="rounded-lg bg-amber-500/[0.08] px-3 py-2">
+                          <div key={m.id} className="w-fit max-w-full rounded-lg bg-amber-500/[0.08] px-3 py-2">
                             <p className="whitespace-pre-wrap break-words text-xs text-amber-100/90">{m.content}</p>
                             <p className="mt-1 text-[10px] text-amber-500/60">{new Date(m.createdAt).toLocaleString("en-KE", { hour12: false })}</p>
                           </div>
@@ -486,11 +512,6 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                   </div>
                 );
               })()}
-
-              <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 mb-4">
-                <p className="text-slate-500 text-xs mb-0.5">Dispute reason</p>
-                <p className="text-slate-300 text-sm">{d.reason}</p>
-              </div>
 
               {resolvingId === d.id ? (
                 <div className="space-y-3">
