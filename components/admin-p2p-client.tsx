@@ -44,7 +44,8 @@ interface Dispute {
     ad: { side: "BUY" | "SELL"; fiat: string };
     buyer: { id: string; firstName: string | null; lastName: string | null; username: string | null };
     seller: { displayName: string; userId: string };
-    messages: Array<{
+    // Only present on the per-case detail fetch, not in list rows.
+    messages?: Array<{
       id: string;
       content: string;
       imageUrl: string | null;
@@ -280,6 +281,8 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
   const [disputes, setDisputes]       = useState<Dispute[]>([]);
   const [loading, setLoading]         = useState(true);
   const [selectedId, setSelectedId]   = useState<string | null>(null);
+  const [detail, setDetail]           = useState<Dispute | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolution, setResolution]   = useState<"CRYPTO_BUYER_WINS" | "CRYPTO_SELLER_WINS" | null>(null);
   const [note, setNote]               = useState("");
@@ -300,6 +303,23 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
 
   useEffect(() => { fetchDisputes(); }, [fetchDisputes]);
 
+  const loadDetail = useCallback(async (id: string) => {
+    setDetailLoading(true);
+    try {
+      const res = await fetch(`/api/admin/p2p/disputes/${id}`);
+      if (res.ok) setDetail(await res.json());
+    } catch { /* ignore */ } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  function openDispute(id: string) {
+    setSelectedId(id);
+    setDetail(null);
+    resetTransient();
+    loadDetail(id);
+  }
+
   async function requestProof(id: string) {
     setActionLoading(`proof-${id}`);
     try {
@@ -313,7 +333,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
       toast.success("Proof request sent to both parties");
       setProofingId(null);
       setProofMsg("");
-      fetchDisputes();
+      loadDetail(id); // refresh so the new support message appears
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -337,6 +357,8 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
       setResolvingId(null);
       setResolution(null);
       setNote("");
+      setSelectedId(null); // back to the list
+      setDetail(null);
       fetchDisputes();
       onAction();
     } catch (err: unknown) {
@@ -356,16 +378,19 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
     setProofingId(null); setProofMsg("");
   }
 
-  const selected = disputes.find((d) => d.id === selectedId) ?? null;
+  const listItem = disputes.find((d) => d.id === selectedId) ?? null;
 
   // ───── Detail view: a single dispute, opened from the list ─────
-  if (selected) {
-    const d = selected;
+  if (selectedId && (listItem || detail)) {
+    // Header can render instantly from the list row; messages come from the
+    // per-case detail fetch (detail ?? listItem keeps both paths typed).
+    const d = (detail ?? listItem)!;
+    const msgs = detail?.order.messages ?? [];
     return (
       <div>
         <div className="mb-5 flex items-center gap-3">
           <button
-            onClick={() => { setSelectedId(null); resetTransient(); }}
+            onClick={() => { setSelectedId(null); setDetail(null); resetTransient(); }}
             className="flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-2 text-xs font-black text-slate-300 transition-colors hover:bg-white/10"
           >
             <Icon name="arrow_back" className="text-base" /> Back
@@ -386,18 +411,20 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
 
         <div className="admin-panel p-5">
               {/* Side-by-side: each party's own messages + evidence */}
-              {(() => {
+              {!detail ? (
+                <div className="mb-4 flex justify-center py-12"><Spinner /></div>
+              ) : (() => {
                 const buyerIsCryptoBuyer = d.order.ad.side === "SELL";
                 const buyerUserId  = d.order.buyer.id;
                 const sellerUserId = d.order.seller.userId;
-                const buyerMsgs   = d.order.messages.filter((m) => m.senderId === buyerUserId);
-                const sellerMsgs  = d.order.messages.filter((m) => m.senderId === sellerUserId);
-                const supportMsgs = d.order.messages.filter((m) => m.senderId !== buyerUserId && m.senderId !== sellerUserId);
+                const buyerMsgs   = msgs.filter((m) => m.senderId === buyerUserId);
+                const sellerMsgs  = msgs.filter((m) => m.senderId === sellerUserId);
+                const supportMsgs = msgs.filter((m) => m.senderId !== buyerUserId && m.senderId !== sellerUserId);
 
-                const renderMsgs = (msgs: typeof d.order.messages) =>
-                  msgs.length === 0
+                const renderMsgs = (list: typeof msgs) =>
+                  list.length === 0
                     ? <p className="px-1 py-2 text-xs italic text-slate-600">No messages yet</p>
-                    : msgs.map((m) => (
+                    : list.map((m) => (
                         <div key={m.id} className="rounded-lg bg-white/[0.05] px-3 py-2">
                           <p className="whitespace-pre-wrap break-words text-xs text-slate-300">{m.content}</p>
                           {m.imageUrl && (
@@ -598,7 +625,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
             return (
               <button
                 key={d.id}
-                onClick={() => { setSelectedId(d.id); resetTransient(); }}
+                onClick={() => openDispute(d.id)}
                 className="flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.03]"
               >
                 <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-black ${isOpen ? "border-red-500/20 bg-red-500/10 text-red-400" : "border-[#31c45d]/20 bg-[#31c45d]/10 text-[#31c45d]"}`}>

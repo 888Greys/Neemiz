@@ -14,6 +14,56 @@ import {
 } from "@/lib/p2p/crypto-balance";
 import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
 
+// GET /api/admin/p2p/disputes/[id] — full dispute incl. message history.
+// Kept separate from the list endpoint so the list stays lightweight.
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const dbUser = await getOrCreateUser(user.id, { email: user.email });
+  if (!dbUser.isAdmin) return Response.json({ error: "Forbidden" }, { status: 403 });
+
+  const dispute = await db.p2PDispute.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      reason: true,
+      status: true,
+      createdAt: true,
+      evidence: true,
+      order: {
+        select: {
+          id: true,
+          crypto: true,
+          cryptoAmount: true,
+          fiatAmount: true,
+          paymentRef: true,
+          paymentProofUrl: true,
+          ad: { select: { side: true, fiat: true } },
+          buyer: { select: { id: true, firstName: true, lastName: true, username: true } },
+          seller: { select: { displayName: true, userId: true } },
+          messages: {
+            orderBy: { createdAt: "asc" },
+            take: 200,
+            select: {
+              id: true,
+              content: true,
+              imageUrl: true,
+              createdAt: true,
+              senderId: true,
+              sender: { select: { firstName: true, lastName: true, username: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  if (!dispute) return Response.json({ error: "Dispute not found" }, { status: 404 });
+  return Response.json(dispute);
+}
+
 const DEFAULT_PROOF_REQUEST =
   "🛡️ Support: Please upload clear proof of payment for this order (M-Pesa confirmation message or bank transfer slip showing the reference, amount and time). We need this from both sides to resolve the dispute fairly.";
 
