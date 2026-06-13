@@ -284,13 +284,19 @@ function HeroCarousel({ markets, allMarkets, onBet, onOpen }: { markets: Polymar
 
   if (total === 0) return null;
 
+  // idx can briefly outrun markets when the list shrinks before the effect
+  // resets it — clamp so we never index past the end (markets[idx] undefined
+  // → HeroCard crashes on market.outcomes).
+  const hero = markets[idx] ?? markets[0];
+  if (!hero) return null;
+
   return (
     <div
       className="flex flex-col gap-3"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      <HeroCard market={markets[idx]} allMarkets={allMarkets} onBet={onBet} onOpen={onOpen} />
+      <HeroCard market={hero} allMarkets={allMarkets} onBet={onBet} onOpen={onOpen} />
 
       {/* Controls row */}
       <div className="flex items-center justify-between px-1">
