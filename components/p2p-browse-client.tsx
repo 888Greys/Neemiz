@@ -278,6 +278,203 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
   );
 }
 
+// ─── Offer Details Modal ─────────────────────────────────────────────────────
+
+function OfferDetailsModal({
+  ad,
+  marketRef,
+  onClose,
+  onTrade,
+  onMerchantClick,
+}: {
+  ad: Ad;
+  marketRef: number;
+  onClose: () => void;
+  onTrade: (ad: Ad) => void;
+  onMerchantClick: (merchant: AdMerchant) => void;
+}) {
+  const isBuyingCrypto = ad.side === "SELL";
+  const actionLabel = `${isBuyingCrypto ? "Buy" : "Sell"} ${ad.crypto}`;
+  const marginPct = marketRef > 0 ? ((ad.pricePerUnit / marketRef) - 1) * 100 : 0;
+  const availableFiat = ad.availableAmount * ad.pricePerUnit;
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/90 backdrop-blur-md pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white">
+              <Icon name="arrow_back" className="text-[20px]" />
+            </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black sm:text-base">{actionLabel} with {ad.merchant.displayName}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">Offer details</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-500 transition hover:bg-white/[0.06] hover:text-white">
+            <Icon name="close" className="text-[19px]" />
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => onMerchantClick(ad.merchant)}
+                className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 text-left transition hover:border-[#087cff]/30 hover:bg-[#087cff]/5"
+              >
+                {ad.merchant.avatarUrl ? (
+                  <img src={ad.merchant.avatarUrl} alt={ad.merchant.displayName} className="h-12 w-12 rounded-2xl object-cover" />
+                ) : (
+                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#087cff] text-lg font-black">
+                    {(ad.merchant.displayName || "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="truncate text-base font-black">{ad.merchant.displayName}</h3>
+                    <Icon name="verified" className="text-[16px] text-[#05b957]" />
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500">
+                    <span className="flex items-center gap-1">
+                      <span className={`h-1.5 w-1.5 rounded-full ${ad.merchant.isOnline ? "bg-[#05b957]" : "bg-slate-600"}`} />
+                      {ad.merchant.isOnline ? "Online now" : "Offline"}
+                    </span>
+                    <span>Joined {formatJoined(ad.merchant.joinedAt)}</span>
+                    <span className="text-[#8bc3ff]">View profile</span>
+                  </div>
+                </div>
+                <Icon name="chevron_right" className="text-[19px] text-slate-600" />
+              </button>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                  <p className="text-lg font-black">{ad.merchant.completedTrades}</p>
+                  <p className="text-[10px] font-bold text-slate-600">Completed trades</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                  <p className="text-lg font-black text-[#05b957]">{ad.merchant.completionRate.toFixed(0)}%</p>
+                  <p className="text-[10px] font-bold text-slate-600">Completion rate</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                  <p className="text-lg font-black">{ad.merchant.totalTrades ?? ad.merchant.completedTrades}</p>
+                  <p className="text-[10px] font-bold text-slate-600">Total trades</p>
+                </div>
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                  <p className="text-lg font-black">{formatReleaseTime(ad.merchant.avgReleaseTime)}</p>
+                  <p className="text-[10px] font-bold text-slate-600">Average release</p>
+                </div>
+              </div>
+
+              <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025]">
+                <div className="border-b border-white/[0.06] px-4 py-3">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Offer information</p>
+                </div>
+                <div className="grid sm:grid-cols-2">
+                  <div className="border-b border-white/[0.06] p-4 sm:border-r">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">Available</p>
+                    <p className="mt-1 text-base font-black">{ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 6 })} {ad.crypto}</p>
+                    <p className="text-[11px] font-semibold text-slate-500">Approx. {formatFiat(availableFiat, ad.fiat)}</p>
+                  </div>
+                  <div className="border-b border-white/[0.06] p-4">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">Order limits</p>
+                    <p className="mt-1 text-base font-black">{formatFiat(ad.minLimit, ad.fiat)} - {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</p>
+                    <p className="text-[11px] font-semibold text-slate-500">Per order</p>
+                  </div>
+                  <div className="border-b border-white/[0.06] p-4 sm:border-b-0 sm:border-r">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">Payment window</p>
+                    <p className="mt-1 text-base font-black">{ad.paymentWindow || 15} minutes</p>
+                    <p className="text-[11px] font-semibold text-slate-500">Complete payment before expiry</p>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">Payment methods</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {ad.paymentMethods.map((method) => (
+                        <span key={method} className="rounded-lg bg-white/[0.06] px-2 py-1 text-[11px] font-bold text-slate-300">
+                          {fmtPm(method)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Advertiser terms</p>
+                <p className="mt-3 whitespace-pre-wrap text-sm font-semibold leading-6 text-slate-300">
+                  {ad.terms?.trim() || "No additional advertiser terms. Use only the selected payment method and keep all communication inside the order chat."}
+                </p>
+              </section>
+            </div>
+
+            <aside className="space-y-3 lg:sticky lg:top-0 lg:self-start">
+              <div className="rounded-2xl border border-white/[0.08] bg-[#12121a] p-4 shadow-xl shadow-black/20">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">Offer price</p>
+                <div className="mt-2 flex items-end gap-2">
+                  <p className="text-3xl font-black tabular-nums">{formatFiat(ad.pricePerUnit, ad.fiat)}</p>
+                  <span className="pb-1 text-xs font-bold text-slate-500">per {ad.crypto}</span>
+                </div>
+                {marketRef > 0 && (
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 text-xs">
+                    <span className="font-semibold text-slate-500">Market comparison</span>
+                    <span className={`font-black ${marginPct > 0 ? "text-amber-400" : "text-[#05b957]"}`}>
+                      {marginPct > 0 ? "+" : ""}{marginPct.toFixed(1)}%
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onTrade(ad)}
+                  className={`mt-4 flex h-12 w-full items-center justify-center rounded-xl text-sm font-black text-white transition active:scale-[0.99] ${isBuyingCrypto ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-400"}`}
+                >
+                  {actionLabel}
+                </button>
+                <p className="mt-2 text-center text-[10px] font-semibold text-slate-600">Review amount and payment method next</p>
+              </div>
+
+              <div className="rounded-2xl border border-[#087cff]/20 bg-[#087cff]/10 p-4">
+                <div className="flex gap-3">
+                  <Icon name="shield" className="mt-0.5 text-[22px] text-[#55aaff]" />
+                  <div>
+                    <p className="text-sm font-black">Escrow protected</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
+                      Crypto is locked when the order opens. Never pay outside the order instructions or release before confirming receipt.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] p-4">
+                <p className="text-sm font-black text-amber-200">Cancellation policy</p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
+                  The fiat payer may cancel before marking payment as sent. After payment is marked, use dispute support instead of cancelling.
+                </p>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-white/[0.07] bg-[#0b0b11]/95 p-3 sm:hidden">
+          <button
+            type="button"
+            onClick={() => onTrade(ad)}
+            className={`flex h-12 w-full items-center justify-center rounded-xl text-sm font-black text-white ${isBuyingCrypto ? "bg-[#05b957]" : "bg-red-500"}`}
+          >
+            {actionLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Order Modal ──────────────────────────────────────────────────────────────
 
 function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => void; onMerchantClick: (merchant: AdMerchant) => void }) {
@@ -689,32 +886,40 @@ const AD_GRID = `lg:grid ${AD_COLS} lg:items-center lg:gap-4`;
 
 function AdCard({
   ad,
-  onBuy,
+  onDetails,
   onMerchantClick,
-  isSignedIn,
   marketRef,
 }: {
   ad: Ad;
-  onBuy: (ad: Ad) => void;
+  onDetails: (ad: Ad) => void;
   onMerchantClick: (merchant: AdMerchant) => void;
-  isSignedIn: boolean;
   marketRef: number;
 }) {
   const isMerchantSelling = ad.side === "SELL";
   const color   = CRYPTO_COLOR[ad.crypto] ?? "#087cff";
   const actionLabel = isMerchantSelling ? "Buy" : "Sell";
   const marginPct = marketRef > 0 ? ((ad.pricePerUnit / marketRef) - 1) * 100 : 0;
-  const openOrder = () => {
-    if (!isSignedIn) { toast.error("Please sign in to trade"); return; }
-    onBuy(ad);
-  };
 
   return (
-    <div className={`border-b border-white/[0.06] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.02] sm:px-4 lg:py-2 ${AD_GRID}`}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onDetails(ad)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onDetails(ad);
+        }
+      }}
+      className={`cursor-pointer border-b border-white/[0.06] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.035] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#087cff]/40 sm:px-4 lg:py-2 ${AD_GRID}`}
+    >
       {/* ── Advertiser ── */}
       <button
         type="button"
-        onClick={() => onMerchantClick(ad.merchant)}
+        onClick={(event) => {
+          event.stopPropagation();
+          onMerchantClick(ad.merchant);
+        }}
         className="flex min-w-0 items-center gap-2 rounded-lg text-left transition hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-[#087cff]/40"
         title={`View ${ad.merchant.displayName}`}
       >
@@ -799,7 +1004,10 @@ function AdCard({
       <div className="mt-2 flex items-center justify-end lg:mt-0">
         <button
           type="button"
-          onClick={openOrder}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDetails(ad);
+          }}
           className={`flex h-8 w-full items-center justify-center gap-1.5 rounded-lg px-4 text-[12px] font-black text-white transition active:scale-[0.98] lg:w-auto ${
             isMerchantSelling ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-400"
           }`}
@@ -833,14 +1041,13 @@ function DirectBuyBanner() {
 // ─── Offers table (one section: promoted or other) ─────────────────────────────
 
 function OffersTable({
-  title, ads, marketRefs, onBuy, onMerchantClick, isSignedIn, promoted = false,
+  title, ads, marketRefs, onDetails, onMerchantClick, promoted = false,
 }: {
   title: string;
   ads: Ad[];
   marketRefs: Record<string, number>;
-  onBuy: (ad: Ad) => void;
+  onDetails: (ad: Ad) => void;
   onMerchantClick: (merchant: AdMerchant) => void;
-  isSignedIn: boolean;
   promoted?: boolean;
 }) {
   if (ads.length === 0) return null;
@@ -861,7 +1068,7 @@ function OffersTable({
         <span className="text-right">Trade</span>
       </div>
       {ads.map((ad) => (
-        <AdCard key={ad.id} ad={ad} onBuy={onBuy} onMerchantClick={onMerchantClick} isSignedIn={isSignedIn} marketRef={marketRefs[ad.crypto] ?? 0} />
+        <AdCard key={ad.id} ad={ad} onDetails={onDetails} onMerchantClick={onMerchantClick} marketRef={marketRefs[ad.crypto] ?? 0} />
       ))}
     </div>
   );
@@ -1027,7 +1234,8 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const [payment, setPaymentState]  = useState(initPayment);
   const [fiat, setFiatState]        = useState(initFiat);
   const [amountInput, setAmountInput] = useState("");
-  const [selectedAd, setSelectedAd] = useState<Ad | null>(null);
+  const [selectedOffer, setSelectedOffer] = useState<Ad | null>(null);
+  const [orderAd, setOrderAd] = useState<Ad | null>(null);
   const [selectedMerchant, setSelectedMerchant] = useState<AdMerchant | null>(null);
 
   // Sync state to URL whenever filters change
@@ -1140,6 +1348,14 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   const marketRef = crypto === "ALL" ? 0 : (marketRefs[crypto] ?? 0);
   const rateIsLive = spotRate != null;
+  const openOrder = (ad: Ad) => {
+    if (!isSignedIn) {
+      toast.error("Please sign in to trade");
+      return;
+    }
+    setSelectedOffer(null);
+    setOrderAd(ad);
+  };
 
   // Promoted = merchant-paid featured ads. If none are featured yet, fall back
   // to a heuristic (top active online merchants) so the section isn't empty.
@@ -1157,7 +1373,16 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   return (
     <>
-      {selectedAd && <OrderModal ad={selectedAd} onClose={() => setSelectedAd(null)} onMerchantClick={setSelectedMerchant} />}
+      {selectedOffer && (
+        <OfferDetailsModal
+          ad={selectedOffer}
+          marketRef={marketRefs[selectedOffer.crypto] ?? 0}
+          onClose={() => setSelectedOffer(null)}
+          onTrade={openOrder}
+          onMerchantClick={setSelectedMerchant}
+        />
+      )}
+      {orderAd && <OrderModal ad={orderAd} onClose={() => setOrderAd(null)} onMerchantClick={setSelectedMerchant} />}
       {selectedMerchant && <MerchantProfileModal merchant={selectedMerchant} onClose={() => setSelectedMerchant(null)} />}
 
       <P2PSubNav />
@@ -1254,9 +1479,9 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
             <>
-              <OffersTable title="Promoted offers" ads={promoted} marketRefs={marketRefs} onBuy={setSelectedAd} onMerchantClick={setSelectedMerchant} isSignedIn={!!isSignedIn} promoted />
+              <OffersTable title="Promoted offers" ads={promoted} marketRefs={marketRefs} onDetails={setSelectedOffer} onMerchantClick={setSelectedMerchant} promoted />
               <DirectBuyBanner />
-              <OffersTable title="Other offers" ads={otherAds} marketRefs={marketRefs} onBuy={setSelectedAd} onMerchantClick={setSelectedMerchant} isSignedIn={!!isSignedIn} />
+              <OffersTable title="Other offers" ads={otherAds} marketRefs={marketRefs} onDetails={setSelectedOffer} onMerchantClick={setSelectedMerchant} />
             </>
           )}
 
