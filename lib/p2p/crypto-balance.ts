@@ -204,7 +204,7 @@ export function defaultNetwork(crypto: string): string {
   const map: Record<string, string> = {
     KES:   KES_NETWORK,
     USDT:  "TRC20",
-    USDC:  "ERC20",
+    USDC:  "POLYGON",
     BTC:   "BTC",
     ETH:   "ERC20",
     BNB:   "BEP20",
