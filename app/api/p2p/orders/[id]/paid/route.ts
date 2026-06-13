@@ -27,8 +27,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const { paymentRef, paymentProofUrl } = body as Record<string, string | undefined>;
 
     const updated = await db.$transaction(async (tx) => {
-      const result = await tx.p2POrder.update({
-        where: { id },
+      const result = await tx.p2POrder.updateMany({
+        where: { id, status: "PENDING", expiresAt: { gt: new Date() } },
         data: {
           status:          "PAID",
           paymentRef:      paymentRef ?? null,
@@ -36,6 +36,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           paidAt:          new Date(),
         },
       });
+      if (result.count === 0) throw new Error("ORDER_STATE_CHANGED");
 
       if (isMerchantBuy) {
         await tx.notification.create({
@@ -59,11 +60,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         });
       }
 
-      return result;
+      return "PAID" as const;
     });
 
-    return Response.json({ status: updated.status });
+    return Response.json({ status: updated });
   } catch (err) {
+    if (err instanceof Error && err.message === "ORDER_STATE_CHANGED") {
+      return Response.json({ error: "Order expired or was cancelled before payment could be marked." }, { status: 409 });
+    }
     console.error("POST /api/p2p/orders/[id]/paid:", err instanceof Error ? err.message : "Unknown error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
+import { getP2PCancellationUsage } from "@/lib/p2p/cancellation-policy";
 
 // POST /api/p2p/orders/[id]/cancel
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -17,14 +18,39 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
     const isBuyer  = order.buyerId === dbUser.id;
-    const isSeller = merchant && order.sellerId === merchant.id;
+    const isSeller = Boolean(merchant && order.sellerId === merchant.id);
 
     if (!isBuyer && !isSeller) return Response.json({ error: "Forbidden" }, { status: 403 });
     if (order.status !== "PENDING") {
-      return Response.json({ error: "Can only cancel PENDING orders" }, { status: 400 });
+      return Response.json({
+        error: order.status === "PAID" || order.status === "DISPUTED"
+          ? "Payment has been marked. Open a dispute instead of cancelling."
+          : "This order can no longer be cancelled.",
+      }, { status: 409 });
     }
 
     const { reason } = await req.json().catch(() => ({})) as { reason?: string };
+    if (!reason?.trim()) {
+      return Response.json({ error: "Select or enter a cancellation reason." }, { status: 400 });
+    }
+
+    // The fiat payer is the only party allowed to cancel before payment.
+    // SELL ad: taker/buyer pays fiat. BUY ad: merchant pays fiat.
+    const isFiatPayer = order.ad.side === "SELL" ? isBuyer : isSeller;
+    if (!isFiatPayer) {
+      return Response.json({
+        error: "The crypto seller cannot cancel an open order. Wait for payment, expiry, or open a dispute after payment is marked.",
+      }, { status: 403 });
+    }
+
+    const usage = await getP2PCancellationUsage(dbUser.id);
+    if (usage.restricted) {
+      return Response.json({
+        error: "You have reached today's P2P cancellation limit.",
+        code: "P2P_DAILY_CANCELLATION_LIMIT",
+        resetsAt: usage.resetsAt.toISOString(),
+      }, { status: 429 });
+    }
     const cryptoAmt  = Number(order.cryptoAmount);
 
     await db.$transaction(async (tx) => {
@@ -33,7 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         data: {
           status:       "CANCELLED",
           cancelledBy:  dbUser.id,
-          cancelReason: reason ?? null,
+          cancelReason: reason.trim(),
         },
       });
       if (cancelled.count === 0) return;
@@ -92,7 +118,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }).catch(() => {});
     }
 
-    return Response.json({ status: "CANCELLED" });
+    return Response.json({
+      status: "CANCELLED",
+      cancellationCount: usage.count + 1,
+      restricted: usage.count + 1 >= usage.limit,
+      resetsAt: usage.resetsAt.toISOString(),
+    });
   } catch (err) {
     console.error("POST /api/p2p/orders/[id]/cancel:", err instanceof Error ? err.message : "Unknown error");
     return Response.json({ error: "Internal server error" }, { status: 500 });

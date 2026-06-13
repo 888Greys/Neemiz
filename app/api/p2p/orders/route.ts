@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
 import { defaultNetwork, lockUserCrypto, unlockUserCrypto, isKesCoin, lockKesCoinBalance, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail } from "@/lib/brevo";
+import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
 export async function GET(req: Request) {
@@ -134,6 +135,8 @@ export async function POST(req: Request) {
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
+    const restriction = await assertCanCreateP2POrder(dbUser.id);
+    if (restriction) return restriction;
 
     let body: Record<string, unknown>;
     try {
