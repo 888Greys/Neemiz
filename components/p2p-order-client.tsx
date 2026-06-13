@@ -120,7 +120,7 @@ function Countdown({ expiresAt, onExpire }: { expiresAt: string; onExpire: () =>
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
-function Chat({ orderId, currentUserId, closed, mode }: { orderId: string; currentUserId: string; closed: boolean; mode: "mobile" | "desktop" }) {
+function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; currentUserId: string; readOnly: boolean; mode: "mobile" | "desktop" }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -348,8 +348,8 @@ function Chat({ orderId, currentUserId, closed, mode }: { orderId: string; curre
       </div>
 
       {/* Input */}
-      {!closed && (
-        <div className="border-t border-white/[0.06] bg-[#111118] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+      {!readOnly && (
+        <div className="shrink-0 border-t border-white/[0.1] bg-[#151720] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,.28)]">
           {pendingImage && (
             <div className="relative mb-2 inline-block overflow-hidden rounded-xl border border-white/10">
               <img src={pendingImage} alt="Image ready to send" className="h-24 w-32 object-cover" />
@@ -376,12 +376,12 @@ function Chat({ orderId, currentUserId, closed, mode }: { orderId: string; curre
               onBlur={() => channelRef.current?.send({ type: "broadcast", event: "typing", payload: { userId: currentUserId, active: false } })}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
               placeholder="Type a message…"
-              className="flex-1 bg-white/5 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none border border-white/[0.06] focus:border-[#05b957]/50 transition-colors"
+              className="h-11 flex-1 rounded-xl border border-white/[0.1] bg-[#090b10] px-4 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-[#05b957]/60 focus:ring-2 focus:ring-[#05b957]/10"
             />
             <button
               onClick={send}
               disabled={(!input.trim() && !pendingImage) || sending || uploading}
-              className="w-10 h-10 rounded-xl bg-[#05b957] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#04a44d] transition-colors shrink-0"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#05b957] text-white shadow-[0_8px_24px_rgba(5,185,87,.2)] transition-colors hover:bg-[#04a44d] disabled:opacity-40"
             >
               {sending
                 ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -436,7 +436,7 @@ function MobileP2POrderView({
   const canRelease = order.status === "PAID" && isReleaseActor(order);
   const waitingForRelease = order.status === "PAID" && !canRelease;
   const currentUserId = order.isBuyer ? order.buyer.id : order.seller.userId;
-  const orderClosed = ["RELEASED", "CANCELLED", "EXPIRED", "DISPUTED"].includes(order.status);
+  const chatReadOnly = order.status === "RELEASED";
 
   // ── Chat overlay ──────────────────────────────────────────────────────────
   if (showChat) {
@@ -458,7 +458,7 @@ function MobileP2POrderView({
         </div>
         {/* Chat body */}
         <div className="flex-1 min-h-0">
-          <Chat orderId={orderId} currentUserId={currentUserId} closed={orderClosed} mode="mobile" />
+          <Chat orderId={orderId} currentUserId={currentUserId} readOnly={chatReadOnly} mode="mobile" />
         </div>
       </div>
     );
@@ -1031,27 +1031,29 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
         onBack={() => router.push("/p2p/orders")}
         onAction={doAction}
       />
-    <div className="hidden max-w-5xl mx-auto px-4 py-4 lg:flex lg:flex-col lg:h-[calc(100vh-8rem)] lg:overflow-hidden">
+    <div className="mx-auto hidden min-h-[calc(100vh-5rem)] w-full max-w-[1440px] px-6 py-5 lg:flex lg:flex-col">
       {/* Back */}
       <button
         onClick={() => router.push("/p2p/orders")}
-        className="flex shrink-0 items-center gap-1.5 text-slate-500 hover:text-white text-sm font-bold mb-3 transition-colors"
+        className="mb-4 flex w-fit shrink-0 items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-3 py-1.5 text-[11px] font-black text-slate-500 transition-colors hover:bg-white/[0.05] hover:text-white"
       >
         <Icon name="arrow_back" className="text-base" />
         Back to P2P
       </button>
 
+      <div className="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_500px]">
+      <div className="min-w-0 space-y-4">
       {/* Order header */}
-      <div className="shrink-0 bg-[#111118] border border-white/[0.06] rounded-2xl p-4 mb-3">
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+      <div className="shrink-0 overflow-hidden rounded-[20px] border border-white/[0.07] bg-[linear-gradient(145deg,rgba(20,22,31,.96),rgba(11,12,18,.96))] shadow-[0_24px_70px_rgba(0,0,0,.24)]">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/[0.06] px-5 py-4">
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-white font-black text-lg">
+            <div className="mb-1 flex items-center gap-3">
+              <h1 className="text-lg font-black text-white">
                 {counterpartyName}
               </h1>
               <P2PStatusBadge status={order.status} size="md" detailed />
             </div>
-            <p className="text-slate-500 text-xs font-mono">#{orderId.slice(0, 16).toUpperCase()}</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-slate-600">Order {orderId.slice(0, 16)}</p>
           </div>
           {/* Countdown — only for PENDING */}
           {order.status === "PENDING" && (
@@ -1063,69 +1065,46 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               />
             </div>
           )}
+          <div className="flex items-center gap-2 rounded-full border border-emerald-400/15 bg-emerald-400/[0.07] px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-emerald-400">
+            <Icon name="verified_user" className="text-[14px]" />
+            Escrow protected
+          </div>
         </div>
 
-        <div className="mb-4 flex items-center gap-2 rounded-xl bg-[#05b957] px-4 py-2.5 text-sm font-black text-white shadow-lg shadow-[#05b957]/10">
-          <Icon name="shield" className="text-[18px]" />
-          <span className="min-w-0 truncate">
-            {tradeVerb} {Number(order.cryptoAmount).toFixed(6)} {order.crypto} FOR {formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })} {paymentName}
-          </span>
-          <Icon name="expand_more" className="ml-auto text-[18px]" />
+        <div className="grid grid-cols-[1.15fr_repeat(3,1fr)]">
+          <div className="border-r border-white/[0.06] px-5 py-3.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Trade</p>
+            <p className="mt-2 text-sm font-black text-white">{tradeVerb} {Number(order.cryptoAmount).toFixed(6)} {order.crypto}</p>
+            <p className="mt-1 text-[10px] text-slate-500">with {counterpartyName}</p>
+          </div>
+          <div className="border-r border-white/[0.06] px-5 py-3.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Unit price</p>
+            <p className="mt-2 text-sm font-black text-white">{formatFiat(Number(order.pricePerUnit), order.ad.fiat)}</p>
+            <p className="mt-1 text-[10px] text-slate-600">per {order.crypto}</p>
+          </div>
+          <div className="border-r border-white/[0.06] px-5 py-3.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">You {order.isBuyer ? "pay" : "receive"}</p>
+            <p className="mt-2 text-lg font-black text-emerald-400">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</p>
+            <p className="mt-1 text-[10px] text-slate-600">final fiat amount</p>
+          </div>
+          <div className="px-5 py-3.5">
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Payment rail</p>
+            <p className="mt-2 text-sm font-black text-white">{paymentName}</p>
+            <p className="mt-1 text-[10px] text-slate-600">direct settlement</p>
+          </div>
         </div>
 
         {isKesCoinOrder(order) && (
-          <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-400/20 bg-amber-400/5 px-3 py-2.5">
-            <Icon name="percent" className="mt-0.5 text-[15px] text-amber-300" />
-            <p className="text-[11px] leading-5 text-slate-400">
-              KES Coin charges 1% per party. The principal remains secured in escrow until the trade is released.
+          <div className="flex items-center gap-2 border-t border-amber-400/10 bg-amber-400/[0.035] px-5 py-2.5">
+            <Icon name="info" className="text-[14px] text-amber-300" />
+            <p className="text-[10px] text-slate-500">
+              A 1% service fee applies to each party. Principal remains secured until release.
             </p>
           </div>
         )}
-
-        {/* Trade details grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div>
-            <p className="text-slate-600 text-xs mb-0.5">Amount</p>
-            <p className="text-white font-black text-base">{Number(order.cryptoAmount).toFixed(6)} {order.crypto}</p>
-          </div>
-          <div>
-            <p className="text-slate-600 text-xs mb-0.5">Price</p>
-            <p className="text-white font-bold">{formatFiat(Number(order.pricePerUnit), order.ad.fiat)}</p>
-          </div>
-          <div>
-            <p className="text-slate-600 text-xs mb-0.5">You {order.isBuyer ? "pay" : "receive"}</p>
-            <p className="text-[#05b957] font-black text-base">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</p>
-          </div>
-          <div>
-            <p className="text-slate-600 text-xs mb-0.5">Payment</p>
-            <p className="text-white font-bold">
-              {order.paymentMethod === "MPESA" ? "M-Pesa" : order.paymentMethod === "BANK" ? "Bank Transfer" : order.paymentMethod}
-            </p>
-          </div>
-        </div>
-
-        {/* Parties */}
-        <div className="flex items-center gap-6 mt-4 pt-4 border-t border-white/[0.06]">
-          <div className="flex items-center gap-2">
-            <Icon name="person" className="text-slate-600 text-sm" />
-            <span className="text-slate-500 text-xs">Buyer:</span>
-            <span className="text-slate-300 text-xs font-bold">
-              {order.buyer.firstName ? `${order.buyer.firstName} ${order.buyer.lastName ?? ""}`.trim() : order.buyer.username ?? "—"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Icon name="storefront" className="text-slate-600 text-sm" />
-            <span className="text-slate-500 text-xs">Merchant:</span>
-            <span className="text-slate-300 text-xs font-bold">{order.seller.displayName}</span>
-          </div>
-        </div>
       </div>
 
-      {/* Two-column layout: actions + chat */}
-      <div className="flex flex-col lg:flex-row gap-4 lg:flex-1 lg:min-h-0">
-
-        {/* LEFT: Instructions + Actions */}
-        <div className="space-y-4 lg:flex-1 lg:min-w-0 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
+        {/* Instructions + Actions */}
 
           {/* Instructions card */}
           {!isClosed && (
@@ -1242,28 +1221,46 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
 
           {/* Closed state summary */}
           {isClosed && (
-            <div className={`rounded-2xl p-5 border ${
+            <div className={`relative overflow-hidden rounded-[20px] border px-6 py-5 ${
               order.status === "RELEASED"
-                ? "bg-[#05b957]/5 border-[#05b957]/20"
-                : "bg-white/5 border-white/10"
+                ? "border-[#05b957]/20 bg-[#05b957]/5"
+                : "border-white/[0.07] bg-[linear-gradient(145deg,rgba(19,21,29,.95),rgba(11,12,18,.95))]"
             }`}>
-              <div className="flex items-center gap-3 mb-2">
-                <Icon
-                  name={order.status === "RELEASED" ? "check_circle" : "cancel"}
-                  className={`text-2xl ${order.status === "RELEASED" ? "text-[#05b957]" : "text-slate-500"}`}
-                />
-                <h2 className="text-white font-black text-lg">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(8,124,255,.09),transparent_42%)]" />
+              <div className="relative">
+                <div className="flex items-start gap-4">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${order.status === "RELEASED" ? "bg-emerald-400/10 text-emerald-400" : "bg-slate-400/[0.07] text-slate-500"}`}>
+                  <Icon name={order.status === "RELEASED" ? "check_circle" : "history"} className="text-xl" />
+                </div>
+                <div className="min-w-0 flex-1">
+                <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-600">Order status</p>
+                <h2 className="mt-1 text-xl font-black text-white">
                   {order.status === "RELEASED" ? "Trade Completed!" : order.status === "CANCELLED" ? "Order Cancelled" : "Order Expired"}
                 </h2>
-              </div>
+                <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">
+                  {order.status === "EXPIRED" && "The payment window ended before this order was completed. No further payment or release action is required."}
+                  {order.status === "CANCELLED" && "This order was closed before settlement. Any reserved funds have been returned according to the order rules."}
+                  {order.status === "RELEASED" && "Settlement is complete and the escrowed asset has been released to the receiving party."}
+                </p>
               {order.status === "RELEASED" && (
-                <p className="text-slate-400 text-sm">
+                <p className="mt-3 text-sm text-slate-400">
                   <strong className="text-[#05b957]">{Number(order.cryptoAmount).toFixed(6)} {order.crypto}</strong> has been released successfully.
                 </p>
               )}
               {order.cancelReason && (
                 <p className="text-slate-500 text-sm mt-2">Reason: {order.cancelReason}</p>
               )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => router.push("/p2p")}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-white/[0.055] px-4 py-2.5 text-[10px] font-black text-slate-300 transition hover:bg-white/[0.09] hover:text-white"
+                >
+                  <Icon name="swap_horiz" className="text-[15px]" />
+                  Find another offer
+                </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1417,10 +1414,10 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               )}
             </div>
           )}
-        </div>
+      </div>
 
         {/* RIGHT: Chat */}
-        <div className="bg-[#111118] border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col lg:w-[380px] lg:shrink-0 lg:min-h-0 lg:h-full min-h-[420px]">
+        <div className="flex min-h-[620px] flex-col overflow-hidden rounded-[20px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(19,21,29,.96),rgba(10,11,16,.96))] shadow-[0_24px_70px_rgba(0,0,0,.2)] lg:sticky lg:top-4 lg:h-[calc(100vh-9.75rem)]">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-3 bg-white/[0.02]">
             <div className="relative">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#05b957] to-[#039648] flex items-center justify-center text-white font-black text-sm">
@@ -1441,7 +1438,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
             </span>
           </div>
           <div className="flex-1 min-h-0">
-            <Chat orderId={orderId} currentUserId={currentUserId} closed={isClosed} mode="desktop" />
+            <Chat orderId={orderId} currentUserId={currentUserId} readOnly={order.status === "RELEASED"} mode="desktop" />
           </div>
         </div>
       </div>
