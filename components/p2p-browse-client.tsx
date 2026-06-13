@@ -1109,7 +1109,7 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
           <Icon name="swap_horiz" className="text-xl text-slate-500" />
         </div>
         <p className="mb-1 text-lg font-black text-white">
-          No {side === "SELL" ? "buy" : "sell"} ads right now
+          No {side === "SELL" ? "sell" : "buy"} offers available
         </p>
         <p className="text-sm text-slate-500">
           Try a different crypto or payment filter — or be the first to post.

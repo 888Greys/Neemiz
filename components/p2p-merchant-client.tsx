@@ -1199,6 +1199,9 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const canUseMarginPricing = !!spotRate;
   const isKesCoinForm = form.crypto === "KES"; // pegged 1:1 reference; merchant sets a spread %
   const totalAmountNum = Number(form.totalAmount) || 0;
+  const fullOrderValue = totalAmountNum > 0 && priceNum > 0
+    ? Math.floor(totalAmountNum * priceNum * 100) / 100
+    : 0;
   const selectedEscrow = escrowBalances.find((balance) => balance.crypto === form.crypto);
   const sellableBalance = form.crypto === "KES"
     ? Math.max(0, fiatBalance / 1.01)
@@ -1486,15 +1489,40 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           )}
 
           <div className="grid grid-cols-2 gap-3 lg:col-span-2">
-            {[{ label: `Min order (${form.fiat})`, key: "minLimit", ph: "500" }, { label: `Max order (${form.fiat})`, key: "maxLimit", ph: "50000" }].map(({ label, key, ph }) => (
-              <div key={key}>
-                <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">{label}</label>
-                <input type="number" value={form[key as keyof typeof form] as string} onChange={(e) => f(key, e.target.value)} placeholder={ph}
-                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
+            <div>
+              <label className="mb-1 block text-[11px] font-black uppercase tracking-wide text-slate-500">Min order ({form.fiat})</label>
+              <input
+                type="number"
+                value={form.minLimit}
+                onChange={(e) => f("minLimit", e.target.value)}
+                placeholder="500"
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-black uppercase tracking-wide text-slate-500">Max order ({form.fiat})</label>
+              <div className="flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] pr-2 focus-within:border-[#087cff]/40">
+                <input
+                  type="number"
+                  value={form.maxLimit}
+                  onChange={(e) => f("maxLimit", e.target.value)}
+                  placeholder="50000"
+                  className="min-w-0 flex-1 bg-transparent px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={fullOrderValue <= 0}
+                  onClick={() => f("maxLimit", String(fullOrderValue))}
+                  className="ml-2 rounded-lg bg-[#087cff]/15 px-2.5 py-1 text-[11px] font-black text-[#55aaff] transition hover:bg-[#087cff]/25 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Max
+                </button>
               </div>
-            ))}
+            </div>
           </div>
-          <p className="-mt-1 text-[10px] text-slate-600 lg:col-span-2">Order limits apply to both buy and sell ads.</p>
+          <p className="-mt-1 text-[10px] text-slate-600 lg:col-span-2">
+            Order limits apply to both buy and sell ads. Max fills the full backed value of {fullOrderValue > 0 ? `${form.fiat} ${fullOrderValue.toLocaleString("en-KE", { maximumFractionDigits: 2 })}` : "the ad"}.
+          </p>
 
           <div className="lg:col-span-2">
             <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Payment methods</label>
