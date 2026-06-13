@@ -833,11 +833,11 @@ function DirectBuyBanner() {
 // ─── Offers table (one section: promoted or other) ─────────────────────────────
 
 function OffersTable({
-  title, ads, marketRef, onBuy, onMerchantClick, isSignedIn, promoted = false,
+  title, ads, marketRefs, onBuy, onMerchantClick, isSignedIn, promoted = false,
 }: {
   title: string;
   ads: Ad[];
-  marketRef: number;
+  marketRefs: Record<string, number>;
   onBuy: (ad: Ad) => void;
   onMerchantClick: (merchant: AdMerchant) => void;
   isSignedIn: boolean;
@@ -861,7 +861,7 @@ function OffersTable({
         <span className="text-right">Trade</span>
       </div>
       {ads.map((ad) => (
-        <AdCard key={ad.id} ad={ad} onBuy={onBuy} onMerchantClick={onMerchantClick} isSignedIn={isSignedIn} marketRef={marketRef} />
+        <AdCard key={ad.id} ad={ad} onBuy={onBuy} onMerchantClick={onMerchantClick} isSignedIn={isSignedIn} marketRef={marketRefs[ad.crypto] ?? 0} />
       ))}
     </div>
   );
@@ -1119,15 +1119,26 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     ? ads.filter((a) => amountNum >= a.minLimit && amountNum <= a.maxLimit)
     : ads;
 
-  // Reference price for the margin badge + headline: true market spot when
-  // available, else the median of loaded offers (works for any crypto).
-  const medianPrice = (() => {
-    const prices = visibleAds.map((a) => a.pricePerUnit).filter((p) => p > 0).sort((a, b) => a - b);
-    if (!prices.length) return 0;
-    const mid = Math.floor(prices.length / 2);
-    return prices.length % 2 ? prices[mid] : (prices[mid - 1] + prices[mid]) / 2;
-  })();
-  const marketRef = spotRate ?? medianPrice;
+  const median = (prices: number[]) => {
+    const sorted = prices.filter((price) => price > 0).sort((a, b) => a - b);
+    if (!sorted.length) return 0;
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  };
+
+  // Each asset needs its own reference. A single median across KES, USDT, BTC,
+  // etc. makes percentages meaningless when the "All" filter is active.
+  const marketRefs = visibleAds.reduce<Record<string, number>>((refs, ad) => {
+    if (refs[ad.crypto] != null) return refs;
+    refs[ad.crypto] = median(
+      visibleAds.filter((candidate) => candidate.crypto === ad.crypto).map((candidate) => candidate.pricePerUnit),
+    );
+    return refs;
+  }, {});
+
+  if (crypto !== "ALL" && spotRate != null) marketRefs[crypto] = spotRate;
+
+  const marketRef = crypto === "ALL" ? 0 : (marketRefs[crypto] ?? 0);
   const rateIsLive = spotRate != null;
 
   // Promoted = merchant-paid featured ads. If none are featured yet, fall back
@@ -1243,9 +1254,9 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
             <>
-              <OffersTable title="Promoted offers" ads={promoted} marketRef={marketRef} onBuy={setSelectedAd} onMerchantClick={setSelectedMerchant} isSignedIn={!!isSignedIn} promoted />
+              <OffersTable title="Promoted offers" ads={promoted} marketRefs={marketRefs} onBuy={setSelectedAd} onMerchantClick={setSelectedMerchant} isSignedIn={!!isSignedIn} promoted />
               <DirectBuyBanner />
-              <OffersTable title="Other offers" ads={otherAds} marketRef={marketRef} onBuy={setSelectedAd} onMerchantClick={setSelectedMerchant} isSignedIn={!!isSignedIn} />
+              <OffersTable title="Other offers" ads={otherAds} marketRefs={marketRefs} onBuy={setSelectedAd} onMerchantClick={setSelectedMerchant} isSignedIn={!!isSignedIn} />
             </>
           )}
 
