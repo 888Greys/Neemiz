@@ -1101,6 +1101,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const [spotRate, setSpotRate] = useState<number | null>(null);
   const [savedPaymentMethods, setSavedPaymentMethods] = useState<PayMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
+  const [escrowBalances, setEscrowBalances] = useState<CryptoBalance[]>([]);
+  const [balancesLoading, setBalancesLoading] = useState(true);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
 
   useEffect(() => {
@@ -1118,6 +1120,19 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
       })
       .finally(() => {
         if (!cancelled) setPaymentMethodsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/p2p/merchant/balance")
+      .then((response) => response.ok ? response.json() : [])
+      .then((balances: CryptoBalance[]) => {
+        if (!cancelled) setEscrowBalances(balances);
+      })
+      .finally(() => {
+        if (!cancelled) setBalancesLoading(false);
       });
     return () => { cancelled = true; };
   }, []);
@@ -1184,6 +1199,11 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const canUseMarginPricing = !!spotRate;
   const isKesCoinForm = form.crypto === "KES"; // pegged 1:1 reference; merchant sets a spread %
   const totalAmountNum = Number(form.totalAmount) || 0;
+  const selectedEscrow = escrowBalances.find((balance) => balance.crypto === form.crypto);
+  const sellableBalance = form.crypto === "KES"
+    ? Math.max(0, fiatBalance / 1.01)
+    : Number(selectedEscrow?.available ?? 0);
+  const exceedsSellableBalance = !isEditing && form.side === "SELL" && totalAmountNum > sellableBalance;
   const requiredKesBacking = totalAmountNum > 0 ? parseFloat((totalAmountNum * 1.01).toFixed(2)) : 0;
   const needsKesBacking = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesBacking > 0 && fiatBalance < requiredKesBacking;
 
@@ -1212,6 +1232,9 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     }
     if (needsKesBacking) {
       return toast.error(`Top up your fiat wallet first. This KES Coin sell ad needs KSh ${requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee.`);
+    }
+    if (exceedsSellableBalance) {
+      return toast.error(`You can sell up to ${sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto} from escrow.`);
     }
 
     setSubmitting(true);
@@ -1245,7 +1268,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
-      <div className="no-scrollbar w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0e0e14] shadow-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)]" onClick={(e) => e.stopPropagation()}>
+      <div className="no-scrollbar w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0e0e14] shadow-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] lg:max-w-4xl" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 flex items-center justify-between rounded-t-2xl border-b border-white/[0.07] bg-[#0e0e14] px-6 py-3">
           <h3 className="text-white font-black text-lg">{isEditing ? "Edit Ad" : "Create New Ad"}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all">
@@ -1253,7 +1276,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </button>
         </div>
 
-        <div className="space-y-2.5 p-4">
+        <div className="grid gap-3 p-4 lg:grid-cols-2 lg:p-5">
           {/* Side selector */}
           <div>
             <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">I want to</label>
@@ -1405,27 +1428,64 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </div>
 
           {!isEditing && (
-            <div>
-              <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">
-                Total {form.crypto} to {form.side === "SELL" ? "sell" : "buy"}
-              </label>
-              <input
-                type="number"
-                value={form.totalAmount}
-                onChange={(e) => f("totalAmount", e.target.value)}
-                placeholder={form.crypto === "BTC" ? "e.g. 0.001" : form.crypto === "ETH" ? "e.g. 0.01" : "e.g. 10"}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40"
-              />
+            <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                  Total {form.crypto} to {form.side === "SELL" ? "sell" : "buy"}
+                </label>
+                {form.side === "SELL" && (
+                  <span className="text-right text-[10px] font-semibold text-slate-500">
+                    {balancesLoading
+                      ? "Loading balance..."
+                      : <>Available <strong className="text-white">{sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} {form.crypto}</strong></>}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center rounded-xl border border-white/[0.08] bg-[#15161d] pr-2 focus-within:border-[#087cff]/40">
+                <input
+                  type="number"
+                  value={form.totalAmount}
+                  onChange={(e) => f("totalAmount", e.target.value)}
+                  placeholder={form.crypto === "BTC" ? "e.g. 0.001" : form.crypto === "ETH" ? "e.g. 0.01" : "e.g. 10"}
+                  className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none"
+                />
+                <span className="text-xs font-black text-slate-500">{form.crypto}</span>
+                {form.side === "SELL" && (
+                  <button
+                    type="button"
+                    disabled={balancesLoading || sellableBalance <= 0}
+                    onClick={() => f("totalAmount", String(Number(sellableBalance.toFixed(8))))}
+                    className="ml-2 rounded-lg bg-[#087cff]/15 px-2.5 py-1.5 text-[11px] font-black text-[#55aaff] transition hover:bg-[#087cff]/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Max
+                  </button>
+                )}
+              </div>
+              {form.side === "SELL" && !balancesLoading && (
+                <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold">
+                  <span className={sellableBalance > 0 ? "text-[#05b957]" : "text-amber-300"}>
+                    {sellableBalance > 0 ? "Ready in merchant escrow" : "No sellable balance in escrow"}
+                  </span>
+                  {Number(selectedEscrow?.locked ?? 0) > 0 && (
+                    <span className="text-right text-amber-300">{Number(selectedEscrow?.locked).toLocaleString()} locked in orders</span>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {needsKesBacking && (
-            <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[12px] font-bold text-amber-300">
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[12px] font-bold text-amber-300 lg:col-span-2">
               Top up your fiat wallet first. This KES Coin sell ad needs KSh {requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee; you have KSh {fiatBalance.toLocaleString("en-KE")}.
             </div>
           )}
+          {exceedsSellableBalance && !needsKesBacking && (
+            <div className="rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-[12px] font-bold text-red-300 lg:col-span-2">
+              Amount exceeds your available escrow balance of {sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} {form.crypto}.
+            </div>
+          )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:col-span-2">
             {[{ label: `Min order (${form.fiat})`, key: "minLimit", ph: "500" }, { label: `Max order (${form.fiat})`, key: "maxLimit", ph: "50000" }].map(({ label, key, ph }) => (
               <div key={key}>
                 <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">{label}</label>
@@ -1434,9 +1494,9 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               </div>
             ))}
           </div>
-          <p className="-mt-1 text-[10px] text-slate-600">Order limits apply to both buy and sell ads.</p>
+          <p className="-mt-1 text-[10px] text-slate-600 lg:col-span-2">Order limits apply to both buy and sell ads.</p>
 
-          <div>
+          <div className="lg:col-span-2">
             <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Payment methods</label>
             {paymentMethodsLoading ? (
               <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-xs font-semibold text-slate-500">
@@ -1484,7 +1544,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </select>
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
             <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Trade terms <span className="normal-case text-slate-600">(optional)</span></label>
             <textarea value={form.terms} onChange={(e) => f("terms", e.target.value)} placeholder="Any specific requirements for buyers…" rows={2}
               className="w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
@@ -1493,7 +1553,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
         {/* Pinned action bar — always visible above the bottom nav */}
         <div className="sticky bottom-0 border-t border-white/[0.07] bg-[#0e0e14] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <button onClick={submit} disabled={submitting || paymentMethodsLoading || savedPaymentMethods.length === 0}
+          <button onClick={submit} disabled={submitting || paymentMethodsLoading || savedPaymentMethods.length === 0 || exceedsSellableBalance}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] py-3 font-black text-white shadow-lg shadow-[#087cff]/20 transition-all hover:bg-[#0570e8] active:scale-[0.98] disabled:opacity-50">
             {submitting
               ? <LoadingDots label={isEditing ? "Saving" : "Creating"} />
