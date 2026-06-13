@@ -61,7 +61,7 @@ interface AdminDeposit {
   id: string;
   crypto: string;
   amount: number;
-  txHash: string;
+  txHash: string | null;
   network: string;
   status: DepositStatus;
   createdAt: string;
@@ -792,19 +792,22 @@ function DepositsTab({ onAction }: { onAction: () => void }) {
                       </td>
                       {/* TX Hash */}
                       <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-slate-400 text-xs">
-                            {d.txHash.length > 16 ? `${d.txHash.slice(0, 8)}…${d.txHash.slice(-8)}` : d.txHash}
-                          </span>
-                          <button
-                            onClick={() => copyHash(d.txHash, d.id)}
-                            title="Copy full TX hash"
-                            className="text-slate-600 hover:text-[#087cff] transition-colors"
-                          >
-                            <Icon name={copiedId === d.id ? "check" : "content_copy"} className={`text-[13px] ${copiedId === d.id ? "text-[#31c45d]" : ""}`} />
-                          </button>
-                        </div>
-                        <p className="text-slate-600 text-[10px] mt-0.5 font-mono" title={d.txHash}>{d.txHash.length > 30 ? `${d.txHash.slice(0,14)}…` : d.txHash}</p>
+                        {d.txHash ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-slate-400 text-xs">
+                              {d.txHash.length > 16 ? `${d.txHash.slice(0, 8)}…${d.txHash.slice(-8)}` : d.txHash}
+                            </span>
+                            <button
+                              onClick={() => copyHash(d.txHash!, d.id)}
+                              title="Copy full TX hash"
+                              className="text-slate-600 hover:text-[#087cff] transition-colors"
+                            >
+                              <Icon name={copiedId === d.id ? "check" : "content_copy"} className={`text-[13px] ${copiedId === d.id ? "text-[#31c45d]" : ""}`} />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-600 text-xs">—</span>
+                        )}
                       </td>
                       {/* Submitted */}
                       <td className="px-4 py-3.5 whitespace-nowrap">
