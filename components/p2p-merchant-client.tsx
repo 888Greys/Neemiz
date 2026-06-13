@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { createClient } from "@/lib/supabase/client";
-import { P2PSubNav } from "@/components/p2p-subnav";
+import { P2PTerminalShell } from "@/components/p2p-terminal-shell";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
@@ -1811,8 +1811,7 @@ export function P2PMerchantClient() {
   }, [isSignedIn, check]);
 
   return (
-    <>
-      <P2PSubNav />
+    <P2PTerminalShell title="Merchant command" eyebrow="Liquidity operations" description="Manage ads, escrow balances, payment rails and settlement capacity.">
       {!isSignedIn ? (
         <ApplyLanding onApplied={check} />
       ) : loading || !status ? (
@@ -1826,6 +1825,6 @@ export function P2PMerchantClient() {
       ) : (
         <MerchantDashboard status={status} />
       )}
-    </>
+    </P2PTerminalShell>
   );
 }

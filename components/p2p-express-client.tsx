@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
-import { P2PSubNav } from "@/components/p2p-subnav";
+import { P2PTerminalShell } from "@/components/p2p-terminal-shell";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { LoadingDots } from "@/components/loading-dots";
@@ -131,11 +131,24 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
   const QUICK = [500, 1000, 2500, 5000, 10000];
 
   return (
-    <>
-      <P2PSubNav />
-
-      <div className="mx-auto w-full max-w-sm px-3 py-2.5 sm:px-4">
-        <div className="rounded-xl border border-[#1e1e30] bg-[#111118] p-3.5">
+    <P2PTerminalShell title="Express exchange" eyebrow="Instant settlement" description="Auto-match against the best fully backed merchant offer.">
+      <div className="mx-auto grid w-full max-w-5xl gap-5 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-6">
+        <section className="hidden rounded-2xl border border-white/[0.07] bg-[radial-gradient(circle_at_top_left,rgba(8,124,255,.12),transparent_42%),#0d1017] p-7 lg:block">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400 ring-1 ring-blue-400/20">
+            <Icon name="bolt" fill className="text-[24px]" />
+          </div>
+          <h2 className="mt-6 max-w-md text-3xl font-black tracking-tight text-white">Buy crypto without hunting through listings.</h2>
+          <p className="mt-3 max-w-lg text-sm leading-6 text-slate-500">Enter what you want to spend. Nezeem checks active inventory, merchant backing, payment rails and order limits before opening an escrow-protected order.</p>
+          <div className="mt-8 grid grid-cols-3 gap-2">
+            {[["Best price", "price_check"], ["Backed liquidity", "account_balance_wallet"], ["Escrow protected", "shield"]].map(([label, icon]) => (
+              <div key={label} className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
+                <Icon name={icon} className="text-[16px] text-blue-400" />
+                <p className="mt-3 text-[10px] font-black text-slate-300">{label}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+        <div className="rounded-2xl border border-[#1e1e30] bg-[#111118] p-4 shadow-[0_24px_70px_rgba(0,0,0,.24)]">
           {/* Header */}
           <div className="mb-3 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#087cff]/12 ring-1 ring-[#087cff]/25">
@@ -238,6 +251,6 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
           </p>
         </div>
       </div>
-    </>
+    </P2PTerminalShell>
   );
 }

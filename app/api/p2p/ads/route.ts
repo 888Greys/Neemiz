@@ -2,10 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
-import { isKesCoin, kesLockAmount } from "@/lib/p2p/crypto-balance";
+import { isKesCoin } from "@/lib/p2p/crypto-balance";
 import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
+import { assertKesSellBacking, deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
 
 // "KES" is the in-app KES Coin, backed 1:1 by fiat wallet balance.
 const VALID_CRYPTOS = ["USDT", "USDC", "BTC", "ETH", "BNB", "KES"];
@@ -15,6 +16,7 @@ const VALID_FIATS = new Set(FIAT_CURRENCIES.map((f) => f.code));
 // GET /api/p2p/ads — browse ads (public)
 export async function GET(req: Request) {
   try {
+    await deactivateUnbackedKesSellAds();
     const url    = new URL(req.url);
     const side   = url.searchParams.get("side") as AdSide | null;
     const crypto = url.searchParams.get("crypto");
@@ -180,10 +182,16 @@ export async function POST(req: Request) {
     };
 
     if (side === "SELL" && isKesCoin(crypto as string)) {
-      const requiredKesBacking = kesLockAmount(totalAmountNum);
-      if (Number(dbUser.walletBalance ?? 0) < requiredKesBacking) {
+      const backing = await assertKesSellBacking({
+        merchantId: merchant.id,
+        walletBalance: Number(dbUser.walletBalance ?? 0),
+        crypto: crypto as string,
+        side: side as AdSide,
+        availableAmount: totalAmountNum,
+      });
+      if (backing) {
         return Response.json({
-          error: `You need at least KSh ${requiredKesBacking.toLocaleString("en-KE")} in your fiat wallet to back this KES Coin sell ad, including the 1% seller fee.`,
+          error: `Insufficient backing. Your active KES sell ads plus this ad require KSh ${backing.required.toLocaleString("en-KE")}, but your wallet has KSh ${backing.available.toLocaleString("en-KE")}.`,
         }, { status: 400 });
       }
     }
