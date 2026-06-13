@@ -144,22 +144,25 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
 
   return (
     <div
-      className="fixed inset-0 z-[130] flex items-end justify-center bg-black/85 backdrop-blur-sm pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
+      className="fixed inset-0 z-[130] flex items-end justify-center bg-black/90 backdrop-blur-md pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[calc(100dvh-3.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0e0e14] text-white shadow-2xl sm:max-h-[88dvh] sm:rounded-2xl"
+        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3">
-          <p className="text-sm font-black">Merchant Profile</p>
+        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
+          <div>
+            <p className="text-sm font-black sm:text-base">Merchant Profile</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">Trust, performance and active offers</p>
+          </div>
           <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white">
             <Icon name="close" className="text-[18px]" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <div className="mb-4 flex items-start gap-3">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
             {source.avatarUrl ? (
               <img src={source.avatarUrl} alt={source.displayName} className="h-12 w-12 rounded-2xl object-cover" />
             ) : (
@@ -524,14 +527,14 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/85 backdrop-blur-sm pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
+      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/90 backdrop-blur-md pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-[#0e0e14] text-white shadow-2xl sm:h-auto sm:max-h-[90dvh] sm:rounded-2xl"
+        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="shrink-0 border-b border-white/[0.06] px-4 py-3">
+        <div className="shrink-0 border-b border-white/[0.07] px-4 py-3 sm:px-5">
           <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] items-center">
             <button
               onClick={onClose}
@@ -539,7 +542,10 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
             >
               <Icon name="arrow_back" className="text-[20px]" />
             </button>
-            <h2 className="truncate text-center text-[15px] font-black">{isBuyingCrypto ? "Buy" : "Sell"} {ad.crypto}</h2>
+            <div className="min-w-0 text-center">
+              <h2 className="truncate text-[15px] font-black sm:text-base">{isBuyingCrypto ? "Buy" : "Sell"} {ad.crypto} with {ad.merchant.displayName}</h2>
+              <p className="hidden text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 sm:block">Set amount and payment method</p>
+            </div>
             <button
               onClick={onClose}
               className="grid h-9 w-9 place-items-center rounded-full text-slate-500 hover:bg-white/[0.06] hover:text-white"
@@ -549,7 +555,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 pb-5">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-5 sm:p-5">
           <div className="mb-2 flex items-center justify-between text-[11px]">
             <div className="flex items-center gap-1.5">
               <span className="text-slate-400">Price</span>
@@ -563,7 +569,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
           </div>
 
 
-          <section className="mb-3 rounded-2xl bg-[#16161f] p-3 ring-1 ring-white/[0.04]">
+          <section className="mb-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
             <div className="mb-6 flex items-center justify-between border-b border-white/[0.06]">
               <div className="flex gap-6">
                 <button
@@ -638,7 +644,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
           </section>
 
           {/* Payment method */}
-          <section className="mb-5 rounded-2xl bg-[#16161f] p-3 ring-1 ring-white/[0.04]">
+          <section className="mb-5 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
             <div className="flex flex-wrap gap-2">
                 {ad.paymentMethods.map((m) => (
                   <button
@@ -656,7 +662,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
               </div>
           </section>
 
-          <section className="border-t border-white/[0.05] pt-4">
+          <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
             <div className="mb-4 flex items-center justify-between">
               <button
                 type="button"
@@ -681,7 +687,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
           </section>
         </div>
 
-        <div className="shrink-0 border-t border-[#1e1e30] bg-[#0e0e14] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+        <div className="shrink-0 border-t border-white/[0.07] bg-[#0b0b11]/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-5">
           <div className="grid grid-cols-[minmax(0,1fr)_118px] items-center gap-3">
             <div>
               <p className="text-[16px] font-black text-white">{fiatNum > 0 ? formatFiat(fiatNum, ad.fiat) : formatFiat(0, ad.fiat)}</p>
