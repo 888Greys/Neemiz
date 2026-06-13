@@ -1704,6 +1704,19 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
     }
   }
 
+  async function deleteAd(ad: Ad) {
+    if (!window.confirm(`Delete this ${ad.crypto} ad permanently?`)) return;
+    try {
+      const r = await fetch(`/api/p2p/ads/mine?id=${encodeURIComponent(ad.id)}`, { method: "DELETE" });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed to delete ad");
+      setAds((current) => current.filter((item) => item.id !== ad.id));
+      toast.success("Ad deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete ad");
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4">
       {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} />}
@@ -1977,6 +1990,12 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                       }`}
                     >
                       {ad.isActive ? "Pause" : "Resume"}
+                    </button>
+                    <button
+                      onClick={() => deleteAd(ad)}
+                      className="grid h-8 place-items-center rounded-lg bg-red-500/10 text-[11px] font-black text-red-400 transition hover:bg-red-500/20"
+                    >
+                      Delete
                     </button>
                   </div>
                 </div>

@@ -598,7 +598,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                   autoFocus
                   type="number"
                   inputMode="decimal"
-                className="min-w-0 flex-1 bg-transparent text-[28px] font-light text-white outline-none placeholder:text-slate-700"
+                className="min-w-0 flex-1 appearance-none bg-transparent text-[28px] font-light text-white outline-none placeholder:text-slate-700 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 placeholder="0"
                   value={rawInput}
                   onChange={(e) => setRawInput(e.target.value)}

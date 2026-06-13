@@ -164,3 +164,31 @@ export async function PATCH(req: Request) {
     isActive: updated.isActive,
   });
 }
+
+// DELETE /api/p2p/ads/mine?id=... — permanently remove an unused ad
+export async function DELETE(req: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const dbUser = await getOrCreateUser(user.id, { email: user.email });
+  const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
+  if (!merchant?.isVerified) return Response.json({ error: "Merchant account required" }, { status: 403 });
+
+  const adId = new URL(req.url).searchParams.get("id");
+  if (!adId) return Response.json({ error: "Ad id is required" }, { status: 400 });
+
+  const ad = await db.p2PAd.findFirst({
+    where: { id: adId, merchantId: merchant.id },
+    select: { id: true, _count: { select: { orders: true } } },
+  });
+  if (!ad) return Response.json({ error: "Ad not found" }, { status: 404 });
+  if (ad._count.orders > 0) {
+    return Response.json({
+      error: "This ad has order history and cannot be deleted. Pause it instead.",
+    }, { status: 409 });
+  }
+
+  await db.p2PAd.delete({ where: { id: ad.id } });
+  return Response.json({ ok: true });
+}
