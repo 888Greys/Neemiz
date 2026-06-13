@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
 import { defaultNetwork, lockUserCrypto, unlockUserCrypto, isKesCoin, lockKesCoinBalance, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
-import { sendNewP2POrderEmail } from "@/lib/brevo";
+import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
 
@@ -265,13 +265,14 @@ export async function POST(req: Request) {
     }
     if (!order) return Response.json({ error: "Insufficient ad liquidity" }, { status: 400 });
 
-    // Notify merchant — fire-and-forget (don't let notify failures block the response)
+    // Notify the merchant and wait for external delivery before the serverless
+    // invocation ends. Notification failures never roll back the order.
     const buyerName = dbUser.firstName
       ? `${dbUser.firstName}${dbUser.lastName ? ` ${dbUser.lastName}` : ""}`.trim()
       : dbUser.username ?? "A trader";
 
     // In-app notification (bell)
-    db.notification.create({
+    const notificationTask = db.notification.create({
       data: {
         userId: ad.merchant.userId,
         type:   "p2p_new_order",
@@ -283,8 +284,10 @@ export async function POST(req: Request) {
 
     // Email
     const merchantEmail = ad.merchant.user.email;
-    if (merchantEmail) {
-      sendNewP2POrderEmail(merchantEmail, ad.merchant.displayName, {
+    await Promise.all([
+      notificationTask,
+      waitForEmailDelivery("P2P new order", [merchantEmail
+        ? sendNewP2POrderEmail(merchantEmail, ad.merchant.displayName, {
         orderId: order.id,
         buyerName,
         crypto: ad.crypto,
@@ -292,8 +295,9 @@ export async function POST(req: Request) {
         fiatAmount,
         fiat: ad.fiat,
         paymentMethod: paymentMethod as string,
-      }).catch((e) => console.error("P2P order email failed:", e));
-    }
+        })
+        : null]),
+    ]);
 
     return Response.json({ orderId: order.id }, { status: 201 });
   } catch (err) {

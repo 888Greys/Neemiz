@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
 
 // POST /api/p2p/orders/[id]/dispute — either party can raise a dispute after buyer marks paid
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -14,7 +15,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const order = await db.p2POrder.findUnique({
       where: { id },
-      include: { seller: { select: { userId: true } } },
+      include: {
+        ad: true,
+        buyer: { select: { email: true, firstName: true, username: true } },
+        seller: {
+          select: {
+            userId: true,
+            displayName: true,
+            user: { select: { email: true, firstName: true, username: true } },
+          },
+        },
+      },
     });
 
     if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
@@ -61,6 +72,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         },
       });
     });
+
+    const recipient = isBuyer ? order.seller.user : order.buyer;
+    const recipientName = recipient.firstName ?? recipient.username ?? order.seller.displayName ?? "Trader";
+    await waitForEmailDelivery("P2P dispute", [recipient.email
+      ? sendP2POrderStatusEmail(recipient.email, recipientName, {
+          orderId: order.id,
+          subject: `Dispute opened for P2P order #${order.id.slice(0, 8).toUpperCase()}`,
+          title: "A dispute has been opened",
+          message: `${isBuyer ? "The buyer" : "The seller"} opened a dispute. Reason: ${reason.trim()}`,
+          crypto: order.crypto,
+          cryptoAmount: Number(order.cryptoAmount),
+          fiat: order.ad.fiat,
+          fiatAmount: Number(order.fiatAmount),
+          accent: "#e53e3e",
+          actionLabel: "Review Dispute →",
+        })
+      : null]);
 
     return Response.json({ status: "DISPUTED" });
   } catch (err) {

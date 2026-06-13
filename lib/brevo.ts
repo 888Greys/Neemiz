@@ -7,8 +7,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "toxicgreys001@gmail.com";
 
 async function sendEmail(to: string, toName: string, subject: string, htmlContent: string) {
   if (!RESEND_API_KEY) {
-    console.error("Resend send skipped: email configuration is missing");
-    return;
+    throw new Error("Resend send failed: RESEND_API_KEY is not configured");
   }
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -22,6 +21,21 @@ async function sendEmail(to: string, toName: string, subject: string, htmlConten
     signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) throw new Error(`Resend send failed: ${await res.text()}`);
+}
+
+export async function waitForEmailDelivery(
+  label: string,
+  emails: Array<Promise<unknown> | null | undefined>,
+) {
+  const pending = emails.filter((email): email is Promise<unknown> => Boolean(email));
+  if (pending.length === 0) return;
+
+  const results = await Promise.allSettled(pending);
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      console.error(`${label} email ${index + 1} failed:`, result.reason);
+    }
+  });
 }
 
 // ─── Shared Layout ────────────────────────────────────────────────────────────
@@ -475,6 +489,47 @@ export async function sendP2PMessageEmail(
       <p style="margin:0;font-size:13px;color:#667085;">Order #${opts.orderId.slice(0, 12).toUpperCase()}</p>
       ${ctaButton(`${APP_URL}/p2p/order/${opts.orderId}`, "Open Chat and Reply")}
     `, "Open the order page to reply securely. Never move a P2P conversation outside Nezeem.")
+  );
+}
+
+export async function sendP2POrderStatusEmail(
+  to: string,
+  recipientName: string,
+  opts: {
+    orderId: string;
+    title: string;
+    message: string;
+    subject: string;
+    crypto: string;
+    cryptoAmount: number;
+    fiat: string;
+    fiatAmount: number;
+    accent?: string;
+    actionLabel?: string;
+  },
+) {
+  const accent = opts.accent ?? "#087cff";
+  await sendEmail(
+    to,
+    recipientName,
+    opts.subject,
+    emailWrapper(`
+      <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:${accent};text-transform:uppercase;letter-spacing:1px;">P2P Order Update</p>
+      <h2 style="margin:0 0 16px;font-size:22px;font-weight:800;color:#1a1a2e;">${escapeHtml(opts.title)}</h2>
+      <p style="margin:0 0 24px;font-size:15px;color:#4a5568;line-height:1.7;">${escapeHtml(opts.message)}</p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;border-radius:12px;margin-bottom:28px;">
+        <tr><td style="padding:4px 24px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            ${detailRow("Crypto Amount", `<strong>${opts.cryptoAmount.toFixed(6)} ${escapeHtml(opts.crypto)}</strong>`)}
+            ${detailRow("Fiat Amount", `<strong>${escapeHtml(opts.fiat)} ${opts.fiatAmount.toLocaleString("en-KE")}</strong>`)}
+            ${detailRow("Order ID", opts.orderId.slice(0, 16).toUpperCase(), true)}
+          </table>
+        </td></tr>
+      </table>
+
+      ${ctaButton(`${APP_URL}/p2p/order/${opts.orderId}`, opts.actionLabel ?? "View Order →", accent)}
+    `, "Review the order inside Nezeem before taking action.")
   );
 }
 
