@@ -14,6 +14,65 @@ import {
 } from "@/lib/p2p/crypto-balance";
 import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
 
+const DEFAULT_PROOF_REQUEST =
+  "🛡️ Support: Please upload clear proof of payment for this order (M-Pesa confirmation message or bank transfer slip showing the reference, amount and time). We need this from both sides to resolve the dispute fairly.";
+
+// PATCH /api/admin/p2p/disputes/[id] — post an admin message into the order
+// chat (e.g. requesting payment proof from both parties). Visible to buyer and
+// seller in their normal order chat, and pings both with a notification.
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const dbUser = await getOrCreateUser(user.id, { email: user.email });
+  if (!dbUser.isAdmin) return Response.json({ error: "Forbidden" }, { status: 403 });
+
+  const body = await req.json().catch(() => ({}));
+  const message = typeof body.message === "string" && body.message.trim()
+    ? body.message.trim()
+    : DEFAULT_PROOF_REQUEST;
+  if (message.length > 2000) {
+    return Response.json({ error: "Message is too long" }, { status: 400 });
+  }
+
+  const dispute = await db.p2PDispute.findUnique({
+    where: { id },
+    select: {
+      order: { select: { id: true, buyerId: true, seller: { select: { userId: true } } } },
+    },
+  });
+  if (!dispute) return Response.json({ error: "Dispute not found" }, { status: 404 });
+
+  const { order } = dispute;
+  const orderRef = `#${order.id.slice(0, 8).toUpperCase()}`;
+
+  const created = await db.p2PMessage.create({
+    data: { orderId: order.id, senderId: dbUser.id, content: message },
+    select: {
+      id: true,
+      content: true,
+      imageUrl: true,
+      createdAt: true,
+      senderId: true,
+      sender: { select: { firstName: true, lastName: true, username: true } },
+    },
+  });
+
+  await db.notification.createMany({
+    data: [order.buyerId, order.seller.userId].map((userId) => ({
+      userId,
+      type: "p2p_dispute",
+      title: `Action needed on dispute ${orderRef}`,
+      body: message.slice(0, 160),
+      link: `/p2p/order/${order.id}`,
+    })),
+  });
+
+  return Response.json({ ok: true, message: created });
+}
+
 // POST /api/admin/p2p/disputes/[id] — resolve a dispute
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
