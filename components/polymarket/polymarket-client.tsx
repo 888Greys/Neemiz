@@ -1206,7 +1206,10 @@ function TopHoldersPanel({ market }: { market: PolymarketMarket }) {
   const holders = HOLDER_NAMES.map((name, i) => ({
     name,
     outcome: market.outcomes[i % market.outcomes.length] ?? "Yes",
-    shares: Math.round(500 - i * 48 + Math.random() * 30),
+    // Deterministic per-index variation — Math.random() here ran during
+    // render and produced different values on server vs client, causing a
+    // hydration mismatch on /predictions.
+    shares: Math.round(500 - i * 48 + ((i * 17) % 30)),
     value: Math.round((500 - i * 48) * (marketPrice(market, i % market.outcomes.length))),
     pnl: (i % 3 === 0 ? 1 : -1) * Math.round(10 + i * 7),
   }));
