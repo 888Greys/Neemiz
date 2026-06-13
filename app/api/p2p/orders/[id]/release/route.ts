@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { creditUserCrypto, debitUserCrypto, defaultNetwork, isKesCoin, releaseKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
-import { sendTradeCompletedEmail } from "@/lib/brevo";
+import { sendTradeCompletedEmail, waitForEmailDelivery } from "@/lib/brevo";
 
 // POST /api/p2p/orders/[id]/release — merchant confirms fiat received & releases crypto
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -133,7 +133,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       });
     });
 
-    // Email both parties — fire-and-forget
+    // Fetch both recipients and wait for Resend before the invocation ends.
     const emailOpts = {
       crypto:      order.crypto,
       cryptoAmount: cryptoAmt,
@@ -142,21 +142,24 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       orderId:     order.id,
     };
     const buyerName = order.buyer.firstName ?? order.buyer.username ?? "Trader";
-    if (order.buyer.email) {
-      sendTradeCompletedEmail(order.buyer.email, buyerName, { ...emailOpts, role: "buyer" })
-        .catch((e) => console.error("Trade completed email (buyer) failed:", e));
-    }
-    // Fetch merchant user email
-    if (merchant) {
-      db.user.findUnique({ where: { id: merchant.userId }, select: { email: true, firstName: true, username: true } })
-        .then((mu) => {
-          if (mu?.email) {
-            const mName = mu.firstName ?? mu.username ?? merchant.displayName;
-            sendTradeCompletedEmail(mu.email, mName, { ...emailOpts, role: "seller" })
-              .catch((e) => console.error("Trade completed email (merchant) failed:", e));
-          }
-        }).catch(() => {});
-    }
+    const merchantUser = merchant
+      ? await db.user.findUnique({
+          where: { id: merchant.userId },
+          select: { email: true, firstName: true, username: true },
+        })
+      : null;
+    await waitForEmailDelivery("P2P trade completed", [
+      order.buyer.email
+        ? sendTradeCompletedEmail(order.buyer.email, buyerName, { ...emailOpts, role: "buyer" })
+        : null,
+      merchantUser?.email
+        ? sendTradeCompletedEmail(
+            merchantUser.email,
+            merchantUser.firstName ?? merchantUser.username ?? merchant!.displayName,
+            { ...emailOpts, role: "seller" },
+          )
+        : null,
+    ]);
 
     // Notify counterparty (outside transaction — non-critical)
     await db.notification.create({

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
 
 // POST /api/p2p/orders/[id]/paid — buyer marks payment done
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +14,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
     const order  = await db.p2POrder.findUnique({
       where: { id },
-      include: { ad: true, seller: { select: { userId: true, displayName: true } } },
+      include: {
+        ad: true,
+        buyer: { select: { email: true, firstName: true, username: true } },
+        seller: {
+          select: {
+            userId: true,
+            displayName: true,
+            user: { select: { email: true, firstName: true, username: true } },
+          },
+        },
+      },
     });
 
     if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
@@ -62,6 +73,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       return "PAID" as const;
     });
+
+    const recipient = isMerchantBuy ? order.buyer : order.seller.user;
+    const recipientName = recipient.firstName ?? recipient.username ?? order.seller.displayName ?? "Trader";
+    await waitForEmailDelivery("P2P payment marked", [recipient.email
+      ? sendP2POrderStatusEmail(recipient.email, recipientName, {
+          orderId: order.id,
+          subject: `Payment marked for P2P order #${order.id.slice(0, 8).toUpperCase()}`,
+          title: "Payment has been marked as sent",
+          message: "The fiat payer marked this order as paid. Verify the funds in your own account before releasing crypto.",
+          crypto: order.crypto,
+          cryptoAmount: Number(order.cryptoAmount),
+          fiat: order.ad.fiat,
+          fiatAmount: Number(order.fiatAmount),
+          accent: "#05b957",
+          actionLabel: "Verify Payment →",
+        })
+      : null]);
 
     return Response.json({ status: updated });
   } catch (err) {

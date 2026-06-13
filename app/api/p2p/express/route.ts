@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { isP2PAdTradable } from "@/lib/p2p/ad-guards";
 import { isKesCoin, lockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
-import { sendNewP2POrderEmail } from "@/lib/brevo";
+import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
@@ -156,13 +156,13 @@ export async function POST(req: Request) {
       return Response.json({ error: "That offer was just taken — try again" }, { status: 409 });
     }
 
-    // Notify merchant — fire-and-forget.
+    // Wait for Resend to accept the email before this serverless request ends.
     const merchantEmail = match.merchant.user.email;
     if (merchantEmail) {
       const buyerName = dbUser.firstName
         ? `${dbUser.firstName}${dbUser.lastName ? ` ${dbUser.lastName}` : ""}`.trim()
         : dbUser.username ?? "A trader";
-      sendNewP2POrderEmail(merchantEmail, match.merchant.displayName, {
+      await waitForEmailDelivery("Express new order", [sendNewP2POrderEmail(merchantEmail, match.merchant.displayName, {
         orderId: order.id,
         buyerName,
         crypto: match.crypto,
@@ -170,7 +170,7 @@ export async function POST(req: Request) {
         fiatAmount,
         fiat: match.fiat,
         paymentMethod,
-      }).catch((e) => console.error("Express order email failed:", e));
+      })]);
     }
 
     return Response.json({

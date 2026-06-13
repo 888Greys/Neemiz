@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { getP2PCancellationUsage } from "@/lib/p2p/cancellation-policy";
+import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
 
 // POST /api/p2p/orders/[id]/cancel
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +14,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser   = await getOrCreateUser(user.id, { email: user.email });
-    const order    = await db.p2POrder.findUnique({ where: { id }, include: { ad: true } });
+    const order = await db.p2POrder.findUnique({
+      where: { id },
+      include: {
+        ad: true,
+        buyer: { select: { email: true, firstName: true, username: true } },
+        seller: {
+          select: {
+            userId: true,
+            displayName: true,
+            user: { select: { email: true, firstName: true, username: true } },
+          },
+        },
+      },
+    });
     if (!order) return Response.json({ error: "Order not found" }, { status: 404 });
 
     const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
@@ -91,14 +105,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Notify the other party (outside transaction — non-critical)
     if (isBuyer) {
-      const sellerProfile = await db.merchantProfile.findUnique({
-        where:  { id: order.sellerId },
-        select: { userId: true },
-      });
-      if (sellerProfile) {
+      if (order.seller) {
         await db.notification.create({
           data: {
-            userId: sellerProfile.userId,
+            userId: order.seller.userId,
             type:   "p2p_cancelled",
             title:  "Order cancelled",
             body:   `Buyer cancelled order #${order.id.slice(0, 8).toUpperCase()}${reason ? `: ${reason}` : "."}`,
@@ -117,6 +127,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         },
       }).catch(() => {});
     }
+
+    const recipient = isBuyer ? order.seller.user : order.buyer;
+    const recipientName = recipient.firstName ?? recipient.username ?? order.seller.displayName ?? "Trader";
+    await waitForEmailDelivery("P2P cancellation", [recipient.email
+      ? sendP2POrderStatusEmail(recipient.email, recipientName, {
+          orderId: order.id,
+          subject: `P2P order #${order.id.slice(0, 8).toUpperCase()} was cancelled`,
+          title: "Order cancelled",
+          message: `The other party cancelled this order. Reason: ${reason.trim()}`,
+          crypto: order.crypto,
+          cryptoAmount: Number(order.cryptoAmount),
+          fiat: order.ad.fiat,
+          fiatAmount: Number(order.fiatAmount),
+          accent: "#e53e3e",
+          actionLabel: "View Order →",
+        })
+      : null]);
 
     return Response.json({
       status: "CANCELLED",
