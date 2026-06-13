@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { TransactionStatus } from "@prisma/client";
+import * as Sentry from "@sentry/nextjs";
 
 const MEGAPAY_BASE_URL = (process.env.MEGAPAY_BASE_URL ?? "").replace(/\/+$/, "");
 const MEGAPAY_API_KEY  = process.env.MEGAPAY_API_KEY ?? "";
@@ -18,6 +19,21 @@ export type SettleOutcome = "completed" | "failed" | "pending" | "skipped";
  * so a concurrent webhook or status-poll can never double-credit.
  */
 export async function checkAndSettleMegapay(
+  txnId: string,
+  providerRequestId: string,
+): Promise<SettleOutcome> {
+  const outcome = await settleMegapay(txnId, providerRequestId);
+  // Emit a metric for every real settlement decision (not for the
+  // creds-missing "skipped" case) so Sentry charts the deposit success rate
+  // and can alert when failures/pendings spike. Covers both the cron sweep
+  // and the client status-poll, since both go through this function.
+  if (MEGAPAY_BASE_URL) {
+    Sentry.metrics.count("megapay_deposit_settle", 1, { attributes: { outcome } });
+  }
+  return outcome;
+}
+
+async function settleMegapay(
   txnId: string,
   providerRequestId: string,
 ): Promise<SettleOutcome> {
