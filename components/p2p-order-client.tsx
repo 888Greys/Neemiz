@@ -34,6 +34,10 @@ interface OrderData {
     userId: string;
     paymentMethod: { type: string; accountName: string; accountNo: string; bankName: string | null; name: string } | null;
   };
+  paymentRecipient: {
+    displayName: string;
+    paymentMethod: { type: string; accountName: string; accountNo: string; bankName: string | null; name: string } | null;
+  };
   ad: { fiat: string; paymentMethods: string[]; terms?: string | null };
   side: "BUY" | "SELL";
   isBuyer: boolean;
@@ -67,6 +71,14 @@ function isPaymentActor(order: OrderData): boolean {
 function isReleaseActor(order: OrderData): boolean {
   const merchantIsSelling = isMerchantSelling(order);
   return merchantIsSelling ? order.isSeller : order.isBuyer;
+}
+
+function counterpartyName(order: OrderData): string {
+  return order.isBuyer
+    ? order.seller.displayName
+    : order.buyer.firstName
+    ? `${order.buyer.firstName} ${order.buyer.lastName ?? ""}`.trim()
+    : order.buyer.username ?? "Trader";
 }
 
 function orderStageTitle(order: OrderData): string {
@@ -628,7 +640,7 @@ function MobileP2POrderView({
           )}
           {isSuccess && (
             <div className="mb-4 rounded-xl border border-[#05b957]/20 bg-[#05b957]/5 px-4 py-3">
-              <p className="text-[11px] text-slate-500">{order.isBuyer ? "You received" : "You sent"}</p>
+              <p className="text-[11px] text-slate-500">{isPaymentActor(order) ? "You received" : "You sent"}</p>
               <p className="mt-0.5 text-[26px] font-black text-[#05b957] tabular-nums">
                 {Number(order.cryptoAmount).toFixed(6)} <span className="text-[16px]">{order.crypto}</span>
               </p>
@@ -639,20 +651,20 @@ function MobileP2POrderView({
           {/* Merchant + contact */}
           <div className="mb-4 flex items-center justify-between rounded-xl border border-white/[0.08] bg-[#16161f] px-4 py-3">
             <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
-              {order.seller.displayName} <Icon name="chevron_right" className="text-[16px] text-slate-500" />
+              {counterpartyName(order)} <Icon name="chevron_right" className="text-[16px] text-slate-500" />
             </button>
             <button type="button" onClick={() => setShowChat(true)} className="rounded-full bg-[#f59e0b] px-4 py-1.5 text-xs font-black text-black hover:bg-[#f59e0b]/80 transition-colors">
-              Contact Seller
+              Contact Trader
             </button>
           </div>
 
           {/* Order type chip */}
           <div className="mb-4">
             <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-black ${
-              order.isBuyer ? "bg-[#05b957]/15 text-[#05b957]" : "bg-red-500/15 text-red-400"
+              isPaymentActor(order) ? "bg-[#05b957]/15 text-[#05b957]" : "bg-red-500/15 text-red-400"
             }`}>
-              <Icon name={order.isBuyer ? "arrow_downward" : "arrow_upward"} className="text-[12px]" />
-              {order.isBuyer ? "Buy" : "Sell"} {order.crypto}
+              <Icon name={isPaymentActor(order) ? "arrow_downward" : "arrow_upward"} className="text-[12px]" />
+              {isPaymentActor(order) ? "Buy" : "Sell"} {order.crypto}
             </span>
           </div>
 
@@ -760,7 +772,7 @@ function MobileP2POrderView({
 
       <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3">
         <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
-          {order.seller.displayName}
+          {counterpartyName(order)}
           <Icon name="chevron_right" className="text-[16px] text-slate-500" />
         </button>
         <button
@@ -768,7 +780,7 @@ function MobileP2POrderView({
           onClick={() => setShowChat(true)}
           className="rounded-full bg-[#087cff] px-4 py-2 text-xs font-black text-white hover:bg-[#0570e8] transition-colors"
         >
-          Contact Seller
+          Contact Trader
         </button>
       </div>
 
@@ -789,14 +801,15 @@ function MobileP2POrderView({
         </div>
         <div className="ml-2 border-l border-white/[0.10] pl-4">
           <InfoRow label="Fiat Amount" value={formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })} copy />
-          <InfoRow label="Account Name" value={order.seller.paymentMethod?.accountName ?? order.seller.displayName.toUpperCase()} copy />
+          <InfoRow label="Recipient" value={order.paymentRecipient.displayName} />
+          <InfoRow label="Account Name" value={order.paymentRecipient.paymentMethod?.accountName ?? "—"} copy={!!order.paymentRecipient.paymentMethod?.accountName} />
           <InfoRow
-            label={order.paymentMethod === "MPESA" ? "Paybill / Phone No." : order.seller.paymentMethod?.bankName ? `${order.seller.paymentMethod.bankName} Account` : "Account Number"}
-            value={order.seller.paymentMethod?.accountNo ?? "—"}
-            copy={!!order.seller.paymentMethod?.accountNo}
+            label={order.paymentMethod === "MPESA" ? "Paybill / Phone No." : order.paymentRecipient.paymentMethod?.bankName ? `${order.paymentRecipient.paymentMethod.bankName} Account` : "Account Number"}
+            value={order.paymentRecipient.paymentMethod?.accountNo ?? "—"}
+            copy={!!order.paymentRecipient.paymentMethod?.accountNo}
           />
-          {order.seller.paymentMethod?.bankName && (
-            <InfoRow label="Bank" value={order.seller.paymentMethod.bankName} />
+          {order.paymentRecipient.paymentMethod?.bankName && (
+            <InfoRow label="Bank" value={order.paymentRecipient.paymentMethod.bankName} />
           )}
           <InfoRow label="Order No." value={orderId.slice(0, 24).toUpperCase()} copy />
           <button type="button" className="mt-2 flex items-center gap-1 text-xs text-slate-500">
@@ -1012,12 +1025,9 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
   const isClosed = ["RELEASED", "CANCELLED", "EXPIRED"].includes(order.status);
   const merchantIsSelling = order.side === "SELL";
   const paymentName = paymentMethodLabel(order.paymentMethod);
-  const tradeVerb = order.isBuyer ? "BUYING" : "SELLING";
-  const counterpartyName = order.isBuyer
-    ? order.seller.displayName
-    : order.buyer.firstName
-    ? `${order.buyer.firstName} ${order.buyer.lastName ?? ""}`.trim()
-    : order.buyer.username ?? "Trader";
+  const currentUserIsBuyingCrypto = isPaymentActor(order);
+  const tradeVerb = currentUserIsBuyingCrypto ? "BUYING" : "SELLING";
+  const otherPartyName = counterpartyName(order);
   // Use dbUser IDs (CUIDs) — not the Supabase auth UUID — so the Chat "mine" check matches sender.id
   const currentUserId = order.isBuyer ? order.buyer.id : order.seller.userId;
 
@@ -1051,7 +1061,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           <div>
             <div className="mb-1 flex items-center gap-3">
               <h1 className="text-lg font-black text-white">
-                {counterpartyName}
+                {otherPartyName}
               </h1>
               <P2PStatusBadge status={order.status} size="md" detailed />
             </div>
@@ -1077,7 +1087,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           <div className="border-r border-white/[0.06] px-5 py-3.5">
             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Trade</p>
             <p className="mt-2 text-sm font-black text-white">{tradeVerb} {Number(order.cryptoAmount).toFixed(6)} {order.crypto}</p>
-            <p className="mt-1 text-[10px] text-slate-500">with {counterpartyName}</p>
+            <p className="mt-1 text-[10px] text-slate-500">{currentUserIsBuyingCrypto ? "from" : "to"} {otherPartyName}</p>
           </div>
           <div className="border-r border-white/[0.06] px-5 py-3.5">
             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Unit price</p>
@@ -1085,7 +1095,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
             <p className="mt-1 text-[10px] text-slate-600">per {order.crypto}</p>
           </div>
           <div className="border-r border-white/[0.06] px-5 py-3.5">
-            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">You {order.isBuyer ? "pay" : "receive"}</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">You {currentUserIsBuyingCrypto ? "pay" : "receive"}</p>
             <p className="mt-2 text-lg font-black text-emerald-400">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</p>
             <p className="mt-1 text-[10px] text-slate-600">final fiat amount</p>
           </div>
@@ -1115,7 +1125,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 {order.status === "PENDING" && order.isBuyer && merchantIsSelling && "How to complete your order"}
                 {order.status === "PENDING" && order.isBuyer && !merchantIsSelling && "Waiting for merchant payment"}
                 {order.status === "PENDING" && order.isSeller && merchantIsSelling && "Waiting for buyer to pay"}
-                {order.status === "PENDING" && order.isSeller && !merchantIsSelling && "Send payment to trader"}
+                {order.status === "PENDING" && order.isSeller && !merchantIsSelling && `Buy ${order.crypto} from ${otherPartyName}`}
                 {order.status === "PAID" && order.isBuyer && merchantIsSelling && "Payment sent — waiting for release"}
                 {order.status === "PAID" && order.isBuyer && !merchantIsSelling && "Verify payment and release crypto"}
                 {order.status === "PAID" && order.isSeller && merchantIsSelling && "Verify the payment and release"}
@@ -1171,7 +1181,12 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 <ol className="space-y-3 text-sm text-slate-400">
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">1</span>
-                    <span>Send <span className="text-white font-bold">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</span> to the trader via <span className="text-white font-bold">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank Transfer"}</span>.</span>
+                    <span>Send <span className="text-white font-bold">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</span> to <span className="text-white font-bold">{order.paymentRecipient.displayName}</span> via <span className="text-white font-bold">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank Transfer"}</span>.</span>
+                  </li>
+                  <li className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3 text-sm">
+                    <span className="block text-[10px] font-black uppercase tracking-wider text-slate-600">Payment account</span>
+                    <span className="mt-1 block font-bold text-white">{order.paymentRecipient.paymentMethod?.accountName ?? "Payment details unavailable"}</span>
+                    <span className="mt-0.5 block text-slate-400">{order.paymentRecipient.paymentMethod?.accountNo ?? "Do not pay. Ask the trader to add a matching payment method."}</span>
                   </li>
                   <li className="flex gap-3">
                     <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
@@ -1436,7 +1451,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
               <p className="text-white font-bold text-sm leading-tight truncate">
                 {order.isBuyer ? order.seller.displayName : (order.buyer.firstName ? `${order.buyer.firstName} ${order.buyer.lastName ?? ""}`.trim() : order.buyer.username ?? "Buyer")}
               </p>
-              <p className="text-slate-500 text-[11px] leading-tight">{order.isBuyer ? "Merchant" : "Buyer"} · Order chat</p>
+              <p className="text-slate-500 text-[11px] leading-tight">{currentUserIsBuyingCrypto ? "Crypto seller" : "Crypto buyer"} · Order chat</p>
             </div>
             <span className="ml-auto flex items-center gap-1 text-slate-600" title="Secured by escrow">
               <Icon name="lock" className="text-sm" />
