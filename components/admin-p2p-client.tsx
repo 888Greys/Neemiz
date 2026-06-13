@@ -280,6 +280,8 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
   const [resolution, setResolution]   = useState<"CRYPTO_BUYER_WINS" | "CRYPTO_SELLER_WINS" | null>(null);
   const [note, setNote]               = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [proofingId, setProofingId]   = useState<string | null>(null);
+  const [proofMsg, setProofMsg]       = useState("");
 
   const fetchDisputes = useCallback(async () => {
     setLoading(true);
@@ -293,6 +295,27 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
   }, [filter]);
 
   useEffect(() => { fetchDisputes(); }, [fetchDisputes]);
+
+  async function requestProof(id: string) {
+    setActionLoading(`proof-${id}`);
+    try {
+      const res = await fetch(`/api/admin/p2p/disputes/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: proofMsg.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      toast.success("Proof request sent to both parties");
+      setProofingId(null);
+      setProofMsg("");
+      fetchDisputes();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setActionLoading(null);
+    }
+  }
 
   async function resolve(id: string) {
     if (!resolution) return toast.error("Select a resolution");
@@ -322,14 +345,6 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
   function buyerName(d: Dispute) {
     const b = d.order.buyer;
     return b.firstName ? `${b.firstName} ${b.lastName ?? ""}`.trim() : b.username ?? "—";
-  }
-
-  function cryptoBuyerName(d: Dispute) {
-    return d.order.ad.side === "SELL" ? buyerName(d) : d.order.seller.displayName;
-  }
-
-  function cryptoSellerName(d: Dispute) {
-    return d.order.ad.side === "SELL" ? d.order.seller.displayName : buyerName(d);
   }
 
   return (
@@ -380,39 +395,80 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-3">
-                <div>
-                  <p className="text-slate-600 text-xs mb-0.5">Crypto buyer</p>
-                  <p className="text-slate-300 text-sm font-bold">{cryptoBuyerName(d)}</p>
-                </div>
-                <div>
-                  <p className="text-slate-600 text-xs mb-0.5">Crypto seller</p>
-                  <p className="text-slate-300 text-sm font-bold">{cryptoSellerName(d)}</p>
-                </div>
-              </div>
+              {/* Side-by-side: each party's own messages + evidence */}
+              {(() => {
+                const buyerIsCryptoBuyer = d.order.ad.side === "SELL";
+                const buyerUserId  = d.order.buyer.id;
+                const sellerUserId = d.order.seller.userId;
+                const buyerMsgs   = d.order.messages.filter((m) => m.senderId === buyerUserId);
+                const sellerMsgs  = d.order.messages.filter((m) => m.senderId === sellerUserId);
+                const supportMsgs = d.order.messages.filter((m) => m.senderId !== buyerUserId && m.senderId !== sellerUserId);
 
-              {(d.evidence || d.order.paymentProofUrl || d.order.paymentRef) && (
-                <div className="mb-4 rounded-xl border border-[#087cff]/20 bg-[#087cff]/[0.06] px-4 py-3">
-                  <p className="mb-2 text-xs font-black text-[#75b8ff]">Payment evidence</p>
-                  {d.order.paymentRef && <p className="text-xs text-slate-300">Reference: {d.order.paymentRef}</p>}
-                  {[d.evidence, d.order.paymentProofUrl].filter(Boolean).map((url) => (
-                    <a key={url} href={url!} target="_blank" rel="noreferrer" className="mr-3 text-xs font-bold text-[#55aaff] underline">Open evidence</a>
-                  ))}
-                </div>
-              )}
+                const renderMsgs = (msgs: typeof d.order.messages) =>
+                  msgs.length === 0
+                    ? <p className="px-1 py-2 text-xs italic text-slate-600">No messages yet</p>
+                    : msgs.map((m) => (
+                        <div key={m.id} className="rounded-lg bg-white/[0.05] px-3 py-2">
+                          <p className="whitespace-pre-wrap break-words text-xs text-slate-300">{m.content}</p>
+                          {m.imageUrl && (
+                            <a href={m.imageUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#55aaff] underline">
+                              <Icon name="image" className="text-xs" /> View attachment
+                            </a>
+                          )}
+                          <p className="mt-1 text-[10px] text-slate-600">{new Date(m.createdAt).toLocaleString("en-KE", { hour12: false })}</p>
+                        </div>
+                      ));
 
-              {d.order.messages.length > 0 && (
-                <div className="mb-4 max-h-48 space-y-2 overflow-y-auto rounded-xl border border-white/[0.06] bg-black/20 p-3">
-                  <p className="text-xs font-black text-slate-500">Order chat</p>
-                  {d.order.messages.map((message) => (
-                    <div key={message.id} className="rounded-lg bg-white/[0.04] px-3 py-2 text-xs">
-                      <p className="font-bold text-slate-300">{message.sender.firstName ?? message.sender.username ?? "Trader"}</p>
-                      <p className="mt-0.5 text-slate-400">{message.content}</p>
-                      {message.imageUrl && <a href={message.imageUrl} target="_blank" rel="noreferrer" className="text-[#55aaff] underline">View attachment</a>}
+                const RoleChip = ({ crypto }: { crypto: boolean }) => (
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${crypto ? "bg-[#087cff]/15 text-[#75b8ff]" : "bg-[#31c45d]/15 text-[#31c45d]"}`}>
+                    {crypto ? "Crypto buyer" : "Crypto seller"}
+                  </span>
+                );
+
+                return (
+                  <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {/* Order buyer column */}
+                    <div className="flex flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-black/20">
+                      <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-3 py-2">
+                        <p className="truncate text-sm font-black text-white">{buyerName(d)}</p>
+                        <RoleChip crypto={buyerIsCryptoBuyer} />
+                      </div>
+                      {(d.evidence || d.order.paymentProofUrl || d.order.paymentRef) && (
+                        <div className="border-b border-[#087cff]/15 bg-[#087cff]/[0.06] px-3 py-2">
+                          <p className="mb-1 text-[10px] font-black tracking-wide text-[#75b8ff]">PAYMENT EVIDENCE</p>
+                          {d.order.paymentRef && <p className="text-[11px] text-slate-300">Ref: {d.order.paymentRef}</p>}
+                          {[d.evidence, d.order.paymentProofUrl].filter(Boolean).map((url) => (
+                            <a key={url} href={url!} target="_blank" rel="noreferrer" className="mr-3 text-[11px] font-bold text-[#55aaff] underline">Open file</a>
+                          ))}
+                        </div>
+                      )}
+                      <div className="max-h-56 space-y-2 overflow-y-auto p-3">{renderMsgs(buyerMsgs)}</div>
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    {/* Order seller (merchant) column */}
+                    <div className="flex flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-black/20">
+                      <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-3 py-2">
+                        <p className="truncate text-sm font-black text-white">{d.order.seller.displayName}</p>
+                        <RoleChip crypto={!buyerIsCryptoBuyer} />
+                      </div>
+                      <div className="max-h-56 space-y-2 overflow-y-auto p-3">{renderMsgs(sellerMsgs)}</div>
+                    </div>
+
+                    {/* Support / admin messages, full width */}
+                    {supportMsgs.length > 0 && (
+                      <div className="md:col-span-2 space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.06] p-3">
+                        <p className="text-[10px] font-black tracking-wide text-amber-400">SUPPORT MESSAGES</p>
+                        {supportMsgs.map((m) => (
+                          <div key={m.id} className="rounded-lg bg-amber-500/[0.08] px-3 py-2">
+                            <p className="whitespace-pre-wrap break-words text-xs text-amber-100/90">{m.content}</p>
+                            <p className="mt-1 text-[10px] text-amber-500/60">{new Date(m.createdAt).toLocaleString("en-KE", { hour12: false })}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 mb-4">
                 <p className="text-slate-500 text-xs mb-0.5">Dispute reason</p>
@@ -462,12 +518,49 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                   </div>
                 </div>
               ) : d.status === "OPEN" ? (
-                <button
-                  onClick={() => { setResolvingId(d.id); setResolution(null); setNote(""); }}
-                  className="w-full py-2.5 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] transition-all text-sm"
-                >
-                  Resolve Dispute
-                </button>
+                <div className="space-y-2">
+                  {proofingId === d.id ? (
+                    <div className="space-y-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.05] p-3">
+                      <textarea
+                        value={proofMsg}
+                        onChange={(e) => setProofMsg(e.target.value)}
+                        placeholder="Leave blank to send the default proof request, or type a custom message to both parties…"
+                        rows={2}
+                        className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500/40"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setProofingId(null); setProofMsg(""); }}
+                          className="flex-1 rounded-xl bg-white/5 py-2.5 text-sm font-bold text-slate-400 transition-colors hover:bg-white/10"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => requestProof(d.id)}
+                          disabled={actionLoading === `proof-${d.id}`}
+                          className="flex-1 rounded-xl bg-amber-500/90 py-2.5 text-sm font-black text-black transition-all hover:bg-amber-400 disabled:opacity-50"
+                        >
+                          {actionLoading === `proof-${d.id}` ? "Sending…" : "Send to both parties"}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setProofingId(d.id); setProofMsg(""); }}
+                        className="flex-1 rounded-xl border border-amber-500/30 bg-amber-500/10 py-2.5 text-sm font-black text-amber-400 transition-all hover:bg-amber-500/20"
+                      >
+                        Request proof
+                      </button>
+                      <button
+                        onClick={() => { setResolvingId(d.id); setResolution(null); setNote(""); }}
+                        className="flex-1 rounded-xl bg-[#087cff] py-2.5 text-sm font-black text-white transition-all hover:bg-[#0570e8]"
+                      >
+                        Resolve Dispute
+                      </button>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <Icon name="check_circle" className="text-[#31c45d] text-base" />
