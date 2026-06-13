@@ -14,5 +14,8 @@ Sentry.init({
     /Dynamic server usage/i,
     /NEXT_NOT_FOUND/i,
     /NEXT_REDIRECT/i,
+    // Expected business logic, not a crash: suspended users are blocked by
+    // design (SuspendedAccountError in lib/get-or-create-user.ts).
+    /ACCOUNT_SUSPENDED/,
   ],
 });

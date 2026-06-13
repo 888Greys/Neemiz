@@ -10,4 +10,10 @@ Sentry.init({
   sendDefaultPii: false,
   enableLogs: true,
   tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? "0.1"),
+  ignoreErrors: [
+    /Dynamic server usage/i,
+    /NEXT_NOT_FOUND/i,
+    /NEXT_REDIRECT/i,
+    /ACCOUNT_SUSPENDED/,
+  ],
 });
