@@ -12,6 +12,7 @@ import {
   unlockKesCoinBalance,
   unlockUserCrypto,
 } from "@/lib/p2p/crypto-balance";
+import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
 
 // POST /api/admin/p2p/disputes/[id] — resolve a dispute
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,10 +25,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!dbUser.isAdmin) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await req.json();
-  const { resolution, note } = body as { resolution: "BUYER_WINS" | "SELLER_WINS"; note: string };
+  const { resolution, note } = body as { resolution: "CRYPTO_BUYER_WINS" | "CRYPTO_SELLER_WINS"; note: string };
 
-  if (!["BUYER_WINS", "SELLER_WINS"].includes(resolution)) {
-    return Response.json({ error: "Invalid resolution. Use 'BUYER_WINS' or 'SELLER_WINS'." }, { status: 400 });
+  if (!["CRYPTO_BUYER_WINS", "CRYPTO_SELLER_WINS"].includes(resolution)) {
+    return Response.json({ error: "Invalid dispute resolution." }, { status: 400 });
+  }
+  if (typeof note !== "string" || !note.trim()) {
+    return Response.json({ error: "A resolution note is required." }, { status: 400 });
   }
 
   const dispute = await db.p2PDispute.findUnique({
@@ -41,8 +45,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           crypto: true,
           cryptoAmount: true,
           fiatAmount: true,
+          createdAt: true,
           ad: { select: { side: true } },
-          seller: { select: { userId: true } },
+          buyer: { select: { email: true, firstName: true, username: true } },
+          seller: {
+            select: {
+              id: true,
+              userId: true,
+              displayName: true,
+              totalTrades: true,
+              completedTrades: true,
+              avgReleaseTime: true,
+              user: { select: { email: true, firstName: true, username: true } },
+            },
+          },
         },
       },
     },
@@ -57,19 +73,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const cryptoAmt = Number(order.cryptoAmount);
   const kesGiverUserId = order.ad.side === "SELL" ? sellerUserId : buyerId;
   const kesReceiverUserId = order.ad.side === "SELL" ? buyerId : sellerUserId;
+  const cryptoBuyerUserId = kesReceiverUserId;
+  const cryptoSellerUserId = kesGiverUserId;
+  const cryptoBuyerWins = resolution === "CRYPTO_BUYER_WINS";
+  const network = defaultNetwork(order.crypto);
+  const netCryptoAmt = parseFloat((cryptoAmt * 0.98).toFixed(8));
+  const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
 
   await db.$transaction(async (tx) => {
-    // Update dispute
-    await tx.p2PDispute.update({
-      where: { id },
+    const claimed = await tx.p2PDispute.updateMany({
+      where: { id, status: "OPEN", order: { status: "DISPUTED" } },
       data: {
         status: "RESOLVED",
-        resolution: note,
+        resolution: `${resolution}: ${note.trim()}`,
         resolvedAt: new Date(),
       },
     });
+    if (claimed.count === 0) throw new Error("DISPUTE_ALREADY_RESOLVED");
 
-    if (resolution === "SELLER_WINS") {
+    if (!cryptoBuyerWins) {
       // Cancel the order
       await tx.p2POrder.update({
         where: { id: order.id },
@@ -94,31 +116,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         await unlockUserCrypto(tx, buyerId, order.crypto, defaultNetwork(order.crypto), cryptoAmt);
       }
 
-      // Notify buyer
-      await tx.notification.create({
-        data: {
-          userId: buyerId,
-          type: "p2p_dispute",
-          title: `Dispute resolved — Seller wins`,
-          body: `The dispute for order ${orderRef} was resolved in favour of the seller. The order has been cancelled.${note ? ` Admin note: ${note}` : ""}`,
-          link: `/p2p/order/${order.id}`,
-        },
-      });
-
-      // Notify seller
-      await tx.notification.create({
-        data: {
-          userId: sellerUserId,
-          type: "p2p_dispute",
-          title: `Dispute resolved in your favour`,
-          body: `The dispute for order ${orderRef} was resolved in your favour. The order has been cancelled.${note ? ` Admin note: ${note}` : ""}`,
-          link: `/p2p/order/${order.id}`,
-        },
-      });
     } else {
-      // BUYER_WINS — release the locked crypto, mark order RELEASED
-      const network   = defaultNetwork(order.crypto);
-
+      // Release the locked crypto to the economic crypto buyer.
       await tx.p2POrder.update({
         where: { id: order.id },
         data: { status: "RELEASED", escrowReleased: true, releasedAt: new Date() },
@@ -135,44 +134,81 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           role: "receiver",
         });
       } else {
-        // Deduct from merchant's P2PCryptoBalance (locked + total)
-        const sellerMerchant = await tx.merchantProfile.findUnique({
-          where: { userId: sellerUserId },
-        });
-        if (sellerMerchant) {
-          await tx.p2PCryptoBalance.updateMany({
-            where: { merchantId: sellerMerchant.id, crypto: order.crypto },
-            data:  { locked: { decrement: cryptoAmt }, total: { decrement: cryptoAmt } },
+        if (order.ad.side === "SELL") {
+          const debited = await tx.p2PCryptoBalance.updateMany({
+            where: { merchantId: order.seller.id, crypto: order.crypto, locked: { gte: cryptoAmt }, total: { gte: cryptoAmt } },
+            data: { locked: { decrement: cryptoAmt }, total: { decrement: cryptoAmt } },
+          });
+          if (debited.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
+          await creditUserCrypto(tx, buyerId, order.crypto, network, netCryptoAmt);
+        } else {
+          const unlocked = await tx.userCryptoBalance.updateMany({
+            where: { userId: buyerId, crypto: order.crypto, network, locked: { gte: cryptoAmt } },
+            data: { locked: { decrement: cryptoAmt } },
+          });
+          if (unlocked.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
+          await tx.p2PCryptoBalance.upsert({
+            where: { merchantId_crypto: { merchantId: order.seller.id, crypto: order.crypto } },
+            create: { merchantId: order.seller.id, crypto: order.crypto, total: netCryptoAmt, available: netCryptoAmt, locked: 0 },
+            update: { total: { increment: netCryptoAmt }, available: { increment: netCryptoAmt } },
           });
         }
-
-        // Credit buyer's UserCryptoBalance (works for any user)
-        await creditUserCrypto(tx, buyerId, order.crypto, network, cryptoAmt);
       }
-
-      // Notify buyer
-      await tx.notification.create({
+      const newTotal = order.seller.totalTrades + 1;
+      const newCompleted = order.seller.completedTrades + 1;
+      await tx.merchantProfile.update({
+        where: { id: order.seller.id },
         data: {
-          userId: buyerId,
-          type:   "p2p_dispute",
-          title:  `Dispute resolved — Buyer wins`,
-          body:   `The dispute for order ${orderRef} was resolved in your favour. Your ${order.crypto} has been released.${note ? ` Admin note: ${note}` : ""}`,
-          link:   `/p2p/order/${order.id}`,
-        },
-      });
-
-      // Notify seller
-      await tx.notification.create({
-        data: {
-          userId: sellerUserId,
-          type:   "p2p_dispute",
-          title:  `Dispute resolved — Buyer wins`,
-          body:   `The dispute for order ${orderRef} was resolved in favour of the buyer.${note ? ` Admin note: ${note}` : ""}`,
-          link:   `/p2p/order/${order.id}`,
+          totalTrades: newTotal,
+          completedTrades: newCompleted,
+          completionRate: (newCompleted / newTotal) * 100,
+          avgReleaseTime: Math.round((order.seller.avgReleaseTime * order.seller.completedTrades + releaseTime) / newCompleted),
         },
       });
     }
+
+    await tx.notification.createMany({
+      data: [buyerId, sellerUserId].map((userId) => ({
+        userId,
+        type: "p2p_dispute",
+        title: cryptoBuyerWins ? "Dispute resolved — crypto released" : "Dispute resolved — order cancelled",
+        body: `${cryptoBuyerWins ? "The crypto buyer" : "The crypto seller"} won dispute ${orderRef}. Admin note: ${note.trim()}`,
+        link: `/p2p/order/${order.id}`,
+      })),
+    });
   });
+
+  const winnerName = cryptoBuyerWins ? "crypto buyer" : "crypto seller";
+  await waitForEmailDelivery("P2P dispute resolution", [
+    order.buyer.email
+      ? sendP2POrderStatusEmail(order.buyer.email, order.buyer.firstName ?? order.buyer.username ?? "Trader", {
+          orderId: order.id,
+          subject: `P2P dispute resolved ${orderRef}`,
+          title: "Dispute resolved",
+          message: `The ${winnerName} won this dispute. Admin note: ${note.trim()}`,
+          crypto: order.crypto,
+          cryptoAmount: cryptoAmt,
+          fiat: "KES",
+          fiatAmount: Number(order.fiatAmount),
+          accent: cryptoBuyerWins ? "#22c55e" : "#f59e0b",
+          actionLabel: "View Order →",
+        })
+      : null,
+    order.seller.user.email
+      ? sendP2POrderStatusEmail(order.seller.user.email, order.seller.user.firstName ?? order.seller.user.username ?? order.seller.displayName, {
+          orderId: order.id,
+          subject: `P2P dispute resolved ${orderRef}`,
+          title: "Dispute resolved",
+          message: `The ${winnerName} won this dispute. Admin note: ${note.trim()}`,
+          crypto: order.crypto,
+          cryptoAmount: cryptoAmt,
+          fiat: "KES",
+          fiatAmount: Number(order.fiatAmount),
+          accent: cryptoBuyerWins ? "#22c55e" : "#f59e0b",
+          actionLabel: "View Order →",
+        })
+      : null,
+  ]);
 
   return Response.json({ ok: true, resolution });
 }

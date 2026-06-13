@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 
@@ -34,13 +33,25 @@ interface Dispute {
   reason: string;
   status: string;
   createdAt: string;
+  evidence: string | null;
   order: {
     id: string;
     crypto: string;
     cryptoAmount: number;
     fiatAmount: number;
-    buyer: { firstName: string | null; lastName: string | null; username: string | null };
-    seller: { displayName: string };
+    paymentRef: string | null;
+    paymentProofUrl: string | null;
+    ad: { side: "BUY" | "SELL"; fiat: string };
+    buyer: { id: string; firstName: string | null; lastName: string | null; username: string | null };
+    seller: { displayName: string; userId: string };
+    messages: Array<{
+      id: string;
+      content: string;
+      imageUrl: string | null;
+      createdAt: string;
+      senderId: string;
+      sender: { firstName: string | null; lastName: string | null; username: string | null };
+    }>;
   };
 }
 
@@ -266,7 +277,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
   const [disputes, setDisputes]       = useState<Dispute[]>([]);
   const [loading, setLoading]         = useState(true);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
-  const [resolution, setResolution]   = useState<"BUYER_WINS" | "SELLER_WINS" | null>(null);
+  const [resolution, setResolution]   = useState<"CRYPTO_BUYER_WINS" | "CRYPTO_SELLER_WINS" | null>(null);
   const [note, setNote]               = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
@@ -313,6 +324,14 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
     return b.firstName ? `${b.firstName} ${b.lastName ?? ""}`.trim() : b.username ?? "—";
   }
 
+  function cryptoBuyerName(d: Dispute) {
+    return d.order.ad.side === "SELL" ? buyerName(d) : d.order.seller.displayName;
+  }
+
+  function cryptoSellerName(d: Dispute) {
+    return d.order.ad.side === "SELL" ? d.order.seller.displayName : buyerName(d);
+  }
+
   return (
     <div>
       {/* Filter tabs */}
@@ -356,26 +375,44 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                     <span className="text-slate-500 font-medium ml-2">· KSh {Number(d.order.fiatAmount).toLocaleString("en-KE")}</span>
                   </p>
                 </div>
-                <Link
-                  href={`/p2p/order/${d.order.id}`}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/5 text-slate-400 text-xs font-bold hover:bg-white/10 hover:text-white transition-colors"
-                  target="_blank"
-                >
-                  View Order
-                  <Icon name="open_in_new" className="text-[13px]" />
-                </Link>
+                <span className="rounded-xl bg-white/5 px-3 py-1.5 font-mono text-xs text-slate-500">
+                  Order evidence loaded
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-4 mb-3">
                 <div>
-                  <p className="text-slate-600 text-xs mb-0.5">Buyer</p>
-                  <p className="text-slate-300 text-sm font-bold">{buyerName(d)}</p>
+                  <p className="text-slate-600 text-xs mb-0.5">Crypto buyer</p>
+                  <p className="text-slate-300 text-sm font-bold">{cryptoBuyerName(d)}</p>
                 </div>
                 <div>
-                  <p className="text-slate-600 text-xs mb-0.5">Seller (Merchant)</p>
-                  <p className="text-slate-300 text-sm font-bold">{d.order.seller.displayName}</p>
+                  <p className="text-slate-600 text-xs mb-0.5">Crypto seller</p>
+                  <p className="text-slate-300 text-sm font-bold">{cryptoSellerName(d)}</p>
                 </div>
               </div>
+
+              {(d.evidence || d.order.paymentProofUrl || d.order.paymentRef) && (
+                <div className="mb-4 rounded-xl border border-[#087cff]/20 bg-[#087cff]/[0.06] px-4 py-3">
+                  <p className="mb-2 text-xs font-black text-[#75b8ff]">Payment evidence</p>
+                  {d.order.paymentRef && <p className="text-xs text-slate-300">Reference: {d.order.paymentRef}</p>}
+                  {[d.evidence, d.order.paymentProofUrl].filter(Boolean).map((url) => (
+                    <a key={url} href={url!} target="_blank" rel="noreferrer" className="mr-3 text-xs font-bold text-[#55aaff] underline">Open evidence</a>
+                  ))}
+                </div>
+              )}
+
+              {d.order.messages.length > 0 && (
+                <div className="mb-4 max-h-48 space-y-2 overflow-y-auto rounded-xl border border-white/[0.06] bg-black/20 p-3">
+                  <p className="text-xs font-black text-slate-500">Order chat</p>
+                  {d.order.messages.map((message) => (
+                    <div key={message.id} className="rounded-lg bg-white/[0.04] px-3 py-2 text-xs">
+                      <p className="font-bold text-slate-300">{message.sender.firstName ?? message.sender.username ?? "Trader"}</p>
+                      <p className="mt-0.5 text-slate-400">{message.content}</p>
+                      {message.imageUrl && <a href={message.imageUrl} target="_blank" rel="noreferrer" className="text-[#55aaff] underline">View attachment</a>}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 mb-4">
                 <p className="text-slate-500 text-xs mb-0.5">Dispute reason</p>
@@ -385,19 +422,19 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
               {resolvingId === d.id ? (
                 <div className="space-y-3">
                   <div className="flex gap-2">
-                    {(["BUYER_WINS", "SELLER_WINS"] as const).map((r) => (
+                    {(["CRYPTO_BUYER_WINS", "CRYPTO_SELLER_WINS"] as const).map((r) => (
                       <button
                         key={r}
                         onClick={() => setResolution(r)}
                         className={`flex-1 py-2 rounded-xl text-xs font-black border transition-all ${
                           resolution === r
-                            ? r === "BUYER_WINS"
+                            ? r === "CRYPTO_BUYER_WINS"
                               ? "bg-[#087cff]/20 border-[#087cff] text-[#087cff]"
                               : "bg-[#31c45d]/20 border-[#31c45d] text-[#31c45d]"
                             : "bg-white/5 border-white/10 text-slate-400 hover:border-white/20"
                         }`}
                       >
-                        {r === "BUYER_WINS" ? "Buyer Wins" : "Seller Wins"}
+                        {r === "CRYPTO_BUYER_WINS" ? "Crypto Buyer Wins" : "Crypto Seller Wins"}
                       </button>
                     ))}
                   </div>
@@ -424,7 +461,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                     </button>
                   </div>
                 </div>
-              ) : d.status === "DISPUTED" ? (
+              ) : d.status === "OPEN" ? (
                 <button
                   onClick={() => { setResolvingId(d.id); setResolution(null); setNote(""); }}
                   className="w-full py-2.5 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] transition-all text-sm"

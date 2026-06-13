@@ -30,12 +30,32 @@ export async function GET(req: Request) {
             fiatAmount: true,
             status: true,
             paymentMethod: true,
+            paymentRef: true,
+            paymentProofUrl: true,
             createdAt: true,
+            ad: { select: { side: true, fiat: true } },
             buyer: {
               select: { id: true, email: true, firstName: true, lastName: true, username: true },
             },
             seller: {
-              select: { id: true, displayName: true, userId: true },
+              select: {
+                id: true,
+                displayName: true,
+                userId: true,
+                user: { select: { email: true, username: true } },
+              },
+            },
+            messages: {
+              orderBy: { createdAt: "asc" },
+              take: 50,
+              select: {
+                id: true,
+                content: true,
+                imageUrl: true,
+                createdAt: true,
+                senderId: true,
+                sender: { select: { firstName: true, lastName: true, username: true } },
+              },
             },
           },
         },
