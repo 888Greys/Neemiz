@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function MerchantPage() {
   return (
-    <AppShell>
+    <AppShell hideFooter fullHeight>
       <P2PMerchantClient />
     </AppShell>
   );

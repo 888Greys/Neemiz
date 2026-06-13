@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
+import { assertKesSellBacking, deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
 
 function hasPaymentMethods(value: unknown): value is string[] {
   return Array.isArray(value) && value.length > 0 && value.every((m) => typeof m === "string");
@@ -16,6 +17,7 @@ export async function GET() {
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
   const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
   if (!merchant) return Response.json([], { status: 200 });
+  await deactivateUnbackedKesSellAds();
 
   const ads = await db.p2PAd.findMany({
     where: { merchantId: merchant.id },
@@ -111,6 +113,20 @@ export async function PATCH(req: Request) {
       maxLimit,
     });
     if (guardError) return Response.json({ error: guardError }, { status: 400 });
+
+    const backing = await assertKesSellBacking({
+      merchantId: merchant.id,
+      walletBalance: Number(dbUser.walletBalance ?? 0),
+      crypto: ad.crypto,
+      side: ad.side,
+      availableAmount: Number(ad.availableAmount),
+      excludeAdId: ad.id,
+    });
+    if (backing) {
+      return Response.json({
+        error: `Insufficient backing. Active KES sell inventory requires KSh ${backing.required.toLocaleString("en-KE")}, but your wallet has KSh ${backing.available.toLocaleString("en-KE")}.`,
+      }, { status: 400 });
+    }
   }
 
   const updated = await db.p2PAd.update({

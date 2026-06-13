@@ -5,6 +5,7 @@ import { validateP2PAd } from "@/lib/p2p/ad-guards";
 import { defaultNetwork, lockUserCrypto, unlockUserCrypto, isKesCoin, lockKesCoinBalance, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail } from "@/lib/brevo";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
+import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
 export async function GET(req: Request) {
@@ -137,6 +138,7 @@ export async function POST(req: Request) {
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
     const restriction = await assertCanCreateP2POrder(dbUser.id);
     if (restriction) return restriction;
+    await deactivateUnbackedKesSellAds();
 
     let body: Record<string, unknown>;
     try {
