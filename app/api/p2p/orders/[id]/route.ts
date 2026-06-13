@@ -44,7 +44,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           },
         },
       },
-      ad: { select: { fiat: true, paymentMethods: true, side: true, terms: true } },
+      ad: { select: { fiat: true, paymentMethods: true, paymentWindow: true, side: true, terms: true } },
     },
   });
 
