@@ -272,10 +272,14 @@ function KycRequestsTab({ onAction }: { onAction: () => void }) {
 
 // ─── Disputes Tab ─────────────────────────────────────────────────────────────
 
+const DEFAULT_PROOF_REQUEST =
+  "Hello, this is Nezeem Support. To resolve this dispute fairly we need proof of payment from both sides. Please upload a clear screenshot of your M-Pesa confirmation message or bank transfer slip showing the reference, amount, date and time. Thank you.";
+
 function DisputesTab({ onAction }: { onAction: () => void }) {
   const [filter, setFilter]           = useState<"ALL" | "OPEN" | "RESOLVED">("ALL");
   const [disputes, setDisputes]       = useState<Dispute[]>([]);
   const [loading, setLoading]         = useState(true);
+  const [selectedId, setSelectedId]   = useState<string | null>(null);
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolution, setResolution]   = useState<"CRYPTO_BUYER_WINS" | "CRYPTO_SELLER_WINS" | null>(null);
   const [note, setNote]               = useState("");
@@ -347,54 +351,40 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
     return b.firstName ? `${b.firstName} ${b.lastName ?? ""}`.trim() : b.username ?? "—";
   }
 
-  return (
-    <div>
-      {/* Filter tabs */}
-      <div className="flex gap-2 mb-5">
-        {(["ALL", "OPEN", "RESOLVED"] as const).map((s) => (
+  function resetTransient() {
+    setResolvingId(null); setResolution(null); setNote("");
+    setProofingId(null); setProofMsg("");
+  }
+
+  const selected = disputes.find((d) => d.id === selectedId) ?? null;
+
+  // ───── Detail view: a single dispute, opened from the list ─────
+  if (selected) {
+    const d = selected;
+    return (
+      <div>
+        <div className="mb-5 flex items-center gap-3">
           <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
-              filter === s
-                ? s === "OPEN"     ? "bg-red-500/20 text-red-400"
-                  : s === "RESOLVED" ? "bg-[#31c45d]/20 text-[#31c45d]"
-                  : "bg-[#087cff]/20 text-[#087cff]"
-                : "bg-white/5 text-slate-500 hover:text-slate-300"
-            }`}
+            onClick={() => { setSelectedId(null); resetTransient(); }}
+            className="flex items-center gap-1.5 rounded-xl bg-white/5 px-3 py-2 text-xs font-black text-slate-300 transition-colors hover:bg-white/10"
           >
-            {s}
+            <Icon name="arrow_back" className="text-base" /> Back
           </button>
-        ))}
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-12"><Spinner /></div>
-      ) : disputes.length === 0 ? (
-        <div className="admin-panel text-center py-16">
-          <Icon name="gavel" className="text-4xl text-slate-700 mb-3" />
-          <p className="text-slate-400 font-bold">No {filter === "ALL" ? "" : filter.toLowerCase() + " "}disputes</p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${d.status === "OPEN" ? "border-red-500/20 bg-red-500/10 text-red-400" : "border-[#31c45d]/20 bg-[#31c45d]/10 text-[#31c45d]"}`}>
+                {d.status === "OPEN" ? "DISPUTED" : d.status}
+              </span>
+              <span className="font-mono text-xs text-slate-600">#{d.order.id.slice(0, 12).toUpperCase()}</span>
+            </div>
+            <p className="mt-0.5 text-sm font-black text-white">
+              {Number(d.order.cryptoAmount).toFixed(6)} {d.order.crypto}
+              <span className="ml-2 font-medium text-slate-500">· KSh {Number(d.order.fiatAmount).toLocaleString("en-KE")}</span>
+            </p>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {disputes.map((d) => (
-            <div key={d.id} className="admin-panel p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 text-[10px] font-black">DISPUTED</span>
-                    <span className="text-slate-600 text-xs font-mono">#{d.order.id.slice(0, 12).toUpperCase()}</span>
-                  </div>
-                  <p className="text-white font-black text-sm">
-                    {Number(d.order.cryptoAmount).toFixed(6)} {d.order.crypto}
-                    <span className="text-slate-500 font-medium ml-2">· KSh {Number(d.order.fiatAmount).toLocaleString("en-KE")}</span>
-                  </p>
-                </div>
-                <span className="rounded-xl bg-white/5 px-3 py-1.5 font-mono text-xs text-slate-500">
-                  Order evidence loaded
-                </span>
-              </div>
 
+        <div className="admin-panel p-5">
               {/* Side-by-side: each party's own messages + evidence */}
               {(() => {
                 const buyerIsCryptoBuyer = d.order.ad.side === "SELL";
@@ -524,7 +514,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                       <textarea
                         value={proofMsg}
                         onChange={(e) => setProofMsg(e.target.value)}
-                        placeholder="Leave blank to send the default proof request, or type a custom message to both parties…"
+                        placeholder="Message sent to both parties…"
                         rows={2}
                         className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-amber-500/40"
                       />
@@ -547,7 +537,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                   ) : (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => { setProofingId(d.id); setProofMsg(""); }}
+                        onClick={() => { setProofingId(d.id); setProofMsg(DEFAULT_PROOF_REQUEST); }}
                         className="flex-1 rounded-xl border border-amber-500/30 bg-amber-500/10 py-2.5 text-sm font-black text-amber-400 transition-all hover:bg-amber-500/20"
                       >
                         Request proof
@@ -567,8 +557,70 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
                   <span className="text-[#31c45d] text-sm font-bold">Resolved: {d.status}</span>
                 </div>
               )}
-            </div>
-          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // ───── List view: compact rows, click a row to open the detail ─────
+  return (
+    <div>
+      {/* Filter tabs */}
+      <div className="flex gap-2 mb-5">
+        {(["ALL", "OPEN", "RESOLVED"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setFilter(s)}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${
+              filter === s
+                ? s === "OPEN"     ? "bg-red-500/20 text-red-400"
+                  : s === "RESOLVED" ? "bg-[#31c45d]/20 text-[#31c45d]"
+                  : "bg-[#087cff]/20 text-[#087cff]"
+                : "bg-white/5 text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Spinner /></div>
+      ) : disputes.length === 0 ? (
+        <div className="admin-panel text-center py-16">
+          <Icon name="gavel" className="text-4xl text-slate-700 mb-3" />
+          <p className="text-slate-400 font-bold">No {filter === "ALL" ? "" : filter.toLowerCase() + " "}disputes</p>
+        </div>
+      ) : (
+        <div className="admin-panel divide-y divide-white/[0.06] overflow-hidden p-0">
+          {disputes.map((d) => {
+            const isOpen = d.status === "OPEN";
+            return (
+              <button
+                key={d.id}
+                onClick={() => { setSelectedId(d.id); resetTransient(); }}
+                className="flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.03]"
+              >
+                <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-black ${isOpen ? "border-red-500/20 bg-red-500/10 text-red-400" : "border-[#31c45d]/20 bg-[#31c45d]/10 text-[#31c45d]"}`}>
+                  {isOpen ? "OPEN" : "RESOLVED"}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[11px] text-slate-600">#{d.order.id.slice(0, 8).toUpperCase()}</span>
+                    <span className="truncate text-sm font-black text-white">
+                      {buyerName(d)} <span className="font-medium text-slate-600">vs</span> {d.order.seller.displayName}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-slate-500">{d.reason}</p>
+                </div>
+                <div className="hidden shrink-0 text-right sm:block">
+                  <p className="text-sm font-black text-white">KSh {Number(d.order.fiatAmount).toLocaleString("en-KE")}</p>
+                  <p className="text-[10px] text-slate-600">{new Date(d.createdAt).toLocaleDateString("en-KE")}</p>
+                </div>
+                <Icon name="chevron_right" className="shrink-0 text-lg text-slate-600" />
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
