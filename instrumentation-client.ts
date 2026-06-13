@@ -23,6 +23,12 @@ Sentry.init({
     "ResizeObserver loop completed with undelivered notifications",
     /NetworkError when attempting to fetch resource/i,
     /Load failed/i,
+    // Wallet browser-extension noise — user has no/locked wallet or rejected
+    // the connection. Not our bug.
+    /Failed to connect to MetaMask/i,
+    /MetaMask/i,
+    /User rejected the request/i,
+    /No Ethereum provider/i,
   ],
 });
 
