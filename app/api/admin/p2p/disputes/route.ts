@@ -45,18 +45,9 @@ export async function GET(req: Request) {
                 user: { select: { email: true, username: true } },
               },
             },
-            messages: {
-              orderBy: { createdAt: "asc" },
-              take: 50,
-              select: {
-                id: true,
-                content: true,
-                imageUrl: true,
-                createdAt: true,
-                senderId: true,
-                sender: { select: { firstName: true, lastName: true, username: true } },
-              },
-            },
+            // Message history is intentionally omitted here — the list only
+            // renders summary rows. Messages are fetched per-case by
+            // GET /api/admin/p2p/disputes/[id] when a dispute is opened.
           },
         },
       },
