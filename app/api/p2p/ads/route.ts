@@ -121,6 +121,21 @@ export async function POST(req: Request) {
     if (!VALID_CRYPTOS.includes(crypto as string)) {
       return Response.json({ error: "Unsupported crypto" }, { status: 400 });
     }
+    const requestedPaymentMethods = Array.from(new Set(
+      (paymentMethods as unknown[]).filter((method): method is string => typeof method === "string"),
+    ));
+    const savedPaymentMethods = await db.p2PPaymentMethod.findMany({
+      where: { merchantId: merchant.id, isActive: true },
+      select: { name: true },
+    });
+    const savedPaymentCodes = new Set(savedPaymentMethods.map((method) => method.name).filter(Boolean));
+    const missingPaymentMethods = requestedPaymentMethods.filter((method) => !savedPaymentCodes.has(method));
+    if (savedPaymentCodes.size === 0) {
+      return Response.json({ error: "Add a payment method in Merchant Center before posting an ad." }, { status: 400 });
+    }
+    if (missingPaymentMethods.length > 0) {
+      return Response.json({ error: "This ad uses a payment method that is not saved in your Merchant Center." }, { status: 400 });
+    }
     const fiatCode = typeof fiat === "string" && VALID_FIATS.has(fiat) ? fiat : DEFAULT_FIAT;
     if (side === "SELL" && (minLimit == null || maxLimit == null)) {
       return Response.json({ error: "Missing order limits" }, { status: 400 });
@@ -176,7 +191,7 @@ export async function POST(req: Request) {
       availableAmount: totalAmountNum,
       minLimit:        minLimitNum,
       maxLimit:        maxLimitNum,
-      paymentMethods:  paymentMethods as string[],
+      paymentMethods:  requestedPaymentMethods,
       paymentWindow:   paymentWindowNum,
       terms:           (terms as string | undefined) ?? null,
     };

@@ -102,6 +102,17 @@ export async function PATCH(req: Request) {
   if (!hasPaymentMethods(paymentMethods)) {
     return Response.json({ error: "Select at least one payment method" }, { status: 400 });
   }
+  const savedPaymentMethods = await db.p2PPaymentMethod.findMany({
+    where: { merchantId: merchant.id, isActive: true },
+    select: { name: true },
+  });
+  const savedPaymentCodes = new Set(savedPaymentMethods.map((method) => method.name).filter(Boolean));
+  if (savedPaymentCodes.size === 0) {
+    return Response.json({ error: "Add a payment method in Merchant Center before activating an ad." }, { status: 400 });
+  }
+  if (paymentMethods.some((method) => !savedPaymentCodes.has(method))) {
+    return Response.json({ error: "This ad uses a payment method that is not saved in your Merchant Center." }, { status: 400 });
+  }
 
   if (isActive) {
     const guardError = validateP2PAd({
