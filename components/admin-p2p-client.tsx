@@ -159,12 +159,12 @@ function KycRequestsTab({ onAction }: { onAction: () => void }) {
       {loading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
       ) : merchants.length === 0 ? (
-        <div className="text-center py-16 bg-[#0f1623] border border-white/[0.06] rounded-2xl">
+        <div className="admin-panel text-center py-16">
           <Icon name="storefront" className="text-4xl text-slate-700 mb-3" />
           <p className="text-slate-400 font-bold">No {filter.toLowerCase()} merchants</p>
         </div>
       ) : (
-        <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl overflow-hidden">
+        <div className="admin-panel overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -337,14 +337,14 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
       {loading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
       ) : disputes.length === 0 ? (
-        <div className="text-center py-16 bg-[#0f1623] border border-white/[0.06] rounded-2xl">
+        <div className="admin-panel text-center py-16">
           <Icon name="gavel" className="text-4xl text-slate-700 mb-3" />
           <p className="text-slate-400 font-bold">No {filter === "ALL" ? "" : filter.toLowerCase() + " "}disputes</p>
         </div>
       ) : (
         <div className="space-y-4">
           {disputes.map((d) => (
-            <div key={d.id} className="bg-[#0f1623] border border-white/[0.06] rounded-2xl p-5">
+            <div key={d.id} className="admin-panel p-5">
               <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
@@ -523,12 +523,12 @@ function DepositsTab({ onAction }: { onAction: () => void }) {
       {loading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
       ) : deposits.length === 0 ? (
-        <div className="text-center py-16 bg-[#0f1623] border border-white/[0.06] rounded-2xl">
+        <div className="admin-panel text-center py-16">
           <Icon name="south_america" className="text-4xl text-slate-700 mb-3" />
           <p className="text-slate-400 font-bold">No {filter === "ALL" ? "" : filter.toLowerCase() + " "}deposits</p>
         </div>
       ) : (
-        <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl overflow-hidden">
+        <div className="admin-panel overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -749,12 +749,12 @@ function CryptoWalletsTab() {
       {loading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 bg-[#0f1623] border border-white/[0.06] rounded-2xl">
+        <div className="admin-panel text-center py-16">
           <Icon name="account_balance_wallet" className="text-4xl text-slate-700 mb-3" />
           <p className="text-slate-400 font-bold">No deposit addresses found</p>
         </div>
       ) : (
-        <div className="bg-[#0f1623] border border-white/[0.06] rounded-2xl overflow-hidden">
+        <div className="admin-panel overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -889,15 +889,16 @@ export function AdminP2PClient() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
+    <div className="admin-page">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-white mb-1">P2P Admin Dashboard</h1>
-        <p className="text-slate-500 text-sm">Review KYC requests, resolve disputes, and manage crypto deposits.</p>
+        <p className="text-[9px] font-black uppercase tracking-[0.24em] text-violet-400">Settlement operations</p>
+        <h1 className="mt-1 text-2xl font-black tracking-tight text-white">P2P control desk</h1>
+        <p className="mt-1 text-[11px] text-slate-500">Review identities, resolve order disputes, approve deposits and manage settlement wallets.</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#0f1623] border border-white/[0.06] rounded-2xl p-1.5 mb-6 w-fit">
+      <div className="admin-panel mb-6 flex w-fit max-w-full gap-1 overflow-x-auto p-1.5">
         {tabs.map((t) => (
           <button
             key={t.id}

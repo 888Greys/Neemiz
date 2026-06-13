@@ -58,7 +58,7 @@ const money = (value: number | string) =>
 
 function Metric({ label, value, sub, tone }: { label: string; value: string; sub: string; tone: string }) {
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-[#0f1623] p-4">
+    <div className="admin-panel p-4">
       <p className={`text-xl font-black ${tone}`}>{value}</p>
       <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
       <p className="mt-1 text-[11px] text-slate-600">{sub}</p>
@@ -94,7 +94,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
   const differenceIsClean = Math.abs(summary.walletDifference) < 0.01;
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div className="admin-page">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href="/admin/users" className="mb-3 inline-flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-white">
@@ -129,7 +129,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
       )}
 
       <div className="mb-6 grid gap-4 md:grid-cols-2">
-        <section className="rounded-2xl border border-white/[0.06] bg-[#0f1623] p-5">
+        <section className="admin-panel p-5">
           <h2 className="mb-4 text-sm font-black text-white">Account Identity</h2>
           <dl className="space-y-3 text-xs">
             {[
@@ -146,7 +146,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
           </dl>
         </section>
 
-        <section className="rounded-2xl border border-white/[0.06] bg-[#0f1623] p-5">
+        <section className="admin-panel p-5">
           <h2 className="mb-4 text-sm font-black text-white">Risk Interpretation</h2>
           <p className="text-xs leading-5 text-slate-400">
             Real cash metrics only include completed payment-provider records. Internal transfers, bonuses, demo funds,
@@ -155,7 +155,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
         </section>
       </div>
 
-      <section className="mb-6 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0f1623]">
+      <section className="admin-panel mb-6 overflow-hidden">
         <div className="border-b border-white/[0.06] px-5 py-4"><h2 className="text-sm font-black text-white">Recent Transactions</h2></div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -176,7 +176,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0f1623]">
+      <section className="admin-panel overflow-hidden">
         <div className="border-b border-white/[0.06] px-5 py-4"><h2 className="text-sm font-black text-white">Recent Bets</h2></div>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">

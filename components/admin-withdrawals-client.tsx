@@ -50,15 +50,16 @@ export function AdminWithdrawalsClient() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="admin-page">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-black text-white">Pending Withdrawals</h1>
-          <p className="text-slate-600 text-xs mt-0.5">KES&nbsp;→&nbsp;crypto sales, plus large (&gt;1M) or high-frequency (&gt;10/day) withdrawals</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-amber-400">Owner action queue</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-white">Withdrawal approvals</h1>
+          <p className="mt-1 max-w-2xl text-[11px] text-slate-500">Review crypto sales, large payouts and unusual withdrawal velocity before funds leave the platform.</p>
         </div>
         <button
           onClick={load}
-          className="flex items-center gap-1.5 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2 text-xs font-bold text-slate-500 hover:text-white hover:bg-white/[0.07] transition-colors"
+          className="admin-panel-soft flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-slate-500 transition-colors hover:text-white"
         >
           <Icon name="refresh" className="text-[13px]" />
           Refresh
@@ -68,9 +69,13 @@ export function AdminWithdrawalsClient() {
       {loading ? (
         <div className="flex justify-center py-16"><Spinner /></div>
       ) : items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 rounded-2xl border border-white/[0.06] bg-[#0f1623]">
-          <Icon name="check_circle" fill className="text-[48px] text-emerald-500/40 mb-3" />
-          <p className="text-slate-500 font-bold">No pending approvals</p>
+        <div className="admin-panel relative flex min-h-[360px] flex-col items-center justify-center overflow-hidden py-20">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,.08),transparent_42%)]" />
+          <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.07]">
+            <Icon name="verified" fill className="text-[30px] text-emerald-400" />
+          </div>
+          <p className="relative mt-5 text-sm font-black text-slate-200">Approval queue is clear</p>
+          <p className="relative mt-1 text-[11px] text-slate-600">No withdrawals currently require owner review.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -92,7 +97,7 @@ export function AdminWithdrawalsClient() {
             const sellFeeKes  = meta.feeKes as number | undefined;
 
             return (
-              <div key={w.id} className="rounded-2xl border border-white/[0.06] bg-[#0f1623] p-5">
+              <div key={w.id} className="admin-panel p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
