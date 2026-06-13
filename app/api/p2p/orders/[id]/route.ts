@@ -27,7 +27,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           },
         },
       },
-      buyer: { select: { id: true, firstName: true, lastName: true, username: true } },
+      buyer: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+          merchantProfile: {
+            select: {
+              displayName: true,
+              paymentMethods: {
+                where: { isActive: true },
+                select: { type: true, accountName: true, accountNo: true, bankName: true, name: true },
+              },
+            },
+          },
+        },
+      },
       ad: { select: { fiat: true, paymentMethods: true, side: true, terms: true } },
     },
   });
@@ -67,6 +83,27 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     order.status = "EXPIRED" as typeof order.status;
   }
 
+  const merchantPaymentMethod = (
+    order.seller.paymentMethods.find((pm) => pm.name?.toLowerCase() === order.paymentMethod.toLowerCase())
+    ?? order.seller.paymentMethods.find((pm) => pm.type.toLowerCase() === order.paymentMethod.toLowerCase())
+  ) ?? null;
+  const takerPaymentMethod = (
+    order.buyer.merchantProfile?.paymentMethods.find((pm) => pm.name?.toLowerCase() === order.paymentMethod.toLowerCase())
+    ?? order.buyer.merchantProfile?.paymentMethods.find((pm) => pm.type.toLowerCase() === order.paymentMethod.toLowerCase())
+  ) ?? null;
+  const buyer = {
+    id: order.buyer.id,
+    firstName: order.buyer.firstName,
+    lastName: order.buyer.lastName,
+    username: order.buyer.username,
+  };
+  const takerDisplayName = order.buyer.firstName
+    ? `${order.buyer.firstName} ${order.buyer.lastName ?? ""}`.trim()
+    : order.buyer.username ?? order.buyer.merchantProfile?.displayName ?? "Trader";
+  const paymentRecipient = order.ad.side === "SELL"
+    ? { displayName: order.seller.displayName, paymentMethod: merchantPaymentMethod }
+    : { displayName: takerDisplayName, paymentMethod: takerPaymentMethod };
+
   return Response.json({
     id:              order.id,
     status:          order.status,
@@ -80,18 +117,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     paidAt:          order.paidAt,
     releasedAt:      order.releasedAt,
     cancelReason:    order.cancelReason,
-    buyer:  order.buyer,
+    buyer,
     seller: {
       displayName: order.seller.displayName,
       userId:      order.seller.userId,
-      // Match the order's payment rail to the seller's saved details. We store
-      // the rail code in `name`, so match on that first; fall back to the
-      // MPESA/BANK enum type for older records.
-      paymentMethod: (
-        order.seller.paymentMethods.find((pm) => pm.name?.toLowerCase() === order.paymentMethod.toLowerCase())
-        ?? order.seller.paymentMethods.find((pm) => pm.type.toLowerCase() === order.paymentMethod.toLowerCase())
-      ) ?? null,
+      paymentMethod: merchantPaymentMethod,
     },
+    paymentRecipient,
     ad:     order.ad,
     side:            order.ad.side,
     isBuyer,
