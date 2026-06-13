@@ -11,7 +11,7 @@ const MIN_SPIN_AMOUNT = 10;
 const SEGMENTS = [
   { label: "×1.5", mult: 1.5 },
   { label: "×2",   mult: 2   },
-  { label: "×0.5", mult: 0.5 },
+  { label: "×0",   mult: 0   },
   { label: "×3",   mult: 3   },
   { label: "×1.5", mult: 1.5 },
   { label: "×2",   mult: 2   },
@@ -19,8 +19,7 @@ const SEGMENTS = [
   { label: "×3",   mult: 3   },
 ];
 
-// Weighted random: 70% partial return (×0.5), 30% win across the rest.
-// The wheel never displays or awards a zero result.
+// Weighted random: 70% no-win result (×0), 30% win across the rest.
 // Segment indices:   0   1    2   3   4   5  6  7
 const WEIGHTS =     [ 5,  5,  70,  5,  5,  5, 2, 3]; // out of 100 total
 

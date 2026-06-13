@@ -50,7 +50,7 @@ function StatusBadge({ status }: { status: string }) {
 const WHEEL_SEGS = [
   { label: "×1.5", mult: 1.5, fill: "#1a3a6c", text: "#75b8ff" },
   { label: "×2",   mult: 2,   fill: "#087cff", text: "#fff"    },
-  { label: "×0.5", mult: 0.5, fill: "#111420", text: "#8b94b8" },
+  { label: "×0",   mult: 0,   fill: "#2a1118", text: "#fb7185" },
   { label: "×3",   mult: 3,   fill: "#0055b3", text: "#fff"    },
   { label: "×1.5", mult: 1.5, fill: "#1a3a6c", text: "#75b8ff" },
   { label: "×2",   mult: 2,   fill: "#087cff", text: "#fff"    },
@@ -235,12 +235,14 @@ function WheelOfFortune({
           <p className={`text-[11px] font-bold mb-0.5 ${
             result.netChange < 0 ? "text-red-400" : result.multiplier >= 5 ? "text-amber-400" : "text-emerald-400"
           }`}>
-            {result.netChange < 0 ? "Partial return" : result.multiplier >= 5 ? "Big win!" : "You won!"}
+            {result.multiplier === 0 ? "No win" : result.netChange < 0 ? "Partial return" : result.multiplier >= 5 ? "Big win!" : "You won!"}
           </p>
           <p className={`text-xl font-black tabular-nums ${
             result.netChange < 0 ? "text-red-400" : result.multiplier >= 5 ? "text-amber-400" : "text-emerald-400"
           }`}>
-            {result.netChange < 0
+            {result.multiplier === 0
+              ? `KSh ${result.stake.toFixed(2)} lost`
+              : result.netChange < 0
               ? `KSh ${result.winAmount.toFixed(2)} returned`
               : `+KSh ${result.netChange.toFixed(2)} profit`}
           </p>
