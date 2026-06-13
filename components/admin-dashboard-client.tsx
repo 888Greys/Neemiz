@@ -64,7 +64,7 @@ function Metric({ label, value, detail, icon, tone = "blue" }: {
     violet: "bg-violet-500/10 text-violet-400",
   };
   return (
-    <div className="border-b border-r border-white/[0.06] bg-[#0a0d13] p-4">
+    <div className="border-b border-r border-white/[0.06] bg-white/[0.012] p-4">
       <div className="flex items-center justify-between">
         <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">{label}</p>
         <span className={`rounded-lg p-1.5 ${tones[tone]}`}><Icon name={icon} size={14} /></span>
@@ -79,7 +79,7 @@ function Panel({ title, action, children, className = "" }: {
   title: string; action?: React.ReactNode; children: React.ReactNode; className?: string;
 }) {
   return (
-    <section className={`overflow-hidden rounded-xl border border-white/[0.07] bg-[#090c12] ${className}`}>
+    <section className={`admin-panel overflow-hidden ${className}`}>
       <div className="flex h-11 items-center justify-between border-b border-white/[0.06] px-4">
         <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{title}</h2>
         {action}
@@ -133,14 +133,14 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
   ] as const;
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(8,124,255,.08),transparent_25%)] px-3 py-4 sm:px-5 lg:px-6">
+    <div className="admin-page">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Platform operational</p>
           </div>
-          <h1 className="mt-1 text-xl font-black tracking-tight">Owner Command Center</h1>
+          <h1 className="mt-1 text-2xl font-black tracking-tight">Owner command center</h1>
           <p className="text-[11px] text-slate-600">{adminEmail} · {updatedAt ? `Synced ${updatedAt.toLocaleTimeString()}` : "Connecting"}</p>
         </div>
         <button onClick={load} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] font-black text-slate-400 hover:text-white">
@@ -148,7 +148,7 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
         </button>
       </header>
 
-      <div className="mb-4 grid overflow-hidden rounded-xl border border-white/[0.07] sm:grid-cols-2 xl:grid-cols-4">
+      <div className="admin-panel mb-4 grid overflow-hidden sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Customer funds" value={money(stats.totalWalletBalance)} detail={`${stats.totalUsers.toLocaleString()} user wallets`} icon="account_balance_wallet" />
         <Metric label="Cash in today" value={money(stats.depositsToday.amount)} detail={`${stats.depositsToday.count} completed deposits`} icon="arrow_downward" tone="green" />
         <Metric label="Bet turnover today" value={money(stats.bettingToday.stakes)} detail={`${stats.bettingToday.stakeCount} stakes placed`} icon="bolt" tone="violet" />

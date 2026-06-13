@@ -66,38 +66,39 @@ export function AdminUsersClient() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="admin-page">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-black text-white">Users</h1>
-          <p className="text-slate-600 text-xs mt-0.5">{total.toLocaleString()} total accounts</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-blue-400">Account intelligence</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-white">Users</h1>
+          <p className="mt-1 text-[11px] text-slate-500">{total.toLocaleString()} accounts across the Nezeem ecosystem</p>
         </div>
         <form
           onSubmit={(e) => { e.preventDefault(); setQuery(search); }}
-          className="flex gap-2"
+          className="flex w-full gap-2 sm:w-auto"
         >
-          <div className="flex items-center gap-2 rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2">
+          <div className="admin-panel-soft flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 sm:w-72">
             <Icon name="search" className="text-[16px] text-slate-600" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Email, username, phone…"
-              className="bg-transparent text-sm text-white outline-none placeholder:text-slate-700 w-52"
+              className="min-w-0 flex-1 bg-transparent text-xs text-white outline-none placeholder:text-slate-700"
             />
           </div>
-          <button type="submit" className="rounded-xl bg-[#087cff] px-4 py-2 text-sm font-bold text-white hover:bg-[#1a8aff]">
-            Search
+          <button type="submit" className="rounded-xl bg-blue-500 px-4 py-2 text-xs font-black text-white shadow-[0_10px_24px_rgba(8,124,255,.2)] hover:bg-blue-400">
+            Find account
           </button>
         </form>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0f1623]">
+      <div className="admin-panel overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : users.length === 0 ? (
           <p className="py-16 text-center text-slate-600 text-sm">No users found</p>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full min-w-[900px] text-sm">
             <thead>
               <tr className="border-b border-white/[0.06]">
                 {["User", "Balance", "Bets", "Txns", "Joined", "Status", ""].map((h) => (
@@ -107,7 +108,7 @@ export function AdminUsersClient() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors">
+                <tr key={u.id} className="admin-table-row border-b border-white/[0.04]">
                   <td className="px-4 py-3">
                     <p className="font-bold text-white text-[13px]">{u.email ?? u.phone ?? "—"}</p>
                     {u.username && <p className="text-[11px] text-slate-600">@{u.username}</p>}
@@ -133,7 +134,7 @@ export function AdminUsersClient() {
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={`/admin/users/${u.id}`}
-                        className="rounded-xl bg-[#087cff]/10 px-3 py-1.5 text-[11px] font-black text-[#55a7ff] hover:bg-[#087cff]/20"
+                        className="rounded-lg bg-blue-500/10 px-3 py-1.5 text-[10px] font-black text-blue-400 hover:bg-blue-500/20"
                       >
                         Inspect
                       </Link>
@@ -155,7 +156,7 @@ export function AdminUsersClient() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 

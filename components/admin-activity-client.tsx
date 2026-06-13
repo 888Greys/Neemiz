@@ -77,11 +77,11 @@ export function AdminActivityClient() {
   const chartData = data.products.map((item) => ({ name: item.name, players: item.players, activity: item.activity }));
 
   return (
-    <div className="min-h-screen px-3 py-4 sm:px-5 lg:px-6">
+    <div className="admin-page">
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">30-day intelligence</p>
-          <h1 className="mt-1 text-2xl font-black">Product Activity</h1>
+          <h1 className="mt-1 text-2xl font-black tracking-tight">Product activity</h1>
           <p className="text-xs text-slate-600">Players, volume, payouts, exposure, and recent activity across every platform product.</p>
         </div>
         <button onClick={load} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] font-black text-slate-400 hover:text-white">
@@ -89,14 +89,14 @@ export function AdminActivityClient() {
         </button>
       </header>
 
-      <div className="mb-4 grid overflow-hidden rounded-xl border border-white/[0.07] sm:grid-cols-2 xl:grid-cols-4">
+      <div className="admin-panel mb-4 grid overflow-hidden sm:grid-cols-2 xl:grid-cols-4">
         {[
           ["Product players", data.totals.players.toLocaleString(), "Distinct per product", "groups"],
           ["Total activities", data.totals.activity.toLocaleString(), "Bets, trades and orders", "bolt"],
           ["Combined volume", money(data.totals.volume), "Stake, margin and P2P value", "account_balance_wallet"],
           ["Recorded payouts", money(data.totals.payout), "Wins and closed P&L", "trending_up"],
         ].map(([label, value, detail, icon]) => (
-          <div key={label} className="border-b border-r border-white/[0.06] bg-[#0a0d13] p-4">
+          <div key={label} className="border-b border-r border-white/[0.06] bg-white/[0.012] p-4">
             <Icon name={icon} size={15} className="text-blue-400" />
             <p className="mt-4 text-2xl font-black">{value}</p>
             <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-slate-600">{label}</p>
@@ -106,7 +106,7 @@ export function AdminActivityClient() {
       </div>
 
       <div className="mb-4 grid gap-4 xl:grid-cols-[1.3fr_1fr]">
-        <section className="rounded-xl border border-white/[0.07] bg-[#090c12] p-4">
+        <section className="admin-panel p-4">
           <p className="mb-4 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Players and activity by product</p>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -124,7 +124,7 @@ export function AdminActivityClient() {
 
         <section className="grid grid-cols-2 gap-2">
           {data.products.map((item) => (
-            <button key={item.id} onClick={() => setActive(item.id)} className={`rounded-xl border p-4 text-left transition ${active === item.id ? "border-blue-500/30 bg-blue-500/[0.08]" : "border-white/[0.06] bg-[#090c12] hover:bg-white/[0.03]"}`}>
+            <button key={item.id} onClick={() => setActive(item.id)} className={`rounded-2xl border p-4 text-left transition ${active === item.id ? "border-blue-500/30 bg-blue-500/[0.08] shadow-[0_12px_35px_rgba(8,124,255,.08)]" : "border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]"}`}>
               <Icon name={icons[item.id]} size={17} className={active === item.id ? "text-blue-400" : "text-slate-600"} />
               <p className="mt-3 text-sm font-black">{item.name}</p>
               <p className="mt-1 text-[10px] text-slate-600">{item.players} players · {item.activity} activities</p>
@@ -134,7 +134,7 @@ export function AdminActivityClient() {
         </section>
       </div>
 
-      <section className="overflow-hidden rounded-xl border border-white/[0.07] bg-[#090c12]">
+      <section className="admin-panel overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3">
           <div className="flex items-center gap-3">
             <Icon name={icons[product.id]} size={18} className="text-blue-400" />

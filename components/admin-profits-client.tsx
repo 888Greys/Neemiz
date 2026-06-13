@@ -27,9 +27,9 @@ interface ProfitsResponse {
 
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
   return (
-    <div className="rounded-2xl bg-[#0f1623] border border-white/[0.06] p-5">
-      <p className="text-3xl font-black text-white">{value}</p>
-      <p className={`mt-0.5 text-xs font-black uppercase tracking-wide ${color}`}>{label}</p>
+    <div className="admin-panel p-4">
+      <p className="text-xl font-black tracking-tight text-white">{value}</p>
+      <p className={`mt-2 text-[9px] font-black uppercase tracking-[0.16em] ${color}`}>{label}</p>
       {sub && <p className="mt-1 text-[11px] text-slate-600">{sub}</p>}
     </div>
   );
@@ -72,11 +72,12 @@ export function AdminProfitsClient() {
   const t = data?.totals;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="admin-page">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-xl font-black text-white">Profits & Revenue</h1>
-          <p className="text-slate-600 text-xs mt-0.5">Verified cash flow and platform P&amp;L</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.24em] text-emerald-400">Financial intelligence</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-white">Finance & revenue</h1>
+          <p className="mt-1 text-[11px] text-slate-500">Verified provider cash flow, wagering turnover and platform profitability.</p>
         </div>
         <div className="flex gap-1.5">
           {RANGE_OPTIONS.map((o) => (
@@ -96,7 +97,7 @@ export function AdminProfitsClient() {
       ) : (
         <>
           {/* Summary cards */}
-          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <StatCard label="Gross Profit"    value={fmt(t.grossProfit)}    color={t.grossProfit >= 0 ? "text-emerald-400" : "text-red-400"} />
             <StatCard label="Real Cash In"    value={fmt(t.deposits)}       sub="Completed MegaPay deposits" color="text-sky-400" />
             <StatCard label="Real Cash Out"   value={fmt(t.withdrawals)}    sub="Completed provider payouts" color="text-orange-400" />
@@ -106,7 +107,7 @@ export function AdminProfitsClient() {
           </div>
 
           {/* Gross profit chart */}
-          <div className="mb-4 rounded-2xl border border-white/[0.06] bg-[#0f1623] p-5">
+          <div className="admin-panel mb-4 p-5">
             <p className="mb-4 text-[11px] font-black uppercase tracking-[0.12em] text-slate-600">
               Daily Gross Profit (KSh)
             </p>
@@ -140,7 +141,7 @@ export function AdminProfitsClient() {
           </div>
 
           {/* Deposits vs Withdrawals chart */}
-          <div className="rounded-2xl border border-white/[0.06] bg-[#0f1623] p-5">
+          <div className="admin-panel p-5">
             <p className="mb-4 text-[11px] font-black uppercase tracking-[0.12em] text-slate-600">
               Verified Cash In vs Cash Out (KSh)
             </p>
@@ -177,7 +178,7 @@ export function AdminProfitsClient() {
           </div>
 
           {/* Daily table */}
-          <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0f1623]">
+          <div className="admin-panel mt-4 overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/[0.06]">
