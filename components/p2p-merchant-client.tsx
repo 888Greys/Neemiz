@@ -375,7 +375,7 @@ function PaymentMethodsSection() {
   const showForm = formOpen || (!loading && methods.length === 0);
 
   return (
-    <div className="mb-3 overflow-hidden rounded-lg border border-white/[0.06] bg-[#111118]">
+    <div id="merchant-payment-methods" className="mb-3 scroll-mt-24 overflow-hidden rounded-lg border border-white/[0.06] bg-[#111118]">
       <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-3 py-3">
         <div className="min-w-0">
           <h2 className="text-sm font-black text-white">Payment Methods</h2>
@@ -458,6 +458,7 @@ function DepositSection() {
   const [e2wCrypto, setE2wCrypto]         = useState("USDT");
   const [e2wAmount, setE2wAmount]         = useState("");
   const [e2wLoading, setE2wLoading]       = useState(false);
+  const [mobileBalanceView, setMobileBalanceView] = useState<"wallet" | "escrow">("wallet");
 
   const load = useCallback(async () => {
     try {
@@ -898,7 +899,62 @@ function DepositSection() {
       )}
 
       {/* Wallet + Escrow balance rows */}
-      <div className="grid gap-0 border-b border-white/[0.06] bg-white/[0.01] lg:grid-cols-2 lg:divide-x lg:divide-white/[0.04]">
+      <div className="border-b border-white/[0.06] bg-white/[0.01] px-3 py-3 lg:hidden">
+        <div className="mb-3 grid grid-cols-2 rounded-lg bg-black/25 p-1">
+          <button
+            type="button"
+            onClick={() => setMobileBalanceView("wallet")}
+            className={`flex h-9 items-center justify-center gap-1.5 rounded-md text-xs font-black transition ${
+              mobileBalanceView === "wallet" ? "bg-[#087cff] text-white" : "text-slate-500"
+            }`}
+          >
+            <Icon name="account_balance_wallet" className="text-sm" />
+            Wallet
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileBalanceView("escrow")}
+            className={`flex h-9 items-center justify-center gap-1.5 rounded-md text-xs font-black transition ${
+              mobileBalanceView === "escrow" ? "bg-[#087cff] text-white" : "text-slate-500"
+            }`}
+          >
+            <Icon name="lock" className="text-sm" />
+            Escrow
+          </button>
+        </div>
+        <p className="mb-2 text-[11px] leading-4 text-slate-600">
+          {mobileBalanceView === "wallet"
+            ? "Deposits arrive here first."
+            : "Available funds back ads. Locked funds are in active orders."}
+        </p>
+        <div className="overflow-hidden rounded-lg border border-white/[0.06]">
+          {(mobileBalanceView === "wallet" ? walletDisplayRows : escrowDisplayRows).map((balance, index, rows) => (
+            <div
+              key={`${mobileBalanceView}-${balance.crypto}`}
+              className={`flex items-center justify-between gap-3 bg-white/[0.02] px-3 py-2.5 ${
+                index < rows.length - 1 ? "border-b border-white/[0.05]" : ""
+              }`}
+            >
+              <div className="min-w-0">
+                <p className="text-xs font-black text-white">{balance.crypto}</p>
+                <p className="truncate text-[10px] font-semibold text-slate-600">
+                  {"network" in balance && typeof balance.network === "string" ? balance.network : "merchant escrow"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className={Number(balance.available) > 0 ? "text-sm font-black text-white" : "text-sm font-black text-slate-700"}>
+                  {formatCoinAmount(balance.crypto, balance.available)}
+                </p>
+                {balance.locked > 0 && (
+                  <p className="text-[10px] font-bold text-amber-400">{formatCoinAmount(balance.crypto, balance.locked)} locked</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="hidden gap-0 border-b border-white/[0.06] bg-white/[0.01] lg:grid lg:grid-cols-2 lg:divide-x lg:divide-white/[0.04]">
         {/* Wallet (UserCryptoBalance) */}
         <div className="px-4 py-3">
           <div className="mb-3 flex items-start justify-between gap-3">
@@ -947,7 +1003,7 @@ function DepositSection() {
         </div>
       </div>
 
-      <div className="grid gap-2 border-b border-white/[0.06] px-4 py-3 text-[11px] text-slate-500 sm:grid-cols-3">
+      <div className="hidden gap-2 border-b border-white/[0.06] px-4 py-3 text-[11px] text-slate-500 sm:grid sm:grid-cols-3">
         <div className="flex items-start gap-2">
           <Icon name="download" className="mt-0.5 text-sm text-[#087cff]" />
           <span>Receive crypto to wallet addresses.</span>
@@ -1043,7 +1099,28 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const [submitting, setSubmitting] = useState(false);
   const [cryptoOpen, setCryptoOpen] = useState(false);
   const [spotRate, setSpotRate] = useState<number | null>(null);
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<PayMethod[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/p2p/merchant/payment-methods")
+      .then((response) => response.ok ? response.json() : [])
+      .then((methods: PayMethod[]) => {
+        if (cancelled) return;
+        setSavedPaymentMethods(methods);
+        const savedCodes = new Set(methods.map((method) => method.name));
+        setForm((current) => ({
+          ...current,
+          paymentMethods: current.paymentMethods.filter((method) => savedCodes.has(method)),
+        }));
+      })
+      .finally(() => {
+        if (!cancelled) setPaymentMethodsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   function formatPriceInput(value: number, fiat: string): string {
     if (!Number.isFinite(value) || value <= 0) return "";
@@ -1115,6 +1192,9 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   }
 
   async function submit() {
+    if (savedPaymentMethods.length === 0) {
+      return toast.error("Add a payment method in Merchant Center before posting an ad");
+    }
     if (
       !form.pricePerUnit ||
       !form.totalAmount ||
@@ -1358,14 +1438,42 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
           <div>
             <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Payment methods</label>
-            <div className="grid grid-cols-2 gap-2">
-              {paymentMethodsForFiat(form.fiat).map(({ value, label }) => (
-                <button key={value} type="button" onClick={() => togglePm(value)}
-                  className={`rounded-xl border py-2 text-xs font-bold transition-all ${form.paymentMethods.includes(value) ? "bg-[#087cff]/20 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"}`}>
-                  {label}
+            {paymentMethodsLoading ? (
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-xs font-semibold text-slate-500">
+                Loading saved payment methods...
+              </div>
+            ) : savedPaymentMethods.length === 0 ? (
+              <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-3">
+                <p className="text-xs font-black text-amber-300">Payment setup required</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                  Add the account where buyers should send payment. Ads cannot be posted without saved payout details.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    window.setTimeout(() => {
+                      document.getElementById("merchant-payment-methods")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 100);
+                  }}
+                  className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-300 px-3 text-xs font-black text-black"
+                >
+                  <Icon name="payments" className="text-sm" />
+                  Set up payment methods
                 </button>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {paymentMethodsForFiat(form.fiat)
+                  .filter(({ value }) => savedPaymentMethods.some((method) => method.name === value))
+                  .map(({ value, label }) => (
+                    <button key={value} type="button" onClick={() => togglePm(value)}
+                      className={`rounded-xl border py-2 text-xs font-bold transition-all ${form.paymentMethods.includes(value) ? "bg-[#087cff]/20 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"}`}>
+                      {label}
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
 
           <div>
@@ -1385,7 +1493,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
         {/* Pinned action bar — always visible above the bottom nav */}
         <div className="sticky bottom-0 border-t border-white/[0.07] bg-[#0e0e14] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <button onClick={submit} disabled={submitting}
+          <button onClick={submit} disabled={submitting || paymentMethodsLoading || savedPaymentMethods.length === 0}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] py-3 font-black text-white shadow-lg shadow-[#087cff]/20 transition-all hover:bg-[#0570e8] active:scale-[0.98] disabled:opacity-50">
             {submitting
               ? <LoadingDots label={isEditing ? "Saving" : "Creating"} />
