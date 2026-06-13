@@ -38,7 +38,7 @@ interface OrderData {
     displayName: string;
     paymentMethod: { type: string; accountName: string; accountNo: string; bankName: string | null; name: string } | null;
   };
-  ad: { fiat: string; paymentMethods: string[]; terms?: string | null };
+  ad: { fiat: string; paymentMethods: string[]; paymentWindow: number; terms?: string | null };
   side: "BUY" | "SELL";
   isBuyer: boolean;
   isSeller: boolean;
@@ -96,19 +96,11 @@ function releaseButtonLabel(order: OrderData, loading: boolean): string {
   return loading ? "Releasing..." : "Release Coins";
 }
 
-function formatOrderTime(value: string | null): string | null {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return `${date.toLocaleString("en-KE", {
-    timeZone: "Africa/Nairobi",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  })} EAT`;
+function releaseDeadline(order: OrderData): string | null {
+  if (!order.paidAt) return null;
+  const paidAt = new Date(order.paidAt);
+  if (Number.isNaN(paidAt.getTime())) return null;
+  return new Date(paidAt.getTime() + order.ad.paymentWindow * 60_000).toISOString();
 }
 
 // ─── Countdown ────────────────────────────────────────────────────────────────
@@ -775,11 +767,13 @@ function MobileP2POrderView({
               <p className="text-sm font-black text-white">
                 {canRelease ? "Confirm money, then release coins" : "Payment completed"}
               </p>
-              {formatOrderTime(order.paidAt) && (
-                <p className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-slate-300">
-                  <Icon name="schedule" className="text-[14px] text-slate-500" />
-                  Payment marked: {formatOrderTime(order.paidAt)}
-                </p>
+              {releaseDeadline(order) && (
+                <div className="mt-2">
+                  <p className="mb-1 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    Time to verify and release
+                  </p>
+                  <Countdown expiresAt={releaseDeadline(order)!} onExpire={() => {}} />
+                </div>
               )}
               <p className="mt-1 text-[12px] leading-5 text-slate-400">
                 {canRelease
@@ -1154,10 +1148,10 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 {order.status === "DISPUTED" && "Dispute in progress"}
               </h2>
 
-              {order.status === "PAID" && formatOrderTime(order.paidAt) && (
-                <div className="mb-4 flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs font-bold text-slate-300">
-                  <Icon name="schedule" className="text-[15px] text-slate-500" />
-                  Payment marked: {formatOrderTime(order.paidAt)}
+              {order.status === "PAID" && releaseDeadline(order) && (
+                <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                  <span className="text-xs font-bold text-slate-400">Time to verify and release</span>
+                  <Countdown expiresAt={releaseDeadline(order)!} onExpire={() => {}} />
                 </div>
               )}
 
