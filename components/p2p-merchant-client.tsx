@@ -1601,6 +1601,10 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const [loading, setLoading]   = useState(true);
   const [createOpen, setCreate] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
+  const [section, setSection] = useState<"overview" | "wallet" | "payments" | "ads">("overview");
+  const [adFilter, setAdFilter] = useState<"ALL" | "ACTIVE" | "PAUSED" | "EXHAUSTED">("ALL");
+  const [adPage, setAdPage] = useState(1);
+  const [openAdMenu, setOpenAdMenu] = useState<string | null>(null);
 
   // Editable display name
   const [displayName, setDisplayName] = useState(status.displayName ?? "");
@@ -1717,6 +1721,25 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
     }
   }
 
+  const activeAds = ads.filter((ad) => ad.isActive);
+  const exhaustedAds = ads.filter((ad) => Number(ad.availableAmount) <= 0 || !!ad.validationError);
+  const totalListed = ads.reduce((sum, ad) => sum + Number(ad.totalAmount), 0);
+  const totalAvailable = ads.reduce((sum, ad) => sum + Number(ad.availableAmount), 0);
+  const listedKES = ads.reduce((sum, ad) => {
+    const valueInFiat = Number(ad.availableAmount) * Number(ad.pricePerUnit);
+    return sum + valueInFiat * (fx.toKES[ad.fiat] ?? 1);
+  }, 0);
+  const cryptos = ads.map((ad) => ad.crypto).filter((crypto, index, values) => values.indexOf(crypto) === index);
+  const filteredAds = ads.filter((ad) => {
+    if (adFilter === "ACTIVE") return ad.isActive;
+    if (adFilter === "PAUSED") return !ad.isActive && Number(ad.availableAmount) > 0 && !ad.validationError;
+    if (adFilter === "EXHAUSTED") return Number(ad.availableAmount) <= 0 || !!ad.validationError;
+    return true;
+  });
+  const adsPerPage = 8;
+  const adPageCount = Math.max(1, Math.ceil(filteredAds.length / adsPerPage));
+  const visibleAds = filteredAds.slice((adPage - 1) * adsPerPage, adPage * adsPerPage);
+
   return (
     <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4">
       {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} />}
@@ -1801,19 +1824,29 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         </button>
       </div>
 
-      {/* Stats row */}
-      {(() => {
-        const activeAds     = ads.filter((a) => a.isActive);
-        const totalListed   = ads.reduce((s, a) => s + Number(a.totalAmount), 0);
-        const totalAvail    = ads.reduce((s, a) => s + Number(a.availableAmount), 0);
-        // Convert each ad's value (priced in its own fiat) into KES before summing.
-        const listedKES     = ads.reduce((s, a) => {
-          const valueInFiat = Number(a.availableAmount) * Number(a.pricePerUnit);
-          const rate = fx.toKES[a.fiat] ?? 1;
-          return s + valueInFiat * rate;
-        }, 0);
-        const cryptos       = ads.map((a) => a.crypto).filter((c, idx, arr) => arr.indexOf(c) === idx);
-        return (
+      <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-white/[0.07] bg-[#101118] p-1">
+        {([
+          ["overview", "Overview", "dashboard"],
+          ["wallet", "Wallet & Escrow", "account_balance_wallet"],
+          ["payments", "Payment Methods", "payments"],
+          ["ads", `Ads ${ads.length}`, "campaign"],
+        ] as const).map(([id, label, icon]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setSection(id)}
+            className={`flex h-10 shrink-0 items-center gap-2 rounded-lg px-4 text-xs font-black transition ${
+              section === id ? "bg-[#087cff] text-white shadow-lg shadow-[#087cff]/15" : "text-slate-500 hover:bg-white/[0.05] hover:text-white"
+            }`}
+          >
+            <Icon name={icon} className="text-base" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {section === "overview" && (
+        <>
           <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
             {/* Active Ads */}
             <div className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-[#087cff]/20">
@@ -1831,7 +1864,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                 <p className="text-slate-500 text-xs">Listed Crypto</p>
                 <Icon name="currency_bitcoin" className="text-[#05b957] text-sm opacity-60" />
               </div>
-              <p className="text-lg font-black text-[#05b957]">{totalAvail.toFixed(4)}</p>
+              <p className="text-lg font-black text-[#05b957]">{totalAvailable.toFixed(4)}</p>
               <p className="text-slate-600 text-[11px] mt-1">{totalListed.toFixed(4)} total · {cryptos.join(", ") || "—"}</p>
             </div>
 
@@ -1864,21 +1897,53 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               </p>
             </div>
           </div>
-        );
-      })()}
+          <div className="grid gap-3 lg:grid-cols-3">
+            <button onClick={() => setSection("wallet")} className="rounded-xl border border-white/[0.07] bg-[#111118] p-4 text-left transition hover:border-[#05b957]/25 hover:bg-[#151720]">
+              <Icon name="account_balance_wallet" className="text-xl text-[#05b957]" />
+              <p className="mt-3 text-sm font-black text-white">Manage liquidity</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Fund escrow, withdraw to wallet, receive crypto and review movements.</p>
+            </button>
+            <button onClick={() => setSection("ads")} className="rounded-xl border border-white/[0.07] bg-[#111118] p-4 text-left transition hover:border-[#087cff]/25 hover:bg-[#151720]">
+              <Icon name="campaign" className="text-xl text-[#087cff]" />
+              <p className="mt-3 text-sm font-black text-white">Manage ads</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{activeAds.length} active, {exhaustedAds.length} exhausted or needing attention.</p>
+            </button>
+            <button onClick={() => setSection("payments")} className="rounded-xl border border-white/[0.07] bg-[#111118] p-4 text-left transition hover:border-amber-400/25 hover:bg-[#151720]">
+              <Icon name="payments" className="text-xl text-amber-400" />
+              <p className="mt-3 text-sm font-black text-white">Payment rails</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Control the M-Pesa, Airtel Money and bank accounts shown in orders.</p>
+            </button>
+          </div>
+        </>
+      )}
 
-      {/* Wallet and escrow operations */}
-      <DepositSection />
-
-      {/* Payment methods */}
-      <PaymentMethodsSection />
+      {section === "wallet" && <DepositSection />}
+      {section === "payments" && <PaymentMethodsSection />}
 
       {/* Ads list */}
-      <div>
-        <div className="mb-2 flex items-center justify-between px-1">
+      {section === "ads" && <div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
           <div>
             <h2 className="text-white font-black text-base">My Ads</h2>
-            <p className="text-slate-500 text-xs mt-0.5">{ads.filter((a) => a.isActive).length} active · {ads.length} total</p>
+            <p className="text-slate-500 text-xs mt-0.5">{activeAds.length} active · {ads.length} total</p>
+          </div>
+          <div className="flex gap-1 rounded-lg bg-white/[0.03] p-1">
+            {(["ALL", "ACTIVE", "PAUSED", "EXHAUSTED"] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => {
+                  setAdFilter(filter);
+                  setAdPage(1);
+                  setOpenAdMenu(null);
+                }}
+                className={`rounded-md px-3 py-1.5 text-[10px] font-black transition ${
+                  adFilter === filter ? "bg-white/[0.10] text-white" : "text-slate-600 hover:text-slate-300"
+                }`}
+              >
+                {filter}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1886,26 +1951,26 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
           <div className="space-y-2">
             {[1,2].map((i) => <div key={i} className="h-20 rounded-2xl bg-white/[0.03] animate-pulse" />)}
           </div>
-        ) : ads.length === 0 ? (
+        ) : filteredAds.length === 0 ? (
           <div className="flex min-h-[120px] flex-col items-center justify-center rounded-2xl ring-1 ring-white/[0.07] bg-[#16171d] px-6 py-5 text-center">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
               <Icon name="post_add" className="text-xl text-slate-500" />
             </div>
-            <p className="mb-1 text-base font-black text-white">No ads yet</p>
-            <p className="mb-4 max-w-sm text-sm leading-6 text-slate-500">Create your first ad to start trading.</p>
+            <p className="mb-1 text-base font-black text-white">{ads.length ? `No ${adFilter.toLowerCase()} ads` : "No ads yet"}</p>
+            <p className="mb-4 max-w-sm text-sm leading-6 text-slate-500">{ads.length ? "Choose another filter to view your inventory." : "Create your first ad to start trading."}</p>
             <button onClick={() => setCreate(true)} className="px-5 py-2.5 rounded-xl bg-[#087cff] text-white font-black text-sm hover:bg-[#0570e8] transition-colors">
-              Create First Ad
+              {ads.length ? "Post New Ad" : "Create First Ad"}
             </button>
           </div>
         ) : (
           <div className="space-y-2">
-            {ads.map((ad) => {
+            {visibleAds.map((ad) => {
               const pmLabel = (m: string) => paymentMethodLabel(m);
               const filled = Number(ad.totalAmount) - Number(ad.availableAmount);
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
               const dotColor = P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)?.color ?? "#087cff";
               return (
-                <div key={ad.id} className="grid w-full grid-cols-[minmax(0,1fr)_90px] gap-3 rounded-lg bg-[#16171d] px-3 py-2.5 ring-1 ring-white/[0.07] transition hover:bg-[#1a1b22] hover:ring-white/[0.14] sm:px-4 lg:grid-cols-[minmax(0,1fr)_120px] lg:items-center lg:gap-4">
+                <div key={ad.id} className="relative grid w-full grid-cols-[minmax(0,1fr)_44px] gap-3 rounded-lg bg-[#16171d] px-3 py-2.5 ring-1 ring-white/[0.07] transition hover:bg-[#1a1b22] hover:ring-white/[0.14] sm:px-4 lg:items-center">
                   <div className="min-w-0">
                     {/* Row 1: crypto dot + name + side badge + status */}
                     <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-0">
@@ -1973,37 +2038,60 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                     )}
                   </div>
 
-                  {/* Right: action buttons */}
-                  <div className="flex flex-col items-stretch justify-center gap-2">
+                  <div className="flex items-start justify-end">
                     <button
-                      onClick={() => setEditingAd(ad)}
-                      className="grid h-8 place-items-center rounded-lg bg-[#087cff]/15 text-[11px] font-black text-[#4da3ff] transition hover:bg-[#087cff]/25"
+                      type="button"
+                      onClick={() => setOpenAdMenu((current) => current === ad.id ? null : ad.id)}
+                      className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 transition hover:bg-white/[0.07] hover:text-white"
+                      aria-label="Ad actions"
                     >
-                      Edit
+                      <Icon name="more_vert" className="text-lg" />
                     </button>
-                    <button
-                      onClick={() => toggleActive(ad)}
-                      className={`grid h-8 place-items-center rounded-lg text-[11px] font-black transition ${
-                        ad.isActive
-                          ? "bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
-                          : "bg-[#05b957]/10 text-[#05b957] hover:bg-[#05b957]/20"
-                      }`}
-                    >
-                      {ad.isActive ? "Pause" : "Resume"}
-                    </button>
-                    <button
-                      onClick={() => deleteAd(ad)}
-                      className="grid h-8 place-items-center rounded-lg bg-red-500/10 text-[11px] font-black text-red-400 transition hover:bg-red-500/20"
-                    >
-                      Delete
-                    </button>
+                    {openAdMenu === ad.id && (
+                      <div className="absolute right-3 top-12 z-20 w-36 overflow-hidden rounded-xl border border-white/[0.10] bg-[#0d0f15] p-1 shadow-2xl">
+                        <button onClick={() => { setEditingAd(ad); setOpenAdMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-300 hover:bg-white/[0.06]">
+                          <Icon name="edit" className="text-sm" /> Edit
+                        </button>
+                        <button onClick={() => { void toggleActive(ad); setOpenAdMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-300 hover:bg-white/[0.06]">
+                          <Icon name={ad.isActive ? "pause" : "play_arrow"} className="text-sm" /> {ad.isActive ? "Pause" : "Resume"}
+                        </button>
+                        <button onClick={() => { void deleteAd(ad); setOpenAdMenu(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-red-400 hover:bg-red-500/10">
+                          <Icon name="delete" className="text-sm" /> Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
             })}
+            {adPageCount > 1 && (
+              <div className="flex items-center justify-between border-t border-white/[0.06] pt-3">
+                <p className="text-xs text-slate-600">
+                  Page {adPage} of {adPageCount} · {filteredAds.length} ads
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={adPage === 1}
+                    onClick={() => setAdPage((page) => Math.max(1, page - 1))}
+                    className="rounded-lg border border-white/[0.08] px-4 py-2 text-xs font-bold text-slate-400 transition hover:border-white/[0.14] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={adPage === adPageCount}
+                    onClick={() => setAdPage((page) => Math.min(adPageCount, page + 1))}
+                    className="rounded-lg border border-white/[0.08] px-4 py-2 text-xs font-bold text-slate-400 transition hover:border-white/[0.14] hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
