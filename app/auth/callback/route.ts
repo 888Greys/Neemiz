@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
 
 // This route handles the OAuth redirect from Supabase after Google/GitHub sign-in.
 // Set your Supabase Auth Redirect URL to: https://yourdomain.com/auth/callback
@@ -10,8 +11,16 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error && data.user) {
+      const account = await db.user.findUnique({
+        where: { supabaseId: data.user.id },
+        select: { isActive: true },
+      });
+      if (account?.isActive === false) {
+        await supabase.auth.signOut();
+        return NextResponse.redirect(`${origin}/suspended`);
+      }
       return NextResponse.redirect(`${origin}${next}`);
     }
   }

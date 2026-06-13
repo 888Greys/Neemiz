@@ -38,11 +38,27 @@ export function SupabaseAuthProvider({
   useEffect(() => {
     const supabase = createClient();
 
+    async function enforceAccountStatus(session: Session | null) {
+      if (!session) return;
+      try {
+        const response = await fetch("/api/auth/account-status", { cache: "no-store" });
+        if (!response.ok) return;
+        const status = await response.json() as { suspended?: boolean };
+        if (status.suspended) {
+          await supabase.auth.signOut();
+          window.location.replace("/suspended");
+        }
+      } catch {
+        // API authorization still blocks protected actions if this check cannot run.
+      }
+    }
+
     // Prime from existing session immediately
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoaded(true);
+      void enforceAccountStatus(session);
     });
 
     // Stay in sync with sign-in / sign-out / token refresh events
@@ -52,6 +68,7 @@ export function SupabaseAuthProvider({
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoaded(true);
+      if (_event === "SIGNED_IN") void enforceAccountStatus(session);
     });
 
     return () => subscription.unsubscribe();

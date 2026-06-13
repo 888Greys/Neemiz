@@ -67,6 +67,17 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
         return;
       }
 
+      const statusResponse = await fetch("/api/auth/account-status", { cache: "no-store" });
+      const accountStatus = statusResponse.ok
+        ? await statusResponse.json() as { suspended?: boolean }
+        : null;
+      if (accountStatus?.suspended) {
+        await supabase.auth.signOut();
+        onClose();
+        router.push("/suspended");
+        return;
+      }
+
       onClose();
       toast.success("Welcome back!", "You have successfully logged in.");
       router.push("/dashboard");
