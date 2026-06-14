@@ -23,6 +23,10 @@ Large login, registration, profile, and wallet overlays are lazy-loaded only
 when opened. Dashboard rows render a bounded preview rather than mounting the
 entire game catalog; category pages remain the full-inventory view.
 
+Sports fixture reads use a 15-second server cache. The fixture table is already
+updated by cron, so repeated navigations should not repeat the same remote
+database queries for every visitor.
+
 ### Stale-while-revalidate client cache
 
 `lib/client-cache.ts` stores selected API responses in memory and
