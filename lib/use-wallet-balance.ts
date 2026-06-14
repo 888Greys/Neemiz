@@ -39,7 +39,7 @@ async function fetchWalletState(force = false) {
   }
   if (walletRequest) return walletRequest;
 
-  walletRequest = fetch("/api/wallet/balance")
+  walletRequest = fetch("/api/wallet/balance", force ? { cache: "no-store" } : undefined)
     .then(async (res) => {
       if (!res.ok) throw new Error("Wallet request failed");
       const data = await res.json();

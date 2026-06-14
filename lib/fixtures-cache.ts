@@ -206,20 +206,23 @@ function scoreToMatch(numericId: number, score: {
 
 // ── Reads (served from DB — zero API credits) ───────────────────────────────
 
-export async function readLivescores(): Promise<Match[]> {
+export async function readLivescores(limit = 200): Promise<Match[]> {
   const rows = await db.fixtureCache.findMany({
-    where: { category: "live" },
+    where: {
+      category: "live",
+      commenceTime: { gt: new Date(Date.now() - 8 * 60 * 60 * 1000) },
+    },
     orderBy: { commenceTime: "asc" },
-    take: 200,
+    take: limit,
   });
   return rows.map((r) => (r.data as unknown as CachedFixture).match);
 }
 
-export async function readUpcoming(): Promise<Match[]> {
+export async function readUpcoming(limit = 200): Promise<Match[]> {
   const rows = await db.fixtureCache.findMany({
     where: { category: "upcoming", commenceTime: { gt: new Date() } },
     orderBy: { commenceTime: "asc" },
-    take: 200,
+    take: limit,
   });
   return rows.map((r) => (r.data as unknown as CachedFixture).match);
 }

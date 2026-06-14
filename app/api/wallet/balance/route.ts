@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -39,8 +39,13 @@ export async function GET() {
       balance:        Number(dbUser.walletBalance),
       currency:       dbUser.currency,
       cryptoBalances,
+    }, {
+      headers: { "Cache-Control": "private, max-age=2, stale-while-revalidate=5" },
     });
   } catch (err) {
+    if (err instanceof SuspendedAccountError) {
+      return Response.json({ error: "Account suspended" }, { status: 403 });
+    }
     console.error("Wallet balance route error:", err);
     return Response.json({ error: "Could not fetch balance" }, { status: 500 });
   }

@@ -14,6 +14,7 @@
  */
 import { db } from "@/lib/db";
 import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
+import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
 
 export const runtime = "nodejs";
 
@@ -88,5 +89,13 @@ export async function GET(req: Request) {
     }
   }
 
-  return Response.json({ ok: true, scanned: stale.length, expired, errors });
+  const deactivatedMerchantIds = await deactivateUnbackedKesSellAds();
+
+  return Response.json({
+    ok: true,
+    scanned: stale.length,
+    expired,
+    deactivatedUnbackedKesMerchants: deactivatedMerchantIds.length,
+    errors,
+  });
 }

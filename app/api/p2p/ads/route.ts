@@ -6,7 +6,7 @@ import { isKesCoin } from "@/lib/p2p/crypto-balance";
 import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
-import { assertKesSellBacking, deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
+import { assertKesSellBacking } from "@/lib/p2p/ad-backing";
 
 // "KES" is the in-app KES Coin, backed 1:1 by fiat wallet balance.
 const VALID_CRYPTOS = ["USDT", "USDC", "BTC", "ETH", "BNB", "KES"];
@@ -16,7 +16,6 @@ const VALID_FIATS = new Set(FIAT_CURRENCIES.map((f) => f.code));
 // GET /api/p2p/ads — browse ads (public)
 export async function GET(req: Request) {
   try {
-    await deactivateUnbackedKesSellAds();
     const url    = new URL(req.url);
     const side   = url.searchParams.get("side") as AdSide | null;
     const crypto = url.searchParams.get("crypto");
