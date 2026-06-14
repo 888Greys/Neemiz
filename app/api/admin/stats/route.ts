@@ -30,6 +30,23 @@ export async function GET() {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
+  // Accounts that were credited manually/by SQL (admin seed/credit, not a real
+  // gateway). Their balances are test money and must be kept out of the
+  // real-money view, then reported separately.
+  const testCreditUsers = await db.transaction.findMany({
+    where: {
+      type: "DEPOSIT",
+      OR: [
+        { provider: "manual" },
+        { reference: { startsWith: "admin-credit" } },
+        { reference: { startsWith: "ADMIN-SEED" } },
+      ],
+    },
+    select: { userId: true },
+    distinct: ["userId"],
+  });
+  const testUserIds = testCreditUsers.map((t) => t.userId);
+
   const [
     totalUsers,
     newUsersToday,
@@ -41,7 +58,8 @@ export async function GET() {
     activeOrders,
     totalDepositsMonth,
     pendingWithdrawals,
-    totalWalletBalance,
+    realWalletBalance,
+    testWalletBalance,
     suspendedUsers,
     pendingSportsBets,
     pendingPredictionBets,
@@ -70,7 +88,8 @@ export async function GET() {
       _count: true,
     }),
     db.transaction.count({ where: { type: "WITHDRAWAL", status: "PENDING_APPROVAL" as TransactionStatus } }),
-    db.user.aggregate({ _sum: { walletBalance: true } }),
+    db.user.aggregate({ where: { id: { notIn: testUserIds } }, _sum: { walletBalance: true }, _count: true }),
+    db.user.aggregate({ where: { id: { in: testUserIds } }, _sum: { walletBalance: true }, _count: true }),
     db.user.count({ where: { isActive: false } }),
     db.bet.count({ where: { status: "PENDING" } }),
     db.polymarketBet.count({ where: { status: "PENDING" } }),
@@ -121,7 +140,12 @@ export async function GET() {
       count:  totalDepositsMonth._count,
       amount: Number(totalDepositsMonth._sum.amount ?? 0),
     },
-    totalWalletBalance: Number(totalWalletBalance._sum.walletBalance ?? 0),
+    totalWalletBalance: Number(realWalletBalance._sum.walletBalance ?? 0),
+    realWalletCount: realWalletBalance._count,
+    testAccounts: {
+      count: testWalletBalance._count,
+      balance: Number(testWalletBalance._sum.walletBalance ?? 0),
+    },
     suspendedUsers,
     exposure: {
       sports: pendingSportsBets,
