@@ -73,6 +73,9 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const [profileOpen, setProfileOpen]         = useState(false);
   const [profileInitialView, setProfileInitialView] = useState<ProfileView | undefined>(undefined);
   const [walletOpen, setWalletOpen]           = useState(false);
+  // Optimistic nav target: highlight the tapped tab instantly (before the route
+  // actually arrives), then fall back to the real pathname once it lands.
+  const [pendingPath, setPendingPath]         = useState<string | null>(null);
 
   function openProfile(view?: ProfileView) {
     setProfileInitialView(view);
@@ -90,6 +93,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const mainRef = useRef<HTMLElement>(null);
   useEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: "instant" });
+    setPendingPath(null); // route arrived — clear the optimistic highlight
   }, [pathname]);
 
   if (isLogin) return <>{children}</>;
@@ -248,7 +252,10 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
           const activePath = "activePath" in item ? item.activePath : (item.href ?? "").split("?")[0].split("#")[0];
-          const active = activePath === pathname;
+          // Use the optimistic target while a tap is in flight so the tab lights
+          // up the instant it's pressed, not after the page finishes loading.
+          const active = activePath === (pendingPath ?? pathname);
+          const navigating = pendingPath === activePath && pathname !== activePath;
           if (item.label === "Menu") {
             return (
               <button key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset" onClick={() => setMobileMenuOpen(true)} type="button">
@@ -266,9 +273,10 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
               onPointerEnter={() => router.prefetch(item.href ?? "/")}
               onFocus={() => router.prefetch(item.href ?? "/")}
               onTouchStart={() => router.prefetch(item.href ?? "/")}
-              className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}
+              onClick={() => { if (activePath !== pathname) setPendingPath(activePath); }}
+              className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}
             >
-              <Icon name={item.icon} fill={active} className="text-[20px]" />
+              <Icon name={item.icon} fill={active} className={`text-[20px] ${navigating ? "animate-pulse" : ""}`} />
               <span className="mt-0.5 max-w-full truncate font-bold leading-none">{item.label}</span>
             </Link>
           );
