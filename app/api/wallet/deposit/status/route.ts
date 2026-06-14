@@ -17,8 +17,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "Missing transactionRequestId" }, { status: 400 });
   }
 
-  const txn = await db.transaction.findUnique({
-    where:   { id: transactionRequestId },
+  const txn = await db.transaction.findFirst({
+    where: {
+      id: transactionRequestId,
+      user: { supabaseId: user.id },
+    },
     include: { user: { select: { walletBalance: true } } },
   });
 

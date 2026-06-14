@@ -27,17 +27,19 @@ export async function POST(req: Request) {
     return new Response("Bad request", { status: 400 });
   }
 
-  // Optional shared-secret guard (set MEGAPAY_CALLBACK_TOKEN in env to enable)
+  // Fail closed: an unsigned callback must never be able to credit a wallet.
   const callbackToken = process.env.MEGAPAY_CALLBACK_TOKEN ?? "";
-  if (callbackToken) {
-    const supplied =
-      String(body.callback_token ?? body.CallbackToken ?? "") ||
-      req.headers.get("x-callback-token") ||
-      req.headers.get("x-megapay-token") ||
-      "";
-    if (supplied !== callbackToken) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+  if (!callbackToken) {
+    console.error("MegaPay callback rejected: MEGAPAY_CALLBACK_TOKEN is not configured");
+    return new Response("Webhook not configured", { status: 503 });
+  }
+  const supplied =
+    String(body.callback_token ?? body.CallbackToken ?? "") ||
+    req.headers.get("x-callback-token") ||
+    req.headers.get("x-megapay-token") ||
+    "";
+  if (supplied !== callbackToken) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   // Locate our internal transaction —
