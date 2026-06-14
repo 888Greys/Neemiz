@@ -728,6 +728,55 @@ function SecurityView({ email }: { email: string | undefined }) {
   const [disableLoading, setDisableLoading] = useState(false);
   const [disabled2FA, setDisabled2FA] = useState(false);
 
+  // Passkeys (WebAuthn)
+  const [passkeys, setPasskeys] = useState<Array<{ id: string; friendly_name?: string; created_at: string; last_used_at?: string }>>([]);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+
+  const loadPasskeys = useCallback(async () => {
+    setPasskeyLoading(true);
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase.auth.passkey.list();
+      if (!error && data) setPasskeys(data);
+    } catch {
+      // experimental API may be unavailable — leave the list empty
+    } finally {
+      setPasskeyLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadPasskeys(); }, [loadPasskeys]);
+
+  async function addPasskey() {
+    setPasskeyBusy(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.registerPasskey();
+      if (error) { toast.error("Couldn't add passkey", error.message); return; }
+      toast.success("Passkey added", "You can now sign in with this device.");
+      await loadPasskeys();
+    } catch {
+      toast.error("Couldn't add passkey", "Your device may not support passkeys.");
+    } finally {
+      setPasskeyBusy(false);
+    }
+  }
+
+  async function removePasskey(passkeyId: string) {
+    setPasskeyBusy(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.passkey.delete({ passkeyId });
+      if (error) { toast.error("Couldn't remove passkey", error.message); return; }
+      setPasskeys((prev) => prev.filter((p) => p.id !== passkeyId));
+    } catch {
+      toast.error("Couldn't remove passkey", "Try again.");
+    } finally {
+      setPasskeyBusy(false);
+    }
+  }
+
   async function sendReset() {
     if (!email) return;
     setResetLoading(true);
@@ -956,6 +1005,44 @@ function SecurityView({ email }: { email: string | undefined }) {
             <p className="text-[12px] font-bold text-emerald-400">2FA is active on your account</p>
           </div>
         )}
+      </div>
+
+      {/* ── Passkeys card ── */}
+      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+        <div className="flex items-center gap-3 px-4 py-3.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
+            <Icon name="passkey" fill className="text-[16px] text-slate-400" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[13px] font-black text-white">Passkeys</p>
+            <p className="text-[11px] text-slate-500">Sign in with Face ID, fingerprint or a security key</p>
+          </div>
+        </div>
+
+        {passkeys.length > 0 && (
+          <div>
+            {passkeys.map((pk) => (
+              <div key={pk.id} className="mx-4 flex items-center justify-between border-t border-white/[0.05] py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[12px] font-bold text-white">{pk.friendly_name || "Passkey"}</p>
+                  <p className="text-[10px] text-slate-600">Added {new Date(pk.created_at).toLocaleDateString()}</p>
+                </div>
+                <button type="button" onClick={() => removePasskey(pk.id)} disabled={passkeyBusy}
+                  className="shrink-0 text-[11px] font-black text-red-400/80 transition hover:text-red-400 disabled:opacity-50">
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mx-4 h-px bg-white/[0.05]" />
+        <div className="px-4 py-3.5">
+          <button type="button" onClick={addPasskey} disabled={passkeyBusy || passkeyLoading}
+            className="text-[12px] font-black text-[#5ea9ff] transition hover:text-white disabled:opacity-50">
+            {passkeyBusy ? "Working…" : passkeyLoading ? "Loading…" : "+ Add a passkey"}
+          </button>
+        </div>
       </div>
 
       {/* KYC card */}
