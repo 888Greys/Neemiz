@@ -61,6 +61,21 @@ export function SupabaseAuthProvider({
       void enforceAccountStatus(session);
     });
 
+    // Fire a "new login detected" alert once per actual sign-in. Deduped on
+    // last_sign_in_at (changes per login) so page reloads, tab re-syncs and
+    // token refreshes that also emit SIGNED_IN don't re-notify.
+    function reportLoginIfNew(session: Session | null) {
+      if (!session?.user) return;
+      const marker = session.user.last_sign_in_at ?? session.access_token;
+      try {
+        if (localStorage.getItem("nezeem-login-alert") === marker) return;
+        localStorage.setItem("nezeem-login-alert", marker);
+      } catch {
+        // storage blocked — fall through; the server also dedups per ~2 min
+      }
+      void fetch("/api/auth/login-alert", { method: "POST", cache: "no-store" }).catch(() => {});
+    }
+
     // Stay in sync with sign-in / sign-out / token refresh events
     const {
       data: { subscription },
@@ -68,7 +83,10 @@ export function SupabaseAuthProvider({
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoaded(true);
-      if (_event === "SIGNED_IN") void enforceAccountStatus(session);
+      if (_event === "SIGNED_IN") {
+        void enforceAccountStatus(session);
+        reportLoginIfNew(session);
+      }
     });
 
     return () => subscription.unsubscribe();
