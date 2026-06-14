@@ -160,18 +160,23 @@ export function MyBetsClient() {
   const [filter, setFilter] = useState<Filter>("ALL");
 
   const BETS_KEY = "/api/bets/mine?limit=50";
-  const [bets, setBets]       = useState<Bet[]>(() => getCached<Bet[]>(BETS_KEY) ?? []);
-  const [loading, setLoading] = useState(!getCached(BETS_KEY));
+  const [bets, setBets]       = useState<Bet[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const fetchBets = useCallback(async (force = false) => {
     if (!isSignedIn) return;
-    setLoading(true);
     const data = await cachedFetch<Bet[]>(BETS_KEY, force);
     if (data) setBets(data);
     setLoading(false);
   }, [isSignedIn]);
 
-  useEffect(() => { fetchBets(); }, [fetchBets]);
+  // Seed from the client cache after mount (not during render) to avoid a
+  // server/client hydration mismatch from sessionStorage-backed data.
+  useEffect(() => {
+    const cached = getCached<Bet[]>(BETS_KEY);
+    if (cached?.length) { setBets(cached); setLoading(false); }
+    fetchBets();
+  }, [fetchBets]);
 
   // Auto-refresh every 30 s while any bet is still PENDING
   const hasPending = bets.some((b) => b.status === "PENDING");

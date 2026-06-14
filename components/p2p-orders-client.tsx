@@ -51,18 +51,24 @@ function FilterButton({ active, label, onClick }: { active: boolean; label: stri
 const ORDERS_KEY = "/api/p2p/orders";
 
 export function P2POrdersClient() {
-  const [orders, setOrders]   = useState<OrderSummary[]>(() => getCached<OrderSummary[]>(ORDERS_KEY) ?? []);
-  const [loading, setLoading] = useState(!getCached(ORDERS_KEY));
+  const [orders, setOrders]   = useState<OrderSummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter]   = useState<FilterTab>("all");
 
   const fetchOrders = useCallback(async (force = false) => {
-    if (!orders.length) setLoading(true);
     const data = await cachedFetch<OrderSummary[]>(ORDERS_KEY, force);
     if (data) setOrders(data);
     setLoading(false);
-  }, [orders.length]);
+  }, []);
 
-  useEffect(() => { fetchOrders(true); }, [fetchOrders]);
+  // Seed from the client cache AFTER mount (not in the useState initializer) so
+  // the first client render matches the server's empty render. Reading
+  // sessionStorage during render is what caused the /p2p/orders hydration error.
+  useEffect(() => {
+    const cached = getCached<OrderSummary[]>(ORDERS_KEY);
+    if (cached?.length) { setOrders(cached); setLoading(false); }
+    fetchOrders(true);
+  }, [fetchOrders]);
 
   const filtered = orders.filter((o) => {
     if (filter === "all")       return true;
