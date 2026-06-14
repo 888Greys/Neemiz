@@ -1,0 +1,30 @@
+name: Deploy to nez
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# never run two deploys at once
+concurrency:
+  group: deploy-nez
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.NEZ_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.NEZ_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Trigger deploy on nez
+        # The deploy key is locked to a forced command on the server
+        # (command="/opt/neemiz/deploy.sh"), so the argument below is ignored —
+        # the server always runs the deploy script and streams its output back.
+        run: |
+          ssh -i ~/.ssh/id_ed25519 \
+            "${{ secrets.NEZ_USER }}@${{ secrets.NEZ_HOST }}" deploy
