@@ -61,12 +61,14 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
         <div className="mt-5 flex items-center gap-2.5">
           <Link
             href="/sports"
+            prefetch={false}
             className="rounded-2xl bg-white px-6 py-3 text-[13px] font-black text-black shadow-lg active:scale-[0.97] transition"
           >
             Get started
           </Link>
           <Link
             href="/aviator"
+            prefetch={false}
             className="rounded-2xl border border-white/20 bg-white/10 px-6 py-3 text-[13px] font-black text-white backdrop-blur-sm active:scale-[0.97] transition"
           >
             Play Aviator

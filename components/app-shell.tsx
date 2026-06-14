@@ -270,9 +270,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             <Link
               key={item.label}
               href={item.href ?? "/"}
-              onPointerEnter={() => router.prefetch(item.href ?? "/")}
-              onFocus={() => router.prefetch(item.href ?? "/")}
-              onTouchStart={() => router.prefetch(item.href ?? "/")}
+              prefetch={false}
               onClick={() => { if (activePath !== pathname) setPendingPath(activePath); }}
               className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}
             >
@@ -295,6 +293,7 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
   return (
     <Link
       href={href}
+      prefetch={false}
       onPointerEnter={() => router.prefetch(href)}
       onFocus={() => router.prefetch(href)}
       className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#18191d] ${
@@ -574,6 +573,7 @@ function SidebarItem({
   return (
     <Link
       href={href}
+      prefetch={false}
       title={collapsed ? label : undefined}
       className={className}
     >
@@ -584,7 +584,7 @@ function SidebarItem({
 
 function NestedSidebarItem({ href, icon, label, truncate }: { href: string; icon: string; label: string; truncate?: boolean }) {
   return (
-    <Link href={href} className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/[0.05] hover:text-white">
+    <Link href={href} prefetch={false} className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/[0.05] hover:text-white">
       <Icon name={icon} fill className="text-[19px] text-slate-400" />
       <span className={truncate ? "min-w-0 truncate" : ""}>{label}</span>
     </Link>
@@ -633,7 +633,7 @@ function StandaloneSidebarItem({
     );
   }
   return (
-    <Link href={href} title={collapsed ? label : undefined} className={cls}>
+    <Link href={href} prefetch={false} title={collapsed ? label : undefined} className={cls}>
       {inner}
     </Link>
   );
@@ -841,7 +841,7 @@ function MobileDrawerLink({ badge, href, icon, label, onClick }: { badge?: strin
     return <button type="button" className={cls} onClick={onClick}>{inner}</button>;
   }
   return (
-    <Link href={href} className={cls} onClick={onClick}>
+    <Link href={href} prefetch={false} className={cls} onClick={onClick}>
       {inner}
     </Link>
   );

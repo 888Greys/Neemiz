@@ -131,6 +131,7 @@ export function P2POrdersClient() {
           {filter === "all" && (
             <Link
               href="/p2p"
+              prefetch={false}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#087cff] text-white font-black text-sm hover:bg-[#0570e8] transition-colors"
             >
               <Icon name="swap_horiz" className="text-base" />
@@ -144,6 +145,7 @@ export function P2POrdersClient() {
             <Link
               key={order.id}
               href={`/p2p/order/${order.id}`}
+              prefetch={false}
               className="group block rounded-lg border border-[#1e1e30] bg-[#0e0e14] px-3 py-2.5 transition hover:bg-[#111118] lg:grid lg:grid-cols-[minmax(190px,1fr)_150px_minmax(360px,1.5fr)_240px] lg:items-center lg:gap-4 lg:px-3 lg:py-2"
             >
               {/* Row 1: type + status + chevron */}

@@ -270,7 +270,7 @@ function MobileDashboard() {
             );
           }
           return (
-            <Link key={item.label} href={item.href!} className="flex shrink-0 flex-col items-center gap-1.5">
+            <Link key={item.label} href={item.href!} prefetch={false} className="flex shrink-0 flex-col items-center gap-1.5">
               {inner}
             </Link>
           );
@@ -281,6 +281,7 @@ function MobileDashboard() {
       <div className="px-4">
         <Link
           href="/aviator"
+          prefetch={false}
           className="flex min-h-[190px] items-end overflow-hidden rounded-3xl bg-cover bg-center p-5"
           style={{ backgroundImage: `linear-gradient(135deg, rgba(20,8,4,.95) 0%, rgba(20,8,4,.6) 60%, rgba(20,8,4,.2) 100%), url(${tempAssets.gameWeekMobile})` }}
         >

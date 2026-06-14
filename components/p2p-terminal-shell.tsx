@@ -47,6 +47,7 @@ export function P2PTerminalShell({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={`group flex items-center gap-3 rounded-xl px-3 py-3 transition ${
                   active
                     ? "bg-blue-500/[0.12] text-white ring-1 ring-inset ring-blue-400/20"
@@ -104,7 +105,7 @@ function P2PMobileNavigation() {
       {NAV.map((item) => {
         const active = item.href === "/p2p" ? pathname === "/p2p" : pathname.startsWith(item.href);
         return (
-          <Link key={item.href} href={item.href} className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-black ${active ? "bg-blue-500 text-white" : "text-slate-500"}`}>
+          <Link key={item.href} href={item.href} prefetch={false} className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-[10px] font-black ${active ? "bg-blue-500 text-white" : "text-slate-500"}`}>
             <Icon name={item.icon} className="text-[14px]" />
             {item.label}
           </Link>

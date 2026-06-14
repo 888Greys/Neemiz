@@ -42,7 +42,7 @@ function MyOrders({ userId }: { userId: string }) {
     <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#111118]">
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">My Orders</p>
-        <Link href="/p2p/orders" className="text-[10px] text-[#087cff] hover:text-blue-300 font-bold transition-colors">
+        <Link href="/p2p/orders" prefetch={false} className="text-[10px] text-[#087cff] hover:text-blue-300 font-bold transition-colors">
           View all
         </Link>
       </div>
@@ -57,7 +57,7 @@ function MyOrders({ userId }: { userId: string }) {
         <div className="px-3 pb-4 text-center">
           <Icon name="receipt_long" className="text-slate-700 text-2xl mb-1" />
           <p className="text-[11px] text-slate-600">No orders yet</p>
-          <Link href="/p2p" className="text-[10px] text-[#05b957] font-bold hover:underline">
+          <Link href="/p2p" prefetch={false} className="text-[10px] text-[#05b957] font-bold hover:underline">
             Start trading →
           </Link>
         </div>
@@ -67,6 +67,7 @@ function MyOrders({ userId }: { userId: string }) {
             <Link
               key={o.id}
               href={`/p2p/order/${o.id}`}
+              prefetch={false}
               className="flex items-center gap-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.05] rounded-xl px-3 py-2 transition-colors"
             >
               <div className="flex-1 min-w-0">
@@ -142,6 +143,7 @@ function MerchantCenter({ userId }: { userId: string }) {
     return (
       <Link
         href="/p2p/merchant"
+        prefetch={false}
         className="flex items-center gap-3 bg-[#087cff]/10 border border-[#087cff]/20 rounded-2xl px-4 py-3.5 hover:bg-[#087cff]/15 transition-colors"
       >
         <div className="w-8 h-8 rounded-xl bg-[#087cff]/20 flex items-center justify-center shrink-0">
@@ -161,7 +163,7 @@ function MerchantCenter({ userId }: { userId: string }) {
     <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#111118]">
       <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Merchant Center</p>
-        <Link href="/p2p/merchant" className="text-[10px] text-[#087cff] hover:text-blue-300 font-bold transition-colors">
+        <Link href="/p2p/merchant" prefetch={false} className="text-[10px] text-[#087cff] hover:text-blue-300 font-bold transition-colors">
           Manage
         </Link>
       </div>
@@ -206,11 +208,11 @@ function MerchantCenter({ userId }: { userId: string }) {
 
         {/* Quick actions */}
         <div className="grid grid-cols-2 gap-1.5">
-          <Link href="/p2p/merchant?tab=ads" className="flex items-center justify-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl py-2 text-[11px] font-black text-white hover:bg-white/[0.07] transition-colors">
+          <Link href="/p2p/merchant?tab=ads" prefetch={false} className="flex items-center justify-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl py-2 text-[11px] font-black text-white hover:bg-white/[0.07] transition-colors">
             <Icon name="view_list" className="text-sm text-slate-400" />
             My Ads
           </Link>
-          <Link href="/p2p/merchant?tab=deposit" className="flex items-center justify-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl py-2 text-[11px] font-black text-white hover:bg-white/[0.07] transition-colors">
+          <Link href="/p2p/merchant?tab=deposit" prefetch={false} className="flex items-center justify-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl py-2 text-[11px] font-black text-white hover:bg-white/[0.07] transition-colors">
             <Icon name="account_balance_wallet" className="text-sm text-[#087cff]" />
             Deposit
           </Link>
@@ -270,6 +272,7 @@ export function P2PMarketPanel() {
       <div className="grid grid-cols-2 gap-2">
         <Link
           href="/p2p"
+          prefetch={false}
           className="flex flex-col items-center gap-1.5 bg-[#05b957]/10 border border-[#05b957]/20 rounded-xl py-3 hover:bg-[#05b957]/15 transition-colors"
         >
           <Icon name="add_circle" className="text-[#05b957] text-xl" />
@@ -277,6 +280,7 @@ export function P2PMarketPanel() {
         </Link>
         <Link
           href="/p2p?side=SELL"
+          prefetch={false}
           className="flex flex-col items-center gap-1.5 bg-red-500/10 border border-red-500/20 rounded-xl py-3 hover:bg-red-500/15 transition-colors"
         >
           <Icon name="remove_circle" className="text-red-400 text-xl" />
@@ -293,6 +297,7 @@ export function P2PMarketPanel() {
         : (
           <Link
             href="/p2p/merchant"
+            prefetch={false}
             className="flex items-center gap-3 bg-[#087cff]/10 border border-[#087cff]/20 rounded-2xl px-4 py-3.5 hover:bg-[#087cff]/15 transition-colors"
           >
             <div className="w-8 h-8 rounded-xl bg-[#087cff]/20 flex items-center justify-center shrink-0">

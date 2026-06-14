@@ -13,11 +13,23 @@ prefetch every primary route from `AppShell`: on a self-hosted Next.js server,
 that turns each visit into several extra server-render requests and competes
 with real navigation traffic.
 
-Primary desktop and mobile navigation links additionally prefetch on pointer,
-keyboard-focus, or touch intent. The root route has a lightweight loading
-boundary so dynamic pages can respond immediately while their server payload
-streams. A thin progress indicator confirms that navigation started, and the
-whole-page fade is kept short so completed transitions are not visually delayed.
+Primary desktop navigation links additionally prefetch on pointer or
+keyboard-focus intent. Mobile navigation uses immediate visual feedback and
+route skeletons without speculative requests. The root route has a lightweight
+loading boundary so dynamic pages can respond immediately while their server
+payload streams. A thin progress indicator confirms that navigation started,
+and the whole-page fade is kept short so completed transitions are not visually
+delayed.
+
+Automatic viewport prefetch is disabled for dense navigation, Sports tabs,
+league filters, fixture cards, P2P tabs, and mobile navigation. Next.js
+otherwise speculatively renders every visible destination, which can turn one
+Sports visit into dozens of `_rsc` requests on a self-hosted server. Only the
+small desktop primary navigation uses intent-based prefetch.
+
+Sentry browser events are sent directly to Sentry rather than tunneled through
+the Next.js application. Tunneling telemetry through `/monitoring` adds
+production requests during the same traffic spikes that need observability.
 
 Large login, registration, profile, and wallet overlays are lazy-loaded only
 when opened. Dashboard rows render a bounded preview rather than mounting the
