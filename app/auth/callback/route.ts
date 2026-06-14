@@ -5,9 +5,17 @@ import { db } from "@/lib/db";
 // This route handles the OAuth redirect from Supabase after Google/GitHub sign-in.
 // Set your Supabase Auth Redirect URL to: https://yourdomain.com/auth/callback
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const requestedNext = searchParams.get("next");
+  const next =
+    requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+      ? requestedNext
+      : "/dashboard";
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.nezeem.com").replace(
+    /\/+$/,
+    "",
+  );
 
   if (code) {
     const supabase = await createClient();
@@ -31,12 +39,12 @@ export async function GET(request: Request) {
       });
       if (account?.isActive === false) {
         await supabase.auth.signOut();
-        return NextResponse.redirect(`${origin}/suspended`);
+        return NextResponse.redirect(`${appUrl}/suspended`);
       }
-      return NextResponse.redirect(`${origin}${next}`);
+      return NextResponse.redirect(`${appUrl}${next}`);
     }
   }
 
   // On error redirect to home with a message
-  return NextResponse.redirect(`${origin}/?auth_error=1`);
+  return NextResponse.redirect(`${appUrl}/?auth_error=1`);
 }
