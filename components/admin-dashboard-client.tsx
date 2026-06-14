@@ -35,6 +35,8 @@ interface Stats {
   activeOrders: number;
   suspendedUsers: number;
   totalWalletBalance: number;
+  realWalletCount?: number;
+  testAccounts?: { count: number; balance: number };
   depositsToday: { count: number; amount: number };
   depositsMonth: { count: number; amount: number };
   bettingToday: { stakes: number; stakeCount: number; wins: number; winCount: number };
@@ -149,7 +151,7 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
       </header>
 
       <div className="admin-panel mb-4 grid overflow-hidden sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Customer funds" value={money(stats.totalWalletBalance)} detail={`${stats.totalUsers.toLocaleString()} user wallets`} icon="account_balance_wallet" />
+        <Metric label="Customer funds" value={money(stats.totalWalletBalance)} detail={stats.testAccounts && stats.testAccounts.count > 0 ? `${(stats.realWalletCount ?? stats.totalUsers).toLocaleString()} real wallets · ${stats.testAccounts.count} test excluded (${money(stats.testAccounts.balance)})` : `${stats.totalUsers.toLocaleString()} user wallets`} icon="account_balance_wallet" />
         <Metric label="Cash in today" value={money(stats.depositsToday.amount)} detail={`${stats.depositsToday.count} completed deposits`} icon="arrow_downward" tone="green" />
         <Metric label="Bet turnover today" value={money(stats.bettingToday.stakes)} detail={`${stats.bettingToday.stakeCount} stakes placed`} icon="bolt" tone="violet" />
         <Metric label="30D gross P&L" value={money(profits?.totals.grossProfit ?? 0)} detail={`${money(stats.bettingToday.wins)} wins paid today`} icon="trending_up" tone="amber" />
