@@ -4,6 +4,10 @@ import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { cookies } from "next/headers";
 import { TransactionStatus } from "@prisma/client";
 
+// Only real cash received through a payment gateway counts as a deposit.
+// Manual/test top-ups (no real provider) must not inflate the metrics.
+const REAL_DEPOSIT_PROVIDERS = ["megapay"];
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -55,13 +59,13 @@ export async function GET() {
     db.p2PCryptoDeposit.count({ where: { status: "PENDING" } }),
     db.merchantProfile.count({ where: { kycStatus: "APPROVED" } }),
     db.transaction.aggregate({
-      where: { type: "DEPOSIT", status: "COMPLETED", createdAt: { gte: startOfDay } },
+      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: REAL_DEPOSIT_PROVIDERS }, createdAt: { gte: startOfDay } },
       _sum: { amount: true },
       _count: true,
     }),
     db.p2POrder.count({ where: { status: { in: ["PENDING", "PAID"] } } }),
     db.transaction.aggregate({
-      where: { type: "DEPOSIT", status: "COMPLETED", createdAt: { gte: startOfMonth } },
+      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: REAL_DEPOSIT_PROVIDERS }, createdAt: { gte: startOfMonth } },
       _sum: { amount: true },
       _count: true,
     }),
