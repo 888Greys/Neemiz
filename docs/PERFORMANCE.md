@@ -76,6 +76,11 @@ handlers share the same Next.js process, unlike Vercel's separate edge runtime.
 The standalone Docker image must include Sharp's platform-specific `libvips`
 package so image optimization does not repeatedly fail at runtime.
 
+Public read endpoints must not run maintenance scans. KES ad backing is checked
+when merchants create or reactivate ads; browsing ads stays a bounded indexed
+read. Sports pages cap their initial fixture set so server-rendered HTML remains
+small, with dedicated APIs supplying frequently refreshed live data.
+
 ### Database indexes
 
 `prisma/migrations/20260606150000_performance_indexes_and_realtime/migration.sql`

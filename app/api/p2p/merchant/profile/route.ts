@@ -76,7 +76,13 @@ export async function POST() {
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
     await db.merchantProfile.updateMany({
-      where: { userId: dbUser.id },
+      where: {
+        userId: dbUser.id,
+        OR: [
+          { lastSeenAt: null },
+          { lastSeenAt: { lt: new Date(Date.now() - 60_000) } },
+        ],
+      },
       data:  { lastSeenAt: new Date(), isOnline: true },
     });
     return Response.json({ ok: true });
