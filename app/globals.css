@@ -279,7 +279,18 @@ input[type="email"]:focus {
 
 /* ── Page & UI transitions ───────────────────────────── */
 
-.page-enter { animation: fade-in 0.3s ease-out both; }
+.page-enter { animation: fade-in 0.12s ease-out both; }
+
+@keyframes navigation-progress {
+  0% { transform: translateX(-120%) scaleX(.35); }
+  55% { transform: translateX(120%) scaleX(1); }
+  100% { transform: translateX(360%) scaleX(.45); }
+}
+
+.navigation-progress {
+  animation: navigation-progress 1s ease-in-out infinite;
+  transform-origin: left;
+}
 
 @keyframes dropdown-in {
   from { opacity: 0; transform: translateY(-6px) scale(0.97); }

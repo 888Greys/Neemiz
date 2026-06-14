@@ -8,7 +8,7 @@ import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 
-type View =
+export type ProfileView =
   | "main"
   | "settings"
   | "bets"
@@ -21,7 +21,7 @@ type View =
   | "language"
   | "support";
 
-type Props = { onClose: () => void; onOpenWallet: () => void; initialView?: View };
+type Props = { onClose: () => void; onOpenWallet: () => void; initialView?: ProfileView };
 
 // ── Bet history types ────────────────────────────────────────────────────────
 
@@ -1080,7 +1080,7 @@ function SupportView() {
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-const VIEW_TITLES: Record<View, string> = {
+const VIEW_TITLES: Record<ProfileView, string> = {
   main: "Profile",
   settings: "Settings",
   bets: "Bet History",
@@ -1098,7 +1098,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const { user, signOut } = useSupabaseAuth();
   const router = useRouter();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
-  const [view, setView] = useState<View>(initialView ?? "main");
+  const [view, setView] = useState<ProfileView>(initialView ?? "main");
   const [editingUsername, setEditingUsername] = useState(false);
   const [usernameInput, setUsernameInput] = useState("");
   const [usernameSaving, setUsernameSaving] = useState(false);

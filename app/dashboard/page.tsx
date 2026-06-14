@@ -158,7 +158,7 @@ function NezeemGamesSection() {
       icon="videogame_asset"
       title="Nezeem games"
       allHref="/casino/nezeem"
-      games={cdnGames("nezeem", 60)}
+      games={cdnGames("nezeem", 24)}
     />
   );
 }
@@ -171,7 +171,7 @@ function CrashGamesSection() {
       icon="rocket_launch"
       title="Crash games"
       allHref="/casino/crash"
-      games={cdnGames("crash", 157)}
+      games={cdnGames("crash", 24)}
     />
   );
 }
@@ -184,7 +184,7 @@ function MinesSection() {
       icon="grid_view"
       title="Mines"
       allHref="/casino/mines"
-      games={cdnGames("mines", 46)}
+      games={cdnGames("mines", 24)}
     />
   );
 }
@@ -197,7 +197,7 @@ function ChickenGamesSection() {
       icon="egg"
       title="Chicken Games"
       allHref="/casino/chicken"
-      games={cdnGames("nezeem", 30, 31)}
+      games={cdnGames("nezeem", 24, 31)}
     />
   );
 }
@@ -210,7 +210,7 @@ function PlinkoSection() {
       icon="casino"
       title="Plinko"
       allHref="/casino/plinko"
-      games={cdnGames("plinko", 60)}
+      games={cdnGames("plinko", 24)}
     />
   );
 }
