@@ -12,6 +12,18 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      // TEMP DIAGNOSTIC: surface why OAuth code exchange fails (PKCE/cookie/etc).
+      const cookieNames = request.headers
+        .get("cookie")
+        ?.split(";")
+        .map((c) => c.trim().split("=")[0])
+        .filter((n) => n.includes("supabase") || n.includes("sb-") || n.includes("auth"))
+        .join(",");
+      console.error(
+        `[auth/callback] exchange failed host=${new URL(request.url).host} status=${error.status} msg="${error.message}" authCookies=[${cookieNames ?? ""}]`,
+      );
+    }
     if (!error && data.user) {
       const account = await db.user.findUnique({
         where: { supabaseId: data.user.id },
