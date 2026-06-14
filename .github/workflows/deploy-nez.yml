@@ -27,8 +27,19 @@ jobs:
           NEXT_PUBLIC_AVIATOR_WS_URL=${{ secrets.NEXT_PUBLIC_AVIATOR_WS_URL }}
           EOF
 
-      - name: Build image (on GitHub runner, not on nez)
-        run: docker build -t neemiz-app:latest .
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (cached, on GitHub runner)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: neemiz-app:latest
+          load: true
+          # Reuse unchanged layers (deps/npm ci) between runs via GitHub's cache,
+          # so only changed steps rebuild — much faster than a cold build.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Set up SSH
         run: |
