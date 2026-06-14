@@ -50,8 +50,8 @@ const nextConfig = {
 };
 
 export default withSentryConfig(nextConfig, {
-  org: process.env.SENTRY_ORG ?? "brand2d",
-  project: process.env.SENTRY_PROJECT ?? "javascript-nextjs",
+  org: process.env.SENTRY_ORG ?? "pompompurine",
+  project: process.env.SENTRY_PROJECT ?? "nezeem",
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
   widenClientFileUpload: true,
