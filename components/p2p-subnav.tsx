@@ -55,6 +55,7 @@ export function P2PSubNav() {
               <Link
                 key={t.href}
                 href={t.href}
+                prefetch={false}
                 className={`relative flex h-9 items-center gap-2 rounded-md px-3 text-sm font-black transition-all lg:h-8 lg:px-3 lg:text-[13px] ${
                   active
                     ? "bg-[#087cff] text-white shadow-lg shadow-[#087cff]/20"
@@ -77,6 +78,7 @@ export function P2PSubNav() {
         {effectivePath === "/p2p" && isSignedIn && (
           <Link
             href="/p2p/merchant"
+            prefetch={false}
             className="flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-white/[0.06] px-3 text-xs font-black text-white/70 transition-colors hover:bg-white/[0.1] hover:text-white"
           >
             <Icon name="add_business" className="text-sm" />

@@ -1036,6 +1036,7 @@ function DirectBuyBanner() {
       </div>
       <Link
         href="/wallet"
+        prefetch={false}
         className="shrink-0 rounded-lg bg-[#05b957] px-3 py-2 text-[12px] font-black text-white transition hover:bg-[#06d169] active:scale-[0.98]"
       >
         Direct buy
@@ -1117,6 +1118,7 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
         {isSignedIn && (
           <Link
             href="/p2p/merchant"
+            prefetch={false}
             className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#087cff]/20 bg-[#087cff]/10 px-5 py-2.5 text-sm font-black text-[#087cff] transition-colors hover:bg-[#087cff]/20"
           >
             <Icon name="add_business" className="text-base" />
@@ -1162,6 +1164,7 @@ function MerchantPromoBanner({ isSignedIn }: { isSignedIn: boolean }) {
   return (
     <Link
       href="/p2p/merchant"
+      prefetch={false}
       className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-[#111118] px-4 py-3 hover:bg-[#16161f] transition-colors"
     >
       <div className="flex items-center gap-3 min-w-0">

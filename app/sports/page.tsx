@@ -86,6 +86,7 @@ export default async function SportsPage({ searchParams }: Props) {
             <Link
               key={tab}
               href={`/sports?tab=${tab}`}
+              prefetch={false}
               className={`shrink-0 rounded-xl px-3 py-2.5 sm:px-4 text-sm font-black transition-all ${
                 tab === activeTab
                   ? "bg-[#087cff] text-white shadow-[0_4px_14px_rgba(8,124,255,.25)]"
@@ -115,7 +116,7 @@ export default async function SportsPage({ searchParams }: Props) {
               ? `/sports?tab=${activeTab}`
               : `/sports?tab=${activeTab}&league=${encodeURIComponent(item.label)}`;
             return (
-              <Link key={item.label} href={href} className={`flex shrink-0 flex-col items-center gap-1 rounded-xl p-1 transition hover:bg-white/[0.05] ${isActive ? "bg-white/[0.08]" : ""}`}>
+              <Link key={item.label} href={href} prefetch={false} className={`flex shrink-0 flex-col items-center gap-1 rounded-xl p-1 transition hover:bg-white/[0.05] ${isActive ? "bg-white/[0.08]" : ""}`}>
                 <span className={`flex h-10 w-10 items-center justify-center rounded-full overflow-hidden ring-1 ${isActive ? "ring-[#087cff] bg-[#087cff]/10" : "ring-white/[0.1] bg-white/[0.07]"}`}>
                   {item.flag ? (
                     <Image src={item.flag} alt={item.label} width={40} height={40} className="h-full w-full object-cover" unoptimized />
@@ -200,6 +201,7 @@ function SectionHeader({
       <div className="flex items-center gap-1">
         <Link
           href={href}
+          prefetch={false}
           className="flex items-center gap-1 rounded-xl bg-white/[0.07] px-3 py-1.5 text-xs font-black text-slate-300 transition hover:bg-white/[0.12]"
         >
           {label}
@@ -238,7 +240,7 @@ function MatchCard({ match: m }: { match: Match }) {
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07] transition hover:ring-white/[0.14] hover:bg-[#1a1b22]">
       {/* ── Clickable top section → match detail ── */}
-      <Link href={`/sports/${m.id}`} className="block">
+      <Link href={`/sports/${m.id}`} prefetch={false} className="block">
         {/* ── Header: country flag + league logo + name ── */}
         <div className="flex items-center gap-2 px-3.5 pt-3 pb-2">
           <div className="flex shrink-0 items-center gap-1">

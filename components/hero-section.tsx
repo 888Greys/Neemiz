@@ -195,12 +195,14 @@ export function HeroSection() {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href="/sports"
+                prefetch={false}
                 className="rounded-2xl bg-white px-8 py-3.5 text-base font-black text-black transition hover:bg-white/90 active:scale-[.98]"
               >
                 Get started
               </Link>
               <Link
                 href="/aviator"
+                prefetch={false}
                 className="rounded-2xl border border-white/15 bg-white/8 px-8 py-3.5 text-base font-black text-white transition hover:bg-white/12"
               >
                 Play Aviator

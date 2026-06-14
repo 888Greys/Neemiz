@@ -63,7 +63,7 @@ export function TrendingMatchCarousel() {
           </span>
           Trending Now
         </h2>
-        <Link href="/sports" className="flex items-center gap-0.5 text-[11px] font-black text-slate-500 transition hover:text-white">
+        <Link href="/sports" prefetch={false} className="flex items-center gap-0.5 text-[11px] font-black text-slate-500 transition hover:text-white">
           All sports <Icon name="chevron_right" className="text-[14px]" />
         </Link>
       </div>

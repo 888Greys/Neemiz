@@ -73,6 +73,7 @@ export function GameRow({
         <div className="flex items-center gap-2">
           <Link
             href={allHref}
+            prefetch={false}
             className="flex items-center gap-1 rounded-xl bg-[#1e2028] px-4 py-2 text-sm font-black text-slate-300 transition hover:bg-[#26272e] hover:text-white"
           >
             All games
