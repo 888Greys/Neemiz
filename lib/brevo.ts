@@ -231,6 +231,38 @@ export async function sendWelcomeEmail(to: string, firstName: string) {
   ));
 }
 
+export async function sendNewLoginEmail(
+  to: string,
+  name: string,
+  details: { when: string; device: string; ip: string; location?: string },
+) {
+  const display = name || "Trader";
+  await sendEmail(
+    to,
+    display,
+    "New login to your Nezeem account",
+    emailWrapper(`
+      <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a2e;">New login detected</h1>
+      <p style="margin:0 0 20px;font-size:15px;color:#4a5568;line-height:1.7;">
+        Hi ${display}, we detected a new sign-in to your Nezeem account.
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;border-radius:12px;margin-bottom:24px;">
+        <tr><td style="padding:18px 22px;font-size:13px;color:#4a5568;line-height:1.9;">
+          <strong style="color:#1a1a2e;">When:</strong> ${details.when}<br/>
+          <strong style="color:#1a1a2e;">Device:</strong> ${details.device}<br/>
+          <strong style="color:#1a1a2e;">IP:</strong> ${details.ip}${details.location ? ` (${details.location})` : ""}
+        </td></tr>
+      </table>
+      <p style="margin:0 0 24px;font-size:13px;color:#8a94a6;line-height:1.6;">
+        If this was you, no action is needed. If you don&apos;t recognise this activity,
+        change your sign-in method and contact support immediately.
+      </p>
+      ${ctaButton(`${APP_URL}/profile`, "Review account security →")}
+    `,
+    "You received this security alert because someone signed in to your Nezeem account."
+  ));
+}
+
 // ─── P2P Merchant Emails ──────────────────────────────────────────────────────
 
 export async function sendMerchantApplicationEmail(applicantEmail: string, displayName: string) {
