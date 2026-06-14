@@ -88,6 +88,38 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     }
   }
 
+  async function handlePasskey() {
+    setError("");
+    setLoading(true);
+    try {
+      const supabase = createClient();
+      const { error: pkError } = await supabase.auth.signInWithPasskey();
+      if (pkError) {
+        setError(pkError.message || "Passkey sign-in failed.");
+        return;
+      }
+
+      const statusResponse = await fetch("/api/auth/account-status", { cache: "no-store" });
+      const accountStatus = statusResponse.ok
+        ? await statusResponse.json() as { suspended?: boolean }
+        : null;
+      if (accountStatus?.suspended) {
+        await supabase.auth.signOut();
+        onClose();
+        router.push("/suspended");
+        return;
+      }
+
+      onClose();
+      toast.success("Welcome back!", "Signed in with your passkey.");
+      router.push("/dashboard");
+    } catch {
+      setError("Passkey sign-in failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleOAuth(provider: "google" | "github") {
     setError("");
     const supabase = createClient();
@@ -343,6 +375,17 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
               <span className="text-sm font-black text-white">Continue with Google</span>
             </button>
           </div>
+
+          {/* Passkey */}
+          <button
+            type="button"
+            onClick={handlePasskey}
+            disabled={loading}
+            className="mt-2.5 flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#18191f] py-3 ring-1 ring-white/[0.07] transition hover:bg-[#22252e] active:scale-[.98] disabled:opacity-60"
+          >
+            <Icon name="passkey" className="text-[18px] text-[#5ea9ff]" />
+            <span className="text-sm font-black text-white">Sign in with passkey</span>
+          </button>
 
           {/* Switch to register */}
           <p className="mt-6 text-center text-sm text-slate-500">
