@@ -1306,18 +1306,20 @@ function transactionContext(transaction: WalletTransaction): Array<{ label: stri
 }
 
 function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
-  const [initialTransactions] = useState(() => getCached<WalletTransaction[]>(WALLET_HISTORY_KEY));
-  const [txns, setTxns] = useState<WalletTransaction[]>(() => initialTransactions ?? []);
+  const [txns, setTxns] = useState<WalletTransaction[]>([]);
   const [selected, setSelected] = useState<WalletTransaction | null>(null);
-  const [loading, setLoading] = useState(!initialTransactions);
+  const [loading, setLoading] = useState(true);
 
+  // Seed from the client cache after mount (not during render) so the first
+  // client render matches the server and we don't trip a hydration mismatch.
   useEffect(() => {
-    if (!isSignedIn) return;
-    if (!initialTransactions) setLoading(true);
+    if (!isSignedIn) { setLoading(false); return; }
+    const cached = getCached<WalletTransaction[]>(WALLET_HISTORY_KEY);
+    if (cached?.length) { setTxns(cached); setLoading(false); }
     cachedFetch<WalletTransaction[]>(WALLET_HISTORY_KEY, true)
       .then((data) => { if (data) setTxns(data); })
       .finally(() => setLoading(false));
-  }, [isSignedIn, initialTransactions]);
+  }, [isSignedIn]);
 
   if (!isSignedIn) {
     return (
