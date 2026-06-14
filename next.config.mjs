@@ -5,6 +5,12 @@ const nextConfig = {
   // Emit a minimal self-contained server (.next/standalone) so the runtime
   // image ships only traced deps instead of the full node_modules (~6x smaller).
   output: "standalone",
+  // Keep visited/prefetched routes warm in the client router cache so going
+  // back to a page is instant with no extra server request (self-hosted: this
+  // both improves perceived nav speed and reduces request amplification).
+  experimental: {
+    staleTimes: { dynamic: 30, static: 180 },
+  },
   async headers() {
     return [
       {

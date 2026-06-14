@@ -164,5 +164,7 @@ export async function GET() {
       ...transaction,
       amount: Number(transaction.amount),
     })),
+  }, {
+    headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=30" },
   });
 }

@@ -137,5 +137,7 @@ export async function GET(req: Request) {
       feesCollected: totalFeesCollected,
       grossProfit:  totalGrossProfit,
     },
+  }, {
+    headers: { "Cache-Control": "private, max-age=10, stale-while-revalidate=30" },
   });
 }

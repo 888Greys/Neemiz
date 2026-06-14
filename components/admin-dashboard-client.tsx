@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { getCached, setCached } from "@/lib/client-cache";
 import {
   Area,
   AreaChart,
@@ -98,14 +99,29 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    // Render last-known data instantly (like the main site) so revisiting the
+    // command center never shows a blank spinner; then revalidate in the
+    // background. Only block on the spinner when there is nothing cached.
+    const cachedStats = getCached<Stats>("/api/admin/stats");
+    const cachedProfits = getCached<ProfitData>("/api/admin/profits?days=30");
+    if (cachedStats) setStats(cachedStats);
+    if (cachedProfits) setProfits(cachedProfits);
+    setLoading(!cachedStats);
     try {
       const [statsRes, profitsRes] = await Promise.all([
-        fetch("/api/admin/stats", { cache: "no-store" }),
-        fetch("/api/admin/profits?days=30", { cache: "no-store" }),
+        fetch("/api/admin/stats"),
+        fetch("/api/admin/profits?days=30"),
       ]);
-      if (statsRes.ok) setStats(await statsRes.json());
-      if (profitsRes.ok) setProfits(await profitsRes.json());
+      if (statsRes.ok) {
+        const data = (await statsRes.json()) as Stats;
+        setStats(data);
+        setCached("/api/admin/stats", data);
+      }
+      if (profitsRes.ok) {
+        const data = (await profitsRes.json()) as ProfitData;
+        setProfits(data);
+        setCached("/api/admin/profits?days=30", data);
+      }
       setUpdatedAt(new Date());
     } finally {
       setLoading(false);
