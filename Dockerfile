@@ -14,7 +14,12 @@ WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN --mount=type=cache,target=/app/.next/cache npm run build
+# SENTRY_AUTH_TOKEN is passed as a BuildKit secret (never baked into the image)
+# so withSentryConfig can upload source maps for de-minified stack traces.
+RUN --mount=type=cache,target=/app/.next/cache \
+    --mount=type=secret,id=sentry_auth_token \
+    SENTRY_AUTH_TOKEN="$(cat /run/secrets/sentry_auth_token 2>/dev/null || true)" \
+    npm run build
 
 FROM base AS runner
 WORKDIR /app

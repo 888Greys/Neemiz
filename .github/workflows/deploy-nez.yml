@@ -32,6 +32,8 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
           NEXT_PUBLIC_AVIATOR_WS_URL=${{ secrets.NEXT_PUBLIC_AVIATOR_WS_URL }}
+          NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${{ secrets.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE }}
           EOF
 
       - name: Set up Buildx
@@ -54,6 +56,10 @@ jobs:
             ${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Auth token for Sentry source-map upload during `next build` (BuildKit
+          # secret — kept out of the image layers and history).
+          secrets: |
+            sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
 
       - name: Set up SSH
         run: |
