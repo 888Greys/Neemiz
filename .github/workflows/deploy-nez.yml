@@ -11,9 +11,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Write build-time public env
+        # NEXT_PUBLIC_* are inlined into the client bundle at build time.
+        # .dockerignore keeps .env.production (and only that) in the build context.
+        run: |
+          cat > .env.production <<EOF
+          NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }}
+          NEXT_PUBLIC_AVIATOR_WS_URL=${{ secrets.NEXT_PUBLIC_AVIATOR_WS_URL }}
+          EOF
+
+      - name: Build image (on GitHub runner, not on nez)
+        run: docker build -t neemiz-app:latest .
+
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
@@ -21,12 +37,13 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "${{ secrets.NEZ_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
-      - name: Trigger deploy on nez
-        # The deploy key is locked to a forced command on the server
-        # (command="/opt/neemiz/deploy.sh"), so the argument below is ignored —
-        # the server always runs the deploy script and streams its output back.
+      - name: Ship image to nez and swap container
+        # The deploy key is locked to a forced command (/opt/neemiz/deploy.sh),
+        # which reads this gzipped image tarball from stdin, loads it, and swaps
+        # the live container. No build runs on nez — just a fast load.
         run: |
-          ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=40 \
-            -o ConnectTimeout=20 -o TCPKeepAlive=yes \
-            -i ~/.ssh/id_ed25519 \
-            "${{ secrets.NEZ_USER }}@${{ secrets.NEZ_HOST }}" deploy
+          docker save neemiz-app:latest | gzip | \
+            ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=120 \
+                -o ConnectTimeout=20 -o TCPKeepAlive=yes \
+                -i ~/.ssh/id_ed25519 \
+                "${{ secrets.NEZ_USER }}@${{ secrets.NEZ_HOST }}" deploy
