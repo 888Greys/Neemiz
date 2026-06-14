@@ -31,6 +31,11 @@ Sentry browser events are sent directly to Sentry rather than tunneled through
 the Next.js application. Tunneling telemetry through `/monitoring` adds
 production requests during the same traffic spikes that need observability.
 
+The production container runs two Next.js workers through Node's cluster
+scheduler. This uses more than one CPU core while preserving a single container,
+port, immutable image, health check, and blue-green deployment path. Keep
+application state in Supabase or shared services; workers must remain stateless.
+
 Large login, registration, profile, and wallet overlays are lazy-loaded only
 when opened. Dashboard rows render a bounded preview rather than mounting the
 entire game catalog; category pages remain the full-inventory view.
