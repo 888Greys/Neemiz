@@ -1,21 +1,36 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useState, useRef, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { mobileNav } from "@/lib/mock-data";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
-import { LoginModal } from "@/components/login-modal";
-import { RegisterModal } from "@/components/register-modal";
-import { ProfileModal } from "@/components/profile-modal";
-import { WalletSheet } from "@/components/wallet-sheet";
 import { toast } from "@/lib/toast";
 import { NotificationsBell } from "@/components/notifications-dropdown";
 import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
+import type { ProfileView } from "@/components/profile-modal";
+
+const LoginModal = dynamic(
+  () => import("@/components/login-modal").then((mod) => mod.LoginModal),
+  { ssr: false },
+);
+const RegisterModal = dynamic(
+  () => import("@/components/register-modal").then((mod) => mod.RegisterModal),
+  { ssr: false },
+);
+const ProfileModal = dynamic(
+  () => import("@/components/profile-modal").then((mod) => mod.ProfileModal),
+  { ssr: false },
+);
+const WalletSheet = dynamic(
+  () => import("@/components/wallet-sheet").then((mod) => mod.WalletSheet),
+  { ssr: false },
+);
 
 const tempAssets = {
   appInstall: "https://v3.bundlecdn.com/b02632/plain/bonus/app-install/phone-small-v1.png",
@@ -33,6 +48,7 @@ type AppShellProps = {
 
 export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = true }: AppShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const isLogin = pathname === "/login";
   const isSportsPage = pathname.startsWith("/sports");
   const { isSignedIn, user } = useSupabaseAuth();
@@ -55,10 +71,10 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const [loginOpen, setLoginOpen]             = useState(false);
   const [registerOpen, setRegisterOpen]       = useState(false);
   const [profileOpen, setProfileOpen]         = useState(false);
-  const [profileInitialView, setProfileInitialView] = useState<string | undefined>(undefined);
+  const [profileInitialView, setProfileInitialView] = useState<ProfileView | undefined>(undefined);
   const [walletOpen, setWalletOpen]           = useState(false);
 
-  function openProfile(view?: string) {
+  function openProfile(view?: ProfileView) {
     setProfileInitialView(view);
     setProfileOpen(true);
   }
@@ -224,7 +240,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} />}
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
-      {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} initialView={profileInitialView as Parameters<typeof ProfileModal>[0]["initialView"]} />}
+      {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} initialView={profileInitialView} />}
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} />}
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} onOpenBonuses={() => { setMobileMenuOpen(false); openProfile("bonuses"); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} />}
 
@@ -244,7 +260,14 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
 
           return (
-            <Link key={item.label} href={item.href ?? "/"} className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}>
+            <Link
+              key={item.label}
+              href={item.href ?? "/"}
+              onPointerEnter={() => router.prefetch(item.href ?? "/")}
+              onFocus={() => router.prefetch(item.href ?? "/")}
+              onTouchStart={() => router.prefetch(item.href ?? "/")}
+              className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}
+            >
               <Icon name={item.icon} fill={active} className="text-[20px]" />
               <span className="mt-0.5 max-w-full truncate font-bold leading-none">{item.label}</span>
             </Link>
@@ -258,11 +281,14 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 }
 
 function TopNavLink({ href, icon, label, pathname }: { href: string; icon: string; label: string; pathname: string }) {
+  const router = useRouter();
   const active = href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
   return (
     <Link
       href={href}
+      onPointerEnter={() => router.prefetch(href)}
+      onFocus={() => router.prefetch(href)}
       className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#18191d] ${
         active
           ? "bg-[#087cff] text-white shadow-[0_4px_16px_rgba(8,124,255,.35)]"

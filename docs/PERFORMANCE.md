@@ -13,6 +13,16 @@ prefetch every primary route from `AppShell`: on a self-hosted Next.js server,
 that turns each visit into several extra server-render requests and competes
 with real navigation traffic.
 
+Primary desktop and mobile navigation links additionally prefetch on pointer,
+keyboard-focus, or touch intent. The root route has a lightweight loading
+boundary so dynamic pages can respond immediately while their server payload
+streams. A thin progress indicator confirms that navigation started, and the
+whole-page fade is kept short so completed transitions are not visually delayed.
+
+Large login, registration, profile, and wallet overlays are lazy-loaded only
+when opened. Dashboard rows render a bounded preview rather than mounting the
+entire game catalog; category pages remain the full-inventory view.
+
 ### Stale-while-revalidate client cache
 
 `lib/client-cache.ts` stores selected API responses in memory and
