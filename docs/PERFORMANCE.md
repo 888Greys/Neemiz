@@ -37,7 +37,9 @@ entire game catalog; category pages remain the full-inventory view.
 
 Sports fixture reads use a 15-second server cache. The fixture table is already
 updated by cron, so repeated navigations should not repeat the same remote
-database queries for every visitor.
+database queries for every visitor. The initial Top tab is bounded to 24
+upcoming fixtures, All Sports to 48, and tabs that do not display upcoming
+fixtures do not query them.
 
 ### Stale-while-revalidate client cache
 

@@ -28,15 +28,19 @@ export default async function SportsPage({ searchParams }: Props) {
   const leagueFilter = searchParams.league ?? "";
 
   const hasToken = Boolean(process.env.ODDS_API_KEY);
-  const upcomingLimit = activeTab === "Sports" ? 100 : 60;
+  const liveLimit = activeTab === "Live" ? 30 : activeTab === "Top" ? 6 : 0;
+  const upcomingLimit = activeTab === "Sports" ? 48 : activeTab === "Top" ? 24 : 0;
 
   // Read from the server-side cache (populated by the refresh-fixtures cron) —
   // zero Odds API credits per page load. Fall back to mocks when there's no key
   // or the cache hasn't been warmed yet.
   let [liveMatches, upcomingMatches] = hasToken
-    ? await Promise.all([readLivescores(30), readUpcoming(upcomingLimit)])
+    ? await Promise.all([
+        liveLimit > 0 ? readLivescores(liveLimit) : Promise.resolve([]),
+        upcomingLimit > 0 ? readUpcoming(upcomingLimit) : Promise.resolve([]),
+      ])
     : [MOCK_LIVE, MOCK_UPCOMING];
-  if (liveMatches.length === 0 && upcomingMatches.length === 0) {
+  if ((activeTab === "Top" || activeTab === "Sports") && liveMatches.length === 0 && upcomingMatches.length === 0) {
     liveMatches = MOCK_LIVE;
     upcomingMatches = MOCK_UPCOMING;
   }
