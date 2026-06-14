@@ -26,5 +26,7 @@ jobs:
         # (command="/opt/neemiz/deploy.sh"), so the argument below is ignored —
         # the server always runs the deploy script and streams its output back.
         run: |
-          ssh -i ~/.ssh/id_ed25519 \
+          ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=40 \
+            -o ConnectTimeout=20 -o TCPKeepAlive=yes \
+            -i ~/.ssh/id_ed25519 \
             "${{ secrets.NEZ_USER }}@${{ secrets.NEZ_HOST }}" deploy
