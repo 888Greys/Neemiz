@@ -34,7 +34,9 @@ export function P2PSubNav() {
       } catch { /* ignore */ }
     };
     tick();
-    const id = setInterval(tick, 20000);
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") tick();
+    }, 60000);
     return () => { cancelled = true; clearInterval(id); };
   }, [isSignedIn, pathname]);
 
