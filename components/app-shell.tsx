@@ -251,7 +251,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
-          const activePath = "activePath" in item ? item.activePath : (item.href ?? "").split("?")[0].split("#")[0];
+          const activePath = ("activePath" in item ? item.activePath : (item.href ?? "").split("?")[0].split("#")[0]) as string;
           // Use the optimistic target while a tap is in flight so the tab lights
           // up the instant it's pressed, not after the page finishes loading.
           const active = activePath === (pendingPath ?? pathname);
