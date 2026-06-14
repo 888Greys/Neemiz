@@ -27,6 +27,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENV WEB_CONCURRENCY=2
 
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs
@@ -36,6 +37,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 # Static assets and public/ are NOT part of standalone — copy them explicitly
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/cluster-server.mjs ./cluster-server.mjs
 # Prisma client + query engine — NFT tracing misses the engine binary, so copy it
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
@@ -44,4 +46,4 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@img/sharp-libvips-l
 
 USER nextjs
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "cluster-server.mjs"]
