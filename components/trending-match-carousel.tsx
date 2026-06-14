@@ -37,11 +37,17 @@ export function TrendingMatchCarousel() {
     return () => clearInterval(t);
   }, [isHovered, matches.length]);
 
+  // Clamp the rotation index when the match list shrinks (e.g. mock → fewer
+  // live matches), otherwise matches[index] is undefined and the render throws.
+  useEffect(() => {
+    setIndex((i) => (i >= matches.length ? 0 : i));
+  }, [matches.length]);
+
   if (matches.length === 0) return null;
 
-  const event = matches[index];
-  const homeScore = event.home.score ?? 0;
-  const awayScore = event.away.score ?? 0;
+  const event = matches[index] ?? matches[0];
+  const homeScore = event.home?.score ?? 0;
+  const awayScore = event.away?.score ?? 0;
 
   return (
     <section
@@ -92,10 +98,10 @@ export function TrendingMatchCarousel() {
         <div className="px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-1 items-center gap-2 min-w-0">
-              {event.home.logo && (
+              {event.home?.logo && (
                 <img src={event.home.logo} alt="" className="h-6 w-6 shrink-0 object-contain" />
               )}
-              <span className="truncate text-sm font-black text-white">{event.home.name}</span>
+              <span className="truncate text-sm font-black text-white">{event.home?.name}</span>
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5 rounded-xl bg-white/[0.05] px-3 py-1.5">
@@ -105,15 +111,15 @@ export function TrendingMatchCarousel() {
             </div>
 
             <div className="flex flex-1 items-center justify-end gap-2 min-w-0">
-              <span className="truncate text-right text-sm font-black text-white">{event.away.name}</span>
-              {event.away.logo && (
+              <span className="truncate text-right text-sm font-black text-white">{event.away?.name}</span>
+              {event.away?.logo && (
                 <img src={event.away.logo} alt="" className="h-6 w-6 shrink-0 object-contain" />
               )}
             </div>
           </div>
 
           {/* Odds */}
-          {event.odds.length > 0 && (
+          {(event.odds?.length ?? 0) > 0 && (
             <div className="mt-4 grid grid-cols-3 gap-2">
               {event.odds.slice(0, 3).map((odd) => {
                 const betId = `trending-${event.id}-${odd.label}`;
@@ -126,7 +132,7 @@ export function TrendingMatchCarousel() {
                       e.stopPropagation();
                       toggleBet({
                         id: betId,
-                        matchName: `${event.home.name} vs ${event.away.name}`,
+                        matchName: `${event.home?.name ?? ""} vs ${event.away?.name ?? ""}`,
                         market: "1X2",
                         label: odd.label,
                         value: odd.value,
