@@ -18,6 +18,7 @@
  * per request. See [[neemiz-settlement-bug]].
  */
 import { db } from "@/lib/db";
+import { unstable_cache } from "next/cache";
 import {
   getFetchSports,
   fetchOddsStatus,
@@ -206,7 +207,7 @@ function scoreToMatch(numericId: number, score: {
 
 // ── Reads (served from DB — zero API credits) ───────────────────────────────
 
-export async function readLivescores(limit = 200): Promise<Match[]> {
+const readLivescoresCached = unstable_cache(async (limit: number): Promise<Match[]> => {
   const rows = await db.fixtureCache.findMany({
     where: {
       category: "live",
@@ -216,15 +217,23 @@ export async function readLivescores(limit = 200): Promise<Match[]> {
     take: limit,
   });
   return rows.map((r) => (r.data as unknown as CachedFixture).match);
+}, ["fixture-cache-live"], { revalidate: 15 });
+
+export async function readLivescores(limit = 200): Promise<Match[]> {
+  return readLivescoresCached(limit);
 }
 
-export async function readUpcoming(limit = 200): Promise<Match[]> {
+const readUpcomingCached = unstable_cache(async (limit: number): Promise<Match[]> => {
   const rows = await db.fixtureCache.findMany({
     where: { category: "upcoming", commenceTime: { gt: new Date() } },
     orderBy: { commenceTime: "asc" },
     take: limit,
   });
   return rows.map((r) => (r.data as unknown as CachedFixture).match);
+}, ["fixture-cache-upcoming"], { revalidate: 15 });
+
+export async function readUpcoming(limit = 200): Promise<Match[]> {
+  return readUpcomingCached(limit);
 }
 
 export async function readFixtureDetail(numericId: number): Promise<MatchDetail | null> {
