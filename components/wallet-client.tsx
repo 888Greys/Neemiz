@@ -83,7 +83,7 @@ const TXN_META: Record<string, { label: string; icon: string; color: string; sig
 
 /* ────────────────────────────────────────────────────────── */
 
-export function WalletClient() {
+export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
   const { isSignedIn, user } = useSupabaseAuth();
   const { openLogin }        = useAuthModal();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
@@ -279,7 +279,7 @@ export function WalletClient() {
     b.available.toFixed(b.crypto === "KES" ? 2 : b.crypto === "BTC" || b.crypto === "ETH" ? 8 : 4);
 
   return (
-    <div className="w-full">
+    <div className={`w-full ${wide ? "lg:grid lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start" : ""}`}>
 
       {/* ── Balance hero ── */}
       <div className="relative overflow-hidden bg-gradient-to-br from-[#051b35] via-[#091522] to-[#0d0e11] px-6 pb-5 pt-7 sm:pb-8 sm:pt-10">
@@ -362,6 +362,7 @@ export function WalletClient() {
         </div>
       </div>
 
+      <div className="min-w-0">{/* ── right column when wide: tabs + active panel ── */}
       {/* ── Tabs ── */}
       <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#0d0e11]">
         <div className="mx-auto grid max-w-2xl grid-cols-4 gap-0">
@@ -951,6 +952,7 @@ export function WalletClient() {
         {/* ── HISTORY TAB ── */}
         {tab === "history" && <TransactionHistory isSignedIn={!!isSignedIn} />}
       </div>
+      </div>{/* ── end right column ── */}
     </div>
   );
 }

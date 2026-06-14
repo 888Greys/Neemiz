@@ -12,7 +12,7 @@ export function WalletSheet({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-[#0e0e14] shadow-2xl ring-1 ring-white/10"
+        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-[#0e0e14] shadow-2xl ring-1 ring-white/10 lg:max-w-4xl"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -23,7 +23,7 @@ export function WalletSheet({ onClose }: { onClose: () => void }) {
         >
           <Icon name="close" className="text-[18px]" />
         </button>
-        <WalletClient />
+        <WalletClient wide />
       </div>
     </div>
   );
