@@ -1270,7 +1270,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
       onClick={onClose}
     >
       <div
-        className="relative flex w-full flex-col overflow-hidden rounded-t-3xl bg-[#111316] shadow-2xl ring-1 ring-white/[0.08] sm:max-w-sm sm:rounded-3xl animate-in fade-in slide-in-from-bottom-4 duration-300"
+        className="relative flex w-full flex-col overflow-hidden rounded-t-3xl bg-[#111316] shadow-2xl ring-1 ring-white/[0.08] sm:rounded-3xl animate-in fade-in slide-in-from-bottom-4 duration-300 sm:max-w-sm lg:max-w-3xl"
         style={{ maxHeight: "90dvh" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1305,7 +1305,8 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
 
           {/* ── MAIN ── */}
           {view === "main" && (
-            <>
+            <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-2 lg:px-2 lg:pt-1">
+            <div>{/* ── LEFT column (identity + balance) ── */}
               <div className="flex flex-col items-center gap-1.5 px-5 pb-3 pt-1 text-center">
                 {avatarUrl ? (
                   <img
@@ -1403,7 +1404,9 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                   </button>
                 </div>
               </div>
+            </div>{/* ── end LEFT column ── */}
 
+            <div>{/* ── RIGHT column (menu + settings + sign out) ── */}
               <div className="mx-4 mb-2 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
                 {MENU.map((item, i) => (
                   <div key={item.label}>
@@ -1450,7 +1453,8 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                   Sign Out
                 </button>
               </div>
-            </>
+            </div>{/* ── end RIGHT column ── */}
+            </div>
           )}
 
           {/* ── SETTINGS ── */}
