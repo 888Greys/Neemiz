@@ -90,7 +90,9 @@ export default async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!monitoring|_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/((?!monitoring)(?:api|trpc))(.*)",
+    "/wallet/:path*",
+    "/profile/:path*",
+    "/admin/:path*",
+    "/2fa",
   ],
 };

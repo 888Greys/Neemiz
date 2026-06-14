@@ -34,6 +34,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Prisma client + query engine — NFT tracing misses the engine binary, so copy it
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# Sharp's JS package is traced, but its optional libvips package is not.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@img/sharp-libvips-linux-x64 ./node_modules/@img/sharp-libvips-linux-x64
 
 USER nextjs
 EXPOSE 3000

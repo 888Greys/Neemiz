@@ -8,9 +8,10 @@ trips while keeping financial mutations authoritative on the server.
 
 ### Route prefetching
 
-`components/app-shell.tsx` prefetches the primary authenticated routes during
-browser idle time. Next.js then has the route bundles ready before most clicks,
-which removes repeated page-level loading screens.
+Use Next.js link prefetching for links currently visible to the user. Do not
+prefetch every primary route from `AppShell`: on a self-hosted Next.js server,
+that turns each visit into several extra server-render requests and competes
+with real navigation traffic.
 
 ### Stale-while-revalidate client cache
 
@@ -59,6 +60,21 @@ usable when realtime is blocked.
 `GET /api/notifications` returns the notification list and unread count in one
 response. Independent page requests are started in parallel where possible
 instead of waiting for sequential database round trips.
+
+Wallet balance reads are deduplicated across mounted components with a shared
+short-lived client cache. Notification and P2P badge polling only runs while the
+tab is visible and uses a one-minute fallback interval; Realtime and explicit
+mutation refresh events remain the primary update mechanisms.
+
+### Self-hosted request path
+
+Supabase session middleware only runs for protected page routes. API handlers
+perform their own authorization and public pages do not require a session
+round trip. This is important on the VPS because middleware, rendering, and API
+handlers share the same Next.js process, unlike Vercel's separate edge runtime.
+
+The standalone Docker image must include Sharp's platform-specific `libvips`
+package so image optimization does not repeatedly fail at runtime.
 
 ### Database indexes
 

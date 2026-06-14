@@ -139,7 +139,7 @@ function dbToNotification(n: DbNotification): Notification {
 
 const LAST_READ_KEY = "nezeem_notif_last_read";
 const NOTIFICATION_CACHE_MS = 60_000;
-const NOTIFICATION_POLL_MS = 10_000;
+const NOTIFICATION_POLL_MS = 60_000;
 export const NOTIFICATIONS_REFRESH_EVENT = "nezeem:notifications-refresh";
 let notificationCache: { notes: Notification[]; fetchedAt: number } | null = null;
 let notificationRequest: Promise<Notification[]> | null = null;
@@ -404,7 +404,7 @@ export function NotificationsBell() {
         )
         .subscribe();
     });
-    const timer = window.setInterval(refreshNow, NOTIFICATION_POLL_MS);
+    const timer = window.setInterval(refreshVisible, NOTIFICATION_POLL_MS);
     window.addEventListener(NOTIFICATIONS_REFRESH_EVENT, refreshNow);
     document.addEventListener("visibilitychange", refreshVisible);
     return () => {
