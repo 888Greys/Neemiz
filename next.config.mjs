@@ -2,6 +2,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Emit a minimal self-contained server (.next/standalone) so the runtime
+  // image ships only traced deps instead of the full node_modules (~6x smaller).
+  output: "standalone",
   async headers() {
     return [
       {
