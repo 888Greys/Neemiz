@@ -5,10 +5,17 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 # never run two deploys at once
 concurrency:
   group: deploy-nez
   cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/888greys/neemiz
 
 jobs:
   build-and-deploy:
@@ -30,14 +37,21 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build image (cached, on GitHub runner)
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish image
         uses: docker/build-push-action@v6
         with:
           context: .
-          tags: neemiz-app:latest
-          load: true
-          # Reuse unchanged layers (deps/npm ci) between runs via GitHub's cache,
-          # so only changed steps rebuild — much faster than a cold build.
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -48,13 +62,11 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           printf '%s\n' "${{ secrets.NEZ_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
 
-      - name: Ship image to nez and swap container
-        # The deploy key is locked to a forced command (/opt/neemiz/deploy.sh),
-        # which reads this gzipped image tarball from stdin, loads it, and swaps
-        # the live container. No build runs on nez — just a fast load.
+      - name: Pull image on nez and swap container
         run: |
-          docker save neemiz-app:latest | gzip | \
-            ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=120 \
-                -o ConnectTimeout=20 -o TCPKeepAlive=yes \
-                -i ~/.ssh/id_ed25519 \
-                "${{ secrets.NEZ_USER }}@${{ secrets.NEZ_HOST }}" deploy
+          printf '%s\n' "${{ secrets.GITHUB_TOKEN }}" | \
+          ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=30 \
+              -o ConnectTimeout=20 -o TCPKeepAlive=yes \
+              -i ~/.ssh/id_ed25519 \
+              "${{ secrets.NEZ_USER }}@${{ secrets.NEZ_HOST }}" \
+              "deploy ${{ env.IMAGE_NAME }}:${{ github.sha }}"
