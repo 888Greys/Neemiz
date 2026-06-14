@@ -198,8 +198,10 @@ export function WalletClient() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ phone: normalizeMsisdn(phone), amount: Number(amount) }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to initiate payment.");
+      // Guard against non-JSON responses (e.g. an HTML 502 during a deploy swap)
+      // so the user sees a clean message instead of a JSON parse error.
+      const data = await res.json().catch(() => ({} as { error?: string }));
+      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Payment service is busy — please try again in a moment.");
       setDeposit({ step: "pending", txId: data.transactionId as string, amount: Number(amount) });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
