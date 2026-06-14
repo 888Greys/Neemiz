@@ -31,29 +31,57 @@ export async function getOrCreateUser(supabaseId: string, data?: UserData) {
     return existing;
   }
 
-  try {
-    const username = await generateUniqueUsername(db, data);
-    return await db.user.create({
-      data: {
-        supabaseId,
-        email: data?.email ?? null,
-        phone: data?.phone ?? null,
-        username,
-        firstName: data?.firstName ?? null,
-        lastName: data?.lastName ?? null,
-        imageUrl: data?.imageUrl ?? null,
-      },
-    });
-  } catch (error) {
-    // Concurrent authenticated requests can both observe a missing user. The
-    // request that loses the unique-key race should use the row just created.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+  // A new Supabase identity can collide on any unique column:
+  //  - supabaseId  → a concurrent request already created this user
+  //  - username    → two requests generated the same handle (race)
+  //  - email/phone → another account already owns this contact (e.g. the user
+  //                  signed up with email OTP and is now using Google with the
+  //                  same address). We must not steal it, so drop the field.
+  // Retry a few times, narrowing the data each pass, so this never 500s.
+  let email = data?.email ?? null;
+  let phone = data?.phone ?? null;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      const username = await generateUniqueUsername(db, data);
+      return await db.user.create({
+        data: {
+          supabaseId,
+          email,
+          phone,
+          username,
+          firstName: data?.firstName ?? null,
+          lastName: data?.lastName ?? null,
+          imageUrl: data?.imageUrl ?? null,
+        },
+      });
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+        throw error;
+      }
+
+      // Did a concurrent request already create *this* user? Use that row.
       const created = await db.user.findUnique({ where: { supabaseId } });
       if (created) {
         if (!created.isActive) throw new SuspendedAccountError();
         return created;
       }
+
+      // Otherwise the conflict is on email/phone/username owned by someone else
+      // (or a username race). Drop the offending field(s) and retry.
+      const target = error.meta?.target;
+      const fields = (Array.isArray(target) ? target : target ? [target] : []).map(String);
+      if (fields.some((f) => f.includes("email"))) email = null;
+      if (fields.some((f) => f.includes("phone"))) phone = null;
+      // username collisions are handled by regenerating on the next pass
     }
-    throw error;
   }
+
+  // Final fallback: if a racing request created the row, return it.
+  const fallback = await db.user.findUnique({ where: { supabaseId } });
+  if (fallback) {
+    if (!fallback.isActive) throw new SuspendedAccountError();
+    return fallback;
+  }
+  throw new Error(`Could not create user for supabaseId after retries`);
 }
