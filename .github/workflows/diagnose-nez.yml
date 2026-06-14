@@ -1,0 +1,59 @@
+name: Diagnose nez
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.NEZ_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.NEZ_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Capture production diagnostics
+        run: |
+          ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=10 \
+              -o ConnectTimeout=20 -o TCPKeepAlive=yes \
+              -i ~/.ssh/id_ed25519 \
+              "${{ secrets.NEZ_USER }}@${{ secrets.NEZ_HOST }}" 'bash -s' <<'REMOTE'
+          set -u
+
+          echo "== host =="
+          date
+          uptime
+          free -h
+          df -h /
+
+          echo "== containers =="
+          docker ps --format '{{.Names}}|{{.Image}}|{{.Status}}'
+          docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}'
+
+          echo "== current minute traffic =="
+          minute="$(date '+%d/%b/%Y:%H:%M')"
+          echo "$minute"
+          grep -F "$minute" /var/log/nginx/access.log | wc -l
+
+          echo "== top paths =="
+          grep -F "$minute" /var/log/nginx/access.log |
+            awk '{print $7}' |
+            sed 's/?.*//' |
+            sort |
+            uniq -c |
+            sort -nr |
+            head -25
+
+          echo "== request classes =="
+          printf 'rsc='
+          grep -F "$minute" /var/log/nginx/access.log | grep -c '_rsc=' || true
+          printf 'monitoring='
+          grep -F "$minute" /var/log/nginx/access.log | grep -c ' /monitoring' || true
+          printf 'errors='
+          grep -F "$minute" /var/log/nginx/access.log | awk '$9 >= 500 { count++ } END { print count + 0 }'
+          REMOTE
