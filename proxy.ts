@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { DEV_AUTH_ENABLED, DEV_COOKIE, devAccountByKey } from "@/lib/dev-auth";
 
 const PROTECTED = [
   "/wallet",
@@ -15,6 +16,18 @@ function isProtected(pathname: string) {
 }
 
 export default async function middleware(request: NextRequest) {
+  // Dev-only local auth: gate protected routes off the dev cookie, skip Supabase
+  // and 2FA entirely. Hard-gated by NODE_ENV inside DEV_AUTH_ENABLED.
+  if (DEV_AUTH_ENABLED) {
+    const signedIn = !!devAccountByKey(request.cookies.get(DEV_COOKIE)?.value);
+    if (!signedIn && isProtected(request.nextUrl.pathname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next({ request });
+  }
+
   // If Supabase env vars are missing (e.g. not yet set in Vercel),
   // let all requests through rather than crashing into a redirect loop.
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -29,6 +29,7 @@ function loadStoredHistory(): HistoryRound[] {
 function appendStoredHistory(entry: HistoryRound) {
   try {
     const existing = loadStoredHistory();
+    if (existing.some((e) => e.roundId === entry.roundId)) return; // never store a round twice
     const updated = [...existing, entry].slice(-80);
     localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(updated));
   } catch { /* non-critical */ }
@@ -361,25 +362,29 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         const clientSeed = (msg.client_seed as string) ?? "";
         const nonce      = (msg.nonce as number) ?? Number(String(msg.round_id ?? "").split("-").at(-1));
         const crashedAt  = new Date().toISOString();
-        setRound((prev) => {
-          if (!prev) return prev;
-          // Append to round-history chips
+        const crashed    = roundRef.current;
+        setRound((prev) => (prev ? { ...prev, state: "CRASHED", crashPoint, serverSeed, crashedAt } : prev));
+
+        // Append to round-history chips — outside the setRound updater (which can
+        // run more than once) and deduped by roundId so a round is never recorded
+        // twice (e.g. a re-delivered crash message).
+        if (crashed) {
+          const entry: HistoryRound = {
+            roundId:        crashed.id,
+            roundNumber:    crashed.roundNumber ?? 0,
+            crashPoint,
+            crashedAt,
+            serverSeed,
+            serverSeedHash: crashed.serverSeedHash ?? "",
+            clientSeed,
+            nonce: Number.isFinite(nonce) ? nonce : undefined,
+          };
           setHistory((h) => {
-            const entry: HistoryRound = {
-              roundId:        prev.id,
-              roundNumber:    prev.roundNumber ?? 0,
-              crashPoint,
-              crashedAt,
-              serverSeed,
-              serverSeedHash: prev.serverSeedHash ?? "",
-              clientSeed,
-              nonce: Number.isFinite(nonce) ? nonce : undefined,
-            };
+            if (h.some((e) => e.roundId === entry.roundId)) return h;
             appendStoredHistory(entry);
             return [...h, entry].slice(-80);
           });
-          return { ...prev, state: "CRASHED", crashPoint, serverSeed, crashedAt };
-        });
+        }
         setMultiplier(crashPoint);
         setMyBets((prev) => {
           const next = { ...prev } as MyBets;
@@ -631,15 +636,18 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           </div>
 
           <div className="flex shrink-0 min-w-0 flex-col gap-2 p-2 lg:flex-row lg:p-3">
-            <AviatorBetPanel
-              panelIndex={0}
-              round={round}
-              myBet={myBets[0]}
-              currentMultiplier={displayMult}
-              balance={balance}
-              onBet={handleBet}
-              onCashout={handleCashout}
-            />
+            {/* Panel 0 — wrapped so the parent sizes it equally regardless of internal state */}
+            <div className="relative min-w-0 lg:flex-1">
+              <AviatorBetPanel
+                panelIndex={0}
+                round={round}
+                myBet={myBets[0]}
+                currentMultiplier={displayMult}
+                balance={balance}
+                onBet={handleBet}
+                onCashout={handleCashout}
+              />
+            </div>
             {/* Panel 1 — always mounted (preserves state); hidden on mobile until user opts in */}
             <div className={`relative min-w-0 lg:flex-1 ${!dualPanel && !myBets[1] ? "hidden lg:block" : "block"}`}>
               <AviatorBetPanel

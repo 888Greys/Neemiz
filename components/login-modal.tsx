@@ -8,6 +8,7 @@ import { CountryPicker } from "@/components/country-picker";
 import { COUNTRIES, type Country } from "@/lib/countries";
 import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
+import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 
 function TgIcon() {
   return (
@@ -47,6 +48,23 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    // Dev-only local auth: validate against the dev accounts instead of Supabase.
+    if (DEV_AUTH_PUBLIC) {
+      const res = await fetch("/api/dev-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        setError("Incorrect email or password. Please try again.");
+        setLoading(false);
+        return;
+      }
+      onClose();
+      window.location.href = "/dashboard"; // full nav so server + auth-context pick up the cookie
+      return;
+    }
 
     const supabase = createClient();
 

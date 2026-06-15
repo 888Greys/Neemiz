@@ -3,6 +3,10 @@ node_modules
 out
 dist
 .env*.local
+# Real secrets — never commit. Local + Vercel-pulled env files.
+.env
+.env.vercel.preview
+.env.vercel.production
 npm-debug.log*
 
 # clerk configuration (can include secrets)

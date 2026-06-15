@@ -12,10 +12,15 @@ export async function GET(request: Request) {
     requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
       ? requestedNext
       : "/dashboard";
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.nezeem.com").replace(
-    /\/+$/,
-    "",
-  );
+  // Redirect back to the origin the request actually arrived on when running
+  // locally; otherwise use the configured public URL (prod sits behind a proxy
+  // where the request host isn't the public domain). This keeps local OAuth on
+  // localhost instead of bouncing to www.nezeem.com.
+  const reqUrl = new URL(request.url);
+  const isLocal = reqUrl.hostname === "localhost" || reqUrl.hostname === "127.0.0.1";
+  const appUrl = isLocal
+    ? reqUrl.origin
+    : (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.nezeem.com").replace(/\/+$/, "");
 
   if (code) {
     const supabase = await createClient();

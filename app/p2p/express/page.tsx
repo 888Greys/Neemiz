@@ -19,7 +19,7 @@ export default function P2PExpressPage() {
     : detectFiatFromHeaders((name) => headerList.get(name));
 
   return (
-    <AppShell mainBg="bg-[#050505]" hideFooter fullHeight>
+    <AppShell mainBg="bg-[#050505]" hideFooter>
       <div>
         <Suspense>
           <P2PExpressClient defaultFiat={defaultFiat} />

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
-import { P2PTerminalShell } from "@/components/p2p-terminal-shell";
+import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { LoadingDots } from "@/components/loading-dots";
@@ -131,8 +131,22 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
   const QUICK = [500, 1000, 2500, 5000, 10000];
 
   return (
-    <P2PTerminalShell title="Express exchange" eyebrow="Instant settlement" description="Auto-match against the best fully backed merchant offer.">
-      <div className="mx-auto grid w-full max-w-5xl gap-5 px-4 py-5 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-6">
+    <>
+      <P2PSubNav />
+      <div className="mx-auto w-full max-w-6xl px-3 pt-2 sm:px-4 lg:px-3">
+        <div className="flex items-center justify-between rounded-lg border border-[#1e1e30] bg-[#111118] px-4 py-3">
+          <div>
+            <p className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-400">Instant settlement</p>
+            <h1 className="mt-0.5 text-lg font-black tracking-tight text-white">Express exchange</h1>
+            <p className="text-[9px] text-slate-600">Auto-match against the best fully backed merchant offer.</p>
+          </div>
+          <div className="hidden items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-3 py-1.5 text-[9px] font-black text-slate-500 sm:flex">
+            <Icon name="shield" className="text-[13px] text-emerald-400" />
+            LIVE RISK CHECKS
+          </div>
+        </div>
+      </div>
+      <div className="mx-auto grid w-full max-w-6xl gap-5 px-3 py-5 sm:px-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-3">
         <section className="hidden rounded-2xl border border-white/[0.07] bg-[radial-gradient(circle_at_top_left,rgba(8,124,255,.12),transparent_42%),#0d1017] p-7 lg:block">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400 ring-1 ring-blue-400/20">
             <Icon name="bolt" fill className="text-[24px]" />
@@ -251,6 +265,6 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
           </p>
         </div>
       </div>
-    </P2PTerminalShell>
+    </>
   );
 }

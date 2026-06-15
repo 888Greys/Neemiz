@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { createClient } from "@/lib/supabase/client";
-import { P2PTerminalShell } from "@/components/p2p-terminal-shell";
+import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
@@ -70,6 +70,78 @@ interface Ad {
 
 // ─── Apply Landing Page ───────────────────────────────────────────────────────
 
+// ─── Onboarding progress tracker ────────────────────────────────────────────────
+// Reflects the merchant's real stage so the journey feels alive and trackable.
+// current = index of the in-progress step; everything before it is complete.
+
+const MERCHANT_STEPS = [
+  { icon: "edit_note",               label: "Apply",          desc: "Submit your display name" },
+  { icon: "manage_search",           label: "KYC Review",     desc: "Reviewed in under 24h" },
+  { icon: "account_balance_wallet",  label: "Fund escrow",    desc: "Receive crypto, then fund" },
+  { icon: "storefront",              label: "Post ads",       desc: "Go live and start trading" },
+];
+
+function MerchantProgress({ current, failed = false }: { current: number; failed?: boolean }) {
+  const pct = MERCHANT_STEPS.length > 1 ? (current / (MERCHANT_STEPS.length - 1)) * 100 : 0;
+  return (
+    <div className="mb-3 rounded-lg border border-white/[0.06] bg-[#111118] p-4 sm:p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-base font-black text-white">Your merchant journey</h2>
+        <span className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
+          Step {Math.min(current + 1, MERCHANT_STEPS.length)} of {MERCHANT_STEPS.length}
+        </span>
+      </div>
+
+      <div className="relative">
+        {/* Track */}
+        <div className="absolute left-4 right-4 top-4 hidden h-0.5 -translate-y-1/2 bg-white/[0.07] sm:block" />
+        <div
+          className={`absolute left-4 top-4 hidden h-0.5 -translate-y-1/2 transition-all duration-500 sm:block ${failed ? "bg-red-500/60" : "bg-[#087cff]"}`}
+          style={{ width: `calc((100% - 2rem) * ${pct / 100})` }}
+        />
+
+        <div className="grid gap-4 sm:grid-cols-4 sm:gap-2">
+          {MERCHANT_STEPS.map((s, i) => {
+            const done    = i < current;
+            const active  = i === current;
+            const isFail  = active && failed;
+            return (
+              <div key={s.label} className="flex items-center gap-3 sm:flex-col sm:items-center sm:text-center">
+                <div
+                  className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[13px] font-black transition-colors ${
+                    isFail
+                      ? "border-red-500/40 bg-red-500/15 text-red-400"
+                      : done
+                      ? "border-[#05b957]/40 bg-[#05b957]/15 text-[#05b957]"
+                      : active
+                      ? "border-[#087cff]/40 bg-[#087cff]/15 text-[#087cff]"
+                      : "border-white/10 bg-white/[0.03] text-slate-600"
+                  }`}
+                >
+                  {done ? (
+                    <Icon name="check" className="text-[16px]" />
+                  ) : isFail ? (
+                    <Icon name="close" className="text-[16px]" />
+                  ) : (
+                    <Icon name={s.icon} className="text-[15px]" />
+                  )}
+                  {active && !failed && (
+                    <span className="absolute inset-0 animate-ping rounded-full bg-[#087cff]/30" />
+                  )}
+                </div>
+                <div className="min-w-0 sm:mt-2">
+                  <p className={`text-sm font-black ${active || done ? "text-white" : "text-slate-500"}`}>{s.label}</p>
+                  <p className="text-xs leading-5 text-slate-600">{s.desc}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ApplyLanding({ onApplied }: { onApplied: () => void }) {
   const [displayName, setDisplayName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -95,7 +167,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
   }
 
   return (
-    <div className="w-full px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
+    <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
       {/* Hero */}
       <div className="relative mb-3 overflow-hidden rounded-lg border border-[#1e1e30] bg-[#111118] p-4 sm:p-5 lg:p-4">
         <div className="relative flex items-center gap-4">
@@ -130,34 +202,8 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
         ))}
       </div>
 
-      {/* How it works */}
-      <div className="mb-3 rounded-lg border border-white/[0.06] bg-[#111118] p-4">
-        <h2 className="mb-3 text-base font-black text-white">How it works</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { step: "1", icon: "edit_note",     label: "Apply",         desc: "Fill in your display name and submit" },
-            { step: "2", icon: "manage_search", label: "KYC Review",    desc: "We review your application in under 24h" },
-            { step: "3", icon: "account_balance_wallet", label: "Receive Crypto",  desc: "Receive to your wallet, then fund escrow" },
-            { step: "4", icon: "storefront",    label: "Post Ads",      desc: "Go live and start trading" },
-          ].map(({ step, icon, label, desc }, i, arr) => (
-            <div key={step} className="flex items-start gap-3">
-              <div className="flex flex-col items-center shrink-0">
-                <div className="w-8 h-8 rounded-full bg-[#087cff]/15 border border-[#087cff]/30 flex items-center justify-center text-[#087cff] font-black text-sm">
-                  {step}
-                </div>
-                {i < arr.length - 1 && <div className="hidden sm:block w-px flex-1 bg-white/[0.06] mt-2 mb-2 min-h-[20px]" />}
-              </div>
-              <div className="pt-1 flex-1">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Icon name={icon} className="text-[#087cff] text-sm" />
-                  <p className="text-white font-bold text-sm">{label}</p>
-                </div>
-                <p className="text-slate-500 text-xs">{desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Live progress tracker */}
+      <MerchantProgress current={0} />
 
       {/* Application form */}
       <div className="max-w-lg">
@@ -205,7 +251,8 @@ function ApplicationStatus({ status, onRefresh }: { status: MerchantStatus; onRe
   const isPending  = status.kycStatus === "PENDING";
 
   return (
-    <div className="w-full px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
+    <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
+      <MerchantProgress current={1} failed={isRejected} />
       <div className="max-w-lg">
         {/* Status card */}
         <div className={`rounded-2xl border p-6 mb-6 ${
@@ -2114,7 +2161,21 @@ export function P2PMerchantClient() {
   }, [isSignedIn, check]);
 
   return (
-    <P2PTerminalShell title="Merchant command" eyebrow="Liquidity operations" description="Manage ads, escrow balances, payment rails and settlement capacity.">
+    <>
+      <P2PSubNav />
+      <div className="mx-auto w-full max-w-6xl px-3 pt-2 sm:px-4 lg:px-3">
+        <div className="flex items-center justify-between rounded-lg border border-[#1e1e30] bg-[#111118] px-4 py-3">
+          <div>
+            <p className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-400">Liquidity operations</p>
+            <h1 className="mt-0.5 text-lg font-black tracking-tight text-white">Merchant command</h1>
+            <p className="text-[9px] text-slate-600">Manage ads, escrow balances, payment rails and settlement capacity.</p>
+          </div>
+          <div className="hidden items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-3 py-1.5 text-[9px] font-black text-slate-500 sm:flex">
+            <Icon name="shield" className="text-[13px] text-emerald-400" />
+            LIVE RISK CHECKS
+          </div>
+        </div>
+      </div>
       {!isSignedIn ? (
         <ApplyLanding onApplied={check} />
       ) : loading || !status ? (
@@ -2128,6 +2189,6 @@ export function P2PMerchantClient() {
       ) : (
         <MerchantDashboard status={status} />
       )}
-    </P2PTerminalShell>
+    </>
   );
 }

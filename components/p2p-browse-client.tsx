@@ -731,8 +731,13 @@ function FiatSelect({ value, onChange, inline = false }: { value: string; onChan
         aria-label="Currency"
         className={inline
           ? "flex shrink-0 items-center gap-0.5 rounded bg-white/[0.06] py-0.5 pl-1.5 pr-1 text-[10px] font-black text-slate-200 transition-colors hover:bg-white/[0.12]"
-          : "flex h-8 shrink-0 items-center gap-1 rounded-md border border-white/[0.07] bg-white/[0.04] pl-2.5 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"}
+          : "flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] pl-1.5 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"}
       >
+        <img
+          src={flagUrl(current.code)}
+          alt=""
+          className={inline ? "h-3 w-[18px] shrink-0 rounded-[2px] object-cover" : "h-4 w-6 shrink-0 rounded-[3px] object-cover"}
+        />
         {current.code}
         <Icon name="expand_more" className={inline ? "text-[14px] text-slate-400" : "text-base text-slate-400"} />
       </button>
@@ -811,7 +816,7 @@ function CryptoSelect({ value, onChange }: { value: string; onChange: (c: string
       </button>
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
-          {["ALL", ...CRYPTOS].map((c) => (
+          {CRYPTOS.map((c) => (
             <button
               key={c}
               type="button"
@@ -1230,7 +1235,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     : "BUY";
   const initCrypto  = VALID_CRYPTOS_SET.has(searchParams?.get("crypto") ?? "")
     ? searchParams?.get("crypto")!
-    : "ALL";
+    : "USDT";
   const initPayment = VALID_PAYMENTS_SET.has(searchParams?.get("payment") ?? "")
     ? (searchParams?.get("payment") ?? "")
     : "";
@@ -1396,7 +1401,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
       <P2PSubNav />
 
-      <div className="w-full px-3 py-2 sm:px-4 lg:px-3">
+      <div className="mx-auto w-full max-w-6xl px-3 py-2 sm:px-4 lg:px-3">
 
         {/* Workspace header */}
         <div className="mb-2 min-w-0">
