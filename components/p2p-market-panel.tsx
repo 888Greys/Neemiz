@@ -222,6 +222,76 @@ function MerchantCenter({ userId }: { userId: string }) {
   );
 }
 
+// ─── Live market stats ──────────────────────────────────────────────────────────
+
+interface MarketStats {
+  volume24h:       number;
+  trades24h:       number;
+  activeOffers:    number;
+  onlineMerchants: number;
+}
+
+function formatKes(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`;
+  return n.toLocaleString("en-KE", { maximumFractionDigits: 0 });
+}
+
+function MarketStatsBlock() {
+  const [stats, setStats]     = useState<MarketStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const r = await fetch("/api/p2p/stats");
+        if (!r.ok) return;
+        const d = await r.json() as MarketStats;
+        if (!cancelled) setStats(d);
+      } catch { /* ignore */ }
+      finally { if (!cancelled) setLoading(false); }
+    };
+    load();
+    // Refresh while the tab is visible so the numbers feel live.
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 30_000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, []);
+
+  if (loading) {
+    return <div className="h-[76px] rounded-xl bg-[#111118] border border-white/[0.06] animate-pulse" />;
+  }
+  if (!stats) return null;
+
+  const cells = [
+    { label: "24h volume",  value: `KSh ${formatKes(stats.volume24h)}`, accent: "text-[#05b957]" },
+    { label: "24h trades",  value: stats.trades24h.toLocaleString(),    accent: "text-white" },
+    { label: "Live offers", value: stats.activeOffers.toLocaleString(), accent: "text-white" },
+  ];
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#111118]">
+      <div className="flex items-center justify-between px-3 pt-3 pb-2">
+        <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Market today</p>
+        <span className="flex items-center gap-1.5 text-[10px] font-bold text-[#05b957]">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#05b957] animate-pulse" />
+          {stats.onlineMerchants} online
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
+        {cells.map((c) => (
+          <div key={c.label} className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-2 text-center">
+            <p className={`text-sm font-black tabular-nums ${c.accent}`}>{c.value}</p>
+            <p className="mt-0.5 text-[9px] text-slate-600">{c.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Trust Signals ────────────────────────────────────────────────────────────
 
 function TrustBlock() {
@@ -267,6 +337,9 @@ export function P2PMarketPanel() {
           <Icon name="refresh" className="text-base" />
         </button>
       </div>
+
+      {/* Live market stats */}
+      <MarketStatsBlock />
 
       {/* Quick links */}
       <div className="grid grid-cols-2 gap-2">

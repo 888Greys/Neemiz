@@ -196,8 +196,8 @@ async function main() {
     const buyerId = devUsers["dev-user-a"];
     const pool = sellAds;
     const ORDER_PLAN: { status: "RELEASED" | "PENDING" | "EXPIRED" | "CANCELLED"; fiat: number; ageMin: number }[] = [
-      { status: "RELEASED",  fiat: 5000, ageMin: 60 * 24 * 3 },
-      { status: "RELEASED",  fiat: 1200, ageMin: 60 * 24 * 1 },
+      { status: "RELEASED",  fiat: 5000, ageMin: 90 },
+      { status: "RELEASED",  fiat: 1200, ageMin: 240 },
       { status: "PENDING",   fiat: 800,  ageMin: 5 },
       { status: "EXPIRED",   fiat: 2000, ageMin: 60 * 6 },
       { status: "CANCELLED", fiat: 1500, ageMin: 60 * 30 },
