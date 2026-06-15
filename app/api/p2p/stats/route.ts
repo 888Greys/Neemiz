@@ -5,21 +5,20 @@ export const dynamic = "force-dynamic";
 // GET /api/p2p/stats — public platform stats for the P2P browse page
 export async function GET() {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Rolling 24h window — robust around midnight (unlike a since-midnight cut).
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const [
-      volumeToday,
+      volume24hAgg,
       onlineMerchants,
       releaseStats,
+      trades24h,
+      activeOffers,
     ] = await Promise.all([
-      // Total fiat traded today (RELEASED orders only)
+      // Total fiat traded in the last 24h (RELEASED orders only)
       db.p2POrder.aggregate({
         _sum: { fiatAmount: true },
-        where: {
-          status:    "RELEASED",
-          releasedAt: { gte: today },
-        },
+        where: { status: "RELEASED", releasedAt: { gte: since } },
       }),
 
       // Merchants currently online (verified + online)
@@ -32,17 +31,28 @@ export async function GET() {
         _avg: { avgReleaseTime: true },
         where: { isVerified: true, completedTrades: { gt: 0 } },
       }),
+
+      // Trades completed in the last 24h (RELEASED orders)
+      db.p2POrder.count({
+        where: { status: "RELEASED", releasedAt: { gte: since } },
+      }),
+
+      // Offers currently tradable
+      db.p2PAd.count({
+        where: { isActive: true, availableAmount: { gt: 0 } },
+      }),
     ]);
 
-    const volumeKes    = Number(volumeToday._sum.fiatAmount ?? 0);
-    const avgRelease   = Math.round(releaseStats._avg.avgReleaseTime ?? 0);
+    const avgRelease = Math.round(releaseStats._avg.avgReleaseTime ?? 0);
 
     return Response.json({
-      volumeToday:    volumeKes,
+      volume24h:      Number(volume24hAgg._sum.fiatAmount ?? 0),
+      trades24h,
+      activeOffers,
       onlineMerchants,
       avgReleaseMin:  avgRelease,
       feePct:         0,
-    });
+    }, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" } });
   } catch (err) {
     console.error("GET /api/p2p/stats:", err instanceof Error ? err.message : "Unknown error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
