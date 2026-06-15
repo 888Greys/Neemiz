@@ -2,6 +2,9 @@
 node_modules
 out
 dist
+# TypeScript incremental build cache — regenerated on every build
+tsconfig.tsbuildinfo
+*.tsbuildinfo
 .env*.local
 # Real secrets — never commit. Local + Vercel-pulled env files.
 .env

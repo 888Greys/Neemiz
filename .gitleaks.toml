@@ -1,0 +1,18 @@
+# gitleaks config — extends the default ruleset, with allowlists for known
+# non-secrets in this repo (dummy local dev creds, example env files).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Known non-secrets / local-dev-only values"
+paths = [
+  '''\.env\.local\.example$''',
+  '''LOCAL-DEV\.md$''',
+]
+regexes = [
+  # Dummy local dev-auth logins — gated to NODE_ENV!=production, never real.
+  '''usera123''',
+  '''userb123''',
+  # Documentation placeholders (e.g. README cron example), not real secrets.
+  '''YOUR_[A-Z_]+''',
+]
