@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { retainedProfit } from "@/lib/house-retention";
+import { getServerBinaryDigit } from "@/lib/binary-price";
 
 function evaluateTrade(side: string, exitDigit: number, targetDigit: number): boolean {
   if (side === "Even")    return exitDigit % 2 === 0;
@@ -26,13 +27,14 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { tradeId?: string; exitDigit?: number };
+  // NOTE: any exitDigit in the body is ignored. The settlement digit is fetched
+  // server-side from the live Deriv feed — trusting the client's digit let
+  // players mint guaranteed wins.
+  let body: { tradeId?: string };
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
 
-  const { tradeId, exitDigit } = body;
+  const { tradeId } = body;
   if (!tradeId) return Response.json({ error: "Missing tradeId" }, { status: 400 });
-  if (exitDigit === undefined || exitDigit < 0 || exitDigit > 9)
-    return Response.json({ error: "Invalid exit digit" }, { status: 400 });
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
@@ -47,6 +49,17 @@ export async function POST(req: Request) {
     return Response.json({ error: "Trade cannot be settled yet" }, { status: 409 });
   if (now > trade.settleBefore)
     return Response.json({ error: "Settlement window expired" }, { status: 409 });
+
+  // Server-authoritative exit digit — the client value is never trusted. If the
+  // live feed is unavailable, refuse to settle so the client can retry; the
+  // trade stays PENDING within its settleBefore window.
+  let exitDigit: number;
+  try {
+    ({ digit: exitDigit } = await getServerBinaryDigit(trade.market));
+  } catch (err) {
+    console.error("binary/settle digit fetch:", err instanceof Error ? err.message : err);
+    return Response.json({ error: "Live feed unavailable, try again" }, { status: 503 });
+  }
 
   const won = evaluateTrade(trade.side, exitDigit, trade.targetDigit);
   const winAmount = won ? Number(trade.payout) : 0;
@@ -93,7 +106,7 @@ export async function POST(req: Request) {
       return result;
     });
 
-    return Response.json({ won, winAmount, status: updated.status });
+    return Response.json({ won, winAmount, exitDigit, status: updated.status });
   } catch (err) {
     console.error("binary/settle error:", err);
     return Response.json({ error: "Settlement failed" }, { status: 500 });
