@@ -58,7 +58,7 @@ export async function createNewRound() {
     },
   });
 
-  const crashPoint = generateCrashPoint(serverSeed, round.id);
+  const crashPoint = generateCrashPoint(serverSeed, hashServerSeed(round.id), round.roundNumber);
   const updated = await db.aviatorRound.update({
     where: { id: round.id },
     data:  { crashPoint },

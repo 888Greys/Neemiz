@@ -48,6 +48,8 @@ interface HistoryRound {
   crashedAt:      string | null;
   serverSeed:     string;
   serverSeedHash: string;
+  clientSeed?:    string;
+  nonce?:         number;
 }
 
 interface MyHistoryBet {
@@ -356,6 +358,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       case "crash": {
         const crashPoint = (msg.multiplier as number) ?? 1.0;
         const serverSeed = (msg.server_seed as string) ?? "";
+        const clientSeed = (msg.client_seed as string) ?? "";
+        const nonce      = (msg.nonce as number) ?? Number(String(msg.round_id ?? "").split("-").at(-1));
         const crashedAt  = new Date().toISOString();
         setRound((prev) => {
           if (!prev) return prev;
@@ -368,6 +372,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
               crashedAt,
               serverSeed,
               serverSeedHash: prev.serverSeedHash ?? "",
+              clientSeed,
+              nonce: Number.isFinite(nonce) ? nonce : undefined,
             };
             appendStoredHistory(entry);
             return [...h, entry].slice(-80);
