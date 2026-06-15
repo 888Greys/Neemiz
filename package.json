@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:turbo": "next dev --turbo",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "db:generate": "bunx prisma generate",
     "db:push": "bunx prisma db push",
     "db:migrate": "bunx prisma migrate dev",
-    "db:studio": "bunx prisma studio"
+    "db:studio": "bunx prisma studio",
+    "seed:local": "bunx tsx --env-file=.env scripts/seed-local.ts"
   },
   "dependencies": {
     "@getbrevo/brevo": "^2.2.0",

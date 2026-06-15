@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 
 type AuthContextType = {
   user: User | null;
@@ -36,6 +37,22 @@ export function SupabaseAuthProvider({
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
+    // Dev-only local auth: pull the current user from /api/dev-auth and skip
+    // Supabase's session/listener machinery entirely.
+    if (DEV_AUTH_PUBLIC) {
+      let active = true;
+      fetch("/api/dev-auth", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : { user: null }))
+        .then((data: { user: User | null }) => {
+          if (!active) return;
+          setUser(data.user);
+          setSession(data.user ? ({ user: data.user } as Session) : null);
+          setIsLoaded(true);
+        })
+        .catch(() => { if (active) setIsLoaded(true); });
+      return () => { active = false; };
+    }
+
     const supabase = createClient();
 
     async function enforceAccountStatus(session: Session | null) {
@@ -93,6 +110,11 @@ export function SupabaseAuthProvider({
   }, []);
 
   const signOut = useCallback(async () => {
+    if (DEV_AUTH_PUBLIC) {
+      await fetch("/api/dev-auth", { method: "DELETE" }).catch(() => {});
+      window.location.replace("/");
+      return;
+    }
     const supabase = createClient();
     await supabase.auth.signOut();
   }, []);
