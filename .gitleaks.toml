@@ -13,4 +13,6 @@ regexes = [
   # Dummy local dev-auth logins — gated to NODE_ENV!=production, never real.
   '''usera123''',
   '''userb123''',
+  # Documentation placeholders (e.g. README cron example), not real secrets.
+  '''YOUR_[A-Z_]+''',
 ]
