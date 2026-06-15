@@ -9,6 +9,8 @@ interface HistoryRound {
   crashedAt:   string | null;
   serverSeed:  string;
   serverSeedHash: string;
+  clientSeed?: string;
+  nonce?:      number;
 }
 
 interface Props {
@@ -99,7 +101,15 @@ export function VerifyModal({ round, onClose }: VerifyModalProps) {
     const { generateCrashPoint, hashServerSeed } = await import("@/lib/aviator/fair");
     const hash    = hashServerSeed(round.serverSeed);
     const matches = hash === round.serverSeedHash;
-    const cp      = generateCrashPoint(round.serverSeed, round.roundId);
+    // HMAC input is `${clientSeed}:${nonce}` — nonce falls back to the roundId suffix.
+    const nonce      = round.nonce ?? Number(round.roundId.split("-").at(-1));
+    const clientSeed = round.clientSeed ?? "";
+    if (!clientSeed || !Number.isFinite(nonce)) {
+      setComputed(null);
+      setVerified(false);
+      return;
+    }
+    const cp = generateCrashPoint(round.serverSeed, clientSeed, nonce);
     setComputed(cp);
     setVerified(matches && Math.abs(cp - round.crashPoint) < 0.01);
   };
@@ -125,8 +135,12 @@ export function VerifyModal({ round, onClose }: VerifyModalProps) {
             <code className="block break-all rounded-md bg-black/40 p-2 font-mono text-blue-400">{round.serverSeedHash}</code>
           </div>
           <div>
-            <p className="mb-1 font-semibold text-white/70">Round ID (used as HMAC input)</p>
-            <code className="block break-all rounded-md bg-black/40 p-2 font-mono text-white/60">{round.roundId}</code>
+            <p className="mb-1 font-semibold text-white/70">Client Seed</p>
+            <code className="block break-all rounded-md bg-black/40 p-2 font-mono text-amber-300">{round.clientSeed ?? "(not available for this round)"}</code>
+          </div>
+          <div>
+            <p className="mb-1 font-semibold text-white/70">HMAC input</p>
+            <code className="block break-all rounded-md bg-black/40 p-2 font-mono text-white/60">{`${round.clientSeed ?? "?"}:${round.nonce ?? round.roundId.split("-").at(-1)}`}</code>
           </div>
 
           {computed !== null && (

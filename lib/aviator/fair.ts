@@ -22,32 +22,32 @@ export function hashServerSeed(seed: string): string {
 
 // ─── Crash point ─────────────────────────────────────────────────────────────
 
+// House edge / cap — MUST stay in sync with the Go engine
+// (internal/game/provably_fair.go on the aviator service).
+const HOUSE_EDGE = 0.03;     // 3% instant-crash
+const MIN_MULTIPLIER = 1.00;
+const MAX_MULTIPLIER = 250;  // engine cap
+
 /**
- * Deterministic crash point from serverSeed + roundId.
+ * Deterministic crash point — an exact port of the Go engine's
+ * HashAndMapToMultiplier(serverSeed, clientSeed, nonce). This MUST match the
+ * engine byte-for-byte or provably-fair verification fails.
  *
- * Distribution targets:
- *   ~5%  of rounds crash instantly at 1.00×  (h % 20 === 0)
- *   P(crash > 2×) ≈ 28–30%  →  70% loss rate for players cashing out at 2×
- *
- * Math: base Pareto(1,1) = e/(e−h) compressed by exponent 1/1.74 ≈ 0.575
- *   P(X > x) = 1 / x^1.74
- *   P(X > 2) ≈ 30%  →  total win rate ≈ 0.95 × 0.30 ≈ 28.5% at 2× cashout
- *
- * Returns a value ≥ 1.00.
+ *   message = `${clientSeed}:${nonce}`
+ *   r       = first 16 hex chars (64-bit) of HMAC-SHA256(serverSeed, message) / 2^64
+ *   r < 0.03            → 1.00 (instant crash)
+ *   else crash = floor( 0.97 / (1 - r) , 2dp ), clamped to [1.00, 250.00]
  */
-export function generateCrashPoint(serverSeed: string, roundId: string): number {
-  const hmac = createHmac("sha256", serverSeed).update(roundId).digest("hex");
-  const h    = parseInt(hmac.slice(0, 8), 16); // 32-bit integer
-  const e    = 2 ** 32;
+export function generateCrashPoint(serverSeed: string, clientSeed: string, nonce: number): number {
+  const hmac = createHmac("sha256", serverSeed).update(`${clientSeed}:${nonce}`).digest("hex");
+  // First 16 hex = 64 bits. Number(BigInt) matches Go's float64(uint64) conversion.
+  const r = Number(BigInt("0x" + hmac.slice(0, 16))) / 2 ** 64;
 
-  // ~5% instant-crash house edge (1 in 20 rounds)
-  if (h % 20 === 0) return 1.00;
+  if (r < HOUSE_EDGE) return MIN_MULTIPLIER;
 
-  // Compress the Pareto distribution so high multipliers are rarer
-  // Exponent 0.575 ≈ 1/1.74 → P(crash > x) = 1/x^1.74
-  const pareto = e / (e - h);
-  const raw    = Math.pow(pareto, 0.575);
-  return Math.min(1000.00, Math.max(1.00, Math.floor(raw * 100) / 100));
+  const crashValue = (100 - HOUSE_EDGE * 100) / (100 - r * 100);
+  const final = Math.floor(crashValue * 100) / 100;
+  return Math.min(MAX_MULTIPLIER, Math.max(MIN_MULTIPLIER, final));
 }
 
 // ─── Multiplier ───────────────────────────────────────────────────────────────
