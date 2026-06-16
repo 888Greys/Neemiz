@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
 import {
   TRADE_TYPES,
@@ -20,11 +20,18 @@ export function TradeTypePicker({
 }) {
   const [cat, setCat] = useState<TradeCategory>("all");
   const [q, setQ] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
   // Slide-in: mount off-screen, then animate to 0 on the next frame.
   const [shown, setShown] = useState(false);
   useEffect(() => {
     const id = requestAnimationFrame(() => setShown(true));
     return () => cancelAnimationFrame(id);
+  }, []);
+
+  // Auto-focus the search only on desktop. On mobile, focusing pops the
+  // keyboard and squashes the layout — let it land on the list instead.
+  useEffect(() => {
+    if (window.matchMedia("(min-width: 1280px)").matches) inputRef.current?.focus();
   }, []);
 
   const term = q.trim().toLowerCase();
@@ -90,7 +97,7 @@ export function TradeTypePicker({
           <div className="flex flex-1 items-center gap-2 rounded-lg bg-white/[0.05] px-3 ring-1 ring-white/[0.07] focus-within:ring-sky-500/50">
             <Icon name="search" className="text-[16px] text-slate-500" />
             <input
-              autoFocus
+              ref={inputRef}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search"
@@ -100,10 +107,10 @@ export function TradeTypePicker({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white"
             aria-label="Close"
           >
-            <Icon name="close" className="text-[18px]" />
+            <Icon name="close" className="text-[15px]" />
           </button>
         </div>
 
