@@ -37,10 +37,11 @@ export function AviatorHistory({ rounds, onVerify }: Props) {
   const scrollRef  = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<{ r: HistoryRound; x: number } | null>(null);
 
-  // Auto-scroll to right when new round is added
+  // Chips render newest-first (leftmost), so snap back to the left edge whenever
+  // a new round lands — that keeps the latest result in view to verify.
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
+      scrollRef.current.scrollLeft = 0;
     }
   }, [rounds.length]);
 
