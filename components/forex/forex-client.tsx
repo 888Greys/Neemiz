@@ -545,7 +545,7 @@ export function ForexClient() {
   }, [price, trades]);
 
   return (
-    <div className="min-h-full max-w-full overflow-x-hidden bg-[#050506] pb-16 text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+    <div className="min-h-full max-w-full overflow-x-hidden bg-[#050506] pb-36 text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       {streamStatus === "fallback" && (() => {
         const isClosed = /closed|presently closed|market.*open/i.test(streamError ?? "");
         return isClosed ? (
@@ -583,7 +583,6 @@ export function ForexClient() {
                   <span className={`rounded px-2 py-1 text-[10px] font-black ${changePct >= 0 ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
                     {changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%
                   </span>
-                  <StatusPill status={streamStatus} />
                 </div>
                 <div className="mt-0.5 hidden text-xs font-bold text-slate-500 sm:block">{selectedMarket.name}</div>
               </div>
@@ -623,12 +622,12 @@ export function ForexClient() {
         </main>
 
         <aside className="order-2 min-w-0 overflow-hidden rounded-none border-y border-white/[0.08] bg-[#0f1218] sm:rounded sm:border xl:order-none xl:block xl:min-h-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
-          <section className="flex h-full min-h-0 flex-col">
+          <section className="flex flex-col xl:h-full xl:min-h-0">
             <div className="shrink-0 border-b border-white/[0.07] px-3 py-2 sm:px-4 sm:py-3">
               <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Order ticket</div>
               <div className="mt-1 text-base font-black text-white sm:text-lg">{selectedMarket.symbol} {direction.toUpperCase()}</div>
             </div>
-            <div className="min-h-0 space-y-2 overflow-y-auto p-2 sm:space-y-3 sm:p-4">
+            <div className="space-y-2 p-2 sm:space-y-3 sm:p-4 xl:min-h-0 xl:overflow-y-auto">
               {/* Buy / Sell live-quote toggle — each side shows the price it fills at */}
               <div className="grid grid-cols-2 gap-2">
                 <QuoteToggle
@@ -743,37 +742,28 @@ export function ForexClient() {
         price={price} closingId={closingId} closeTrade={closeTrade}
       />
 
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 grid grid-cols-2 gap-2 border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur lg:bottom-0 xl:hidden">
+      {/* Sticky mobile CTA — a single Open button that follows the Buy/Sell
+          toggle above, so there's one clear action (no duplicate buttons). */}
+      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur lg:bottom-0 xl:hidden">
         <button
           type="button"
-          onClick={() => openTrade("buy")}
+          onClick={() => openTrade()}
           disabled={streamStatus !== "live" || openingTrade}
-          className="min-h-14 rounded bg-[#0f9f68] px-3 py-2 text-left text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+          className={`flex min-h-14 w-full items-center justify-between rounded-lg px-4 text-white shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
+            direction === "buy"
+              ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68] shadow-emerald-500/20"
+              : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b] shadow-red-500/20"
+          }`}
         >
-          <span className="block">{openingTrade ? "Opening…" : `BUY ${selectedMarket.symbol}`}</span>
-          <span className="mt-0.5 block font-mono text-xs text-emerald-100">{formatPrice(selectedMarket, price)}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => openTrade("sell")}
-          disabled={streamStatus !== "live" || openingTrade}
-          className="min-h-14 rounded bg-[#d33d4b] px-3 py-2 text-left text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <span className="block">{openingTrade ? "Opening…" : `SELL ${selectedMarket.symbol}`}</span>
-          <span className="mt-0.5 block font-mono text-xs text-red-100">{formatPrice(selectedMarket, price)}</span>
+          <span className="text-sm font-black">
+            {openingTrade ? "Opening…" : streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
+          </span>
+          {streamStatus === "live" && !openingTrade && (
+            <span className="font-mono text-sm font-black">{formatPrice(selectedMarket, direction === "buy" ? ask : bid)}</span>
+          )}
         </button>
       </div>
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: StreamStatus }) {
-  return (
-    <span className={`rounded px-2 py-1 text-[10px] font-black uppercase tracking-wider ${
-      status === "live" ? "bg-sky-400/10 text-sky-300" : status === "connecting" ? "bg-amber-400/10 text-amber-300" : "bg-red-400/10 text-red-300"
-    }`}>
-      {status === "live" ? "Deriv live" : status === "connecting" ? "Connecting" : "Fallback"}
-    </span>
   );
 }
 
