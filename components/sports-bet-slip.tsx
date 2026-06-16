@@ -47,15 +47,20 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Wheel of Fortune ─────────────────────────────────────────────────────────
 
+// Must match the server SEGMENTS in /api/wheel/spin exactly (same order/index).
 const WHEEL_SEGS = [
-  { label: "×1.5", mult: 1.5, fill: "#1a3a6c", text: "#75b8ff" },
+  { label: "×0.5", mult: 0.5, fill: "#1f2937", text: "#cbd5e1" },
   { label: "×2",   mult: 2,   fill: "#087cff", text: "#fff"    },
   { label: "×0",   mult: 0,   fill: "#2a1118", text: "#fb7185" },
-  { label: "×3",   mult: 3,   fill: "#0055b3", text: "#fff"    },
   { label: "×1.5", mult: 1.5, fill: "#1a3a6c", text: "#75b8ff" },
-  { label: "×2",   mult: 2,   fill: "#087cff", text: "#fff"    },
-  { label: "×5",   mult: 5,   fill: "#b45309", text: "#fde68a" },
   { label: "×3",   mult: 3,   fill: "#0055b3", text: "#fff"    },
+  { label: "×0",   mult: 0,   fill: "#2a1118", text: "#fb7185" },
+  { label: "×2",   mult: 2,   fill: "#087cff", text: "#fff"    },
+  { label: "×0.5", mult: 0.5, fill: "#1f2937", text: "#cbd5e1" },
+  { label: "×5",   mult: 5,   fill: "#b45309", text: "#fde68a" },
+  { label: "×0",   mult: 0,   fill: "#2a1118", text: "#fb7185" },
+  { label: "×1.5", mult: 1.5, fill: "#1a3a6c", text: "#75b8ff" },
+  { label: "×10",  mult: 10,  fill: "#7c3aed", text: "#fff"    },
 ];
 
 const N = WHEEL_SEGS.length;
@@ -195,7 +200,7 @@ function WheelOfFortune({
                   <text
                     x={CX} y={CY - TEXT_R}
                     fill={seg.text}
-                    fontSize="10.5" fontWeight="900"
+                    fontSize="9.5" fontWeight="900"
                     textAnchor="middle" dominantBaseline="middle"
                     style={{ userSelect: "none", fontFamily: "inherit" }}
                   >
@@ -420,6 +425,7 @@ export function SportsBetSlip() {
 
   const [amounts,    setAmounts]    = useState<Record<string, string>>({});
   const [tab,        setTab]        = useState<"single" | "multi" | "mybets">("single");
+  const [showWheel,  setShowWheel]  = useState(false);
   const [placing,    setPlacing]    = useState(false);
   const [placedMsg,  setPlacedMsg]  = useState<{ ok: boolean; text: string } | null>(null);
   const [myBets,     setMyBets]     = useState<MyBet[]>([]);
@@ -836,6 +842,30 @@ export function SportsBetSlip() {
                   </span>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Lucky Spin — stays available even after selecting bets */}
+          {bets.length > 0 && tab !== "mybets" && (
+            <div className="mx-3 mb-3 mt-1 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02]">
+              <button
+                type="button"
+                onClick={() => setShowWheel((v) => !v)}
+                className="flex w-full items-center justify-between px-3 py-2.5"
+              >
+                <span className="flex items-center gap-2 text-[12px] font-black text-white">
+                  <span className="text-base">🎡</span> Lucky Spin
+                </span>
+                <Icon name={showWheel ? "expand_less" : "expand_more"} className="h-4 w-4 text-slate-400" />
+              </button>
+              {showWheel && (
+                <WheelOfFortune
+                  balance={balance}
+                  isSignedIn={isSignedIn}
+                  openLogin={openLogin}
+                  refreshBalance={refreshBalance}
+                />
+              )}
             </div>
           )}
         </div>
