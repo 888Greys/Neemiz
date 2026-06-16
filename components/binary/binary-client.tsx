@@ -15,6 +15,16 @@ import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { LoadingDots } from "@/components/loading-dots";
 import { quoteToDigit } from "@/lib/binary-digit";
+import { TradeTypePicker } from "./trade-type-picker";
+import { AccumulatorsPanel } from "./panels/accumulators-panel";
+import { tradeTypeById, IMPLEMENTED_TYPES, type TradeTypeId } from "./trade-types";
+
+// Digit trade types reuse the existing Even/Odd/Matches/Over digit controls.
+const DIGIT_TYPE_TO_FAMILY: Partial<Record<TradeTypeId, ContractFamily>> = {
+  even_odd:        "evenOdd",
+  matches_differs: "matchDiffer",
+  over_under:      "overUnder",
+};
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
 type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
@@ -65,13 +75,6 @@ const STAKE_PRESETS_DEMO = [1, 5, 10, 25, 50, 100];
 const DIGITS = Array.from({ length: 10 }, (_, index) => index);
 const TICK_SECONDS = 1;
 const DERIV_WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${process.env.NEXT_PUBLIC_DERIV_APP_ID ?? "1089"}`;
-const TOP_ACTIONS = [
-  { label: "Trader's Hub", icon: "home" },
-  { label: "Deposit", icon: "payments" },
-  { label: "Withdraw", icon: "account_balance_wallet" },
-  { label: "History", icon: "history" },
-  { label: "Chat", icon: "chat" },
-];
 
 function seedTicks(market: BinaryMarket): Tick[] {
   let quote = market.price;
@@ -169,6 +172,7 @@ function TradingViewBinaryChart({ ticks }: { ticks: Tick[] }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
+  const lastPointRef = useRef<{ time: number; value: number } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -233,22 +237,79 @@ function TradingViewBinaryChart({ ticks }: { ticks: Tick[] }) {
   }, []);
 
   useEffect(() => {
-    if (!seriesRef.current || !chartRef.current) return;
+    const series = seriesRef.current;
+    if (!series || ticks.length === 0) return;
+
+    const latest = ticks[ticks.length - 1];
+    const prev = ticks[ticks.length - 2];
+    const last = lastPointRef.current;
+
+    // Smooth path: exactly one new tick was appended to the series we already
+    // rendered — the point now second-to-last is the *same* point (time AND
+    // value) we last drew. update() animates the new point in and auto-scrolls,
+    // instead of setData() which re-anchors the whole view and flickers.
+    //
+    // Matching on value as well as time matters: the seed and an incoming
+    // history/market replace are both timestamped near "now", so a time-only
+    // check mistakes a wholesale replace for an append and leaves stale points.
+    if (
+      last !== null &&
+      prev?.time === last.time &&
+      prev?.quote === last.value &&
+      latest.time > last.time
+    ) {
+      series.update({ time: latest.time, value: latest.quote });
+      lastPointRef.current = { time: latest.time, value: latest.quote };
+      return;
+    }
+
+    // Wholesale reset: initial load, market switch, history replace, or a
+    // same-epoch last-tick correction. setData() clears any stale points.
     const data: AreaData<Time>[] = ticks.map((tick) => ({
       time: tick.time,
       value: tick.quote,
     }));
-    seriesRef.current.setData(data);
-    chartRef.current.timeScale().scrollToRealTime();
+    series.setData(data);
+    lastPointRef.current = { time: latest.time, value: latest.quote };
+    chartRef.current?.timeScale().scrollToRealTime();
   }, [ticks]);
+
+  const zoom = (factor: number) => {
+    const ts = chartRef.current?.timeScale();
+    if (!ts) return;
+    const current = ts.options().barSpacing ?? 12;
+    ts.applyOptions({ barSpacing: Math.min(60, Math.max(2, current * factor)) });
+  };
+
+  const recenter = () => {
+    const ts = chartRef.current?.timeScale();
+    if (!ts) return;
+    ts.applyOptions({ barSpacing: 12 });
+    ts.scrollToRealTime();
+  };
 
   return (
     <div className="relative h-full min-h-[180px] overflow-hidden bg-[#070b10] sm:min-h-[260px]">
       <div ref={containerRef} className="absolute inset-0" />
-      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded border border-white/[0.07] bg-black/45 px-3 py-2 text-[11px] font-black text-slate-400 backdrop-blur">
-        <span>TradingView Lightweight Chart</span>
-        <span className="text-emerald-300">LIVE</span>
+
+      {/* Deriv-style zoom / recenter controls — lifted above the TradingView
+          attribution logo and given enough contrast to read on the dark chart */}
+      <div className="absolute bottom-12 left-3 z-10 flex flex-col gap-1.5">
+        <button type="button" onClick={() => zoom(1.3)} title="Zoom in" aria-label="Zoom in"
+          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
+          <Icon name="add" className="text-[18px]" />
+        </button>
+        <button type="button" onClick={recenter} title="Latest" aria-label="Scroll to latest"
+          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
+          <Icon name="my_location" className="text-[16px]" />
+        </button>
+        <button type="button" onClick={() => zoom(1 / 1.3)} title="Zoom out" aria-label="Zoom out"
+          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
+          <Icon name="remove" className="text-[18px]" />
+        </button>
       </div>
+
+      <span className="absolute bottom-3 right-3 z-10 rounded bg-[#1b2332]/90 px-2 py-1 text-[10px] font-black text-emerald-300 backdrop-blur">LIVE</span>
     </div>
   );
 }
@@ -266,6 +327,18 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
   const [ticks, setTicks] = useState(() => seedTicks(market));
   const [family, setFamily] = useState<ContractFamily>("evenOdd");
+  const [tradeType, setTradeType] = useState<TradeTypeId>("accumulators");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [growthRate, setGrowthRate] = useState(3);
+  const [takeProfitOn, setTakeProfitOn] = useState(false);
+  const [takeProfit, setTakeProfit] = useState(18);
+
+  const isDigitType = tradeType in DIGIT_TYPE_TO_FAMILY;
+  const selectTradeType = useCallback((id: TradeTypeId) => {
+    setTradeType(id);
+    const fam = DIGIT_TYPE_TO_FAMILY[id];
+    if (fam) setFamily(fam);
+  }, []);
   const [stake, setStake] = useState(10);
   const [targetDigit, setTargetDigit] = useState(5);
   const [duration, setDuration] = useState(5);
@@ -283,6 +356,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [persistedTrades, setPersistedTrades] = useState<BinaryTrade[]>([]);
   const [transactions, setTransactions] = useState<string[]>([]);
   const [tab, setTab] = useState<"open" | "closed" | "tx">("open");
+  // Desktop activity rail is collapsed by default to give the chart room; it
+  // pops open automatically the moment a position is opened.
+  const [railOpen, setRailOpen] = useState(false);
+
+  const hasOpenPositions = openTrades.length > 0;
+  useEffect(() => {
+    if (hasOpenPositions) setRailOpen(true);
+  }, [hasOpenPositions]);
 
   const balance = isLive ? liveBalance : demoBalance;
 
@@ -617,55 +698,21 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
   return (
     <div className="min-h-full overflow-visible bg-[#050506] pb-16 text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
-      <div className="z-20 shrink-0 border-b border-white/[0.08] bg-[#08090d]/95 px-1.5 py-1 backdrop-blur lg:px-3">
-        <div className="flex h-10 items-center gap-2 overflow-hidden">
-          <div className="mr-1 flex shrink-0 items-center gap-2 rounded bg-[#11151c] px-2 py-1.5">
-            <span className="grid h-6 w-6 place-items-center rounded bg-sky-500/15 text-sky-300">
-              <Icon name="analytics" className="text-[14px]" />
-            </span>
-            <div className="hidden min-[380px]:block">
-              <div className="text-xs font-black leading-none">Binary Trader</div>
-              <div className="mt-0.5 text-[10px] font-bold text-slate-500">
-                {streamStatus === "live" ? "Deriv live feed" : streamStatus === "connecting" ? "Connecting feed" : "Demo fallback"}
-              </div>
-            </div>
-          </div>
-          <div className="hidden min-w-0 flex-1 items-center gap-1 lg:flex">
-          {TOP_ACTIONS.map((item) => (
-            <button key={item.label} type="button" className="inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-black text-slate-300 transition hover:bg-white/[0.06] hover:text-white">
-              <Icon name={item.icon} className="text-[14px] text-sky-300" />
-              {item.label}
-            </button>
-          ))}
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <div className="rounded bg-[#151a22] px-2 py-1.5 text-right ring-1 ring-white/[0.07] sm:px-3">
-              {isLive ? (
-                <>
-                  <div className="font-mono text-xs font-black">KSh {liveBalance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                  <div className="text-[10px] font-bold text-emerald-300">Live wallet</div>
-                </>
-              ) : (
-                <>
-                  <div className="font-mono text-xs font-black">{formatMoney(demoBalance)} DEMO</div>
-                  <div className="text-[10px] font-bold text-amber-400">Demo — login to play live</div>
-                </>
-              )}
-            </div>
-            <button type="button" className="grid h-9 w-9 place-items-center rounded bg-[#151a22] text-slate-300 ring-1 ring-white/[0.07]">
-              <Icon name="person" className="text-[16px]" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div data-binary-grid="true" className="grid min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 xl:grid-cols-[300px_minmax(0,1fr)_390px]">
+      <div data-binary-grid="true" className={`relative grid min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
+        {pickerOpen && (
+          <TradeTypePicker value={tradeType} onSelect={selectTradeType} onClose={() => setPickerOpen(false)} />
+        )}
         <aside className="order-2 hidden min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:flex xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
-          <BinaryActivityPanel
-            tab={tab} setTab={setTab}
-            openTrades={openTrades} allClosedTrades={allClosedTrades} transactions={transactions}
-            wins={wins} losses={losses} sessionPnl={sessionPnl} isLive={isLive}
-          />
+          {railOpen ? (
+            <BinaryActivityPanel
+              tab={tab} setTab={setTab}
+              openTrades={openTrades} allClosedTrades={allClosedTrades} transactions={transactions}
+              wins={wins} losses={losses} sessionPnl={sessionPnl} isLive={isLive}
+              onCollapse={() => setRailOpen(false)}
+            />
+          ) : (
+            <CollapsedActivityRail openCount={openTrades.length} onExpand={() => setRailOpen(true)} />
+          )}
         </aside>
 
         <main className="order-1 flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
@@ -682,9 +729,11 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                   ))}
                 </select>
                 <div>
-                  <div className="font-mono text-xl font-black leading-none sm:text-2xl">{formatQuote(latest.quote)}</div>
-                  <div className={`mt-0.5 text-[11px] font-black sm:mt-1 sm:text-xs ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
-                    {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-mono text-sm font-black leading-none sm:text-base">{formatQuote(latest.quote)}</span>
+                    <span className={`font-mono text-[11px] font-black sm:text-xs ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                      {change >= 0 ? "+" : ""}{change.toFixed(2)} ({changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%)
+                    </span>
                   </div>
                   {streamStatus === "fallback" && (
                     <div className="mt-1 max-w-[280px] truncate text-[10px] font-bold text-amber-300">
@@ -693,114 +742,47 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 rounded bg-black/25 p-1">
-                <button type="button" className="grid h-8 w-8 place-items-center rounded bg-white/[0.06] text-slate-300">
-                  <Icon name="add" className="text-[15px]" />
-                </button>
-                <button type="button" className="grid h-8 w-8 place-items-center rounded bg-white/[0.06] text-slate-300">
-                  <Icon name="remove_circle" className="text-[15px]" />
-                </button>
-              </div>
             </div>
             <TradingViewBinaryChart ticks={ticks} />
-          </section>
-
-          <section className="grid h-[100px] shrink-0 grid-cols-10 gap-0 border-t border-white/[0.08] bg-[#0b0d12] sm:h-[116px]">
-            {digitStats.map((stat) => (
-              <button
-                key={stat.digit}
-                type="button"
-                onClick={() => setTargetDigit(stat.digit)}
-                className={`relative flex h-full flex-col items-center justify-center border-r border-white/[0.07] last:border-r-0 transition-colors ${
-                  targetDigit === stat.digit
-                    ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400/40"
-                    : latest.digit === stat.digit
-                    ? "bg-amber-400/5 hover:bg-white/[0.04]"
-                    : "bg-[#0b0d12] hover:bg-white/[0.04]"
-                }`}
-              >
-                <DigitRing stat={stat} isActive={latest.digit === stat.digit} />
-                {latest.digit === stat.digit && (
-                  <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] leading-none text-amber-400">▲</span>
-                )}
-              </button>
-            ))}
           </section>
         </main>
 
         <aside className="order-2 flex min-h-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:rounded sm:border xl:order-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
-          <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
-            <div className="shrink-0 border-b border-white/[0.07] p-2">
-              <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Trading mode</div>
-              <div className="mt-1.5 grid grid-cols-2 rounded bg-black/30 p-1">
-                <button onClick={() => setAutoMode(true)} type="button" className={`rounded py-1.5 text-xs font-black ${autoMode ? "bg-sky-500 text-white" : "text-slate-500"}`}>AUTO</button>
-                <button onClick={() => setAutoMode(false)} type="button" className={`rounded py-1.5 text-xs font-black ${!autoMode ? "bg-sky-500 text-white" : "text-slate-500"}`}>MANUAL</button>
+          <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
+            {/* Trade-type selector */}
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              className="flex shrink-0 items-center gap-2 border-b border-white/[0.07] px-3 py-2.5 text-left transition hover:bg-white/[0.03]"
+            >
+              <Icon name="chevron_left" className="text-[18px] text-slate-400" />
+              <span className="flex items-center gap-0.5">
+                <Icon name={tradeTypeById(tradeType).upIcon} className="text-[16px] text-emerald-400" />
+                <Icon name={tradeTypeById(tradeType).downIcon} className="text-[16px] text-red-400" />
+              </span>
+              <span className="text-[13px] font-black text-white">{tradeTypeById(tradeType).label}</span>
+            </button>
+
+            {tradeType === "accumulators" ? (
+              <AccumulatorsPanel
+                currency={isLive ? "KSh" : "USD"}
+                stake={stake} setStake={setStake}
+                growthRate={growthRate} setGrowthRate={setGrowthRate}
+                takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
+                takeProfit={takeProfit} setTakeProfit={setTakeProfit}
+                onBuy={() => toast.info("Accumulators settlement is coming next — this is the UI preview")}
+                placing={placing}
+              />
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+                <span className="flex items-center gap-1">
+                  <Icon name={tradeTypeById(tradeType).upIcon} className="text-[24px] text-emerald-400" />
+                  <Icon name={tradeTypeById(tradeType).downIcon} className="text-[24px] text-red-400" />
+                </span>
+                <p className="text-base font-black text-white">{tradeTypeById(tradeType).label}</p>
+                <span className="rounded-full bg-white/[0.06] px-3 py-1 text-[11px] font-black uppercase tracking-wider text-slate-400">Coming soon</span>
               </div>
-            </div>
-
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
-              <div className="grid grid-cols-3 gap-2">
-                {(["evenOdd", "matchDiffer", "overUnder"] as ContractFamily[]).map((item) => (
-                  <button
-                    key={item}
-                    type="button"
-                    onClick={() => setFamily(item)}
-                    className={`rounded border px-1.5 py-2 text-[10px] font-black transition sm:px-2 sm:text-[11px] ${family === item ? "border-sky-400 bg-sky-400/10 text-sky-200" : "border-white/[0.07] bg-white/[0.03] text-slate-500 hover:text-white"}`}
-                  >
-                    {familyLabel(item)}
-                  </button>
-                ))}
-              </div>
-
-              <div>
-                <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Stake amount</div>
-                <Stepper value={stake} min={isLive ? 10 : 1} prefix={isLive ? "KSh" : "$"} onChange={setStake} compact />
-                <div className="mt-1.5 grid grid-cols-6 gap-1">
-                  {(isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO).map((amount) => (
-                    <button key={amount} type="button" onClick={() => setStake(amount)} className={`rounded px-1 py-1.5 text-[10px] font-black transition sm:px-2 sm:text-[11px] ${stake === amount ? "bg-sky-500 text-white" : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.1]"}`}>
-                      {isLive ? amount : `$${amount}`}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <NumberBox label="Duration" value={duration} suffix="ticks" min={3} max={30} onChange={setDuration} compact />
-                <NumberBox label="Digit line" value={targetDigit} min={0} max={9} onChange={setTargetDigit} compact />
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <SmallInput label="Target" value={targetProfit} prefix={isLive ? "KSh" : "$"} onChange={setTargetProfit} />
-                <SmallInput label="Stop loss" value={stopLoss} prefix={isLive ? "KSh" : "$"} onChange={setStopLoss} />
-                <SmallInput label="Multiplier" value={multiplier} prefix="x" step={0.1} onChange={setMultiplier} />
-              </div>
-
-              <div className="rounded border border-white/[0.07] bg-black/25 px-3 py-1.5">
-                <SummaryRow label="Stake" value={formatMoney(stake, isLive)} />
-                <SummaryRow label="Est. payout" value={formatMoney(payout, isLive)} positive />
-                <SummaryRow label="Last digit" value={String(latest.digit)} />
-                <SummaryRow label="Previous digit" value={String(previous?.digit ?? "-")} />
-              </div>
-
-            </div>
-
-            <div className="sticky bottom-0 z-10 -mx-0 hidden grid-cols-2 gap-2 border-t border-white/[0.08] bg-[#0f1218] p-2 shadow-[0_-12px_24px_rgba(0,0,0,.35)] xl:grid">
-              {selectedSides.map((side) => (
-                <button
-                  key={side}
-                  type="button"
-                  onClick={() => placeTrade(side)}
-                  disabled={placing}
-                  className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] disabled:opacity-50 ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
-                >
-                  <div className="text-sm font-black">{placing ? <LoadingDots /> : actionLabel(side)}</div>
-                  <div className="text-right">
-                    <div className="font-mono text-sm font-black">{formatMoney(displayedPayout(stake, side, targetDigit), isLive)}</div>
-                    <div className="text-[10px] font-black text-emerald-100/80">{(((displayedPayout(stake, side, targetDigit) / stake) - 1) * 100).toFixed(1)}%</div>
-                  </div>
-                </button>
-              ))}
-            </div>
+            )}
           </section>
 
         </aside>
@@ -813,23 +795,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         wins={wins} losses={losses} sessionPnl={sessionPnl} isLive={isLive}
       />
 
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 grid grid-cols-2 gap-2 border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur lg:bottom-0 xl:hidden">
-        {selectedSides.map((side) => (
-          <button
-            key={side}
-            type="button"
-            onClick={() => placeTrade(side)}
-            disabled={placing}
-            className={`flex items-center justify-between rounded px-3 py-2 text-left transition active:scale-[0.98] disabled:opacity-50 ${side.toLowerCase().includes("differ") || side.toLowerCase().includes("odd") || side.toLowerCase().includes("under") ? "bg-red-500 hover:bg-red-400" : "bg-[#0b8f62] hover:bg-[#0da26f]"}`}
-          >
-            <div className="text-sm font-black">{placing ? <LoadingDots /> : actionLabel(side)}</div>
-            <div className="text-right">
-              <div className="font-mono text-sm font-black">{formatMoney(displayedPayout(stake, side, targetDigit), isLive)}</div>
-              <div className="text-[10px] font-black text-emerald-100/80">{(((displayedPayout(stake, side, targetDigit) / stake) - 1) * 100).toFixed(1)}%</div>
-            </div>
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
@@ -844,27 +809,39 @@ interface ActivityPanelProps {
   losses: number;
   sessionPnl: number;
   isLive: boolean;
+  onCollapse?: () => void;
 }
 
 // Shared Open / Closed / Tx tabs + session stats — used by the desktop rail
 // and the mobile collapsible so both views show identical detail.
 function BinaryActivityPanel({
-  tab, setTab, openTrades, allClosedTrades, transactions, wins, losses, sessionPnl, isLive,
+  tab, setTab, openTrades, allClosedTrades, transactions, onCollapse,
 }: ActivityPanelProps) {
   return (
     <>
       {/* Tab bar */}
-      <div className="grid shrink-0 grid-cols-3 border-b border-white/[0.07] bg-[#0f1218] text-xs font-black">
+      <div className="flex shrink-0 items-stretch border-b border-white/[0.07] bg-[#0f1218] text-xs font-black">
         {(["open", "closed", "tx"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
+            className={`flex-1 py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
           >
             {t === "open" ? `Open (${openTrades.length})` : t === "closed" ? `Closed (${allClosedTrades.length})` : "Tx"}
           </button>
         ))}
+        {onCollapse && (
+          <button
+            type="button"
+            onClick={onCollapse}
+            title="Collapse panel"
+            aria-label="Collapse panel"
+            className="grid w-9 shrink-0 place-items-center border-l border-white/[0.07] text-slate-500 transition hover:bg-white/[0.04] hover:text-white"
+          >
+            <Icon name="remove" className="text-[18px]" />
+          </button>
+        )}
       </div>
 
       {/* Tab content — scrollable */}
@@ -899,23 +876,33 @@ function BinaryActivityPanel({
           </div>
         )}
       </div>
-
-      {/* Session stats — always visible */}
-      <section className="shrink-0 border-t border-white/[0.08] bg-[#0f1218] p-3">
-        <div className="mb-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500">Session</div>
-        <div className="grid grid-cols-3 gap-1.5">
-          <MiniStat label="Trades" value={String(allClosedTrades.length)} />
-          <MiniStat label="Wins" value={String(wins)} positive />
-          <MiniStat label="Losses" value={String(losses)} negative />
-        </div>
-        <div className="mt-2 bg-black/25 p-2.5">
-          <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Session P/L</div>
-          <div className={`mt-1 font-mono text-xl font-black ${sessionPnl >= 0 ? "text-emerald-300" : "text-red-300"}`}>
-            {sessionPnl >= 0 ? "+" : ""}{formatMoney(sessionPnl, isLive)}
-          </div>
-        </div>
-      </section>
     </>
+  );
+}
+
+// Narrow collapsed state of the desktop activity rail — a thin strip with an
+// expand control and a badge for any open positions.
+function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onExpand: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onExpand}
+      title="Expand positions"
+      aria-label="Expand positions"
+      className="group flex h-full w-full flex-col items-center gap-3 bg-[#0f1218] py-3 text-slate-500 transition hover:bg-white/[0.03] hover:text-white"
+    >
+      <span className="grid h-7 w-7 place-items-center rounded bg-white/[0.06] text-slate-300 transition group-hover:bg-white/[0.1]">
+        <Icon name="add" className="text-[16px]" />
+      </span>
+      {openCount > 0 && (
+        <span className="grid h-5 min-w-5 place-items-center rounded-full bg-sky-400/15 px-1 text-[10px] font-black text-sky-300">
+          {openCount}
+        </span>
+      )}
+      <span className="mt-1 text-[10px] font-black uppercase tracking-wider [writing-mode:vertical-rl]">
+        Positions
+      </span>
+    </button>
   );
 }
 
@@ -925,7 +912,7 @@ function MobileBinaryActivity(props: ActivityPanelProps) {
   const [open, setOpen] = useState(true);
   const activeCount = props.openTrades.length;
   return (
-    <div className="mx-2 mb-28 mt-1 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f1218] sm:mx-2 xl:hidden">
+    <div className="mx-2 mb-4 mt-1 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f1218] sm:mx-2 xl:hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -1001,15 +988,6 @@ function EmptyState({ subtitle, title }: { subtitle: string; title: string }) {
     <div className="px-2 py-2 text-center">
       <div className="text-xs font-black text-slate-400">{title}</div>
       <div className="mt-0.5 text-[11px] font-bold text-slate-600">{subtitle}</div>
-    </div>
-  );
-}
-
-function MiniStat({ label, negative, positive, value }: { label: string; negative?: boolean; positive?: boolean; value: string }) {
-  return (
-    <div className="bg-black/25 px-2 py-1.5">
-      <div className="text-[10px] font-black uppercase text-slate-600">{label}</div>
-      <div className={`font-mono text-sm font-black ${positive ? "text-emerald-300" : negative ? "text-red-300" : "text-white"}`}>{value}</div>
     </div>
   );
 }
