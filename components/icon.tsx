@@ -64,8 +64,10 @@ import {
   Megaphone,
   Menu,
   MessageCircle,
+  Minus,
   MinusCircle,
   Monitor,
+  LineChart,
   Phone,
   PlaneTakeoff,
   Plus,
@@ -85,6 +87,7 @@ import {
   Timer,
   Trash2,
   TrendingUp,
+  TrendingDown,
   Trophy,
   Tv2,
   Undo2,
@@ -207,7 +210,9 @@ const iconMap: Record<string, LucideIcon> = {
   receipt_long: Receipt,
   redeem: Gift,
   refresh: RefreshCw,
+  remove: Minus,
   remove_circle: MinusCircle,
+  show_chart: LineChart,
   rocket_launch: Rocket,
 
   // S
@@ -229,6 +234,7 @@ const iconMap: Record<string, LucideIcon> = {
   task_alt: CheckCircle2,
   telegram: Send,
   timer: Timer,
+  trending_down: TrendingDown,
   trending_up: TrendingUp,
 
   // U
