@@ -1319,6 +1319,31 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   useEffect(() => { fetchAds(true); }, [fetchAds]);
 
+  // On first load, if the user didn't pick a crypto via URL and the default
+  // filter has no offers, auto-switch to whichever crypto has the most ads — so
+  // they never land on a blank list. Runs once.
+  const autoPickedRef = useRef(false);
+  useEffect(() => {
+    if (autoPickedRef.current) return;
+    if (VALID_CRYPTOS_SET.has(searchParams?.get("crypto") ?? "")) return; // explicit choice
+    autoPickedRef.current = true;
+    const params = new URLSearchParams({ side: tab === "BUY" ? "SELL" : "BUY", fiat });
+    fetch(`/api/p2p/ads?${params}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((all: Ad[]) => {
+        if (!Array.isArray(all) || all.length === 0) return;
+        const counts = all.reduce<Record<string, number>>((acc, a) => {
+          acc[a.crypto] = (acc[a.crypto] ?? 0) + 1;
+          return acc;
+        }, {});
+        if ((counts[crypto] ?? 0) > 0) return; // current default already has ads
+        const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
+        if (best && best !== crypto) setCrypto(best);
+      })
+      .catch(() => { /* ignore — keep default */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Live spot rate (CoinGecko) for the selected crypto+fiat; null until loaded
   // or if the provider is unavailable.
   const [spotRate, setSpotRate] = useState<number | null>(null);

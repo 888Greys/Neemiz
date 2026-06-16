@@ -7,21 +7,27 @@ import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
 
 const MIN_SPIN_AMOUNT = 10;
 
-// Wheel segments — must match the client definition exactly (same order, same index)
+// Wheel segments — must match the client definition exactly (same order, same index).
+// 12 segments for variety; multipliers spread around the wheel.
 const SEGMENTS = [
-  { label: "×1.5", mult: 1.5 },
+  { label: "×0.5", mult: 0.5 },
   { label: "×2",   mult: 2   },
   { label: "×0",   mult: 0   },
-  { label: "×3",   mult: 3   },
   { label: "×1.5", mult: 1.5 },
-  { label: "×2",   mult: 2   },
-  { label: "×5",   mult: 5   },
   { label: "×3",   mult: 3   },
+  { label: "×0",   mult: 0   },
+  { label: "×2",   mult: 2   },
+  { label: "×0.5", mult: 0.5 },
+  { label: "×5",   mult: 5   },
+  { label: "×0",   mult: 0   },
+  { label: "×1.5", mult: 1.5 },
+  { label: "×10",  mult: 10  },
 ];
 
-// Weighted random: 70% no-win result (×0), 30% win across the rest.
-// Segment indices:   0   1    2   3   4   5  6  7
-const WEIGHTS =     [ 5,  5,  70,  5,  5,  5, 2, 3]; // out of 100 total
+// Weighted random. ~95.5% RTP (≈4.5% house edge); ×0 lands ~42% of the time
+// (was 70%), softened by frequent ×0.5/×1.5 partial wins and rare big multipliers.
+// Segment indices: 0   1   2  3  4   5   6   7  8   9  10 11
+const WEIGHTS =    [12,  5, 14, 8, 6, 14,  4, 12, 3, 14,  7, 1]; // sums to 100
 
 function weightedRandom(): number {
   const total = WEIGHTS.reduce((a, b) => a + b, 0);
