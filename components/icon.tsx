@@ -33,6 +33,7 @@ import {
   CircleHelp,
   Clock,
   Coins,
+  Crosshair,
   CreditCard,
   Dices,
   Egg,
@@ -186,6 +187,7 @@ const iconMap: Record<string, LucideIcon> = {
   mail: Mail,
   manage_search: SearchCode,
   menu: Menu,
+  my_location: Crosshair,
 
   // N
   notifications: Bell,

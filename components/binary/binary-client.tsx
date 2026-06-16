@@ -274,13 +274,42 @@ function TradingViewBinaryChart({ ticks }: { ticks: Tick[] }) {
     chartRef.current?.timeScale().scrollToRealTime();
   }, [ticks]);
 
+  const zoom = (factor: number) => {
+    const ts = chartRef.current?.timeScale();
+    if (!ts) return;
+    const current = ts.options().barSpacing ?? 12;
+    ts.applyOptions({ barSpacing: Math.min(60, Math.max(2, current * factor)) });
+  };
+
+  const recenter = () => {
+    const ts = chartRef.current?.timeScale();
+    if (!ts) return;
+    ts.applyOptions({ barSpacing: 12 });
+    ts.scrollToRealTime();
+  };
+
   return (
     <div className="relative h-full min-h-[180px] overflow-hidden bg-[#070b10] sm:min-h-[260px]">
       <div ref={containerRef} className="absolute inset-0" />
-      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between rounded border border-white/[0.07] bg-black/45 px-3 py-2 text-[11px] font-black text-slate-400 backdrop-blur">
-        <span>TradingView Lightweight Chart</span>
-        <span className="text-emerald-300">LIVE</span>
+
+      {/* Deriv-style zoom / recenter controls — lifted above the TradingView
+          attribution logo and given enough contrast to read on the dark chart */}
+      <div className="absolute bottom-12 left-3 z-10 flex flex-col gap-1.5">
+        <button type="button" onClick={() => zoom(1.3)} title="Zoom in" aria-label="Zoom in"
+          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
+          <Icon name="add" className="text-[18px]" />
+        </button>
+        <button type="button" onClick={recenter} title="Latest" aria-label="Scroll to latest"
+          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
+          <Icon name="my_location" className="text-[16px]" />
+        </button>
+        <button type="button" onClick={() => zoom(1 / 1.3)} title="Zoom out" aria-label="Zoom out"
+          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
+          <Icon name="remove" className="text-[18px]" />
+        </button>
       </div>
+
+      <span className="absolute bottom-3 right-3 z-10 rounded bg-[#1b2332]/90 px-2 py-1 text-[10px] font-black text-emerald-300 backdrop-blur">LIVE</span>
     </div>
   );
 }
@@ -713,14 +742,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 rounded bg-black/25 p-1">
-                <button type="button" className="grid h-8 w-8 place-items-center rounded bg-white/[0.06] text-slate-300">
-                  <Icon name="add" className="text-[15px]" />
-                </button>
-                <button type="button" className="grid h-8 w-8 place-items-center rounded bg-white/[0.06] text-slate-300">
-                  <Icon name="remove_circle" className="text-[15px]" />
-                </button>
-              </div>
             </div>
             <TradingViewBinaryChart ticks={ticks} />
           </section>
@@ -891,7 +912,7 @@ function MobileBinaryActivity(props: ActivityPanelProps) {
   const [open, setOpen] = useState(true);
   const activeCount = props.openTrades.length;
   return (
-    <div className="mx-2 mb-28 mt-1 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f1218] sm:mx-2 xl:hidden">
+    <div className="mx-2 mb-4 mt-1 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f1218] sm:mx-2 xl:hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
