@@ -264,11 +264,11 @@ export function AviatorBetPanel({
     return (
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-yellow-500/20 bg-[#1a1500] sm:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col items-center gap-1 p-3 text-center">
-          <p className="text-[13px] font-black text-yellow-400">Bet confirmed</p>
-          <p className="text-lg font-black text-white">KSh {myBet.betAmount.toLocaleString()}</p>
-          {myBet.autoCashout && <p className="text-[11px] text-white/40">Auto cashout at {myBet.autoCashout.toFixed(2)}×</p>}
-          <p className="mt-0.5 text-[10px] text-white/25">Waiting for launch…</p>
+        <div className="flex flex-col items-center gap-0.5 p-2 text-center sm:gap-1 sm:p-3">
+          <p className="text-[12px] font-black text-yellow-400 sm:text-[13px]">Bet confirmed</p>
+          <p className="text-base font-black text-white sm:text-lg">KSh {myBet.betAmount.toLocaleString()}</p>
+          {myBet.autoCashout && <p className="text-[10px] text-white/40 sm:text-[11px]">Auto cashout at {myBet.autoCashout.toFixed(2)}×</p>}
+          <p className="text-[10px] text-white/25">Waiting for launch…</p>
         </div>
       </div>
     );
@@ -281,16 +281,16 @@ export function AviatorBetPanel({
     return (
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#087cff]/30 bg-[#060d1c] sm:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col items-center gap-1.5 p-3 text-center">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#087cff]/15 text-base">⏳</div>
-          <p className="text-[13px] font-black text-[#087cff]">Queued for next round</p>
-          <p className="text-lg font-black text-white">KSh {nextBet.amount.toLocaleString()}</p>
+        <div className="flex flex-col items-center gap-0.5 p-2 text-center sm:gap-1.5 sm:p-3">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff]/15 text-sm sm:h-8 sm:w-8 sm:text-base">⏳</div>
+          <p className="text-[12px] font-black text-[#087cff] sm:text-[13px]">Queued for next round</p>
+          <p className="text-base font-black text-white sm:text-lg">KSh {nextBet.amount.toLocaleString()}</p>
           {nextBet.autoCashout && (
-            <p className="text-[11px] text-white/40">Auto cashout at {nextBet.autoCashout.toFixed(2)}×</p>
+            <p className="text-[10px] text-white/40 sm:text-[11px]">Auto cashout at {nextBet.autoCashout.toFixed(2)}×</p>
           )}
           <button
             onClick={() => setNextBet(null)}
-            className="mt-0.5 rounded-lg border border-white/10 px-5 py-1 text-[11px] font-black text-white/40 transition-colors hover:border-white/25 hover:text-white/70"
+            className="mt-0.5 rounded-lg border border-white/10 px-5 py-0.5 text-[11px] font-black text-white/40 transition-colors hover:border-white/25 hover:text-white/70 sm:py-1"
           >
             Cancel
           </button>
@@ -306,8 +306,8 @@ export function AviatorBetPanel({
     return (
       <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-[#0d0e12] sm:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col items-center gap-2.5 p-4 text-center sm:p-5">
-          {state === "WAITING" && <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/15 border-t-white/50" />}
+        <div className="flex flex-col items-center gap-1.5 p-2.5 text-center sm:gap-2.5 sm:p-5">
+          {state === "WAITING" && <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-white/50 sm:h-8 sm:w-8" />}
           <p className="text-sm text-white/40">
             {state === "WAITING" ? "Next round loading…" : `Ended at ${round?.crashPoint?.toFixed(2)}×`}
           </p>
