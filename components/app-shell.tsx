@@ -246,7 +246,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
       {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} initialView={profileInitialView} />}
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} />}
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} onOpenBonuses={() => { setMobileMenuOpen(false); openProfile("bonuses"); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
@@ -651,17 +651,13 @@ function TelegramIcon() {
   );
 }
 
-function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenWallet, onOpenBonuses, onOpenSupport }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenWallet: () => void; onOpenBonuses: () => void; onOpenSupport: () => void }) {
+function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenSupport }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenSupport: () => void }) {
   const { isSignedIn, user, signOut } = useSupabaseAuth();
   const router = useRouter();
-  const { balance, currency } = useWalletBalance();
   const meta = user?.user_metadata ?? {};
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
   const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
-  const fmtBalance = isSignedIn
-    ? `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-    : null;
 
   const [openGroups, setOpenGroups] = useState({
     sports: false,
@@ -691,17 +687,6 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
                 </div>
                 <Icon name="chevron_right" className="text-[16px] text-slate-500" />
               </button>
-              <button
-                type="button"
-                onClick={onOpenWallet}
-                className="mt-1.5 flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-[#087cff]/20 to-[#16171d] px-3 py-2.5 ring-1 ring-[#087cff]/20 transition hover:ring-[#087cff]/40"
-              >
-                <div className="flex items-center gap-2">
-                  <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
-                  <span className="text-xs font-black text-white">{fmtBalance}</span>
-                </div>
-                <span className="rounded-lg bg-[#05b957] px-3 py-1 text-[10px] font-black text-white">Open Wallet</span>
-              </button>
             </div>
           ) : (
             /* ── Guest header ── */
@@ -715,18 +700,6 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
               </button>
             </div>
           )}
-
-          <button
-            type="button"
-            className="mb-4 flex h-[54px] w-full items-center justify-between overflow-hidden rounded-xl bg-gradient-to-r from-[#044947] to-[#05605d] bg-cover bg-center px-3"
-            onClick={onOpenWallet}
-            style={{ backgroundImage: `linear-gradient(90deg, rgba(4,73,71,.88), rgba(5,96,93,.52)), url(${tempAssets.freebet})` }}
-          >
-            <span className="text-xs font-black leading-tight">
-              Free<br />money
-            </span>
-            <Icon name="payments" className="text-[38px] text-white/80" />
-          </button>
 
           {/* Sports */}
           <MobileDrawerGroup icon="sports_soccer" isOpen={openGroups.sports} label="Sports" onToggle={() => setOpenGroups((v) => ({ ...v, sports: !v.sports }))}>
@@ -759,8 +732,6 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
 
           <div className="space-y-1">
             <MobileDrawerLink href="/wallet" icon="account_balance_wallet" label="Wallet" onClick={onClose} />
-            <MobileDrawerLink icon="redeem" label="Bonuses" badge="1" onClick={onOpenBonuses} />
-            <MobileDrawerLink icon="campaign" label="Promotions" onClick={() => { onClose(); toast.info("Promotions", "Seasonal promotions and free bets are launching soon!"); }} />
           </div>
         </div>
 

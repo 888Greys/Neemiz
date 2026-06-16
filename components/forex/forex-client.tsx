@@ -162,8 +162,8 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
         borderVisible: false,
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 6,
-        barSpacing: 9,
+        rightOffset: 8,
+        barSpacing: 16,
       },
       crosshair: {
         vertLine: { color: "rgba(56,189,248,0.5)", labelBackgroundColor: "#2563eb" },
@@ -198,23 +198,52 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
     };
   }, [market]);
 
+  const lastBarRef = useRef<{ time: number; close: number } | null>(null);
+
   useEffect(() => {
-    if (!seriesRef.current || !chartRef.current) return;
-    seriesRef.current.setData(candles);
-    if (candles.length > 0) chartRef.current.timeScale().scrollToRealTime();
+    const series = seriesRef.current;
+    const chart = chartRef.current;
+    if (!series || !chart || candles.length === 0) return;
+
+    const latest = candles[candles.length - 1];
+    const prev = candles[candles.length - 2];
+    const last = lastBarRef.current;
+
+    // Smooth path: either the forming candle ticked (same time bucket) or
+    // exactly one new candle was appended on top of what we already drew.
+    // update() animates that single bar, whereas setData() re-anchors the whole
+    // view every tick — the cause of the stutter / "pause then jump".
+    const sameBar = last !== null && latest.time === last.time;
+    const appended =
+      last !== null &&
+      prev !== undefined &&
+      prev.time === last.time &&
+      prev.close === last.close &&
+      latest.time > last.time;
+
+    if (sameBar || appended) {
+      series.update(latest);
+      lastBarRef.current = { time: latest.time, close: latest.close };
+      return;
+    }
+
+    // Wholesale replace: initial load, market switch, or history replace.
+    series.setData(candles);
+    lastBarRef.current = { time: latest.time, close: latest.close };
+    chart.timeScale().scrollToRealTime();
   }, [candles]);
 
   const zoom = (factor: number) => {
     const ts = chartRef.current?.timeScale();
     if (!ts) return;
-    const current = ts.options().barSpacing ?? 9;
+    const current = ts.options().barSpacing ?? 16;
     ts.applyOptions({ barSpacing: Math.min(60, Math.max(2, current * factor)) });
   };
 
   const recenter = () => {
     const ts = chartRef.current?.timeScale();
     if (!ts) return;
-    ts.applyOptions({ barSpacing: 9 });
+    ts.applyOptions({ barSpacing: 16 });
     ts.scrollToRealTime();
   };
 
