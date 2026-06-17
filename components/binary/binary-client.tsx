@@ -24,8 +24,13 @@ import { AccumulatorsPanel } from "./panels/accumulators-panel";
 import { DigitPanel } from "./panels/digit-panel";
 import { DirectionalPanel } from "./panels/directional-panel";
 import { VanillaPanel } from "./panels/vanilla-panel";
+import { LeveragedPanel } from "./panels/leveraged-panel";
 import { tradeTypeById, type TradeTypeId } from "./trade-types";
 import { payoutRate as dirPayoutRate, vanillaPayoutPerPoint, resolveContract, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
+import {
+  resolveLeveraged, leveragedValueAt, multiplierStopOutPrice, clampTurboBarrier, turboPayoutPerPoint,
+  LEVERAGED_MAX_MULT, type LeveragedKindT, type LeveragedDirection,
+} from "@/lib/leveraged";
 
 // Digit trade types reuse the existing Even/Odd/Matches/Over digit controls.
 const DIGIT_TYPE_TO_FAMILY: Partial<Record<TradeTypeId, ContractFamily>> = {
@@ -49,6 +54,13 @@ const DIRECTIONAL_SIDES: Record<DirectionalKind, [DirectionalSide, DirectionalSi
   HIGHER_LOWER:   ["HIGHER", "LOWER"],
   TOUCH_NO_TOUCH: ["TOUCH", "NO_TOUCH"],
   VANILLA:        ["CALL", "PUT"],
+};
+
+// Leveraged trade types (Multipliers, Turbos) share one live-position spine +
+// cash-out flow, like Accumulators. Both use LeveragedPanel.
+const LEVERAGED_KIND: Partial<Record<TradeTypeId, LeveragedKindT>> = {
+  multipliers: "MULTIPLIER",
+  turbos:      "TURBO",
 };
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
@@ -122,6 +134,27 @@ type DirTrade = {
   durationTicks: number;
   isReal: boolean;
   settlesAt: number;     // wall-clock estimate for the UI countdown / settle attempt
+  status: "open" | "won" | "lost";
+};
+
+// A single in-flight leveraged contract (Multiplier or Turbo). One at a time per
+// symbol, like Accumulators — the panel shows live P&L with a cash-out button.
+type LevPosition = {
+  id: string;
+  market: string;        // display symbol
+  derivSymbol: string;
+  kind: LeveragedKindT;
+  direction: LeveragedDirection;
+  stake: number;
+  multiplier: number | null;
+  barrier: number | null;        // knockout (TURBO) or stop-out (MULTIPLIER) price
+  payoutPerPoint: number | null; // TURBO only
+  entrySpot: number;
+  entryEpoch: number;
+  takeProfit: number | null;
+  stopLoss: number | null;
+  isReal: boolean;
+  lastEpoch: number;     // newest tick already folded into this contract
   status: "open" | "won" | "lost";
 };
 
@@ -411,6 +444,10 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [growthRate, setGrowthRate] = useState(3);
   const [takeProfitOn, setTakeProfitOn] = useState(false);
   const [takeProfit, setTakeProfit] = useState(18);
+  // Leveraged config (Multipliers, Turbos).
+  const [multiplier, setMultiplier] = useState(100);
+  const [stopLossOn, setStopLossOn] = useState(false);
+  const [stopLoss, setStopLoss] = useState(5);
 
   const isDigitType = tradeType in DIGIT_TYPE_TO_FAMILY;
   const selectTradeType = useCallback((id: TradeTypeId) => {
@@ -458,6 +495,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const dirInFlight  = useRef(new Set<string>()); // real trades awaiting server settle
   const dirSettled   = useRef(new Set<string>()); // demo trades settled locally
   useEffect(() => { dirTradesRef.current = dirTrades; }, [dirTrades]);
+
+  // Leveraged: one in-flight contract at a time (mirrors Deriv/Accumulators).
+  const [levPos, setLevPos] = useState<LevPosition | null>(null);
+  const [levPlacing, setLevPlacing] = useState(false);
+  const [levClosing, setLevClosing] = useState(false);
+  const levPosRef     = useRef<LevPosition | null>(null);
+  const levClosingRef = useRef(false);
+  useEffect(() => { levPosRef.current = levPos; }, [levPos]);
 
   // Load persisted closed trades from DB on mount (live users only)
   useEffect(() => {
@@ -645,6 +690,29 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   };
   const dirMaxPayout = retainedPayout(stake, stake * MAX_VANILLA_MULT);
   const dirOpenPositions = dirTrades.map((t) => ({ id: t.id, side: t.side, settlesAt: t.settlesAt }));
+
+  // Leveraged derived values (Multipliers, Turbos). Danger line + payout-per-
+  // point are previewed off the live spot for the current config; when a contract
+  // is running we report its live retained value for the cash-out button.
+  const levKind = LEVERAGED_KIND[tradeType];
+  const isLeveragedType = !!levKind;
+  const levMaxPayout = retainedPayout(stake, stake * LEVERAGED_MAX_MULT);
+  const levConfigDanger = levKind === "TURBO"
+    ? clampTurboBarrier(latest.quote, latest.quote + barrierOffset, "UP") // preview vs UP; flips by direction on buy
+    : multiplierStopOutPrice(latest.quote, multiplier, "UP");
+  const levConfigPpp = levKind === "TURBO"
+    ? turboPayoutPerPoint(stake, latest.quote, clampTurboBarrier(latest.quote, latest.quote + barrierOffset, "UP"))
+    : 0;
+  const levRunning = (() => {
+    if (!levPos || market.derivSymbol !== levPos.derivSymbol) return null;
+    const { value } = leveragedValueAt(levPos, latest.quote);
+    const gross = Math.min(value, levPos.stake * LEVERAGED_MAX_MULT);
+    return {
+      kind: levPos.kind, direction: levPos.direction, stake: levPos.stake,
+      netPayout: retainedPayout(levPos.stake, Math.max(0, gross)),
+      multiplier: levPos.multiplier, dangerSpot: levPos.barrier,
+    };
+  })();
 
   const digitStats = useMemo(() => {
     const recent = ticks.slice(-80);
@@ -882,6 +950,129 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     }
   }, [accaPlacing, accaPos, stake, balance, isLive, market, growthRate, takeProfit, takeProfitOn, ticks]);
 
+  // Close a leveraged contract. Real cash-out is server-authoritative; demo
+  // replays the tick buffer through the shared resolver so demo == server. Also
+  // fires automatically when the live tracker detects a stop-out / knockout / cap.
+  const closeLeveraged = useCallback(async () => {
+    const pos = levPosRef.current;
+    if (!pos || levClosingRef.current) return;
+    levClosingRef.current = true;
+    setLevClosing(true);
+    try {
+      if (pos.isReal) {
+        const res  = await fetch("/api/leveraged/close", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tradeId: pos.id }),
+        });
+        const data = await res.json() as { terminated?: boolean; payout?: number; error?: string };
+        if (!res.ok) {
+          if (res.status !== 503) toast.error("Close failed", data.error ?? "Try again");
+          return; // keep it open; a later attempt (or the cron) settles it
+        }
+        const payout = data.payout ?? 0;
+        setLevPos(null);
+        if (payout > 0) {
+          setLiveBalance((b) => b + payout);
+          window.dispatchEvent(new Event("wallet-refresh"));
+          toast.cashout(`+KSh${payout.toFixed(2)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
+        } else {
+          toast.error(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
+        }
+      } else {
+        const path = ticksRef.current
+          .filter((x) => (x.time as number) > pos.entryEpoch)
+          .map((x) => ({ price: x.quote, epoch: x.time as number }));
+        const outcome = resolveLeveraged({
+          kind: pos.kind, direction: pos.direction, entrySpot: pos.entrySpot, stake: pos.stake,
+          multiplier: pos.multiplier, barrier: pos.barrier, payoutPerPoint: pos.payoutPerPoint,
+          takeProfit: pos.takeProfit, stopLoss: pos.stopLoss, closeEpoch: Math.floor(Date.now() / 1000),
+        }, path);
+        const payout = outcome.grossPayout > 0 ? retainedPayout(pos.stake, outcome.grossPayout) : 0;
+        setLevPos(null);
+        if (payout > 0) {
+          setDemoBalance((b) => b + payout);
+          toast.cashout(`+$${payout.toFixed(2)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
+        } else {
+          toast.error(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
+        }
+      }
+    } finally {
+      levClosingRef.current = false;
+      setLevClosing(false);
+    }
+  }, []);
+
+  // Live tracking — fold each new tick into the running leveraged contract. The
+  // server is authoritative on settlement; this only drives the live display and
+  // decides when to auto-fire the close (stop-out / knockout / TP / SL / cap).
+  useEffect(() => {
+    const pos = levPosRef.current;
+    if (!pos || pos.status !== "open") return;
+    if (market.derivSymbol !== pos.derivSymbol) return;
+    if (latest.time <= pos.lastEpoch) return;
+
+    setLevPos((p) => (p ? { ...p, lastEpoch: latest.time as number } : p));
+
+    const { value, terminal } = leveragedValueAt(pos, latest.quote);
+    const profit = value - pos.stake;
+    const hitCap = value >= pos.stake * LEVERAGED_MAX_MULT;
+    const hitTp  = pos.takeProfit != null && profit >= pos.takeProfit;
+    const hitSl  = pos.stopLoss != null && -profit >= pos.stopLoss;
+    if (terminal || hitCap || hitTp || hitSl) {
+      setLevPos((p) => (p ? { ...p, status: terminal ? "lost" : "won" } : p));
+      void closeLeveraged();
+    }
+  }, [latest, market.derivSymbol, closeLeveraged]);
+
+  const placeLeveraged = useCallback(async (direction: LeveragedDirection) => {
+    if (levPlacing || levPos || stake <= 0 || !levKind) return;
+    if (balance < stake) {
+      toast.error("Insufficient balance", isLive ? "Please deposit to continue." : "Increase your demo balance.");
+      return;
+    }
+    const tp = takeProfitOn ? takeProfit : null;
+    const sl = stopLossOn ? stopLoss : null;
+    const offset = levKind === "TURBO" ? barrierOffset : 0;
+
+    if (isLive) {
+      setLevPlacing(true);
+      try {
+        const res  = await fetch("/api/leveraged/bet", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ market: market.derivSymbol, kind: levKind, direction, stake, multiplier, barrierOffset: offset, takeProfit: tp, stopLoss: sl }),
+        });
+        const data = await res.json() as { tradeId?: string; entrySpot?: number; entryEpoch?: number; barrier?: number | null; payoutPerPoint?: number | null; error?: string };
+        if (!res.ok || !data.tradeId) { toast.error("Trade failed", data.error ?? "Could not place trade"); return; }
+        setLevPos({
+          id: data.tradeId, market: market.symbol, derivSymbol: market.derivSymbol, kind: levKind, direction,
+          stake, multiplier: levKind === "MULTIPLIER" ? multiplier : null,
+          barrier: data.barrier ?? null, payoutPerPoint: data.payoutPerPoint ?? null,
+          entrySpot: data.entrySpot!, entryEpoch: data.entryEpoch!, takeProfit: tp, stopLoss: sl,
+          isReal: true, lastEpoch: data.entryEpoch!, status: "open",
+        });
+        setLiveBalance((b) => b - stake);
+        window.dispatchEvent(new Event("wallet-refresh"));
+        toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+      } finally {
+        setLevPlacing(false);
+      }
+    } else {
+      const entry = ticks[ticks.length - 1];
+      const barrier = levKind === "TURBO"
+        ? clampTurboBarrier(entry.quote, entry.quote + offset, direction)
+        : multiplierStopOutPrice(entry.quote, multiplier, direction);
+      const payoutPerPoint = levKind === "TURBO" ? turboPayoutPerPoint(stake, entry.quote, barrier) : null;
+      setDemoBalance((b) => b - stake);
+      setLevPos({
+        id: `demo-lev-${entry.time}-${direction}`, market: market.symbol, derivSymbol: market.derivSymbol, kind: levKind, direction,
+        stake, multiplier: levKind === "MULTIPLIER" ? multiplier : null,
+        barrier, payoutPerPoint, entrySpot: entry.quote, entryEpoch: entry.time as number, takeProfit: tp, stopLoss: sl,
+        isReal: false, lastEpoch: entry.time as number, status: "open",
+      });
+      toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+    }
+  }, [levPlacing, levPos, stake, balance, isLive, levKind, multiplier, barrierOffset, takeProfit, takeProfitOn, stopLoss, stopLossOn, market, ticks]);
+
   // Settle a real directional trade via the server (authoritative exit tick).
   const settleDirReal = useCallback(async (t: DirTrade) => {
     try {
@@ -1101,8 +1292,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 <select
                   value={market.symbol}
                   onChange={(event) => setMarketSymbol(event.target.value)}
-                  disabled={!!accaPos}
-                  title={accaPos ? "Finish your open accumulator before switching markets" : undefined}
+                  disabled={!!accaPos || !!levPos}
+                  title={accaPos || levPos ? "Finish your open contract before switching markets" : undefined}
                   className="h-9 rounded border border-white/[0.08] bg-[#151a22] px-2 text-xs font-black text-white outline-none disabled:opacity-50 sm:h-10 sm:px-3 sm:text-sm"
                 >
                   {MARKETS.map((item) => (
@@ -1244,6 +1435,31 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 onTrade={placeDirectional}
                 placing={dirPlacing}
                 openPositions={dirOpenPositions}
+              />
+            ) : isLeveragedType && levKind ? (
+              <LeveragedPanel
+                currency={isLive ? "KSh" : "$"}
+                kind={levKind}
+                stake={stake} setStake={setStake}
+                multiplier={multiplier} setMultiplier={setMultiplier}
+                barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
+                takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
+                takeProfit={takeProfit} setTakeProfit={setTakeProfit}
+                stopLossOn={stopLossOn} setStopLossOn={setStopLossOn}
+                stopLoss={stopLoss} setStopLoss={setStopLoss}
+                latestSpot={latest.quote}
+                payoutPerPoint={levConfigPpp}
+                dangerSpot={levConfigDanger}
+                maxPayout={levMaxPayout}
+                stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
+                minStake={isLive ? 10 : 1}
+                format={(v) => formatMoney(v, isLive)}
+                formatSpot={formatQuote}
+                onTrade={placeLeveraged}
+                placing={levPlacing}
+                position={levRunning}
+                onCashOut={() => closeLeveraged()}
+                closing={levClosing}
               />
             ) : (
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
