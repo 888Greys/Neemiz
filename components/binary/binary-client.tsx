@@ -23,8 +23,9 @@ import { TradeTypePicker } from "./trade-type-picker";
 import { AccumulatorsPanel } from "./panels/accumulators-panel";
 import { DigitPanel } from "./panels/digit-panel";
 import { DirectionalPanel } from "./panels/directional-panel";
+import { VanillaPanel } from "./panels/vanilla-panel";
 import { tradeTypeById, type TradeTypeId } from "./trade-types";
-import { payoutRate as dirPayoutRate, evaluateDirectional, type DirectionalSide } from "@/lib/directional";
+import { payoutRate as dirPayoutRate, vanillaPayoutPerPoint, resolveContract, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
 
 // Digit trade types reuse the existing Even/Odd/Matches/Over digit controls.
 const DIGIT_TYPE_TO_FAMILY: Partial<Record<TradeTypeId, ContractFamily>> = {
@@ -33,10 +34,21 @@ const DIGIT_TYPE_TO_FAMILY: Partial<Record<TradeTypeId, ContractFamily>> = {
   over_under:      "overUnder",
 };
 
-// Directional trade types (Rise/Fall, Higher/Lower) share one panel + flow.
-const DIRECTIONAL_KIND: Partial<Record<TradeTypeId, "RISE_FALL" | "HIGHER_LOWER">> = {
-  rise_fall:    "RISE_FALL",
-  higher_lower: "HIGHER_LOWER",
+// Directional trade types share one server spine + settle flow. Rise/Fall,
+// Higher/Lower and Touch/No-Touch reuse DirectionalPanel; Vanilla has its own.
+const DIRECTIONAL_KIND: Partial<Record<TradeTypeId, DirectionalKind>> = {
+  rise_fall:      "RISE_FALL",
+  higher_lower:   "HIGHER_LOWER",
+  touch_no_touch: "TOUCH_NO_TOUCH",
+  vanillas:       "VANILLA",
+};
+
+// Sides offered per directional kind, in button order (bullish first).
+const DIRECTIONAL_SIDES: Record<DirectionalKind, [DirectionalSide, DirectionalSide]> = {
+  RISE_FALL:      ["RISE", "FALL"],
+  HIGHER_LOWER:   ["HIGHER", "LOWER"],
+  TOUCH_NO_TOUCH: ["TOUCH", "NO_TOUCH"],
+  VANILLA:        ["CALL", "PUT"],
 };
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
@@ -94,18 +106,19 @@ type AccaPosition = {
   status: "open" | "won" | "lost";
 };
 
-// A fixed-duration directional contract (Rise/Fall, Higher/Lower).
+// A directional contract (Rise/Fall, Higher/Lower, Touch/No-Touch, Vanilla).
 type DirTrade = {
   id: string;
   market: string;        // display symbol
   derivSymbol: string;
-  kind: "RISE_FALL" | "HIGHER_LOWER";
+  kind: DirectionalKind;
   side: DirectionalSide;
   stake: number;
-  payout: number;        // net payout if won
+  payout: number;        // fixed net payout if won (0 for VANILLA — proportional)
+  payoutPerPoint: number | null; // VANILLA only: credit per in-the-money point
   entrySpot: number;
   entryEpoch: number;
-  barrier: number | null;
+  barrier: number | null; // barrier (HIGHER_LOWER/TOUCH) or strike (VANILLA)
   durationTicks: number;
   isReal: boolean;
   settlesAt: number;     // wall-clock estimate for the UI countdown / settle attempt
@@ -608,21 +621,29 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     ? retainedPayout(accaPos.stake, payoutAtTick(accaPos.stake, accaPos.growthRate, accaPos.ticksSurvived))
     : 0;
 
-  // Directional (Rise/Fall, Higher/Lower) derived values.
+  // Directional derived values (Rise/Fall, Higher/Lower, Touch/No-Touch, Vanilla).
   const dirKind = DIRECTIONAL_KIND[tradeType];
   const isDirectionalType = !!dirKind;
-  const dirSides: DirectionalSide[] = dirKind === "HIGHER_LOWER" ? ["HIGHER", "LOWER"] : ["RISE", "FALL"];
+  const isVanillaType = dirKind === "VANILLA";
+  const dirSides: DirectionalSide[] = dirKind ? DIRECTIONAL_SIDES[dirKind] : ["RISE", "FALL"];
   const clientSigma = useMemo(() => {
     try { return computeSigma(ticks.slice(-(SIGMA_WINDOW + 1)).map((t) => t.quote)); } catch { return null; }
   }, [ticks]);
+  // Fixed-payout preview (Rise/Fall, Higher/Lower, Touch/No-Touch).
   const dirPayoutFor = (side: DirectionalSide): number => {
     let rate = 1.90;
-    if (dirKind === "HIGHER_LOWER") {
+    if (dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH") {
       if (!clientSigma) return 0;
-      rate = dirPayoutRate({ kind: "HIGHER_LOWER", side, entrySpot: latest.quote, barrier: latest.quote + barrierOffset, sigmaTick: clientSigma, durationTicks: duration });
+      rate = dirPayoutRate({ kind: dirKind, side, entrySpot: latest.quote, barrier: latest.quote + barrierOffset, sigmaTick: clientSigma, durationTicks: duration });
     }
     return retainedPayout(stake, stake * rate);
   };
+  // Vanilla preview: contracts bought (payout per in-the-money point), capped credit.
+  const dirPayoutPerPoint = (side: DirectionalSide): number => {
+    if (!clientSigma || (side !== "CALL" && side !== "PUT")) return 0;
+    return vanillaPayoutPerPoint({ entrySpot: latest.quote, strike: latest.quote + barrierOffset, side, sigmaTick: clientSigma, durationTicks: duration, stake });
+  };
+  const dirMaxPayout = retainedPayout(stake, stake * MAX_VANILLA_MULT);
   const dirOpenPositions = dirTrades.map((t) => ({ id: t.id, side: t.side, settlesAt: t.settlesAt }));
 
   const digitStats = useMemo(() => {
@@ -902,13 +923,19 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           settleDirReal(t).finally(() => dirInFlight.current.delete(t.id));
         } else {
           if (dirSettled.current.has(t.id)) continue;
-          const after = ticksRef.current.filter((x) => (x.time as number) > t.entryEpoch);
-          if (after.length < t.durationTicks) continue; // exit tick not reached
-          const exitSpot = after[t.durationTicks - 1].quote;
+          // Replay the post-entry path through the shared resolver so demo and
+          // server agree (Touch can resolve early; Vanilla pays proportionally).
+          const path = ticksRef.current
+            .filter((x) => (x.time as number) > t.entryEpoch)
+            .map((x) => ({ price: x.quote, epoch: x.time as number }));
+          const res = resolveContract({
+            kind: t.kind, side: t.side, entrySpot: t.entrySpot, barrier: t.barrier,
+            durationTicks: t.durationTicks, stake: t.stake, payout: t.payout, payoutPerPoint: t.payoutPerPoint,
+          }, path);
+          if (!res.ready) continue; // outcome not determined yet
           dirSettled.current.add(t.id);
-          const won = evaluateDirectional({ kind: t.kind, side: t.side, entrySpot: t.entrySpot, exitSpot, barrier: t.barrier });
           setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
-          if (won) { setDemoBalance((b) => b + t.payout); toast.cashout(`+$${t.payout.toFixed(2)} — ${t.side} won!`, t.market); }
+          if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+$${res.credit.toFixed(2)} — ${t.side} won!`, t.market); }
           else { toast.error(`${t.side} lost`, t.market); }
         }
       }
@@ -922,11 +949,13 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       toast.error("Insufficient balance", isLive ? "Please deposit to continue." : "Increase your demo balance.");
       return;
     }
-    const offset = dirKind === "HIGHER_LOWER" ? barrierOffset : 0;
-    if (dirKind === "HIGHER_LOWER" && offset === 0) {
+    // RISE_FALL has no barrier; the rest take the offset (Vanilla allows 0 = ATM).
+    const offset = dirKind === "RISE_FALL" ? 0 : barrierOffset;
+    if ((dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH") && offset === 0) {
       toast.error("Set a barrier", "Move the barrier above or below the spot.");
       return;
     }
+    const needsSigma = dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH" || dirKind === "VANILLA";
     const settlesAt = Date.now() + duration * Math.max(1000, market.speedMs) + 500;
 
     if (isLive) {
@@ -936,13 +965,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ market: market.derivSymbol, kind: dirKind, side, stake, durationTicks: duration, barrierOffset: offset }),
         });
-        const data = await res.json() as { tradeId?: string; entrySpot?: number; entryEpoch?: number; barrier?: number | null; payout?: number; error?: string };
+        const data = await res.json() as { tradeId?: string; entrySpot?: number; entryEpoch?: number; barrier?: number | null; payout?: number; payoutPerPoint?: number | null; error?: string };
         if (!res.ok || !data.tradeId) { toast.error("Trade failed", data.error ?? "Could not place trade"); return; }
         setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
         setDirTrades((cur) => [{
           id: data.tradeId!, market: market.symbol, derivSymbol: market.derivSymbol, kind: dirKind, side,
-          stake, payout: data.payout ?? 0, entrySpot: data.entrySpot!, entryEpoch: data.entryEpoch!,
+          stake, payout: data.payout ?? 0, payoutPerPoint: data.payoutPerPoint ?? null,
+          entrySpot: data.entrySpot!, entryEpoch: data.entryEpoch!,
           barrier: data.barrier ?? null, durationTicks: duration, isReal: true, settlesAt, status: "open" as const,
         }, ...cur].slice(0, 12));
         toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
@@ -951,17 +981,22 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       }
     } else {
       const entry = ticks[ticks.length - 1];
-      let rate = 1.90;
-      if (dirKind === "HIGHER_LOWER") {
-        if (!clientSigma) { toast.error("Not enough market data", "Wait for more ticks and try again."); return; }
-        rate = dirPayoutRate({ kind: "HIGHER_LOWER", side, entrySpot: entry.quote, barrier: entry.quote + offset, sigmaTick: clientSigma, durationTicks: duration });
+      if (needsSigma && !clientSigma) { toast.error("Not enough market data", "Wait for more ticks and try again."); return; }
+      const barrier = dirKind === "RISE_FALL" ? null : Number((entry.quote + offset).toFixed(5));
+      let payout = retainedPayout(stake, stake * 1.90);
+      let payoutPerPoint: number | null = null;
+      if (dirKind === "VANILLA") {
+        payout = 0;
+        payoutPerPoint = vanillaPayoutPerPoint({ entrySpot: entry.quote, strike: barrier!, side: side as "CALL" | "PUT", sigmaTick: clientSigma!, durationTicks: duration, stake });
+      } else if (dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH") {
+        const rate = dirPayoutRate({ kind: dirKind, side, entrySpot: entry.quote, barrier: barrier!, sigmaTick: clientSigma!, durationTicks: duration });
+        payout = retainedPayout(stake, stake * rate);
       }
-      const payout = retainedPayout(stake, stake * rate);
       setDemoBalance((b) => b - stake);
       setDirTrades((cur) => [{
         id: `demo-dir-${entry.time}-${side}`, market: market.symbol, derivSymbol: market.derivSymbol, kind: dirKind, side,
-        stake, payout, entrySpot: entry.quote, entryEpoch: entry.time as number,
-        barrier: dirKind === "HIGHER_LOWER" ? entry.quote + offset : null, durationTicks: duration, isReal: false, settlesAt, status: "open" as const,
+        stake, payout, payoutPerPoint, entrySpot: entry.quote, entryEpoch: entry.time as number,
+        barrier, durationTicks: duration, isReal: false, settlesAt, status: "open" as const,
       }, ...cur].slice(0, 12));
       toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
     }
@@ -1173,6 +1208,24 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 onTrade={placeTrade}
                 placing={placing}
                 openPositions={openTrades.map((t) => ({ id: t.id, side: t.side, settlesAt: t.settlesAt }))}
+              />
+            ) : isVanillaType && dirKind ? (
+              <VanillaPanel
+                currency={isLive ? "KSh" : "$"}
+                sides={dirSides}
+                stake={stake} setStake={setStake}
+                duration={duration} setDuration={setDuration}
+                strikeOffset={barrierOffset} setStrikeOffset={setBarrierOffset}
+                latestSpot={latest.quote}
+                stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
+                minStake={isLive ? 10 : 1}
+                payoutPerPointFor={dirPayoutPerPoint}
+                maxPayout={dirMaxPayout}
+                format={(v) => formatMoney(v, isLive)}
+                formatSpot={formatQuote}
+                onTrade={placeDirectional}
+                placing={dirPlacing}
+                openPositions={dirOpenPositions}
               />
             ) : isDirectionalType && dirKind ? (
               <DirectionalPanel

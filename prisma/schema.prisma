@@ -705,8 +705,10 @@ model AccumulatorTrade {
 // ─── Directional Trades (Rise/Fall, Higher/Lower) ─────────────────────────────
 
 enum DirectionalKind {
-  RISE_FALL    // exit vs entry spot
-  HIGHER_LOWER // exit vs a chosen barrier
+  RISE_FALL      // exit vs entry spot
+  HIGHER_LOWER   // exit vs a chosen barrier
+  TOUCH_NO_TOUCH // did the spot touch a barrier during the window (path-dependent)
+  VANILLA        // Call/Put — proportional payout via payoutPerPoint
 }
 
 enum DirectionalStatus {
@@ -723,14 +725,15 @@ model DirectionalTrade {
 
   market        String          // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
   kind          DirectionalKind
-  side          String          // "RISE" | "FALL" | "HIGHER" | "LOWER"
+  side          String          // RISE|FALL | HIGHER|LOWER | TOUCH|NO_TOUCH | CALL|PUT
   stake         Decimal         @db.Decimal(18, 2)
-  payout        Decimal         @db.Decimal(18, 2) // net payout if won (retention applied)
+  payout        Decimal         @db.Decimal(18, 2) // fixed net payout if won (RISE_FALL/HIGHER_LOWER/TOUCH); 0 for VANILLA
 
-  entrySpot     Decimal  @map("entry_spot")  @db.Decimal(18, 5)
-  entryEpoch    Int      @map("entry_epoch")
-  barrier       Decimal? @db.Decimal(18, 5)  // null for RISE_FALL; absolute price for HIGHER_LOWER
-  durationTicks Int      @map("duration_ticks")
+  entrySpot      Decimal  @map("entry_spot")  @db.Decimal(18, 5)
+  entryEpoch     Int      @map("entry_epoch")
+  barrier        Decimal? @db.Decimal(18, 5)  // barrier (HIGHER_LOWER/TOUCH) or strike (VANILLA); null for RISE_FALL
+  payoutPerPoint Decimal? @map("payout_per_point") @db.Decimal(24, 8) // VANILLA only: credit per in-the-money point
+  durationTicks  Int      @map("duration_ticks")
   settleBefore  DateTime @map("settle_before")
 
   exitSpot  Decimal?          @map("exit_spot") @db.Decimal(18, 5)

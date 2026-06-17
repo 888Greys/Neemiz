@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { getServerTickHistory } from "@/lib/binary-price";
-import { settleDirectionalWithExit } from "@/lib/directional-settle";
+import { resolveContract, type DirectionalSide } from "@/lib/directional";
+import { finalizeDirectional } from "@/lib/directional-settle";
 
 // Settle a directional contract on its exit tick — the durationTicks-th tick
 // after entry, fetched server-side from the Deriv feed. The client's value is
@@ -36,12 +37,22 @@ export async function POST(req: Request) {
     return Response.json({ error: "Live feed unavailable, try again" }, { status: 503 });
   }
 
-  // Exit = the durationTicks-th tick after entry. Not there yet → keep waiting.
-  const exit = ticks[trade.durationTicks - 1];
-  if (!exit) return Response.json({ error: "Not ready", pending: true }, { status: 409 });
+  const resolution = resolveContract({
+    kind: trade.kind,
+    side: trade.side as DirectionalSide,
+    entrySpot: Number(trade.entrySpot),
+    barrier: trade.barrier == null ? null : Number(trade.barrier),
+    durationTicks: trade.durationTicks,
+    stake: Number(trade.stake),
+    payout: Number(trade.payout),
+    payoutPerPoint: trade.payoutPerPoint == null ? null : Number(trade.payoutPerPoint),
+  }, ticks);
+
+  // Outcome not determined yet (exit tick / full window not reached) → keep waiting.
+  if (!resolution.ready) return Response.json({ error: "Not ready", pending: true }, { status: 409 });
 
   try {
-    const result = await settleDirectionalWithExit(trade, exit.price);
+    const result = await finalizeDirectional(trade, { won: resolution.won, credit: resolution.credit, exitSpot: resolution.exitSpot });
     if (result.outcome === "already")
       return Response.json({ error: "Trade already settled" }, { status: 409 });
     const won = result.outcome === "won";
