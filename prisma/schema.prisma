@@ -50,6 +50,9 @@ model User {
   // Forex
   forexTrades ForexTrade[]
 
+  // Accumulators
+  accumulatorTrades AccumulatorTrade[]
+
   @@map("users")
 }
 
@@ -653,4 +656,45 @@ model BinaryTrade {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("binary_trades")
+}
+
+// ─── Accumulator Trades ───────────────────────────────────────────────────────
+
+enum AccumulatorStatus {
+  OPEN
+  CLOSED // cashed out / take-profit / max-ticks cap — settled with a payout
+  BUSTED // barrier breached — payout 0
+  VOID   // stake refunded — could not be settled (feed outage / unreproducible)
+}
+
+model AccumulatorTrade {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  market     String // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
+  stake      Decimal  @db.Decimal(18, 2)
+  growthRate Int      @map("growth_rate") // percent per surviving tick: 1..5
+
+  // Captured at buy time so settlement is fully reproducible from raw ticks.
+  entrySpot   Decimal  @map("entry_spot")   @db.Decimal(18, 5)
+  entryEpoch  Int      @map("entry_epoch")  // unix seconds of the entry tick
+  barrierFrac Decimal  @map("barrier_frac") @db.Decimal(12, 10) // δ: fractional half-width
+  maxTicks    Int      @map("max_ticks")    // hard cap (bounds house liability)
+  takeProfit  Decimal? @map("take_profit")  @db.Decimal(18, 2)  // optional, profit KSh
+
+  // Settlement results.
+  exitSpot      Decimal? @map("exit_spot")      @db.Decimal(18, 5)
+  ticksSurvived Int?     @map("ticks_survived")
+  payout        Decimal? @db.Decimal(18, 2)
+
+  status    AccumulatorStatus @default(OPEN)
+  settledAt DateTime?         @map("settled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("accumulator_trades")
 }

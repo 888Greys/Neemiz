@@ -46,6 +46,79 @@ export async function getServerBinaryDigit(symbol: string): Promise<{ digit: num
   return { digit, quote };
 }
 
+export type TickPoint = { price: number; epoch: number };
+
+/**
+ * Fetch the Deriv tick history for a symbol from `startEpoch` (exclusive) up to
+ * the latest tick, server-side. Used for accumulator settlement, which has to
+ * replay the whole tick path to find a barrier breach. Returns chronological
+ * { price, epoch } points strictly after startEpoch. Throws on unknown symbol
+ * or no obtainable history.
+ */
+export async function getServerTickHistory(
+  symbol: string,
+  startEpoch: number,
+  count = 1000,
+): Promise<TickPoint[]> {
+  if (!VALID_SYMBOLS.has(symbol)) throw new Error(`Unsupported binary symbol: ${symbol}`);
+  const { prices, times } = await fetchDerivHistory(symbol, startEpoch, Math.min(Math.max(count, 1), 5000));
+  const out: TickPoint[] = [];
+  for (let i = 0; i < prices.length; i++) {
+    const price = prices[i], epoch = times[i];
+    if (typeof price === "number" && typeof epoch === "number" && epoch > startEpoch) {
+      out.push({ price, epoch });
+    }
+  }
+  out.sort((a, b) => a.epoch - b.epoch);
+  return out;
+}
+
+function fetchDerivHistory(derivSymbol: string, startEpoch: number, count: number): Promise<{ prices: number[]; times: number[] }> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let socket: WebSocket;
+    try {
+      socket = new WebSocket(DERIV_WS_URL);
+    } catch (err) {
+      reject(err instanceof Error ? err : new Error("WebSocket init failed"));
+      return;
+    }
+
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { socket.close(); } catch { /* noop */ }
+      fn();
+    };
+
+    const timer = setTimeout(() => finish(() => reject(new Error("Deriv history timeout"))), WS_TIMEOUT_MS);
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({
+        ticks_history: derivSymbol,
+        start: startEpoch,
+        end: "latest",
+        count,
+        style: "ticks",
+      }));
+    };
+
+    socket.onmessage = (event: MessageEvent) => {
+      let response: { error?: { message?: string }; history?: { prices?: number[]; times?: number[] } };
+      try { response = JSON.parse(String(event.data)); } catch { return; }
+      if (response.error) { finish(() => reject(new Error(response.error?.message ?? "Deriv error"))); return; }
+      const prices = response.history?.prices, times = response.history?.times;
+      if (Array.isArray(prices) && Array.isArray(times)) {
+        finish(() => resolve({ prices, times }));
+      }
+    };
+
+    socket.onerror = () => finish(() => reject(new Error("Deriv stream error")));
+    socket.onclose = () => finish(() => reject(new Error("Deriv stream closed")));
+  });
+}
+
 function fetchDerivTick(derivSymbol: string): Promise<number> {
   return new Promise((resolve, reject) => {
     let settled = false;
