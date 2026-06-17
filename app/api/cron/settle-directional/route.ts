@@ -14,7 +14,8 @@
  */
 import { db } from "@/lib/db";
 import { getServerTickHistory } from "@/lib/binary-price";
-import { settleDirectionalWithExit, voidDirectional } from "@/lib/directional-settle";
+import { resolveContract, type DirectionalSide } from "@/lib/directional";
+import { finalizeDirectional, voidDirectional } from "@/lib/directional-settle";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,13 +59,23 @@ export async function GET(req: Request) {
       continue;
     }
 
-    const exit = ticks[trade.durationTicks - 1];
-    if (!exit) {
-      // Exit tick not available. If the window expired, the feed has a gap we
+    const resolution = resolveContract({
+      kind: trade.kind,
+      side: trade.side as DirectionalSide,
+      entrySpot: Number(trade.entrySpot),
+      barrier: trade.barrier == null ? null : Number(trade.barrier),
+      durationTicks: trade.durationTicks,
+      stake: Number(trade.stake),
+      payout: Number(trade.payout),
+      payoutPerPoint: trade.payoutPerPoint == null ? null : Number(trade.payoutPerPoint),
+    }, ticks);
+
+    if (!resolution.ready) {
+      // Outcome not determined. If the window expired, the feed has a gap we
       // can't settle around — refund. Otherwise wait for a later run.
       if (expired) {
         try {
-          const r = await voidDirectional(trade, "exit_tick_missing_expired");
+          const r = await voidDirectional(trade, "unresolved_expired");
           if (r.outcome === "refunded") { voided++; creditedKes += Number(trade.stake); } else already++;
         } catch (e) { errors.push(`${trade.id} void: ${e instanceof Error ? e.message : "error"}`); }
       } else stillPending++;
@@ -72,7 +83,7 @@ export async function GET(req: Request) {
     }
 
     try {
-      const r = await settleDirectionalWithExit(trade, exit.price);
+      const r = await finalizeDirectional(trade, { won: resolution.won, credit: resolution.credit, exitSpot: resolution.exitSpot });
       if (r.outcome === "won")  { won++; creditedKes += r.winAmount; }
       else if (r.outcome === "lost") lost++;
       else already++;
