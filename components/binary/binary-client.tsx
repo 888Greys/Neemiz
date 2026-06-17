@@ -5,11 +5,14 @@ import {
   AreaSeries,
   ColorType,
   createChart,
+  createSeriesMarkers,
   LineStyle,
   type AreaData,
   type IChartApi,
   type IPriceLine,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type SeriesMarker,
   type Time,
   type UTCTimestamp,
 } from "lightweight-charts";
@@ -253,12 +256,19 @@ function evaluateTrade(side: ContractSide, digit: number, targetDigit: number) {
   return digit < targetDigit;
 }
 
-function TradingViewBinaryChart({ ticks, barriers }: { ticks: Tick[]; barriers?: { upper: number; lower: number } | null }) {
+// A horizontal overlay line on the chart (barrier / strike / stop-out / knockout
+// / entry). Diffed by `id` so lines that follow the spot update in place.
+type ChartLine = { id: string; price: number; color: string; title: string; dashed?: boolean };
+// An entry/exit marker pinned to a tick time.
+type ChartMarker = { id: string; time: UTCTimestamp; color: string; text: string; above?: boolean };
+
+function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; lines?: ChartLine[]; markers?: ChartMarker[] }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
   const lastPointRef = useRef<{ time: number; value: number } | null>(null);
-  const barrierLinesRef = useRef<{ upper: IPriceLine; lower: IPriceLine } | null>(null);
+  const priceLinesRef = useRef<Map<string, IPriceLine>>(new Map());
+  const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -313,12 +323,15 @@ function TradingViewBinaryChart({ ticks, barriers }: { ticks: Tick[]; barriers?:
 
     chartRef.current = chart;
     seriesRef.current = series;
+    markersRef.current = createSeriesMarkers(series, []);
     chart.timeScale().fitContent();
 
     return () => {
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      markersRef.current = null;
+      priceLinesRef.current.clear();
     };
   }, []);
 
@@ -360,31 +373,45 @@ function TradingViewBinaryChart({ ticks, barriers }: { ticks: Tick[]; barriers?:
     chartRef.current?.timeScale().scrollToRealTime();
   }, [ticks]);
 
-  // Accumulator barrier band — two price lines that follow the live spot. The
-  // contract survives while the spot stays between them; busts on a breakout.
+  // Contract overlay lines — barrier / strike / stop-out / knockout / entry, for
+  // whatever contract is being configured or is running. Diffed by id so lines
+  // that follow the spot (e.g. the accumulator band) update in place rather than
+  // flicker, and lines that vanish are removed.
   useEffect(() => {
     const series = seriesRef.current;
     if (!series) return;
+    const want = lines ?? [];
+    const wantIds = new Set(want.map((l) => l.id));
+    const map = priceLinesRef.current;
 
-    if (!barriers) {
-      if (barrierLinesRef.current) {
-        series.removePriceLine(barrierLinesRef.current.upper);
-        series.removePriceLine(barrierLinesRef.current.lower);
-        barrierLinesRef.current = null;
-      }
-      return;
+    for (const [id, line] of map) {
+      if (!wantIds.has(id)) { series.removePriceLine(line); map.delete(id); }
     }
-
-    if (!barrierLinesRef.current) {
-      barrierLinesRef.current = {
-        upper: series.createPriceLine({ price: barriers.upper, color: "#f59e0b", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "▲" }),
-        lower: series.createPriceLine({ price: barriers.lower, color: "#f59e0b", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "▼" }),
+    for (const l of want) {
+      const opts = {
+        price: l.price, color: l.color, lineWidth: 1 as const,
+        lineStyle: l.dashed ? LineStyle.Dashed : LineStyle.Solid,
+        axisLabelVisible: true, title: l.title,
       };
-    } else {
-      barrierLinesRef.current.upper.applyOptions({ price: barriers.upper });
-      barrierLinesRef.current.lower.applyOptions({ price: barriers.lower });
+      const existing = map.get(l.id);
+      if (existing) existing.applyOptions(opts);
+      else map.set(l.id, series.createPriceLine(opts));
     }
-  }, [barriers]);
+  }, [lines]);
+
+  // Entry / exit markers pinned to tick times.
+  useEffect(() => {
+    const plugin = markersRef.current;
+    if (!plugin) return;
+    const ms: SeriesMarker<Time>[] = (markers ?? []).map((m) => ({
+      time: m.time,
+      position: m.above ? "aboveBar" : "belowBar",
+      color: m.color,
+      shape: "circle",
+      text: m.text,
+    }));
+    plugin.setMarkers(ms);
+  }, [markers]);
 
   const zoom = (factor: number) => {
     const ts = chartRef.current?.timeScale();
@@ -659,10 +686,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const changePct = (change / Math.max(1, ticks[0]?.quote ?? latest.quote)) * 100;
   const selectedSides = familySides(family);
 
-  // Accumulator chart band + live net payout (what a cash-out would credit now).
-  const accaBarriers = accaPos && market.derivSymbol === accaPos.derivSymbol
-    ? { upper: latest.quote * (1 + accaPos.barrierFrac), lower: latest.quote * (1 - accaPos.barrierFrac) }
-    : null;
+  // Live net payout (what an accumulator cash-out would credit now).
   const accaNetPayout = accaPos
     ? retainedPayout(accaPos.stake, payoutAtTick(accaPos.stake, accaPos.growthRate, accaPos.ticksSurvived))
     : 0;
@@ -713,6 +737,52 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       netPayout: retainedPayout(levPos.stake, Math.max(0, gross)),
       multiplier: levPos.multiplier, dangerSpot: levPos.barrier,
     };
+  })();
+
+  // Chart overlays — barrier/strike/stop-out/knockout/entry lines + entry markers
+  // for whatever contract is running or being configured, drawn on the price
+  // chart (Deriv-style). A running cash-out position owns the chart; otherwise we
+  // show open directional barriers plus a live preview of the selected type.
+  const ENTRY_COLOR = "#94a3b8", BARRIER_COLOR = "#f59e0b", DANGER_COLOR = "#ef4444";
+  const chartLines: ChartLine[] = (() => {
+    if (accaPos && market.derivSymbol === accaPos.derivSymbol) {
+      return [
+        { id: "acc-up", price: latest.quote * (1 + accaPos.barrierFrac), color: BARRIER_COLOR, title: "▲", dashed: true },
+        { id: "acc-lo", price: latest.quote * (1 - accaPos.barrierFrac), color: BARRIER_COLOR, title: "▼", dashed: true },
+      ];
+    }
+    if (levPos && market.derivSymbol === levPos.derivSymbol) {
+      const out: ChartLine[] = [{ id: "lev-entry", price: levPos.entrySpot, color: ENTRY_COLOR, title: "Entry", dashed: true }];
+      if (levPos.barrier != null) out.push({ id: "lev-danger", price: levPos.barrier, color: DANGER_COLOR, title: levPos.kind === "TURBO" ? "Knockout" : "Stop out" });
+      return out;
+    }
+    const out: ChartLine[] = [];
+    // Open directional trades on this market — their barrier/strike lines.
+    for (const t of dirTrades) {
+      if (t.status !== "open" || t.derivSymbol !== market.derivSymbol || t.barrier == null) continue;
+      out.push({ id: `dir-${t.id}`, price: t.barrier, color: BARRIER_COLOR, title: t.side === "NO_TOUCH" ? "NO TOUCH" : t.side, dashed: true });
+      if (out.length >= 4) break;
+    }
+    // Live preview of the barrier/strike/stop-out for the type being configured.
+    if (isDirectionalType && dirKind && dirKind !== "RISE_FALL") {
+      out.push({ id: "cfg-barrier", price: latest.quote + barrierOffset, color: BARRIER_COLOR, title: dirKind === "VANILLA" ? "Strike" : "Barrier", dashed: true });
+    } else if (isLeveragedType && !levPos) {
+      out.push({ id: "cfg-danger", price: levConfigDanger, color: DANGER_COLOR, title: levKind === "TURBO" ? "Knockout" : "Stop out", dashed: true });
+    }
+    return out;
+  })();
+  const chartMarkers: ChartMarker[] = (() => {
+    const out: ChartMarker[] = [];
+    if (accaPos && market.derivSymbol === accaPos.derivSymbol)
+      out.push({ id: "m-acc", time: accaPos.entryEpoch as UTCTimestamp, color: ENTRY_COLOR, text: "Buy" });
+    if (levPos && market.derivSymbol === levPos.derivSymbol)
+      out.push({ id: "m-lev", time: levPos.entryEpoch as UTCTimestamp, color: levPos.direction === "UP" ? "#16a085" : "#e2474b", text: levPos.direction === "UP" ? "▲" : "▼", above: levPos.direction === "DOWN" });
+    for (const t of dirTrades) {
+      if (t.status !== "open" || t.derivSymbol !== market.derivSymbol) continue;
+      out.push({ id: `m-${t.id}`, time: t.entryEpoch as UTCTimestamp, color: ENTRY_COLOR, text: "Buy" });
+      if (out.length >= 5) break;
+    }
+    return out;
   })();
 
   // Every open contract, unified for the activity rail's "Open" tab. Digit and
@@ -1343,7 +1413,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               </div>
             </div>
             <div className="relative min-h-0 flex-1">
-              <TradingViewBinaryChart ticks={ticks} barriers={accaBarriers} />
+              <TradingViewBinaryChart ticks={ticks} lines={chartLines} markers={chartMarkers} />
             </div>
 
             {/* Digit-frequency strip — last-100-tick distribution. Click a digit
