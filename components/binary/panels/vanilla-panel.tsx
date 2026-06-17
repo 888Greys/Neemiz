@@ -3,50 +3,45 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
-import type { DirectionalSide, DirectionalKind } from "@/lib/directional";
+import type { DirectionalSide } from "@/lib/directional";
 
-type DirKind = DirectionalKind;
 type DirSide = DirectionalSide;
 
 const CARD = "rounded-lg bg-[#181b22] p-3";
 const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
-const RED_SIDES = new Set<DirSide>(["FALL", "LOWER", "NO_TOUCH", "PUT"]);
 
-function sideLabel(side: DirSide): string {
-  return side === "NO_TOUCH" ? "NO TOUCH" : side;
-}
-
-// Rise/Fall (exit vs entry) and Higher/Lower (exit vs a chosen barrier).
-// Fixed-duration; settlement is server-authoritative off the live feed.
-export function DirectionalPanel({
-  currency, kind, sides,
+// Vanilla options (Call/Put). Unlike the fixed-payout directional contracts, the
+// payout is proportional: the stake buys a number of contracts, each paying out
+// per in-the-money point at expiry (capped). Settlement is server-authoritative.
+export function VanillaPanel({
+  currency, sides,
   stake, setStake,
   duration, setDuration,
-  barrierOffset, setBarrierOffset,
+  strikeOffset, setStrikeOffset,
   latestSpot,
   stakePresets, minStake,
-  payoutFor, format, formatSpot,
+  payoutPerPointFor, maxPayout,
+  format, formatSpot,
   onTrade, placing, openPositions,
 }: {
   currency: string;
-  kind: DirKind;
   sides: DirSide[];
   stake: number; setStake: (v: number) => void;
   duration: number; setDuration: (v: number) => void;
-  barrierOffset: number; setBarrierOffset: (v: number) => void;
+  strikeOffset: number; setStrikeOffset: (v: number) => void;
   latestSpot: number;
   stakePresets: number[];
   minStake: number;
-  payoutFor: (side: DirSide) => number;
+  payoutPerPointFor: (side: DirSide) => number;
+  maxPayout: number;
   format: (v: number) => string;
   formatSpot: (v: number) => string;
   onTrade: (side: DirSide) => void;
   placing: boolean;
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
 }) {
-  const needsBarrier = kind !== "RISE_FALL";
   const offsetStep = Math.max(0.01, Math.round(latestSpot * 0.0003 * 100) / 100);
-  const barrier = latestSpot + barrierOffset;
+  const strike = latestSpot + strikeOffset;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -99,41 +94,43 @@ export function DirectionalPanel({
           </div>
         </div>
 
-        {/* Barrier — Higher/Lower only */}
-        {needsBarrier && (
-          <div className={CARD}>
-            <div className="mb-2.5 flex items-center justify-center gap-1 text-[13px] font-bold text-slate-200">
-              Barrier offset
-            </div>
-            <div className={FIELD}>
-              <button type="button" onClick={() => setBarrierOffset(Math.round((barrierOffset - offsetStep) * 100) / 100)}
-                className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
-                <Icon name="remove" className="text-[18px]" />
-              </button>
-              <input type="number" value={barrierOffset}
-                onChange={(e) => setBarrierOffset(Number(e.target.value) || 0)}
-                className="w-full min-w-0 bg-transparent text-center text-[15px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-              <button type="button" onClick={() => setBarrierOffset(Math.round((barrierOffset + offsetStep) * 100) / 100)}
-                className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
-                <Icon name="add" className="text-[18px]" />
-              </button>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-[12px]">
-              <span className="font-bold text-slate-400">Barrier</span>
-              <span className="font-mono font-black text-amber-300">{formatSpot(barrier)}</span>
-            </div>
+        {/* Strike (offset from spot; 0 = at-the-money) */}
+        <div className={CARD}>
+          <div className="mb-2.5 flex items-center justify-center gap-1 text-[13px] font-bold text-slate-200">
+            Strike offset
           </div>
-        )}
+          <div className={FIELD}>
+            <button type="button" onClick={() => setStrikeOffset(Math.round((strikeOffset - offsetStep) * 100) / 100)}
+              className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+              <Icon name="remove" className="text-[18px]" />
+            </button>
+            <input type="number" value={strikeOffset}
+              onChange={(e) => setStrikeOffset(Number(e.target.value) || 0)}
+              className="w-full min-w-0 bg-transparent text-center text-[15px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            <button type="button" onClick={() => setStrikeOffset(Math.round((strikeOffset + offsetStep) * 100) / 100)}
+              className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+              <Icon name="add" className="text-[18px]" />
+            </button>
+          </div>
+          <div className="mt-2 flex items-center justify-between text-[12px]">
+            <span className="font-bold text-slate-400">Strike</span>
+            <span className="font-mono font-black text-amber-300">{formatSpot(strike)}</span>
+          </div>
+        </div>
 
-        {/* Payout preview */}
+        {/* Payout preview — proportional (per point) + capped max */}
         <div className={`${CARD} space-y-2.5 text-[13px]`}>
           {sides.map((side) => (
             <div key={side} className="flex items-center justify-between">
-              <span className="font-bold text-slate-400">{sideLabel(side)} payout</span>
-              <span className="font-black text-white">{format(payoutFor(side))}</span>
+              <span className="font-bold text-slate-400">{side} payout/point</span>
+              <span className="font-black text-white">{format(payoutPerPointFor(side))}</span>
             </div>
           ))}
           <div className="flex items-center justify-between border-t border-white/[0.06] pt-2">
+            <span className="font-bold text-slate-400">Max payout</span>
+            <span className="font-black text-emerald-300">{format(maxPayout)}</span>
+          </div>
+          <div className="flex items-center justify-between">
             <span className="font-bold text-slate-400">Spot</span>
             <span className="font-mono font-black text-sky-300">{formatSpot(latestSpot)}</span>
           </div>
@@ -145,17 +142,17 @@ export function DirectionalPanel({
       {/* Action buttons */}
       <div className="grid shrink-0 grid-cols-2 gap-2 p-2">
         {sides.map((side) => {
-          const isRed = RED_SIDES.has(side);
+          const isPut = side === "PUT";
           return (
             <button key={side} type="button" onClick={() => onTrade(side)} disabled={placing}
               className={`flex flex-col items-center gap-0.5 rounded-lg px-3 py-3 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${
-                isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e]" : "bg-[#16a085] hover:bg-[#1bb198]"
+                isPut ? "bg-[#e2474b] hover:bg-[#ec5a5e]" : "bg-[#16a085] hover:bg-[#1bb198]"
               }`}>
               <span className="flex items-center gap-1 text-[14px]">
-                <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[16px]" />
-                {placing ? <LoadingDots /> : sideLabel(side)}
+                <Icon name={isPut ? "trending_down" : "trending_up"} className="text-[16px]" />
+                {placing ? <LoadingDots /> : side}
               </span>
-              <span className="font-mono text-[12px] text-white/85">{format(payoutFor(side))}</span>
+              <span className="font-mono text-[12px] text-white/85">{format(payoutPerPointFor(side))}/pt</span>
             </button>
           );
         })}

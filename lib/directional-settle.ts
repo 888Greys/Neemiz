@@ -8,37 +8,37 @@
 
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type DirectionalTrade } from "@prisma/client";
-import { evaluateDirectional, type DirectionalSide } from "@/lib/directional";
 
 export type SettleResult = { outcome: "won" | "lost" | "already"; winAmount: number; exitSpot: number };
 
-/** Atomically settle a PENDING directional trade against a server-derived exit spot. */
-export async function settleDirectionalWithExit(trade: DirectionalTrade, exitSpot: number): Promise<SettleResult> {
-  const won = evaluateDirectional({
-    kind: trade.kind,
-    side: trade.side as DirectionalSide,
-    entrySpot: Number(trade.entrySpot),
-    exitSpot,
-    barrier: trade.barrier == null ? null : Number(trade.barrier),
-  });
-  const winAmount = won ? Number(trade.payout) : 0;
-  const exit = Number(exitSpot.toFixed(5));
+/**
+ * Atomically finalize a PENDING directional trade given a resolved outcome
+ * (won + credit + exit spot computed by resolveContract). `credit` is the KSh
+ * to pay (0 for a loss; a partial amount is possible for a vanilla that expired
+ * slightly in-the-money). Only the worker that flips the row pays out.
+ */
+export async function finalizeDirectional(
+  trade: DirectionalTrade,
+  opts: { won: boolean; credit: number; exitSpot: number },
+): Promise<SettleResult> {
+  const credit = Number(Math.max(0, opts.credit).toFixed(2));
+  const exit = Number(opts.exitSpot.toFixed(5));
   const now = new Date();
 
   return db.$transaction(async (tx) => {
     const claimed = await tx.directionalTrade.updateMany({
       where: { id: trade.id, status: "PENDING" },
-      data:  { status: won ? "WON" : "LOST", exitSpot: exit, settledAt: now },
+      data:  { status: opts.won ? "WON" : "LOST", exitSpot: exit, settledAt: now },
     });
     if (claimed.count === 0) return { outcome: "already", winAmount: 0, exitSpot: exit };
 
-    if (won) {
-      await tx.user.update({ where: { id: trade.userId }, data: { walletBalance: { increment: winAmount } } });
+    if (credit > 0) {
+      await tx.user.update({ where: { id: trade.userId }, data: { walletBalance: { increment: credit } } });
       await tx.transaction.create({
         data: {
           userId: trade.userId,
           type: TransactionType.BET_WIN,
-          amount: winAmount,
+          amount: credit,
           currency: "KES",
           status: TransactionStatus.COMPLETED,
           reference: `directional-win-${trade.userId}-${trade.id}`,
@@ -50,16 +50,16 @@ export async function settleDirectionalWithExit(trade: DirectionalTrade, exitSpo
     await tx.notification.create({
       data: {
         userId: trade.userId,
-        type: won ? "DIRECTIONAL_WON" : "DIRECTIONAL_LOST",
-        title: won ? "Trade won" : "Trade settled",
-        body: won
-          ? `KSh ${winAmount.toLocaleString("en-KE")} was credited to your wallet.`
+        type: opts.won ? "DIRECTIONAL_WON" : "DIRECTIONAL_LOST",
+        title: opts.won ? "Trade won" : "Trade settled",
+        body: credit > 0
+          ? `KSh ${credit.toLocaleString("en-KE")} was credited to your wallet.`
           : `Your KSh ${Number(trade.stake).toLocaleString("en-KE")} ${trade.side.toLowerCase()} trade did not win.`,
         link: "/binary",
       },
     });
 
-    return { outcome: won ? "won" : "lost", winAmount, exitSpot: exit };
+    return { outcome: opts.won ? "won" : "lost", winAmount: credit, exitSpot: exit };
   });
 }
 

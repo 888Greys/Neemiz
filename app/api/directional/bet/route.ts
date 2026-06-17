@@ -5,13 +5,19 @@ import { TransactionStatus, TransactionType } from "@prisma/client";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { getServerTickHistory } from "@/lib/binary-price";
 import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
-import { payoutRate, type DirectionalSide } from "@/lib/directional";
+import { payoutRate, vanillaPayoutPerPoint, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
 
 const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+const VALID_KINDS = ["RISE_FALL", "HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"];
 const SIDES_BY_KIND: Record<string, DirectionalSide[]> = {
   RISE_FALL: ["RISE", "FALL"],
   HIGHER_LOWER: ["HIGHER", "LOWER"],
+  TOUCH_NO_TOUCH: ["TOUCH", "NO_TOUCH"],
+  VANILLA: ["CALL", "PUT"],
 };
+// Kinds that take a barrier/strike offset; offset must be non-zero except VANILLA
+// (an at-the-money strike is valid).
+const NEEDS_OFFSET = new Set(["HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"]);
 const MIN_STAKE = 10;
 const MAX_STAKE = 10_000;
 const LOOKBACK_SEC = 600;
@@ -28,7 +34,7 @@ export async function POST(req: Request) {
 
   if (!market || !VALID_MARKETS.includes(market))
     return Response.json({ error: "Invalid market" }, { status: 400 });
-  if (kind !== "RISE_FALL" && kind !== "HIGHER_LOWER")
+  if (!kind || !VALID_KINDS.includes(kind))
     return Response.json({ error: "Invalid kind" }, { status: 400 });
   if (!side || !SIDES_BY_KIND[kind].includes(side as DirectionalSide))
     return Response.json({ error: "Invalid side" }, { status: 400 });
@@ -37,7 +43,9 @@ export async function POST(req: Request) {
   if (!Number.isInteger(durationTicks) || durationTicks! < 1 || durationTicks! > 30)
     return Response.json({ error: "Duration must be 1–30 ticks" }, { status: 400 });
   const offset = barrierOffset == null ? 0 : Number(barrierOffset);
-  if (kind === "HIGHER_LOWER" && (!Number.isFinite(offset) || offset === 0))
+  if (NEEDS_OFFSET.has(kind) && !Number.isFinite(offset))
+    return Response.json({ error: "Invalid barrier" }, { status: 400 });
+  if ((kind === "HIGHER_LOWER" || kind === "TOUCH_NO_TOUCH") && offset === 0)
     return Response.json({ error: "Choose a barrier above or below the spot" }, { status: 400 });
 
   const stakeVal = stake!;
@@ -59,10 +67,17 @@ export async function POST(req: Request) {
     return Response.json({ error: "Live feed unavailable, try again" }, { status: 503 });
   }
 
-  const barrier = kind === "HIGHER_LOWER" ? Number((entrySpot + offset).toFixed(5)) : null;
-  const rate = payoutRate({ kind, side: side as DirectionalSide, entrySpot, barrier: barrier ?? undefined, sigmaTick, durationTicks: ticks });
-  const grossPayout = Number((stakeVal * rate).toFixed(2));
-  const payoutVal = applyProfitRetention(stakeVal, grossPayout);
+  const barrier = kind === "RISE_FALL" ? null : Number((entrySpot + offset).toFixed(5));
+  let payoutVal = 0;            // fixed net payout (non-vanilla)
+  let payoutPerPoint: number | null = null;
+  let grossPayout = 0;
+  if (kind === "VANILLA") {
+    payoutPerPoint = Number(vanillaPayoutPerPoint({ entrySpot, strike: barrier!, side: side as "CALL" | "PUT", sigmaTick, durationTicks: ticks, stake: stakeVal }).toFixed(8));
+  } else {
+    const rate = payoutRate({ kind: kind as "RISE_FALL" | "HIGHER_LOWER" | "TOUCH_NO_TOUCH", side: side as DirectionalSide, entrySpot, barrier: barrier ?? undefined, sigmaTick, durationTicks: ticks });
+    grossPayout = Number((stakeVal * rate).toFixed(2));
+    payoutVal = applyProfitRetention(stakeVal, grossPayout);
+  }
   const settleBefore = new Date(Date.now() + ticks * 3000 + 120_000); // generous: ticks may run up to ~3s apart
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
@@ -77,8 +92,8 @@ export async function POST(req: Request) {
 
       const created = await tx.directionalTrade.create({
         data: {
-          userId: dbUser.id, market, kind, side,
-          stake: stakeVal, payout: payoutVal,
+          userId: dbUser.id, market, kind: kind as DirectionalKind, side,
+          stake: stakeVal, payout: payoutVal, payoutPerPoint,
           entrySpot, entryEpoch, barrier, durationTicks: ticks, settleBefore,
           status: "PENDING",
         },
@@ -92,15 +107,16 @@ export async function POST(req: Request) {
           status: TransactionStatus.COMPLETED,
           reference: `directional-stake-${dbUser.id}-${created.id}`,
           provider: "directional",
-          metadata: { game: "directional", tradeId: created.id, market, kind, side, barrier, durationTicks: ticks, grossPayout },
+          metadata: { game: "directional", tradeId: created.id, market, kind, side, barrier, payoutPerPoint, durationTicks: ticks, grossPayout },
         },
       });
       return created;
     });
 
     return Response.json({
-      tradeId: trade.id, kind, side, entrySpot, entryEpoch, barrier,
+      tradeId: trade.id, kind, side, entrySpot, entryEpoch, barrier, payoutPerPoint,
       durationTicks: ticks, payout: payoutVal,
+      maxPayout: kind === "VANILLA" ? Number(applyProfitRetention(stakeVal, stakeVal * MAX_VANILLA_MULT).toFixed(2)) : undefined,
     }, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE")
