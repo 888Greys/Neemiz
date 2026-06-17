@@ -269,6 +269,11 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
   const lastPointRef = useRef<{ time: number; value: number } | null>(null);
   const priceLinesRef = useRef<Map<string, IPriceLine>>(new Map());
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  // Smooth-motion state: the newest point glides toward the latest tick each
+  // animation frame (LERP) instead of snapping once per tick.
+  const targetRef = useRef<{ time: UTCTimestamp; value: number } | null>(null);
+  const renderValueRef = useRef<number | null>(null);
+  const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -326,7 +331,30 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
     markersRef.current = createSeriesMarkers(series, []);
     chart.timeScale().fitContent();
 
+    // Continuous animation loop: every frame, glide the newest point toward the
+    // latest tick (LERP) so the line flows like Deriv instead of snapping once
+    // per tick. The tick handler only sets the *target*; this paints at the
+    // monitor's refresh rate, decoupled from websocket cadence.
+    const EASING = 0.16;            // fraction of the remaining gap closed per frame
+    const step = () => {
+      const s = seriesRef.current;
+      const target = targetRef.current;
+      if (s && target) {
+        const cur = renderValueRef.current ?? target.value;
+        const diff = target.value - cur;
+        const next = Math.abs(diff) < 1e-7 ? target.value : cur + diff * EASING;
+        if (next !== cur) {
+          renderValueRef.current = next;
+          s.update({ time: target.time, value: next });
+        }
+      }
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+
     return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -357,7 +385,11 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
       prev?.quote === last.value &&
       latest.time > last.time
     ) {
-      series.update({ time: latest.time, value: latest.quote });
+      // Lock the previous point at its exact value (the glide may not have fully
+      // arrived), then hand the new point to the rAF loop to glide toward.
+      series.update({ time: prev.time, value: prev.quote });
+      targetRef.current = { time: latest.time, value: latest.quote };
+      if (renderValueRef.current == null) renderValueRef.current = prev.quote;
       lastPointRef.current = { time: latest.time, value: latest.quote };
       return;
     }
@@ -369,6 +401,8 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
       value: tick.quote,
     }));
     series.setData(data);
+    targetRef.current = { time: latest.time as UTCTimestamp, value: latest.quote };
+    renderValueRef.current = latest.quote; // snap on load / market switch (no glide)
     lastPointRef.current = { time: latest.time, value: latest.quote };
     chartRef.current?.timeScale().scrollToRealTime();
   }, [ticks]);
