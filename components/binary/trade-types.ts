@@ -61,4 +61,6 @@ export const IMPLEMENTED_TYPES: Set<TradeTypeId> = new Set([
   "higher_lower",
   "touch_no_touch",
   "vanillas",
+  "multipliers",
+  "turbos",
 ]);
