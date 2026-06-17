@@ -396,6 +396,9 @@ CRON_SECRET=...
 
 # Polymarket settlement — every 30 min
 */30 * * * * /opt/neemiz/settle-polymarket.sh >> /var/log/neemiz-polymarket-settle.log 2>&1
+
+# Binary digit-contract settlement — every minute (catches trades whose browser closed)
+* * * * * . /opt/neemiz/settle.env && curl -fsSL -X POST -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/api/cron/settle-binary >> /var/log/neemiz-binary-settle.log 2>&1
 ```
 
 > **Note:** Use `https://www.nezeem.com` (with `www`) not `https://nezeem.com` — the bare domain redirects (307) and cron calls without `-L` will silently fail.
@@ -423,6 +426,9 @@ curl -sL -X POST -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/
 
 # Settle Polymarket bets now
 curl -sL -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/api/polymarket/settle
+
+# Settle binary digit trades now
+curl -sL -X POST -H "Authorization: Bearer $CRON_SECRET" https://www.nezeem.com/api/cron/settle-binary
 ```
 
 ---
