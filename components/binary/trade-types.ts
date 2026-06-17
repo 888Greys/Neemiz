@@ -57,4 +57,6 @@ export const IMPLEMENTED_TYPES: Set<TradeTypeId> = new Set([
   "matches_differs",
   "even_odd",
   "over_under",
+  "rise_fall",
+  "higher_lower",
 ]);

@@ -1,0 +1,111 @@
+import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db";
+import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { TransactionStatus, TransactionType } from "@prisma/client";
+import { applyProfitRetention } from "@/lib/house-retention";
+import { getServerTickHistory } from "@/lib/binary-price";
+import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
+import { payoutRate, type DirectionalSide } from "@/lib/directional";
+
+const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+const SIDES_BY_KIND: Record<string, DirectionalSide[]> = {
+  RISE_FALL: ["RISE", "FALL"],
+  HIGHER_LOWER: ["HIGHER", "LOWER"],
+};
+const MIN_STAKE = 10;
+const MAX_STAKE = 10_000;
+const LOOKBACK_SEC = 600;
+
+export async function POST(req: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  let body: { market?: string; kind?: string; side?: string; stake?: number; durationTicks?: number; barrierOffset?: number };
+  try { body = await req.json(); } catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
+
+  const { market, kind, side, stake, durationTicks, barrierOffset } = body;
+
+  if (!market || !VALID_MARKETS.includes(market))
+    return Response.json({ error: "Invalid market" }, { status: 400 });
+  if (kind !== "RISE_FALL" && kind !== "HIGHER_LOWER")
+    return Response.json({ error: "Invalid kind" }, { status: 400 });
+  if (!side || !SIDES_BY_KIND[kind].includes(side as DirectionalSide))
+    return Response.json({ error: "Invalid side" }, { status: 400 });
+  if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
+    return Response.json({ error: `Stake must be between KSh ${MIN_STAKE} and KSh ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
+  if (!Number.isInteger(durationTicks) || durationTicks! < 1 || durationTicks! > 30)
+    return Response.json({ error: "Duration must be 1–30 ticks" }, { status: 400 });
+  const offset = barrierOffset == null ? 0 : Number(barrierOffset);
+  if (kind === "HIGHER_LOWER" && (!Number.isFinite(offset) || offset === 0))
+    return Response.json({ error: "Choose a barrier above or below the spot" }, { status: 400 });
+
+  const stakeVal = stake!;
+  const ticks    = durationTicks!;
+
+  // Server-authoritative entry spot + volatility from the live feed.
+  let entrySpot: number, entryEpoch: number, sigmaTick: number;
+  try {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const hist = await getServerTickHistory(market, nowSec - LOOKBACK_SEC, 1000);
+    if (hist.length < SIGMA_WINDOW)
+      return Response.json({ error: "Not enough market data, try again" }, { status: 503 });
+    sigmaTick = computeSigma(hist.slice(-(SIGMA_WINDOW + 1)).map((h) => h.price));
+    const entry = hist[hist.length - 1];
+    entrySpot = entry.price;
+    entryEpoch = entry.epoch;
+  } catch (err) {
+    console.error("directional/bet market data:", err instanceof Error ? err.message : err);
+    return Response.json({ error: "Live feed unavailable, try again" }, { status: 503 });
+  }
+
+  const barrier = kind === "HIGHER_LOWER" ? Number((entrySpot + offset).toFixed(5)) : null;
+  const rate = payoutRate({ kind, side: side as DirectionalSide, entrySpot, barrier: barrier ?? undefined, sigmaTick, durationTicks: ticks });
+  const grossPayout = Number((stakeVal * rate).toFixed(2));
+  const payoutVal = applyProfitRetention(stakeVal, grossPayout);
+  const settleBefore = new Date(Date.now() + ticks * 3000 + 120_000); // generous: ticks may run up to ~3s apart
+
+  const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+  try {
+    const trade = await db.$transaction(async (tx) => {
+      const debited = await tx.user.updateMany({
+        where: { id: dbUser.id, walletBalance: { gte: stakeVal } },
+        data:  { walletBalance: { decrement: stakeVal } },
+      });
+      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+
+      const created = await tx.directionalTrade.create({
+        data: {
+          userId: dbUser.id, market, kind, side,
+          stake: stakeVal, payout: payoutVal,
+          entrySpot, entryEpoch, barrier, durationTicks: ticks, settleBefore,
+          status: "PENDING",
+        },
+      });
+      await tx.transaction.create({
+        data: {
+          userId: dbUser.id,
+          type: TransactionType.BET_STAKE,
+          amount: stakeVal,
+          currency: "KES",
+          status: TransactionStatus.COMPLETED,
+          reference: `directional-stake-${dbUser.id}-${created.id}`,
+          provider: "directional",
+          metadata: { game: "directional", tradeId: created.id, market, kind, side, barrier, durationTicks: ticks, grossPayout },
+        },
+      });
+      return created;
+    });
+
+    return Response.json({
+      tradeId: trade.id, kind, side, entrySpot, entryEpoch, barrier,
+      durationTicks: ticks, payout: payoutVal,
+    }, { status: 201 });
+  } catch (err) {
+    if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE")
+      return Response.json({ error: "Insufficient balance" }, { status: 400 });
+    console.error("directional/bet error:", err);
+    return Response.json({ error: "Failed to place trade" }, { status: 500 });
+  }
+}

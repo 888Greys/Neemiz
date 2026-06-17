@@ -22,13 +22,21 @@ import {
 import { TradeTypePicker } from "./trade-type-picker";
 import { AccumulatorsPanel } from "./panels/accumulators-panel";
 import { DigitPanel } from "./panels/digit-panel";
+import { DirectionalPanel } from "./panels/directional-panel";
 import { tradeTypeById, type TradeTypeId } from "./trade-types";
+import { payoutRate as dirPayoutRate, evaluateDirectional, type DirectionalSide } from "@/lib/directional";
 
 // Digit trade types reuse the existing Even/Odd/Matches/Over digit controls.
 const DIGIT_TYPE_TO_FAMILY: Partial<Record<TradeTypeId, ContractFamily>> = {
   even_odd:        "evenOdd",
   matches_differs: "matchDiffer",
   over_under:      "overUnder",
+};
+
+// Directional trade types (Rise/Fall, Higher/Lower) share one panel + flow.
+const DIRECTIONAL_KIND: Partial<Record<TradeTypeId, "RISE_FALL" | "HIGHER_LOWER">> = {
+  rise_fall:    "RISE_FALL",
+  higher_lower: "HIGHER_LOWER",
 };
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
@@ -83,6 +91,24 @@ type AccaPosition = {
   ticksSurvived: number;
   lastEpoch: number;     // newest tick already applied to this contract
   prevSpot: number;      // spot of the last surviving tick (band is around this)
+  status: "open" | "won" | "lost";
+};
+
+// A fixed-duration directional contract (Rise/Fall, Higher/Lower).
+type DirTrade = {
+  id: string;
+  market: string;        // display symbol
+  derivSymbol: string;
+  kind: "RISE_FALL" | "HIGHER_LOWER";
+  side: DirectionalSide;
+  stake: number;
+  payout: number;        // net payout if won
+  entrySpot: number;
+  entryEpoch: number;
+  barrier: number | null;
+  durationTicks: number;
+  isReal: boolean;
+  settlesAt: number;     // wall-clock estimate for the UI countdown / settle attempt
   status: "open" | "won" | "lost";
 };
 
@@ -411,6 +437,15 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const accaClosingRef = useRef(false);
   useEffect(() => { accaPosRef.current = accaPos; }, [accaPos]);
 
+  // Directional contracts (Rise/Fall, Higher/Lower).
+  const [barrierOffset, setBarrierOffset] = useState(0);
+  const [dirPlacing, setDirPlacing] = useState(false);
+  const [dirTrades, setDirTrades] = useState<DirTrade[]>([]);
+  const dirTradesRef = useRef<DirTrade[]>([]);
+  const dirInFlight  = useRef(new Set<string>()); // real trades awaiting server settle
+  const dirSettled   = useRef(new Set<string>()); // demo trades settled locally
+  useEffect(() => { dirTradesRef.current = dirTrades; }, [dirTrades]);
+
   // Load persisted closed trades from DB on mount (live users only)
   useEffect(() => {
     if (!isLive) return;
@@ -553,7 +588,9 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
   // Refs so interval callbacks always read latest state without stale closures
   const latestRef     = useRef(latest);
+  const ticksRef      = useRef(ticks);
   const openTradesRef = useRef(openTrades);
+  useEffect(() => { ticksRef.current = ticks; }, [ticks]);
   const settledIds    = useRef(new Set<string>()); // demo trades, settled client-side
   const inFlightRef   = useRef(new Set<string>()); // real trades, awaiting server settle
   useEffect(() => { latestRef.current = latest; },         [latest]);
@@ -570,6 +607,23 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const accaNetPayout = accaPos
     ? retainedPayout(accaPos.stake, payoutAtTick(accaPos.stake, accaPos.growthRate, accaPos.ticksSurvived))
     : 0;
+
+  // Directional (Rise/Fall, Higher/Lower) derived values.
+  const dirKind = DIRECTIONAL_KIND[tradeType];
+  const isDirectionalType = !!dirKind;
+  const dirSides: DirectionalSide[] = dirKind === "HIGHER_LOWER" ? ["HIGHER", "LOWER"] : ["RISE", "FALL"];
+  const clientSigma = useMemo(() => {
+    try { return computeSigma(ticks.slice(-(SIGMA_WINDOW + 1)).map((t) => t.quote)); } catch { return null; }
+  }, [ticks]);
+  const dirPayoutFor = (side: DirectionalSide): number => {
+    let rate = 1.90;
+    if (dirKind === "HIGHER_LOWER") {
+      if (!clientSigma) return 0;
+      rate = dirPayoutRate({ kind: "HIGHER_LOWER", side, entrySpot: latest.quote, barrier: latest.quote + barrierOffset, sigmaTick: clientSigma, durationTicks: duration });
+    }
+    return retainedPayout(stake, stake * rate);
+  };
+  const dirOpenPositions = dirTrades.map((t) => ({ id: t.id, side: t.side, settlesAt: t.settlesAt }));
 
   const digitStats = useMemo(() => {
     const recent = ticks.slice(-80);
@@ -807,6 +861,112 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     }
   }, [accaPlacing, accaPos, stake, balance, isLive, market, growthRate, takeProfit, takeProfitOn, ticks]);
 
+  // Settle a real directional trade via the server (authoritative exit tick).
+  const settleDirReal = useCallback(async (t: DirTrade) => {
+    try {
+      const res  = await fetch("/api/directional/settle", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tradeId: t.id }),
+      });
+      const data = await res.json() as { won?: boolean; winAmount?: number; pending?: boolean; error?: string };
+      if (!res.ok) {
+        // Exit tick not available yet (or transient) — retry shortly. The cron
+        // is the ultimate backstop if the browser goes away.
+        setDirTrades((cur) => cur.map((x) => x.id === t.id ? { ...x, settlesAt: Date.now() + (data.pending ? 2000 : 5000) } : x));
+        return;
+      }
+      const won = !!data.won;
+      setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
+      if (won && data.winAmount) {
+        setLiveBalance((b) => b + data.winAmount!);
+        window.dispatchEvent(new Event("wallet-refresh"));
+        toast.cashout(`+KSh${data.winAmount.toFixed(2)} — ${t.side} won!`, t.market);
+      } else {
+        toast.error(`${t.side} lost`, t.market);
+      }
+    } catch {
+      /* leave open; retried on the next interval */
+    }
+  }, []);
+
+  // Settle directional trades: demo locally off the tick buffer, real via server.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const open = dirTradesRef.current.filter((t) => t.status === "open");
+      if (open.length === 0) return;
+      const now = Date.now();
+      for (const t of open) {
+        if (t.isReal) {
+          if (now < t.settlesAt || dirInFlight.current.has(t.id)) continue;
+          dirInFlight.current.add(t.id);
+          settleDirReal(t).finally(() => dirInFlight.current.delete(t.id));
+        } else {
+          if (dirSettled.current.has(t.id)) continue;
+          const after = ticksRef.current.filter((x) => (x.time as number) > t.entryEpoch);
+          if (after.length < t.durationTicks) continue; // exit tick not reached
+          const exitSpot = after[t.durationTicks - 1].quote;
+          dirSettled.current.add(t.id);
+          const won = evaluateDirectional({ kind: t.kind, side: t.side, entrySpot: t.entrySpot, exitSpot, barrier: t.barrier });
+          setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
+          if (won) { setDemoBalance((b) => b + t.payout); toast.cashout(`+$${t.payout.toFixed(2)} — ${t.side} won!`, t.market); }
+          else { toast.error(`${t.side} lost`, t.market); }
+        }
+      }
+    }, 500);
+    return () => clearInterval(id);
+  }, [settleDirReal]);
+
+  const placeDirectional = useCallback(async (side: DirectionalSide) => {
+    if (dirPlacing || stake <= 0 || !dirKind) return;
+    if (balance < stake) {
+      toast.error("Insufficient balance", isLive ? "Please deposit to continue." : "Increase your demo balance.");
+      return;
+    }
+    const offset = dirKind === "HIGHER_LOWER" ? barrierOffset : 0;
+    if (dirKind === "HIGHER_LOWER" && offset === 0) {
+      toast.error("Set a barrier", "Move the barrier above or below the spot.");
+      return;
+    }
+    const settlesAt = Date.now() + duration * Math.max(1000, market.speedMs) + 500;
+
+    if (isLive) {
+      setDirPlacing(true);
+      try {
+        const res  = await fetch("/api/directional/bet", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ market: market.derivSymbol, kind: dirKind, side, stake, durationTicks: duration, barrierOffset: offset }),
+        });
+        const data = await res.json() as { tradeId?: string; entrySpot?: number; entryEpoch?: number; barrier?: number | null; payout?: number; error?: string };
+        if (!res.ok || !data.tradeId) { toast.error("Trade failed", data.error ?? "Could not place trade"); return; }
+        setLiveBalance((b) => b - stake);
+        window.dispatchEvent(new Event("wallet-refresh"));
+        setDirTrades((cur) => [{
+          id: data.tradeId!, market: market.symbol, derivSymbol: market.derivSymbol, kind: dirKind, side,
+          stake, payout: data.payout ?? 0, entrySpot: data.entrySpot!, entryEpoch: data.entryEpoch!,
+          barrier: data.barrier ?? null, durationTicks: duration, isReal: true, settlesAt, status: "open" as const,
+        }, ...cur].slice(0, 12));
+        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+      } finally {
+        setDirPlacing(false);
+      }
+    } else {
+      const entry = ticks[ticks.length - 1];
+      let rate = 1.90;
+      if (dirKind === "HIGHER_LOWER") {
+        if (!clientSigma) { toast.error("Not enough market data", "Wait for more ticks and try again."); return; }
+        rate = dirPayoutRate({ kind: "HIGHER_LOWER", side, entrySpot: entry.quote, barrier: entry.quote + offset, sigmaTick: clientSigma, durationTicks: duration });
+      }
+      const payout = retainedPayout(stake, stake * rate);
+      setDemoBalance((b) => b - stake);
+      setDirTrades((cur) => [{
+        id: `demo-dir-${entry.time}-${side}`, market: market.symbol, derivSymbol: market.derivSymbol, kind: dirKind, side,
+        stake, payout, entrySpot: entry.quote, entryEpoch: entry.time as number,
+        barrier: dirKind === "HIGHER_LOWER" ? entry.quote + offset : null, durationTicks: duration, isReal: false, settlesAt, status: "open" as const,
+      }, ...cur].slice(0, 12));
+      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+    }
+  }, [dirPlacing, stake, balance, isLive, dirKind, barrierOffset, duration, market, ticks, clientSigma]);
+
   async function placeTrade(side: ContractSide) {
     if (placing || stake <= 0) return;
     if (balance < stake) {
@@ -1013,6 +1173,24 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 onTrade={placeTrade}
                 placing={placing}
                 openPositions={openTrades.map((t) => ({ id: t.id, side: t.side, settlesAt: t.settlesAt }))}
+              />
+            ) : isDirectionalType && dirKind ? (
+              <DirectionalPanel
+                currency={isLive ? "KSh" : "$"}
+                kind={dirKind}
+                sides={dirSides}
+                stake={stake} setStake={setStake}
+                duration={duration} setDuration={setDuration}
+                barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
+                latestSpot={latest.quote}
+                stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
+                minStake={isLive ? 10 : 1}
+                payoutFor={dirPayoutFor}
+                format={(v) => formatMoney(v, isLive)}
+                formatSpot={formatQuote}
+                onTrade={placeDirectional}
+                placing={dirPlacing}
+                openPositions={dirOpenPositions}
               />
             ) : (
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
