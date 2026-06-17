@@ -5,8 +5,10 @@ import {
   AreaSeries,
   ColorType,
   createChart,
+  LineStyle,
   type AreaData,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type Time,
   type UTCTimestamp,
@@ -14,6 +16,9 @@ import {
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { quoteToDigit } from "@/lib/binary-digit";
+import {
+  SIGMA_WINDOW, computeSigma, barrierFracFor, maxTicksFor, payoutAtTick,
+} from "@/lib/accumulator";
 import { TradeTypePicker } from "./trade-type-picker";
 import { AccumulatorsPanel } from "./panels/accumulators-panel";
 import { DigitPanel } from "./panels/digit-panel";
@@ -59,6 +64,26 @@ type BinaryTrade = {
   settlesAt: number;
   status: TradeStatus;
   isReal?: boolean; // true when backed by real wallet
+};
+
+// A single in-flight accumulator contract. Deriv runs one at a time per symbol;
+// we mirror that — the panel shows the running contract with a cash-out button.
+type AccaPosition = {
+  id: string;
+  market: string;        // display symbol
+  derivSymbol: string;
+  stake: number;
+  growthRate: number;
+  entrySpot: number;
+  entryEpoch: number;
+  barrierFrac: number;
+  maxTicks: number;
+  takeProfit: number | null;
+  isReal: boolean;
+  ticksSurvived: number;
+  lastEpoch: number;     // newest tick already applied to this contract
+  prevSpot: number;      // spot of the last surviving tick (band is around this)
+  status: "open" | "won" | "lost";
 };
 
 const MARKETS: BinaryMarket[] = [
@@ -156,11 +181,12 @@ function evaluateTrade(side: ContractSide, digit: number, targetDigit: number) {
   return digit < targetDigit;
 }
 
-function TradingViewBinaryChart({ ticks }: { ticks: Tick[] }) {
+function TradingViewBinaryChart({ ticks, barriers }: { ticks: Tick[]; barriers?: { upper: number; lower: number } | null }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
   const lastPointRef = useRef<{ time: number; value: number } | null>(null);
+  const barrierLinesRef = useRef<{ upper: IPriceLine; lower: IPriceLine } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -262,6 +288,32 @@ function TradingViewBinaryChart({ ticks }: { ticks: Tick[] }) {
     chartRef.current?.timeScale().scrollToRealTime();
   }, [ticks]);
 
+  // Accumulator barrier band — two price lines that follow the live spot. The
+  // contract survives while the spot stays between them; busts on a breakout.
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series) return;
+
+    if (!barriers) {
+      if (barrierLinesRef.current) {
+        series.removePriceLine(barrierLinesRef.current.upper);
+        series.removePriceLine(barrierLinesRef.current.lower);
+        barrierLinesRef.current = null;
+      }
+      return;
+    }
+
+    if (!barrierLinesRef.current) {
+      barrierLinesRef.current = {
+        upper: series.createPriceLine({ price: barriers.upper, color: "#f59e0b", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "▲" }),
+        lower: series.createPriceLine({ price: barriers.lower, color: "#f59e0b", lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: "▼" }),
+      };
+    } else {
+      barrierLinesRef.current.upper.applyOptions({ price: barriers.upper });
+      barrierLinesRef.current.lower.applyOptions({ price: barriers.lower });
+    }
+  }, [barriers]);
+
   const zoom = (factor: number) => {
     const ts = chartRef.current?.timeScale();
     if (!ts) return;
@@ -350,6 +402,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   }, [hasOpenPositions]);
 
   const balance = isLive ? liveBalance : demoBalance;
+
+  // Accumulators: one in-flight contract at a time (mirrors Deriv).
+  const [accaPos, setAccaPos] = useState<AccaPosition | null>(null);
+  const [accaPlacing, setAccaPlacing] = useState(false);
+  const [accaClosing, setAccaClosing] = useState(false);
+  const accaPosRef     = useRef<AccaPosition | null>(null);
+  const accaClosingRef = useRef(false);
+  useEffect(() => { accaPosRef.current = accaPos; }, [accaPos]);
 
   // Load persisted closed trades from DB on mount (live users only)
   useEffect(() => {
@@ -503,6 +563,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const changePct = (change / Math.max(1, ticks[0]?.quote ?? latest.quote)) * 100;
   const selectedSides = familySides(family);
 
+  // Accumulator chart band + live net payout (what a cash-out would credit now).
+  const accaBarriers = accaPos && market.derivSymbol === accaPos.derivSymbol
+    ? { upper: latest.quote * (1 + accaPos.barrierFrac), lower: latest.quote * (1 - accaPos.barrierFrac) }
+    : null;
+  const accaNetPayout = accaPos
+    ? retainedPayout(accaPos.stake, payoutAtTick(accaPos.stake, accaPos.growthRate, accaPos.ticksSurvived))
+    : 0;
+
   const digitStats = useMemo(() => {
     const recent = ticks.slice(-80);
     return DIGITS.map((digit) => {
@@ -611,6 +679,134 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     return () => clearInterval(id);
   }, [isLive, settleReal]);
 
+  // Close (cash out) the running accumulator. For real contracts the server
+  // replays the tick path and decides bust vs payout — we just reflect it. For
+  // demo we settle locally. `auto` distinguishes a detected bust from a manual
+  // cash-out / take-profit / cap (only meaningful for demo).
+  const closeAccumulator = useCallback(async (auto?: "bust" | "take_profit" | "max_ticks") => {
+    const pos = accaPosRef.current;
+    if (!pos || accaClosingRef.current) return;
+    accaClosingRef.current = true;
+    setAccaClosing(true);
+    try {
+      if (pos.isReal) {
+        const res  = await fetch("/api/accumulator/close", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tradeId: pos.id }),
+        });
+        const data = await res.json() as { busted?: boolean; payout?: number; ticksSurvived?: number; error?: string };
+        if (!res.ok) {
+          // 503 = feed momentarily down; keep the contract open so a later
+          // attempt (or the cron) settles it.
+          if (res.status !== 503) toast.error("Close failed", data.error ?? "Try again");
+          return;
+        }
+        const busted = !!data.busted;
+        const payout = data.payout ?? 0;
+        setAccaPos(null);
+        if (!busted && payout > 0) {
+          setLiveBalance((b) => b + payout);
+          window.dispatchEvent(new Event("wallet-refresh"));
+          toast.cashout(`+KSh${payout.toFixed(2)} — Accumulator closed!`, `${data.ticksSurvived ?? pos.ticksSurvived} ticks · ${pos.market}`);
+        } else {
+          toast.error("Accumulator busted", `Hit the barrier after ${data.ticksSurvived ?? pos.ticksSurvived} ticks.`);
+        }
+      } else {
+        const busted = auto === "bust";
+        const gross  = busted ? 0 : payoutAtTick(pos.stake, pos.growthRate, pos.ticksSurvived);
+        const payout = busted ? 0 : retainedPayout(pos.stake, gross);
+        setAccaPos(null);
+        if (!busted) {
+          setDemoBalance((b) => b + payout);
+          toast.cashout(`+$${payout.toFixed(2)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
+        } else {
+          toast.error("Accumulator busted", `Hit the barrier after ${pos.ticksSurvived} ticks.`);
+        }
+      }
+    } finally {
+      accaClosingRef.current = false;
+      setAccaClosing(false);
+    }
+  }, []);
+
+  // Live tracking — fold each new tick into the running contract: bust on a
+  // barrier breakout, otherwise grow and auto-close on take-profit / max ticks.
+  // The server is authoritative on settlement; this only drives the live display
+  // and decides when to fire the close request.
+  useEffect(() => {
+    const pos = accaPosRef.current;
+    if (!pos || pos.status !== "open") return;
+    if (market.derivSymbol !== pos.derivSymbol) return; // ignore other-market ticks
+    if (latest.time <= pos.lastEpoch) return;            // no genuinely-new tick
+
+    if (Math.abs(latest.quote / pos.prevSpot - 1) > pos.barrierFrac) {
+      setAccaPos((p) => (p ? { ...p, status: "lost", lastEpoch: latest.time as number } : p));
+      void closeAccumulator("bust");
+      return;
+    }
+
+    const survived = pos.ticksSurvived + 1;
+    setAccaPos((p) => (p ? { ...p, ticksSurvived: survived, prevSpot: latest.quote, lastEpoch: latest.time as number } : p));
+
+    if (pos.takeProfit != null && payoutAtTick(pos.stake, pos.growthRate, survived) - pos.stake >= pos.takeProfit) {
+      void closeAccumulator("take_profit");
+      return;
+    }
+    if (survived >= pos.maxTicks) void closeAccumulator("max_ticks");
+  }, [latest, market.derivSymbol, closeAccumulator]);
+
+  const placeAccumulator = useCallback(async () => {
+    if (accaPlacing || accaPos || stake <= 0) return;
+    if (balance < stake) {
+      toast.error("Insufficient balance", isLive ? "Please deposit to continue." : "Increase your demo balance.");
+      return;
+    }
+    const tp = takeProfitOn ? takeProfit : null;
+
+    if (isLive) {
+      setAccaPlacing(true);
+      try {
+        const res  = await fetch("/api/accumulator/buy", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ market: market.derivSymbol, stake, growthRate, takeProfit: tp }),
+        });
+        const data = await res.json() as { tradeId?: string; entrySpot?: number; entryEpoch?: number; barrierFrac?: number; maxTicks?: number; error?: string };
+        if (!res.ok || !data.tradeId) {
+          toast.error("Trade failed", data.error ?? "Could not place accumulator");
+          return;
+        }
+        setAccaPos({
+          id: data.tradeId, market: market.symbol, derivSymbol: market.derivSymbol,
+          stake, growthRate, entrySpot: data.entrySpot!, entryEpoch: data.entryEpoch!,
+          barrierFrac: data.barrierFrac!, maxTicks: data.maxTicks!, takeProfit: tp,
+          isReal: true, ticksSurvived: 0, lastEpoch: data.entryEpoch!, prevSpot: data.entrySpot!, status: "open",
+        });
+        setLiveBalance((b) => b - stake);
+        window.dispatchEvent(new Event("wallet-refresh"));
+        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+      } finally {
+        setAccaPlacing(false);
+      }
+    } else {
+      try {
+        const window = ticks.slice(-(SIGMA_WINDOW + 1)).map((t) => t.quote);
+        const sigma = computeSigma(window);
+        const barrierFrac = barrierFracFor(sigma, growthRate);
+        const entry = ticks[ticks.length - 1];
+        setDemoBalance((b) => b - stake);
+        setAccaPos({
+          id: `demo-acca-${entry.time}`, market: market.symbol, derivSymbol: market.derivSymbol,
+          stake, growthRate, entrySpot: entry.quote, entryEpoch: entry.time as number,
+          barrierFrac, maxTicks: maxTicksFor(growthRate), takeProfit: tp,
+          isReal: false, ticksSurvived: 0, lastEpoch: entry.time as number, prevSpot: entry.quote, status: "open",
+        });
+        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+      } catch {
+        toast.error("Not enough market data", "Wait for a few more ticks and try again.");
+      }
+    }
+  }, [accaPlacing, accaPos, stake, balance, isLive, market, growthRate, takeProfit, takeProfitOn, ticks]);
+
   async function placeTrade(side: ContractSide) {
     if (placing || stake <= 0) return;
     if (balance < stake) {
@@ -710,7 +906,9 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 <select
                   value={market.symbol}
                   onChange={(event) => setMarketSymbol(event.target.value)}
-                  className="h-9 rounded border border-white/[0.08] bg-[#151a22] px-2 text-xs font-black text-white outline-none sm:h-10 sm:px-3 sm:text-sm"
+                  disabled={!!accaPos}
+                  title={accaPos ? "Finish your open accumulator before switching markets" : undefined}
+                  className="h-9 rounded border border-white/[0.08] bg-[#151a22] px-2 text-xs font-black text-white outline-none disabled:opacity-50 sm:h-10 sm:px-3 sm:text-sm"
                 >
                   {MARKETS.map((item) => (
                     <option key={item.symbol} value={item.symbol}>{item.symbol}</option>
@@ -732,7 +930,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               </div>
             </div>
             <div className="relative min-h-0 flex-1">
-              <TradingViewBinaryChart ticks={ticks} />
+              <TradingViewBinaryChart ticks={ticks} barriers={accaBarriers} />
             </div>
 
             {/* Digit-frequency strip — last-100-tick distribution. Click a digit
@@ -786,8 +984,18 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 growthRate={growthRate} setGrowthRate={setGrowthRate}
                 takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
                 takeProfit={takeProfit} setTakeProfit={setTakeProfit}
-                onBuy={() => toast.info("Accumulators settlement is coming next — this is the UI preview")}
-                placing={placing}
+                onBuy={placeAccumulator}
+                placing={accaPlacing}
+                position={accaPos ? {
+                  ticksSurvived: accaPos.ticksSurvived,
+                  maxTicks: accaPos.maxTicks,
+                  growthRate: accaPos.growthRate,
+                  stake: accaPos.stake,
+                  netPayout: accaNetPayout,
+                } : null}
+                onCashOut={() => closeAccumulator()}
+                closing={accaClosing}
+                format={(v) => formatMoney(v, isLive)}
               />
             ) : isDigitType ? (
               <DigitPanel
