@@ -54,4 +54,7 @@ export function tradeTypeById(id: TradeTypeId): TradeType {
 // stub in the panel). Update as each type's settlement lands.
 export const IMPLEMENTED_TYPES: Set<TradeTypeId> = new Set([
   "accumulators",
+  "matches_differs",
+  "even_odd",
+  "over_under",
 ]);

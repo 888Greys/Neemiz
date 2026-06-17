@@ -13,11 +13,11 @@ import {
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
-import { LoadingDots } from "@/components/loading-dots";
 import { quoteToDigit } from "@/lib/binary-digit";
 import { TradeTypePicker } from "./trade-type-picker";
 import { AccumulatorsPanel } from "./panels/accumulators-panel";
-import { tradeTypeById, IMPLEMENTED_TYPES, type TradeTypeId } from "./trade-types";
+import { DigitPanel } from "./panels/digit-panel";
+import { tradeTypeById, type TradeTypeId } from "./trade-types";
 
 // Digit trade types reuse the existing Even/Odd/Matches/Over digit controls.
 const DIGIT_TYPE_TO_FAMILY: Partial<Record<TradeTypeId, ContractFamily>> = {
@@ -141,22 +141,10 @@ function displayedPayout(stake: number, side: ContractSide, targetDigit: number)
   return retainedPayout(stake, stake * payoutRate(side, targetDigit));
 }
 
-function familyLabel(family: ContractFamily) {
-  if (family === "evenOdd") return "Even / Odd";
-  if (family === "matchDiffer") return "Matches / Differs";
-  return "Over / Under";
-}
-
 function familySides(family: ContractFamily): ContractSide[] {
   if (family === "evenOdd") return ["Even", "Odd"];
   if (family === "matchDiffer") return ["Matches", "Differs"];
   return ["Over", "Under"];
-}
-
-function actionLabel(side: ContractSide) {
-  if (side === "Matches") return "MATCH";
-  if (side === "Differs") return "DIFFER";
-  return side;
 }
 
 function evaluateTrade(side: ContractSide, digit: number, targetDigit: number) {
@@ -327,7 +315,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
   const [ticks, setTicks] = useState(() => seedTicks(market));
   const [family, setFamily] = useState<ContractFamily>("evenOdd");
-  const [tradeType, setTradeType] = useState<TradeTypeId>("accumulators");
+  const [tradeType, setTradeType] = useState<TradeTypeId>("even_odd");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [growthRate, setGrowthRate] = useState(3);
   const [takeProfitOn, setTakeProfitOn] = useState(false);
@@ -342,10 +330,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [stake, setStake] = useState(10);
   const [targetDigit, setTargetDigit] = useState(5);
   const [duration, setDuration] = useState(5);
-  const [autoMode, setAutoMode] = useState(false);
-  const [targetProfit, setTargetProfit] = useState(30);
-  const [stopLoss, setStopLoss] = useState(20);
-  const [multiplier, setMultiplier] = useState(1.4);
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
   const [streamError, setStreamError] = useState<string | null>(null);
   const [liveBalance, setLiveBalance] = useState(initialBalance);
@@ -506,7 +490,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   }, [market]);
 
   const latest = ticks[ticks.length - 1];
-  const previous = ticks[ticks.length - 2];
 
   // Refs so interval callbacks always read latest state without stale closures
   const latestRef     = useRef(latest);
@@ -519,7 +502,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const change = latest.quote - (ticks[0]?.quote ?? latest.quote);
   const changePct = (change / Math.max(1, ticks[0]?.quote ?? latest.quote)) * 100;
   const selectedSides = familySides(family);
-  const payout = displayedPayout(stake, selectedSides[0], targetDigit);
 
   const digitStats = useMemo(() => {
     const recent = ticks.slice(-80);
@@ -743,7 +725,35 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 </div>
               </div>
             </div>
-            <TradingViewBinaryChart ticks={ticks} />
+            <div className="relative min-h-0 flex-1">
+              <TradingViewBinaryChart ticks={ticks} />
+            </div>
+
+            {/* Digit-frequency strip — last-100-tick distribution. Click a digit
+                to set it as the Matches/Differs/Over/Under target. Digit types only. */}
+            {isDigitType && (
+              <section className="mb-2 grid h-[68px] shrink-0 grid-cols-10 border-y border-white/[0.08] bg-[#0b0d12] sm:mb-2.5 sm:h-[78px]">
+                {digitStats.map((stat) => (
+                  <button
+                    key={stat.digit}
+                    type="button"
+                    onClick={() => setTargetDigit(stat.digit)}
+                    className={`relative flex h-full flex-col items-center justify-center border-r border-white/[0.07] transition-colors last:border-r-0 ${
+                      targetDigit === stat.digit
+                        ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400/40"
+                        : latest.digit === stat.digit
+                        ? "bg-amber-400/5 hover:bg-white/[0.04]"
+                        : "bg-[#0b0d12] hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <DigitRing stat={stat} isActive={latest.digit === stat.digit} />
+                    {latest.digit === stat.digit && (
+                      <span className="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] leading-none text-amber-400">▲</span>
+                    )}
+                  </button>
+                ))}
+              </section>
+            )}
           </section>
         </main>
 
@@ -771,6 +781,22 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
                 takeProfit={takeProfit} setTakeProfit={setTakeProfit}
                 onBuy={() => toast.info("Accumulators settlement is coming next — this is the UI preview")}
+                placing={placing}
+              />
+            ) : isDigitType ? (
+              <DigitPanel
+                currency={isLive ? "KSh" : "$"}
+                family={family}
+                sides={selectedSides}
+                stake={stake} setStake={setStake}
+                duration={duration} setDuration={setDuration}
+                targetDigit={targetDigit} setTargetDigit={setTargetDigit}
+                lastDigit={latest.digit}
+                stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
+                minStake={isLive ? 10 : 1}
+                payoutFor={(side) => displayedPayout(stake, side, targetDigit)}
+                format={(v) => formatMoney(v, isLive)}
+                onTrade={placeTrade}
                 placing={placing}
               />
             ) : (
@@ -936,44 +962,46 @@ function MobileBinaryActivity(props: ActivityPanelProps) {
 }
 
 function DigitRing({ isActive, stat }: { isActive: boolean; stat: { digit: number; pct: number } }) {
-  const radius = 20;
-  const circumference = 2 * Math.PI * radius;
-  const filled = Math.max(0, Math.min(1, stat.pct / 100)) * circumference;
+  const pct = Math.max(0, Math.min(1, stat.pct / 100));
   const isHot = stat.pct >= 15;
+  // Smaller mobile (r=14) and desktop (r=16) rings — the strip was eating too
+  // much vertical room and reading oversized.
+  const rm = 14, rd = 16;
+  const cm = 2 * Math.PI * rm, cd = 2 * Math.PI * rd;
 
   return (
     <div className="relative flex flex-col items-center gap-0.5">
       {isHot && (
-        <span className="absolute -top-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-red-400" />
+        <span className="absolute -top-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-red-400" />
       )}
       <div className="relative">
-        <svg width="46" height="46" viewBox="0 0 46 46" className="sm:hidden">
-          <circle cx="23" cy="23" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="2.5" />
+        <svg width="34" height="34" viewBox="0 0 34 34" className="sm:hidden">
+          <circle cx="17" cy="17" r={rm} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="2.5" />
           <circle
-            cx="23" cy="23" r={radius}
+            cx="17" cy="17" r={rm}
             fill="none"
             stroke={isActive ? "#f59e0b" : "#22c55e"}
             strokeWidth={isActive ? "3" : "2"}
-            strokeDasharray={circumference}
-            strokeDashoffset={circumference - filled}
+            strokeDasharray={cm}
+            strokeDashoffset={cm - pct * cm}
             strokeLinecap="round"
-            transform="rotate(-90 23 23)"
+            transform="rotate(-90 17 17)"
           />
-          <text x="23" y="27" textAnchor="middle" fontSize="13" fontWeight="900" fill={isActive ? "#fbbf24" : "white"} fontFamily="monospace">{stat.digit}</text>
+          <text x="17" y="21" textAnchor="middle" fontSize="12" fontWeight="900" fill={isActive ? "#fbbf24" : "white"} fontFamily="monospace">{stat.digit}</text>
         </svg>
-        <svg width="56" height="56" viewBox="0 0 56 56" className="hidden sm:block">
-          <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+        <svg width="40" height="40" viewBox="0 0 40 40" className="hidden sm:block">
+          <circle cx="20" cy="20" r={rd} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
           <circle
-            cx="28" cy="28" r="24"
+            cx="20" cy="20" r={rd}
             fill="none"
             stroke={isActive ? "#f59e0b" : "#22c55e"}
             strokeWidth={isActive ? "3.5" : "2.5"}
-            strokeDasharray={2 * Math.PI * 24}
-            strokeDashoffset={2 * Math.PI * 24 - Math.max(0, Math.min(1, stat.pct / 100)) * 2 * Math.PI * 24}
+            strokeDasharray={cd}
+            strokeDashoffset={cd - pct * cd}
             strokeLinecap="round"
-            transform="rotate(-90 28 28)"
+            transform="rotate(-90 20 20)"
           />
-          <text x="28" y="33" textAnchor="middle" fontSize="16" fontWeight="900" fill={isActive ? "#fbbf24" : "white"} fontFamily="monospace">{stat.digit}</text>
+          <text x="20" y="25" textAnchor="middle" fontSize="14" fontWeight="900" fill={isActive ? "#fbbf24" : "white"} fontFamily="monospace">{stat.digit}</text>
         </svg>
       </div>
       <span className={`text-[8px] font-black sm:text-[9px] ${stat.pct > 0 ? "text-emerald-400" : "text-slate-600"}`}>
@@ -1021,56 +1049,6 @@ function TradeRow({ trade }: { trade: BinaryTrade }) {
         <span className="text-slate-500">Stake {formatMoney(trade.stake, isReal)}</span>
         <span className={isOpen || isWon ? "text-emerald-300" : "text-red-300"}>{isOpen ? formatMoney(trade.payout, isReal) : isWon ? `+${formatMoney(trade.payout - trade.stake, isReal)}` : `-${formatMoney(trade.stake, isReal)}`}</span>
       </div>
-    </div>
-  );
-}
-
-function Stepper({ compact = false, min, onChange, prefix, value }: { compact?: boolean; min: number; onChange: (value: number) => void; prefix: string; value: number }) {
-  return (
-    <div className={`flex items-center overflow-hidden rounded border border-white/[0.08] bg-black/25 ${compact ? "h-9" : "h-12"}`}>
-      <button type="button" onClick={() => onChange(Math.max(min, value - 1))} className="grid h-full w-11 place-items-center bg-white/[0.04] text-slate-300">
-        <Icon name="remove_circle" className="text-[16px]" />
-      </button>
-      <div className="flex min-w-0 flex-1 items-center px-3">
-        <span className="font-mono text-slate-500">{prefix}</span>
-        <input value={value} min={min} type="number" onChange={(event) => onChange(Math.max(min, Number(event.target.value) || min))} className={`min-w-0 flex-1 bg-transparent px-2 font-mono font-black text-white outline-none ${compact ? "text-sm" : "text-lg"}`} />
-      </div>
-      <button type="button" onClick={() => onChange(value + 1)} className="grid h-full w-11 place-items-center bg-white/[0.04] text-slate-300">
-        <Icon name="add" className="text-[16px]" />
-      </button>
-    </div>
-  );
-}
-
-function NumberBox({ compact = false, label, max, min, onChange, suffix, value }: { compact?: boolean; label: string; max: number; min: number; onChange: (value: number) => void; suffix?: string; value: number }) {
-  return (
-    <label className={`block ${compact ? "px-2 py-2" : ""}`}>
-      <span className={`${compact ? "mb-1 text-[10px]" : "mb-2 text-[11px]"} block font-black uppercase tracking-wider text-slate-500`}>{label}</span>
-      <div className={`flex items-center rounded border border-white/[0.08] bg-black/25 px-3 focus-within:border-sky-400 ${compact ? "h-9" : "h-11"}`}>
-        <input type="number" min={min} max={max} value={value} onChange={(event) => onChange(Math.min(max, Math.max(min, Number(event.target.value) || min)))} className="min-w-0 flex-1 bg-transparent font-mono text-sm font-black text-white outline-none" />
-        {suffix && <span className="text-[10px] font-black uppercase text-slate-600">{suffix}</span>}
-      </div>
-    </label>
-  );
-}
-
-function SmallInput({ label, onChange, prefix, step = 1, value }: { label: string; onChange: (value: number) => void; prefix: string; step?: number; value: number }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</span>
-      <div className="flex h-9 items-center rounded border border-white/[0.08] bg-black/25 px-2">
-        <span className="font-mono text-xs font-black text-slate-600">{prefix}</span>
-        <input type="number" step={step} value={value} onChange={(event) => onChange(Math.max(0, Number(event.target.value) || 0))} className="min-w-0 flex-1 bg-transparent px-1 font-mono text-xs font-black text-white outline-none" />
-      </div>
-    </label>
-  );
-}
-
-function SummaryRow({ label, positive, value }: { label: string; positive?: boolean; value: string }) {
-  return (
-    <div className="flex items-center justify-between border-b border-white/[0.06] py-1.5 last:border-0">
-      <span className="text-xs font-bold text-slate-500">{label}</span>
-      <span className={`font-mono text-sm font-black ${positive ? "text-emerald-300" : "text-white"}`}>{value}</span>
     </div>
   );
 }
