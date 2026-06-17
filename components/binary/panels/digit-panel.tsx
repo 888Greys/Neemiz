@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 
@@ -37,6 +38,7 @@ export function DigitPanel({
   format,
   onTrade,
   placing,
+  openPositions,
 }: {
   currency: string;
   family: ContractFamily;
@@ -51,6 +53,7 @@ export function DigitPanel({
   format: (v: number) => string;
   onTrade: (side: ContractSide) => void;
   placing: boolean;
+  openPositions: { id: string; side: ContractSide; settlesAt: number }[];
 }) {
   // Even/Odd is decided purely by the exit digit's parity — no barrier digit.
   const needsTarget = family !== "evenOdd";
@@ -154,6 +157,10 @@ export function DigitPanel({
         </div>
       </div>
 
+      {/* Live position banner — keeps the in-flight trade visible right where
+          the user clicked, so placing a trade has immediate, felt feedback. */}
+      {openPositions.length > 0 && <ActivePositions positions={openPositions} format={format} />}
+
       {/* Action buttons */}
       <div className="grid shrink-0 grid-cols-2 gap-2 p-2">
         {sides.map((side) => {
@@ -176,6 +183,42 @@ export function DigitPanel({
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// Compact live banner of in-flight positions shown above the action buttons.
+// Ticks every 500ms so the user watches their contract count down in place.
+function ActivePositions({
+  positions, format,
+}: {
+  positions: { id: string; side: ContractSide; settlesAt: number }[];
+  format: (v: number) => string;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, []);
+
+  const soonest = positions.reduce((a, b) => (b.settlesAt < a.settlesAt ? b : a));
+  const secondsLeft = Math.max(0, Math.ceil((soonest.settlesAt - now) / 1000));
+  const settling = secondsLeft === 0;
+
+  return (
+    <div className="shrink-0 px-2">
+      <div className="flex items-center justify-between rounded-lg bg-[#101722] px-3 py-2 ring-1 ring-sky-400/25">
+        <span className="flex items-center gap-2 text-[12px] font-black text-sky-200">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400/70" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-sky-400" />
+          </span>
+          {positions.length} active {positions.length === 1 ? "trade" : "trades"}
+        </span>
+        <span className="font-mono text-[12px] font-black text-white">
+          {settling ? "Settling…" : `${soonest.side} · ${secondsLeft}s`}
+        </span>
       </div>
     </div>
   );

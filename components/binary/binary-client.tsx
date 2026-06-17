@@ -655,6 +655,10 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         window.dispatchEvent(new Event("wallet-refresh"));
         setOpenTrades((current) => [trade, ...current].slice(0, 12));
         setTransactions((current) => [`${side} ${market.symbol} KSh ${stake}`, ...current].slice(0, 12));
+        // Surface the live position immediately — jump to the Open tab so the
+        // countdown is visible, and confirm with a toast so the click registers.
+        setTab("open");
+        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
       } finally {
         setPlacing(false);
       }
@@ -675,6 +679,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       setDemoBalance((b) => b - stake);
       setOpenTrades((current) => [trade, ...current].slice(0, 12));
       setTransactions((current) => [`${side} ${market.symbol} $${stake}`, ...current].slice(0, 12));
+      setTab("open");
+      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
     }
   }
 
@@ -798,6 +804,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 format={(v) => formatMoney(v, isLive)}
                 onTrade={placeTrade}
                 placing={placing}
+                openPositions={openTrades.map((t) => ({ id: t.id, side: t.side, settlesAt: t.settlesAt }))}
               />
             ) : (
               <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
