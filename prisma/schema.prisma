@@ -53,6 +53,9 @@ model User {
   // Accumulators
   accumulatorTrades AccumulatorTrade[]
 
+  // Directional (Rise/Fall, Higher/Lower)
+  directionalTrades DirectionalTrade[]
+
   @@map("users")
 }
 
@@ -697,4 +700,47 @@ model AccumulatorTrade {
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
   @@map("accumulator_trades")
+}
+
+// ─── Directional Trades (Rise/Fall, Higher/Lower) ─────────────────────────────
+
+enum DirectionalKind {
+  RISE_FALL    // exit vs entry spot
+  HIGHER_LOWER // exit vs a chosen barrier
+}
+
+enum DirectionalStatus {
+  PENDING
+  WON
+  LOST
+  VOID // stake refunded — could not be settled within its window (feed outage)
+}
+
+model DirectionalTrade {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  market        String          // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
+  kind          DirectionalKind
+  side          String          // "RISE" | "FALL" | "HIGHER" | "LOWER"
+  stake         Decimal         @db.Decimal(18, 2)
+  payout        Decimal         @db.Decimal(18, 2) // net payout if won (retention applied)
+
+  entrySpot     Decimal  @map("entry_spot")  @db.Decimal(18, 5)
+  entryEpoch    Int      @map("entry_epoch")
+  barrier       Decimal? @db.Decimal(18, 5)  // null for RISE_FALL; absolute price for HIGHER_LOWER
+  durationTicks Int      @map("duration_ticks")
+  settleBefore  DateTime @map("settle_before")
+
+  exitSpot  Decimal?          @map("exit_spot") @db.Decimal(18, 5)
+  status    DirectionalStatus @default(PENDING)
+  settledAt DateTime?         @map("settled_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status])
+  @@map("directional_trades")
 }
