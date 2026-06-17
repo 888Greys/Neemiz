@@ -472,11 +472,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   // pops open automatically the moment a position is opened.
   const [railOpen, setRailOpen] = useState(false);
 
-  const hasOpenPositions = openTrades.length > 0;
-  useEffect(() => {
-    if (hasOpenPositions) setRailOpen(true);
-  }, [hasOpenPositions]);
-
   const balance = isLive ? liveBalance : demoBalance;
 
   // Accumulators: one in-flight contract at a time (mirrors Deriv).
@@ -503,6 +498,12 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const levPosRef     = useRef<LevPosition | null>(null);
   const levClosingRef = useRef(false);
   useEffect(() => { levPosRef.current = levPos; }, [levPos]);
+
+  // Auto-open the desktop activity rail the moment any contract type opens.
+  const hasOpenPositions = openTrades.length > 0 || dirTrades.length > 0 || !!accaPos || !!levPos;
+  useEffect(() => {
+    if (hasOpenPositions) setRailOpen(true);
+  }, [hasOpenPositions]);
 
   // Load persisted closed trades from DB on mount (live users only)
   useEffect(() => {
@@ -713,6 +714,32 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       multiplier: levPos.multiplier, dangerSpot: levPos.barrier,
     };
   })();
+
+  // Every open contract, unified for the activity rail's "Open" tab. Digit and
+  // directional contracts settle on a countdown; accumulator and leveraged are
+  // live cash-out (value moves each tick). Recomputed on every tick so live
+  // values stay current.
+  const openPositions: OpenPositionView[] = [
+    ...openTrades.map((t) => ({
+      id: t.id, title: t.side, subtitle: `${t.market} · digit ${t.entryDigit}`,
+      stake: t.stake, value: t.payout, isReal: t.isReal ?? false, settlesAt: t.settlesAt,
+    })),
+    ...dirTrades.filter((t) => t.status === "open").map((t) => ({
+      id: t.id, title: t.side === "NO_TOUCH" ? "NO TOUCH" : t.side,
+      subtitle: `${t.market} · ${t.durationTicks} ticks`,
+      stake: t.stake, value: t.kind === "VANILLA" ? t.stake : t.payout, isReal: t.isReal, settlesAt: t.settlesAt,
+    })),
+    ...(accaPos ? [{
+      id: accaPos.id, title: `Accumulator ${accaPos.growthRate}%`,
+      subtitle: `${accaPos.market} · ${accaPos.ticksSurvived} ticks`,
+      stake: accaPos.stake, value: accaNetPayout, isReal: accaPos.isReal,
+    }] : []),
+    ...(levPos && levRunning ? [{
+      id: levPos.id,
+      title: `${levPos.kind === "TURBO" ? "Turbo" : `Multiplier ×${levPos.multiplier}`} · ${levPos.direction}`,
+      subtitle: levPos.market, stake: levPos.stake, value: levRunning.netPayout, isReal: levPos.isReal,
+    }] : []),
+  ];
 
   const digitStats = useMemo(() => {
     const recent = ticks.slice(-80);
@@ -1276,12 +1303,12 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           {railOpen ? (
             <BinaryActivityPanel
               tab={tab} setTab={setTab}
-              openTrades={openTrades} allClosedTrades={allClosedTrades} transactions={transactions}
+              openPositions={openPositions} allClosedTrades={allClosedTrades} transactions={transactions}
               wins={wins} losses={losses} sessionPnl={sessionPnl} isLive={isLive}
               onCollapse={() => setRailOpen(false)}
             />
           ) : (
-            <CollapsedActivityRail openCount={openTrades.length} onExpand={() => setRailOpen(true)} />
+            <CollapsedActivityRail openCount={openPositions.length} onExpand={() => setRailOpen(true)} />
           )}
         </aside>
 
@@ -1479,7 +1506,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       {/* Mobile-only: positions / history / session — hidden on desktop where the left rail shows it */}
       <MobileBinaryActivity
         tab={tab} setTab={setTab}
-        openTrades={openTrades} allClosedTrades={allClosedTrades} transactions={transactions}
+        openPositions={openPositions} allClosedTrades={allClosedTrades} transactions={transactions}
         wins={wins} losses={losses} sessionPnl={sessionPnl} isLive={isLive}
       />
 
@@ -1487,10 +1514,22 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   );
 }
 
+// A unified view of any open contract (digit, directional, accumulator,
+// leveraged) so the activity rail's "Open" tab lists them all, not just digits.
+type OpenPositionView = {
+  id: string;
+  title: string;            // e.g. "EVEN", "RISE", "Accumulator 3%", "Multiplier ×100 · UP"
+  subtitle: string;         // market + detail
+  stake: number;
+  value: number;            // current/potential payout shown
+  isReal: boolean;
+  settlesAt?: number;       // fixed-duration types show a countdown; cash-out types show "LIVE"
+};
+
 interface ActivityPanelProps {
   tab: "open" | "closed" | "tx";
   setTab: (t: "open" | "closed" | "tx") => void;
-  openTrades: BinaryTrade[];
+  openPositions: OpenPositionView[];
   allClosedTrades: BinaryTrade[];
   transactions: string[];
   wins: number;
@@ -1503,7 +1542,7 @@ interface ActivityPanelProps {
 // Shared Open / Closed / Tx tabs + session stats — used by the desktop rail
 // and the mobile collapsible so both views show identical detail.
 function BinaryActivityPanel({
-  tab, setTab, openTrades, allClosedTrades, transactions, onCollapse,
+  tab, setTab, openPositions, allClosedTrades, transactions, onCollapse,
 }: ActivityPanelProps) {
   return (
     <>
@@ -1516,7 +1555,7 @@ function BinaryActivityPanel({
             onClick={() => setTab(t)}
             className={`flex-1 py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
           >
-            {t === "open" ? `Open (${openTrades.length})` : t === "closed" ? `Closed (${allClosedTrades.length})` : "Tx"}
+            {t === "open" ? `Open (${openPositions.length})` : t === "closed" ? `Closed (${allClosedTrades.length})` : "Tx"}
           </button>
         ))}
         {onCollapse && (
@@ -1536,10 +1575,10 @@ function BinaryActivityPanel({
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#0f1218]">
         {tab === "open" && (
           <div className="space-y-1.5 p-3">
-            {openTrades.length === 0 ? (
+            {openPositions.length === 0 ? (
               <EmptyState title="No open positions" subtitle="Your active contracts will appear here" />
             ) : (
-              openTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
+              openPositions.map((pos) => <PositionRow key={pos.id} pos={pos} />)
             )}
           </div>
         )}
@@ -1598,7 +1637,7 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
 // Aviator "Live Players" collapsible). Hidden on xl where the rail shows it.
 function MobileBinaryActivity(props: ActivityPanelProps) {
   const [open, setOpen] = useState(true);
-  const activeCount = props.openTrades.length;
+  const activeCount = props.openPositions.length;
   return (
     <div className="mx-2 mb-4 mt-1 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f1218] sm:mx-2 xl:hidden">
       <button
@@ -1710,6 +1749,39 @@ function TradeRow({ trade }: { trade: BinaryTrade }) {
       <div className="mt-3 flex items-center justify-between text-xs font-black">
         <span className="text-slate-500">Stake {formatMoney(trade.stake, isReal)}</span>
         <span className={isOpen || isWon ? "text-emerald-300" : "text-red-300"}>{isOpen ? formatMoney(trade.payout, isReal) : isWon ? `+${formatMoney(trade.payout - trade.stake, isReal)}` : `-${formatMoney(trade.stake, isReal)}`}</span>
+      </div>
+    </div>
+  );
+}
+
+// Generic open-position row — used for every contract type (digit, directional,
+// accumulator, leveraged). Fixed-duration types show a live countdown; cash-out
+// types (accumulator / leveraged) show "LIVE" and a value that moves each tick.
+function PositionRow({ pos }: { pos: OpenPositionView }) {
+  const hasCountdown = pos.settlesAt != null;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    if (!hasCountdown) return;
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [hasCountdown]);
+  const secondsLeft = pos.settlesAt != null ? Math.max(0, Math.ceil((pos.settlesAt - now) / 1000)) : 0;
+  const profit = pos.value - pos.stake;
+
+  return (
+    <div className="border border-white/[0.07] bg-black/25 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-black text-white">{pos.title}</div>
+          <div className="truncate text-[11px] font-bold text-slate-500">{pos.subtitle}</div>
+        </div>
+        <span className="shrink-0 rounded bg-sky-400/10 px-2 py-1 text-[10px] font-black text-sky-300">
+          {hasCountdown ? `${secondsLeft}s` : "LIVE"}
+        </span>
+      </div>
+      <div className="mt-3 flex items-center justify-between text-xs font-black">
+        <span className="text-slate-500">Stake {formatMoney(pos.stake, pos.isReal)}</span>
+        <span className={profit >= 0 ? "text-emerald-300" : "text-red-300"}>{formatMoney(pos.value, pos.isReal)}</span>
       </div>
     </div>
   );
