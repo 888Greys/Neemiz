@@ -262,6 +262,12 @@ type ChartLine = { id: string; price: number; color: string; title: string; dash
 // An entry/exit marker pinned to a tick time.
 type ChartMarker = { id: string; time: UTCTimestamp; color: string; text: string; above?: boolean };
 
+// Bars of empty space kept to the right of the live point (Deriv-style gap so the
+// pulsing dot sits clear of the price axis). The view scrolls a further bar over
+// each tick interval, then resets when the next tick lands — continuous flow.
+const RIGHT_GAP_BARS = 12;
+const VALUE_EASING = 0.16; // fraction of the price gap closed per animation frame
+
 function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; lines?: ChartLine[]; markers?: ChartMarker[] }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -270,10 +276,14 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
   const priceLinesRef = useRef<Map<string, IPriceLine>>(new Map());
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   // Smooth-motion state: the newest point glides toward the latest tick each
-  // animation frame (LERP) instead of snapping once per tick.
+  // animation frame (LERP) and the view scrolls continuously, instead of
+  // snapping/freezing once per tick.
   const targetRef = useRef<{ time: UTCTimestamp; value: number } | null>(null);
   const renderValueRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
+  const dotRef = useRef<HTMLDivElement | null>(null);
+  const lastTickAtRef = useRef<number>(0);     // performance.now() of the last real tick
+  const tickIntervalRef = useRef<number>(1000); // smoothed ms between ticks
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -299,8 +309,9 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
         borderVisible: false,
         timeVisible: true,
         secondsVisible: true,
-        rightOffset: 7,
-        barSpacing: 12,
+        rightOffset: RIGHT_GAP_BARS,        // whitespace on the right (Deriv-style gap)
+        barSpacing: 16,
+        shiftVisibleRangeOnNewBar: false,   // we drive the scroll ourselves in the rAF loop
       },
       crosshair: {
         vertLine: { color: "rgba(56,189,248,0.5)", labelBackgroundColor: "#2563eb" },
@@ -331,21 +342,43 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
     markersRef.current = createSeriesMarkers(series, []);
     chart.timeScale().fitContent();
 
-    // Continuous animation loop: every frame, glide the newest point toward the
-    // latest tick (LERP) so the line flows like Deriv instead of snapping once
-    // per tick. The tick handler only sets the *target*; this paints at the
-    // monitor's refresh rate, decoupled from websocket cadence.
-    const EASING = 0.16;            // fraction of the remaining gap closed per frame
+    // Continuous animation loop (paints at the monitor's refresh rate, decoupled
+    // from websocket cadence). Three things every frame, so the chart flows like
+    // Deriv instead of snapping/freezing once per tick:
+    //   1. glide the newest point's value toward the latest tick (LERP),
+    //   2. scroll the view left continuously between ticks,
+    //   3. move the pulsing live dot to the line's tip.
     const step = () => {
+      const chart = chartRef.current;
       const s = seriesRef.current;
       const target = targetRef.current;
-      if (s && target) {
+      if (chart && s && target) {
         const cur = renderValueRef.current ?? target.value;
         const diff = target.value - cur;
-        const next = Math.abs(diff) < 1e-7 ? target.value : cur + diff * EASING;
+        const next = Math.abs(diff) < 1e-7 ? target.value : cur + diff * VALUE_EASING;
         if (next !== cur) {
           renderValueRef.current = next;
           s.update({ time: target.time, value: next });
+        }
+
+        // Continuous scroll: glide one extra bar of whitespace over the measured
+        // tick interval, then the next tick resets it — seamless leftward flow.
+        const frac = lastTickAtRef.current
+          ? Math.min(1, (performance.now() - lastTickAtRef.current) / tickIntervalRef.current)
+          : 0;
+        chart.timeScale().scrollToPosition(RIGHT_GAP_BARS + frac, false);
+
+        // Pulsing live dot at the line's tip.
+        const dot = dotRef.current;
+        if (dot) {
+          const y = s.priceToCoordinate(renderValueRef.current ?? target.value);
+          const x = chart.timeScale().timeToCoordinate(target.time);
+          if (x != null && y != null) {
+            dot.style.transform = `translate(${x}px, ${y}px)`;
+            dot.style.opacity = "1";
+          } else {
+            dot.style.opacity = "0";
+          }
         }
       }
       rafRef.current = requestAnimationFrame(step);
@@ -391,6 +424,13 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
       targetRef.current = { time: latest.time, value: latest.quote };
       if (renderValueRef.current == null) renderValueRef.current = prev.quote;
       lastPointRef.current = { time: latest.time, value: latest.quote };
+      // Measure the tick cadence so the continuous scroll keeps pace with it.
+      const nowMs = performance.now();
+      const dt = nowMs - lastTickAtRef.current;
+      if (lastTickAtRef.current && dt > 50 && dt < 5000) {
+        tickIntervalRef.current = tickIntervalRef.current * 0.6 + dt * 0.4;
+      }
+      lastTickAtRef.current = nowMs;
       return;
     }
 
@@ -404,7 +444,8 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
     targetRef.current = { time: latest.time as UTCTimestamp, value: latest.quote };
     renderValueRef.current = latest.quote; // snap on load / market switch (no glide)
     lastPointRef.current = { time: latest.time, value: latest.quote };
-    chartRef.current?.timeScale().scrollToRealTime();
+    lastTickAtRef.current = performance.now();
+    chartRef.current?.timeScale().scrollToPosition(RIGHT_GAP_BARS, false);
   }, [ticks]);
 
   // Contract overlay lines — barrier / strike / stop-out / knockout / entry, for
@@ -457,13 +498,22 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
   const recenter = () => {
     const ts = chartRef.current?.timeScale();
     if (!ts) return;
-    ts.applyOptions({ barSpacing: 12 });
-    ts.scrollToRealTime();
+    ts.applyOptions({ barSpacing: 16 });
+    ts.scrollToPosition(RIGHT_GAP_BARS, false);
   };
 
   return (
     <div className="relative h-full min-h-[180px] overflow-hidden bg-[#070b10] sm:min-h-[260px]">
       <div ref={containerRef} className="absolute inset-0" />
+
+      {/* Pulsing live price dot — positioned at the line's tip each frame by the
+          rAF loop (Deriv-style). */}
+      <div ref={dotRef} className="pointer-events-none absolute left-0 top-0 z-20 opacity-0 will-change-transform">
+        <span className="relative flex h-3 w-3 -translate-x-1/2 -translate-y-1/2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/50" />
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-white ring-2 ring-[#070b10]" />
+        </span>
+      </div>
 
       {/* Deriv-style zoom / recenter controls — lifted above the TradingView
           attribution logo and given enough contrast to read on the dark chart */}
