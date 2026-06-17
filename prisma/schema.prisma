@@ -628,6 +628,7 @@ enum BinaryTradeStatus {
   PENDING
   WON
   LOST
+  VOID // stake refunded — could not be settled within its window (feed outage)
 }
 
 model BinaryTrade {
