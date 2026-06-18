@@ -137,6 +137,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     paidAt:          order.paidAt,
     releasedAt:      order.releasedAt,
     cancelReason:    order.cancelReason,
+    merchantId:      order.sellerId,
     buyer,
     seller: {
       displayName: order.seller.displayName,
