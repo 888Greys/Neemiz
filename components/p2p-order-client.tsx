@@ -1186,7 +1186,7 @@ function MobileP2POrderView({
               type="button"
               disabled={releaseChoice !== "received" || !!actionLoading}
               onClick={async () => {
-                await onAction("release", {}, "release");
+                await onAction("release", { confirmedRelease: true }, "release");
                 setShowReleaseConfirm(false);
               }}
               className="h-12 w-full rounded-full bg-[#087cff] text-sm font-black text-white transition-colors hover:bg-[#0570e8] disabled:cursor-not-allowed disabled:opacity-40"
@@ -1529,7 +1529,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
         onSubmitFeedback={submitFeedback}
       />
       {showReleaseConfirm && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0">
+        <div className="fixed inset-0 z-[80] hidden items-end justify-center bg-black/70 px-4 pb-4 pt-16 sm:items-center sm:pb-0 lg:flex">
           <div className="w-full max-w-md rounded-2xl border border-white/[0.10] bg-[#1a202b] p-5 shadow-2xl">
             <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-white/25 sm:hidden" />
             <h2 className="text-base font-black text-white">Received payment in your account?</h2>
