@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { headers, cookies } from "next/headers";
 import { AppShell } from "@/components/app-shell";
 import { P2PExpressClient } from "@/components/p2p-express-client";
+import { P2PMarketPanel } from "@/components/p2p-market-panel";
 import { detectFiatFromHeaders, isSupportedFiat } from "@/lib/p2p/currencies";
 
 export const metadata = {
@@ -19,7 +20,7 @@ export default function P2PExpressPage() {
     : detectFiatFromHeaders((name) => headerList.get(name));
 
   return (
-    <AppShell mainBg="bg-[#050505]" hideFooter>
+    <AppShell mainBg="bg-[#050505]" rightPanel={<P2PMarketPanel />} hideFooter>
       <div>
         <Suspense>
           <P2PExpressClient defaultFiat={defaultFiat} />

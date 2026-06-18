@@ -141,7 +141,6 @@ function VerifiedSeal({ className = "h-[15px] w-[15px]" }: { className?: string 
 function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onClose: () => void }) {
   const router = useRouter();
   const [profile, setProfile] = useState<MerchantProfile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"info" | "ads" | "feedback">("info");
   const [following, setFollowing] = useState(false);
@@ -150,11 +149,9 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
     let cancelled = false;
     setProfile(null);
     setError("");
-    setLoading(true);
 
     if (!merchant.id) {
       setError("Refresh offers to load this merchant profile.");
-      setLoading(false);
       return;
     }
 
@@ -165,9 +162,6 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Merchant profile is unavailable");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
 
     return () => { cancelled = true; };
@@ -329,15 +323,12 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
 
           {/* ── Tab content ── */}
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-2 sm:px-5">
-            {loading ? (
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] py-8 text-center text-xs font-bold text-slate-500">
-                <LoadingDots label="Loading merchant" />
+            {error && (
+              <div className="mb-2 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[11px] font-semibold text-amber-200">
+                Showing available merchant data. {error}
               </div>
-            ) : error ? (
-              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-3 text-sm font-semibold text-red-300">
-                {error}
-              </div>
-            ) : tab === "info" ? (
+            )}
+            {tab === "info" ? (
               <>
                 <div className="divide-y divide-white/[0.05]">
                   {infoStats.map((row) => (
