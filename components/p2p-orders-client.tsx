@@ -206,13 +206,13 @@ export function P2POrdersClient() {
           </p>
         </div>
       ) : (
-        <div className="mx-auto flex max-w-2xl flex-col">
+        <div className="flex w-full flex-col gap-3">
           {filtered.map((order) => (
             <Link
               key={order.id}
               href={`/p2p/order/${order.id}`}
               prefetch={false}
-              className="group block border-b border-white/[0.06] py-4 transition hover:bg-white/[0.02]"
+              className="group block rounded-2xl border border-white/[0.06] bg-[#0f0f16] px-4 py-4 transition hover:border-white/[0.10] hover:bg-[#13131b] lg:px-5"
             >
               {/* Top: side + status */}
               <div className="mb-3 flex items-center justify-between gap-2">
