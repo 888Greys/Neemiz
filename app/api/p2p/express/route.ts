@@ -170,6 +170,7 @@ export async function POST(req: Request) {
         fiatAmount,
         fiat: match.fiat,
         paymentMethod,
+        side: "SELL",
       })]);
     }
 

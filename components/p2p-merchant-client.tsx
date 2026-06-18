@@ -1297,6 +1297,9 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const exceedsSellableBalance = !isEditing && form.side === "SELL" && totalAmountNum > sellableBalance;
   const requiredKesBacking = totalAmountNum > 0 ? parseFloat((totalAmountNum * 1.01).toFixed(2)) : 0;
   const needsKesBacking = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesBacking > 0 && fiatBalance < requiredKesBacking;
+  const priceRangeMin = spotRate ? spotRate * 0.8 : priceNum > 0 ? priceNum * 0.8 : null;
+  const priceRangeMax = spotRate ? spotRate * 2 : priceNum > 0 ? priceNum * 2 : null;
+  const highestOrderPrice = spotRate ? spotRate * 1.1 : priceNum > 0 ? priceNum * 1.1 : null;
 
   function togglePm(m: string) {
     setForm((p) => ({ ...p, paymentMethods: p.paymentMethods.includes(m) ? p.paymentMethods.filter((x) => x !== m) : [...p.paymentMethods, m] }));
@@ -1358,54 +1361,75 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
-      <div className="no-scrollbar w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-[#0e0e14] shadow-2xl max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] lg:max-w-4xl" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 flex items-center justify-between rounded-t-2xl border-b border-white/[0.07] bg-[#0e0e14] px-6 py-3">
-          <h3 className="text-white font-black text-lg">{isEditing ? "Edit Ad" : "Create New Ad"}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-white/10 transition-all">
-            <Icon name="close" className="text-lg" />
-          </button>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-0 sm:p-4" onClick={onClose}>
+      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[380px] flex-col overflow-y-auto bg-[#1d2531] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-[18px]" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 z-10 bg-[#1d2531] px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))]">
+          <div className="mb-7 flex items-center justify-between">
+            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-slate-100 transition hover:bg-white/[0.06]">
+              <Icon name="arrow_back" className="text-[20px]" />
+            </button>
+            <h3 className="text-[15px] font-black tracking-wide text-white">{isEditing ? "Edit Normal Ad" : "Post Normal Ad"}</h3>
+            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-full text-slate-100 transition hover:bg-white/[0.06]" aria-label="Ad help">
+              <Icon name="help_outline" className="text-[19px]" />
+            </button>
+          </div>
+
+          <div className="relative grid grid-cols-3 text-center">
+            <div className="absolute left-[10%] right-[10%] top-[9px] h-px bg-[#394454]" />
+            {[
+              ["1", "Set Type & Price"],
+              ["2", "Set Amount & Method"],
+              ["3", "Set Conditions"],
+            ].map(([step, label], index) => (
+              <div key={step} className="relative z-[1] flex flex-col items-center">
+                <span className={`flex h-5 w-5 items-center justify-center rounded-[6px] text-[10px] font-black ${index === 0 ? "bg-slate-100 text-[#1d2531]" : "bg-[#303a47] text-slate-500"}`}>
+                  {step}
+                </span>
+                <span className={`mt-3 max-w-[86px] text-[10px] font-black leading-4 ${index === 0 ? "text-slate-100" : "text-slate-500"}`}>
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="grid gap-3 p-4 lg:grid-cols-2 lg:p-5">
+        <div className="grid gap-5 px-4 pb-5 pt-2">
           {/* Side selector */}
           <div>
-            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">I want to</label>
-            <div className="flex gap-1 bg-white/[0.04] rounded-xl p-1">
+            <label className="mb-2 block text-[12px] font-medium text-slate-400">I want to</label>
+            <div className="grid grid-cols-2 rounded-[6px] bg-[#2a3442] p-0.5">
               {["BUY","SELL"].map((s) => (
                 <button key={s} onClick={() => !isEditing && f("side", s)}
                   disabled={isEditing}
-                  className={`flex-1 rounded-lg py-1.5 text-xs font-black transition-all ${form.side === s ? "bg-[#087cff] text-white shadow shadow-[#087cff]/30" : "text-slate-500 hover:text-white"}`}>
-                  {s}
+                  className={`h-8 rounded-[4px] text-[12px] font-black capitalize transition-all ${form.side === s ? "bg-[#202936] text-white" : "text-slate-400 hover:text-white"}`}>
+                  {s.toLowerCase()}
                 </button>
               ))}
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-2.5">
           {/* Crypto dropdown */}
           <div>
-            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Crypto</label>
+            <label className="mb-2 block text-[12px] font-medium text-slate-400">Asset</label>
             <div className="relative">
               <button
                 type="button"
                 disabled={isEditing}
                 onClick={() => !isEditing && setCryptoOpen((v) => !v)}
-                className="flex w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm font-bold text-white transition-colors hover:border-white/20 disabled:opacity-60"
+                className="flex h-[42px] w-full items-center gap-2 rounded-[8px] bg-[#2a3442] px-3 text-[14px] font-black text-white transition-colors hover:bg-[#303b49] disabled:opacity-60"
               >
                 {(() => { const m = P2P_CRYPTOS.find((c) => c.symbol === form.crypto); return m ? (
                   <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={m.icon} alt={m.symbol} className="h-5 w-5 rounded-full" />
                     <span className="font-black">{m.symbol}</span>
-                    <span className="font-semibold text-slate-500">— {m.name}</span>
                   </>
                 ) : <span>{form.crypto}</span>; })()}
-                {!isEditing && <Icon name="expand_more" className={`ml-auto text-lg text-slate-400 transition-transform ${cryptoOpen ? "rotate-180" : ""}`} />}
+                {!isEditing && <Icon name="arrow_drop_down" className={`ml-auto text-[22px] text-slate-500 transition-transform ${cryptoOpen ? "rotate-180" : ""}`} />}
               </button>
               {cryptoOpen && !isEditing && (
                 <>
                   <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setCryptoOpen(false)} />
-                  <div className="absolute left-0 right-0 top-[calc(100%+4px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#16171d] p-1 shadow-2xl shadow-black/60">
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-[8px] bg-[#26303c] p-1 shadow-2xl shadow-black/60 ring-1 ring-white/[0.08]">
                     {P2P_CRYPTOS.map((c) => (
                       <button
                         key={c.symbol}
@@ -1419,13 +1443,13 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                           }));
                           setCryptoOpen(false);
                         }}
-                        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${form.crypto === c.symbol ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
+                        className={`flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left transition-colors ${form.crypto === c.symbol ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={c.icon} alt={c.symbol} className="h-5 w-5 rounded-full" />
                         <span className="text-sm font-black text-white">{c.symbol}</span>
                         <span className="truncate text-xs font-semibold text-slate-500">{c.name}</span>
-                        {form.crypto === c.symbol && <Icon name="check" className="ml-auto shrink-0 text-[16px] text-[#087cff]" />}
+                        {form.crypto === c.symbol && <Icon name="check" className="ml-auto shrink-0 text-[16px] text-[#facc15]" />}
                       </button>
                     ))}
                   </div>
@@ -1436,25 +1460,85 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
           {/* Fiat currency selector */}
           <div>
-            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Fiat currency</label>
+            <label className="mb-2 block text-[12px] font-medium text-slate-400">With Fiat</label>
             <div className="relative">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={flagUrl(form.fiat)} alt="" className="pointer-events-none absolute left-3 top-1/2 h-4 w-6 -translate-y-1/2 rounded-sm object-cover" />
               <select value={form.fiat} onChange={(e) => {
                   const nextFiat = e.target.value;
                   const allowed = new Set(paymentMethodsForFiat(nextFiat).map((m) => m.value));
                   setForm((p) => ({ ...p, fiat: nextFiat, paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)) }));
                 }}
-                className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] py-2 pl-12 pr-3 text-sm font-bold text-white outline-none transition-colors focus:border-[#087cff]/40">
+                className="h-[42px] w-full appearance-none rounded-[8px] bg-[#2a3442] px-3 pr-9 text-[14px] font-black text-white outline-none transition-colors focus:bg-[#303b49]">
                 {FIAT_CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code} style={{ background: "#1a1b22", color: "#fff" }}>{c.code} - {c.name}</option>
+                  <option key={c.code} value={c.code} style={{ background: "#2a3442", color: "#fff" }}>{c.code}</option>
                 ))}
               </select>
+              <Icon name="arrow_drop_down" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[22px] text-slate-500" />
+            </div>
+          </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-[12px] font-medium text-slate-400">Price Type</label>
+            <div className="relative">
+              <select
+                value="Fixed"
+                disabled
+                className="h-[42px] w-full appearance-none rounded-[8px] bg-[#2a3442] px-3 pr-9 text-[14px] font-medium text-white outline-none"
+              >
+                <option>Fixed</option>
+              </select>
+              <Icon name="arrow_drop_down" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[22px] text-slate-500" />
             </div>
           </div>
 
           <div>
-            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">
+            <label className="mb-2 block text-[12px] font-medium text-slate-400">Fixed</label>
+            <div className="grid h-[42px] grid-cols-[42px_1fr_42px] items-center overflow-hidden rounded-[8px] bg-[#2a3442]">
+              <button type="button" onClick={() => setPriceManually(priceNum > 0 ? formatPriceInput(priceNum * 0.99, form.fiat) : "")} className="flex h-full items-center justify-center text-slate-500 transition hover:text-white">
+                <Icon name="remove" className="text-[20px]" />
+              </button>
+              <input
+                type="number"
+                value={form.pricePerUnit}
+                onChange={(e) => setPriceManually(e.target.value)}
+                placeholder="-"
+                className="min-w-0 bg-transparent text-center text-[14px] font-black text-white placeholder:text-slate-500 outline-none"
+              />
+              <button type="button" onClick={() => setPriceManually(priceNum > 0 ? formatPriceInput(priceNum * 1.01, form.fiat) : "")} className="flex h-full items-center justify-center text-slate-500 transition hover:text-white">
+                <Icon name="add" className="text-[20px]" />
+              </button>
+            </div>
+            <p className="mt-1.5 text-[10px] font-medium text-slate-500">
+              Price range: {priceRangeMin && priceRangeMax ? `${formatPriceInput(priceRangeMin, form.fiat)} - ${formatPriceInput(priceRangeMax, form.fiat)}` : "--"}
+            </p>
+          </div>
+
+          <div className="space-y-3 border-b border-dashed border-slate-700/80 pb-3">
+            <div className="flex items-center gap-3">
+              <span className="text-[12px] font-medium text-slate-500">Your Price</span>
+              <span className="text-[16px] font-black text-white">{priceNum > 0 ? formatFiat(priceNum, form.fiat) : "--"}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[12px] font-medium text-slate-500">Highest Order Price</span>
+              <span className="text-[16px] font-black text-white">{highestOrderPrice ? formatFiat(highestOrderPrice, form.fiat) : "--"}</span>
+              <Icon name="loyalty" className="ml-auto text-[24px] text-indigo-400" />
+            </div>
+            {form.pricePerUnit && marginPct !== null ? (
+              <p className="text-[10px] font-bold">
+                <span className={marginPct > 0.01 ? "text-amber-400" : marginPct < -0.01 ? "text-[#05b957]" : "text-slate-400"}>
+                  {marginPct > 0 ? "+" : ""}{marginPct.toFixed(2)}%
+                </span>
+                <span className="text-slate-500">
+                  {isKesCoinForm
+                    ? ` spread on 1:1 · ${formatFiat(spotRate!, form.fiat)}/KES Coin`
+                    : ` vs live market · ${formatFiat(spotRate!, form.fiat)}/${form.crypto}`}
+                </span>
+              </p>
+            ) : null}
+          </div>
+
+          <div>
+            <label className="mb-2 block text-[12px] font-medium text-slate-400">
               Profit / margin (%)
             </label>
             <div className="grid grid-cols-[1fr_auto] gap-2">
@@ -1465,57 +1549,30 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                 onChange={(e) => setPriceFromMargin(e.target.value)}
                 disabled={!canUseMarginPricing}
                 placeholder={canUseMarginPricing ? "e.g. 3.5 or -10" : "Market rate unavailable"}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40 disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-[42px] w-full rounded-[8px] bg-[#2a3442] px-3 text-[14px] text-white placeholder:text-slate-600 outline-none focus:bg-[#303b49] disabled:cursor-not-allowed disabled:opacity-50"
               />
               <button
                 type="button"
                 disabled={!canUseMarginPricing}
                 onClick={() => setPriceFromMargin("0")}
-                className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-xs font-black text-slate-300 transition-colors hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-[42px] rounded-[8px] bg-[#2a3442] px-3 text-xs font-black text-slate-300 transition-colors hover:bg-[#303b49] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Market
               </button>
             </div>
             {!canUseMarginPricing ? (
-              <p className="mt-1 text-[11px] font-semibold text-slate-600">
+              <p className="mt-1.5 text-[10px] font-medium text-slate-500">
                 Percentage pricing is not available for {form.crypto}/{form.fiat}; enter the price directly.
               </p>
             ) : isKesCoinForm ? (
-              <p className="mt-1 text-[11px] font-semibold text-slate-500">
-                KES Coin is pegged 1:1 (KSh 1.00). Your % is the spread buyers pay on top — e.g. +5% = KSh 1.05. Negative spreads allowed.
+              <p className="mt-1.5 text-[10px] font-medium text-slate-500">
+                KES Coin is pegged 1:1. Your % is the spread buyers pay on top.
               </p>
             ) : (
-              <p className="mt-1 text-[11px] font-semibold text-slate-500">
-                Uses live market {formatFiat(spotRate!, form.fiat)}/{form.crypto} to calculate your price. Negative margins such as -10% are allowed.
+              <p className="mt-1.5 text-[10px] font-medium text-slate-500">
+                Uses live market {formatFiat(spotRate!, form.fiat)}/{form.crypto} to calculate your price.
               </p>
             )}
-          </div>
-
-          <div>
-            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">
-              Price per {form.crypto} ({form.fiat})
-            </label>
-            <input
-              type="number"
-              value={form.pricePerUnit}
-              onChange={(e) => setPriceManually(e.target.value)}
-              placeholder={form.crypto === "BTC" ? "e.g. 14000000" : form.crypto === "ETH" ? "e.g. 420000" : "e.g. 135"}
-              className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-1.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40"
-            />
-            {form.pricePerUnit && marginPct !== null ? (
-              <p className="mt-1 text-[11px] font-bold">
-                <span className={marginPct > 0.01 ? "text-amber-400" : marginPct < -0.01 ? "text-[#05b957]" : "text-slate-400"}>
-                  {marginPct > 0 ? "+" : ""}{marginPct.toFixed(2)}%
-                </span>
-                <span className="text-slate-500">
-                  {isKesCoinForm
-                    ? ` spread on 1:1 · ${formatFiat(spotRate!, form.fiat)}/KES Coin`
-                    : ` vs live market · ${formatFiat(spotRate!, form.fiat)}/${form.crypto}`}
-                </span>
-              </p>
-            ) : form.pricePerUnit && marginPct === null ? (
-              <p className="mt-1 text-[11px] font-semibold text-slate-600">Live market rate unavailable for {form.crypto}/{form.fiat}</p>
-            ) : null}
           </div>
 
           {!isEditing && (
@@ -1668,12 +1725,12 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
         </div>
 
         {/* Pinned action bar — always visible above the bottom nav */}
-        <div className="sticky bottom-0 border-t border-white/[0.07] bg-[#0e0e14] px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div className="sticky bottom-0 bg-[#1d2531] px-4 py-3 pb-[calc(1.35rem+env(safe-area-inset-bottom))]">
           <button onClick={submit} disabled={submitting || paymentMethodsLoading || savedPaymentMethods.length === 0 || exceedsSellableBalance}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] py-3 font-black text-white shadow-lg shadow-[#087cff]/20 transition-all hover:bg-[#0570e8] active:scale-[0.98] disabled:opacity-50">
+            className="flex h-[35px] w-full items-center justify-center gap-2 rounded-[5px] bg-[#facc15] text-[13px] font-medium text-black shadow-lg shadow-black/20 transition-all hover:bg-[#ffd83d] active:scale-[0.98] disabled:opacity-50">
             {submitting
               ? <LoadingDots label={isEditing ? "Saving" : "Creating"} />
-              : <><Icon name={isEditing ? "edit" : "add"} className="text-base" /> {isEditing ? "Save Changes" : "Create Ad"}</>}
+              : isEditing ? "Save Changes" : "Next"}
           </button>
         </div>
       </div>
