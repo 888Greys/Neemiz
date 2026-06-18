@@ -1802,6 +1802,19 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Deep-link from "Order again": open the merchant's profile modal once ads load.
+  const merchantOpenedRef = useRef(false);
+  useEffect(() => {
+    if (merchantOpenedRef.current) return;
+    const mid = searchParams?.get("merchant");
+    if (!mid || loading) return;
+    merchantOpenedRef.current = true;
+    const fromAd = ads.find((a) => a.merchant.id === mid)?.merchant;
+    setSelectedMerchant(
+      fromAd ?? { id: mid, displayName: "Merchant", isOnline: false, completedTrades: 0, completionRate: 0, avgReleaseTime: 0 },
+    );
+  }, [ads, loading, searchParams]);
+
   // Live spot rate (CoinGecko) for the selected crypto+fiat; null until loaded
   // or if the provider is unavailable.
   const [spotRate, setSpotRate] = useState<number | null>(null);
