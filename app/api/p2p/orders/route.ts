@@ -119,6 +119,11 @@ export async function GET(req: Request) {
       fiat:     o.ad.fiat,
       isBuyer:  o.buyerId === dbUser.id,
       isSeller: merchant ? o.sellerId === merchant.id : false,
+      counterparty: o.buyerId === dbUser.id
+        ? o.seller.displayName
+        : o.buyer.firstName
+        ? `${o.buyer.firstName} ${o.buyer.lastName ?? ""}`.trim()
+        : o.buyer.username ?? "Trader",
     }));
 
     return Response.json(result, { headers: { "Cache-Control": "private, max-age=15, stale-while-revalidate=30" } });
@@ -270,6 +275,8 @@ export async function POST(req: Request) {
     const buyerName = dbUser.firstName
       ? `${dbUser.firstName}${dbUser.lastName ? ` ${dbUser.lastName}` : ""}`.trim()
       : dbUser.username ?? "A trader";
+    const takerAction = ad.side === "SELL" ? "buy" : "sell";
+    const merchantNextStep = ad.side === "SELL" ? "Awaiting their payment." : "Send payment to receive crypto.";
 
     // In-app notification (bell)
     const notificationTask = db.notification.create({
@@ -277,7 +284,7 @@ export async function POST(req: Request) {
         userId: ad.merchant.userId,
         type:   "p2p_new_order",
         title:  "New P2P order",
-        body:   `${buyerName} placed an order for ${cryptoAmountNum} ${ad.crypto} (KSh ${fiatAmount.toLocaleString()}). Awaiting payment.`,
+        body:   `${buyerName} wants to ${takerAction} ${cryptoAmountNum} ${ad.crypto} (KSh ${fiatAmount.toLocaleString()}). ${merchantNextStep}`,
         link:   `/p2p/order/${order.id}`,
       },
     }).catch((e) => console.error("P2P order notification failed:", e));
@@ -295,6 +302,7 @@ export async function POST(req: Request) {
         fiatAmount,
         fiat: ad.fiat,
         paymentMethod: paymentMethod as string,
+        side: ad.side,
         })
         : null]),
     ]);
