@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { creditUserCrypto, debitUserCrypto, defaultNetwork, isKesCoin, releaseKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { sendTradeCompletedEmail, waitForEmailDelivery } from "@/lib/brevo";
+import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
 
 // POST /api/p2p/orders/[id]/release — merchant confirms fiat received & releases crypto
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -13,19 +14,27 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser   = await getOrCreateUser(user.id, { email: user.email });
-    const merchant = await db.merchantProfile.findFirst({
-      where: { OR: [{ userId: dbUser.id }, { sellOrders: { some: { id } } }] },
-    });
 
     const order = await db.p2POrder.findUnique({
       where: { id },
       include: {
         ad: true,
         buyer: { select: { email: true, firstName: true, username: true } },
+        seller: {
+          select: {
+            id: true,
+            userId: true,
+            displayName: true,
+            totalTrades: true,
+            completedTrades: true,
+            avgReleaseTime: true,
+          },
+        },
       },
     });
 
     if (!order)                         return Response.json({ error: "Order not found" }, { status: 404 });
+    const merchant = order.seller;
     const isMerchantSell = order.ad.side === "SELL";
     const canRelease = isMerchantSell
       ? merchant?.userId === dbUser.id && order.sellerId === merchant.id
@@ -130,6 +139,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           completionRate:  (newCompleted / newTotal) * 100,
           avgReleaseTime:  newAvgRelease,
         },
+      });
+      await createP2POrderEventMessage(tx, {
+        orderId: order.id,
+        senderId: dbUser.id,
+        content: `${netCryptoAmt.toFixed(6)} ${order.crypto} released. Trade completed.`,
       });
     });
 

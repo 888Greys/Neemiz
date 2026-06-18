@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
+import { DEV_FAST, DEV_FAST_WALLET_STATE } from "@/lib/dev-fast";
 
 export type CryptoBalance = {
   crypto:    string;
@@ -24,6 +25,7 @@ const EMPTY_STATE: WalletState = {
   cryptoBalances: [],
   loading: false,
 };
+const FAST_STATE = DEV_FAST_WALLET_STATE as WalletState;
 let walletCache: { state: WalletState; fetchedAt: number } | null = null;
 let walletRequest: Promise<WalletState> | null = null;
 const walletSubscribers = new Set<(state: WalletState) => void>();
@@ -34,6 +36,10 @@ function publishWalletState(state: WalletState) {
 }
 
 async function fetchWalletState(force = false) {
+  if (DEV_FAST) {
+    publishWalletState(FAST_STATE);
+    return FAST_STATE;
+  }
   if (!force && walletCache && Date.now() - walletCache.fetchedAt < CACHE_TTL_MS) {
     return walletCache.state;
   }
@@ -61,7 +67,7 @@ async function fetchWalletState(force = false) {
 
 export function useWalletBalance() {
   const { isSignedIn } = useSupabaseAuth();
-  const [state, setState] = useState<WalletState>(() => walletCache?.state ?? EMPTY_STATE);
+  const [state, setState] = useState<WalletState>(() => walletCache?.state ?? (DEV_FAST ? FAST_STATE : EMPTY_STATE));
 
   const refresh = useCallback(async (force = true) => {
     if (!isSignedIn) return;
@@ -74,6 +80,10 @@ export function useWalletBalance() {
   }, [isSignedIn]);
 
   useEffect(() => {
+    if (DEV_FAST) {
+      setState(FAST_STATE);
+      return;
+    }
     if (!isSignedIn) {
       setState(EMPTY_STATE);
       return;

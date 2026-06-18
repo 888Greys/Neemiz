@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { createClient } from "@/lib/supabase/client";
+import { DEV_FAST } from "@/lib/dev-fast";
 
 type Tab = "all" | "personal" | "general";
 
@@ -146,6 +147,10 @@ let notificationRequest: Promise<Notification[]> | null = null;
 let notificationUserId: string | null = null;
 
 async function fetchNotifications(force = false): Promise<Notification[]> {
+  if (DEV_FAST) {
+    notificationCache = { notes: [], fetchedAt: Date.now() };
+    return [];
+  }
   if (force) notificationCache = null;
   if (notificationRequest) return notificationRequest;
 
@@ -378,6 +383,7 @@ export function NotificationsBell() {
   }, []);
 
   useEffect(() => {
+    if (DEV_FAST) return;
     let disposed = false;
     let realtimeChannel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null;
     const supabase = createClient();

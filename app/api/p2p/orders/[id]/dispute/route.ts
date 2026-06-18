@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
+import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
 
 // POST /api/p2p/orders/[id]/dispute — either party can raise a dispute after buyer marks paid
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -70,6 +71,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           body:   `${raisedBy} has opened a dispute. Reason: ${reason!.trim()}`,
           link:   `/p2p/order/${order.id}`,
         },
+      });
+      await createP2POrderEventMessage(tx, {
+        orderId: order.id,
+        senderId: dbUser.id,
+        content: `Dispute opened. Reason: ${reason!.trim()}`,
       });
     });
 

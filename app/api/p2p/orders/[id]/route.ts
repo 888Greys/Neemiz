@@ -1,9 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 
 export const dynamic = "force-dynamic";
+
+function isFeedbackMigrationPending(error: unknown) {
+  return typeof error === "object"
+    && error !== null
+    && "code" in error
+    && (error.code === "P2021" || error.code === "P2022");
+}
 
 // GET /api/p2p/orders/[id] — fetch single order (buyer or seller only)
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -103,12 +110,25 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const paymentRecipient = order.ad.side === "SELL"
     ? { displayName: order.seller.displayName, paymentMethod: merchantPaymentMethod }
     : { displayName: takerDisplayName, paymentMethod: takerPaymentMethod };
+  const cryptoAmount = Number(order.cryptoAmount);
+  const netCryptoAmount = isKesCoin(order.crypto)
+    ? kesPayoutAmount(cryptoAmount)
+    : parseFloat((cryptoAmount * 0.98).toFixed(8));
+  const myFeedback = await db.p2PFeedback.findFirst({
+    where: { orderId: order.id, fromUserId: dbUser.id },
+    select: { rating: true, comment: true, createdAt: true },
+  }).catch((error) => {
+    if (isFeedbackMigrationPending(error)) return null;
+    throw error;
+  });
 
   return Response.json({
     id:              order.id,
     status:          order.status,
     crypto:          order.crypto,
-    cryptoAmount:    Number(order.cryptoAmount),
+    cryptoAmount,
+    netCryptoAmount,
+    p2pFeeAmount:    parseFloat((cryptoAmount - netCryptoAmount).toFixed(8)),
     fiatAmount:      Number(order.fiatAmount),
     pricePerUnit:    Number(order.pricePerUnit),
     paymentMethod:   order.paymentMethod,
@@ -128,6 +148,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     side:            order.ad.side,
     isBuyer,
     isSeller,
+    myFeedback,
   }, {
     headers: {
       "Cache-Control": "no-store, max-age=0",
