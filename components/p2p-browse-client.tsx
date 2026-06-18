@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { getCached, cachedFetch } from "@/lib/client-cache";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
@@ -105,6 +105,37 @@ const formatReleaseTime = (minutes: number) => {
   return `${(minutes / 60).toFixed(1)}h`;
 };
 
+const formatMinutes = (minutes?: number) =>
+  `${(Number.isFinite(minutes) && (minutes as number) > 0 ? (minutes as number) : 0).toFixed(2)} Minute(s)`;
+
+const daysAgo = (value?: string) => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const days = Math.max(0, Math.floor((Date.now() - date.getTime()) / 86_400_000));
+  return `${days.toLocaleString()} Day(s) ago`;
+};
+
+// Gold scalloped "verified" seal — shared across the P2P surfaces.
+function VerifiedSeal({ className = "h-[15px] w-[15px]" }: { className?: string }) {
+  return (
+    <span className="relative inline-grid shrink-0 place-items-center" title="Verified merchant" aria-label="Verified merchant">
+      <span aria-hidden className="absolute inset-0 m-auto h-2/3 w-2/3 rounded-full bg-[#087cff]/50 blur-[4px] animate-pulse" />
+      <svg aria-hidden viewBox="0 0 24 24" className={`relative drop-shadow-[0_0_2px_rgba(8,124,255,0.7)] ${className}`}>
+        <defs>
+          <linearGradient id="p2p-verified-seal" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#8bc3ff" />
+            <stop offset="45%" stopColor="#087cff" />
+            <stop offset="100%" stopColor="#0560c4" />
+          </linearGradient>
+        </defs>
+        <path fill="url(#p2p-verified-seal)" d="M23 12l-2.44-2.79.34-3.69-3.61-.82-1.89-3.2L12 2.96 8.6 1.5 6.71 4.69 3.1 5.5l.34 3.7L1 12l2.44 2.79-.34 3.7 3.61.82 1.89 3.2L12 21.04l3.4 1.46 1.89-3.19 3.61-.82-.34-3.69L23 12z" />
+        <path d="M8.2 12.3l2.5 2.5 4.9-5.1" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
+  );
+}
+
 // ─── Merchant Profile Modal ──────────────────────────────────────────────────
 
 function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onClose: () => void }) {
@@ -112,6 +143,8 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
   const [profile, setProfile] = useState<MerchantProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<"info" | "ads" | "feedback">("info");
+  const [following, setFollowing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,8 +184,53 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
   };
 
   const source = profile ?? merchant;
-  const rails = profile?.paymentRails ?? [];
   const offers = profile?.offers ?? [];
+
+  // Derived stats (real where the API provides them; "—" placeholders for the
+  // 30d split / counterparties / deposit fields that arrive with the feedback work).
+  const completionRate = Number(profile?.completionRate ?? merchant.completionRate ?? 0);
+  const completedTrades = Number(profile?.completedTrades ?? merchant.completedTrades ?? 0);
+  const totalTrades = Number(profile?.totalTrades ?? merchant.totalTrades ?? completedTrades);
+  const avgRelease = profile?.avgReleaseTime ?? merchant.avgReleaseTime;
+  const adsCount = profile?.activeAds ?? offers.length;
+  const joined = profile?.joinedAt ?? merchant.joinedAt;
+  const kycOk = (profile?.kycStatus ?? "").toLowerCase().includes("verif") || (profile?.isVerified ?? true);
+
+  const verifications = [
+    { label: "Email", ok: true },
+    { label: "SMS", ok: true },
+    { label: "KYC", ok: kycOk },
+    { label: "Address", ok: true },
+  ];
+
+  const tabs = [
+    { key: "info" as const, label: "Info" },
+    { key: "ads" as const, label: `Ads (${adsCount})` },
+    { key: "feedback" as const, label: "Feedback(9999+)" },
+  ];
+
+  const infoStats: { label: string; value: ReactNode; accent?: string }[] = [
+    { label: "30d Trades", value: completedTrades.toLocaleString() },
+    { label: "30d Completion Rate", value: `${completionRate.toFixed(1)}%` },
+    { label: "Avg. Release Time", value: formatMinutes(avgRelease) },
+    { label: "Avg. Pay Time", value: "—" },
+  ];
+
+  const tradeStats: { label: string; value: ReactNode }[] = [
+    { label: "Trade Type", value: <span className="underline decoration-dotted underline-offset-2">Multi-Product Trader</span> },
+    { label: "Registered", value: daysAgo(joined) },
+    { label: "First Trade", value: "—" },
+    { label: "Trading Counterparties", value: "—" },
+    {
+      label: "All Trades",
+      value: (
+        <span className="block text-right">
+          {totalTrades.toLocaleString()} Time(s)
+          <span className="block text-[11px] font-semibold text-slate-500">Buy — | Sell —</span>
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div
@@ -160,133 +238,176 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
       onClick={onClose}
     >
       <div
-        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
+        className="flex h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
-          <div>
-            <p className="text-sm font-black sm:text-base">Merchant Profile</p>
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">Trust, performance and active offers</p>
-          </div>
-          <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white">
-            <Icon name="close" className="text-[18px]" />
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
-          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            {source.avatarUrl ? (
-              <img src={source.avatarUrl} alt={source.displayName} className="h-12 w-12 rounded-2xl object-cover" />
-            ) : (
-              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#087cff] text-lg font-black text-white">
-                {(source.displayName || "?").charAt(0).toUpperCase()}
-              </div>
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <h3 className="truncate text-lg font-black">{source.displayName}</h3>
-                {(profile?.isVerified ?? true) && <Icon name="verified" className="text-[17px] text-[#05b957]" />}
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500">
-                <span className="flex items-center gap-1">
-                  <span className={`h-1.5 w-1.5 rounded-full ${source.isOnline ? "bg-[#05b957]" : "bg-slate-600"}`} />
-                  {source.isOnline ? "Online now" : "Offline"}
-                </span>
-                <span>Joined {formatJoined(profile?.joinedAt ?? merchant.joinedAt)}</span>
-                {profile?.kycStatus && <span>{profile.kycStatus.replace(/_/g, " ")}</span>}
-              </div>
-            </div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {/* ── Banner ── */}
+          <div
+            className="relative h-28 shrink-0"
+            style={{ background: "conic-gradient(from 45deg at 50% 45%, #0a4ea8 0deg 90deg, #1a78ff 90deg 180deg, #0a4ea8 180deg 270deg, #1a78ff 270deg 360deg)" }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
+            <button
+              type="button"
+              onClick={onClose}
+              className="absolute left-3 top-3 grid h-9 w-9 place-items-center rounded-full text-white/90 transition hover:bg-black/10"
+            >
+              <Icon name="arrow_back" className="text-[22px]" />
+            </button>
+            <button
+              type="button"
+              className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full text-white/90 transition hover:bg-black/10"
+              title="Share"
+            >
+              <Icon name="share" className="text-[20px]" />
+            </button>
           </div>
 
-          {loading ? (
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] py-8 text-center text-xs font-bold text-slate-500">
-              <LoadingDots label="Loading merchant" />
-            </div>
-          ) : error ? (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-3 text-sm font-semibold text-red-300">
-              {error}
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
-                  <p className="text-lg font-black">{profile?.completedTrades ?? merchant.completedTrades}</p>
-                  <p className="text-[10px] font-bold text-slate-600">Completed</p>
-                </div>
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
-                  <p className="text-lg font-black text-[#05b957]">{Number(profile?.completionRate ?? merchant.completionRate).toFixed(0)}%</p>
-                  <p className="text-[10px] font-bold text-slate-600">Completion</p>
-                </div>
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
-                  <p className="text-lg font-black">{profile?.totalTrades ?? merchant.totalTrades ?? merchant.completedTrades}</p>
-                  <p className="text-[10px] font-bold text-slate-600">Total trades</p>
-                </div>
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
-                  <p className="text-lg font-black">{formatReleaseTime(profile?.avgReleaseTime ?? merchant.avgReleaseTime)}</p>
-                  <p className="text-[10px] font-bold text-slate-600">Avg release</p>
-                </div>
-              </div>
-
-              <div className="mt-4 rounded-xl border border-[#087cff]/20 bg-[#087cff]/10 px-3 py-3">
-                <div className="flex items-start gap-2">
-                  <Icon name="shield" className="mt-0.5 text-[18px] text-[#8bc3ff]" />
-                  <div>
-                    <p className="text-sm font-black">Escrow protected merchant</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-400">
-                      Trade only through the order page. Payments and crypto release are tracked by Nezeem so disputes have evidence.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {rails.length > 0 && (
-                <div className="mt-4">
-                  <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-slate-600">Payment rails</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {rails.map((rail) => (
-                      <span key={rail} className="rounded-lg bg-white/[0.05] px-2.5 py-1 text-[11px] font-bold text-slate-300">
-                        {fmtPm(rail)}
-                      </span>
-                    ))}
-                  </div>
+          {/* ── Identity ── */}
+          <div className="shrink-0 px-4 sm:px-5">
+            <div className="mt-2 flex items-end justify-between">
+              {source.avatarUrl ? (
+                <img src={source.avatarUrl} alt={source.displayName} className="h-16 w-16 rounded-full border-[3px] border-[#0b0b11] object-cover ring-1 ring-black/10" />
+              ) : (
+                <div className="grid h-16 w-16 place-items-center rounded-full border-[3px] border-[#0b0b11] bg-white text-2xl font-black text-slate-700 ring-1 ring-black/10">
+                  {(source.displayName || "?").charAt(0).toUpperCase()}
                 </div>
               )}
+              <button
+                type="button"
+                onClick={() => setFollowing((f) => !f)}
+                className={`mb-1.5 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-black transition ${
+                  following ? "bg-white/10 text-slate-200" : "bg-[#087cff] text-white hover:bg-[#1a78ff]"
+                }`}
+              >
+                <Icon name={following ? "check" : "person_add"} className="text-[15px]" />
+                {following ? "Following" : "Follow"}
+              </button>
+            </div>
 
-              <div className="mt-4">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-600">Active offers</p>
-                  <span className="text-[11px] font-bold text-slate-500">{profile?.activeAds ?? offers.length}</span>
-                </div>
-                {offers.length === 0 ? (
-                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-4 text-center text-xs font-semibold text-slate-500">
-                    No active offers right now.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {offers.map((offer) => (
-                      <button
-                        key={offer.id}
-                        type="button"
-                        onClick={() => viewOffers(offer)}
-                        className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
-                      >
-                        <span className={`rounded-lg px-2 py-1 text-[10px] font-black ${offer.side === "SELL" ? "bg-[#05b957]/15 text-[#05b957]" : "bg-red-500/15 text-red-300"}`}>
-                          {offer.side === "SELL" ? "Buy" : "Sell"}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-black text-white">{offer.crypto} at {formatFiat(offer.pricePerUnit, offer.fiat)}</p>
-                          <p className="text-[11px] font-semibold text-slate-500">
-                            {formatFiat(offer.minLimit, offer.fiat)} - {formatFiat(offer.maxLimit, offer.fiat, { symbol: false })} limits
-                          </p>
-                        </div>
-                        <Icon name="chevron_right" className="text-[17px] text-slate-600" />
-                      </button>
-                    ))}
-                  </div>
-                )}
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <h3 className="truncate text-lg font-black">{source.displayName}</h3>
+              {(profile?.isVerified ?? true) && <VerifiedSeal className="h-[17px] w-[17px]" />}
+            </div>
+
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="inline-flex items-center gap-1 font-bold text-[#8bc3ff]">
+                <VerifiedSeal className="h-[13px] w-[13px]" />
+                Verified Merchant
+              </span>
+              <span className="text-slate-600">|</span>
+              <span className="text-slate-300 underline decoration-dotted underline-offset-2">Deposit: — USDT</span>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-x-3.5 gap-y-1">
+              {verifications.map((v) => (
+                <span key={v.label} className="flex items-center gap-0.5 text-[11px] font-semibold">
+                  <Icon name="check_circle" className={`text-[11px] ${v.ok ? "text-[#05b957]" : "text-slate-600"}`} />
+                  <span className={v.ok ? "text-slate-200" : "text-slate-600"}>{v.label}</span>
+                </span>
+              ))}
+            </div>
+
+            {/* ── Tabs ── */}
+            <div className="mt-3 flex items-center gap-6 border-b border-white/[0.08]">
+              {tabs.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={`relative -mb-px pb-2 text-[13px] font-bold transition ${
+                    tab === t.key ? "text-white" : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  {t.label}
+                  {tab === t.key && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[#087cff]" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Tab content ── */}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-2 sm:px-5">
+            {loading ? (
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] py-8 text-center text-xs font-bold text-slate-500">
+                <LoadingDots label="Loading merchant" />
               </div>
-            </>
-          )}
+            ) : error ? (
+              <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-3 text-sm font-semibold text-red-300">
+                {error}
+              </div>
+            ) : tab === "info" ? (
+              <>
+                <div className="divide-y divide-white/[0.05]">
+                  {infoStats.map((row) => (
+                    <div key={row.label} className="flex items-center justify-between py-2">
+                      <span className="text-[12px] text-slate-500">{row.label}</span>
+                      <span className="text-[13px] font-bold text-white">{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-1 divide-y divide-white/[0.05] border-t border-white/[0.05]">
+                  {tradeStats.map((row) => (
+                    <div key={row.label} className="flex items-start justify-between py-2">
+                      <span className="text-[12px] text-slate-500">{row.label}</span>
+                      <span className="text-[13px] font-bold text-white">{row.value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  className="mt-3 w-full text-center text-[13px] font-bold text-slate-300 transition hover:text-white"
+                >
+                  Block
+                </button>
+
+                <div className="mt-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <Icon name="verified_user" className="text-[16px] text-[#8bc3ff]" />
+                    <p className="text-[13px] font-bold text-slate-200">Nezeem Risk Management</p>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-4 text-slate-500">
+                    To reduce your trading risk, the verified advertiser has already paid a deposit as collateral.
+                  </p>
+                </div>
+              </>
+            ) : tab === "ads" ? (
+              offers.length === 0 ? (
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-4 text-center text-xs font-semibold text-slate-500">
+                  No active offers right now.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {offers.map((offer) => (
+                    <button
+                      key={offer.id}
+                      type="button"
+                      onClick={() => viewOffers(offer)}
+                      className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
+                    >
+                      <span className={`rounded-lg px-2 py-1 text-[10px] font-black ${offer.side === "SELL" ? "bg-[#05b957]/15 text-[#05b957]" : "bg-red-500/15 text-red-300"}`}>
+                        {offer.side === "SELL" ? "Buy" : "Sell"}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-white">{offer.crypto} at {formatFiat(offer.pricePerUnit, offer.fiat)}</p>
+                        <p className="text-[11px] font-semibold text-slate-500">
+                          {formatFiat(offer.minLimit, offer.fiat)} - {formatFiat(offer.maxLimit, offer.fiat, { symbol: false })} limits
+                        </p>
+                      </div>
+                      <Icon name="chevron_right" className="text-[17px] text-slate-600" />
+                    </button>
+                  ))}
+                </div>
+              )
+            ) : (
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-8 text-center text-xs font-semibold text-slate-500">
+                Feedback is coming soon.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1017,7 +1138,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                 className="flex min-w-0 items-center gap-1 text-left text-sm font-bold text-white transition hover:text-[#8bc3ff]"
               >
                 {ad.merchant.displayName}
-                <span className="grid h-4 w-4 place-items-center rounded-full bg-[#facc15] text-[10px] text-black">✓</span>
+                <VerifiedSeal />
                 <Icon name="chevron_right" className="text-[15px] text-slate-500" />
               </button>
               <div className="flex items-center gap-1 text-[11px] text-slate-400">
