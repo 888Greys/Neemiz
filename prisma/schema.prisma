@@ -33,6 +33,8 @@ model User {
   merchantProfile  MerchantProfile?
   p2pBuyOrders     P2POrder[]             @relation("P2PBuyer")
   p2pMessages      P2PMessage[]
+  p2pFeedbacksGiven    P2PFeedback[] @relation("P2PFeedbackGiven")
+  p2pFeedbacksReceived P2PFeedback[] @relation("P2PFeedbackReceived")
   notifications    Notification[]
   cryptoBalances   UserCryptoBalance[]
   depositAddresses CryptoDepositAddress[]
@@ -341,11 +343,30 @@ model P2POrder {
 
   messages P2PMessage[]
   dispute  P2PDispute?
+  feedback P2PFeedback[]
 
   @@index([buyerId, createdAt(sort: Desc)])
   @@index([sellerId, createdAt(sort: Desc)])
   @@index([status, expiresAt])
   @@map("p2p_orders")
+}
+
+model P2PFeedback {
+  id         String   @id @default(cuid())
+  orderId    String   @map("order_id")
+  order      P2POrder @relation(fields: [orderId], references: [id])
+  fromUserId String   @map("from_user_id")
+  fromUser   User     @relation("P2PFeedbackGiven", fields: [fromUserId], references: [id])
+  toUserId   String   @map("to_user_id")
+  toUser     User     @relation("P2PFeedbackReceived", fields: [toUserId], references: [id])
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@unique([orderId, fromUserId])
+  @@index([toUserId, createdAt(sort: Desc)])
+  @@map("p2p_feedback")
 }
 
 model P2PMessage {
