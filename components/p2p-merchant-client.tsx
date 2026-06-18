@@ -34,10 +34,31 @@ interface MerchantStatus {
   applied: boolean;
   id?: string;
   displayName?: string;
+  avatarUrl?: string | null;
   isVerified?: boolean;
   kycStatus?: "PENDING" | "APPROVED" | "REJECTED";
   kycNote?: string | null;
   createdAt?: string;
+  totalTrades?: number;
+  completedTrades?: number;
+  completionRate?: number;
+  avgReleaseTime?: number;
+  activeAds?: number;
+  feedbackCount?: number;
+  feedbackAverage?: number;
+  positiveFeedbackRate?: number;
+  feedback?: MerchantFeedback[];
+}
+
+interface MerchantFeedback {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  fromUser: {
+    displayName: string;
+    imageUrl?: string | null;
+  };
 }
 
 interface Deposit {
@@ -1185,6 +1206,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     terms: ad?.terms ?? "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState(0); // 0=Type & Price · 1=Amount & Method · 2=Conditions
   const [cryptoOpen, setCryptoOpen] = useState(false);
   const [spotRate, setSpotRate] = useState<number | null>(null);
   const [savedPaymentMethods, setSavedPaymentMethods] = useState<PayMethod[]>([]);
@@ -1360,48 +1382,77 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     } finally { setSubmitting(false); }
   }
 
+  // Validate the current step before advancing. Each guard mirrors a rule that
+  // submit() enforces, so the user can't reach the final step with bad input.
+  function goNext() {
+    if (step === 0) {
+      if (priceNum <= 0) return toast.error("Enter a valid price first");
+      if (canUseMarginPricing) {
+        const pct = Number(form.profitMarginPct);
+        if (Number.isFinite(pct) && pct <= -100) return toast.error("Margin must be greater than -100%");
+      }
+      return setStep(1);
+    }
+    if (step === 1) {
+      if (savedPaymentMethods.length === 0) return toast.error("Add a payment method in Merchant Center before posting an ad");
+      if (!isEditing && totalAmountNum <= 0) return toast.error(`Enter the total ${form.crypto} amount`);
+      if (needsKesBacking) return toast.error(`Top up your fiat wallet first. This KES Coin sell ad needs KSh ${requiredKesBacking.toLocaleString("en-KE")}.`);
+      if (exceedsSellableBalance) return toast.error(`You can sell up to ${sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto} from escrow.`);
+      if (!form.minLimit || !form.maxLimit) return toast.error("Enter min and max order limits");
+      if (!form.paymentMethods.length) return toast.error("Select at least one payment method");
+      return setStep(2);
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-0 sm:p-4" onClick={onClose}>
-      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[380px] flex-col overflow-y-auto bg-[#1d2531] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-[18px]" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 z-10 bg-[#1d2531] px-4 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))]">
-          <div className="mb-7 flex items-center justify-between">
-            <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-slate-100 transition hover:bg-white/[0.06]">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/90 backdrop-blur-md p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden border border-white/10 bg-[#0b0b11] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        {/* ── Header + stepper ── */}
+        <div className="shrink-0 border-b border-white/[0.07] bg-[#0b0b11] px-4 pb-5 pt-[calc(1.1rem+env(safe-area-inset-top))]">
+          <div className="mb-6 flex items-center justify-between">
+            <button onClick={step === 0 ? onClose : () => setStep((s) => s - 1)} className="flex h-9 w-9 items-center justify-center rounded-full text-slate-200 transition hover:bg-white/[0.06]">
               <Icon name="arrow_back" className="text-[20px]" />
             </button>
-            <h3 className="text-[15px] font-black tracking-wide text-white">{isEditing ? "Edit Normal Ad" : "Post Normal Ad"}</h3>
-            <button type="button" className="flex h-8 w-8 items-center justify-center rounded-full text-slate-100 transition hover:bg-white/[0.06]" aria-label="Ad help">
+            <h3 className="text-[15px] font-black tracking-wide text-white">{isEditing ? "Edit Ad" : "Post Normal Ad"}</h3>
+            <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full text-slate-200 transition hover:bg-white/[0.06]" aria-label="Ad help">
               <Icon name="help_outline" className="text-[19px]" />
             </button>
           </div>
 
           <div className="relative grid grid-cols-3 text-center">
-            <div className="absolute left-[10%] right-[10%] top-[9px] h-px bg-[#394454]" />
-            {[
-              ["1", "Set Type & Price"],
-              ["2", "Set Amount & Method"],
-              ["3", "Set Conditions"],
-            ].map(([step, label], index) => (
-              <div key={step} className="relative z-[1] flex flex-col items-center">
-                <span className={`flex h-5 w-5 items-center justify-center rounded-[6px] text-[10px] font-black ${index === 0 ? "bg-slate-100 text-[#1d2531]" : "bg-[#303a47] text-slate-500"}`}>
-                  {step}
-                </span>
-                <span className={`mt-3 max-w-[86px] text-[10px] font-black leading-4 ${index === 0 ? "text-slate-100" : "text-slate-500"}`}>
-                  {label}
-                </span>
-              </div>
-            ))}
+            <div className="absolute left-[16.66%] right-[16.66%] top-[11px] h-0.5 -translate-y-1/2 bg-white/[0.08]" />
+            <div className="absolute left-[16.66%] top-[11px] h-0.5 -translate-y-1/2 bg-[#087cff] transition-all duration-300" style={{ width: step === 0 ? "0%" : step === 1 ? "33.33%" : "66.66%" }} />
+            {["Set Type & Price", "Set Amount & Method", "Set Conditions"].map((label, index) => {
+              const done = index < step;
+              const active = index === step;
+              return (
+                <div key={label} className="relative z-[1] flex flex-col items-center">
+                  <span className={`flex h-[22px] w-[22px] items-center justify-center rounded-full text-[10px] font-black transition-colors ${active ? "bg-[#087cff] text-white" : done ? "bg-[#087cff]/20 text-[#55aaff]" : "bg-white/[0.06] text-slate-500"}`}>
+                    {done ? <Icon name="check" className="text-[14px]" /> : index + 1}
+                  </span>
+                  <span className={`mt-2.5 max-w-[92px] text-[10px] font-black leading-4 ${active ? "text-white" : done ? "text-slate-300" : "text-slate-500"}`}>
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="grid gap-5 px-4 pb-5 pt-2">
+        {/* ── Body ── */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+
+          {/* ════ STEP 1 — Set Type & Price ════ */}
+          {step === 0 && (
+          <div className="grid gap-5">
           {/* Side selector */}
           <div>
-            <label className="mb-2 block text-[12px] font-medium text-slate-400">I want to</label>
-            <div className="grid grid-cols-2 rounded-[6px] bg-[#2a3442] p-0.5">
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">I want to</label>
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#08080c]/60 p-1">
               {["BUY","SELL"].map((s) => (
                 <button key={s} onClick={() => !isEditing && f("side", s)}
                   disabled={isEditing}
-                  className={`h-8 rounded-[4px] text-[12px] font-black capitalize transition-all ${form.side === s ? "bg-[#202936] text-white" : "text-slate-400 hover:text-white"}`}>
+                  className={`h-9 rounded-lg text-[12px] font-black capitalize transition-all ${form.side === s ? (s === "BUY" ? "bg-[#05b957] text-white shadow shadow-[#05b957]/20" : "bg-red-500 text-white shadow shadow-red-500/20") : "text-slate-400 hover:text-white"} ${isEditing ? "cursor-not-allowed opacity-70" : ""}`}>
                   {s.toLowerCase()}
                 </button>
               ))}
@@ -1411,16 +1462,18 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           <div className="grid grid-cols-2 gap-2.5">
           {/* Crypto dropdown */}
           <div>
-            <label className="mb-2 block text-[12px] font-medium text-slate-400">Asset</label>
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Asset</label>
             <div className="relative">
               <button
                 type="button"
                 disabled={isEditing}
                 onClick={() => !isEditing && setCryptoOpen((v) => !v)}
-                className="flex h-[42px] w-full items-center gap-2 rounded-[8px] bg-[#2a3442] px-3 text-[14px] font-black text-white transition-colors hover:bg-[#303b49] disabled:opacity-60"
+                className="flex h-12 w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-black text-white transition-colors hover:border-white/20 disabled:opacity-60"
               >
                 {(() => { const m = P2P_CRYPTOS.find((c) => c.symbol === form.crypto); return m ? (
                   <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={m.icon} alt={m.symbol} className="h-5 w-5 rounded-full" />
                     <span className="font-black">{m.symbol}</span>
                   </>
                 ) : <span>{form.crypto}</span>; })()}
@@ -1429,7 +1482,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               {cryptoOpen && !isEditing && (
                 <>
                   <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setCryptoOpen(false)} />
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-[8px] bg-[#26303c] p-1 shadow-2xl shadow-black/60 ring-1 ring-white/[0.08]">
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
                     {P2P_CRYPTOS.map((c) => (
                       <button
                         key={c.symbol}
@@ -1443,13 +1496,13 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                           }));
                           setCryptoOpen(false);
                         }}
-                        className={`flex w-full items-center gap-2.5 rounded-[6px] px-2.5 py-2 text-left transition-colors ${form.crypto === c.symbol ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${form.crypto === c.symbol ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={c.icon} alt={c.symbol} className="h-5 w-5 rounded-full" />
                         <span className="text-sm font-black text-white">{c.symbol}</span>
                         <span className="truncate text-xs font-semibold text-slate-500">{c.name}</span>
-                        {form.crypto === c.symbol && <Icon name="check" className="ml-auto shrink-0 text-[16px] text-[#facc15]" />}
+                        {form.crypto === c.symbol && <Icon name="check" className="ml-auto shrink-0 text-[16px] text-[#55aaff]" />}
                       </button>
                     ))}
                   </div>
@@ -1460,16 +1513,16 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
 
           {/* Fiat currency selector */}
           <div>
-            <label className="mb-2 block text-[12px] font-medium text-slate-400">With Fiat</label>
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">With Fiat</label>
             <div className="relative">
               <select value={form.fiat} onChange={(e) => {
                   const nextFiat = e.target.value;
                   const allowed = new Set(paymentMethodsForFiat(nextFiat).map((m) => m.value));
                   setForm((p) => ({ ...p, fiat: nextFiat, paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)) }));
                 }}
-                className="h-[42px] w-full appearance-none rounded-[8px] bg-[#2a3442] px-3 pr-9 text-[14px] font-black text-white outline-none transition-colors focus:bg-[#303b49]">
+                className="h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 pr-9 text-[14px] font-black text-white outline-none transition-colors hover:border-white/20 focus:border-[#087cff]/40">
                 {FIAT_CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code} style={{ background: "#2a3442", color: "#fff" }}>{c.code}</option>
+                  <option key={c.code} value={c.code} style={{ background: "#111118", color: "#fff" }}>{c.code}</option>
                 ))}
               </select>
               <Icon name="arrow_drop_down" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[22px] text-slate-500" />
@@ -1478,12 +1531,12 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </div>
 
           <div>
-            <label className="mb-2 block text-[12px] font-medium text-slate-400">Price Type</label>
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price Type</label>
             <div className="relative">
               <select
                 value="Fixed"
                 disabled
-                className="h-[42px] w-full appearance-none rounded-[8px] bg-[#2a3442] px-3 pr-9 text-[14px] font-medium text-white outline-none"
+                className="h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 pr-9 text-[14px] font-bold text-white outline-none"
               >
                 <option>Fixed</option>
               </select>
@@ -1492,8 +1545,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </div>
 
           <div>
-            <label className="mb-2 block text-[12px] font-medium text-slate-400">Fixed</label>
-            <div className="grid h-[42px] grid-cols-[42px_1fr_42px] items-center overflow-hidden rounded-[8px] bg-[#2a3442]">
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Fixed price</label>
+            <div className="grid h-12 grid-cols-[48px_1fr_48px] items-center overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.04] focus-within:border-[#087cff]/40">
               <button type="button" onClick={() => setPriceManually(priceNum > 0 ? formatPriceInput(priceNum * 0.99, form.fiat) : "")} className="flex h-full items-center justify-center text-slate-500 transition hover:text-white">
                 <Icon name="remove" className="text-[20px]" />
               </button>
@@ -1501,27 +1554,27 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                 type="number"
                 value={form.pricePerUnit}
                 onChange={(e) => setPriceManually(e.target.value)}
-                placeholder="-"
-                className="min-w-0 bg-transparent text-center text-[14px] font-black text-white placeholder:text-slate-500 outline-none"
+                placeholder="0"
+                className="min-w-0 bg-transparent text-center text-[15px] font-black text-white placeholder:text-slate-600 outline-none"
               />
               <button type="button" onClick={() => setPriceManually(priceNum > 0 ? formatPriceInput(priceNum * 1.01, form.fiat) : "")} className="flex h-full items-center justify-center text-slate-500 transition hover:text-white">
                 <Icon name="add" className="text-[20px]" />
               </button>
             </div>
-            <p className="mt-1.5 text-[10px] font-medium text-slate-500">
+            <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
               Price range: {priceRangeMin && priceRangeMax ? `${formatPriceInput(priceRangeMin, form.fiat)} - ${formatPriceInput(priceRangeMax, form.fiat)}` : "--"}
             </p>
           </div>
 
-          <div className="space-y-3 border-b border-dashed border-slate-700/80 pb-3">
+          <div className="space-y-3 rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
             <div className="flex items-center gap-3">
-              <span className="text-[12px] font-medium text-slate-500">Your Price</span>
-              <span className="text-[16px] font-black text-white">{priceNum > 0 ? formatFiat(priceNum, form.fiat) : "--"}</span>
+              <span className="text-[12px] font-semibold text-slate-500">Your Price</span>
+              <span className="ml-auto text-[16px] font-black text-white">{priceNum > 0 ? formatFiat(priceNum, form.fiat) : "--"}</span>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-[12px] font-medium text-slate-500">Highest Order Price</span>
-              <span className="text-[16px] font-black text-white">{highestOrderPrice ? formatFiat(highestOrderPrice, form.fiat) : "--"}</span>
-              <Icon name="loyalty" className="ml-auto text-[24px] text-indigo-400" />
+              <span className="text-[12px] font-semibold text-slate-500">Highest Order Price</span>
+              <span className="ml-auto text-[16px] font-black text-white">{highestOrderPrice ? formatFiat(highestOrderPrice, form.fiat) : "--"}</span>
+              <Icon name="loyalty" className="text-[22px] text-[#55aaff]" />
             </div>
             {form.pricePerUnit && marginPct !== null ? (
               <p className="text-[10px] font-bold">
@@ -1538,7 +1591,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </div>
 
           <div>
-            <label className="mb-2 block text-[12px] font-medium text-slate-400">
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">
               Profit / margin (%)
             </label>
             <div className="grid grid-cols-[1fr_auto] gap-2">
@@ -1549,32 +1602,37 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                 onChange={(e) => setPriceFromMargin(e.target.value)}
                 disabled={!canUseMarginPricing}
                 placeholder={canUseMarginPricing ? "e.g. 3.5 or -10" : "Market rate unavailable"}
-                className="h-[42px] w-full rounded-[8px] bg-[#2a3442] px-3 text-[14px] text-white placeholder:text-slate-600 outline-none focus:bg-[#303b49] disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] text-white placeholder:text-slate-600 outline-none transition-colors focus:border-[#087cff]/40 disabled:cursor-not-allowed disabled:opacity-50"
               />
               <button
                 type="button"
                 disabled={!canUseMarginPricing}
                 onClick={() => setPriceFromMargin("0")}
-                className="h-[42px] rounded-[8px] bg-[#2a3442] px-3 text-xs font-black text-slate-300 transition-colors hover:bg-[#303b49] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-xs font-black text-slate-300 transition-colors hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Market
               </button>
             </div>
             {!canUseMarginPricing ? (
-              <p className="mt-1.5 text-[10px] font-medium text-slate-500">
+              <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
                 Percentage pricing is not available for {form.crypto}/{form.fiat}; enter the price directly.
               </p>
             ) : isKesCoinForm ? (
-              <p className="mt-1.5 text-[10px] font-medium text-slate-500">
+              <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
                 KES Coin is pegged 1:1. Your % is the spread buyers pay on top.
               </p>
             ) : (
-              <p className="mt-1.5 text-[10px] font-medium text-slate-500">
+              <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
                 Uses live market {formatFiat(spotRate!, form.fiat)}/{form.crypto} to calculate your price.
               </p>
             )}
           </div>
+          </div>
+          )}
 
+          {/* ════ STEP 2 — Set Amount & Method ════ */}
+          {step === 1 && (
+          <div className="grid gap-5">
           {!isEditing && (
             <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
               <div className="mb-2 flex items-center justify-between gap-3">
@@ -1708,30 +1766,60 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               </div>
             )}
           </div>
+          </div>
+          )}
+
+          {/* ════ STEP 3 — Set Conditions ════ */}
+          {step === 2 && (
+          <div className="grid gap-5">
+          <div>
+            <label className="text-[11px] font-black text-slate-400 mb-2 block uppercase tracking-wide">Payment window</label>
+            <select value={form.paymentWindow} onChange={(e) => f("paymentWindow", e.target.value)}
+              className="h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-bold text-white outline-none transition-colors hover:border-white/20 focus:border-[#087cff]/40">
+              {[10,15,20,30].map((w) => <option key={w} value={w} style={{ background: "#111118", color: "#fff" }}>{w} minutes</option>)}
+            </select>
+            <p className="mt-1.5 text-[10px] font-semibold text-slate-500">Buyers must complete payment within this window or the order expires.</p>
+          </div>
 
           <div>
-            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Payment window</label>
-            <select value={form.paymentWindow} onChange={(e) => f("paymentWindow", e.target.value)}
-              className="w-full appearance-none rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2 text-sm text-white outline-none">
-              {[10,15,20,30].map((w) => <option key={w} value={w} style={{ background: "#1a1b22", color: "#fff" }}>{w} minutes</option>)}
-            </select>
+            <label className="text-[11px] font-black text-slate-400 mb-2 block uppercase tracking-wide">Trade terms <span className="normal-case text-slate-600">(optional)</span></label>
+            <textarea value={form.terms} onChange={(e) => f("terms", e.target.value)} placeholder="Any specific requirements for buyers…" rows={3}
+              className="w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
           </div>
 
-          <div className="lg:col-span-2">
-            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Trade terms <span className="normal-case text-slate-600">(optional)</span></label>
-            <textarea value={form.terms} onChange={(e) => f("terms", e.target.value)} placeholder="Any specific requirements for buyers…" rows={2}
-              className="w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none transition-colors focus:border-[#087cff]/40" />
+          {/* Review summary */}
+          <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
+            <p className="mb-2.5 text-[11px] font-black uppercase tracking-wide text-slate-500">Review</p>
+            <div className="space-y-1.5 text-[12px]">
+              <div className="flex items-center justify-between"><span className="text-slate-500">You want to</span><span className={`font-black ${form.side === "BUY" ? "text-[#05b957]" : "text-red-400"}`}>{form.side === "BUY" ? "Buy" : "Sell"} {form.crypto}</span></div>
+              <div className="flex items-center justify-between"><span className="text-slate-500">Price</span><span className="font-black text-white">{priceNum > 0 ? formatFiat(priceNum, form.fiat) : "--"}</span></div>
+              <div className="flex items-center justify-between"><span className="text-slate-500">Amount</span><span className="font-black text-white">{totalAmountNum > 0 ? `${totalAmountNum.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto}` : "--"}</span></div>
+              <div className="flex items-center justify-between"><span className="text-slate-500">Order limits</span><span className="font-black text-white">{form.minLimit && form.maxLimit ? `${form.fiat} ${Number(form.minLimit).toLocaleString()} – ${Number(form.maxLimit).toLocaleString()}` : "--"}</span></div>
+              <div className="flex items-center justify-between"><span className="text-slate-500">Payment</span><span className="font-black text-white">{form.paymentMethods.length ? form.paymentMethods.map((m) => paymentMethodLabel(m)).join(", ") : "--"}</span></div>
+            </div>
           </div>
+          </div>
+          )}
+
         </div>
 
-        {/* Pinned action bar — always visible above the bottom nav */}
-        <div className="sticky bottom-0 bg-[#1d2531] px-4 py-3 pb-[calc(1.35rem+env(safe-area-inset-bottom))]">
-          <button onClick={submit} disabled={submitting || paymentMethodsLoading || savedPaymentMethods.length === 0 || exceedsSellableBalance}
-            className="flex h-[35px] w-full items-center justify-center gap-2 rounded-[5px] bg-[#facc15] text-[13px] font-medium text-black shadow-lg shadow-black/20 transition-all hover:bg-[#ffd83d] active:scale-[0.98] disabled:opacity-50">
-            {submitting
-              ? <LoadingDots label={isEditing ? "Saving" : "Creating"} />
-              : isEditing ? "Save Changes" : "Next"}
-          </button>
+        {/* ── Footer ── */}
+        <div className="shrink-0 border-t border-white/[0.07] bg-[#0b0b11]/95 px-4 py-3 pb-[calc(1.1rem+env(safe-area-inset-bottom))]">
+          <div className="flex gap-2.5">
+            {step > 0 && (
+              <button type="button" onClick={() => setStep((s) => s - 1)}
+                className="flex h-12 flex-1 items-center justify-center rounded-xl border border-white/[0.1] bg-white/[0.04] text-[13px] font-black text-slate-200 transition hover:bg-white/[0.08]">
+                Back
+              </button>
+            )}
+            <button onClick={step === 2 ? submit : goNext}
+              disabled={step === 2 && (submitting || paymentMethodsLoading || savedPaymentMethods.length === 0 || exceedsSellableBalance)}
+              className={`flex h-12 items-center justify-center gap-2 rounded-xl bg-[#087cff] text-[13px] font-black text-white shadow-lg shadow-[#087cff]/20 transition-all hover:bg-[#1a78ff] active:scale-[0.98] disabled:opacity-50 ${step > 0 ? "flex-1" : "w-full"}`}>
+              {step === 2
+                ? (submitting ? <LoadingDots label={isEditing ? "Saving" : "Creating"} /> : isEditing ? "Save Changes" : "Post ad")
+                : "Next"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1744,9 +1832,10 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const { user } = useSupabaseAuth();
   const [ads, setAds]           = useState<Ad[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [merchantProfile, setMerchantProfile] = useState<MerchantStatus>(status);
   const [createOpen, setCreate] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
-  const [section, setSection] = useState<"overview" | "wallet" | "payments" | "ads">("overview");
+  const [section, setSection] = useState<"overview" | "profile" | "wallet" | "payments" | "ads">("overview");
   const [adFilter, setAdFilter] = useState<"ALL" | "ACTIVE" | "PAUSED" | "EXHAUSTED">("ALL");
   const [adPage, setAdPage] = useState(1);
   const [openAdMenu, setOpenAdMenu] = useState<string | null>(null);
@@ -1768,6 +1857,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed");
+      setMerchantProfile((current) => ({ ...current, displayName: n }));
       setDisplayName(n); setEditingName(false);
       toast.success("Display name updated");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
@@ -1808,6 +1898,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ avatarUrl: publicUrl }),
       }).catch(() => {});
+      setMerchantProfile((current) => ({ ...current, avatarUrl: publicUrl }));
 
       toast.success("Profile picture updated");
     } catch (err) {
@@ -1825,6 +1916,17 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   }, []);
 
   useEffect(() => { loadAds(); }, [loadAds]);
+
+  const loadMerchantProfile = useCallback(async () => {
+    try {
+      const r = await fetch("/api/p2p/merchant/profile", { cache: "no-store" });
+      if (r.ok) setMerchantProfile(await r.json());
+    } catch {
+      /* keep initial profile payload */
+    }
+  }, []);
+
+  useEffect(() => { loadMerchantProfile(); }, [loadMerchantProfile]);
 
   useEffect(() => {
     fetch("/api/p2p/fx")
@@ -1884,6 +1986,19 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const adsPerPage = 8;
   const adPageCount = Math.max(1, Math.ceil(filteredAds.length / adsPerPage));
   const visibleAds = filteredAds.slice((adPage - 1) * adsPerPage, adPage * adsPerPage);
+  const profileCreatedAt = merchantProfile.createdAt ?? status.createdAt;
+  const profileCompleted = Number(merchantProfile.completedTrades ?? 0);
+  const profileTotal = Number(merchantProfile.totalTrades ?? profileCompleted);
+  const profileCompletion = Number(merchantProfile.completionRate ?? 0);
+  const profileRelease = Number(merchantProfile.avgReleaseTime ?? 0);
+  const profileFeedbackCount = Number(merchantProfile.feedbackCount ?? 0);
+  const profileFeedbackAverage = Number(merchantProfile.feedbackAverage ?? 0);
+  const profilePositiveRate = Number(merchantProfile.positiveFeedbackRate ?? 0);
+  const profileFeedback = merchantProfile.feedback ?? [];
+  const profileRegistered = profileCreatedAt
+    ? `${Math.max(0, Math.floor((Date.now() - new Date(profileCreatedAt).getTime()) / 86_400_000)).toLocaleString()} Day(s) ago`
+    : "—";
+  const profileReleaseLabel = profileRelease > 0 ? `${profileRelease.toFixed(2)} Minute(s)` : "—";
 
   return (
     <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4">
@@ -1972,6 +2087,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-white/[0.07] bg-[#101118] p-1 sm:flex sm:overflow-x-auto">
         {([
           ["overview", "Overview", "dashboard"],
+          ["profile", "Profile", "person"],
           ["wallet", "Wallet & Escrow", "account_balance_wallet"],
           ["payments", "Payment Methods", "payments"],
           ["ads", `Ads ${ads.length}`, "campaign"],
@@ -2060,6 +2176,73 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </button>
           </div>
         </>
+      )}
+
+      {section === "profile" && (
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <div className="rounded-xl border border-white/[0.07] bg-[#111118] p-4">
+            <p className="mb-4 text-xs font-black uppercase tracking-wide text-slate-500">Public profile stats</p>
+
+            <div className="divide-y divide-white/[0.06]">
+              {[
+                ["30d Trades", profileCompleted.toLocaleString()],
+                ["30d Completion Rate", `${profileCompletion.toFixed(1)}%`],
+                ["Avg. Release Time", profileReleaseLabel],
+                ["Positive Feedback", `${profilePositiveRate.toFixed(1)}%`],
+                ["Avg. Rating", profileFeedbackCount > 0 ? `${profileFeedbackAverage.toFixed(1)} / 5` : "—"],
+                ["Registered", profileRegistered],
+                ["All Trades", `${profileTotal.toLocaleString()} Time(s)`],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                  <span className="text-slate-500">{label}</span>
+                  <span className="text-right font-black text-white">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-white/[0.07] bg-[#111118] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-black text-white">Received Feedback</h2>
+                <p className="mt-0.5 text-xs text-slate-500">{profileFeedbackCount} review{profileFeedbackCount === 1 ? "" : "s"} from completed trades</p>
+              </div>
+              <span className="rounded-lg bg-[#05b957]/10 px-2.5 py-1 text-xs font-black text-[#05b957]">
+                {profileFeedbackCount > 0 ? `${profileFeedbackAverage.toFixed(1)} / 5` : "New"}
+              </span>
+            </div>
+
+            {profileFeedback.length === 0 ? (
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-8 text-center">
+                <Icon name="rate_review" className="mx-auto text-2xl text-slate-600" />
+                <p className="mt-2 text-sm font-black text-white">No feedback yet</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">Feedback will appear here after completed traders submit reviews.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {profileFeedback.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
+                    <div className="flex items-center gap-2">
+                      {item.fromUser.imageUrl ? (
+                        <img src={item.fromUser.imageUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+                      ) : (
+                        <div className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.08] text-[12px] font-black text-white">
+                          {item.fromUser.displayName.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-black text-white">{item.fromUser.displayName}</p>
+                        <p className="text-[11px] font-bold text-[#05b957]">{"★".repeat(item.rating)}{"☆".repeat(5 - item.rating)}</p>
+                      </div>
+                      <span className="text-[10px] text-slate-600">{new Date(item.createdAt).toLocaleDateString("en-KE", { month: "short", day: "2-digit" })}</span>
+                    </div>
+                    {item.comment && <p className="mt-2 text-xs leading-5 text-slate-400">{item.comment}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {section === "wallet" && <DepositSection />}
