@@ -99,6 +99,11 @@ import {
   X,
   XCircle,
   Zap,
+  Ban,
+  Copy,
+  Lightbulb,
+  Share2,
+  UserPlus,
 } from "lucide-react";
 
 // ─── Icon name → Lucide component map ────────────────────────────────────────
@@ -120,6 +125,7 @@ const iconMap: Record<string, LucideIcon> = {
   // B
   badge: BadgeCheck,
   bar_chart: BarChart2,
+  block: Ban,
   bolt: Zap,
 
   // C
@@ -130,8 +136,10 @@ const iconMap: Record<string, LucideIcon> = {
   candlestick_chart: CandlestickChart,
   casino: Dices,
   chat: MessageCircle,
+  chat_bubble: MessageCircle,
   chat_bubble_outline: MessageCircle,
   check: Check,
+  content_copy: Copy,
   check_circle: CheckCircle,
   chevron_left: ChevronLeft,
   chevron_right: ChevronRight,
@@ -174,6 +182,7 @@ const iconMap: Record<string, LucideIcon> = {
   info: Info,
 
   // K
+  keyboard_arrow_down: ChevronDown,
   keyboard_double_arrow_left: ChevronsLeft,
   keyboard_double_arrow_right: ChevronsRight,
 
@@ -204,6 +213,7 @@ const iconMap: Record<string, LucideIcon> = {
   qr_code: QrCode,
   pending: Clock,
   person: User,
+  person_add: UserPlus,
   phone: Phone,
   phone_iphone: Smartphone,
   photo_camera: Camera,
@@ -220,9 +230,11 @@ const iconMap: Record<string, LucideIcon> = {
   rocket_launch: Rocket,
 
   // S
+  schedule: Clock,
   search: Search,
   security: ShieldCheck,
   send: Send,
+  share: Share2,
   sensors: Activity,
   settings: Settings,
   shield: Shield,
@@ -238,6 +250,7 @@ const iconMap: Record<string, LucideIcon> = {
   task_alt: CheckCircle2,
   telegram: Send,
   timer: Timer,
+  tips_and_updates: Lightbulb,
   trending_down: TrendingDown,
   trending_up: TrendingUp,
 

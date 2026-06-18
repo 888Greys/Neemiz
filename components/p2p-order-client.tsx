@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { invalidate } from "@/lib/client-cache";
@@ -30,6 +30,7 @@ interface OrderData {
   paidAt: string | null;
   releasedAt: string | null;
   cancelReason: string | null;
+  merchantId: string;
   buyer: { id: string; firstName: string | null; lastName: string | null; username: string | null };
   seller: {
     displayName: string;
@@ -465,6 +466,16 @@ function MobileP2POrderView({
   const [mobileDisputeReason, setMobileDisputeReason] = useState("");
   const [showReleaseConfirm, setShowReleaseConfirm] = useState(false);
   const [releaseChoice, setReleaseChoice] = useState<"none" | "received">("none");
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [followed, setFollowed] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Open the chat straight away when arriving from the orders list "chat" chip.
+  useEffect(() => {
+    if (searchParams.get("chat") === "1") setShowChat(true);
+  }, [searchParams]);
 
   const merchantIsSelling = order.side === "SELL";
   const paymentName = paymentMethodLabel(order.paymentMethod);
@@ -607,9 +618,144 @@ function MobileP2POrderView({
     );
   }
 
-  // ── Terminal state screen (Completed / Cancelled / Expired / Disputed) ──
-  if (["RELEASED", "CANCELLED", "EXPIRED", "DISPUTED"].includes(order.status)) {
-    const isSuccess = order.status === "RELEASED";
+  // ── Completed order details (RELEASED) ──────────────────────────────────────
+  if (order.status === "RELEASED") {
+    const received = isPaymentActor(order); // current user received the crypto
+    const sideLabel = received ? "Buy" : "Sell";
+    const verb = received ? "bought" : "sold";
+    const qty = received ? Number(order.netCryptoAmount) : Number(order.cryptoAmount);
+    const signedQty = `${received ? "+" : "-"}${qty.toFixed(qty % 1 === 0 ? 0 : 2)} ${order.crypto}`;
+    const refMsg = orderId.toUpperCase();
+    const copy = (t: string) => { navigator.clipboard?.writeText(t).then(() => toast.success("Copied")).catch(() => {}); };
+
+    return (
+      <div className="lg:hidden flex flex-col min-h-[calc(100dvh-7rem)] bg-[#08080c] text-white">
+        {/* Top bar */}
+        <div className="grid grid-cols-[36px_1fr_36px] items-center border-b border-white/[0.08] px-4 pb-3 pt-3">
+          <button type="button" onClick={onBack} className="grid h-9 w-9 place-items-center rounded-full text-white">
+            <Icon name="arrow_back" className="text-[21px]" />
+          </button>
+          <span className="text-center text-sm font-black">Order Details</span>
+          <div />
+        </div>
+
+        <div className="relative flex-1 overflow-y-auto px-4 py-5 pb-[calc(7rem+env(safe-area-inset-bottom))]">
+          {/* Headline */}
+          <div className="mb-5 text-center">
+            <p className="text-[30px] font-black tabular-nums">{signedQty}</p>
+            <p className="mt-1 flex items-center justify-center gap-1.5 text-[15px] font-bold text-[#05b957]">
+              <Icon name="check_circle" className="text-[18px]" />
+              Order Completed
+            </p>
+            <p className="mt-1 text-[12px] text-slate-500">Successfully {verb} {qty.toFixed(qty % 1 === 0 ? 0 : 2)} {order.crypto}</p>
+          </div>
+
+          {/* Summary card */}
+          <div className="mb-5 rounded-2xl border border-white/[0.08] bg-[#111118] px-4 py-4">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-sm font-black">
+                <span className={received ? "text-[#05b957]" : "text-red-500"}>{sideLabel}</span> {order.crypto}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowChat(true)}
+                className="rounded-lg bg-[#087cff] px-3.5 py-1.5 text-xs font-black text-white transition-colors hover:bg-[#0570e8]"
+              >
+                Chat
+              </button>
+            </div>
+            <div className="space-y-3">
+              <InfoRow label="Fiat Amount" value={formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })} />
+              <InfoRow label="Price" value={formatFiat(Number(order.pricePerUnit), order.ad.fiat)} />
+              <InfoRow label="Total Quantity" value={`${Number(order.cryptoAmount).toFixed(2)} ${order.crypto}`} />
+              {summaryOpen && (
+                <>
+                  <InfoRow label="P2P Fee" value={`${Number(order.p2pFeeAmount).toFixed(6)} ${order.crypto}`} />
+                  <InfoRow label="Credited Quantity" value={`${Number(order.netCryptoAmount).toFixed(6)} ${order.crypto}`} />
+                  <InfoRow label="Order Time" value={new Date(order.createdAt).toLocaleString("en-KE", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })} />
+                </>
+              )}
+            </div>
+            <button type="button" onClick={() => setSummaryOpen((o) => !o)} className="mt-2 flex w-full justify-center text-slate-500 transition hover:text-white">
+              <Icon name={summaryOpen ? "expand_less" : "expand_more"} className="text-[20px]" />
+            </button>
+          </div>
+
+          {/* Payment + reference */}
+          <div className="space-y-3 border-t border-white/[0.06] pt-4">
+            <div className="flex items-center justify-between gap-3 text-[13px]">
+              <span className="font-bold text-slate-400">Payment method</span>
+              <span className="flex items-center gap-1.5 font-bold text-white">
+                <span className={`h-3.5 w-0.5 rounded-full ${order.paymentMethod === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
+                {paymentName}
+              </span>
+            </div>
+            <div className="flex items-start justify-between gap-3 text-[13px]">
+              <span className="shrink-0 font-bold text-slate-400">Ref Message</span>
+              <span className="flex min-w-0 items-center gap-1.5 text-right font-semibold text-white">
+                <span className="min-w-0 break-all font-mono">{refMsg}</span>
+                <button type="button" onClick={() => copy(refMsg)} className="shrink-0 text-slate-500 transition hover:text-white">
+                  <Icon name="content_copy" className="text-[13px]" />
+                </button>
+              </span>
+            </div>
+          </div>
+
+          {/* Action rows */}
+          <div className="mt-4 divide-y divide-white/[0.06] border-t border-white/[0.06]">
+            <button type="button" onClick={() => setShowChat(true)} className="flex w-full items-center justify-between py-3.5 text-sm font-bold text-white">
+              Need help
+              <Icon name="chevron_right" className="text-[18px] text-slate-500" />
+            </button>
+            <button type="button" onClick={() => setFeedbackOpen((o) => !o)} className="flex w-full items-center justify-between py-3.5 text-sm font-bold text-white">
+              Leave Feedback
+              <Icon name={feedbackOpen ? "expand_less" : "chevron_right"} className="text-[18px] text-slate-500" />
+            </button>
+            <div className="flex items-center justify-between py-3.5">
+              <span className="text-sm font-bold text-white">Follow this user</span>
+              <button
+                type="button"
+                onClick={() => setFollowed((f) => !f)}
+                aria-pressed={followed}
+                className={`relative h-6 w-11 rounded-full transition-colors ${followed ? "bg-[#087cff]" : "bg-white/15"}`}
+              >
+                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${followed ? "left-[22px]" : "left-0.5"}`} />
+              </button>
+            </div>
+          </div>
+
+          {feedbackOpen && (
+            <div className="mt-4">
+              <P2PFeedbackBox
+                feedback={order.myFeedback}
+                rating={feedbackRating}
+                comment={feedbackComment}
+                loading={feedbackLoading}
+                onRatingChange={onFeedbackRatingChange}
+                onCommentChange={onFeedbackCommentChange}
+                onSubmit={onSubmitFeedback}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Bottom: Order again → merchant profile */}
+        <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-[#1e1e30] bg-[#08080c] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+          <button
+            type="button"
+            onClick={() => router.push(`/p2p?merchant=${order.merchantId}&crypto=${order.crypto}`)}
+            className="h-12 w-full rounded-full bg-[#087cff] text-sm font-black text-white transition-colors hover:bg-[#0570e8]"
+          >
+            Order again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Terminal state screen (Cancelled / Expired / Disputed) ──
+  if (["CANCELLED", "EXPIRED", "DISPUTED"].includes(order.status)) {
+    const isSuccess = false; // RELEASED handled in its own view above
     const isCancelled = order.status === "CANCELLED";
     const isDisputed = order.status === "DISPUTED";
     const paymentLabel = paymentMethodLabel(order.paymentMethod);

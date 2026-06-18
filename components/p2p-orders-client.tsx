@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { getCached, cachedFetch } from "@/lib/client-cache";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
@@ -9,12 +10,17 @@ import { formatFiat } from "@/lib/p2p/currencies";
 import { P2PStatusBadge } from "@/components/p2p/status-badge";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
+import { toast } from "@/lib/toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type OrderStatus = "PENDING" | "PAID" | "RELEASED" | "DISPUTED" | "CANCELLED" | "EXPIRED";
 
-type FilterTab = "all" | "pending" | "completed" | "cancelled" | "expired";
+type MainTab = "ongoing" | "fulfilled";
+type SubFilter = "all" | "pending" | "processing" | "completed" | "cancelled" | "expired" | "appeal";
+
+const ONGOING_STATUSES: OrderStatus[] = ["PENDING", "PAID"];
+const FULFILLED_STATUSES: OrderStatus[] = ["RELEASED", "CANCELLED", "EXPIRED", "DISPUTED"];
 
 interface OrderSummary {
   id: string;
@@ -29,23 +35,37 @@ interface OrderSummary {
   createdAt: string;
 }
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
+// ─── Card row + helpers ───────────────────────────────────────────────────────
 
-// ─── Filter Tab Button ────────────────────────────────────────────────────────
-
-function FilterButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
   return (
-    <button
-      onClick={onClick}
-      className={`rounded-lg px-3 py-2 text-xs font-black transition-all lg:h-8 lg:px-3 lg:py-0 ${
-        active
-          ? "bg-[#087cff] text-white shadow-[0_2px_12px_rgba(8,124,255,.3)]"
-          : "bg-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/[0.08]"
-      }`}
-    >
-      {label}
-    </button>
+    <div className="flex items-center justify-between gap-3 text-[13px]">
+      <span className="shrink-0 text-slate-500">{label}</span>
+      <span className={`min-w-0 truncate text-right ${strong ? "text-[15px] font-black text-white" : "font-semibold text-white"}`}>
+        {value}
+      </span>
+    </div>
   );
+}
+
+// "06-17 14:39:51" — month-day hour:min:sec, matching the order-history design.
+function fmtTimestamp(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function statusMatchesSub(status: OrderStatus, sub: SubFilter): boolean {
+  switch (sub) {
+    case "all":        return true;
+    case "pending":    return status === "PENDING";
+    case "processing": return status === "PAID";
+    case "completed":  return status === "RELEASED";
+    case "cancelled":  return status === "CANCELLED";
+    case "expired":    return status === "EXPIRED";
+    case "appeal":     return status === "DISPUTED";
+  }
 }
 
 // ─── Main P2P Orders Client ───────────────────────────────────────────────────
@@ -55,9 +75,11 @@ const ORDERS_KEY = "/api/p2p/orders";
 export function P2POrdersClient() {
   const [orders, setOrders]   = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter]   = useState<FilterTab>("all");
+  const [mainTab, setMainTab] = useState<MainTab>("ongoing");
+  const [subFilter, setSubFilter] = useState<SubFilter>("all");
   const { isLoaded, isSignedIn } = useSupabaseAuth();
   const { openLogin } = useAuthModal();
+  const router = useRouter();
 
   const fetchOrders = useCallback(async (force = false) => {
     if (!isSignedIn) {
@@ -90,21 +112,30 @@ export function P2POrdersClient() {
     fetchOrders(true);
   }, [fetchOrders, isLoaded, isSignedIn]);
 
-  const filtered = orders.filter((o) => {
-    if (filter === "all")       return true;
-    if (filter === "pending")   return o.status === "PENDING" || o.status === "PAID";
-    if (filter === "completed") return o.status === "RELEASED";
-    if (filter === "cancelled") return o.status === "CANCELLED" || o.status === "DISPUTED";
-    if (filter === "expired")   return o.status === "EXPIRED";
-    return true;
-  });
+  const mainStatuses = mainTab === "ongoing" ? ONGOING_STATUSES : FULFILLED_STATUSES;
+  const filtered = orders.filter(
+    (o) => mainStatuses.includes(o.status) && statusMatchesSub(o.status, subFilter),
+  );
 
-  const tabCounts = {
-    all:       orders.length,
-    pending:   orders.filter((o) => o.status === "PENDING" || o.status === "PAID").length,
-    completed: orders.filter((o) => o.status === "RELEASED").length,
-    cancelled: orders.filter((o) => ["CANCELLED", "DISPUTED"].includes(o.status)).length,
-    expired:   orders.filter((o) => o.status === "EXPIRED").length,
+  const subChips: { id: SubFilter; label: string }[] =
+    mainTab === "ongoing"
+      ? [
+          { id: "all", label: "All" },
+          { id: "pending", label: "Pending" },
+          { id: "processing", label: "Processing" },
+        ]
+      : [
+          { id: "all", label: "All" },
+          { id: "completed", label: "Completed" },
+          { id: "cancelled", label: "Cancelled" },
+          { id: "expired", label: "Expired" },
+          { id: "appeal", label: "Appeal" },
+        ];
+
+  const switchTab = (tab: MainTab) => { setMainTab(tab); setSubFilter("all"); };
+
+  const copyOrderNo = (id: string) => {
+    navigator.clipboard?.writeText(id).then(() => toast.success("Order number copied")).catch(() => {});
   };
 
   return (
@@ -117,16 +148,39 @@ export function P2POrdersClient() {
         <p className="text-xs text-slate-500">Track all your buy and sell orders.</p>
       </div>
 
-      {/* Filter tabs */}
-      <div className="mb-3 flex flex-wrap items-center gap-2 lg:mb-2">
+      {/* Main tabs: Ongoing / Fulfilled */}
+      <div className="mb-3 flex items-center gap-6 border-b border-white/[0.08]">
         {([
-          { id: "all" as FilterTab,       label: `All (${tabCounts.all})` },
-          { id: "pending" as FilterTab,   label: `Pending (${tabCounts.pending})` },
-          { id: "completed" as FilterTab, label: `Completed (${tabCounts.completed})` },
-          { id: "cancelled" as FilterTab, label: `Cancelled (${tabCounts.cancelled})` },
-          ...(tabCounts.expired > 0 ? [{ id: "expired" as FilterTab, label: `Expired (${tabCounts.expired})` }] : []),
-        ] as const).map(({ id, label }) => (
-          <FilterButton key={id} active={filter === id} label={label} onClick={() => setFilter(id)} />
+          { id: "ongoing" as MainTab, label: "Ongoing" },
+          { id: "fulfilled" as MainTab, label: "Fulfilled" },
+        ]).map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => switchTab(id)}
+            className={`relative -mb-px pb-2.5 text-sm font-bold transition ${
+              mainTab === id ? "text-white" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {label}
+            {mainTab === id && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[#087cff]" />}
+          </button>
+        ))}
+      </div>
+
+      {/* Sub-filter chips */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {subChips.map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setSubFilter(id)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+              subFilter === id ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            {label}
+          </button>
         ))}
       </div>
 
@@ -139,78 +193,66 @@ export function P2POrdersClient() {
         </div>
       ) : !isSignedIn ? (
         <OrdersLoginState openLogin={openLogin} />
+      ) : orders.length === 0 ? (
+        <OrdersLaunchpad />
       ) : filtered.length === 0 ? (
-        filter === "all" ? (
-          <OrdersLaunchpad />
-        ) : (
-          <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-6 py-8 text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
-              <Icon name="receipt_long" className="text-xl text-slate-500" />
-            </div>
-            <p className="mb-1 text-base font-black text-white">No {filter} orders</p>
-            <p className="max-w-sm text-sm leading-6 text-slate-500">
-              Nothing here right now. Try another filter or start a new trade.
-            </p>
+        <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-6 py-8 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
+            <Icon name="receipt_long" className="text-xl text-slate-500" />
           </div>
-        )
+          <p className="mb-1 text-base font-black text-white">No {mainTab} orders</p>
+          <p className="max-w-sm text-sm leading-6 text-slate-500">
+            Nothing here right now. Try another filter or start a new trade.
+          </p>
+        </div>
       ) : (
-        <div className="flex flex-col gap-1.5">
+        <div className="mx-auto flex max-w-2xl flex-col">
           {filtered.map((order) => (
             <Link
               key={order.id}
               href={`/p2p/order/${order.id}`}
               prefetch={false}
-              className="group block rounded-lg border border-[#1e1e30] bg-[#0e0e14] px-3 py-2.5 transition hover:bg-[#111118] lg:grid lg:grid-cols-[minmax(190px,1fr)_150px_minmax(360px,1.5fr)_240px] lg:items-center lg:gap-4 lg:px-3 lg:py-2"
+              className="group block border-b border-white/[0.06] py-4 transition hover:bg-white/[0.02]"
             >
-              {/* Row 1: type + status + chevron */}
-              <div className="mb-2 flex items-center justify-between gap-2 lg:mb-0">
-                <div className="flex min-w-0 items-center gap-2">
-                  <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                    order.isBuyer ? "bg-[#05b957]/15" : "bg-red-500/15"
-                  }`}>
-                    <Icon name={order.isBuyer ? "arrow_downward" : "arrow_upward"} className={`text-[11px] ${order.isBuyer ? "text-[#05b957]" : "text-red-400"}`} />
-                  </div>
-                  <span className="text-[13px] font-black text-white">{order.isBuyer ? "Buy" : "Sell"} {order.crypto}</span>
-                  <P2PStatusBadge status={order.status} />
-                </div>
-                <Icon name="chevron_right" className="shrink-0 text-[20px] text-white/25 transition group-hover:text-white/50 lg:hidden" />
-              </div>
-
-              {/* Amount */}
-              <div className="mb-2 lg:mb-0">
-                <p className="text-[10px] font-semibold text-white/40">{order.fiat}</p>
-                <p className="text-[17px] font-black leading-tight text-white tabular-nums lg:text-base">
-                  {formatFiat(Number(order.fiatAmount), order.fiat, { symbol: false, decimals: 2 })}
-                </p>
+              {/* Top: side + status */}
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <span className="text-[15px] font-black text-white">
+                  <span className={order.isBuyer ? "text-[#05b957]" : "text-red-500"}>{order.isBuyer ? "Buy" : "Sell"}</span> {order.crypto}
+                </span>
+                <P2PStatusBadge status={order.status} />
               </div>
 
               {/* Detail rows */}
-              <div className="mb-2 space-y-1 lg:mb-0 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-white/40">Price</span>
-                  <span className="font-semibold text-white/70">{formatFiat(Number(order.pricePerUnit), order.fiat)}</span>
-                </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-white/40">Qty</span>
-                  <span className="font-semibold text-white/70">{Number(order.cryptoAmount).toFixed(4)} {order.crypto}</span>
-                </div>
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-white/40">Order No.</span>
-                  <span className="flex items-center gap-1 font-mono font-semibold text-white/70">
-                    {order.id.slice(0, 16).toUpperCase()}
-                    <Icon name="content_copy" className="text-[11px] text-white/25" />
+              <div className="space-y-2.5">
+                <Row label="Amount" value={formatFiat(Number(order.fiatAmount), order.fiat, { decimals: 2 })} strong />
+                <Row label="Price" value={formatFiat(Number(order.pricePerUnit), order.fiat)} />
+                <Row label={order.isBuyer ? "Received Quantity" : "Total Quantity"} value={`${Number(order.cryptoAmount).toFixed(2)} ${order.crypto}`} />
+                <div className="flex items-center justify-between gap-3 text-[13px]">
+                  <span className="shrink-0 text-slate-500">Order</span>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="min-w-0 truncate font-mono font-semibold text-white">{order.id.toUpperCase()}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); copyOrderNo(order.id.toUpperCase()); }}
+                      className="shrink-0 text-slate-500 transition hover:text-white"
+                    >
+                      <Icon name="content_copy" className="text-[13px]" />
+                    </button>
                   </span>
                 </div>
               </div>
 
-              {/* Footer: merchant chip + date */}
-              <div className="flex items-center justify-between border-t border-white/[0.05] pt-2.5 lg:border-t-0 lg:pt-0">
-                <span className="flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-1 text-[11px] font-semibold text-white/55">
-                  {order.counterparty}
-                </span>
-                <span className="text-[11px] text-white/30">
-                  {new Date(order.createdAt).toLocaleString("en-KE", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                </span>
+              {/* Footer: merchant name + chat (opens the conversation) + timestamp */}
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/p2p/order/${order.id}?chat=1`); }}
+                  className="inline-flex items-center gap-1.5 rounded bg-white/[0.06] px-2.5 py-1 text-[12px] font-semibold text-slate-300 transition hover:bg-white/[0.12] hover:text-white"
+                >
+                  {order.counterparty || "Trader"}
+                  <Icon name="chat" className="text-[14px] text-[#087cff]" />
+                </button>
+                <span className="text-[12px] text-slate-500">{fmtTimestamp(order.createdAt)}</span>
               </div>
             </Link>
           ))}
