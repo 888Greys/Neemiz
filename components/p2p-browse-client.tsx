@@ -78,7 +78,22 @@ interface MerchantProfile {
   joinedAt: string;
   activeAds: number;
   paymentRails: string[];
+  feedbackCount: number;
+  feedbackAverage: number;
+  positiveFeedbackRate: number;
+  feedback: MerchantFeedback[];
   offers: MerchantOffer[];
+}
+
+interface MerchantFeedback {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+  fromUser: {
+    displayName: string;
+    imageUrl?: string | null;
+  };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -187,6 +202,10 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
   const totalTrades = Number(profile?.totalTrades ?? merchant.totalTrades ?? completedTrades);
   const avgRelease = profile?.avgReleaseTime ?? merchant.avgReleaseTime;
   const adsCount = profile?.activeAds ?? offers.length;
+  const feedback = profile?.feedback ?? [];
+  const feedbackCount = profile?.feedbackCount ?? 0;
+  const feedbackAverage = profile?.feedbackAverage ?? 0;
+  const positiveFeedbackRate = profile?.positiveFeedbackRate ?? 0;
   const joined = profile?.joinedAt ?? merchant.joinedAt;
   const kycOk = (profile?.kycStatus ?? "").toLowerCase().includes("verif") || (profile?.isVerified ?? true);
 
@@ -200,7 +219,7 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
   const tabs = [
     { key: "info" as const, label: "Info" },
     { key: "ads" as const, label: `Ads (${adsCount})` },
-    { key: "feedback" as const, label: "Feedback(9999+)" },
+    { key: "feedback" as const, label: `Feedback(${feedbackCount})` },
   ];
 
   const infoStats: { label: string; value: ReactNode; accent?: string }[] = [
@@ -208,6 +227,8 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
     { label: "30d Completion Rate", value: `${completionRate.toFixed(1)}%` },
     { label: "Avg. Release Time", value: formatMinutes(avgRelease) },
     { label: "Avg. Pay Time", value: "—" },
+    { label: "Positive Feedback", value: `${positiveFeedbackRate.toFixed(1)}%` },
+    { label: "Avg. Rating", value: feedbackCount > 0 ? `${feedbackAverage.toFixed(1)} / 5` : "—" },
   ];
 
   const tradeStats: { label: string; value: ReactNode }[] = [
@@ -394,9 +415,43 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
                 </div>
               )
             ) : (
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-8 text-center text-xs font-semibold text-slate-500">
-                Feedback is coming soon.
-              </div>
+              feedback.length === 0 ? (
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-8 text-center text-xs font-semibold text-slate-500">
+                  No feedback yet. Completed traders can leave feedback after settlement.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] font-bold text-slate-400">Received Feedback</span>
+                      <span className="text-[13px] font-black text-white">{feedbackAverage.toFixed(1)} / 5</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                      <span>{feedbackCount} review{feedbackCount === 1 ? "" : "s"}</span>
+                      <span>{positiveFeedbackRate.toFixed(1)}% positive</span>
+                    </div>
+                  </div>
+                  {feedback.map((item) => (
+                    <div key={item.id} className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
+                      <div className="flex items-center gap-2">
+                        {item.fromUser.imageUrl ? (
+                          <img src={item.fromUser.imageUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
+                        ) : (
+                          <div className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.08] text-[12px] font-black text-white">
+                            {item.fromUser.displayName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-black text-white">{item.fromUser.displayName}</p>
+                          <p className="text-[11px] font-bold text-[#05b957]">{"★".repeat(item.rating)}{"☆".repeat(5 - item.rating)}</p>
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-600">{daysAgo(item.createdAt)}</span>
+                      </div>
+                      {item.comment && <p className="mt-2 text-[12px] leading-5 text-slate-400">{item.comment}</p>}
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </div>
         </div>
