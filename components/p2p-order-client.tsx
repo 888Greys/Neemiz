@@ -8,7 +8,7 @@ import { toast } from "@/lib/toast";
 import { invalidate } from "@/lib/client-cache";
 import { createClient } from "@/lib/supabase/client";
 import { P2PSubNav } from "@/components/p2p-subnav";
-import { formatFiat } from "@/lib/p2p/currencies";
+import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { P2PStatusBadge } from "@/components/p2p/status-badge";
 import { LoadingDots } from "@/components/loading-dots";
 import { paymentMethodLabel } from "@/lib/p2p/payment-methods";
@@ -463,6 +463,8 @@ function MobileP2POrderView({
   const [mobileCancelReason, setMobileCancelReason] = useState("");
   const [showDisputeScreen, setShowDisputeScreen] = useState(false);
   const [mobileDisputeReason, setMobileDisputeReason] = useState("");
+  const [showReleaseConfirm, setShowReleaseConfirm] = useState(false);
+  const [releaseChoice, setReleaseChoice] = useState<"none" | "received">("none");
 
   const merchantIsSelling = order.side === "SELL";
   const paymentName = paymentMethodLabel(order.paymentMethod);
@@ -768,16 +770,23 @@ function MobileP2POrderView({
         )}
       </div>
 
-      <h1 className="mb-2 text-[20px] font-black">
-        {orderStageTitle(order)}
-      </h1>
-      {order.status === "PENDING" && (
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h1 className="text-[20px] font-black">
+          {order.status === "PENDING" && isReleaseActor(order) ? "Verify Payment" : orderStageTitle(order)}
+        </h1>
+        {order.status === "PENDING" && isReleaseActor(order) && (
+          <button
+            type="button"
+            onClick={() => setShowChat(true)}
+            className="shrink-0 rounded-lg bg-[#facc15] px-4 py-2 text-xs font-black text-black transition-colors hover:bg-[#facc15]/80"
+          >
+            Chat
+          </button>
+        )}
+      </div>
+      {order.status === "PENDING" && canMarkPaid && (
         <div className="mb-5 text-[12px] font-bold leading-4 text-red-500">
-          <p>
-            {canMarkPaid
-              ? "Note: The order will be automatically cancelled if payment is not marked completed before the deadline."
-              : "Waiting for the payer to complete payment before the deadline."}
-          </p>
+          <p>Note: The order will be automatically cancelled if payment is not marked completed before the deadline.</p>
           <div className="mt-1 scale-75 origin-left">
             <Countdown expiresAt={order.expiresAt} onExpire={() => {}} />
           </div>
@@ -817,19 +826,21 @@ function MobileP2POrderView({
         </div>
       )}
 
-      <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3">
-        <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
-          {counterpartyName(order)}
-          <Icon name="chevron_right" className="text-[16px] text-slate-500" />
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowChat(true)}
-          className="rounded-full bg-[#087cff] px-4 py-2 text-xs font-black text-white hover:bg-[#0570e8] transition-colors"
-        >
-          Contact Trader
-        </button>
-      </div>
+      {!(order.status === "PENDING" && isReleaseActor(order)) && (
+        <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3">
+          <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
+            {counterpartyName(order)}
+            <Icon name="chevron_right" className="text-[16px] text-slate-500" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowChat(true)}
+            className="rounded-full bg-[#087cff] px-4 py-2 text-xs font-black text-white hover:bg-[#0570e8] transition-colors"
+          >
+            Contact Trader
+          </button>
+        </div>
+      )}
 
       {isKesCoinOrder(order) && (
         <div className="mb-5 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-3">
@@ -887,61 +898,16 @@ function MobileP2POrderView({
       {order.status === "PENDING" && !canMarkPaid && (
         <>
         {isReleaseActor(order) ? (
-          <section className="mb-5 space-y-4">
-            <div>
-              <p className="mb-2 text-[12px] text-slate-400">Yet to receive payment?</p>
-              <div className="rounded-2xl border border-white/[0.08] bg-[#111118] px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-white">{counterpartyName(order)}</p>
-                    <p className="mt-1 text-[11px] text-slate-500">Buyer&apos;s name: {counterpartyName(order)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowChat(true)}
-                    className="shrink-0 rounded-lg bg-[#facc15] px-3 py-1.5 text-xs font-black text-black"
-                  >
-                    Chat
-                  </button>
-                </div>
-                <div className="mt-2 inline-flex items-center gap-1 rounded border border-white/[0.08] px-2 py-0.5 text-[10px] text-slate-400">
-                  <Icon name="verified_user" className="text-[12px]" />
-                  Secured
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/[0.08] bg-[#111118] px-4 py-4">
-              <p className="text-sm font-black text-white"><span className="text-red-400">Sell</span> {order.crypto}</p>
-              <div className="mt-4 space-y-3">
-                <InfoRow label="Fiat Amount" value={formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })} />
-                <InfoRow label="Price" value={formatFiat(Number(order.pricePerUnit), order.ad.fiat)} />
-                <InfoRow label="Total Quantity" value={`${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}`} />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/[0.08] bg-[#111118] px-4 py-4">
-              <div className="flex items-center justify-between">
-                <p className="text-[12px] text-slate-500">My Payment Method</p>
-                <Icon name="keyboard_arrow_down" className="text-[18px] text-slate-500" />
-              </div>
-              <div className="mt-3 flex items-center gap-1.5 text-[12px] font-bold text-white">
-                <span className={`h-3.5 w-0.5 rounded-full ${order.paymentMethod === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
-                {paymentName}
-              </div>
-              {order.paymentRecipient.paymentMethod?.accountName && (
-                <p className="mt-2 text-[11px] text-slate-500">
-                  {order.paymentRecipient.paymentMethod.accountName} · {order.paymentRecipient.paymentMethod.accountNo}
-                </p>
-              )}
-            </div>
-
-            {order.ad.terms?.trim() && (
-              <div>
-                <p className="mb-2 text-[12px] text-slate-500">Advertiser&apos;s Terms</p>
-                <p className="line-clamp-3 whitespace-pre-wrap text-[12px] leading-5 text-slate-400">{order.ad.terms}</p>
-              </div>
-            )}
+          <section className="mb-5">
+            <VerifyPaymentTimeline order={order} paymentName={paymentName} />
+            <button
+              type="button"
+              onClick={() => setShowChat(true)}
+              className="fixed bottom-32 right-3 z-40 flex flex-col items-center gap-0.5 rounded-xl border border-white/10 bg-[#16161f] px-3 py-2 text-[10px] font-bold text-slate-300 shadow-lg transition hover:bg-[#1e1e2a]"
+            >
+              <Icon name="support_agent" className="text-[18px] text-[#8bc3ff]" />
+              Help
+            </button>
           </section>
         ) : (
           <section className="mb-5 rounded-2xl border border-white/[0.08] bg-[#111118] px-4 py-4">
@@ -1046,7 +1012,7 @@ function MobileP2POrderView({
           <button
             type="button"
             disabled={!!actionLoading}
-            onClick={() => onAction("release", {}, "release")}
+            onClick={() => { setReleaseChoice("none"); setShowReleaseConfirm(true); }}
             className="h-12 w-full rounded-full bg-[#05b957] text-sm font-black text-white disabled:opacity-50 hover:bg-[#28af52] transition-colors"
           >
             {releaseButtonLabel(order, actionLoading === "release")}
@@ -1063,18 +1029,159 @@ function MobileP2POrderView({
         )}
       </div>
       )}
+
+      {/* Release confirmation sheet (seller verifies receipt before releasing) */}
+      {showReleaseConfirm && (
+        <div
+          className="fixed inset-0 z-[140] flex items-end bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowReleaseConfirm(false)}
+        >
+          <div
+            className="w-full rounded-t-2xl border-t border-white/10 bg-[#15151d] px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
+            <h3 className="mb-4 text-[17px] font-black">Received payment in your account?</h3>
+
+            <button
+              type="button"
+              onClick={() => setReleaseChoice("none")}
+              className={`mb-3 w-full rounded-xl border px-4 py-3.5 text-left text-[13px] font-semibold leading-5 transition ${
+                releaseChoice === "none" ? "border-white/70 text-white" : "border-white/10 text-slate-300"
+              }`}
+            >
+              I have not received payment from the buyer.
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setReleaseChoice("received")}
+              className={`mb-4 w-full rounded-xl border px-4 py-3.5 text-left text-[13px] font-semibold leading-5 transition ${
+                releaseChoice === "received" ? "border-white/70 text-white" : "border-white/10 text-slate-300"
+              }`}
+            >
+              I have verified that the payment of {formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })} has been received from {counterpartyName(order)}.
+            </button>
+
+            <div className="mb-4 space-y-2 rounded-xl bg-white/[0.04] px-4 py-3 text-[11px] leading-4 text-slate-400">
+              <p className="flex gap-2">
+                <Icon name="check_circle" className="mt-px shrink-0 text-[14px] text-[#05b957]" />
+                Log in to your receiving account to verify that the payment has been credited to your account.
+              </p>
+              <p className="flex gap-2">
+                <Icon name="cancel" className="mt-px shrink-0 text-[14px] text-red-500" />
+                If the names don&apos;t match, do not release and make a full refund immediately.
+              </p>
+              <p className="flex gap-2">
+                <Icon name="block" className="mt-px shrink-0 text-[14px] text-red-500" />
+                Do not solely rely on the buyer&apos;s payment proof.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              disabled={releaseChoice !== "received" || !!actionLoading}
+              onClick={async () => {
+                await onAction("release", {}, "release");
+                setShowReleaseConfirm(false);
+              }}
+              className="h-12 w-full rounded-full bg-[#087cff] text-sm font-black text-white transition-colors hover:bg-[#0570e8] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {actionLoading === "release" ? "Releasing..." : "Confirm Release"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function InfoRow({ label, value, copy = false }: { label: string; value: string; copy?: boolean }) {
+function InfoRow({ label, value, copy = false, onCopy }: { label: string; value: string; copy?: boolean; onCopy?: () => void }) {
   return (
     <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
       <span className="text-[12px] text-slate-500">{label}</span>
       <span className="flex items-center gap-1 text-right text-[12px] font-bold text-white">
         {value}
-        {copy && <Icon name="content_copy" className="text-[13px] text-slate-400" />}
+        {copy && (onCopy ? (
+          <button type="button" onClick={onCopy} className="text-slate-400 transition hover:text-white">
+            <Icon name="content_copy" className="text-[13px]" />
+          </button>
+        ) : (
+          <Icon name="content_copy" className="text-[13px] text-slate-400" />
+        ))}
       </span>
+    </div>
+  );
+}
+
+function StepDot({ n }: { n: number }) {
+  return (
+    <span className="relative z-10 grid h-[21px] w-[21px] shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-[#0b0b11]">
+      {n}
+    </span>
+  );
+}
+
+// Binance-style "Verify Payment" timeline shown to the seller (release actor):
+// 1 open wallet · 2 confirm receipt (with details) · 3 release.
+function VerifyPaymentTimeline({ order, paymentName }: { order: OrderData; paymentName: string }) {
+  const fiatSymbol = FIAT_CURRENCIES.find((c) => c.code === order.ad.fiat)?.symbol ?? "";
+  const amount = formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2, symbol: false });
+  const recv = order.seller.paymentMethod ?? order.paymentRecipient.paymentMethod;
+  const sellerName = recv?.accountName ?? "Your receiving account";
+  const sellerNo = recv?.accountNo ?? "—";
+  const phoneLabel = order.paymentMethod === "MPESA" ? "Phone number" : "Account number";
+  const ref = order.id.toUpperCase();
+
+  const copy = (text: string) => {
+    navigator.clipboard?.writeText(text).then(() => toast.success("Copied")).catch(() => {});
+  };
+
+  return (
+    <div className="relative">
+      {/* connector line through the three step dots */}
+      <div className="absolute left-[10px] top-3 bottom-3 w-px bg-white/15" />
+      <div className="space-y-6">
+        {/* Step 1 */}
+        <div className="flex gap-3">
+          <StepDot n={1} />
+          <h2 className="pt-0.5 text-sm font-black text-white">Open {paymentName}</h2>
+        </div>
+
+        {/* Step 2 */}
+        <div className="flex gap-3">
+          <StepDot n={2} />
+          <div className="min-w-0 flex-1">
+            <h2 className="pt-0.5 text-sm font-black text-white">Confirm Receipt of Payment</h2>
+            <div className="mt-3">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="text-[12px] text-slate-500">You Receive</span>
+                <span className="flex items-baseline gap-1.5">
+                  <span className="text-[12px] font-bold text-slate-300">{fiatSymbol}</span>
+                  <span className="text-[22px] font-black leading-none text-white tabular-nums">{amount}</span>
+                  <button type="button" onClick={() => copy(`${fiatSymbol} ${amount}`)} className="self-center text-slate-500 transition hover:text-white">
+                    <Icon name="content_copy" className="text-[14px]" />
+                  </button>
+                </span>
+              </div>
+              <InfoRow label="Name" value={sellerName} />
+              <InfoRow label={phoneLabel} value={sellerNo} />
+              <InfoRow label="Buyer&apos;s name" value={counterpartyName(order)} />
+              <InfoRow label="Ref Message" value={ref} copy onCopy={() => copy(ref)} />
+              <button type="button" className="flex items-center gap-0.5 text-[12px] text-slate-400 transition hover:text-white">
+                Order details
+                <Icon name="keyboard_arrow_down" className="text-[16px]" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 3 */}
+        <div className="flex gap-3">
+          <StepDot n={3} />
+          <h2 className="pt-0.5 text-sm font-black text-white">Tap button below to release crypto</h2>
+        </div>
+      </div>
     </div>
   );
 }
