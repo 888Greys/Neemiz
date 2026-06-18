@@ -505,7 +505,7 @@ function DepositSection() {
   const [e2wCrypto, setE2wCrypto]         = useState("USDT");
   const [e2wAmount, setE2wAmount]         = useState("");
   const [e2wLoading, setE2wLoading]       = useState(false);
-  const [mobileBalanceView, setMobileBalanceView] = useState<"wallet" | "escrow">("wallet");
+  const [mobileBalanceCrypto, setMobileBalanceCrypto] = useState("USDT");
 
   const load = useCallback(async () => {
     try {
@@ -625,7 +625,36 @@ function DepositSection() {
     };
   });
 
+  const balanceTableRows = balanceSymbols.map((crypto) => {
+    const wallet = walletDisplayRows.find((row) => row.crypto === crypto);
+    const escrow = escrowDisplayRows.find((row) => row.crypto === crypto);
+    return {
+      crypto,
+      network: wallet?.network ?? (crypto === "KES" ? "fiat" : "wallet"),
+      walletAvailable: Number(wallet?.available ?? 0),
+      walletLocked: Number(wallet?.locked ?? 0),
+      escrowAvailable: Number(escrow?.available ?? 0),
+      escrowLocked: Number(escrow?.locked ?? 0),
+    };
+  });
+  const mobileBalanceOptions = balanceTableRows.filter((row) =>
+    row.walletAvailable > 0 || row.escrowAvailable > 0 || row.walletLocked > 0 || row.escrowLocked > 0,
+  );
+  const mobileSelectableBalances = mobileBalanceOptions.length > 0 ? mobileBalanceOptions : balanceTableRows.slice(0, 1);
+  const selectedMobileBalance =
+    mobileSelectableBalances.find((row) => row.crypto === mobileBalanceCrypto)
+    ?? mobileSelectableBalances[0]
+    ?? balanceTableRows[0];
+  const selectedMobileMeta = P2P_CRYPTOS.find((coin) => coin.symbol === selectedMobileBalance?.crypto);
+
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!selectedMobileBalance) return;
+    if (!mobileSelectableBalances.some((row) => row.crypto === mobileBalanceCrypto)) {
+      setMobileBalanceCrypto(selectedMobileBalance.crypto);
+    }
+  }, [mobileBalanceCrypto, mobileSelectableBalances, selectedMobileBalance]);
 
   // Auto-select first available wallet crypto/network when balances load
   useEffect(() => {
@@ -947,106 +976,118 @@ function DepositSection() {
 
       {/* Wallet + Escrow balance rows */}
       <div className="border-b border-white/[0.06] bg-white/[0.01] px-3 py-3 lg:hidden">
-        <div className="mb-3 grid grid-cols-2 rounded-lg bg-black/25 p-1">
-          <button
-            type="button"
-            onClick={() => setMobileBalanceView("wallet")}
-            className={`flex h-9 items-center justify-center gap-1.5 rounded-md text-xs font-black transition ${
-              mobileBalanceView === "wallet" ? "bg-[#087cff] text-white" : "text-slate-500"
-            }`}
+        <label className="mb-2 block text-[10px] font-black uppercase tracking-wide text-slate-500">Asset</label>
+        <div className="relative mb-3">
+          <select
+            value={selectedMobileBalance?.crypto ?? mobileBalanceCrypto}
+            onChange={(event) => setMobileBalanceCrypto(event.target.value)}
+            className="h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-[#171820] pl-12 pr-10 text-sm font-black text-white outline-none focus:border-[#087cff]/50"
           >
-            <Icon name="account_balance_wallet" className="text-sm" />
-            Wallet
-          </button>
-          <button
-            type="button"
-            onClick={() => setMobileBalanceView("escrow")}
-            className={`flex h-9 items-center justify-center gap-1.5 rounded-md text-xs font-black transition ${
-              mobileBalanceView === "escrow" ? "bg-[#087cff] text-white" : "text-slate-500"
-            }`}
-          >
-            <Icon name="lock" className="text-sm" />
-            Escrow
-          </button>
+            {mobileSelectableBalances.map((row) => (
+              <option key={row.crypto} value={row.crypto} style={{ background: "#171820", color: "#fff" }}>
+                {row.crypto} · {P2P_CRYPTOS.find((coin) => coin.symbol === row.crypto)?.name ?? "Crypto"}
+              </option>
+            ))}
+          </select>
+          {selectedMobileMeta?.icon ? (
+            <img src={selectedMobileMeta.icon} alt="" className="pointer-events-none absolute left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full" />
+          ) : (
+            <div className="pointer-events-none absolute left-3 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full bg-white/[0.06] text-[10px] font-black text-slate-400">
+              {selectedMobileBalance?.crypto?.slice(0, 1) ?? "?"}
+            </div>
+          )}
+          <Icon name="expand_more" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-lg text-slate-500" />
         </div>
-        <p className="mb-2 text-[11px] leading-4 text-slate-600">
-          {mobileBalanceView === "wallet"
-            ? "Deposits arrive here first."
-            : "Available funds back ads. Locked funds are in active orders."}
-        </p>
-        <div className="overflow-hidden rounded-lg border border-white/[0.06]">
-          {(mobileBalanceView === "wallet" ? walletDisplayRows : escrowDisplayRows).map((balance, index, rows) => (
-            <div
-              key={`${mobileBalanceView}-${balance.crypto}`}
-              className={`flex items-center justify-between gap-3 bg-white/[0.02] px-3 py-2.5 ${
-                index < rows.length - 1 ? "border-b border-white/[0.05]" : ""
-              }`}
-            >
-              <div className="min-w-0">
-                <p className="text-xs font-black text-white">{balance.crypto}</p>
-                <p className="truncate text-[10px] font-semibold text-slate-600">
-                  {"network" in balance && typeof balance.network === "string" ? balance.network : "merchant escrow"}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className={Number(balance.available) > 0 ? "text-sm font-black text-white" : "text-sm font-black text-slate-700"}>
-                  {formatCoinAmount(balance.crypto, balance.available)}
-                </p>
-                {balance.locked > 0 && (
-                  <p className="text-[10px] font-bold text-amber-400">{formatCoinAmount(balance.crypto, balance.locked)} locked</p>
-                )}
+
+        {selectedMobileBalance && (
+          <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
+            <div className="flex items-center justify-between border-b border-white/[0.05] px-3 py-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                {selectedMobileMeta?.icon && <img src={selectedMobileMeta.icon} alt="" className="h-8 w-8 shrink-0 rounded-full" />}
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white">{selectedMobileBalance.crypto}</p>
+                  <p className="truncate text-[10px] font-semibold text-slate-600">{selectedMobileBalance.network}</p>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
+            <div className="grid grid-cols-2 divide-x divide-white/[0.05]">
+              <div className="px-3 py-3">
+                <p className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  <Icon name="account_balance_wallet" className="text-[13px]" />
+                  Wallet
+                </p>
+                <p className={selectedMobileBalance.walletAvailable > 0 ? "text-base font-black text-white" : "text-base font-black text-slate-700"}>
+                  {formatCoinAmount(selectedMobileBalance.crypto, selectedMobileBalance.walletAvailable)}
+                </p>
+              </div>
+              <div className="px-3 py-3">
+                <p className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  <Icon name="lock" className="text-[13px]" />
+                  Escrow
+                </p>
+                <p className={selectedMobileBalance.escrowAvailable > 0 ? "text-base font-black text-white" : "text-base font-black text-slate-700"}>
+                  {formatCoinAmount(selectedMobileBalance.crypto, selectedMobileBalance.escrowAvailable)}
+                </p>
+              </div>
+            </div>
+            {(selectedMobileBalance.walletLocked + selectedMobileBalance.escrowLocked) > 0 && (
+              <div className="border-t border-white/[0.05] px-3 py-2 text-[11px] font-bold text-amber-400">
+                {formatCoinAmount(selectedMobileBalance.crypto, selectedMobileBalance.walletLocked + selectedMobileBalance.escrowLocked)} locked in active orders
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="hidden gap-0 border-b border-white/[0.06] bg-white/[0.01] lg:grid lg:grid-cols-2 lg:divide-x lg:divide-white/[0.04]">
-        {/* Wallet (UserCryptoBalance) */}
-        <div className="px-4 py-3">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">In Wallet</p>
-              <p className="mt-0.5 text-[11px] leading-4 text-slate-600">Deposits arrive here first.</p>
-            </div>
-            <Icon name="account_balance_wallet" className="text-lg text-slate-600" />
+      <div className="hidden border-b border-white/[0.06] bg-white/[0.01] px-4 py-3 lg:block">
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Balances</p>
+            <p className="mt-0.5 text-[11px] leading-4 text-slate-600">
+              Deposits land in wallet. Escrow backs ads; locked funds are in active orders.
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {walletDisplayRows.map((b) => (
-              <div key={`${b.crypto}-${b.network}`} className="min-w-0 rounded-lg bg-white/[0.025] px-2.5 py-2 ring-1 ring-white/[0.04]">
-                <p className="truncate text-[10px] font-bold text-slate-500">{b.crypto} <span className="text-slate-700">({b.network})</span></p>
-                <p className={Number(b.available) > 0 ? "truncate text-sm font-black text-white" : "truncate text-sm font-black text-slate-700"}>
-                  {formatCoinAmount(b.crypto, b.available)}
-                </p>
-                {b.locked > 0 && (
-                  <p className="text-[10px] font-bold text-amber-400">{formatCoinAmount(b.crypto, b.locked)} locked</p>
-                )}
-              </div>
-            ))}
+          <div className="flex items-center gap-2 text-slate-600">
+            <Icon name="account_balance_wallet" className="text-lg" />
+            <Icon name="lock" className="text-lg" />
           </div>
         </div>
-        {/* Escrow (P2PCryptoBalance + KES Coin locked per order) */}
-        <div className="border-t border-white/[0.05] px-4 py-3 lg:border-t-0">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">In Escrow</p>
-              <p className="mt-0.5 text-[11px] leading-4 text-slate-600">Available backs ads. Locked is in active orders.</p>
-            </div>
-            <Icon name="lock" className="text-lg text-slate-600" />
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {escrowDisplayRows.map((b) => (
-              <div key={b.crypto} className="min-w-0 rounded-lg bg-white/[0.025] px-2.5 py-2 ring-1 ring-white/[0.04]">
-                <p className="text-[10px] font-bold text-slate-500">{b.crypto}</p>
-                <p className={Number(b.available) > 0 ? "truncate text-sm font-black text-white" : "truncate text-sm font-black text-slate-700"}>
-                  {formatCoinAmount(b.crypto, b.available)}
-                </p>
-                {b.locked > 0 && (
-                  <p className="text-[10px] font-bold text-amber-400">{formatCoinAmount(b.crypto, b.locked)} locked</p>
-                )}
-              </div>
-            ))}
-          </div>
+
+        <div className="max-h-[320px] overflow-auto rounded-lg border border-white/[0.06] [scrollbar-width:thin]">
+          <table className="w-full min-w-[720px] text-left text-xs">
+            <thead className="sticky top-0 z-10 bg-[#14141c] text-[10px] font-black uppercase tracking-wide text-slate-600">
+              <tr className="border-b border-white/[0.06]">
+                <th className="px-3 py-2">Asset</th>
+                <th className="px-3 py-2">Network</th>
+                <th className="px-3 py-2 text-right">Wallet</th>
+                <th className="px-3 py-2 text-right">Escrow</th>
+                <th className="px-3 py-2 text-right">Locked</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.05]">
+              {balanceTableRows.map((row) => {
+                const lockedTotal = row.walletLocked + row.escrowLocked;
+                const hasValue = row.walletAvailable > 0 || row.escrowAvailable > 0 || lockedTotal > 0;
+                return (
+                  <tr key={row.crypto} className="bg-white/[0.015] transition hover:bg-white/[0.035]">
+                    <td className="px-3 py-2.5">
+                      <span className={hasValue ? "font-black text-white" : "font-black text-slate-600"}>{row.crypto}</span>
+                    </td>
+                    <td className="max-w-[220px] truncate px-3 py-2.5 font-semibold text-slate-600">{row.network}</td>
+                    <td className={row.walletAvailable > 0 ? "px-3 py-2.5 text-right font-black text-white" : "px-3 py-2.5 text-right font-black text-slate-700"}>
+                      {formatCoinAmount(row.crypto, row.walletAvailable)}
+                    </td>
+                    <td className={row.escrowAvailable > 0 ? "px-3 py-2.5 text-right font-black text-white" : "px-3 py-2.5 text-right font-black text-slate-700"}>
+                      {formatCoinAmount(row.crypto, row.escrowAvailable)}
+                    </td>
+                    <td className={lockedTotal > 0 ? "px-3 py-2.5 text-right font-black text-amber-400" : "px-3 py-2.5 text-right font-black text-slate-700"}>
+                      {formatCoinAmount(row.crypto, lockedTotal)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -1871,7 +1912,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         </button>
       </div>
 
-      <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-white/[0.07] bg-[#101118] p-1">
+      <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-white/[0.07] bg-[#101118] p-1 sm:flex sm:overflow-x-auto">
         {([
           ["overview", "Overview", "dashboard"],
           ["wallet", "Wallet & Escrow", "account_balance_wallet"],
@@ -1882,12 +1923,12 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             key={id}
             type="button"
             onClick={() => setSection(id)}
-            className={`flex h-10 shrink-0 items-center gap-2 rounded-lg px-4 text-xs font-black transition ${
+            className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition sm:shrink-0 sm:justify-start sm:px-4 ${
               section === id ? "bg-[#087cff] text-white shadow-lg shadow-[#087cff]/15" : "text-slate-500 hover:bg-white/[0.05] hover:text-white"
             }`}
           >
-            <Icon name={icon} className="text-base" />
-            {label}
+            <Icon name={icon} className="shrink-0 text-base" />
+            <span className="truncate">{label}</span>
           </button>
         ))}
       </div>
