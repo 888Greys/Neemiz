@@ -1,296 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
-import { useSupabaseAuth } from "@/lib/supabase/auth-context";
-import { DEV_FAST, DEV_FAST_P2P_STATS } from "@/lib/dev-fast";
 
-// ─── My Orders ────────────────────────────────────────────────────────────────
+// ─── Trading Guide ────────────────────────────────────────────────────────────
 
-interface Order {
-  id:          string;
-  crypto:      string;
-  cryptoAmount:number;
-  fiatAmount:  number;
-  status:      string;
-  side:        "buy" | "sell"; // buyer or seller perspective
-  createdAt:   string;
-}
-
-const ORDER_STATUS_STYLE: Record<string, string> = {
-  PENDING:   "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  PAID:      "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  RELEASED:  "bg-[#05b957]/10 text-[#05b957] border-[#05b957]/20",
-  CANCELLED: "bg-white/5 text-slate-600 border-white/10",
-  DISPUTED:  "bg-red-500/10 text-red-400 border-red-500/20",
-  EXPIRED:   "bg-white/5 text-slate-600 border-white/10",
-};
-
-function MyOrders({ userId }: { userId: string }) {
-  const [orders,  setOrders]  = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch("/api/p2p/orders?limit=3")
-      .then((r) => r.ok ? r.json() : [])
-      .then((data) => setOrders(Array.isArray(data) ? data.slice(0, 3) : []))
-      .catch(() => setOrders([]))
-      .finally(() => setLoading(false));
-  }, [userId]);
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#111118]">
-      <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">My Orders</p>
-        <Link href="/p2p/orders" prefetch={false} className="text-[10px] text-[#087cff] hover:text-blue-300 font-bold transition-colors">
-          View all
-        </Link>
-      </div>
-
-      {loading ? (
-        <div className="space-y-2 px-3 pb-3">
-          {[1,2,3].map((i) => (
-            <div key={i} className="h-10 rounded-xl bg-white/[0.03] animate-pulse" />
-          ))}
-        </div>
-      ) : orders.length === 0 ? (
-        <div className="px-3 pb-4 text-center">
-          <Icon name="receipt_long" className="text-slate-700 text-2xl mb-1" />
-          <p className="text-[11px] text-slate-600">No orders yet</p>
-          <Link href="/p2p" prefetch={false} className="text-[10px] text-[#05b957] font-bold hover:underline">
-            Start trading →
-          </Link>
-        </div>
-      ) : (
-        <div className="max-h-[148px] space-y-1.5 overflow-y-auto px-3 pb-3 pr-2 [scrollbar-width:thin]">
-          {orders.map((o) => (
-            <Link
-              key={o.id}
-              href={`/p2p/order/${o.id}`}
-              prefetch={false}
-              className="flex items-center gap-2 bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.05] rounded-xl px-3 py-2 transition-colors"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-black text-white">
-                    {Number(o.cryptoAmount).toLocaleString("en-US", { maximumFractionDigits: 4 })} {o.crypto}
-                  </span>
-                  <span className="text-[9px] text-slate-600">·</span>
-                  <span className="text-[10px] text-slate-500">
-                    KSh {Number(o.fiatAmount).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
-                  </span>
-                </div>
-              </div>
-              <span className={`shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full border ${ORDER_STATUS_STYLE[o.status] ?? ORDER_STATUS_STYLE.CANCELLED}`}>
-                {o.status}
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Merchant Center ──────────────────────────────────────────────────────────
-
-interface MerchantInfo {
-  isMerchant:      boolean;
-  kycStatus:       string;
-  isOnline:        boolean;
-  displayName:     string;
-  completedTrades: number;
-  completionRate:  number;
-  activeAds:       number;
-}
-
-function MerchantCenter({ userId }: { userId: string }) {
-  const [info,    setInfo]    = useState<MerchantInfo | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [toggling,setToggling]= useState(false);
-
-  useEffect(() => {
-    fetch("/api/p2p/merchant/profile")
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => setInfo(d))
-      .catch(() => setInfo(null))
-      .finally(() => setLoading(false));
-  }, [userId]);
-
-  async function toggleOnline() {
-    if (!info) return;
-    setToggling(true);
-    try {
-      const res = await fetch("/api/p2p/merchant/online", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isOnline: !info.isOnline }),
-      });
-      if (res.ok) setInfo((prev) => prev ? { ...prev, isOnline: !prev.isOnline } : prev);
-    } finally {
-      setToggling(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="h-24 rounded-2xl bg-[#111118] border border-white/[0.06] animate-pulse" />
-    );
-  }
-
-  // Not a merchant yet
-  if (!info || !info.isMerchant) {
-    return (
-      <Link
-        href="/p2p/merchant"
-        prefetch={false}
-        className="flex items-center gap-3 bg-[#087cff]/10 border border-[#087cff]/20 rounded-2xl px-4 py-3.5 hover:bg-[#087cff]/15 transition-colors"
-      >
-        <div className="w-8 h-8 rounded-xl bg-[#087cff]/20 flex items-center justify-center shrink-0">
-          <Icon name="storefront" className="text-[#087cff] text-lg" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-black text-white">Become a Merchant</p>
-          <p className="text-[10px] text-slate-500">Post ads · Earn on every trade</p>
-        </div>
-        <Icon name="arrow_forward" className="text-slate-600 text-sm shrink-0" />
-      </Link>
-    );
-  }
-
-  // Active merchant dashboard
-  return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#111118]">
-      <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Merchant Center</p>
-        <Link href="/p2p/merchant" prefetch={false} className="text-[10px] text-[#087cff] hover:text-blue-300 font-bold transition-colors">
-          Manage
-        </Link>
-      </div>
-
-      {/* Merchant info */}
-      <div className="space-y-3 px-3 pb-3">
-        {/* Name + online toggle */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-black text-white">{info.displayName}</p>
-            <p className="text-[10px] text-slate-600">{info.completedTrades} completed · {Number(info.completionRate).toFixed(0)}% rate</p>
-          </div>
-          <button
-            onClick={toggleOnline}
-            disabled={toggling}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-black border transition-all ${
-              info.isOnline
-                ? "bg-[#05b957]/15 border-[#05b957]/30 text-[#05b957]"
-                : "bg-white/[0.04] border-white/[0.08] text-slate-500"
-            }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${info.isOnline ? "bg-[#05b957] animate-pulse" : "bg-slate-600"}`} />
-            {info.isOnline ? "Online" : "Offline"}
-          </button>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-1.5">
-          <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-2 text-center">
-            <p className="text-sm font-black text-white">{info.activeAds}</p>
-            <p className="text-[9px] text-slate-600">Ads</p>
-          </div>
-          <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-2 text-center">
-            <p className="text-sm font-black text-white">{info.completedTrades}</p>
-            <p className="text-[9px] text-slate-600">Trades</p>
-          </div>
-          <div className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-2 text-center">
-            <p className="text-sm font-black text-[#05b957]">{Number(info.completionRate).toFixed(0)}%</p>
-            <p className="text-[9px] text-slate-600">Done</p>
-          </div>
-        </div>
-
-        {/* Quick actions */}
-        <div className="grid grid-cols-2 gap-1.5">
-          <Link href="/p2p/merchant?tab=ads" prefetch={false} className="flex items-center justify-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl py-2 text-[11px] font-black text-white hover:bg-white/[0.07] transition-colors">
-            <Icon name="view_list" className="text-sm text-slate-400" />
-            My Ads
-          </Link>
-          <Link href="/p2p/merchant?tab=deposit" prefetch={false} className="flex items-center justify-center gap-1.5 bg-white/[0.04] border border-white/[0.06] rounded-xl py-2 text-[11px] font-black text-white hover:bg-white/[0.07] transition-colors">
-            <Icon name="account_balance_wallet" className="text-sm text-[#087cff]" />
-            Deposit
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Live market stats ──────────────────────────────────────────────────────────
-
-interface MarketStats {
-  volume24h:       number;
-  trades24h:       number;
-  activeOffers:    number;
-  onlineMerchants: number;
-}
-
-function formatKes(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}K`;
-  return n.toLocaleString("en-KE", { maximumFractionDigits: 0 });
-}
-
-function MarketStatsBlock() {
-  const [stats, setStats]     = useState<MarketStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (DEV_FAST) {
-      setStats(DEV_FAST_P2P_STATS);
-      setLoading(false);
-      return;
-    }
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const r = await fetch("/api/p2p/stats");
-        if (!r.ok) return;
-        const d = await r.json() as MarketStats;
-        if (!cancelled) setStats(d);
-      } catch { /* ignore */ }
-      finally { if (!cancelled) setLoading(false); }
-    };
-    load();
-    // Refresh while the tab is visible so the numbers feel live.
-    const id = setInterval(() => {
-      if (document.visibilityState === "visible") load();
-    }, 30_000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, []);
-
-  if (loading) {
-    return <div className="h-[76px] rounded-xl bg-[#111118] border border-white/[0.06] animate-pulse" />;
-  }
-  if (!stats) return null;
-
-  const cells = [
-    { label: "24h volume",  value: `KSh ${formatKes(stats.volume24h)}`, accent: "text-[#05b957]" },
-    { label: "24h trades",  value: stats.trades24h.toLocaleString(),    accent: "text-white" },
-    { label: "Live offers", value: stats.activeOffers.toLocaleString(), accent: "text-white" },
+function TradingGuideBlock() {
+  const items = [
+    { icon: "price_check", text: "Check the price", sub: "Compare the rate and order limits before opening a trade." },
+    { icon: "account_balance", text: "Pay only in-order", sub: "Use the payment account shown on the order screen." },
+    { icon: "lock_open", text: "Release after receipt", sub: "Sellers should confirm funds in their account first." },
   ];
 
   return (
     <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#111118]">
-      <div className="flex items-center justify-between px-3 pt-3 pb-2">
-        <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Market today</p>
-        <span className="flex items-center gap-1.5 text-[10px] font-bold text-[#05b957]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#05b957] animate-pulse" />
-          {stats.onlineMerchants} online
-        </span>
+      <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-3">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Before you trade</p>
+          <p className="mt-0.5 text-[10px] font-semibold text-slate-600">Fast checks for safer P2P orders</p>
+        </div>
+        <div className="grid h-8 w-8 place-items-center rounded-xl bg-[#087cff]/10 text-[#55aaff]">
+          <Icon name="rule" className="text-[18px]" />
+        </div>
       </div>
-      <div className="grid grid-cols-3 gap-1.5 px-3 pb-3">
-        {cells.map((c) => (
-          <div key={c.label} className="rounded-lg border border-white/[0.05] bg-white/[0.03] px-2 py-2 text-center">
-            <p className={`text-sm font-black tabular-nums ${c.accent}`}>{c.value}</p>
-            <p className="mt-0.5 text-[9px] text-slate-600">{c.label}</p>
+
+      <div className="divide-y divide-white/[0.05]">
+        {items.map(({ icon, text, sub }) => (
+          <div key={text} className="flex items-start gap-2.5 px-3 py-2.5">
+            <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/[0.04] text-slate-300">
+              <Icon name={icon} className="text-[15px]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[12px] font-black text-white">{text}</p>
+              <p className="mt-0.5 text-[10px] leading-tight text-slate-600">{sub}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -298,39 +41,11 @@ function MarketStatsBlock() {
   );
 }
 
-// ─── Trust Signals ────────────────────────────────────────────────────────────
-
-function TrustBlock() {
-  const items = [
-    { icon: "lock",          text: "Escrow-protected",    sub: "Crypto locked until payment confirmed" },
-    { icon: "verified_user", text: "KYC verified",        sub: "All merchants are identity-verified" },
-    { icon: "support_agent", text: "Dispute resolution",  sub: "Admin mediates any disputed trade" },
-  ];
-
-  return (
-    <div className="space-y-2">
-      {items.map(({ icon, text, sub }) => (
-        <div key={text} className="flex items-start gap-3 bg-[#111118] border border-white/[0.05] rounded-xl px-3 py-2.5">
-          <div className="w-7 h-7 rounded-lg bg-[#087cff]/10 flex items-center justify-center shrink-0 mt-0.5">
-            <Icon name={icon} className="text-[#087cff] text-sm" />
-          </div>
-          <div>
-            <p className="text-xs font-black text-white">{text}</p>
-            <p className="text-[10px] text-slate-600 leading-tight mt-0.5">{sub}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ─── Main Panel ───────────────────────────────────────────────────────────────
 
 export function P2PMarketPanel() {
-  const { user } = useSupabaseAuth();
-
   return (
-    <div className="flex h-full flex-col gap-4 overflow-y-auto no-scrollbar px-3 py-5">
+    <div className="flex h-full flex-col gap-3 overflow-y-auto no-scrollbar px-3 py-5">
 
       {/* Header */}
       <div className="flex items-center justify-between px-1">
@@ -343,9 +58,6 @@ export function P2PMarketPanel() {
           <Icon name="refresh" className="text-base" />
         </button>
       </div>
-
-      {/* Live market stats */}
-      <MarketStatsBlock />
 
       {/* Quick links */}
       <div className="grid grid-cols-2 gap-2">
@@ -367,32 +79,8 @@ export function P2PMarketPanel() {
         </Link>
       </div>
 
-      {/* My Orders — only when signed in */}
-      {user && <MyOrders userId={user.id} />}
-
-      {/* Merchant Center — shows become-merchant CTA or dashboard */}
-      {user
-        ? <MerchantCenter userId={user.id} />
-        : (
-          <Link
-            href="/p2p/merchant"
-            prefetch={false}
-            className="flex items-center gap-3 bg-[#087cff]/10 border border-[#087cff]/20 rounded-2xl px-4 py-3.5 hover:bg-[#087cff]/15 transition-colors"
-          >
-            <div className="w-8 h-8 rounded-xl bg-[#087cff]/20 flex items-center justify-center shrink-0">
-              <Icon name="storefront" className="text-[#087cff] text-lg" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-black text-white">Become a Merchant</p>
-              <p className="text-[10px] text-slate-500">Post ads · Earn on every trade</p>
-            </div>
-            <Icon name="arrow_forward" className="text-slate-600 text-sm shrink-0" />
-          </Link>
-        )
-      }
-
-      {/* Trust signals */}
-      <TrustBlock />
+      {/* Trading guide */}
+      <TradingGuideBlock />
     </div>
   );
 }
