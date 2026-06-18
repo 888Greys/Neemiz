@@ -2,6 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 
+function isFeedbackSchemaMissing(error: unknown) {
+  return typeof error === "object"
+    && error !== null
+    && "code" in error
+    && (error.code === "P2021" || error.code === "P2022");
+}
+
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,6 +27,66 @@ export async function GET() {
     return Response.json({ isMerchant: false });
   }
 
+  let feedbackCount = 0;
+  let feedbackAverage = 0;
+  let positiveFeedbackRate = 0;
+  let feedback: Array<{
+    id: string;
+    rating: number;
+    comment: string | null;
+    createdAt: string;
+    fromUser: { displayName: string; imageUrl: string | null };
+  }> = [];
+
+  try {
+    const [feedbackSummary, feedbackRows, positiveCount] = await Promise.all([
+      db.p2PFeedback.aggregate({
+        where: { toUserId: dbUser.id },
+        _count: { _all: true },
+        _avg: { rating: true },
+      }),
+      db.p2PFeedback.findMany({
+        where: { toUserId: dbUser.id },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          rating: true,
+          comment: true,
+          createdAt: true,
+          fromUser: {
+            select: {
+              firstName: true,
+              lastName: true,
+              username: true,
+              imageUrl: true,
+            },
+          },
+        },
+      }),
+      db.p2PFeedback.count({
+        where: { toUserId: dbUser.id, rating: { gte: 4 } },
+      }),
+    ]);
+    feedbackCount = feedbackSummary._count._all;
+    feedbackAverage = Number(feedbackSummary._avg.rating ?? 0);
+    positiveFeedbackRate = feedbackCount > 0 ? (positiveCount / feedbackCount) * 100 : 0;
+    feedback = feedbackRows.map((item) => ({
+      id: item.id,
+      rating: item.rating,
+      comment: item.comment,
+      createdAt: item.createdAt.toISOString(),
+      fromUser: {
+        displayName: item.fromUser.firstName
+          ? `${item.fromUser.firstName} ${item.fromUser.lastName ?? ""}`.trim()
+          : item.fromUser.username ?? "Trader",
+        imageUrl: item.fromUser.imageUrl,
+      },
+    }));
+  } catch (error) {
+    if (!isFeedbackSchemaMissing(error)) throw error;
+  }
+
   return Response.json({
     isMerchant:      true,
     kycStatus:       merchant.kycStatus,
@@ -28,7 +95,14 @@ export async function GET() {
     avatarUrl:       merchant.avatarUrl,
     completedTrades: merchant.completedTrades,
     completionRate:  Number(merchant.completionRate),
+    totalTrades:     merchant.totalTrades,
+    avgReleaseTime:  merchant.avgReleaseTime,
+    createdAt:       merchant.createdAt,
     activeAds:       merchant.ads.length,
+    feedbackCount,
+    feedbackAverage,
+    positiveFeedbackRate,
+    feedback,
   });
 }
 

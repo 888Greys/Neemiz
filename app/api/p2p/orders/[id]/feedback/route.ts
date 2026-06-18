@@ -2,6 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 
+function isFeedbackSchemaMissing(error: unknown) {
+  return typeof error === "object"
+    && error !== null
+    && "code" in error
+    && (error.code === "P2021" || error.code === "P2022");
+}
+
 // POST /api/p2p/orders/[id]/feedback - leave one review after settlement.
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -49,6 +56,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   } catch (err) {
     if (err && typeof err === "object" && "code" in err && err.code === "P2002") {
       return Response.json({ error: "You already left feedback for this order." }, { status: 409 });
+    }
+    if (isFeedbackSchemaMissing(err)) {
+      return Response.json({ error: "Feedback is not active yet. Apply the P2P feedback database migration first." }, { status: 503 });
     }
     console.error("POST /api/p2p/orders/[id]/feedback:", err instanceof Error ? err.message : "Unknown error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
