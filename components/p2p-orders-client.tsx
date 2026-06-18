@@ -30,7 +30,9 @@ interface OrderSummary {
   fiatAmount: number;
   pricePerUnit: number;
   fiat: string;
+  side: "BUY" | "SELL";
   isBuyer: boolean;
+  isSeller: boolean;
   counterparty: string;
   createdAt: string;
 }
@@ -138,6 +140,9 @@ export function P2POrdersClient() {
     navigator.clipboard?.writeText(id).then(() => toast.success("Order number copied")).catch(() => {});
   };
 
+  const isCryptoBuyer = (order: OrderSummary) =>
+    order.side === "SELL" ? order.isBuyer : order.isSeller;
+
   return (
     <>
       <P2PSubNav />
@@ -208,6 +213,9 @@ export function P2POrdersClient() {
       ) : (
         <div className="flex w-full flex-col gap-3">
           {filtered.map((order) => (
+            (() => {
+              const cryptoBuyer = isCryptoBuyer(order);
+              return (
             <Link
               key={order.id}
               href={`/p2p/order/${order.id}`}
@@ -217,7 +225,7 @@ export function P2POrdersClient() {
               {/* Top: side + status */}
               <div className="mb-3 flex items-center justify-between gap-2">
                 <span className="text-[15px] font-black text-white">
-                  <span className={order.isBuyer ? "text-[#05b957]" : "text-red-500"}>{order.isBuyer ? "Buy" : "Sell"}</span> {order.crypto}
+                  <span className={cryptoBuyer ? "text-[#05b957]" : "text-red-500"}>{cryptoBuyer ? "Buy" : "Sell"}</span> {order.crypto}
                 </span>
                 <P2PStatusBadge status={order.status} />
               </div>
@@ -226,7 +234,7 @@ export function P2POrdersClient() {
               <div className="space-y-2.5">
                 <Row label="Amount" value={formatFiat(Number(order.fiatAmount), order.fiat, { decimals: 2 })} strong />
                 <Row label="Price" value={formatFiat(Number(order.pricePerUnit), order.fiat)} />
-                <Row label={order.isBuyer ? "Received Quantity" : "Total Quantity"} value={`${Number(order.cryptoAmount).toFixed(2)} ${order.crypto}`} />
+                <Row label={cryptoBuyer ? "Received Quantity" : "Total Quantity"} value={`${Number(order.cryptoAmount).toFixed(2)} ${order.crypto}`} />
                 <div className="flex items-center justify-between gap-3 text-[13px]">
                   <span className="shrink-0 text-slate-500">Order</span>
                   <span className="flex min-w-0 items-center gap-1.5">
@@ -255,6 +263,8 @@ export function P2POrdersClient() {
                 <span className="text-[12px] text-slate-500">{fmtTimestamp(order.createdAt)}</span>
               </div>
             </Link>
+              );
+            })()
           ))}
         </div>
       )}

@@ -456,10 +456,17 @@ export async function sendNewP2POrderEmail(
     fiatAmount: number;
     fiat: string;
     paymentMethod: string;
+    side: "BUY" | "SELL";
   }
 ) {
-  const { orderId, buyerName, crypto, cryptoAmount, fiatAmount, fiat, paymentMethod } = opts;
+  const { orderId, buyerName, crypto, cryptoAmount, fiatAmount, fiat, paymentMethod, side } = opts;
   const method = paymentMethod === "MPESA" ? "M-Pesa" : paymentMethod === "BANK" ? "Bank Transfer" : paymentMethod;
+  const merchantIsSelling = side === "SELL";
+  const takerAction = merchantIsSelling ? "buy" : "sell";
+  const fiatRowLabel = merchantIsSelling ? "You Receive" : "You Pay";
+  const promptText = merchantIsSelling
+    ? "The buyer has a limited window to complete payment. Release crypto only after confirming you have received the funds."
+    : "You have a limited window to complete payment. The seller should release crypto only after confirming the funds.";
   await sendEmail(
     to,
     merchantName,
@@ -468,14 +475,14 @@ export async function sendNewP2POrderEmail(
       <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:#087cff;text-transform:uppercase;letter-spacing:1px;">New Order</p>
       <h2 style="margin:0 0 16px;font-size:22px;font-weight:800;color:#1a1a2e;">Order Received</h2>
       <p style="margin:0 0 24px;font-size:15px;color:#4a5568;line-height:1.7;">
-        <strong>${buyerName}</strong> has placed an order on your ad. Please process it promptly.
+        <strong>${buyerName}</strong> wants to ${takerAction} ${crypto} using your ad. Please process it promptly.
       </p>
 
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;border-radius:12px;margin-bottom:28px;">
         <tr><td style="padding:4px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow("Crypto Amount", `<strong>${cryptoAmount.toFixed(6)} ${crypto}</strong>`)}
-            ${detailRow("You Receive", `<strong style="color:#05b957;">${fiat} ${fiatAmount.toLocaleString("en-KE")}</strong>`)}
+            ${detailRow(fiatRowLabel, `<strong style="color:#05b957;">${fiat} ${fiatAmount.toLocaleString("en-KE")}</strong>`)}
             ${detailRow("Payment Method", method)}
             ${detailRow("Order ID", orderId.slice(0, 16).toUpperCase(), true)}
           </table>
@@ -484,13 +491,15 @@ export async function sendNewP2POrderEmail(
 
       <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:14px 18px;margin-bottom:28px;">
         <p style="margin:0;font-size:13px;color:#92400e;line-height:1.6;">
-          ⏰ <strong>Respond promptly.</strong> The buyer has a limited window to complete payment. Release crypto only after confirming you have received the funds.
+          ⏰ <strong>Respond promptly.</strong> ${promptText}
         </p>
       </div>
 
       ${ctaButton(`${APP_URL}/p2p/order/${orderId}`, "View Order →")}
     `,
-    "Never release crypto before confirming payment has arrived in your account."
+    merchantIsSelling
+      ? "Never release crypto before confirming payment has arrived in your account."
+      : "Only mark payment complete after sending funds through the selected payment method."
   ));
 }
 
