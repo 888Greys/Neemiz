@@ -1208,6 +1208,10 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(0); // 0=Type & Price · 1=Amount & Method · 2=Conditions
   const [cryptoOpen, setCryptoOpen] = useState(false);
+  const [priceType, setPriceType] = useState<"Fixed" | "Floating">("Fixed");
+  const [priceTypeOpen, setPriceTypeOpen] = useState(false);
+  const [fiatOpen, setFiatOpen] = useState(false);
+  const [fiatQuery, setFiatQuery] = useState("");
   const [spotRate, setSpotRate] = useState<number | null>(null);
   const [savedPaymentMethods, setSavedPaymentMethods] = useState<PayMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
@@ -1295,7 +1299,12 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           setSpotRate(d.rate);
           setForm((p) => {
             const currentPrice = Number(p.pricePerUnit);
-            if (currentPrice <= 0) return p;
+            // Empty field on open (or after switching asset/currency): prefill with
+            // the live market price so the merchant starts from the spot rate.
+            if (currentPrice <= 0) {
+              if (isEditing) return p;
+              return { ...p, pricePerUnit: formatPriceInput(d.rate!, p.fiat), profitMarginPct: "0" };
+            }
             return { ...p, profitMarginPct: (((currentPrice / d.rate!) - 1) * 100).toFixed(2) };
           });
         }
@@ -1414,9 +1423,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               <Icon name="arrow_back" className="text-[20px]" />
             </button>
             <h3 className="text-[15px] font-black tracking-wide text-white">{isEditing ? "Edit Ad" : "Post Normal Ad"}</h3>
-            <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full text-slate-200 transition hover:bg-white/[0.06]" aria-label="Ad help">
-              <Icon name="help_outline" className="text-[19px]" />
-            </button>
+            <span className="h-9 w-9" aria-hidden />
           </div>
 
           <div className="relative grid grid-cols-3 text-center">
@@ -1491,7 +1498,8 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                           setForm((p) => ({
                             ...p,
                             crypto: c.symbol,
-                            pricePerUnit: c.symbol === "KES" ? "1" : p.pricePerUnit,
+                            // Reset price so the spot-rate effect prefills the new asset's market price.
+                            pricePerUnit: c.symbol === "KES" ? "1" : "",
                             profitMarginPct: c.symbol === "KES" ? "0" : "",
                           }));
                           setCryptoOpen(false);
@@ -1511,21 +1519,68 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
           </div>
 
-          {/* Fiat currency selector */}
+          {/* Fiat currency selector — real flags */}
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">With Fiat</label>
             <div className="relative">
-              <select value={form.fiat} onChange={(e) => {
-                  const nextFiat = e.target.value;
-                  const allowed = new Set(paymentMethodsForFiat(nextFiat).map((m) => m.value));
-                  setForm((p) => ({ ...p, fiat: nextFiat, paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)) }));
-                }}
-                className="h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 pr-9 text-[14px] font-black text-white outline-none transition-colors hover:border-white/20 focus:border-[#087cff]/40">
-                {FIAT_CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code} style={{ background: "#111118", color: "#fff" }}>{c.code}</option>
-                ))}
-              </select>
-              <Icon name="arrow_drop_down" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[22px] text-slate-500" />
+              <button
+                type="button"
+                onClick={() => { setFiatOpen((v) => !v); setFiatQuery(""); }}
+                className="flex h-12 w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-black text-white transition-colors hover:border-white/20"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={flagUrl(form.fiat)} alt="" className="h-4 w-6 shrink-0 rounded-[3px] object-cover" />
+                <span className="font-black">{form.fiat}</span>
+                <Icon name="arrow_drop_down" className={`ml-auto text-[22px] text-slate-500 transition-transform ${fiatOpen ? "rotate-180" : ""}`} />
+              </button>
+              {fiatOpen && (
+                <>
+                  <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setFiatOpen(false)} />
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#111118] shadow-2xl shadow-black/60">
+                    <div className="p-2">
+                      <div className="flex items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+                        <Icon name="search" className="text-[16px] text-slate-500" />
+                        <input
+                          autoFocus
+                          value={fiatQuery}
+                          onChange={(e) => setFiatQuery(e.target.value)}
+                          placeholder="Search currency"
+                          className="h-9 flex-1 bg-transparent text-xs font-semibold text-white outline-none placeholder:text-slate-600"
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto px-1 pb-2 [scrollbar-width:thin]">
+                      {FIAT_CURRENCIES
+                        .filter((c) => { const q = fiatQuery.trim().toLowerCase(); return !q || c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q); })
+                        .map((c) => (
+                          <button
+                            key={c.code}
+                            type="button"
+                            onClick={() => {
+                              const allowed = new Set(paymentMethodsForFiat(c.code).map((m) => m.value));
+                              setForm((p) => ({
+                                ...p,
+                                fiat: c.code,
+                                paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)),
+                                // Reset price so it refills with the live rate in the new currency.
+                                pricePerUnit: p.crypto === "KES" ? p.pricePerUnit : "",
+                                profitMarginPct: p.crypto === "KES" ? p.profitMarginPct : "",
+                              }));
+                              setFiatOpen(false);
+                            }}
+                            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${form.fiat === c.code ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={flagUrl(c.code)} alt="" className="h-4 w-6 shrink-0 rounded-[3px] object-cover" />
+                            <span className="text-sm font-black text-white">{c.code}</span>
+                            <span className="truncate text-xs font-semibold text-slate-500">{c.name}</span>
+                            {form.fiat === c.code && <Icon name="check" className="ml-auto shrink-0 text-[16px] text-[#55aaff]" />}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           </div>
@@ -1533,17 +1588,46 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price Type</label>
             <div className="relative">
-              <select
-                value="Fixed"
-                disabled
-                className="h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 pr-9 text-[14px] font-bold text-white outline-none"
+              <button
+                type="button"
+                onClick={() => setPriceTypeOpen((v) => !v)}
+                className="flex h-12 w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-bold text-white transition-colors hover:border-white/20"
               >
-                <option>Fixed</option>
-              </select>
-              <Icon name="arrow_drop_down" className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[22px] text-slate-500" />
+                <span>{priceType}</span>
+                <Icon name="arrow_drop_down" className={`ml-auto text-[22px] text-slate-500 transition-transform ${priceTypeOpen ? "rotate-180" : ""}`} />
+              </button>
+              {priceTypeOpen && (
+                <>
+                  <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setPriceTypeOpen(false)} />
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
+                    {([
+                      { key: "Fixed", desc: "Set a constant price, unaffected by market fluctuations." },
+                      { key: "Floating", desc: "Dynamic price = live market price × your margin." },
+                    ] as const).map((opt) => {
+                      const disabled = opt.key === "Floating" && !canUseMarginPricing;
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => { setPriceType(opt.key); setPriceTypeOpen(false); }}
+                          className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${priceType === opt.key ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"} ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-black text-white">{opt.key}</p>
+                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-slate-500">{disabled ? "Market rate unavailable for this pair." : opt.desc}</p>
+                          </div>
+                          {priceType === opt.key && <Icon name="check" className="mt-0.5 shrink-0 text-[16px] text-[#55aaff]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
+          {priceType === "Fixed" && (
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Fixed price</label>
             <div className="grid h-12 grid-cols-[48px_1fr_48px] items-center overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.04] focus-within:border-[#087cff]/40">
@@ -1565,6 +1649,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               Price range: {priceRangeMin && priceRangeMax ? `${formatPriceInput(priceRangeMin, form.fiat)} - ${formatPriceInput(priceRangeMax, form.fiat)}` : "--"}
             </p>
           </div>
+          )}
 
           <div className="space-y-3 rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
             <div className="flex items-center gap-3">
@@ -1590,9 +1675,10 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             ) : null}
           </div>
 
+          {priceType === "Floating" && (
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">
-              Profit / margin (%)
+              {isKesCoinForm ? "Spread margin (%)" : "Floating price margin (%)"}
             </label>
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <input
@@ -1615,7 +1701,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
             {!canUseMarginPricing ? (
               <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
-                Percentage pricing is not available for {form.crypto}/{form.fiat}; enter the price directly.
+                Percentage pricing is not available for {form.crypto}/{form.fiat}; switch to Fixed and enter the price directly.
               </p>
             ) : isKesCoinForm ? (
               <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
@@ -1623,10 +1709,11 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               </p>
             ) : (
               <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
-                Uses live market {formatFiat(spotRate!, form.fiat)}/{form.crypto} to calculate your price.
+                Live market {formatFiat(spotRate!, form.fiat)}/{form.crypto} × your margin = your price.
               </p>
             )}
           </div>
+          )}
           </div>
           )}
 
