@@ -755,19 +755,19 @@ function MobileP2POrderView({
 
   // ── Terminal state screen (Cancelled / Expired / Disputed) ──
   if (["CANCELLED", "EXPIRED", "DISPUTED"].includes(order.status)) {
-    const isSuccess = false; // RELEASED handled in its own view above
     const isCancelled = order.status === "CANCELLED";
     const isDisputed = order.status === "DISPUTED";
-    const paymentLabel = paymentMethodLabel(order.paymentMethod);
-    const rows = [
-      { label: "Amount",            value: formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 }) },
-      { label: "Price",             value: formatFiat(Number(order.pricePerUnit), order.ad.fiat) },
-      { label: "Order Quantity",    value: `${Number(order.cryptoAmount).toFixed(6)} ${order.crypto}` },
-      { label: "P2P Fee",           value: `${Number(order.p2pFeeAmount).toFixed(6)} ${order.crypto}` },
-      { label: "Credited Quantity", value: `${Number(order.netCryptoAmount).toFixed(6)} ${order.crypto}` },
-      { label: "Order No.",         value: orderId.slice(0, 20).toUpperCase(), copy: true },
-      { label: "Order Time",        value: new Date(order.createdAt).toLocaleString("en-KE", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }) },
-    ];
+    const received = isPaymentActor(order); // current user was buying the crypto
+    const sideLabel = received ? "Buy" : "Sell";
+    const qty = received ? Number(order.netCryptoAmount) : Number(order.cryptoAmount);
+    const statusText = isCancelled ? "Canceled" : isDisputed ? "In Dispute" : "Expired";
+    const subtext = isDisputed
+      ? "Our team is reviewing this order."
+      : order.cancelReason
+      ? order.cancelReason
+      : isCancelled
+      ? "You have cancelled the order"
+      : "Your order has expired";
 
     return (
       <div className="lg:hidden flex flex-col min-h-[calc(100dvh-7rem)] bg-[#08080c] text-white">
@@ -776,121 +776,79 @@ function MobileP2POrderView({
           <button type="button" onClick={onBack} className="grid h-9 w-9 place-items-center rounded-full text-white">
             <Icon name="arrow_back" className="text-[21px]" />
           </button>
-          <span className="text-center text-sm font-black">P2P Help Center</span>
+          <span className="text-center text-sm font-black">Order Details</span>
           <div />
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-4 pb-[calc(3rem+env(safe-area-inset-bottom))]">
-          {/* Title */}
-          <h1 className="mb-4 text-[20px] font-black leading-snug">
-            {isSuccess ? "Trade completed!" : isCancelled ? "Your order has been canceled." : isDisputed ? "This order is in dispute." : "Your order has expired."}
-          </h1>
-
-          {/* Info box */}
-          {isDisputed ? (
-            <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
-              <p className="text-[12px] leading-5 text-red-300">
-                Our team is reviewing this order. Keep all payment proof in chat and wait for admin resolution before taking any further action.
-              </p>
-            </div>
-          ) : !isSuccess && (
-            <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
-              <p className="text-[12px] leading-5 text-slate-400">
-                This order has concluded, and the assets are no longer locked in escrow. Do not blindly trust strangers or release funds without confirming.
-              </p>
-            </div>
-          )}
-          {!isSuccess && !isDisputed && (
-            <p className="mb-4 text-[12px] leading-5 text-slate-500">
-              {order.cancelReason
-                ? order.cancelReason
-                : isCancelled
-                ? "Your order has been cancelled by the system because you didn't indicate that you made the payment before the countdown timer ended."
-                : "Your order expired because the payment window closed without a confirmed payment."}
+        <div className="flex-1 overflow-y-auto px-4 py-5 pb-[calc(8rem+env(safe-area-inset-bottom))]">
+          {/* Headline */}
+          <div className="mb-5 text-center">
+            <p className="text-[30px] font-black tabular-nums text-slate-300">{qty.toFixed(qty % 1 === 0 ? 0 : 2)} {order.crypto}</p>
+            <p className={`mt-1 flex items-center justify-center gap-1.5 text-[15px] font-bold ${isDisputed ? "text-red-400" : "text-slate-400"}`}>
+              <Icon name="info" className="text-[18px]" />
+              {statusText}
             </p>
-          )}
-          {isSuccess && (
-            <div className="mb-4 rounded-xl border border-[#05b957]/20 bg-[#05b957]/5 px-4 py-3">
-              <p className="text-[11px] text-slate-500">{isPaymentActor(order) ? "You received" : "You sent"}</p>
-              <p className="mt-0.5 text-[26px] font-black text-[#05b957] tabular-nums">
-                {Number(order.netCryptoAmount).toFixed(6)} <span className="text-[16px]">{order.crypto}</span>
-              </p>
-              <p className="mt-0.5 text-[11px] text-slate-500">
-                {Number(order.p2pFeeAmount).toFixed(6)} {order.crypto} P2P fee deducted
-              </p>
-            </div>
-          )}
-
-          {isSuccess && (
-            <div className="mb-4">
-              <P2PFeedbackBox
-                feedback={order.myFeedback}
-                rating={feedbackRating}
-                comment={feedbackComment}
-                loading={feedbackLoading}
-                onRatingChange={onFeedbackRatingChange}
-                onCommentChange={onFeedbackCommentChange}
-                onSubmit={onSubmitFeedback}
-              />
-            </div>
-          )}
-
-          {/* Merchant + contact */}
-          <div className="mb-4 flex items-center justify-between rounded-xl border border-white/[0.08] bg-[#16161f] px-4 py-3">
-            <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
-              {counterpartyName(order)} <Icon name="chevron_right" className="text-[16px] text-slate-500" />
-            </button>
-            <button type="button" onClick={() => setShowChat(true)} className="rounded-full bg-[#f59e0b] px-4 py-1.5 text-xs font-black text-black hover:bg-[#f59e0b]/80 transition-colors">
-              Contact Trader
-            </button>
+            <p className="mt-1 text-[12px] text-slate-500">{subtext}</p>
           </div>
 
-          {/* Order type chip */}
-          <div className="mb-4">
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-black ${
-              isPaymentActor(order) ? "bg-[#05b957]/15 text-[#05b957]" : "bg-red-500/15 text-red-400"
-            }`}>
-              <Icon name={isPaymentActor(order) ? "arrow_downward" : "arrow_upward"} className="text-[12px]" />
-              {isPaymentActor(order) ? "Buy" : "Sell"} {order.crypto}
-            </span>
-          </div>
-
-          {/* Details table */}
-          <div className="mb-4 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0e0e14] divide-y divide-white/[0.05]">
-            {rows.map(({ label, value, copy }) => (
-              <div key={label} className="flex items-center justify-between px-4 py-3">
-                <span className="text-[12px] text-slate-500">{label}</span>
-                <span className="flex items-center gap-1.5 text-right text-[12px] font-bold text-white">
-                  {value}
-                  {copy && <Icon name="content_copy" className="text-[12px] text-slate-500" />}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Payment method */}
-          <div className="mb-5 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0e0e14]">
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-[12px] text-slate-500">Payment Method</span>
-              <Icon name="keyboard_arrow_down" className="text-[18px] text-slate-500" />
-            </div>
-            <div className="border-t border-white/[0.05] px-4 py-3">
-              <span className="flex items-center gap-1.5 text-[12px] font-bold text-white">
-                <span className={`h-3.5 w-0.5 rounded-full ${order.paymentMethod === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
-                {paymentLabel}
+          {/* Summary card */}
+          <div className="mb-5 rounded-2xl border border-white/[0.08] bg-[#111118] px-4 py-4">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-sm font-black">
+                <span className={received ? "text-[#05b957]" : "text-red-500"}>{sideLabel}</span> {order.crypto}
               </span>
+              <button
+                type="button"
+                onClick={() => setShowChat(true)}
+                className="rounded-lg bg-[#087cff] px-3.5 py-1.5 text-xs font-black text-white transition-colors hover:bg-[#0570e8]"
+              >
+                Chat
+              </button>
             </div>
+            <div className="space-y-3">
+              <InfoRow label="Fiat Amount" value={formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })} />
+              <InfoRow label="Price" value={formatFiat(Number(order.pricePerUnit), order.ad.fiat)} />
+              <InfoRow label={received ? "Receive Quantity" : "Total Quantity"} value={`${qty.toFixed(2)} ${order.crypto}`} />
+              {summaryOpen && (
+                <>
+                  <InfoRow label="Order No." value={orderId.toUpperCase()} copy onCopy={() => { navigator.clipboard?.writeText(orderId.toUpperCase()).then(() => toast.success("Copied")).catch(() => {}); }} />
+                  <InfoRow label="Order Time" value={new Date(order.createdAt).toLocaleString("en-KE", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })} />
+                </>
+              )}
+            </div>
+            <button type="button" onClick={() => setSummaryOpen((o) => !o)} className="mt-2 flex w-full justify-center text-slate-500 transition hover:text-white">
+              <Icon name={summaryOpen ? "expand_less" : "expand_more"} className="text-[20px]" />
+            </button>
           </div>
 
-          {/* Bottom actions */}
+          {isDisputed && (
+            <div className="mb-5 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+              <p className="text-[12px] leading-5 text-red-300">
+                Keep all payment proof in chat and wait for admin resolution before taking any further action.
+              </p>
+            </div>
+          )}
+
+          {/* Need help */}
+          <div className="border-t border-white/[0.06]">
+            <button type="button" onClick={() => setShowChat(true)} className="flex w-full items-center justify-between py-3.5 text-sm font-bold text-white">
+              Need help
+              <Icon name="chevron_right" className="text-[18px] text-slate-500" />
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom: find better offers + rate experience */}
+        <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-[#1e1e30] bg-[#08080c] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
           <button
             type="button"
-            className="mb-3 h-12 w-full rounded-xl border border-white/[0.10] bg-[#16161f] text-sm font-black text-white"
+            onClick={() => router.push(`/p2p?crypto=${order.crypto}`)}
+            className="h-12 w-full rounded-full bg-[#087cff] text-sm font-black text-white transition-colors hover:bg-[#0570e8]"
           >
-            Order Dispute?
+            Find Better Offers
           </button>
-          <button type="button" className="w-full text-center text-sm font-bold text-[#087cff]">
-            Encountered an Issue?
+          <button type="button" onClick={() => setShowChat(true)} className="mt-2 w-full text-center text-[13px] font-bold text-[#8bc3ff]">
+            Rate Your P2P Experience
           </button>
         </div>
       </div>
