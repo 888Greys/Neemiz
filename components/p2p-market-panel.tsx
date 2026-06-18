@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
+import { DEV_FAST, DEV_FAST_P2P_STATS } from "@/lib/dev-fast";
 
 // ─── My Orders ────────────────────────────────────────────────────────────────
 
@@ -242,6 +243,11 @@ function MarketStatsBlock() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (DEV_FAST) {
+      setStats(DEV_FAST_P2P_STATS);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     const load = async () => {
       try {

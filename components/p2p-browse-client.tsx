@@ -42,6 +42,16 @@ interface Ad {
   merchant: AdMerchant;
 }
 
+interface PayMethod {
+  id: string;
+  type: string;
+  name: string;
+  accountName: string;
+  accountNo: string;
+  bankName: string | null;
+  isActive: boolean;
+}
+
 interface MerchantOffer {
   id: string;
   side: "BUY" | "SELL";
@@ -74,6 +84,8 @@ interface MerchantProfile {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const fmtPm = (m: string) => paymentMethodLabel(m);
+const p2pRailLabel = (method: string, fiat = "KES") =>
+  method === "MPESA" && fiat === "KES" ? "M-PESA Kenya (Safaricom)" : paymentMethodLabel(method);
 
 // Real flag image (flag emoji doesn't render on Windows). The first two letters
 // of every supported ISO-4217 code happen to be the ISO-3166 country (EUR→eu).
@@ -485,6 +497,14 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
   const [inputMode, setInputMode]         = useState<"fiat" | "crypto">("fiat");
   const [rawInput, setRawInput]           = useState("");
   const [selectedPayment, setSelectedPayment] = useState(ad.paymentMethods[0] ?? "");
+  const [paymentScreen, setPaymentScreen] = useState<"order" | "select" | "edit">("order");
+  const [savedMethods, setSavedMethods] = useState<PayMethod[]>([]);
+  const [methodsLoading, setMethodsLoading] = useState(false);
+  const [editingMethod, setEditingMethod] = useState<PayMethod | null>(null);
+  const [editAccountName, setEditAccountName] = useState("");
+  const [editAccountNo, setEditAccountNo] = useState("");
+  const [editBankName, setEditBankName] = useState("");
+  const [savingMethod, setSavingMethod] = useState(false);
   const [submitting, setSubmitting]       = useState(false);
 
   // Derive fiat and crypto amounts from whichever field is active
@@ -501,20 +521,166 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
     ? fiatNum >= ad.minLimit && fiatNum <= ad.maxLimit && cryptoAmount > 0 && !exceedsAvailable
     : cryptoAmount > 0 && !mustUseFullAmount && !exceedsAvailable;
   const actionTone = isBuyingCrypto ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-600";
+  const actionLabel = isBuyingCrypto ? "Buy" : "Sell";
+  const selectableMethods = savedMethods.filter((method) => method.isActive && ad.paymentMethods.includes(method.name));
+  const selectedMethod = selectableMethods.find((method) => method.name === selectedPayment) ?? selectableMethods[0] ?? null;
 
   function toggleMode() {
     setInputMode((m) => m === "fiat" ? "crypto" : "fiat");
     setRawInput("");
   }
 
+  const loadPaymentMethods = useCallback(async () => {
+    setMethodsLoading(true);
+    try {
+      const res = await fetch("/api/p2p/merchant/payment-methods");
+      if (!res.ok) throw new Error("Could not load payment methods");
+      const methods = await res.json() as PayMethod[];
+      setSavedMethods(methods);
+      const firstSupported = methods.find((method) => method.isActive && ad.paymentMethods.includes(method.name));
+      if (firstSupported && !methods.some((method) => method.name === selectedPayment && method.isActive)) {
+        setSelectedPayment(firstSupported.name);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not load payment methods");
+    } finally {
+      setMethodsLoading(false);
+    }
+  }, [ad.paymentMethods, selectedPayment]);
+
+  useEffect(() => {
+    if (!isBuyingCrypto) void loadPaymentMethods();
+  }, [isBuyingCrypto, loadPaymentMethods]);
+
+  function startEdit(method: PayMethod) {
+    setEditingMethod(method);
+    setEditAccountName(method.accountName);
+    setEditAccountNo(method.accountNo);
+    setEditBankName(method.bankName ?? "");
+    setPaymentScreen("edit");
+  }
+
+  async function savePaymentMethod() {
+    if (!editingMethod) return;
+    const accountName = editAccountName.trim();
+    const accountNo = editAccountNo.trim();
+    const bankName = editBankName.trim();
+    if (accountName.length < 2) return toast.error("Enter the account holder name");
+    if (accountNo.length < 4) return toast.error("Enter a valid account/phone number");
+
+    setSavingMethod(true);
+    try {
+      const res = await fetch(`/api/p2p/merchant/payment-methods/${editingMethod.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          method: editingMethod.name,
+          accountName,
+          accountNo,
+          bankName: editBankName.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not save payment method");
+      setSavedMethods((current) => current.map((method) => method.id === data.id ? data : method));
+      setEditingMethod(data);
+      setSelectedPayment(data.name);
+      setPaymentScreen("select");
+      toast.success("Payment method saved");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save payment method");
+    } finally {
+      setSavingMethod(false);
+    }
+  }
+
+  async function deletePaymentMethod() {
+    if (!editingMethod) return;
+    setSavingMethod(true);
+    try {
+      const res = await fetch(`/api/p2p/merchant/payment-methods/${editingMethod.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Could not delete payment method");
+      setSavedMethods((current) => current.filter((method) => method.id !== editingMethod.id));
+      setEditingMethod(null);
+      setSelectedPayment(ad.paymentMethods[0] ?? "");
+      setPaymentScreen("select");
+      toast.success("Payment method deleted");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not delete payment method");
+    } finally {
+      setSavingMethod(false);
+    }
+  }
+
+  async function addPaymentMethod(method: string) {
+    const existing = savedMethods.find((saved) => saved.name === method);
+    if (existing) {
+      startEdit(existing);
+      return;
+    }
+    setEditingMethod({
+      id: "",
+      type: method === "BANK" ? "BANK" : "MPESA",
+      name: method,
+      accountName: "",
+      accountNo: "",
+      bankName: null,
+      isActive: true,
+    });
+    setEditAccountName("");
+    setEditAccountNo("");
+    setEditBankName("");
+    setPaymentScreen("edit");
+  }
+
+  async function createPaymentMethod() {
+    if (!editingMethod || editingMethod.id) return savePaymentMethod();
+    const accountName = editAccountName.trim();
+    const accountNo = editAccountNo.trim();
+    const bankName = editBankName.trim();
+    if (accountName.length < 2) return toast.error("Enter the account holder name");
+    if (accountNo.length < 4) return toast.error("Enter a valid account/phone number");
+
+    setSavingMethod(true);
+    try {
+      const res = await fetch("/api/p2p/merchant/payment-methods", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          method: editingMethod.name,
+          accountName,
+          accountNo,
+          bankName: bankName || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not add payment method");
+      setSavedMethods((current) => [...current.filter((method) => method.name !== data.name), data]);
+      setEditingMethod(data);
+      setSelectedPayment(data.name);
+      setPaymentScreen("select");
+      toast.success("Payment method added");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not add payment method");
+    } finally {
+      setSavingMethod(false);
+    }
+  }
+
   async function submit() {
     if (!valid) return;
+    if (!isBuyingCrypto && !selectedMethod) {
+      toast.error("Add a payment method before placing this sell order");
+      setPaymentScreen("select");
+      return;
+    }
     setSubmitting(true);
     try {
       const res  = await fetch("/api/p2p/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adId: ad.id, cryptoAmount: cryptoAmount.toFixed(8), paymentMethod: selectedPayment }),
+        body: JSON.stringify({ adId: ad.id, cryptoAmount: cryptoAmount.toFixed(8), paymentMethod: selectedMethod?.name ?? selectedPayment }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
@@ -523,6 +689,172 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
       toast.error(err instanceof Error ? err.message : "Failed to place order");
       setSubmitting(false);
     }
+  }
+
+  if (paymentScreen === "select") {
+    const supportedRails = paymentMethodsForFiat(ad.fiat).filter((method) => ad.paymentMethods.includes(method.value));
+    const unsupportedRails = paymentMethodsForFiat(ad.fiat).filter((method) => !ad.paymentMethods.includes(method.value));
+    return (
+      <div
+        className="fixed inset-0 z-[120] flex items-end justify-center bg-black/90 backdrop-blur-md pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
+        onClick={onClose}
+      >
+        <div
+          className="flex h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-[720px] sm:rounded-2xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] items-center px-4 py-4">
+            <button type="button" onClick={() => setPaymentScreen("order")} className="grid h-9 w-9 place-items-center rounded-full text-white hover:bg-white/[0.06]">
+              <Icon name="arrow_back" className="text-[20px]" />
+            </button>
+            <h2 className="text-center text-base font-black">Select a payment method</h2>
+            <span />
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5">
+            <p className="mb-4 text-sm text-slate-200">Select payment methods</p>
+            {methodsLoading ? (
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-5 text-sm font-bold text-slate-500">Loading payment methods...</div>
+            ) : selectableMethods.length > 0 ? (
+              <div className="space-y-2">
+                {selectableMethods.map((method) => (
+                  <button
+                    key={method.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPayment(method.name);
+                      setPaymentScreen("order");
+                    }}
+                    className={`w-full rounded-xl border px-4 py-4 text-left transition ${
+                      selectedPayment === method.name ? "border-[#087cff] bg-[#087cff]/10" : "border-white/[0.10] bg-white/[0.03]"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-2 text-sm font-black text-white">
+                          <span className={`h-3.5 w-0.5 rounded-full ${method.name === "MPESA" ? "bg-[#05b957]" : "bg-[#facc15]"}`} />
+                          {p2pRailLabel(method.name, ad.fiat)}
+                        </p>
+                        <p className="mt-3 text-xs font-semibold text-slate-400">{method.accountName}</p>
+                        <p className="mt-2 text-sm font-bold text-slate-300">{method.accountNo}</p>
+                      </div>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          startEdit(method);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            startEdit(method);
+                          }
+                        }}
+                        className="mt-12 grid h-8 w-8 shrink-0 place-items-center rounded-full text-[#8bc3ff] hover:bg-[#087cff]/10"
+                        aria-label="Edit payment method"
+                      >
+                        <Icon name="edit" className="text-[17px]" />
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-4 text-sm font-bold text-amber-200">
+                Add a receiving payment method before selling {ad.crypto}.
+              </div>
+            )}
+
+            <p className="mb-4 mt-5 text-sm text-slate-200">Add supported payment methods</p>
+            <div className="space-y-2">
+              {supportedRails.map((method) => (
+                <button key={method.value} type="button" onClick={() => void addPaymentMethod(method.value)} className="flex h-12 w-full items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white">
+                  <span className="flex items-center gap-3"><span className={`h-3.5 w-0.5 rounded-full ${method.value === "MPESA" ? "bg-[#05b957]" : "bg-[#facc15]"}`} />Add {p2pRailLabel(method.value, ad.fiat)}</span>
+                  <Icon name="add" className="text-[18px]" />
+                </button>
+              ))}
+            </div>
+            {unsupportedRails.length > 0 && <button type="button" className="mx-auto mt-6 flex items-center gap-1 text-xs text-slate-500">
+              View unsupported payment methods
+              <Icon name="keyboard_arrow_down" className="text-[16px]" />
+            </button>}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (paymentScreen === "edit") {
+    const isBankMethod = editingMethod?.name === "BANK" || editingMethod?.type === "BANK";
+    return (
+      <div
+        className="fixed inset-0 z-[120] flex items-end justify-center bg-black/90 backdrop-blur-md pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
+        onClick={onClose}
+      >
+        <div
+          className="flex h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-[720px] sm:rounded-2xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] items-center px-4 py-4">
+            <button type="button" onClick={() => setPaymentScreen("select")} className="grid h-9 w-9 place-items-center rounded-full text-white hover:bg-white/[0.06]">
+              <Icon name="arrow_back" className="text-[20px]" />
+            </button>
+            <h2 className="truncate text-center text-base font-black">
+              {editingMethod?.id ? "Edit" : "Add"} {p2pRailLabel(editingMethod?.name ?? selectedPayment, ad.fiat)}
+            </h2>
+            <button
+              type="button"
+              onClick={() => void deletePaymentMethod()}
+              disabled={!editingMethod?.id || savingMethod}
+              className="grid h-9 w-9 place-items-center rounded-full text-slate-200 hover:bg-red-500/10 hover:text-red-400 disabled:opacity-30"
+              aria-label="Delete payment method"
+            >
+              <Icon name="delete" className="text-[20px]" />
+            </button>
+          </div>
+
+          <div className="flex min-h-0 flex-1 flex-col px-4 pb-5">
+            <label className="mt-3 block text-sm text-slate-400">Name</label>
+            <input
+              value={editAccountName}
+              onChange={(event) => setEditAccountName(event.target.value)}
+              className="mt-2 h-12 w-full rounded-lg bg-white/[0.08] px-3 text-sm font-bold text-white outline-none focus:ring-1 focus:ring-[#087cff]/50"
+            />
+            <p className="mt-2 text-xs leading-4 text-slate-500">
+              Use the exact name on the receiving account. Mismatched names can delay release or trigger disputes.
+            </p>
+
+            <label className="mt-8 block text-sm text-slate-400">{isBankMethod ? "Account number" : "Phone number"}</label>
+            <input
+              value={editAccountNo}
+              onChange={(event) => setEditAccountNo(event.target.value)}
+              className="mt-2 h-12 w-full rounded-lg bg-white/[0.08] px-3 text-sm font-bold text-white outline-none focus:ring-1 focus:ring-[#087cff]/50"
+            />
+            {isBankMethod && (
+              <>
+                <label className="mt-5 block text-sm text-slate-400">Bank name</label>
+                <input
+                  value={editBankName}
+                  onChange={(event) => setEditBankName(event.target.value)}
+                  className="mt-2 h-12 w-full rounded-lg bg-white/[0.08] px-3 text-sm font-bold text-white outline-none focus:ring-1 focus:ring-[#087cff]/50"
+                />
+              </>
+            )}
+
+            <button
+              type="button"
+              onClick={() => editingMethod?.id ? void savePaymentMethod() : void createPaymentMethod()}
+              disabled={savingMethod}
+              className="mt-auto h-12 w-full rounded-lg bg-[#087cff] text-sm font-black text-white shadow-lg shadow-[#087cff]/20 transition hover:bg-[#0a6ee0] disabled:opacity-60"
+            >
+              {savingMethod ? <LoadingDots label="Saving" /> : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -543,8 +875,8 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
               <Icon name="arrow_back" className="text-[20px]" />
             </button>
             <div className="min-w-0 text-center">
-              <h2 className="truncate text-[15px] font-black sm:text-base">{isBuyingCrypto ? "Buy" : "Sell"} {ad.crypto} with {ad.merchant.displayName}</h2>
-              <p className="hidden text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600 sm:block">Set amount and payment method</p>
+              <h2 className="truncate text-[15px] font-black sm:text-base">{actionLabel} {ad.crypto}</h2>
+              <p className="text-[11px] font-semibold text-slate-400">Price {formatFiat(ad.pricePerUnit, ad.fiat)}</p>
             </div>
             <button
               onClick={onClose}
@@ -556,41 +888,24 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-5 sm:p-5">
-          <div className="mb-2 flex items-center justify-between text-[11px]">
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-400">Price</span>
-              <span className="font-black text-[#05b957]">{formatFiat(ad.pricePerUnit, ad.fiat)}</span>
-              <span className="text-slate-600">{ad.paymentWindow ?? 15}m window</span>
-            </div>
-            <span className="flex items-center gap-1 rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold text-slate-400">
-              <Icon name="verified_user" className="text-[11px] text-[#05b957]" />
-              Security Protection
-            </span>
-          </div>
-
-
           <section className="mb-4 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
             <div className="mb-6 flex items-center justify-between border-b border-white/[0.06]">
               <div className="flex gap-6">
                 <button
                   type="button"
                   onClick={() => { setInputMode("fiat"); setRawInput(""); }}
-                  className={`pb-2 text-[12px] font-black ${inputMode === "fiat" ? "border-b-2 border-[#087cff] text-[#087cff]" : "text-slate-600"}`}
+                  className={`pb-2 text-[12px] font-black ${inputMode === "fiat" ? "border-b-2 border-[#facc15] text-white" : "text-slate-500"}`}
                 >
-                  With Fiat
+                  By {ad.fiat}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setInputMode("crypto"); setRawInput(""); }}
-                  className={`pb-2 text-[12px] font-black ${inputMode === "crypto" ? "border-b-2 border-[#087cff] text-[#087cff]" : "text-slate-600"}`}
+                  className={`pb-2 text-[12px] font-black ${inputMode === "crypto" ? "border-b-2 border-[#facc15] text-white" : "text-slate-500"}`}
                 >
-                  With Crypto
+                  By {ad.crypto}
                 </button>
               </div>
-              <span className="flex items-center gap-1 text-[10px] text-slate-600">
-                <Icon name="schedule" className="text-[11px]" />
-                {ad.paymentWindow}m
-              </span>
             </div>
 
             <div className="flex items-center gap-3">
@@ -618,17 +933,25 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                 }}
                 className="text-sm font-black text-[#f59e0b]"
               >
-                Max
+                All
               </button>
               </div>
             {hasOrderLimits ? (
-              <p className="mt-3 text-[11px] text-slate-500">Limits: {formatFiat(ad.minLimit, ad.fiat)} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</p>
+              <p className="mt-3 text-[11px] text-slate-500">
+                Limit {inputMode === "crypto"
+                  ? `${(ad.minLimit / ad.pricePerUnit).toFixed(2)} - ${(ad.maxLimit / ad.pricePerUnit).toFixed(2)} ${ad.crypto}`
+                  : `${formatFiat(ad.minLimit, ad.fiat)} - ${formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}`}
+              </p>
             ) : (
               <p className="mt-3 text-[11px] text-slate-500">Amount requested: {ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} {ad.crypto}</p>
             )}
-            <p className="mt-2 text-[12px] text-slate-500">
-              {isBuyingCrypto ? "I will receive" : "I will send"}{" "}
-              <span className="text-white">{cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "--"} {ad.crypto}</span>
+            <p className="mt-2 text-[11px] text-slate-500">
+              Balance available in your P2P wallet
+              <button type="button" className="ml-1 inline-grid h-4 w-4 place-items-center rounded-full border border-slate-600 text-[10px] text-slate-500">+</button>
+            </p>
+            <p className="mt-2 flex items-center justify-between text-[12px] text-slate-500">
+              <span>{isBuyingCrypto ? "You Receive" : "You Receive"}</span>
+              <span className="text-white">{isBuyingCrypto ? `${cryptoAmount > 0 ? cryptoAmount.toFixed(6) : "0"} ${ad.crypto}` : `${fiatNum > 0 ? formatFiat(fiatNum, ad.fiat, { symbol: false }) : "0"} ${ad.fiat}`}</span>
             </p>
             {(belowMin || aboveMax || exceedsAvailable || mustUseFullAmount) && (
               <p className="mt-2 text-[11px] font-bold text-red-400">
@@ -643,26 +966,50 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
             )}
           </section>
 
-          {/* Payment method */}
           <section className="mb-5 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
-            <div className="flex flex-wrap gap-2">
-                {ad.paymentMethods.map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setSelectedPayment(m)}
-                  className={`rounded-lg border-l-2 px-3 py-2 text-xs font-black transition-colors ${
-                      selectedPayment === m
-                      ? "border-[#087cff] bg-[#087cff]/[0.08] text-white"
-                      : "border-white/10 bg-white/[0.02] text-slate-500"
-                    }`}
-                  >
-                    {fmtPm(m)}
-                  </button>
-                ))}
-              </div>
+            {isBuyingCrypto ? ad.paymentMethods.map((m) => (
+              <button
+                key={m}
+                onClick={() => {
+                  setSelectedPayment(m);
+                }}
+                className={`flex w-full items-center justify-between text-left text-sm font-black transition-colors ${selectedPayment === m ? "text-white" : "text-slate-500"}`}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="h-3.5 w-0.5 rounded-full bg-[#05b957]" />
+                  <span className="truncate">{p2pRailLabel(m, ad.fiat)}</span>
+                </span>
+                {selectedPayment === m && <Icon name="check" className="text-[18px] text-[#05b957]" />}
+              </button>
+            )) : (
+              <button
+                type="button"
+                onClick={() => setPaymentScreen("select")}
+                className="flex w-full items-center justify-between text-left text-sm font-black text-white"
+              >
+                {selectedMethod ? (
+                  <span className="min-w-0">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className={`h-3.5 w-0.5 rounded-full ${selectedMethod.name === "MPESA" ? "bg-[#05b957]" : "bg-[#facc15]"}`} />
+                      <span className="truncate">{p2pRailLabel(selectedMethod.name, ad.fiat)}</span>
+                    </span>
+                    <span className="mt-1 block truncate pl-2 text-xs font-semibold text-slate-500">
+                      {selectedMethod.accountName} · {selectedMethod.accountNo}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="flex min-w-0 items-center gap-2 text-slate-300">
+                    <span className="h-3.5 w-0.5 rounded-full bg-[#05b957]" />
+                    Select a payment method
+                  </span>
+                )}
+                <Icon name="edit" className="text-[18px] text-[#8bc3ff]" />
+              </button>
+            )}
           </section>
 
-          <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4">
+          <section className="border-t border-white/[0.07] pt-5">
+            <h3 className="mb-4 text-sm font-black text-white">Advertiser&apos;s Info</h3>
             <div className="mb-4 flex items-center justify-between">
               <button
                 type="button"
@@ -670,39 +1017,30 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                 className="flex min-w-0 items-center gap-1 text-left text-sm font-bold text-white transition hover:text-[#8bc3ff]"
               >
                 {ad.merchant.displayName}
+                <span className="grid h-4 w-4 place-items-center rounded-full bg-[#facc15] text-[10px] text-black">✓</span>
                 <Icon name="chevron_right" className="text-[15px] text-slate-500" />
               </button>
-              <div className="text-right text-[11px] text-slate-500">
-                <span className="text-slate-300">{ad.merchant.completedTrades}</span> Orders | Completion Rate <span className="text-slate-300">{ad.merchant.completionRate.toFixed(0)}%</span>
+              <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#05b957]" />
+                Online
               </div>
             </div>
-
-            <h3 className="mb-2 text-sm font-black text-white">Advertiser Terms</h3>
-            <p className="text-[12px] leading-5 text-slate-500">
+            <p className="whitespace-pre-wrap text-[12px] leading-5 text-slate-500">
               {ad.terms || "Merchants may include additional terms in their advertiser terms. Please review them carefully before placing an order."}
-            </p>
-            <p className="mt-2 text-[12px] leading-5 text-slate-500">
-              In the event of any conflict, the <span className="font-black text-[#087cff]">P2P Taker Terms of Use</span> and <span className="font-black text-[#087cff]">P2P Privacy Agreement</span> prevail. Violations are not protected under platform protection.
             </p>
           </section>
         </div>
 
         <div className="shrink-0 border-t border-white/[0.07] bg-[#0b0b11]/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-5">
-          <div className="grid grid-cols-[minmax(0,1fr)_118px] items-center gap-3">
-            <div>
-              <p className="text-[16px] font-black text-white">{fiatNum > 0 ? formatFiat(fiatNum, ad.fiat) : formatFiat(0, ad.fiat)}</p>
-              <p className="text-[11px] text-slate-500">{isBuyingCrypto ? "Total Payable" : "Total Receivable"}</p>
-            </div>
           <button
             onClick={submit}
             disabled={!valid || submitting}
-              className={`h-11 rounded-full text-sm font-black text-white transition-all disabled:opacity-45 disabled:cursor-not-allowed active:scale-[0.98] ${actionTone}`}
+              className={`h-12 w-full rounded-xl text-sm font-black text-white transition-all disabled:opacity-45 disabled:cursor-not-allowed active:scale-[0.98] ${actionTone}`}
           >
             {submitting ? (
               <LoadingDots label="Placing order" />
-              ) : isBuyingCrypto ? "Buy" : "Sell"}
+              ) : "Place Order"}
           </button>
-          </div>
         </div>
       </div>
     </div>
@@ -1248,7 +1586,6 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const [payment, setPaymentState]  = useState(initPayment);
   const [fiat, setFiatState]        = useState(initFiat);
   const [amountInput, setAmountInput] = useState("");
-  const [selectedOffer, setSelectedOffer] = useState<Ad | null>(null);
   const [orderAd, setOrderAd] = useState<Ad | null>(null);
   const [selectedMerchant, setSelectedMerchant] = useState<AdMerchant | null>(null);
 
@@ -1392,7 +1729,6 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
       toast.error("Please sign in to trade");
       return;
     }
-    setSelectedOffer(null);
     setOrderAd(ad);
   };
 
@@ -1412,15 +1748,6 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   return (
     <>
-      {selectedOffer && (
-        <OfferDetailsModal
-          ad={selectedOffer}
-          marketRef={marketRefs[selectedOffer.crypto] ?? 0}
-          onClose={() => setSelectedOffer(null)}
-          onTrade={openOrder}
-          onMerchantClick={setSelectedMerchant}
-        />
-      )}
       {orderAd && <OrderModal ad={orderAd} onClose={() => setOrderAd(null)} onMerchantClick={setSelectedMerchant} />}
       {selectedMerchant && <MerchantProfileModal merchant={selectedMerchant} onClose={() => setSelectedMerchant(null)} />}
 
@@ -1518,9 +1845,9 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
             <>
-              <OffersTable title="Promoted offers" ads={promoted} marketRefs={marketRefs} onDetails={setSelectedOffer} onMerchantClick={setSelectedMerchant} promoted />
+              <OffersTable title="Promoted offers" ads={promoted} marketRefs={marketRefs} onDetails={openOrder} onMerchantClick={setSelectedMerchant} promoted />
               <DirectBuyBanner />
-              <OffersTable title="Other offers" ads={otherAds} marketRefs={marketRefs} onDetails={setSelectedOffer} onMerchantClick={setSelectedMerchant} />
+              <OffersTable title="Other offers" ads={otherAds} marketRefs={marketRefs} onDetails={openOrder} onMerchantClick={setSelectedMerchant} />
             </>
           )}
 

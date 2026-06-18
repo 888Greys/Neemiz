@@ -3,8 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbo",
     "dev:turbo": "next dev --turbo",
+    "dev:fast": "set NEXT_PUBLIC_DEV_FAST=1&& next dev --turbo",
+    "check": "prisma validate && tsc --noEmit",
+    "check:types": "tsc --noEmit",
+    "build:no-generate": "next build",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",

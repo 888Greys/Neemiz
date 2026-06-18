@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
+import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
 
 // POST /api/p2p/orders/[id]/paid — buyer marks payment done
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -70,6 +71,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           },
         });
       }
+
+      await createP2POrderEventMessage(tx, {
+        orderId: order.id,
+        senderId: dbUser.id,
+        content: paymentRef?.trim()
+          ? `Payment marked completed. Reference: ${paymentRef.trim()}`
+          : "Payment marked completed. The coin holder should verify the funds before release.",
+      });
 
       return "PAID" as const;
     });
