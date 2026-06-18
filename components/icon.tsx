@@ -141,11 +141,13 @@ const iconMap: Record<string, LucideIcon> = {
   currency_exchange: ArrowLeftRight,
 
   // D
+  delete: Trash2,
   delete_outline: Trash2,
   desktop_windows: Monitor,
   devices: Laptop2,
 
   // E
+  edit: FileEdit,
   edit_note: FileEdit,
   egg: Egg,
   emoji_events: Trophy,

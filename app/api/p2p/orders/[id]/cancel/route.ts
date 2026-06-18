@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { getP2PCancellationUsage } from "@/lib/p2p/cancellation-policy";
 import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
+import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
 
 // POST /api/p2p/orders/[id]/cancel
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -101,6 +102,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       } else if (order.ad.side === "BUY") {
         await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), cryptoAmt);
       }
+      await createP2POrderEventMessage(tx, {
+        orderId: order.id,
+        senderId: dbUser.id,
+        content: `Order cancelled. Reason: ${reason.trim()}`,
+      });
     });
 
     // Notify the other party (outside transaction — non-critical)

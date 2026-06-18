@@ -5,6 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip,
   ResponsiveContainer, ReferenceLine, CartesianGrid, Dot,
 } from "recharts";
+import { DEV_FAST } from "@/lib/dev-fast";
 
 interface PricePoint { t: number; p: number; }
 interface SeriesData { label: string; color: string; history: PricePoint[]; }
@@ -69,6 +70,11 @@ export function ProbabilityChart({ tokenIds, outcomes }: Props) {
 
   useEffect(() => {
     if (!tokenIds.length) return;
+    if (DEV_FAST) {
+      setSeries([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     const fidelity = INTERVALS.find((i) => i.value === interval)?.fidelity ?? "60";

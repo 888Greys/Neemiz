@@ -7,6 +7,8 @@ import { Icon } from "@/components/icon";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat } from "@/lib/p2p/currencies";
 import { P2PStatusBadge } from "@/components/p2p/status-badge";
+import { useSupabaseAuth } from "@/lib/supabase/auth-context";
+import { useAuthModal } from "@/lib/auth-modal-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,21 +56,39 @@ export function P2POrdersClient() {
   const [orders, setOrders]   = useState<OrderSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter]   = useState<FilterTab>("all");
+  const { isLoaded, isSignedIn } = useSupabaseAuth();
+  const { openLogin } = useAuthModal();
 
   const fetchOrders = useCallback(async (force = false) => {
-    const data = await cachedFetch<OrderSummary[]>(ORDERS_KEY, force);
-    if (data) setOrders(data);
-    setLoading(false);
-  }, []);
+    if (!isSignedIn) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const data = await cachedFetch<OrderSummary[]>(ORDERS_KEY, force);
+      if (data) setOrders(data);
+    } finally {
+      setLoading(false);
+    }
+  }, [isSignedIn]);
 
   // Seed from the client cache AFTER mount (not in the useState initializer) so
   // the first client render matches the server's empty render. Reading
   // sessionStorage during render is what caused the /p2p/orders hydration error.
   useEffect(() => {
+    if (!isLoaded) return;
+    if (!isSignedIn) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
+
     const cached = getCached<OrderSummary[]>(ORDERS_KEY);
     if (cached?.length) { setOrders(cached); setLoading(false); }
     fetchOrders(true);
-  }, [fetchOrders]);
+  }, [fetchOrders, isLoaded, isSignedIn]);
 
   const filtered = orders.filter((o) => {
     if (filter === "all")       return true;
@@ -111,12 +131,14 @@ export function P2POrdersClient() {
       </div>
 
       {/* Content */}
-      {loading ? (
+      {!isLoaded || loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-[88px] rounded-2xl bg-white/5 animate-pulse lg:h-[58px] lg:rounded-lg" />
           ))}
         </div>
+      ) : !isSignedIn ? (
+        <OrdersLoginState openLogin={openLogin} />
       ) : filtered.length === 0 ? (
         filter === "all" ? (
           <OrdersLaunchpad />
@@ -196,6 +218,38 @@ export function P2POrdersClient() {
       )}
     </div>
     </>
+  );
+}
+
+function OrdersLoginState({ openLogin }: { openLogin: () => void }) {
+  return (
+    <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-6 py-8 text-center">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
+        <Icon name="lock" className="text-xl text-slate-400" />
+      </div>
+      <p className="mb-1 text-lg font-black text-white">Log in to view P2P orders</p>
+      <p className="max-w-sm text-sm leading-6 text-slate-500">
+        This page only shows trades for the account signed in on this browser.
+      </p>
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={openLogin}
+          className="rounded-xl bg-[#087cff] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#0a6ee0]"
+        >
+          Login
+        </button>
+        {process.env.NODE_ENV !== "production" ? (
+          <Link
+            href="/dev-login"
+            prefetch={false}
+            className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-5 py-2.5 text-sm font-black text-slate-200 transition hover:bg-white/[0.08]"
+          >
+            Dev login
+          </Link>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
