@@ -436,13 +436,9 @@ function MobileP2POrderView({
   paidRef,
   setPaidRef,
   actionLoading,
-  feedbackRating,
-  feedbackComment,
   feedbackLoading,
   onBack,
   onAction,
-  onFeedbackRatingChange,
-  onFeedbackCommentChange,
   onSubmitFeedback,
 }: {
   order: OrderData;
@@ -450,14 +446,10 @@ function MobileP2POrderView({
   paidRef: string;
   setPaidRef: (value: string) => void;
   actionLoading: string | null;
-  feedbackRating: number;
-  feedbackComment: string;
   feedbackLoading: boolean;
   onBack: () => void;
   onAction: (endpoint: string, body: object, label: string) => Promise<void>;
-  onFeedbackRatingChange: (rating: number) => void;
-  onFeedbackCommentChange: (comment: string) => void;
-  onSubmitFeedback: () => void;
+  onSubmitFeedback: (rating: number) => void;
 }) {
   const [showChat, setShowChat] = useState(false);
   const [showCancelForm, setShowCancelForm] = useState(false);
@@ -711,6 +703,15 @@ function MobileP2POrderView({
               Leave Feedback
               <Icon name={feedbackOpen ? "expand_less" : "chevron_right"} className="text-[18px] text-slate-500" />
             </button>
+            {feedbackOpen && (
+              <div className="pb-4 pt-1">
+                <P2PFeedbackBox
+                  feedback={order.myFeedback}
+                  loading={feedbackLoading}
+                  onSubmitRating={onSubmitFeedback}
+                />
+              </div>
+            )}
             <div className="flex items-center justify-between py-3.5">
               <span className="text-sm font-bold text-white">Follow this user</span>
               <button
@@ -723,20 +724,6 @@ function MobileP2POrderView({
               </button>
             </div>
           </div>
-
-          {feedbackOpen && (
-            <div className="mt-4">
-              <P2PFeedbackBox
-                feedback={order.myFeedback}
-                rating={feedbackRating}
-                comment={feedbackComment}
-                loading={feedbackLoading}
-                onRatingChange={onFeedbackRatingChange}
-                onCommentChange={onFeedbackCommentChange}
-                onSubmit={onSubmitFeedback}
-              />
-            </div>
-          )}
         </div>
 
         {/* Bottom: Order again → merchant profile */}
@@ -1292,65 +1279,59 @@ function VerifyPaymentTimeline({ order, paymentName }: { order: OrderData; payme
 
 function P2PFeedbackBox({
   feedback,
-  rating,
-  comment,
   loading,
-  onRatingChange,
-  onCommentChange,
-  onSubmit,
+  onSubmitRating,
 }: {
   feedback: OrderData["myFeedback"];
-  rating: number;
-  comment: string;
   loading: boolean;
-  onRatingChange: (rating: number) => void;
-  onCommentChange: (comment: string) => void;
-  onSubmit: () => void;
+  onSubmitRating: (rating: number) => void;
 }) {
+  const submittedIsPositive = feedback ? feedback.rating >= 4 : false;
+
   if (feedback) {
     return (
-      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
-        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-600">Your feedback</p>
-        <p className="mt-2 text-sm font-black text-white">{"★".repeat(feedback.rating)}{"☆".repeat(5 - feedback.rating)}</p>
-        {feedback.comment && <p className="mt-2 text-xs leading-5 text-slate-400">{feedback.comment}</p>}
+      <div className="rounded-xl border border-white/[0.08] bg-[#111923] p-4">
+        <p className="text-center text-[12px] font-bold text-slate-300">Your feedback</p>
+        <div className="mt-3 flex items-center justify-center">
+          <div
+            className={`inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[13px] font-bold ${
+              submittedIsPositive
+                ? "border-[#05b957]/35 bg-[#05b957]/10 text-white"
+                : "border-red-400/35 bg-red-500/10 text-white"
+            }`}
+          >
+            <Icon name={submittedIsPositive ? "thumb_up" : "thumb_down"} className="h-4 w-4" />
+            {submittedIsPositive ? "Positive" : "Negative"}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-white/[0.07] bg-[#111118] p-4">
-      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-600">Rate this trade</p>
-      <div className="mt-3 flex gap-2">
-        {[1, 2, 3, 4, 5].map((value) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => onRatingChange(value)}
-            className={`grid h-9 w-9 place-items-center rounded-xl text-lg transition ${
-              value <= rating ? "bg-[#05b957]/15 text-[#05b957]" : "bg-white/[0.05] text-slate-600 hover:text-white"
-            }`}
-            aria-label={`Rate ${value} stars`}
-          >
-            ★
-          </button>
-        ))}
+    <div className="rounded-xl border border-white/[0.08] bg-[#111923] p-3.5">
+      <p className="mb-3 text-center text-[12px] font-bold text-white">Review Counterparty</p>
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => onSubmitRating(5)}
+          disabled={loading}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/[0.10] bg-transparent px-3 text-[13px] font-bold text-white transition hover:border-[#05b957]/45 hover:bg-[#05b957]/10 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Icon name="thumb_up" className="h-4 w-4" />
+          Positive
+        </button>
+        <button
+          type="button"
+          onClick={() => onSubmitRating(1)}
+          disabled={loading}
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/[0.10] bg-transparent px-3 text-[13px] font-bold text-white transition hover:border-red-400/45 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Icon name="thumb_down" className="h-4 w-4" />
+          Negative
+        </button>
       </div>
-      <textarea
-        value={comment}
-        onChange={(event) => onCommentChange(event.target.value)}
-        placeholder="Optional feedback for this trader"
-        rows={3}
-        maxLength={500}
-        className="mt-3 w-full resize-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-[#087cff]/40"
-      />
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={loading}
-        className="mt-3 inline-flex h-10 items-center justify-center rounded-xl bg-white/[0.07] px-4 text-xs font-black text-white transition hover:bg-white/[0.1] disabled:opacity-50"
-      >
-        {loading ? <LoadingDots label="Saving" /> : "Submit feedback"}
-      </button>
+      {loading && <div className="mt-3 flex justify-center text-[11px] font-bold text-slate-400"><LoadingDots label="Saving" /></div>}
     </div>
   );
 }
@@ -1370,8 +1351,6 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [showReleaseConfirm, setShowReleaseConfirm] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [feedbackRating, setFeedbackRating] = useState(5);
-  const [feedbackComment, setFeedbackComment] = useState("");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
 
   const fetchOrder = useCallback(async () => {
@@ -1467,19 +1446,18 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
     }
   }
 
-  async function submitFeedback() {
+  async function submitFeedback(rating: number) {
     if (!order || order.myFeedback) return;
     setFeedbackLoading(true);
     try {
       const res = await fetch(`/api/p2p/orders/${orderId}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating: feedbackRating, comment: feedbackComment }),
+        body: JSON.stringify({ rating, comment: null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not save feedback");
       setOrder((current) => current ? { ...current, myFeedback: data.feedback } : current);
-      setFeedbackComment("");
       toast.success("Feedback saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save feedback");
@@ -1519,13 +1497,9 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
         paidRef={paidRef}
         setPaidRef={setPaidRef}
         actionLoading={actionLoading}
-        feedbackRating={feedbackRating}
-        feedbackComment={feedbackComment}
         feedbackLoading={feedbackLoading}
         onBack={() => router.push("/p2p/orders")}
         onAction={doAction}
-        onFeedbackRatingChange={setFeedbackRating}
-        onFeedbackCommentChange={setFeedbackComment}
         onSubmitFeedback={submitFeedback}
       />
       {showReleaseConfirm && (
@@ -1830,12 +1804,8 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           {order.status === "RELEASED" && (
             <P2PFeedbackBox
               feedback={order.myFeedback}
-              rating={feedbackRating}
-              comment={feedbackComment}
               loading={feedbackLoading}
-              onRatingChange={setFeedbackRating}
-              onCommentChange={setFeedbackComment}
-              onSubmit={submitFeedback}
+              onSubmitRating={submitFeedback}
             />
           )}
 

@@ -86,6 +86,8 @@ import {
   Store,
   Ticket,
   Timer,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   TrendingUp,
   TrendingDown,
@@ -251,6 +253,8 @@ const iconMap: Record<string, LucideIcon> = {
   telegram: Send,
   timer: Timer,
   tips_and_updates: Lightbulb,
+  thumb_down: ThumbsDown,
+  thumb_up: ThumbsUp,
   trending_down: TrendingDown,
   trending_up: TrendingUp,
 
