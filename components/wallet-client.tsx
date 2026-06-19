@@ -193,7 +193,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
     if (!isSignedIn) { openLogin(); return; }
     setError(""); setLoading(true);
     try {
-      const res  = await fetch("/api/wallet/deposit/megapay", {
+      const res  = await fetch("/api/wallet/deposit/lipaharaka", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ phone: normalizeMsisdn(phone), amount: Number(amount) }),

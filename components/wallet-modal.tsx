@@ -461,7 +461,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
     setError("");
     setLoading(true);
     try {
-      const res  = await fetch("/api/wallet/deposit/megapay", {
+      const res  = await fetch("/api/wallet/deposit/lipaharaka", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ amount: Number(amount), phone: normalizeMsisdn(phone) }),
