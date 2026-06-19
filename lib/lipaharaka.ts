@@ -23,13 +23,13 @@ export async function initiateLipaHarakaStk(phone: string, amount: number) {
     });
     const body = await response.json().catch(() => ({})) as Record<string, unknown>;
     const nested = (body.data ?? body.result ?? {}) as Record<string, unknown>;
-    const checkoutRequestId = body.CheckoutRequestID ?? body.checkout_request_id ?? body.checkoutRequestId ?? nested.CheckoutRequestID ?? nested.checkout_request_id ?? nested.checkoutRequestId;
+    const checkoutRequestId = body.CheckoutRequestID ?? body.checkout_request_id ?? body.checkoutRequestId ?? body.payment_id ?? nested.CheckoutRequestID ?? nested.checkout_request_id ?? nested.checkoutRequestId ?? nested.payment_id;
     const status = String(body.status ?? nested.status ?? "").toLowerCase();
-    const success = body.success === true || body.success === 1 || body.success === "1" || body.success === "true" || status === "success" || status === "successful" || status === "queued";
+    const success = body.ok === true || body.success === true || body.success === 1 || body.success === "1" || body.success === "true" || status === "success" || status === "successful" || status === "queued";
     if (!response.ok || !success || !checkoutRequestId) {
       console.error("Lipa Haraka STK response was not recognized", { status: response.status, keys: Object.keys(body), nestedKeys: Object.keys(nested) });
       throw new Error(String(body.error ?? body.message ?? `Lipa Haraka error ${response.status}`));
     }
-    return { checkoutRequestId: String(checkoutRequestId), transactionId: String(body.transaction_id ?? body.transactionId ?? "") };
+    return { checkoutRequestId: String(checkoutRequestId), transactionId: String(body.transaction_id ?? body.transactionId ?? body.payment_id ?? "") };
   } finally { clearTimeout(timer); }
 }
