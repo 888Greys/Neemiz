@@ -151,6 +151,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const emailOpts = {
       crypto:      order.crypto,
       cryptoAmount: cryptoAmt,
+      netCryptoAmount: netCryptoAmt,
       fiatAmount:  Number(order.fiatAmount),
       fiat:        order.ad.fiat,
       orderId:     order.id,
@@ -164,13 +165,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       : null;
     await waitForEmailDelivery("P2P trade completed", [
       order.buyer.email
-        ? sendTradeCompletedEmail(order.buyer.email, buyerName, { ...emailOpts, role: "buyer" })
+        ? sendTradeCompletedEmail(order.buyer.email, buyerName, {
+            ...emailOpts,
+            role: isMerchantSell ? "cryptoReceiver" : "cryptoSender",
+          })
         : null,
       merchantUser?.email
         ? sendTradeCompletedEmail(
             merchantUser.email,
             merchantUser.firstName ?? merchantUser.username ?? merchant!.displayName,
-            { ...emailOpts, role: "seller" },
+            {
+              ...emailOpts,
+              role: isMerchantSell ? "cryptoSender" : "cryptoReceiver",
+            },
           )
         : null,
     ]);
