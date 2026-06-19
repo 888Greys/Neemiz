@@ -8,7 +8,7 @@ import type { DirectionalSide, DirectionalKind } from "@/lib/directional";
 type DirKind = DirectionalKind;
 type DirSide = DirectionalSide;
 
-const CARD = "rounded-lg bg-[#181b22] p-2 sm:p-3";
+const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
 const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
 const RED_SIDES = new Set<DirSide>(["FALL", "LOWER", "NO_TOUCH", "PUT"]);
 
@@ -50,30 +50,30 @@ export function DirectionalPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         {/* Stake */}
         <div className={CARD}>
-          <div className="mb-2.5 text-center text-[13px] font-bold text-slate-200">Stake</div>
+          <div className="mb-1.5 text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">Stake</div>
           <div className="flex gap-1.5">
             <div className={`flex-1 ${FIELD}`}>
               <button type="button" onClick={() => setStake(Math.max(minStake, stake - 1))}
-                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="remove" className="text-[18px]" />
+                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                <Icon name="remove" className="text-[14px] sm:text-[18px]" />
               </button>
               <input type="number" value={stake}
                 onChange={(e) => setStake(Math.max(minStake, Number(e.target.value) || 0))}
                 className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
               <button type="button" onClick={() => setStake(stake + 1)}
-                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="add" className="text-[18px]" />
+                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                <Icon name="add" className="text-[14px] sm:text-[18px]" />
               </button>
             </div>
-            <span className={`${FIELD} px-2.5 text-[12px] font-black text-slate-200 sm:px-3 sm:text-[13px]`}>{currency}</span>
+            <span className={`${FIELD} px-2 text-[11px] font-black text-slate-200 sm:px-3 sm:text-[13px]`}>{currency}</span>
           </div>
-          <div className="mt-2 grid grid-cols-6 gap-1">
+          <div className="mt-1.5 grid grid-cols-6 gap-1">
             {stakePresets.map((amount) => (
               <button key={amount} type="button" onClick={() => setStake(amount)}
-                className={`rounded-md py-1 text-[10px] font-black transition sm:py-1.5 sm:text-[11px] ${
+                className={`rounded-md py-0.5 text-[10px] font-black transition sm:py-1.5 sm:text-[11px] ${
                   stake === amount ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
                 }`}>{amount}</button>
             ))}
@@ -81,44 +81,44 @@ export function DirectionalPanel({
         </div>
 
         {/* Duration */}
-        <div className={CARD}>
-          <div className="mb-2.5 flex items-center justify-center gap-1 text-[13px] font-bold text-slate-200">Duration</div>
-          <div className={FIELD}>
+        <div className={`${CARD} flex items-center gap-2 sm:block`}>
+          <div className="flex w-[58px] shrink-0 items-center justify-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:w-auto sm:text-[13px]">Duration</div>
+          <div className={`min-w-0 flex-1 ${FIELD}`}>
             <button type="button" onClick={() => setDuration(Math.max(1, duration - 1))}
-              className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-              <Icon name="remove" className="text-[18px]" />
+              className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+              <Icon name="remove" className="text-[14px] sm:text-[18px]" />
             </button>
             <input type="number" value={duration}
               onChange={(e) => setDuration(Math.min(30, Math.max(1, Number(e.target.value) || 1)))}
               className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
             <button type="button" onClick={() => setDuration(Math.min(30, duration + 1))}
-              className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-              <Icon name="add" className="text-[18px]" />
+              className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+              <Icon name="add" className="text-[14px] sm:text-[18px]" />
             </button>
-            <span className="px-3 text-[12px] font-black text-slate-500">ticks</span>
+            <span className="px-2 text-[11px] font-black text-slate-500 sm:px-3 sm:text-[12px]">ticks</span>
           </div>
         </div>
 
         {/* Barrier — Higher/Lower only */}
         {needsBarrier && (
-          <div className={CARD}>
-            <div className="mb-2.5 flex items-center justify-center gap-1 text-[13px] font-bold text-slate-200">
+          <div className={`${CARD} flex items-center gap-2 sm:block`}>
+            <div className="flex w-[72px] shrink-0 items-center justify-center text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:w-auto sm:text-[13px]">
               Barrier offset
             </div>
-            <div className={FIELD}>
+            <div className={`min-w-0 flex-1 ${FIELD}`}>
               <button type="button" onClick={() => setBarrierOffset(Math.round((barrierOffset - offsetStep) * 100) / 100)}
-                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="remove" className="text-[18px]" />
+                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                <Icon name="remove" className="text-[14px] sm:text-[18px]" />
               </button>
               <input type="number" value={barrierOffset}
                 onChange={(e) => setBarrierOffset(Number(e.target.value) || 0)}
                 className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
               <button type="button" onClick={() => setBarrierOffset(Math.round((barrierOffset + offsetStep) * 100) / 100)}
-                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="add" className="text-[18px]" />
-              </button>
+                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                <Icon name="add" className="text-[14px] sm:text-[18px]" />
+            </button>
             </div>
-            <div className="mt-2 flex items-center justify-between text-[12px]">
+            <div className="hidden items-center justify-between text-[12px] sm:mt-2 sm:flex">
               <span className="font-bold text-slate-400">Barrier</span>
               <span className="font-mono font-black text-amber-300">{formatSpot(barrier)}</span>
             </div>
@@ -126,16 +126,16 @@ export function DirectionalPanel({
         )}
 
         {/* Payout preview */}
-        <div className={`${CARD} space-y-2.5 text-[13px]`}>
+        <div className={`${CARD} grid grid-cols-3 gap-1 text-[10px] sm:block sm:space-y-2.5 sm:text-[13px]`}>
           {sides.map((side) => (
-            <div key={side} className="flex items-center justify-between">
-              <span className="font-bold text-slate-400">{sideLabel(side)} payout</span>
-              <span className="font-black text-white">{format(payoutFor(side))}</span>
+            <div key={side} className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
+              <span className="block truncate font-bold text-slate-400 sm:inline">{sideLabel(side)}</span>
+              <span className="block truncate font-black text-white sm:inline">{format(payoutFor(side))}</span>
             </div>
           ))}
-          <div className="flex items-center justify-between border-t border-white/[0.06] pt-2">
-            <span className="font-bold text-slate-400">Spot</span>
-            <span className="font-mono font-black text-sky-300">{formatSpot(latestSpot)}</span>
+          <div className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:border-t sm:border-white/[0.06] sm:bg-transparent sm:p-0 sm:pt-2">
+            <span className="block truncate font-bold text-slate-400 sm:inline">Spot</span>
+            <span className="block truncate font-mono font-black text-sky-300 sm:inline">{formatSpot(latestSpot)}</span>
           </div>
         </div>
       </div>
@@ -143,19 +143,19 @@ export function DirectionalPanel({
       {openPositions.length > 0 && <ActivePositions positions={openPositions} />}
 
       {/* Action buttons */}
-      <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 sm:gap-2">
+      <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 pt-1.5 sm:gap-2 sm:pt-2">
         {sides.map((side) => {
           const isRed = RED_SIDES.has(side);
           return (
             <button key={side} type="button" onClick={() => onTrade(side)} disabled={placing}
-              className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-2 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 sm:px-3 sm:py-3 ${
+              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
                 isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e]" : "bg-[#16a085] hover:bg-[#1bb198]"
               }`}>
-              <span className="flex items-center gap-1 text-[12px] sm:text-[14px]">
-                <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[14px] sm:text-[16px]" />
+              <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
+                <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
                 {placing ? <LoadingDots /> : sideLabel(side)}
               </span>
-              <span className="font-mono text-[10px] text-white/85 sm:text-[12px]">{format(payoutFor(side))}</span>
+              <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{format(payoutFor(side))}</span>
             </button>
           );
         })}
@@ -175,15 +175,15 @@ function ActivePositions({ positions }: { positions: { id: string; side: DirSide
 
   return (
     <div className="shrink-0 px-2">
-      <div className="flex items-center justify-between rounded-lg bg-[#101722] px-3 py-2 ring-1 ring-sky-400/25">
-        <span className="flex items-center gap-2 text-[12px] font-black text-sky-200">
+      <div className="flex items-center justify-between rounded-lg bg-[#101722] px-3 py-1.5 ring-1 ring-sky-400/25 sm:py-2">
+        <span className="flex items-center gap-1.5 text-[11px] font-black text-sky-200 sm:gap-2 sm:text-[12px]">
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400/70" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-sky-400" />
           </span>
           {positions.length} active {positions.length === 1 ? "trade" : "trades"}
         </span>
-        <span className="font-mono text-[12px] font-black text-white">
+        <span className="font-mono text-[11px] font-black text-white sm:text-[12px]">
           {secondsLeft === 0 ? "Settling…" : `${soonest.side} · ${secondsLeft}s`}
         </span>
       </div>
