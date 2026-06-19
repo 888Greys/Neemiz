@@ -33,3 +33,13 @@ export async function initiateLipaHarakaStk(phone: string, amount: number) {
     return { checkoutRequestId: String(checkoutRequestId), transactionId: String(body.transaction_id ?? body.transactionId ?? body.payment_id ?? "") };
   } finally { clearTimeout(timer); }
 }
+
+export async function initiateLipaHarakaWithdrawal(phone: string, amount: number) {
+  const apiKey = process.env.LIPAHARAKA_API_KEY;
+  if (!apiKey) throw new Error("Lipa Haraka is not configured");
+  const response = await fetch(`${BASE_URL}?action=api_withdraw`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ api_key: apiKey, phone, amount: String(amount) }) });
+  const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+  const id = body.withdrawal_id ?? body.withdrawalId ?? body.payment_id;
+  if (!response.ok || !(body.ok === true || body.success === true) || !id) throw new Error(String(body.error ?? body.message ?? `Lipa Haraka error ${response.status}`));
+  return String(id);
+}
