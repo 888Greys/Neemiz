@@ -17,7 +17,7 @@ export const mobileNav = [
   { href: "/sports", label: "Sports", icon: "sports_soccer" },
   { href: "/aviator", label: "Aviator", icon: "rocket_launch" },
   { href: "/p2p", label: "P2P", icon: "swap_horiz" },
-  { href: "/predictions", label: "Markets", icon: "online_prediction" },
+  { href: "/binary", label: "Binary", icon: "candlestick_chart" },
 ];
 
 export const productCards = [

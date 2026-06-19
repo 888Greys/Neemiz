@@ -47,26 +47,30 @@ function emailWrapper(content: string, footerExtra?: string, preheader = "An upd
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
+    html, body { margin:0 !important; padding:0 !important; width:100% !important; }
     body, table, td, a { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
     table, td { mso-table-lspace:0pt; mso-table-rspace:0pt; }
     table { border-collapse:collapse !important; }
+    img { border:0; height:auto; line-height:100%; outline:none; text-decoration:none; max-width:100%; }
+    a, .detail-value { overflow-wrap:anywhere; word-break:break-word; }
     @media only screen and (max-width:620px) {
       .outer-pad { padding:0 !important; }
       .email-shell { width:100% !important; max-width:100% !important; }
       .email-card { border-radius:0 !important; border-left:0 !important; border-right:0 !important; }
-      .email-pad { padding:26px 20px !important; }
+      .email-pad { padding:24px 16px !important; }
       .logo-pad { padding:22px 16px !important; }
       .footer-pad { padding:20px 16px 28px !important; }
       .cta-table, .cta-cell, .cta-link { width:100% !important; }
       .cta-link { box-sizing:border-box !important; text-align:center !important; padding:14px 18px !important; }
       .detail-label, .detail-value { display:block !important; width:100% !important; text-align:left !important; }
       .detail-value { padding-top:4px !important; }
+      .mobile-tight { font-size:22px !important; line-height:1.25 !important; }
     }
   </style>
 </head>
 <body style="margin:0;padding:0;background:#eef1f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preheader}</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="outer-pad" style="background:#eef1f5;padding:32px 16px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="outer-pad" style="background:#eef1f5;padding:32px 16px;min-width:100%;">
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" class="email-shell" style="max-width:600px;width:100%;">
 

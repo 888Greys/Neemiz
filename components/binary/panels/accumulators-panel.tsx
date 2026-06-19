@@ -4,7 +4,7 @@ import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { GROWTH_RATES, maxTicksFor, payoutAtTick } from "@/lib/accumulator";
 
-const CARD = "rounded-lg bg-[#181b22] p-3";
+const CARD = "rounded-lg bg-[#181b22] p-2 sm:p-3";
 const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
 
 export type RunningAccumulator = {
@@ -58,7 +58,7 @@ export function AccumulatorsPanel({
                 key={r}
                 type="button"
                 onClick={() => setGrowthRate(r)}
-                className={`rounded-md py-2 text-[13px] font-black transition ${
+                className={`rounded-md py-1.5 text-[11px] font-black transition sm:py-2 sm:text-[13px] ${
                   growthRate === r
                     ? "bg-[#3a414d] text-white"
                     : "bg-[#0f1319] text-slate-400 hover:text-white"
@@ -76,20 +76,20 @@ export function AccumulatorsPanel({
           <div className="flex gap-1.5">
             <div className={`flex-1 ${FIELD}`}>
               <button type="button" onClick={() => setStake(Math.max(1, stake - 1))}
-                className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="remove" className="text-[18px]" />
               </button>
               <input
                 type="number" value={stake}
                 onChange={(e) => setStake(Math.max(1, Number(e.target.value) || 0))}
-                className="w-full min-w-0 bg-transparent text-center text-[15px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <button type="button" onClick={() => setStake(stake + 1)}
-                className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="add" className="text-[18px]" />
               </button>
             </div>
-            <button type="button" className={`${FIELD} gap-1 px-3 text-[13px] font-black text-slate-200`}>
+            <button type="button" className={`${FIELD} gap-1 px-2.5 text-[12px] font-black text-slate-200 sm:px-3 sm:text-[13px]`}>
               <Icon name="chevron_left" className="text-[16px] text-slate-500" />
               {currency}
             </button>
@@ -107,16 +107,16 @@ export function AccumulatorsPanel({
           {takeProfitOn && (
             <div className={`mt-2.5 ${FIELD}`}>
               <button type="button" onClick={() => setTakeProfit(Math.max(0, takeProfit - 1))}
-                className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="remove" className="text-[18px]" />
               </button>
               <input
                 type="number" value={takeProfit}
                 onChange={(e) => setTakeProfit(Math.max(0, Number(e.target.value) || 0))}
-                className="w-full min-w-0 bg-transparent text-center text-[15px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <button type="button" onClick={() => setTakeProfit(takeProfit + 1)}
-                className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="add" className="text-[18px]" />
               </button>
             </div>
@@ -142,7 +142,7 @@ export function AccumulatorsPanel({
           type="button"
           onClick={onBuy}
           disabled={placing}
-          className="flex w-full items-center gap-2 rounded-lg bg-[#16a085] px-4 py-3.5 text-[15px] font-black text-white transition hover:bg-[#1bb198] active:scale-[0.99] disabled:opacity-50"
+          className="flex w-full items-center gap-2 rounded-lg bg-[#16a085] px-3 py-2.5 text-[13px] font-black text-white transition hover:bg-[#1bb198] active:scale-[0.99] disabled:opacity-50 sm:px-4 sm:py-3.5 sm:text-[15px]"
         >
           <Icon name="show_chart" className="text-[18px]" />
           {placing ? <LoadingDots /> : "Buy"}
@@ -177,7 +177,7 @@ function RunningContract({
             </span>
             Running · {position.growthRate}%
           </div>
-          <div className="mt-2 font-mono text-[30px] font-black leading-none text-white">{format(position.netPayout)}</div>
+          <div className="mt-2 font-mono text-[24px] font-black leading-none text-white sm:text-[30px]">{format(position.netPayout)}</div>
           <div className={`mt-1 text-[13px] font-black ${profit >= 0 ? "text-emerald-300" : "text-red-300"}`}>
             {profit >= 0 ? "+" : ""}{format(profit)}
           </div>
@@ -204,7 +204,7 @@ function RunningContract({
           type="button"
           onClick={onCashOut}
           disabled={closing}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#16a085] px-4 py-3.5 text-[15px] font-black text-white transition hover:bg-[#1bb198] active:scale-[0.99] disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#16a085] px-3 py-2.5 text-[13px] font-black text-white transition hover:bg-[#1bb198] active:scale-[0.99] disabled:opacity-50 sm:px-4 sm:py-3.5 sm:text-[15px]"
         >
           <Icon name="payments" className="text-[18px]" />
           {closing ? <LoadingDots /> : <>Cash out {format(position.netPayout)}</>}
