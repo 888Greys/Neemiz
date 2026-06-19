@@ -535,18 +535,18 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
 
       {/* Deriv-style zoom / recenter controls — lifted above the TradingView
           attribution logo and given enough contrast to read on the dark chart */}
-      <div className="absolute bottom-12 left-3 z-10 flex flex-col gap-1.5">
+      <div className="absolute bottom-12 left-3 z-10 flex flex-col gap-1">
         <button type="button" onClick={() => zoom(1.3)} title="Zoom in" aria-label="Zoom in"
-          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
-          <Icon name="add" className="text-[18px]" />
+          className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42] sm:h-8 sm:w-8">
+          <Icon name="add" className="text-[15px] sm:text-[18px]" />
         </button>
         <button type="button" onClick={recenter} title="Latest" aria-label="Scroll to latest"
-          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
-          <Icon name="my_location" className="text-[16px]" />
+          className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42] sm:h-8 sm:w-8">
+          <Icon name="my_location" className="text-[14px] sm:text-[16px]" />
         </button>
         <button type="button" onClick={() => zoom(1 / 1.3)} title="Zoom out" aria-label="Zoom out"
-          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
-          <Icon name="remove" className="text-[18px]" />
+          className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42] sm:h-8 sm:w-8">
+          <Icon name="remove" className="text-[15px] sm:text-[18px]" />
         </button>
       </div>
 
@@ -1467,7 +1467,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
   return (
     <div className="min-h-full overflow-visible bg-[#050506] pb-16 text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
-      <div data-binary-grid="true" className={`relative grid min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
+      <div data-binary-grid="true" className={`relative grid min-w-0 gap-0 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         {pickerOpen && (
           <TradeTypePicker value={tradeType} onSelect={selectTradeType} onClose={() => setPickerOpen(false)} />
         )}
@@ -1484,16 +1484,16 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           )}
         </aside>
 
-        <main className="order-1 flex min-h-[280px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
+        <main className="order-1 flex h-[37svh] min-h-[245px] max-h-[320px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:h-[52svh] sm:min-h-[520px] sm:max-h-none sm:rounded sm:border xl:order-none xl:h-auto xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
-            <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:px-4 sm:py-2">
-              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 border-b border-white/[0.07] px-2 py-1 sm:px-4 sm:py-2">
+              <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
                 <select
                   value={market.symbol}
                   onChange={(event) => setMarketSymbol(event.target.value)}
                   disabled={!!accaPos || !!levPos}
                   title={accaPos || levPos ? "Finish your open contract before switching markets" : undefined}
-                  className="h-8 max-w-[138px] rounded border border-white/[0.08] bg-[#151a22] px-2 text-[11px] font-black text-white outline-none disabled:opacity-50 sm:h-10 sm:max-w-none sm:px-3 sm:text-sm"
+                  className="h-7 max-w-[104px] rounded border border-white/[0.08] bg-[#151a22] px-1.5 text-[10px] font-black text-white outline-none disabled:opacity-50 sm:h-10 sm:max-w-none sm:px-3 sm:text-sm"
                 >
                   {MARKETS.map((item) => (
                     <option key={item.symbol} value={item.symbol}>{item.symbol}</option>
@@ -1501,8 +1501,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 </select>
                 <div>
                   <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-sm font-black leading-none sm:text-base">{formatQuote(latest.quote)}</span>
-                    <span className={`font-mono text-[11px] font-black sm:text-xs ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                    <span className="font-mono text-[13px] font-black leading-none sm:text-base">{formatQuote(latest.quote)}</span>
+                    <span className={`font-mono text-[10px] font-black sm:text-xs ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
                       {change >= 0 ? "+" : ""}{change.toFixed(2)} ({changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%)
                     </span>
                   </div>
@@ -1521,7 +1521,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
             {/* Digit-frequency strip — last-100-tick distribution. Click a digit
                 to set it as the Matches/Differs/Over/Under target. Digit types only. */}
             {isDigitType && (
-              <section className="mb-1.5 grid h-[56px] shrink-0 grid-cols-10 border-y border-white/[0.08] bg-[#0b0d12] sm:mb-2.5 sm:h-[78px]">
+              <section className="grid h-[48px] shrink-0 grid-cols-10 border-y border-white/[0.08] bg-[#0b0d12] sm:mb-2.5 sm:h-[78px]">
                 {digitStats.map((stat) => (
                   <button
                     key={stat.digit}
@@ -1546,13 +1546,13 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           </section>
         </main>
 
-        <aside className="order-2 flex max-h-[calc(100svh-8rem)] min-h-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+        <aside className="order-2 flex min-h-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:max-h-[calc(100svh-8rem)] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
           <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
             {/* Trade-type selector */}
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className="flex shrink-0 items-center gap-2 border-b border-white/[0.07] px-3 py-2 text-left transition hover:bg-white/[0.03] sm:py-2.5"
+              className="flex shrink-0 items-center gap-2 border-b border-white/[0.07] px-3 py-1.5 text-left transition hover:bg-white/[0.03] sm:py-2.5"
             >
               <Icon name="chevron_left" className="text-[18px] text-slate-400" />
               <span className="flex items-center gap-0.5">
@@ -1808,7 +1808,7 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
 // Mobile-only collapsible wrapper around the activity panel (matches the
 // Aviator "Live Players" collapsible). Hidden on xl where the rail shows it.
 function MobileBinaryActivity(props: ActivityPanelProps) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const activeCount = props.openPositions.length;
   return (
     <div className="mx-2 mb-4 mt-1 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f1218] sm:mx-2 xl:hidden">

@@ -7,7 +7,7 @@ import { LoadingDots } from "@/components/loading-dots";
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
 type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
 
-const CARD = "rounded-lg bg-[#181b22] p-2 sm:p-3";
+const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
 const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
 const DIGITS = Array.from({ length: 10 }, (_, i) => i);
 
@@ -58,64 +58,68 @@ export function DigitPanel({
   // Even/Odd is decided purely by the exit digit's parity — no barrier digit.
   const needsTarget = family !== "evenOdd";
   const targetVerb = family === "matchDiffer" ? "Target digit" : "Barrier digit";
+  const compactStakeDuration = family === "overUnder";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
-        {/* Stake */}
-        <div className={CARD}>
-          <div className="mb-2 text-center text-[12px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">Stake</div>
-          <div className="flex gap-1.5">
-            <div className={`flex-1 ${FIELD}`}>
-              <button type="button" onClick={() => setStake(Math.max(minStake, stake - 1))}
-                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="remove" className="text-[17px] sm:text-[18px]" />
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
+        <div className={compactStakeDuration ? "grid grid-cols-2 gap-1.5 sm:block sm:space-y-1.5" : "flex flex-col gap-1.5"}>
+          {/* Duration */}
+          <div className={`${CARD} ${compactStakeDuration ? "sm:flex" : "order-2 flex"} items-center gap-2 sm:block`}>
+            <div className={`${compactStakeDuration ? "mb-1 w-auto justify-center text-[10px]" : "w-[58px]"} flex shrink-0 items-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:w-auto sm:justify-center sm:text-[13px]`}>
+              Duration
+            </div>
+            <div className={`min-w-0 flex-1 ${FIELD}`}>
+              <button type="button" onClick={() => setDuration(Math.max(3, duration - 1))}
+                className="grid h-6 w-6 shrink-0 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                <Icon name="remove" className="text-[13px] sm:text-[18px]" />
               </button>
               <input
-                type="number" value={stake}
-                onChange={(e) => setStake(Math.max(minStake, Number(e.target.value) || 0))}
-                className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                type="number" value={duration}
+                onChange={(e) => setDuration(Math.min(30, Math.max(3, Number(e.target.value) || 3)))}
+                className="w-full min-w-0 bg-transparent text-center text-[13px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
-              <button type="button" onClick={() => setStake(stake + 1)}
-                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="add" className="text-[17px] sm:text-[18px]" />
+              <button type="button" onClick={() => setDuration(Math.min(30, duration + 1))}
+                className="grid h-6 w-6 shrink-0 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                <Icon name="add" className="text-[13px] sm:text-[18px]" />
               </button>
+              {!compactStakeDuration && <span className="px-2 text-[11px] font-black text-slate-500 sm:px-3 sm:text-[12px]">ticks</span>}
             </div>
-            <span className={`${FIELD} px-2.5 text-[12px] font-black text-slate-200 sm:px-3 sm:text-[13px]`}>{currency}</span>
           </div>
-          <div className="mt-2 grid grid-cols-6 gap-1">
-            {stakePresets.map((amount) => (
-              <button key={amount} type="button" onClick={() => setStake(amount)}
-                className={`rounded-md py-1 text-[10px] font-black transition sm:py-1.5 sm:text-[11px] ${
-                  stake === amount ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
-                }`}>
-                {amount}
-              </button>
-            ))}
-          </div>
-        </div>
 
-        {/* Duration */}
-        <div className={CARD}>
-          <div className="mb-2 flex items-center justify-center gap-1 text-[12px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">
-            Duration
-            <Icon name="info" className="text-[14px] text-slate-500" />
-          </div>
-          <div className={FIELD}>
-            <button type="button" onClick={() => setDuration(Math.max(3, duration - 1))}
-              className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-              <Icon name="remove" className="text-[17px] sm:text-[18px]" />
-            </button>
-            <input
-              type="number" value={duration}
-              onChange={(e) => setDuration(Math.min(30, Math.max(3, Number(e.target.value) || 3)))}
-              className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-            />
-            <button type="button" onClick={() => setDuration(Math.min(30, duration + 1))}
-              className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-              <Icon name="add" className="text-[17px] sm:text-[18px]" />
-            </button>
-            <span className="px-2 text-[11px] font-black text-slate-500 sm:px-3 sm:text-[12px]">ticks</span>
+          {/* Stake */}
+          <div className={`${CARD} ${compactStakeDuration ? "" : "order-1"}`}>
+            <div className={`${compactStakeDuration ? "mb-1 text-[10px]" : "mb-1.5 text-[11px]"} text-center font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]`}>Stake</div>
+            <div className="flex gap-1.5">
+              <div className={`flex-1 ${FIELD}`}>
+                <button type="button" onClick={() => setStake(Math.max(minStake, stake - 1))}
+                  className="grid h-6 w-6 shrink-0 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                  <Icon name="remove" className="text-[13px] sm:text-[18px]" />
+                </button>
+                <input
+                  type="number" value={stake}
+                  onChange={(e) => setStake(Math.max(minStake, Number(e.target.value) || 0))}
+                  className="w-full min-w-0 bg-transparent text-center text-[13px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                <button type="button" onClick={() => setStake(stake + 1)}
+                  className="grid h-6 w-6 shrink-0 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                  <Icon name="add" className="text-[13px] sm:text-[18px]" />
+                </button>
+              </div>
+              <span className={`${FIELD} px-2 text-[11px] font-black text-slate-200 sm:px-3 sm:text-[13px]`}>{currency}</span>
+            </div>
+            {!compactStakeDuration && (
+              <div className="mt-1.5 grid grid-cols-6 gap-1">
+                {stakePresets.map((amount) => (
+                  <button key={amount} type="button" onClick={() => setStake(amount)}
+                    className={`rounded-md py-0.5 text-[10px] font-black transition sm:py-1.5 sm:text-[11px] ${
+                      stake === amount ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
+                    }`}>
+                    {amount}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -143,16 +147,16 @@ export function DigitPanel({
         )}
 
         {/* Payout preview */}
-        <div className={`${CARD} space-y-2 text-[12px] sm:space-y-2.5 sm:text-[13px]`}>
+        <div className={`${CARD} grid grid-cols-3 gap-1 text-[10px] sm:block sm:space-y-2.5 sm:text-[13px]`}>
           {sides.map((side) => (
-            <div key={side} className="flex items-center justify-between">
-              <span className="font-bold text-slate-400">{actionLabel(side)} payout</span>
-              <span className="font-black text-white">{format(payoutFor(side))}</span>
+            <div key={side} className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
+              <span className="block truncate font-bold text-slate-400 sm:inline">{actionLabel(side)}</span>
+              <span className="block truncate font-black text-white sm:inline">{format(payoutFor(side))}</span>
             </div>
           ))}
-          <div className="flex items-center justify-between border-t border-white/[0.06] pt-2">
-            <span className="font-bold text-slate-400">Last digit</span>
-            <span className="font-mono font-black text-amber-300">{lastDigit}</span>
+          <div className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:border-t sm:border-white/[0.06] sm:bg-transparent sm:p-0 sm:pt-2">
+            <span className="block truncate font-bold text-slate-400 sm:inline">Last digit</span>
+            <span className="block font-mono font-black text-amber-300 sm:inline">{lastDigit}</span>
           </div>
         </div>
       </div>
@@ -162,7 +166,7 @@ export function DigitPanel({
       {openPositions.length > 0 && <ActivePositions positions={openPositions} format={format} />}
 
       {/* Action buttons */}
-      <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 sm:gap-2">
+      <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 pt-1.5 sm:gap-2 sm:pt-2">
         {sides.map((side) => {
           const isRed = RED_SIDES.has(side);
           return (
@@ -171,15 +175,15 @@ export function DigitPanel({
               type="button"
               onClick={() => onTrade(side)}
               disabled={placing}
-              className={`flex flex-col items-center gap-0.5 rounded-lg px-2.5 py-2 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 sm:px-3 sm:py-3 ${
+              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
                 isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e]" : "bg-[#16a085] hover:bg-[#1bb198]"
               }`}
             >
-              <span className="flex items-center gap-1 text-[12px] sm:text-[14px]">
-                <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[14px] sm:text-[16px]" />
+              <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
+                <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
                 {placing ? <LoadingDots /> : actionLabel(side)}
               </span>
-              <span className="font-mono text-[10px] text-white/85 sm:text-[12px]">{format(payoutFor(side))}</span>
+              <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{format(payoutFor(side))}</span>
             </button>
           );
         })}
