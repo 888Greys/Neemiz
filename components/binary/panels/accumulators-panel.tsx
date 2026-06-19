@@ -4,7 +4,7 @@ import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { GROWTH_RATES, maxTicksFor, payoutAtTick } from "@/lib/accumulator";
 
-const CARD = "rounded-lg bg-[#181b22] p-2 sm:p-3";
+const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
 const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
 
 export type RunningAccumulator = {
@@ -45,12 +45,11 @@ export function AccumulatorsPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         {/* Growth rate */}
         <div className={CARD}>
-          <div className="mb-2.5 flex items-center justify-center gap-1 text-[13px] font-bold text-slate-200">
+          <div className="mb-1.5 flex items-center justify-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">
             Growth rate
-            <Icon name="info" className="text-[14px] text-slate-500" />
           </div>
           <div className="grid grid-cols-5 gap-1.5">
             {GROWTH_RATES.map((r) => (
@@ -58,7 +57,7 @@ export function AccumulatorsPanel({
                 key={r}
                 type="button"
                 onClick={() => setGrowthRate(r)}
-                className={`rounded-md py-1.5 text-[11px] font-black transition sm:py-2 sm:text-[13px] ${
+                className={`rounded-md py-1 text-[10px] font-black transition sm:py-2 sm:text-[13px] ${
                   growthRate === r
                     ? "bg-[#3a414d] text-white"
                     : "bg-[#0f1319] text-slate-400 hover:text-white"
@@ -72,12 +71,12 @@ export function AccumulatorsPanel({
 
         {/* Stake */}
         <div className={CARD}>
-          <div className="mb-2.5 text-center text-[13px] font-bold text-slate-200">Stake</div>
+          <div className="mb-1.5 text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">Stake</div>
           <div className="flex gap-1.5">
             <div className={`flex-1 ${FIELD}`}>
               <button type="button" onClick={() => setStake(Math.max(1, stake - 1))}
-                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="remove" className="text-[18px]" />
+                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                <Icon name="remove" className="text-[14px] sm:text-[18px]" />
               </button>
               <input
                 type="number" value={stake}
@@ -85,12 +84,12 @@ export function AccumulatorsPanel({
                 className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <button type="button" onClick={() => setStake(stake + 1)}
-                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="add" className="text-[18px]" />
+                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                <Icon name="add" className="text-[14px] sm:text-[18px]" />
               </button>
             </div>
-            <button type="button" className={`${FIELD} gap-1 px-2.5 text-[12px] font-black text-slate-200 sm:px-3 sm:text-[13px]`}>
-              <Icon name="chevron_left" className="text-[16px] text-slate-500" />
+            <button type="button" className={`${FIELD} gap-0.5 px-2 text-[11px] font-black text-slate-200 sm:gap-1 sm:px-3 sm:text-[13px]`}>
+              <Icon name="chevron_left" className="text-[13px] text-slate-500 sm:text-[16px]" />
               {currency}
             </button>
           </div>
@@ -98,17 +97,16 @@ export function AccumulatorsPanel({
 
         {/* Take profit */}
         <div className={CARD}>
-          <label className="flex cursor-pointer items-center gap-2 text-[13px] font-bold text-slate-200">
+          <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-bold text-slate-200 sm:gap-2 sm:text-[13px]">
             <input type="checkbox" checked={takeProfitOn} onChange={(e) => setTakeProfitOn(e.target.checked)}
-              className="h-4 w-4 cursor-pointer rounded accent-[#16a085]" />
+              className="h-3.5 w-3.5 cursor-pointer rounded accent-[#16a085] sm:h-4 sm:w-4" />
             Take profit
-            <Icon name="info" className="text-[14px] text-slate-500" />
           </label>
           {takeProfitOn && (
-            <div className={`mt-2.5 ${FIELD}`}>
+            <div className={`mt-1.5 sm:mt-2.5 ${FIELD}`}>
               <button type="button" onClick={() => setTakeProfit(Math.max(0, takeProfit - 1))}
-                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="remove" className="text-[18px]" />
+                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                <Icon name="remove" className="text-[14px] sm:text-[18px]" />
               </button>
               <input
                 type="number" value={takeProfit}
@@ -116,37 +114,37 @@ export function AccumulatorsPanel({
                 className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <button type="button" onClick={() => setTakeProfit(takeProfit + 1)}
-                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="add" className="text-[18px]" />
+                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
+                <Icon name="add" className="text-[14px] sm:text-[18px]" />
               </button>
             </div>
           )}
         </div>
 
         {/* Max payout / ticks */}
-        <div className={`${CARD} space-y-2.5 text-[13px]`}>
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-slate-400">Max. payout</span>
-            <span className="font-black text-white">{format(maxPayout)}</span>
+        <div className={`${CARD} grid grid-cols-2 gap-1 text-[10px] sm:block sm:space-y-2.5 sm:text-[13px]`}>
+          <div className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
+            <span className="block truncate font-bold text-slate-400 sm:inline">Max. payout</span>
+            <span className="block truncate font-black text-white sm:inline">{format(maxPayout)}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-slate-400">Max. ticks</span>
-            <span className="font-black text-white">{maxTicks} ticks</span>
+          <div className="min-w-0 rounded-md bg-[#0f1319]/60 px-1.5 py-1 sm:flex sm:items-center sm:justify-between sm:bg-transparent sm:p-0">
+            <span className="block truncate font-bold text-slate-400 sm:inline">Max. ticks</span>
+            <span className="block truncate font-black text-white sm:inline">{maxTicks} ticks</span>
           </div>
         </div>
       </div>
 
       {/* Buy */}
-      <div className="shrink-0 p-2">
+      <div className="shrink-0 p-2 pt-1.5 sm:pt-2">
         <button
           type="button"
           onClick={onBuy}
           disabled={placing}
-          className="flex w-full items-center gap-2 rounded-lg bg-[#16a085] px-3 py-2.5 text-[13px] font-black text-white transition hover:bg-[#1bb198] active:scale-[0.99] disabled:opacity-50 sm:px-4 sm:py-3.5 sm:text-[15px]"
+          className="flex w-full items-center gap-2 rounded-lg bg-[#16a085] px-3 py-2 text-[12px] font-black text-white transition hover:bg-[#1bb198] active:scale-[0.99] disabled:opacity-50 sm:px-4 sm:py-3.5 sm:text-[15px]"
         >
-          <Icon name="show_chart" className="text-[18px]" />
+          <Icon name="show_chart" className="text-[16px] sm:text-[18px]" />
           {placing ? <LoadingDots /> : "Buy"}
-          <Icon name="arrow_forward" className="ml-auto text-[18px]" />
+          <Icon name="arrow_forward" className="ml-auto text-[16px] sm:text-[18px]" />
         </button>
       </div>
     </div>
@@ -168,22 +166,22 @@ function RunningContract({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2 sm:space-y-2">
         <div className={`${CARD} text-center`}>
-          <div className="flex items-center justify-center gap-2 text-[12px] font-black uppercase tracking-wider text-emerald-300">
+          <div className="flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-emerald-300 sm:gap-2 sm:text-[12px]">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/70" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
             </span>
             Running · {position.growthRate}%
           </div>
-          <div className="mt-2 font-mono text-[24px] font-black leading-none text-white sm:text-[30px]">{format(position.netPayout)}</div>
-          <div className={`mt-1 text-[13px] font-black ${profit >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+          <div className="mt-1.5 font-mono text-[20px] font-black leading-none text-white sm:mt-2 sm:text-[30px]">{format(position.netPayout)}</div>
+          <div className={`mt-1 text-[11px] font-black sm:text-[13px] ${profit >= 0 ? "text-emerald-300" : "text-red-300"}`}>
             {profit >= 0 ? "+" : ""}{format(profit)}
           </div>
         </div>
 
-        <div className={`${CARD} space-y-2.5 text-[13px]`}>
+        <div className={`${CARD} space-y-1.5 text-[11px] sm:space-y-2.5 sm:text-[13px]`}>
           <div className="flex items-center justify-between">
             <span className="font-bold text-slate-400">Stake</span>
             <span className="font-black text-white">{format(position.stake)}</span>
@@ -192,21 +190,21 @@ function RunningContract({
             <span className="font-bold text-slate-400">Ticks</span>
             <span className="font-mono font-black text-white">{position.ticksSurvived} / {position.maxTicks}</span>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-[#0f1319]">
+          <div className="h-1 overflow-hidden rounded-full bg-[#0f1319] sm:h-1.5">
             <div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: `${progress * 100}%` }} />
           </div>
         </div>
       </div>
 
       {/* Cash out */}
-      <div className="shrink-0 p-2">
+      <div className="shrink-0 p-2 pt-1.5 sm:pt-2">
         <button
           type="button"
           onClick={onCashOut}
           disabled={closing}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#16a085] px-3 py-2.5 text-[13px] font-black text-white transition hover:bg-[#1bb198] active:scale-[0.99] disabled:opacity-50 sm:px-4 sm:py-3.5 sm:text-[15px]"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#16a085] px-3 py-2 text-[12px] font-black text-white transition hover:bg-[#1bb198] active:scale-[0.99] disabled:opacity-50 sm:px-4 sm:py-3.5 sm:text-[15px]"
         >
-          <Icon name="payments" className="text-[18px]" />
+          <Icon name="payments" className="text-[16px] sm:text-[18px]" />
           {closing ? <LoadingDots /> : <>Cash out {format(position.netPayout)}</>}
         </button>
       </div>
