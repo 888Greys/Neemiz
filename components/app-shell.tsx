@@ -714,8 +714,8 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
           {/* Aviator */}
           <MobileDrawerLink href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" onClick={onClose} />
 
-          {/* Polymarket */}
-          <MobileDrawerLink href="/polymarket" icon="online_prediction" label="Polymarket" onClick={onClose} />
+          {/* Binary */}
+          <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary" onClick={onClose} />
 
           {/* P2P */}
           <MobileDrawerGroup icon="swap_horiz" isOpen={openGroups.p2p} label="P2P" onToggle={() => setOpenGroups((v) => ({ ...v, p2p: !v.p2p }))}>
@@ -725,7 +725,6 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
           </MobileDrawerGroup>
 
           {/* Trading */}
-          <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary" onClick={onClose} />
           <MobileDrawerLink href="/forex" icon="currency_exchange" label="Forex" onClick={onClose} />
 
           <div className="my-3 border-t border-white/10" />
