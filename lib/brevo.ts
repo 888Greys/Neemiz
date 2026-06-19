@@ -364,36 +364,38 @@ export async function sendTradeCompletedEmail(
   to: string,
   recipientName: string,
   opts: {
-    role: "buyer" | "seller";
+    role: "cryptoReceiver" | "cryptoSender";
     crypto: string;
     cryptoAmount: number;
+    netCryptoAmount: number;
     fiatAmount: number;
     fiat: string;
     orderId: string;
   }
 ) {
-  const { role, crypto, cryptoAmount, fiatAmount, fiat, orderId } = opts;
-  const isBuyer = role === "buyer";
+  const { role, crypto, cryptoAmount, netCryptoAmount, fiatAmount, fiat, orderId } = opts;
+  const isReceiver = role === "cryptoReceiver";
+  const receivedCrypto = netCryptoAmount || cryptoAmount;
   await sendEmail(
     to,
     recipientName,
-    `Trade Completed — ${cryptoAmount.toFixed(6)} ${crypto}`,
+    `Trade Completed — ${(isReceiver ? receivedCrypto : cryptoAmount).toFixed(6)} ${crypto}`,
     emailWrapper(`
       <div style="text-align:center;padding-bottom:28px;border-bottom:1px solid #f0f2f5;margin-bottom:28px;">
         <div style="display:inline-block;width:56px;height:56px;background:#e6f9ee;border-radius:50%;line-height:56px;text-align:center;font-size:26px;margin-bottom:16px;">✓</div>
         <h2 style="margin:0 0 10px;font-size:24px;font-weight:800;color:#1a1a2e;">Trade Completed!</h2>
         <p style="margin:0;font-size:15px;color:#4a5568;line-height:1.7;">
-          ${isBuyer
-            ? `<strong style="color:#05b957;">${cryptoAmount.toFixed(6)} ${crypto}</strong> has been released to your account.`
-            : `You have released <strong>${cryptoAmount.toFixed(6)} ${crypto}</strong> to the buyer.`}
+          ${isReceiver
+            ? `<strong style="color:#05b957;">${receivedCrypto.toFixed(6)} ${crypto}</strong> has been released to your account.`
+            : `You have released <strong>${cryptoAmount.toFixed(6)} ${crypto}</strong> to the counterparty.`}
         </p>
       </div>
 
       <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;border-radius:12px;margin-bottom:28px;">
         <tr><td style="padding:4px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0">
-            ${detailRow(isBuyer ? "You received" : "You released", `<strong style="color:#05b957;">${cryptoAmount.toFixed(6)} ${crypto}</strong>`)}
-            ${detailRow(isBuyer ? "You paid" : "You received", `${fiat} ${fiatAmount.toLocaleString("en-KE")}`)}
+            ${detailRow(isReceiver ? "You received" : "You released", `<strong style="color:#05b957;">${(isReceiver ? receivedCrypto : cryptoAmount).toFixed(6)} ${crypto}</strong>`)}
+            ${detailRow(isReceiver ? "You paid" : "You received", `${fiat} ${fiatAmount.toLocaleString("en-KE")}`)}
             ${detailRow("Order ID", orderId.slice(0, 16).toUpperCase(), true)}
           </table>
         </td></tr>
