@@ -15,12 +15,14 @@ export async function POST(req: Request) {
   const amount = Number(body.amount ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "Amount")?.Value);
   const phone = String(body.phone ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "PhoneNumber")?.Value ?? "");
   const paid = String(body.status ?? "").toLowerCase() === "paid" || Number(body.ResultCode) === 0;
-  const tx = await db.transaction.findFirst({ where: { reference, provider: "lipaharaka", type: "DEPOSIT", status: "PENDING" } });
+  const tx = await db.transaction.findFirst({ where: reference
+    ? { reference, provider: "lipaharaka", type: "DEPOSIT", status: { in: ["PENDING", "FAILED"] } }
+    : { provider: "lipaharaka", type: "DEPOSIT", amount, status: { in: ["PENDING", "FAILED"] }, metadata: { path: ["msisdn"], equals: phone } }, orderBy: { createdAt: "desc" } });
   if (!tx) return new Response("OK");
   const meta = tx.metadata as { msisdn?: string } | null;
   if (!paid || Number(tx.amount) !== amount || meta?.msisdn !== phone) return new Response("Rejected", { status: 422 });
   await db.$transaction(async (prisma) => {
-    const claimed = await prisma.transaction.updateMany({ where: { id: tx.id, status: "PENDING" }, data: { status: "COMPLETED", metadata: { ...(meta ?? {}), receipt: body.receipt ?? "", lipaCallback: true } } });
+    const claimed = await prisma.transaction.updateMany({ where: { id: tx.id, status: { in: ["PENDING", "FAILED"] } }, data: { status: "COMPLETED", reference: reference || undefined, metadata: { ...(meta ?? {}), receipt: body.receipt ?? "", lipaCallback: true } } });
     if (claimed.count) await prisma.user.update({ where: { id: tx.userId }, data: { walletBalance: { increment: tx.amount } } });
   });
   return new Response("OK");
