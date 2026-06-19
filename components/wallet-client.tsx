@@ -253,7 +253,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ amountKes: amt, phoneNumber: wdPhone }),
       });
-      const data = await res.json() as { ok?: boolean; payout?: number; fee?: number; error?: string };
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; payout?: number; fee?: number; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Withdrawal failed");
       setWdDone({ payout: data.payout!, fee: data.fee! });
       refreshBalance();
