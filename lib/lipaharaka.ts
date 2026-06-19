@@ -22,9 +22,11 @@ export async function initiateLipaHarakaStk(phone: string, amount: number) {
       signal: controller.signal,
     });
     const body = await response.json().catch(() => ({})) as Record<string, unknown>;
-    if (!response.ok || body.success !== true || !body.CheckoutRequestID) {
+    const checkoutRequestId = body.CheckoutRequestID ?? body.checkout_request_id ?? body.checkoutRequestId;
+    const success = body.success === true || body.success === 1 || body.success === "1" || body.success === "true";
+    if (!response.ok || !success || !checkoutRequestId) {
       throw new Error(String(body.error ?? body.message ?? `Lipa Haraka error ${response.status}`));
     }
-    return { checkoutRequestId: String(body.CheckoutRequestID), transactionId: String(body.transaction_id ?? "") };
+    return { checkoutRequestId: String(checkoutRequestId), transactionId: String(body.transaction_id ?? body.transactionId ?? "") };
   } finally { clearTimeout(timer); }
 }
