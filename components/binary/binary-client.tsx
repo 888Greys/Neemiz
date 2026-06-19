@@ -1484,7 +1484,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           )}
         </aside>
 
-        <main className="order-1 flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
+        <main className="order-1 flex min-h-[280px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
             <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:px-4 sm:py-2">
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
@@ -1493,7 +1493,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                   onChange={(event) => setMarketSymbol(event.target.value)}
                   disabled={!!accaPos || !!levPos}
                   title={accaPos || levPos ? "Finish your open contract before switching markets" : undefined}
-                  className="h-9 rounded border border-white/[0.08] bg-[#151a22] px-2 text-xs font-black text-white outline-none disabled:opacity-50 sm:h-10 sm:px-3 sm:text-sm"
+                  className="h-8 max-w-[138px] rounded border border-white/[0.08] bg-[#151a22] px-2 text-[11px] font-black text-white outline-none disabled:opacity-50 sm:h-10 sm:max-w-none sm:px-3 sm:text-sm"
                 >
                   {MARKETS.map((item) => (
                     <option key={item.symbol} value={item.symbol}>{item.symbol}</option>
@@ -1521,7 +1521,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
             {/* Digit-frequency strip — last-100-tick distribution. Click a digit
                 to set it as the Matches/Differs/Over/Under target. Digit types only. */}
             {isDigitType && (
-              <section className="mb-2 grid h-[68px] shrink-0 grid-cols-10 border-y border-white/[0.08] bg-[#0b0d12] sm:mb-2.5 sm:h-[78px]">
+              <section className="mb-1.5 grid h-[56px] shrink-0 grid-cols-10 border-y border-white/[0.08] bg-[#0b0d12] sm:mb-2.5 sm:h-[78px]">
                 {digitStats.map((stat) => (
                   <button
                     key={stat.digit}
@@ -1546,13 +1546,13 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           </section>
         </main>
 
-        <aside className="order-2 flex min-h-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:rounded sm:border xl:order-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+        <aside className="order-2 flex max-h-[calc(100svh-8rem)] min-h-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
           <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
             {/* Trade-type selector */}
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className="flex shrink-0 items-center gap-2 border-b border-white/[0.07] px-3 py-2.5 text-left transition hover:bg-white/[0.03]"
+              className="flex shrink-0 items-center gap-2 border-b border-white/[0.07] px-3 py-2 text-left transition hover:bg-white/[0.03] sm:py-2.5"
             >
               <Icon name="chevron_left" className="text-[18px] text-slate-400" />
               <span className="flex items-center gap-0.5">

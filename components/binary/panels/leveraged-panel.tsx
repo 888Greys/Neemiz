@@ -4,7 +4,7 @@ import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { MULTIPLIERS, type LeveragedKindT, type LeveragedDirection } from "@/lib/leveraged";
 
-const CARD = "rounded-lg bg-[#181b22] p-3";
+const CARD = "rounded-lg bg-[#181b22] p-2 sm:p-3";
 const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
 
 export type RunningLeveraged = {
@@ -69,7 +69,7 @@ export function LeveragedPanel({
             <div className="grid grid-cols-5 gap-1.5">
               {MULTIPLIERS.map((m) => (
                 <button key={m} type="button" onClick={() => setMultiplier(m)}
-                  className={`rounded-md py-2 text-[12px] font-black transition ${
+                  className={`rounded-md py-1.5 text-[11px] font-black transition sm:py-2 sm:text-[12px] ${
                     multiplier === m ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
                   }`}>×{m}</button>
               ))}
@@ -80,14 +80,14 @@ export function LeveragedPanel({
             <div className="mb-2.5 flex items-center justify-center gap-1 text-[13px] font-bold text-slate-200">Barrier distance</div>
             <div className={FIELD}>
               <button type="button" onClick={() => setBarrierOffset(Math.round((barrierOffset - offsetStep) * 100) / 100)}
-                className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="remove" className="text-[18px]" />
               </button>
               <input type="number" value={barrierOffset}
                 onChange={(e) => setBarrierOffset(Number(e.target.value) || 0)}
-                className="w-full min-w-0 bg-transparent text-center text-[15px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
               <button type="button" onClick={() => setBarrierOffset(Math.round((barrierOffset + offsetStep) * 100) / 100)}
-                className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="add" className="text-[18px]" />
               </button>
             </div>
@@ -104,23 +104,23 @@ export function LeveragedPanel({
           <div className="flex gap-1.5">
             <div className={`flex-1 ${FIELD}`}>
               <button type="button" onClick={() => setStake(Math.max(minStake, stake - 1))}
-                className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="remove" className="text-[18px]" />
               </button>
               <input type="number" value={stake}
                 onChange={(e) => setStake(Math.max(minStake, Number(e.target.value) || 0))}
-                className="w-full min-w-0 bg-transparent text-center text-[15px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+                className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
               <button type="button" onClick={() => setStake(stake + 1)}
-                className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+                className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="add" className="text-[18px]" />
               </button>
             </div>
-            <span className={`${FIELD} px-3 text-[13px] font-black text-slate-200`}>{currency}</span>
+            <span className={`${FIELD} px-2.5 text-[12px] font-black text-slate-200 sm:px-3 sm:text-[13px]`}>{currency}</span>
           </div>
           <div className="mt-2 grid grid-cols-6 gap-1">
             {stakePresets.map((amount) => (
               <button key={amount} type="button" onClick={() => setStake(amount)}
-                className={`rounded-md py-1.5 text-[11px] font-black transition ${
+                className={`rounded-md py-1 text-[10px] font-black transition sm:py-1.5 sm:text-[11px] ${
                   stake === amount ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
                 }`}>{amount}</button>
             ))}
@@ -153,20 +153,20 @@ export function LeveragedPanel({
       {/* Direction buttons */}
       <div className="grid shrink-0 grid-cols-2 gap-2 p-2">
         <button type="button" onClick={() => onTrade("UP")} disabled={placing}
-          className="flex flex-col items-center gap-0.5 rounded-lg bg-[#16a085] px-3 py-3 text-center font-black text-white transition hover:bg-[#1bb198] active:scale-[0.98] disabled:opacity-50">
-          <span className="flex items-center gap-1 text-[14px]">
-            <Icon name="trending_up" className="text-[16px]" />
+          className="flex flex-col items-center gap-0.5 rounded-lg bg-[#16a085] px-2.5 py-2 text-center font-black text-white transition hover:bg-[#1bb198] active:scale-[0.98] disabled:opacity-50 sm:px-3 sm:py-3">
+          <span className="flex items-center gap-1 text-[12px] sm:text-[14px]">
+            <Icon name="trending_up" className="text-[14px] sm:text-[16px]" />
             {placing ? <LoadingDots /> : "UP"}
           </span>
-          <span className="font-mono text-[12px] text-white/85">{isTurbo ? "Long" : `×${multiplier}`}</span>
+          <span className="font-mono text-[10px] text-white/85 sm:text-[12px]">{isTurbo ? "Long" : `×${multiplier}`}</span>
         </button>
         <button type="button" onClick={() => onTrade("DOWN")} disabled={placing}
-          className="flex flex-col items-center gap-0.5 rounded-lg bg-[#e2474b] px-3 py-3 text-center font-black text-white transition hover:bg-[#ec5a5e] active:scale-[0.98] disabled:opacity-50">
-          <span className="flex items-center gap-1 text-[14px]">
-            <Icon name="trending_down" className="text-[16px]" />
+          className="flex flex-col items-center gap-0.5 rounded-lg bg-[#e2474b] px-2.5 py-2 text-center font-black text-white transition hover:bg-[#ec5a5e] active:scale-[0.98] disabled:opacity-50 sm:px-3 sm:py-3">
+          <span className="flex items-center gap-1 text-[12px] sm:text-[14px]">
+            <Icon name="trending_down" className="text-[14px] sm:text-[16px]" />
             {placing ? <LoadingDots /> : "DOWN"}
           </span>
-          <span className="font-mono text-[12px] text-white/85">{isTurbo ? "Short" : `×${multiplier}`}</span>
+          <span className="font-mono text-[10px] text-white/85 sm:text-[12px]">{isTurbo ? "Short" : `×${multiplier}`}</span>
         </button>
       </div>
     </div>
@@ -190,14 +190,14 @@ function Toggle({
       {on && (
         <div className={`mt-2 ${FIELD}`}>
           <button type="button" onClick={() => setValue(clamp(value - 1))}
-            className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+            className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
             <Icon name="remove" className="text-[18px]" />
           </button>
           <input type="number" value={value}
             onChange={(e) => setValue(clamp(Number(e.target.value) || 0))}
-            className="w-full min-w-0 bg-transparent text-center text-[15px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
           <button type="button" onClick={() => setValue(clamp(value + 1))}
-            className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white">
+            className="grid h-8 w-9 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
             <Icon name="add" className="text-[18px]" />
           </button>
         </div>
@@ -231,7 +231,7 @@ function RunningContract({
             </span>
             {isTurbo ? "Turbo" : `Multiplier ×${position.multiplier}`} · {position.direction}
           </div>
-          <div className="mt-2 font-mono text-[30px] font-black leading-none text-white">{format(position.netPayout)}</div>
+          <div className="mt-2 font-mono text-[24px] font-black leading-none text-white sm:text-[30px]">{format(position.netPayout)}</div>
           <div className={`mt-1 text-[13px] font-black ${profit >= 0 ? "text-emerald-300" : "text-red-300"}`}>
             {profit >= 0 ? "+" : ""}{format(profit)}
           </div>
@@ -254,7 +254,7 @@ function RunningContract({
       {/* Cash out */}
       <div className="shrink-0 p-2">
         <button type="button" onClick={onCashOut} disabled={closing}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#16a085] px-4 py-3.5 text-[15px] font-black text-white transition hover:bg-[#1bb198] active:scale-[0.99] disabled:opacity-50">
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#16a085] px-3 py-2.5 text-[13px] font-black text-white transition hover:bg-[#1bb198] active:scale-[0.99] disabled:opacity-50 sm:px-4 sm:py-3.5 sm:text-[15px]">
           <Icon name="payments" className="text-[18px]" />
           {closing ? <LoadingDots /> : <>Cash out {format(position.netPayout)}</>}
         </button>

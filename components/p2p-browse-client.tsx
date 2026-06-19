@@ -131,7 +131,7 @@ const daysAgo = (value?: string) => {
   return `${days.toLocaleString()} Day(s) ago`;
 };
 
-// Gold scalloped "verified" seal — shared across the P2P surfaces.
+// Blue verified seal, shared across the P2P advertiser surfaces.
 function VerifiedSeal({ className = "h-[15px] w-[15px]" }: { className?: string }) {
   return (
     <span className="relative inline-grid shrink-0 place-items-center" title="Verified merchant" aria-label="Verified merchant">
@@ -318,7 +318,7 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
             <div className="mt-2 flex flex-wrap items-center gap-x-3.5 gap-y-1">
               {verifications.map((v) => (
                 <span key={v.label} className="flex items-center gap-0.5 text-[11px] font-semibold">
-                  <Icon name="check_circle" className={`text-[11px] ${v.ok ? "text-[#05b957]" : "text-slate-600"}`} />
+                  <Icon name="check_circle" className={`text-[11px] ${v.ok ? "text-[#087cff]" : "text-slate-600"}`} />
                   <span className={v.ok ? "text-slate-200" : "text-slate-600"}>{v.label}</span>
                 </span>
               ))}
@@ -522,7 +522,7 @@ function OfferDetailsModal({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <h3 className="truncate text-base font-black">{ad.merchant.displayName}</h3>
-                    <Icon name="verified" className="text-[16px] text-[#05b957]" />
+                    <VerifiedSeal className="h-[17px] w-[17px]" />
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-slate-500">
                     <span className="flex items-center gap-1">
@@ -1146,7 +1146,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                   <span className="h-3.5 w-0.5 rounded-full bg-[#05b957]" />
                   <span className="truncate">{p2pRailLabel(m, ad.fiat)}</span>
                 </span>
-                {selectedPayment === m && <Icon name="check" className="text-[18px] text-[#05b957]" />}
+                {selectedPayment === m && <Icon name="check" className="text-[18px] text-[#087cff]" />}
               </button>
             )) : (
               <button
@@ -1326,7 +1326,7 @@ function CryptoSelect({ value, onChange }: { value: string; onChange: (c: string
               key={c}
               type="button"
               onClick={() => { onChange(c); setOpen(false); }}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${c === value ? "bg-[#05b957]/15" : "hover:bg-white/[0.06]"}`}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${c === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
             >
               {c === "ALL" ? (
                 <span className="grid h-5 w-5 place-items-center rounded-full bg-white/[0.08]">
@@ -1336,7 +1336,7 @@ function CryptoSelect({ value, onChange }: { value: string; onChange: (c: string
                 CRYPTO_ICONS[c] && <img src={CRYPTO_ICONS[c]} alt={c} className="h-5 w-5 rounded-full" />
               )}
               <span className="text-xs font-black text-white">{c === "ALL" ? "All assets" : c}</span>
-              {c === value && <Icon name="check" className="ml-auto text-[15px] text-[#05b957]" />}
+              {c === value && <Icon name="check" className="ml-auto text-[15px] text-[#087cff]" />}
             </button>
           ))}
         </div>
@@ -1454,7 +1454,7 @@ function AdCard({
         <div className="min-w-0">
           <div className="flex items-center gap-1">
             <span className="truncate text-[12px] font-black text-white">{ad.merchant.displayName}</span>
-            <Icon name="verified" className="shrink-0 text-[10px] text-[#05b957]" />
+            <VerifiedSeal className="h-[13px] w-[13px]" />
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-white/45">
             <span className="flex items-center gap-1">
