@@ -38,7 +38,11 @@ export async function initiateLipaHarakaWithdrawal(phone: string, amount: number
   const apiKey = process.env.LIPAHARAKA_API_KEY;
   if (!apiKey) throw new Error("Lipa Haraka is not configured");
   const response = await fetch(`${BASE_URL}?action=api_withdraw`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ api_key: apiKey, phone, amount: String(amount) }) });
-  const body = await response.json().catch(() => ({})) as Record<string, unknown>;
+  const raw = await response.text();
+  let body: Record<string, unknown> = {};
+  try { body = JSON.parse(raw) as Record<string, unknown>; } catch {
+    console.error("Lipa Haraka B2C returned non-JSON", { status: response.status, contentType: response.headers.get("content-type"), preview: raw.slice(0, 120) });
+  }
   const id = body.withdrawal_id ?? body.withdrawalId ?? body.payment_id;
   if (!response.ok || !(body.ok === true || body.success === true) || !id) throw new Error(String(body.error ?? body.message ?? `Lipa Haraka error ${response.status}`));
   return String(id);
