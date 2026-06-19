@@ -8,7 +8,9 @@
     "dev:fast": "set NEXT_PUBLIC_DEV_FAST=1&& next dev --turbo",
     "check": "prisma validate && tsc --noEmit",
     "check:types": "tsc --noEmit",
-    "test:accumulator": "bun scripts/test-accumulator-math.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:accumulator": "vitest run tests/accumulator.test.ts",
     "build:no-generate": "next build",
     "build": "prisma generate && next build",
     "start": "next start",
@@ -48,6 +50,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.6"
   }
 }
