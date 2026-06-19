@@ -8,6 +8,7 @@
     "dev:fast": "set NEXT_PUBLIC_DEV_FAST=1&& next dev --turbo",
     "check": "prisma validate && tsc --noEmit",
     "check:types": "tsc --noEmit",
+    "test:accumulator": "bun scripts/test-accumulator-math.ts",
     "build:no-generate": "next build",
     "build": "prisma generate && next build",
     "start": "next start",
