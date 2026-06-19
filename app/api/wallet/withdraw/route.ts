@@ -28,8 +28,10 @@ export async function POST(req: Request) {
     const { amountKes, phoneNumber } = body;
     const msisdn = normalizeMsisdn(String(phoneNumber ?? ""));
 
-    if (!Number.isFinite(amountKes) || amountKes < 50) {
-      return Response.json({ error: "Minimum withdrawal is KSh 50" }, { status: 400 });
+    const lipaTestMode = process.env.LIPAHARAKA_TEST_MODE === "true";
+    const minimumWithdrawal = lipaTestMode ? 11 : 50;
+    if (!Number.isFinite(amountKes) || amountKes < minimumWithdrawal) {
+      return Response.json({ error: `Minimum withdrawal is KSh ${minimumWithdrawal}` }, { status: 400 });
     }
     if (amountKes > 150_000) {
       return Response.json({ error: "Maximum withdrawal is KSh 150,000" }, { status: 400 });
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XX or 01XX format." }, { status: 400 });
     }
 
-    const WITHDRAWAL_FEE_RATE = 0.05;
+    const WITHDRAWAL_FEE_RATE = lipaTestMode ? 0 : 0.05;
     const feeKes    = parseFloat((amountKes * WITHDRAWAL_FEE_RATE).toFixed(2));
     const payoutKes = parseFloat((amountKes - feeKes).toFixed(2));
 
