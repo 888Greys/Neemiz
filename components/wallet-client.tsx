@@ -883,7 +883,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                   <>
                     <div className="rounded-2xl bg-[#16171d]/60 px-4 py-3 ring-1 ring-white/[0.05]">
                       <p className="text-xs text-slate-500">
-                        <span className="font-bold text-slate-300">5% fee</span> is deducted. Min KSh 50 · Max KSh 150,000.
+                        <span className="font-bold text-slate-300">Test mode:</span> no fee. Min KSh 11 · Max KSh 150,000.
                         Money arrives within 1–5 minutes via Safaricom M-Pesa.
                       </p>
                     </div>
@@ -901,9 +901,9 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                           placeholder="Enter amount"
                           className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
                         />
-                        {wdAmount && Number(wdAmount) >= 50 && (
+                        {wdAmount && Number(wdAmount) >= 11 && (
                           <span className="shrink-0 text-xs text-slate-600">
-                            → KSh {(Number(wdAmount) * 0.95).toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+                            → KSh {Number(wdAmount).toLocaleString("en-KE")}
                           </span>
                         )}
                       </div>
@@ -933,13 +933,13 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                     <button
                       type="button"
                       onClick={handleMpesaWithdraw}
-                      disabled={wdLoading || !wdAmount || Number(wdAmount) < 50 || !wdPhone.trim()}
+                      disabled={wdLoading || !wdAmount || Number(wdAmount) < 11 || !wdPhone.trim()}
                       className="w-full rounded-2xl bg-[#05b957] py-4 text-base font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-50"
                     >
                       {wdLoading ? (
                         <LoadingDots label="Processing" />
                       ) : (
-                        `Withdraw${wdAmount && Number(wdAmount) >= 50 ? ` KSh ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
+                        `Withdraw${wdAmount && Number(wdAmount) >= 11 ? ` KSh ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
                       )}
                     </button>
                   </>
