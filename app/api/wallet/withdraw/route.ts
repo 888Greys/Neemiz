@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
-import { relworxSend } from "@/lib/relworx";
+import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
           amount:   amountKes,
           currency: "KES",
           status:   txStatus,
-          provider: "relworx",
+          provider: "lipaharaka",
           metadata: {
             msisdn,
             fee:         feeKes,
@@ -101,9 +101,8 @@ export async function POST(req: Request) {
       });
     }
 
-    // ── Step 3: call Relworx ──
-    const accountNo = process.env.RELWORX_ACCOUNT_NO;
-    if (!accountNo) {
+    // ── Step 3: call Lipa Haraka ──
+    if (!process.env.LIPAHARAKA_API_KEY || !Number.isInteger(payoutKes)) {
       // Roll back balance — Relworx not configured
       await db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } });
       await db.transaction.update({ where: { id: withdrawalId }, data: { status: TransactionStatus.FAILED } });
@@ -111,24 +110,17 @@ export async function POST(req: Request) {
     }
 
     try {
-      const result = await relworxSend({
-        account_no:  accountNo,
-        reference:   withdrawalId,
-        msisdn:      `+${msisdn}`,
-        currency:    "KES",
-        amount:      payoutKes,
-        description: `Nezeem withdrawal ${withdrawalId}`,
-      });
+      const providerReference = await initiateLipaHarakaWithdrawal(msisdn, payoutKes);
 
       // Store Relworx reference for webhook matching
       await db.transaction.update({
         where: { id: withdrawalId },
-        data:  { reference: result.reference ?? withdrawalId, metadata: {
+        data:  { reference: providerReference, metadata: {
           msisdn,
           fee:          feeKes,
           payout:       payoutKes,
           requestedAt:  new Date().toISOString(),
-          relworxRef:   result.reference,
+          lipaWithdrawalId: providerReference,
           submittedAt:  new Date().toISOString(),
         }},
       });
