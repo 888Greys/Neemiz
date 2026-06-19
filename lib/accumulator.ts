@@ -19,9 +19,10 @@ export const MAX_TICKS_BY_RATE: Record<number, number> = { 1: 230, 2: 120, 3: 80
 
 // Volatility window: number of pre-entry ticks used to measure σ.
 export const SIGMA_WINDOW = 120;
-// Guardrails on the barrier half-width so a momentary volatility spike (or dead
-// feed) at buy can't mint an absurd band. 0.05% … 5% of spot.
-const MIN_BARRIER_FRAC = 0.0005;
+// Guardrail on the barrier half-width so a momentary volatility spike cannot
+// mint an absurd band. Do not impose a fixed lower floor: synthetic-index
+// volatility can legitimately be below 0.05%, and widening a fair barrier at
+// that point turns an accumulator into a near-guaranteed payout.
 const MAX_BARRIER_FRAC = 0.05;
 // Relative slack on the breach test so a move landing exactly on the barrier
 // isn't a false bust from floating-point error.
@@ -82,7 +83,7 @@ export function computeSigma(prices: number[]): number {
 /** Fair barrier half-width δ (fraction of spot), clamped to sane guardrails. */
 export function barrierFracFor(sigma: number, growthRate: number): number {
   const raw = sigma * zForGrowth(growthRate);
-  return Math.min(MAX_BARRIER_FRAC, Math.max(MIN_BARRIER_FRAC, raw));
+  return Math.min(MAX_BARRIER_FRAC, raw);
 }
 
 /** Grown payout after n surviving ticks (unrounded). */
