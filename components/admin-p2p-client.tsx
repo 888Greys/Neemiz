@@ -1064,17 +1064,11 @@ function CryptoWalletsTab() {
             </table>
           </div>
 
-          {/* Recovery footer */}
-          <div className="border-t border-white/[0.06] px-5 py-4 bg-amber-500/5">
-            <p className="text-amber-400 text-xs font-black mb-2 flex items-center gap-1.5">
-              <Icon name="key" className="text-sm" />
-              Wallet Recovery (import MASTER_WALLET_MNEMONIC into):
+          <div className="border-t border-amber-500/15 bg-amber-500/[0.05] px-5 py-3">
+            <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-300">
+              <Icon name="shield" size={14} /> Security-controlled address register
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-slate-400">
-              <div><span className="text-[#087cff] font-black">EVM</span> — MetaMask → Advanced → HD path <code className="font-mono text-slate-300">m/44&apos;/60&apos;/0&apos;/0</code>, add accounts by index</div>
-              <div><span className="text-red-400 font-black">TRON</span> — TronLink → import mnemonic → BIP44 <code className="font-mono text-slate-300">m/44&apos;/195&apos;/0&apos;/0</code></div>
-              <div><span className="text-amber-400 font-black">BTC</span> — Electrum → Standard → BIP44 Legacy → <code className="font-mono text-slate-300">m/44&apos;/0&apos;/0&apos;/0</code></div>
-            </div>
+            <p className="mt-1 text-[11px] text-slate-500">This register is for investigation only. Wallet recovery material and signing keys must remain outside the application and outside the admin console.</p>
           </div>
         </div>
       )}
@@ -1124,22 +1118,28 @@ export function AdminP2PClient() {
   return (
     <div className="admin-page">
       {/* Header */}
-      <div className="mb-6">
-        <p className="text-[9px] font-black uppercase tracking-[0.24em] text-violet-400">Settlement operations</p>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <div>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Settlement operations</p>
         <h1 className="mt-1 text-2xl font-black tracking-tight text-white">P2P control desk</h1>
         <p className="mt-1 text-[11px] text-slate-500">Review identities, resolve order disputes, approve deposits and manage settlement wallets.</p>
+        </div>
+        <div className="border border-white/[0.07] bg-[#121419] px-3 py-2 text-right">
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Queue requiring review</p>
+          <p className="mt-1 font-mono text-lg font-black text-white">{counts.kyc + counts.disputes + counts.deposits}</p>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="admin-panel mb-6 flex w-fit max-w-full gap-1 overflow-x-auto p-1.5">
+      <div className="mb-4 flex max-w-full overflow-x-auto border-b border-white/[0.08]">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-black transition-all ${
+            className={`relative flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-[11px] font-black transition-colors ${
               tab === t.id
-                ? "bg-[#087cff] text-white shadow-[0_2px_12px_rgba(8,124,255,.35)]"
-                : "text-slate-500 hover:text-slate-300"
+                ? "border-[#087cff] text-white"
+                : "border-transparent text-slate-500 hover:text-slate-300"
             }`}
           >
             <Icon name={t.icon} className="text-base" />
@@ -1147,8 +1147,8 @@ export function AdminP2PClient() {
             {t.count > 0 && (
               <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black leading-none ${
                 tab === t.id
-                  ? "bg-white text-[#087cff]"
-                  : "bg-amber-500 text-white"
+                ? "bg-[#087cff]/20 text-blue-300"
+                : "bg-amber-500/15 text-amber-300"
               }`}>
                 {t.count > 99 ? "99+" : t.count}
               </span>
