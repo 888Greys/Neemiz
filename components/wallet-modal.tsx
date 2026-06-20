@@ -73,7 +73,7 @@ function MoneyTabs({ mode, setMode }: { mode: "fiat" | "crypto"; setMode: (m: "f
           mode === "fiat" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
         }`}
       >
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#05b957] text-[12px] font-black text-white">$</span>
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#087cff] text-[12px] font-black text-white">$</span>
         Fiat
       </button>
       <button
@@ -491,14 +491,16 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/72 px-3 py-6 backdrop-blur-md sm:px-6 sm:py-8"
+      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/72 backdrop-blur-md sm:items-center sm:px-6 sm:py-8"
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[calc(100dvh-3rem)] w-full max-w-[440px] flex-col overflow-hidden rounded-[20px] border border-white/[0.10] bg-[#10131b]/95 text-white shadow-2xl shadow-black/55 animate-in fade-in zoom-in-95 duration-200 sm:max-h-[calc(100dvh-4rem)] sm:rounded-[24px]"
+        className="relative flex max-h-[90dvh] w-full max-w-[440px] flex-col overflow-hidden rounded-t-3xl border border-white/[0.10] bg-[#10131b]/95 text-white shadow-2xl shadow-black/55 animate-in fade-in slide-in-from-bottom-4 duration-300 sm:max-h-[calc(100dvh-4rem)] sm:rounded-3xl sm:zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_24%_0%,rgba(8,124,255,0.24),transparent_55%),radial-gradient(circle_at_82%_0%,rgba(5,185,87,0.16),transparent_46%)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_24%_0%,rgba(8,124,255,0.28),transparent_55%),radial-gradient(circle_at_82%_0%,rgba(8,124,255,0.14),transparent_46%)]" />
+
+        <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-white/10 sm:hidden" />
 
         <button
           type="button"
@@ -527,7 +529,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                   /* KES balance */
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-sm font-bold text-slate-400">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#05b957] text-[10px] font-black text-white">KSh</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff] text-[10px] font-black text-white">KSh</span>
                       KES Wallet
                     </span>
                     <span className="text-sm font-black text-white">
@@ -581,7 +583,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     onClick={() => { setScreen("mpesa"); setMode("fiat"); }}
                     className="flex h-[100px] w-full flex-col items-start justify-between rounded-2xl bg-white/[0.06] px-4 py-4 text-left ring-1 ring-white/[0.08] transition hover:bg-white/[0.10] active:scale-[0.99]"
                   >
-                    <span className="text-xl font-black tracking-tight text-[#31c45d]">M-PESA</span>
+                    <span className="text-xl font-black tracking-tight text-[#087cff]">M-PESA</span>
                     <span>
                       <span className="block text-sm font-black text-white">M-Pesa</span>
                       <span className="block text-xs font-bold text-slate-500">Instant STK push</span>
@@ -613,8 +615,8 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                 </div>
               ) : (
                 <div className="pr-12">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-300 ring-1 ring-emerald-400/20">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#087cff]/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#75b8ff] ring-1 ring-[#087cff]/20">
+                    <span className="h-2 w-2 rounded-full bg-[#087cff]" />
                     M-Pesa
                   </div>
                   <h2 className="mt-3 text-xl font-black tracking-tight text-white">Deposit by phone</h2>
@@ -647,7 +649,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                 <div className="flex flex-col items-center justify-center gap-5 py-10">
                   <div className="relative flex h-20 w-20 items-center justify-center">
                     <div className="absolute inset-0 animate-spin rounded-full border-4 border-[#087cff]/15 border-t-[#087cff]" />
-                    <span className="text-2xl font-black text-[#31c45d]">M</span>
+                    <span className="text-2xl font-black text-[#087cff]">M</span>
                   </div>
                   <div className="text-center">
                     <p className="text-xl font-black text-white">Waiting for payment</p>
@@ -711,7 +713,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                     type="button"
                     onClick={handleDeposit}
                     disabled={loading || !amount || !phone}
-                    className="h-14 w-full rounded-2xl bg-[#05b957] text-base font-black text-white shadow-lg shadow-emerald-500/18 transition hover:bg-[#07cc63] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-slate-500 disabled:shadow-none"
+                    className="h-14 w-full rounded-2xl bg-[#087cff] text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:cursor-not-allowed disabled:bg-white/[0.08] disabled:text-slate-500 disabled:shadow-none"
                   >
                     {loading ? "Sending prompt..." : "Deposit"}
                   </button>

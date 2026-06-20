@@ -4,17 +4,18 @@ import { WalletClient } from "@/components/wallet-client";
 import { Icon } from "@/components/icon";
 
 // Floating wallet — wraps the full wallet UI (deposit / withdraw / send /
-// history) in a centered modal, matching the Profile modal's vibe.
+// history) in the same mobile bottom-sheet pattern as the Profile modal.
 export function WalletSheet({ onClose }: { onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-black/80 px-3 py-6 backdrop-blur-sm sm:py-10"
+      className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md overflow-hidden rounded-2xl bg-[#0e0e14] shadow-2xl ring-1 ring-white/10 lg:max-w-4xl"
+        className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-[#0e0e14] shadow-2xl ring-1 ring-white/10 no-scrollbar sm:rounded-3xl lg:max-w-4xl"
         onClick={(e) => e.stopPropagation()}
       >
+        <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-white/10 sm:hidden" />
         <button
           type="button"
           onClick={onClose}
