@@ -106,6 +106,21 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     }
   }
 
+  // Map the raw WebAuthn/Supabase passkey errors (e.g. NotAllowedError —
+  // "The operation either timed out or was not allowed…") to friendly guidance.
+  // This fires when the device has no passkey for this account, or the prompt
+  // was dismissed — so point new users to set one up after a normal sign-in.
+  function passkeyErrorMessage(raw?: string) {
+    const m = (raw ?? "").toLowerCase();
+    if (!m
+      || m.includes("not allowed") || m.includes("timed out") || m.includes("timeout")
+      || m.includes("privacy-considerations") || m.includes("no credential")
+      || m.includes("no passkey") || m.includes("notallowederror") || m.includes("aborted")) {
+      return "No passkey found on this device — or the prompt was dismissed. New here? Sign in with your phone or email first, then add a passkey from your account settings.";
+    }
+    return raw || "Passkey sign-in failed. Please try again.";
+  }
+
   async function handlePasskey() {
     setError("");
     setLoading(true);
@@ -113,7 +128,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
       const supabase = createClient();
       const { error: pkError } = await supabase.auth.signInWithPasskey();
       if (pkError) {
-        setError(pkError.message || "Passkey sign-in failed.");
+        setError(passkeyErrorMessage(pkError.message));
         return;
       }
 
@@ -131,8 +146,8 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
       onClose();
       toast.success("Welcome back!", "Signed in with your passkey.");
       router.push("/dashboard");
-    } catch {
-      setError("Passkey sign-in failed. Please try again.");
+    } catch (err) {
+      setError(passkeyErrorMessage(err instanceof Error ? err.message : undefined));
     } finally {
       setLoading(false);
     }
