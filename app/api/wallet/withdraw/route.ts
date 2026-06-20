@@ -14,6 +14,10 @@ function normalizeMsisdn(phone: string): string {
 
 export async function POST(req: Request) {
   try {
+    if (process.env.LIPAHARAKA_WITHDRAWALS_ENABLED !== "true") {
+      return Response.json({ error: "M-Pesa withdrawals are temporarily paused for reconciliation." }, { status: 503 });
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
