@@ -23,33 +23,40 @@ function Spinner() {
 const money = (value: string) =>
   `KSh ${Number(value).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+type SortMode = "recent" | "balance";
+
 export function AdminUsersClient() {
   const [users, setUsers]   = useState<UserRow[]>([]);
   const [total, setTotal]   = useState(0);
   const [page, setPage]     = useState(1);
   const [pages, setPages]   = useState(1);
+  const [limit, setLimit]   = useState(50);
+  const [totalBalance, setTotalBalance] = useState(0);
   const [search, setSearch] = useState("");
   const [query, setQuery]   = useState("");
+  const [sort, setSort]     = useState<SortMode>("recent");
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
 
-  const load = useCallback(async (p: number, q: string) => {
+  const load = useCallback(async (p: number, q: string, s: SortMode) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/users?page=${p}&q=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/admin/users?page=${p}&q=${encodeURIComponent(q)}&sort=${s}`);
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users);
         setTotal(data.total);
         setPage(data.page);
         setPages(data.pages);
+        setLimit(data.limit ?? 50);
+        setTotalBalance(data.totalBalance ?? 0);
       }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(1, query); }, [load, query]);
+  useEffect(() => { load(1, query, sort); }, [load, query, sort]);
 
   async function toggleSuspend(user: UserRow) {
     setActing(user.id);
@@ -95,9 +102,25 @@ export function AdminUsersClient() {
         </form>
       </div>
 
-      <div className="mb-4 grid grid-cols-3 border border-white/[0.07] bg-[#121419] sm:max-w-xl">
+      {/* Sort toggle — rank by balance to see who holds the most */}
+      <div className="mb-4 flex items-center gap-1 rounded-lg bg-white/[0.03] p-1 sm:inline-flex">
+        {([["recent", "Recent", "schedule"], ["balance", "Top balance", "trending_up"]] as const).map(([value, label, icon]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setSort(value)}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-[11px] font-black transition ${sort === value ? "bg-[#087cff] text-white shadow-[0_4px_14px_rgba(8,124,255,.3)]" : "text-slate-400 hover:text-white"}`}
+          >
+            <Icon name={icon} fill className="text-[14px]" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 border border-white/[0.07] bg-[#121419] sm:max-w-2xl sm:grid-cols-4">
         <div className="border-r border-white/[0.06] px-4 py-3"><p className="text-lg font-black text-white">{total.toLocaleString()}</p><p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Matched accounts</p></div>
-        <div className="border-r border-white/[0.06] px-4 py-3"><p className="text-lg font-black text-emerald-400">{users.filter((user) => user.isActive && !user.isAdmin).length}</p><p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Active on page</p></div>
+        <div className="border-r border-white/[0.06] px-4 py-3"><p className="font-mono text-lg font-black text-emerald-400">{money(String(totalBalance))}</p><p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Total held</p></div>
+        <div className="border-r border-white/[0.06] px-4 py-3"><p className="text-lg font-black text-sky-400">{users.filter((user) => user.isActive && !user.isAdmin).length}</p><p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Active on page</p></div>
         <div className="px-4 py-3"><p className="text-lg font-black text-amber-400">{users.filter((user) => user.isAdmin).length}</p><p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Privileged</p></div>
       </div>
 
@@ -116,11 +139,24 @@ export function AdminUsersClient() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {users.map((u, i) => {
+                const rank = (page - 1) * limit + i + 1;
+                const medal = rank === 1 ? "bg-amber-400/15 text-amber-300 ring-amber-400/30"
+                  : rank === 2 ? "bg-slate-300/15 text-slate-200 ring-slate-300/30"
+                  : rank === 3 ? "bg-orange-500/15 text-orange-300 ring-orange-500/30"
+                  : "bg-white/[0.05] text-slate-400 ring-white/[0.08]";
+                return (
                 <tr key={u.id} className="admin-table-row border-b border-white/[0.04]">
                   <td className="px-4 py-3.5">
-                    <p className="font-bold text-white text-[13px]">{u.username ? `@${u.username}` : u.email ?? u.phone ?? "Unnamed account"}</p>
-                    <p className="mt-0.5 text-[10px] text-slate-600">{u.email ?? u.phone ?? "No verified contact"}</p>
+                    <div className="flex items-center gap-3">
+                      {sort === "balance" && (
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-black ring-1 ${medal}`}>{rank}</span>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-bold text-white text-[13px]">{u.username ? `@${u.username}` : u.email ?? u.phone ?? "Unnamed account"}</p>
+                        <p className="mt-0.5 text-[10px] text-slate-600">{u.email ?? u.phone ?? "No verified contact"}</p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-4 py-3.5">
                     <p className="font-mono font-bold text-white">{money(u.walletBalance)}</p>
@@ -165,7 +201,8 @@ export function AdminUsersClient() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table></div>
         )}
@@ -174,7 +211,7 @@ export function AdminUsersClient() {
       {pages > 1 && (
         <div className="mt-4 flex items-center justify-center gap-2">
           <button
-            onClick={() => load(page - 1, query)}
+            onClick={() => load(page - 1, query, sort)}
             disabled={page <= 1}
             className="rounded-md border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm font-bold text-slate-400 disabled:opacity-40 hover:bg-white/[0.07]"
           >
@@ -182,7 +219,7 @@ export function AdminUsersClient() {
           </button>
           <span className="text-sm text-slate-600">{page} / {pages}</span>
           <button
-            onClick={() => load(page + 1, query)}
+            onClick={() => load(page + 1, query, sort)}
             disabled={page >= pages}
             className="rounded-md border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm font-bold text-slate-400 disabled:opacity-40 hover:bg-white/[0.07]"
           >
