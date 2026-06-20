@@ -10,6 +10,7 @@ const NAV = [
   { href: "/admin/users",       label: "Customers",   icon: "groups",             group: "Operate" },
   { href: "/admin/p2p",         label: "P2P desk",    icon: "handshake",          group: "Operate" },
   { href: "/admin/withdrawals", label: "Approvals",   icon: "approval",           group: "Operate" },
+  { href: "/admin/broadcast",   label: "Broadcast",   icon: "campaign",           group: "Operate" },
   { href: "/admin/profits",     label: "Finance",     icon: "account_balance",    group: "Analyze" },
 ];
 
