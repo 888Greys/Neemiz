@@ -66,10 +66,14 @@ export async function POST(req: Request) {
 
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
+      // Scope the daily cap to M-Pesa (Lipa Haraka) cash withdrawals ONLY.
+      // Other WITHDRAWAL-typed rows (P2P escrow `p2p_kes_escrow`, crypto
+      // `self_custody`, internal transfers) must NOT count against this limit.
       const todayWhere = {
-        userId: dbUser.id,
-        type:   TransactionType.WITHDRAWAL,
-        status: { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+        userId:   dbUser.id,
+        type:     TransactionType.WITHDRAWAL,
+        provider: "lipaharaka",
+        status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
         createdAt: { gte: startOfDay },
       };
       const todayCount = await tx.transaction.count({ where: todayWhere });
