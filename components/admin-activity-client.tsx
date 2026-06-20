@@ -33,10 +33,20 @@ interface Product {
 }
 
 interface ActivityData {
-  rangeDays: number;
+  rangeMinutes: number;
   products: Product[];
   totals: { players: number; activity: number; volume: number; payout: number };
 }
+
+const RANGE_OPTIONS = [
+  { label: "30 min", minutes: 30 },
+  { label: "1 hr",   minutes: 60 },
+  { label: "2 hr",   minutes: 120 },
+  { label: "4 hr",   minutes: 240 },
+  { label: "12 hr",  minutes: 720 },
+  { label: "24 hr",  minutes: 1440 },
+  { label: "30 days", minutes: 43200 },
+];
 
 const icons: Record<string, string> = {
   sports: "sports_soccer",
@@ -56,18 +66,27 @@ export function AdminActivityClient() {
   const [data, setData] = useState<ActivityData | null>(null);
   const [active, setActive] = useState("sports");
   const [loading, setLoading] = useState(true);
+  const [minutes, setMinutes] = useState(60);
+  const [live, setLive] = useState(true);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (mins: number, spinner = true) => {
+    if (spinner) setLoading(true);
     try {
-      const response = await fetch("/api/admin/activity", { cache: "no-store" });
+      const response = await fetch(`/api/admin/activity?minutes=${mins}`, { cache: "no-store" });
       if (response.ok) setData(await response.json());
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(minutes); }, [load, minutes]);
+
+  // Live auto-refresh (every 20s) without the loading spinner, for short windows.
+  useEffect(() => {
+    if (!live) return;
+    const id = setInterval(() => load(minutes, false), 20_000);
+    return () => clearInterval(id);
+  }, [live, minutes, load]);
 
   if (loading && !data) {
     return <div className="flex min-h-screen items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-white/10 border-t-blue-500" /></div>;
@@ -81,13 +100,33 @@ export function AdminActivityClient() {
     <div className="admin-page">
       <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">30-day intelligence</p>
+          <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">
+            {minutes < 43200 && <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+            {minutes < 43200 ? `Live · last ${RANGE_OPTIONS.find((o) => o.minutes === minutes)?.label}` : "30-day intelligence"}
+          </p>
           <h1 className="mt-1 text-2xl font-black tracking-tight">Product activity</h1>
-          <p className="text-xs text-slate-600">Players, volume, payouts, exposure, and recent activity across every platform product.</p>
+          <p className="text-xs text-slate-600">Live players, volume, payouts and recent activity across every platform product.</p>
         </div>
-        <button onClick={load} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] font-black text-slate-400 hover:text-white">
-          <Icon name="refresh" size={13} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Time-window dropdown */}
+          <select
+            value={minutes}
+            onChange={(e) => setMinutes(Number(e.target.value))}
+            className="rounded-lg border border-white/[0.08] bg-[#121419] px-3 py-2 text-[11px] font-black text-slate-200 outline-none transition focus:border-[#087cff]/40 [color-scheme:dark]"
+          >
+            {RANGE_OPTIONS.map((o) => <option key={o.minutes} value={o.minutes}>Past {o.label}</option>)}
+          </select>
+          {/* Live auto-refresh toggle */}
+          <button
+            onClick={() => setLive((v) => !v)}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-black transition ${live ? "border-emerald-400/30 bg-emerald-400/[0.08] text-emerald-300" : "border-white/[0.08] bg-white/[0.03] text-slate-500 hover:text-white"}`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${live ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} /> Live
+          </button>
+          <button onClick={() => load(minutes)} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] font-black text-slate-400 hover:text-white">
+            <Icon name="refresh" size={13} /> Refresh
+          </button>
+        </div>
       </header>
 
       <div className="admin-panel mb-4 grid overflow-hidden sm:grid-cols-2 xl:grid-cols-4">
@@ -148,9 +187,9 @@ export function AdminActivityClient() {
             <div><p className="font-black text-amber-400">{money(product.exposure)}</p><p className="text-slate-600">Exposure</p></div>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="max-h-[440px] overflow-auto no-scrollbar">
           <table className="w-full min-w-[700px] text-left">
-            <thead><tr className="border-b border-white/[0.05] text-[9px] uppercase tracking-widest text-slate-700">
+            <thead className="sticky top-0 z-10 bg-[#0b0f16]"><tr className="border-b border-white/[0.05] text-[9px] uppercase tracking-widest text-slate-700">
               <th className="px-4 py-2.5">Player</th><th>Activity</th><th>Status</th><th>Time</th><th className="pr-4 text-right">Amount</th>
             </tr></thead>
             <tbody>

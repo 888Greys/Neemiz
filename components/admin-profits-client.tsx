@@ -14,6 +14,7 @@ interface DayData {
 }
 
 interface ProfitsResponse {
+  granularity?: "hour" | "day";
   days: DayData[];
   totals: {
     deposits: number;
@@ -71,6 +72,9 @@ export function AdminProfitsClient() {
   useEffect(() => { load(days); }, [load, days]);
 
   const t = data?.totals;
+  const hourly = data?.granularity === "hour";
+  // Hourly labels are already "HH:00"; daily labels are "YYYY-MM-DD" → show "MM-DD".
+  const xTick = (v: string) => (hourly ? v : v.slice(5));
 
   return (
     <div className="admin-page">
@@ -110,7 +114,7 @@ export function AdminProfitsClient() {
           {/* Gross profit chart */}
           <div className="admin-panel mb-4 p-5">
             <p className="mb-4 text-[11px] font-black uppercase tracking-[0.12em] text-slate-600">
-              Daily Gross Profit (KSh)
+              {hourly ? "Gross Profit by hour — today (KSh)" : "Daily Gross Profit (KSh)"}
             </p>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={data!.days} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -124,7 +128,7 @@ export function AdminProfitsClient() {
                 <XAxis
                   dataKey="date"
                   tick={{ fill: "#475569", fontSize: 10 }}
-                  tickFormatter={(v: string) => v.slice(5)}
+                  tickFormatter={xTick}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -159,7 +163,7 @@ export function AdminProfitsClient() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                <XAxis dataKey="date" tick={{ fill: "#475569", fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} axisLine={false} tickLine={false} />
+                <XAxis dataKey="date" tick={{ fill: "#475569", fontSize: 10 }} tickFormatter={xTick} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "#475569", fontSize: 10 }} axisLine={false} tickLine={false} width={60}
                   tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)}
                 />
