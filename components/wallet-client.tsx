@@ -128,6 +128,15 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
   const [stepUpBusy, setStepUpBusy]   = useState(false);
   const [stepUpShowPw, setStepUpShowPw] = useState(false);
 
+  // ── Daily withdrawal allowance (resets 02:00 EAT) ──
+  const [wdLimit, setWdLimit] = useState<{ limit: number; used: number; remaining: number; resetsAt: string } | null>(null);
+  const loadWdLimit = useCallback(() => {
+    fetch("/api/wallet/withdraw", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d && typeof d.remaining === "number") setWdLimit(d); })
+      .catch(() => {});
+  }, []);
+
   // ── "Notify me when M-Pesa withdrawals reopen" opt-in (while paused) ──
   const [notifyState, setNotifyState] = useState<"idle" | "loading" | "subscribed">("idle");
 
@@ -167,6 +176,11 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
       .then((d) => { if (d?.phone) setSavedMpesa(d.phone); })
       .catch(() => {});
   }, [savedMpesa]);
+
+  // Load the daily withdrawal allowance whenever the withdraw tab is shown.
+  useEffect(() => {
+    if (isSignedIn && tab === "withdraw") loadWdLimit();
+  }, [isSignedIn, tab, loadWdLimit]);
 
   // Fetch crypto balances
   const fetchCryptoBalances = () => {
@@ -369,6 +383,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
       saveMpesaNumber(wdPhone); // remember this number for next time
       setWdDone({ payout: data.payout ?? amt, fee: data.fee ?? 0, queued: data.queued || data.pendingApproval, message: data.message });
       refreshBalance();
+      loadWdLimit(); // refresh remaining allowance
     } catch (err) {
       setWdError(err instanceof Error ? err.message : "Withdrawal failed");
     } finally {
@@ -966,10 +981,31 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                   <>
                     <div className="rounded-2xl bg-[#16171d]/60 px-4 py-3 ring-1 ring-white/[0.05]">
                       <p className="text-xs text-slate-500">
-                        <span className="font-bold text-slate-300">Test mode:</span> no fee. Min KSh 11 · Max KSh 500 per day.
+                        <span className="font-bold text-slate-300">Test mode:</span> no fee. Min KSh 11 · Max KSh {(wdLimit?.limit ?? 500).toLocaleString()} per day.
                         Money arrives within 1–5 minutes via Safaricom M-Pesa.
                       </p>
                     </div>
+
+                    {/* Daily allowance — remaining + reset */}
+                    {wdLimit && (
+                      <div className="rounded-2xl bg-[#16171d] px-4 py-3 ring-1 ring-white/[0.07]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Daily limit left</span>
+                          <span className={`text-sm font-black ${wdLimit.remaining > 0 ? "text-[#05b957]" : "text-amber-400"}`}>
+                            KSh {wdLimit.remaining.toLocaleString()} <span className="text-[11px] font-bold text-slate-600">/ {wdLimit.limit.toLocaleString()}</span>
+                          </span>
+                        </div>
+                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                          <div
+                            className="h-full rounded-full bg-[#05b957] transition-all"
+                            style={{ width: `${Math.min(100, (wdLimit.remaining / wdLimit.limit) * 100)}%` }}
+                          />
+                        </div>
+                        <p className="mt-1.5 text-[10px] text-slate-600">
+                          {wdLimit.used > 0 ? `KSh ${wdLimit.used.toLocaleString()} used today · ` : ""}Resets daily at 2:00 AM
+                        </p>
+                      </div>
+                    )}
 
                     <div>
                       <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount (KSh)</p>
