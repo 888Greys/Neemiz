@@ -34,8 +34,15 @@ export async function POST(req: Request) {
 
     const lipaTestMode = process.env.LIPAHARAKA_TEST_MODE === "true";
     const minimumWithdrawal = lipaTestMode ? 11 : 50;
+    // Daily cap: a user may withdraw at most this much (summed across all of the
+    // day's M-Pesa withdrawals). Configurable; defaults to KSh 500.
+    const parsedDailyLimit = Number(process.env.WITHDRAWAL_DAILY_LIMIT_KES ?? "500");
+    const dailyLimitKes = Number.isFinite(parsedDailyLimit) && parsedDailyLimit > 0 ? parsedDailyLimit : 500;
     if (!Number.isFinite(amountKes) || amountKes < minimumWithdrawal) {
       return Response.json({ error: `Minimum withdrawal is KSh ${minimumWithdrawal}` }, { status: 400 });
+    }
+    if (amountKes > dailyLimitKes) {
+      return Response.json({ error: `Daily withdrawal limit is KSh ${dailyLimitKes.toLocaleString()}` }, { status: 400 });
     }
     if (amountKes > 150_000) {
       return Response.json({ error: "Maximum withdrawal is KSh 150,000" }, { status: 400 });
@@ -58,14 +65,24 @@ export async function POST(req: Request) {
 
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
-      const todayCount = await tx.transaction.count({
-        where: {
-          userId: dbUser.id,
-          type:   TransactionType.WITHDRAWAL,
-          status: { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
-          createdAt: { gte: startOfDay },
-        },
-      });
+      const todayWhere = {
+        userId: dbUser.id,
+        type:   TransactionType.WITHDRAWAL,
+        status: { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+        createdAt: { gte: startOfDay },
+      };
+      const todayCount = await tx.transaction.count({ where: todayWhere });
+
+      // Enforce the daily cap atomically: sum of today's withdrawals (refunds
+      // excluded — FAILED/CANCELLED are filtered above) plus this one must not
+      // exceed the limit. Checked inside the transaction so two concurrent
+      // requests can't both slip under the cap.
+      const todaySum = await tx.transaction.aggregate({ where: todayWhere, _sum: { amount: true } });
+      const withdrawnToday = Number(todaySum._sum?.amount ?? 0);
+      if (withdrawnToday + amountKes > dailyLimitKes) {
+        const remaining = Math.max(0, dailyLimitKes - withdrawnToday);
+        throw new Error(`DAILY_LIMIT:${remaining}`);
+      }
 
       const needsApproval = amountKes > 1_000_000 || todayCount >= 10;
       const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
@@ -168,6 +185,14 @@ export async function POST(req: Request) {
   } catch (err) {
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
+    }
+    if (err instanceof Error && err.message.startsWith("DAILY_LIMIT:")) {
+      const remaining = Number(err.message.split(":")[1] ?? 0);
+      return Response.json({
+        error: remaining > 0
+          ? `Daily withdrawal limit reached. You can withdraw KSh ${remaining.toLocaleString()} more today.`
+          : "You've reached today's withdrawal limit. Please try again tomorrow.",
+      }, { status: 400 });
     }
     if (err instanceof SuspendedAccountError) {
       return Response.json({ error: "Your account has been suspended. Contact support." }, { status: 403 });
