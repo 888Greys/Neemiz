@@ -119,6 +119,9 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
   const [wdError, setWdError]   = useState("");
   const [wdDone, setWdDone]     = useState<{ payout: number; fee: number } | null>(null);
 
+  // ── "Notify me when M-Pesa withdrawals reopen" opt-in (while paused) ──
+  const [notifyState, setNotifyState] = useState<"idle" | "loading" | "subscribed">("idle");
+
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCount = useRef(0);
 
@@ -151,6 +154,29 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
     if (!isSignedIn) return;
     fetchCryptoBalances();
   }, [isSignedIn]);
+
+  // Load whether the user already opted in to the withdrawal-reopen alert.
+  useEffect(() => {
+    if (MPESA_WITHDRAWALS_ENABLED || !isSignedIn) return;
+    let active = true;
+    fetch("/api/wallet/withdraw/notify-me")
+      .then((r) => r.ok ? r.json() : { subscribed: false })
+      .then((d) => { if (active && d.subscribed) setNotifyState("subscribed"); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [isSignedIn]);
+
+  async function handleNotifyMe() {
+    if (!isSignedIn) { openLogin(); return; }
+    setNotifyState("loading");
+    try {
+      const res = await fetch("/api/wallet/withdraw/notify-me", { method: "POST" });
+      if (!res.ok) throw new Error();
+      setNotifyState("subscribed");
+    } catch {
+      setNotifyState("idle");
+    }
+  }
 
   // M-Pesa polling
   useEffect(() => {
@@ -799,9 +825,25 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                     We&rsquo;re experiencing a problem with M-Pesa payouts and are working to
                     restore them. Your balance is safe.
                   </p>
-                  <p className="text-sm font-bold text-slate-300">
-                    We&rsquo;ll notify you by email as soon as withdrawals are back.
-                  </p>
+                  {notifyState === "subscribed" ? (
+                    <p className="flex items-center justify-center gap-1.5 text-sm font-bold text-[#05b957]">
+                      <Icon name="check_circle" className="text-[16px]" />
+                      You&rsquo;re on the list — we&rsquo;ll email you when withdrawals reopen.
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleNotifyMe}
+                      disabled={notifyState === "loading"}
+                      className="mx-auto mt-1 flex items-center gap-2 rounded-xl bg-white/[0.08] px-5 py-2.5 text-sm font-black text-white ring-1 ring-white/[0.08] transition hover:bg-white/[0.12] disabled:opacity-50"
+                    >
+                      {notifyState === "loading" ? (
+                        <LoadingDots label="Saving" />
+                      ) : (
+                        <><Icon name="notifications" className="text-[16px]" /> Notify me by email when it&rsquo;s back</>
+                      )}
+                    </button>
+                  )}
                   <p className="text-xs text-slate-600 pt-1">
                     Need crypto instead? Switch to the <span className="font-bold text-slate-400">Crypto</span> tab above — those withdrawals are working normally.
                   </p>
