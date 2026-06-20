@@ -34,6 +34,20 @@ function isTrustedLipaOrigin(headers: Headers) {
   return !!ip && TRUSTED_CALLBACK_IPS.includes(ip);
 }
 
+function parseCallbackBody(raw: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed as Record<string, unknown> : null;
+  } catch {
+    // Lipa Haraka also posts standard URL-encoded callback bodies such as
+    // `phone=254...&amount=...&status=paid`. The previous JSON-only parser
+    // threw before a successful payment could be credited.
+    const form = new URLSearchParams(raw);
+    const entries = [...form.entries()];
+    return entries.length ? Object.fromEntries(entries) : null;
+  }
+}
+
 export async function POST(req: Request) {
   const secret = process.env.LIPAHARAKA_CALLBACK_SECRET;
   const raw = await req.text();
@@ -48,12 +62,14 @@ export async function POST(req: Request) {
     }
     return new Response("Unauthorized", { status: 401 });
   }
-  const body = JSON.parse(raw) as Record<string, unknown>;
+  const body = parseCallbackBody(raw);
+  if (!body) return new Response("Bad request", { status: 400 });
   const reference = String(body.checkout_request_id ?? body.CheckoutRequestID ?? body.withdrawal_id ?? body.withdrawalId ?? body.transaction_id ?? "");
   const amount = Number(body.amount ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "Amount")?.Value);
   const phone = String(body.phone ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "PhoneNumber")?.Value ?? "");
 
   const statusStr = String(body.status ?? "").toLowerCase();
+  const providerMessage = String(body.message ?? body.error ?? body.description ?? "");
   const paid = ["paid", "completed", "success", "successful"].includes(statusStr) || Number(body.ResultCode) === 0;
   const failed = !paid && (
     ["fail", "error", "reject", "cancel", "declin"].some((s) => statusStr.includes(s))
@@ -108,7 +124,7 @@ export async function POST(req: Request) {
       // failed
       const claimed = await prisma.transaction.updateMany({
         where: { id: found.id, status: "PENDING" },
-        data:  { status: "FAILED", metadata: { ...(meta ?? {}), lipaCallback: true, failureReason: statusStr || "failed" } },
+        data:  { status: "FAILED", metadata: { ...(meta ?? {}), lipaCallback: true, failureReason: providerMessage || statusStr || "failed" } },
       });
       if (claimed.count && found.type === "WITHDRAWAL") {
         // Lipa could not disburse — refund the held balance.
