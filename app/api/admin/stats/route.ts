@@ -6,7 +6,7 @@ import { TransactionStatus } from "@prisma/client";
 
 // Only real cash received through a payment gateway counts as a deposit.
 // Manual/test top-ups (no real provider) must not inflate the metrics.
-const REAL_DEPOSIT_PROVIDERS = ["megapay"];
+const REAL_DEPOSIT_PROVIDERS = ["megapay", "lipaharaka"];
 
 export async function GET() {
   const supabase = await createClient();

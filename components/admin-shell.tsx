@@ -7,7 +7,7 @@ import { Icon } from "@/components/icon";
 const NAV = [
   { href: "/admin",             label: "Overview",    icon: "dashboard",          group: "Monitor" },
   { href: "/admin/activity",    label: "Activity",    icon: "monitoring",         group: "Monitor" },
-  { href: "/admin/users",       label: "Customers",   icon: "groups",             group: "Operate" },
+  { href: "/admin/users",       label: "Users",       icon: "groups",             group: "Operate" },
   { href: "/admin/p2p",         label: "P2P desk",    icon: "handshake",          group: "Operate" },
   { href: "/admin/withdrawals", label: "Approvals",   icon: "approval",           group: "Operate" },
   { href: "/admin/broadcast",   label: "Broadcast",   icon: "campaign",           group: "Operate" },

@@ -40,9 +40,10 @@ function Spinner() {
 }
 
 const RANGE_OPTIONS = [
-  { label: "7D",  days: 7  },
-  { label: "30D", days: 30 },
-  { label: "90D", days: 90 },
+  { label: "Today", days: 1  },
+  { label: "7D",    days: 7  },
+  { label: "30D",   days: 30 },
+  { label: "90D",   days: 90 },
 ];
 
 const fmt = (n: number) =>
@@ -99,7 +100,7 @@ export function AdminProfitsClient() {
           {/* Summary cards */}
           <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <StatCard label="Gross Profit"    value={fmt(t.grossProfit)}    color={t.grossProfit >= 0 ? "text-emerald-400" : "text-red-400"} />
-            <StatCard label="Real Cash In"    value={fmt(t.deposits)}       sub="Completed MegaPay deposits" color="text-sky-400" />
+            <StatCard label="Real Cash In"    value={fmt(t.deposits)}       sub="Completed M-Pesa deposits" color="text-sky-400" />
             <StatCard label="Real Cash Out"   value={fmt(t.withdrawals)}    sub="Completed provider payouts" color="text-orange-400" />
             <StatCard label="Bet Stakes"      value={fmt(t.betStakes)}      color="text-violet-400" />
             <StatCard label="Bet Wins Paid"   value={fmt(t.betWins)}        color="text-rose-400" />
@@ -172,7 +173,7 @@ export function AdminProfitsClient() {
               </AreaChart>
             </ResponsiveContainer>
             <div className="mt-3 flex gap-4 justify-end">
-              <span className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="h-2 w-4 rounded bg-emerald-500/60 inline-block" /> MegaPay cash in</span>
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="h-2 w-4 rounded bg-emerald-500/60 inline-block" /> M-Pesa cash in</span>
               <span className="flex items-center gap-1.5 text-[11px] text-slate-500"><span className="h-2 w-4 rounded bg-orange-500/60 inline-block" /> Provider cash out</span>
             </div>
           </div>
