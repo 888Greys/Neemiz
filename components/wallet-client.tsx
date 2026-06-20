@@ -10,7 +10,6 @@ import { LoadingDots } from "@/components/loading-dots";
 import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown";
 import { cachedFetch, getCached } from "@/lib/client-cache";
 
-const QUICK_AMOUNTS = [100, 250, 500, 1_000, 2_500, 5_000];
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
 
@@ -82,6 +81,11 @@ const TXN_META: Record<string, { label: string; icon: string; color: string; sig
 };
 
 /* ────────────────────────────────────────────────────────── */
+
+// M-Pesa (fiat) withdrawals are paused while Lipa Haraka's B2C payout service
+// is down on their side (confirmed by Lipa support 2026-06-20). Flip back to
+// `true` once they restore B2C — the withdrawal form below is preserved.
+const MPESA_WITHDRAWALS_ENABLED = false;
 
 export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
   const { isSignedIn, user } = useSupabaseAuth();
@@ -191,6 +195,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
     if (!isSignedIn) { openLogin(); return; }
+    if (Number(amount) < 49) { setError("Minimum deposit is KSh 49."); return; }
     setError(""); setLoading(true);
     try {
       const res  = await fetch("/api/wallet/deposit/lipaharaka", {
@@ -284,7 +289,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
       {/* ── Balance hero ── */}
       <div className="relative overflow-hidden bg-gradient-to-br from-[#051b35] via-[#091522] to-[#0d0e11] px-6 pb-5 pt-7 sm:pb-8 sm:pt-10">
         <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#087cff]/15 blur-3xl" />
-        <div className="pointer-events-none absolute -left-12 bottom-0 h-44 w-44 rounded-full bg-[#05b957]/8 blur-2xl" />
+        <div className="pointer-events-none absolute -left-12 bottom-0 h-44 w-44 rounded-full bg-[#087cff]/8 blur-2xl" />
 
         <div className="relative mx-auto max-w-2xl text-center">
           <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:text-[11px]">
@@ -293,19 +298,6 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
           <p className="text-3xl font-black tracking-tight text-white sm:text-5xl">
             {isSignedIn ? fmtBalance : "—"}
           </p>
-
-          {/* Local-currency coin chip */}
-          {isSignedIn && (
-            <div className="mt-2 flex flex-col items-center gap-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[10px] font-black text-slate-200 ring-1 ring-white/[0.08]">
-                <img src={flagUrl(currency)} alt="" className="h-3 w-[18px] rounded-[2px] object-cover" />
-                {currency} Coin · KSh {kesCoinAvailable.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
-              </span>
-              <p className="text-[10px] font-bold text-slate-500">
-                KES Coin is backed by your fiat wallet at 1:1
-              </p>
-            </div>
-          )}
 
           {!isSignedIn && (
             <button
@@ -317,48 +309,6 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
             </button>
           )}
 
-          {isSignedIn && (
-            <>
-              <div className="mt-3.5 flex justify-center gap-2 sm:mt-5">
-                <div className="rounded-xl bg-white/[0.07] px-3 py-1.5 text-center ring-1 ring-white/[0.08]">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Total Deposited</p>
-                  <p className="mt-0.5 text-xs font-black text-white">KSh 0.00</p>
-                </div>
-                <div className="rounded-xl bg-white/[0.07] px-3 py-1.5 text-center ring-1 ring-white/[0.08]">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Total Won</p>
-                  <p className="mt-0.5 text-xs font-black text-emerald-400">KSh 0.00</p>
-                </div>
-                <div className="rounded-xl bg-white/[0.07] px-3 py-1.5 text-center ring-1 ring-white/[0.08]">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Bonuses</p>
-                  <p className="mt-0.5 text-xs font-black text-amber-400">KSh 0.00</p>
-                </div>
-              </div>
-
-              {/* Crypto balances */}
-              {nonZeroBalances.length > 0 && (
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {nonZeroBalances.map((b) => (
-                    <div
-                      key={`${b.crypto}:${b.network}`}
-                      className="rounded-xl bg-white/[0.06] px-3 py-1.5 text-center ring-1 ring-white/[0.07]"
-                    >
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-                        {b.crypto} · {b.network}
-                      </p>
-                      <p className="mt-0.5 font-mono text-xs font-black text-white">
-                        {formatCryptoAmount(b)}
-                      </p>
-                      {b.locked > 0 && (
-                        <p className="text-[9px] font-bold text-slate-600">
-                          +{b.locked.toFixed(b.crypto === "KES" ? 2 : 4)} locked
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
         </div>
       </div>
 
@@ -481,10 +431,10 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                   <button
                     type="button"
                     onClick={() => setDepositMethod("mpesa")}
-                    className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 ring-1 transition ${depositMethod === "mpesa" ? "bg-[#05b957]/10 ring-[#05b957]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
+                    className={`flex items-center gap-2 rounded-xl px-3 py-2 ring-1 transition ${depositMethod === "mpesa" ? "bg-[#087cff]/10 ring-[#087cff]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
                   >
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${depositMethod === "mpesa" ? "bg-[#05b957]/20" : "bg-white/[0.06]"}`}>
-                      <Icon name="phone_iphone" fill className={`text-[18px] ${depositMethod === "mpesa" ? "text-[#05b957]" : "text-slate-500"}`} />
+                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "mpesa" ? "bg-[#087cff]/20" : "bg-white/[0.06]"}`}>
+                      <Icon name="phone_iphone" fill className={`text-[18px] ${depositMethod === "mpesa" ? "text-[#087cff]" : "text-slate-500"}`} />
                     </div>
                     <div className="text-left">
                       <p className={`text-[12px] font-black ${depositMethod === "mpesa" ? "text-white" : "text-slate-400"}`}>M-Pesa</p>
@@ -494,9 +444,9 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                   <button
                     type="button"
                     onClick={() => setDepositMethod("crypto")}
-                    className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 ring-1 transition ${depositMethod === "crypto" ? "bg-[#f59e0b]/10 ring-[#f59e0b]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
+                    className={`flex items-center gap-2 rounded-xl px-3 py-2 ring-1 transition ${depositMethod === "crypto" ? "bg-[#f59e0b]/10 ring-[#f59e0b]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
                   >
-                    <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${depositMethod === "crypto" ? "bg-[#f59e0b]/20" : "bg-white/[0.06]"}`}>
+                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "crypto" ? "bg-[#f59e0b]/20" : "bg-white/[0.06]"}`}>
                       <Icon name="currency_bitcoin" fill className={`text-[18px] ${depositMethod === "crypto" ? "text-[#f59e0b]" : "text-slate-500"}`} />
                     </div>
                     <div className="text-left">
@@ -510,28 +460,6 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
 
                 {depositMethod === "mpesa" && (<>
                 <div>
-                  <p className="mb-2.5 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-                    Quick Select (KSh)
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {QUICK_AMOUNTS.map((q) => (
-                      <button
-                        key={q}
-                        type="button"
-                        onClick={() => setAmount(String(q))}
-                        className={`rounded-xl py-3 text-sm font-black transition active:scale-[0.97] ${
-                          amount === String(q)
-                            ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20"
-                            : "bg-white/[0.06] text-slate-300 hover:bg-white/[0.10]"
-                        }`}
-                      >
-                        {q.toLocaleString()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
                   <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
                     Amount (KSh)
                   </p>
@@ -539,7 +467,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                     <span className="shrink-0 text-sm font-black text-slate-500">KSh</span>
                     <input
                       type="number"
-                      min="10"
+                      min="49"
                       step="1"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
@@ -553,6 +481,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                       </button>
                     )}
                   </div>
+                  <p className="mt-2 text-[11px] font-bold text-slate-600">Minimum deposit: KSh 49</p>
                 </div>
 
                 {depositMethod === "mpesa" && (
@@ -585,7 +514,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                   type="button"
                   onClick={(e) => handleDeposit(e as unknown as React.FormEvent)}
                   disabled={loading || !amount || !phone}
-                  className="w-full rounded-2xl bg-[#05b957] py-4 text-base font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-50"
+                  className="w-full rounded-2xl bg-[#087cff] py-4 text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
                 >
                   {loading ? (
                     <LoadingDots label="Sending prompt" />
@@ -640,7 +569,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                     : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
                 }`}
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#31c45d] text-[11px] font-black text-white">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#087cff] text-[11px] font-black text-white">
                   M
                 </span>
                 M-Pesa
@@ -858,8 +787,30 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
               </>
             )}
 
+            {/* ── M-Pesa withdraw — paused while Lipa B2C is down (see MPESA_WITHDRAWALS_ENABLED) ── */}
+            {withdrawMode === "fiat" && !MPESA_WITHDRAWALS_ENABLED && (
+              <div className="space-y-5">
+                <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-white/[0.07] text-center space-y-3">
+                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/15">
+                    <Icon name="warning" className="text-[30px] text-amber-400" />
+                  </div>
+                  <h3 className="text-lg font-black text-white">M-Pesa withdrawals temporarily unavailable</h3>
+                  <p className="text-sm leading-relaxed text-slate-400">
+                    We&rsquo;re experiencing a problem with M-Pesa payouts and are working to
+                    restore them. Your balance is safe.
+                  </p>
+                  <p className="text-sm font-bold text-slate-300">
+                    We&rsquo;ll notify you by email as soon as withdrawals are back.
+                  </p>
+                  <p className="text-xs text-slate-600 pt-1">
+                    Need crypto instead? Switch to the <span className="font-bold text-slate-400">Crypto</span> tab above — those withdrawals are working normally.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* ── M-Pesa withdraw ── */}
-            {withdrawMode === "fiat" && (
+            {withdrawMode === "fiat" && MPESA_WITHDRAWALS_ENABLED && (
               <div className="space-y-5">
                 {wdDone ? (
                   <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-white/[0.07] text-center space-y-3">
@@ -890,7 +841,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
 
                     <div>
                       <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount (KSh)</p>
-                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#05b957]/40 transition">
+                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/40 transition">
                         <span className="shrink-0 text-sm font-black text-slate-500">KSh</span>
                         <input
                           type="number"
@@ -911,7 +862,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
 
                     <div>
                       <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">M-Pesa Number</p>
-                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#05b957]/40 transition">
+                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/40 transition">
                         <span className="shrink-0 text-base">🇰🇪</span>
                         <input
                           type="tel"
@@ -934,7 +885,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                       type="button"
                       onClick={handleMpesaWithdraw}
                       disabled={wdLoading || !wdAmount || Number(wdAmount) < 11 || !wdPhone.trim()}
-                      className="w-full rounded-2xl bg-[#05b957] py-4 text-base font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-50"
+                      className="w-full rounded-2xl bg-[#087cff] py-4 text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
                     >
                       {wdLoading ? (
                         <LoadingDots label="Processing" />
