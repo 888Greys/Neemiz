@@ -122,14 +122,42 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
   // ── "Notify me when M-Pesa withdrawals reopen" opt-in (while paused) ──
   const [notifyState, setNotifyState] = useState<"idle" | "loading" | "subscribed">("idle");
 
+  // The user's saved M-Pesa number (prefilled into deposit + withdraw).
+  const [savedMpesa, setSavedMpesa] = useState<string | null>(null);
+
   const pollRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const pollCount = useRef(0);
 
-  // Pre-fill phone
+  // Load the saved M-Pesa number and prefill both deposit and withdrawal.
   useEffect(() => {
-    const ph = user?.phone ?? user?.user_metadata?.phone_number;
-    if (ph && !phone) setPhone((ph as string).replace("+", ""));
-  }, [user, phone]);
+    if (!isSignedIn) return;
+    let active = true;
+    fetch("/api/account/mpesa")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { phone?: string | null } | null) => {
+        if (!active || !d?.phone) return;
+        const local = d.phone.startsWith("254") ? `0${d.phone.slice(3)}` : d.phone;
+        setSavedMpesa(d.phone);
+        setPhone((p) => p || local);
+        setWdPhone((p) => p || local);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [isSignedIn]);
+
+  // Remember the M-Pesa number on the account so it prefills next time.
+  const saveMpesaNumber = useCallback((raw: string) => {
+    const normalized = raw.trim().startsWith("0") ? `254${raw.trim().slice(1)}` : raw.trim().replace("+", "");
+    if (!/^254[17]\d{8}$/.test(normalized) || normalized === savedMpesa) return;
+    fetch("/api/account/mpesa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: normalized }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.phone) setSavedMpesa(d.phone); })
+      .catch(() => {});
+  }, [savedMpesa]);
 
   // Fetch crypto balances
   const fetchCryptoBalances = () => {
@@ -233,6 +261,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
       // so the user sees a clean message instead of a JSON parse error.
       const data = await res.json().catch(() => ({} as { error?: string }));
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Payment service is busy — please try again in a moment.");
+      saveMpesaNumber(phone); // remember this number for next time
       setDeposit({ step: "pending", txId: data.transactionId as string, amount: Number(amount) });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -286,6 +315,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
       });
       const data = await res.json().catch(() => ({})) as { ok?: boolean; payout?: number; fee?: number; queued?: boolean; pendingApproval?: boolean; message?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Withdrawal failed");
+      saveMpesaNumber(wdPhone); // remember this number for next time
       setWdDone({ payout: data.payout ?? amt, fee: data.fee ?? 0, queued: data.queued || data.pendingApproval, message: data.message });
       refreshBalance();
     } catch (err) {
@@ -1311,6 +1341,19 @@ function transactionContext(transaction: WalletTransaction): Array<{ label: stri
   return rows;
 }
 
+// Friendlier, money-aware status wording. Withdrawals read "Sent" when done and
+// "Processing" while in flight, instead of the raw PENDING/COMPLETED.
+function txStatusLabel(t: WalletTransaction): string {
+  switch (t.status) {
+    case "COMPLETED":         return t.type === "WITHDRAWAL" ? "Sent" : t.type === "DEPOSIT" ? "Received" : "Completed";
+    case "PENDING":           return "Processing";
+    case "PENDING_APPROVAL":  return "In review";
+    case "FAILED":            return "Failed";
+    case "CANCELLED":         return "Cancelled";
+    default:                  return t.status;
+  }
+}
+
 function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
   const [txns, setTxns] = useState<WalletTransaction[]>([]);
   const [selected, setSelected] = useState<WalletTransaction | null>(null);
@@ -1397,7 +1440,7 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
                   ? "bg-red-400/10 text-red-400"
                   : "bg-amber-400/10 text-amber-400"
             }`}>
-              {selected.status}
+              {txStatusLabel(selected)}
             </span>
           </div>
 
@@ -1457,7 +1500,7 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
                       : "text-amber-400/70"
                 }`}
               >
-                {t.status}
+                {txStatusLabel(t)}
               </p>
             </div>
             <Icon name="chevron_right" className="text-[18px] text-slate-700" />
