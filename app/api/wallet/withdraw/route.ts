@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
+import { notifyAdminsLowFloat } from "@/lib/admin-alert";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -147,12 +148,57 @@ export async function POST(req: Request) {
     }
 
     if (!ack.accepted) {
-      // Lipa explicitly rejected the request — refund.
-      await db.$transaction([
-        db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } }),
-        db.transaction.update({ where: { id: withdrawalId }, data: { status: TransactionStatus.FAILED } }),
-      ]);
-      return Response.json({ error: ack.message ?? "Withdrawal was rejected by the payment provider" }, { status: 502 });
+      const reason = (ack.message ?? "").toLowerCase();
+      // A genuine customer-input error (bad number etc.) should be surfaced and
+      // refunded. Anything else — most importantly insufficient float/liquidity —
+      // is a platform-side problem the customer shouldn't be punished for.
+      const userInputError = ["invalid", "msisdn", "number", "format", "wrong", "not registered", "unauthor", "duplicate", "not allowed", "phone"].some((s) => reason.includes(s));
+
+      if (userInputError) {
+        await db.$transaction([
+          db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } }),
+          db.transaction.update({ where: { id: withdrawalId }, data: { status: TransactionStatus.FAILED } }),
+        ]);
+        return Response.json({ error: ack.message ?? "Withdrawal was rejected. Please check your M-Pesa number and try again." }, { status: 502 });
+      }
+
+      // Insufficient float / temporary provider issue: DON'T refund. Hold the
+      // funds, queue the payout, reassure the customer, and alert the owner to
+      // top up. The process-queued-withdrawals cron auto-sends it once funded.
+      await db.transaction.update({
+        where: { id: withdrawalId },
+        data:  {
+          status:   TransactionStatus.PENDING,
+          metadata: {
+            msisdn,
+            fee:          feeKes,
+            payout:       payoutKes,
+            requestedAt:  new Date().toISOString(),
+            queued:       true,
+            queuedReason: ack.message ?? "insufficient_float",
+            queuedAt:     new Date().toISOString(),
+          },
+        },
+      });
+      await db.notification.create({
+        data: {
+          userId: dbUserId,
+          type:   "withdrawal_processing",
+          title:  "Withdrawal is processing",
+          body:   `Your withdrawal of KSh ${payoutKes.toLocaleString()} is being processed and will arrive shortly via M-Pesa.`,
+          link:   "/wallet",
+        },
+      }).catch(() => {});
+      await notifyAdminsLowFloat({ amountKes: payoutKes, msisdn }).catch((e) => console.error("[withdraw] low-float alert failed", e));
+
+      return Response.json({
+        ok:           true,
+        withdrawalId,
+        queued:       true,
+        fee:          feeKes,
+        payout:       payoutKes,
+        message:      `Your withdrawal of KSh ${payoutKes.toLocaleString()} is being processed and will be sent to +${msisdn} shortly. We'll notify you the moment it's on its way — your balance is safe.`,
+      });
     }
 
     // Accepted (async). Lipa is now processing; the final paid/failed outcome
