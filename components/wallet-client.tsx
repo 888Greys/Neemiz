@@ -82,10 +82,10 @@ const TXN_META: Record<string, { label: string; icon: string; color: string; sig
 
 /* ────────────────────────────────────────────────────────── */
 
-// M-Pesa (fiat) withdrawals are paused while Lipa Haraka's B2C payout service
-// is down on their side (confirmed by Lipa support 2026-06-20). Flip back to
-// `true` once they restore B2C — the withdrawal form below is preserved.
-const MPESA_WITHDRAWALS_ENABLED = false;
+// M-Pesa (fiat) withdrawals. Lipa Haraka restored B2C payouts on 2026-06-20
+// (confirmed working: a live KES 11 withdrawal completed end-to-end), so the
+// form is re-enabled. The backend also requires LIPAHARAKA_WITHDRAWALS_ENABLED=true.
+const MPESA_WITHDRAWALS_ENABLED = true;
 
 export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
   const { isSignedIn, user } = useSupabaseAuth();
@@ -876,7 +876,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                   <>
                     <div className="rounded-2xl bg-[#16171d]/60 px-4 py-3 ring-1 ring-white/[0.05]">
                       <p className="text-xs text-slate-500">
-                        <span className="font-bold text-slate-300">Test mode:</span> no fee. Min KSh 11 · Max KSh 150,000.
+                        <span className="font-bold text-slate-300">Test mode:</span> no fee. Min KSh 11 · Max KSh 500 per day.
                         Money arrives within 1–5 minutes via Safaricom M-Pesa.
                       </p>
                     </div>
@@ -888,7 +888,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                         <input
                           type="number"
                           min="50"
-                          max="150000"
+                          max="500"
                           value={wdAmount}
                           onChange={(e) => { setWdAmount(e.target.value); setWdError(""); }}
                           placeholder="Enter amount"

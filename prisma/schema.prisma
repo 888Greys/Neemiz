@@ -421,6 +421,26 @@ model Notification {
   @@map("notifications")
 }
 
+// ─── Broadcasts / Announcements ───────────────────────────────────────────────
+// Owner-authored site-wide messages (maintenance windows, updates, promos).
+// Surfaced to every user as a dismissible banner. Only `isActive` rows show.
+
+model Broadcast {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  level     String   @default("info") // "info" | "warning" | "maintenance" | "success"
+  isActive  Boolean  @default(true) @map("is_active")
+  startsAt  DateTime @default(now()) @map("starts_at")
+  endsAt    DateTime? @map("ends_at") // optional auto-expiry
+  createdBy String?  @map("created_by") // admin user id
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, createdAt(sort: Desc)])
+  @@map("broadcasts")
+}
+
 model P2PCryptoDeposit {
   id         String          @id @default(cuid())
   merchantId String          @map("merchant_id")

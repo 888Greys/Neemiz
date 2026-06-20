@@ -10,6 +10,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { NotificationsBell } from "@/components/notifications-dropdown";
+import { BroadcastBanner } from "@/components/broadcast-banner";
 import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
@@ -233,6 +234,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             <div className="h-full min-w-0 max-w-full overflow-x-hidden lg:h-[calc(100vh-5rem)]">{children}</div>
           ) : (
             <div className="flex min-h-screen min-w-0 max-w-full flex-col overflow-x-hidden">
+              <BroadcastBanner />
               <div className="min-w-0 flex-1">{children}</div>
               {!hideFooter && <AppFooter />}
             </div>
@@ -246,7 +248,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
       {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} initialView={profileInitialView} />}
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} />}
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
@@ -651,13 +653,20 @@ function TelegramIcon() {
   );
 }
 
-function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenSupport }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenSupport: () => void }) {
+function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenSupport, onOpenWallet }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenSupport: () => void; onOpenWallet: () => void }) {
   const { isSignedIn, user, signOut } = useSupabaseAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const { balance, currency } = useWalletBalance();
+  const fmtBalance = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const meta = user?.user_metadata ?? {};
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
   const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
+  const isActive = (href: string) => {
+    const base = href.split("?")[0];
+    return base === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(base);
+  };
 
   const [openGroups, setOpenGroups] = useState({
     sports: false,
@@ -673,20 +682,40 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
 
         <div className="no-scrollbar flex-1 overflow-y-auto p-2">
           {isSignedIn ? (
-            /* ── Signed-in user header ── */
-            <div className="mb-3">
+            /* ── Signed-in user header — profile + live balance + quick actions ── */
+            <div className="mb-3 overflow-hidden rounded-2xl bg-gradient-to-br from-[#087cff]/[0.16] via-[#28292d] to-[#28292d] ring-1 ring-white/[0.07]">
               <button
                 type="button"
                 onClick={onOpenProfile}
-                className="flex w-full items-center gap-3 rounded-xl bg-[#28292d] px-3 py-2.5 transition hover:bg-[#32343b]"
+                className="flex w-full items-center gap-2.5 px-3 pt-3 pb-2.5 text-left transition active:bg-white/[0.04]"
               >
                 <UserAvatar src={avatarUrl} initials={initials} className="h-9 w-9 shrink-0" />
-                <div className="min-w-0 flex-1 text-left">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-black text-white">{displayName}</p>
-                  <p className="text-[10px] text-slate-500">View profile</p>
+                  <p className="flex items-center gap-1 text-[10px] font-bold text-emerald-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,.8)]" /> Online
+                  </p>
                 </div>
                 <Icon name="chevron_right" className="text-[16px] text-slate-500" />
               </button>
+              <button
+                type="button"
+                onClick={onOpenWallet}
+                className="flex w-full items-center justify-between border-t border-white/[0.06] px-3 py-2 transition active:bg-white/[0.04]"
+              >
+                <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                  <Icon name="account_balance_wallet" fill className="text-[13px] text-[#087cff]" /> Balance
+                </span>
+                <span className="text-[14px] font-black text-white">{fmtBalance}</span>
+              </button>
+              <div className="flex gap-1.5 px-2 pb-2">
+                <button type="button" onClick={onOpenWallet} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#05b957] py-2 text-[11px] font-black text-white transition active:scale-[0.98]">
+                  <Icon name="add" className="text-[14px]" /> Deposit
+                </button>
+                <button type="button" onClick={onOpenWallet} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-white/[0.07] py-2 text-[11px] font-black text-white transition active:scale-[0.98]">
+                  <Icon name="arrow_outward" className="text-[14px]" /> Withdraw
+                </button>
+              </div>
             </div>
           ) : (
             /* ── Guest header ── */
@@ -702,35 +731,35 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
           )}
 
           {/* Sports */}
-          <MobileDrawerGroup icon="sports_soccer" isOpen={openGroups.sports} label="Sports" onToggle={() => setOpenGroups((v) => ({ ...v, sports: !v.sports }))}>
-            <MobileDrawerLink href="/sports?tab=Top" icon="local_fire_department" label="Top" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=Live" icon="sensors" label="Live" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=Esports" icon="sports_esports" label="Esports" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=Sports" icon="calendar_month" label="All Sports" onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=Markets" icon="trending_up" label="Markets" onClick={onClose} />
-            <MobileDrawerLink href="/my-bets" icon="receipt_long" label="My Bets" onClick={onClose} />
+          <MobileDrawerGroup color="#22c55e" icon="sports_soccer" isOpen={openGroups.sports} label="Sports" onToggle={() => setOpenGroups((v) => ({ ...v, sports: !v.sports }))}>
+            <MobileDrawerLink nested color="#f97316" href="/sports?tab=Top" icon="local_fire_department" label="Top" onClick={onClose} />
+            <MobileDrawerLink nested color="#ef4444" href="/sports?tab=Live" icon="sensors" label="Live" onClick={onClose} />
+            <MobileDrawerLink nested color="#a855f7" href="/sports?tab=Esports" icon="sports_esports" label="Esports" onClick={onClose} />
+            <MobileDrawerLink nested color="#38bdf8" href="/sports?tab=Sports" icon="calendar_month" label="All Sports" onClick={onClose} />
+            <MobileDrawerLink nested color="#22c55e" href="/sports?tab=Markets" icon="trending_up" label="Markets" onClick={onClose} />
+            <MobileDrawerLink nested color="#94a3b8" href="/my-bets" icon="receipt_long" label="My Bets" active={isActive("/my-bets")} onClick={onClose} />
           </MobileDrawerGroup>
 
           {/* Aviator */}
-          <MobileDrawerLink href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" onClick={onClose} />
+          <MobileDrawerLink color="#ff1979" href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" active={isActive("/aviator")} onClick={onClose} />
 
           {/* Binary */}
-          <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary" onClick={onClose} />
+          <MobileDrawerLink color="#f59e0b" href="/binary" icon="candlestick_chart" label="Binary" active={isActive("/binary")} onClick={onClose} />
 
           {/* P2P */}
-          <MobileDrawerGroup icon="swap_horiz" isOpen={openGroups.p2p} label="P2P" onToggle={() => setOpenGroups((v) => ({ ...v, p2p: !v.p2p }))}>
-            <MobileDrawerLink href="/p2p" icon="storefront" label="Browse Ads" onClick={onClose} />
-            <MobileDrawerLink href="/p2p/merchant" icon="verified_user" label="Merchant Center" onClick={onClose} />
-            <MobileDrawerLink href="/p2p/orders" icon="receipt_long" label="My Orders" onClick={onClose} />
+          <MobileDrawerGroup color="#087cff" icon="swap_horiz" isOpen={openGroups.p2p} label="P2P" onToggle={() => setOpenGroups((v) => ({ ...v, p2p: !v.p2p }))}>
+            <MobileDrawerLink nested color="#087cff" href="/p2p" icon="storefront" label="Browse Ads" active={pathname === "/p2p"} onClick={onClose} />
+            <MobileDrawerLink nested color="#22c55e" href="/p2p/merchant" icon="verified_user" label="Merchant Center" active={isActive("/p2p/merchant")} onClick={onClose} />
+            <MobileDrawerLink nested color="#94a3b8" href="/p2p/orders" icon="receipt_long" label="My Orders" active={isActive("/p2p/orders")} onClick={onClose} />
           </MobileDrawerGroup>
 
           {/* Trading */}
-          <MobileDrawerLink href="/forex" icon="currency_exchange" label="Forex" onClick={onClose} />
+          <MobileDrawerLink color="#14b8a6" href="/forex" icon="currency_exchange" label="Forex" active={isActive("/forex")} onClick={onClose} />
 
-          <div className="my-3 border-t border-white/10" />
+          <div className="my-2.5 border-t border-white/[0.08]" />
 
-          <div className="space-y-1">
-            <MobileDrawerLink href="/wallet" icon="account_balance_wallet" label="Wallet" onClick={onClose} />
+          <div className="space-y-0.5">
+            <MobileDrawerLink color="#087cff" href="/wallet" icon="account_balance_wallet" label="Wallet" active={isActive("/wallet")} onClick={onClose} />
           </div>
         </div>
 
@@ -783,28 +812,49 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
   );
 }
 
-function MobileDrawerGroup({ children, icon, isOpen, label, onToggle }: { children: React.ReactNode; icon: string; isOpen: boolean; label: string; onToggle: () => void }) {
+function MobileDrawerGroup({ children, color, icon, isOpen, label, onToggle }: { children: React.ReactNode; color?: string; icon: string; isOpen: boolean; label: string; onToggle: () => void }) {
   return (
-    <section className="mb-1">
-      <button className="flex w-full items-center gap-2 rounded-lg px-1 py-2 text-left text-xs font-black" onClick={onToggle} type="button">
-        <Icon name={icon} fill className="text-[16px] text-slate-400" />
+    <section className="mb-0.5">
+      <button className="flex w-full items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-left text-[12px] font-black text-slate-100 transition active:bg-white/[0.04]" onClick={onToggle} type="button">
+        <IconChip name={icon} color={color} />
         <span className="flex-1">{label}</span>
-        <Icon name={isOpen ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[17px] text-slate-400" />
+        <Icon name={isOpen ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[16px] text-slate-500" />
       </button>
       <div className={`overflow-hidden transition-all duration-200 ease-out ${isOpen ? "max-h-[280px] opacity-100" : "max-h-0 opacity-0"}`}>
-        <div className="ml-3 border-l border-white/10 pl-2">{children}</div>
+        <div className="ml-[18px] border-l border-white/[0.08] pl-2">{children}</div>
       </div>
     </section>
   );
 }
 
-function MobileDrawerLink({ badge, href, icon, label, onClick }: { badge?: string; href?: string; icon: string; label: string; onClick: () => void }) {
-  const cls = "flex items-center gap-2 rounded-lg px-1 py-2 text-[11px] font-black text-slate-200";
+/* Small rounded icon tile — gives each entry a pop of color */
+function IconChip({ name, color, active }: { name: string; color?: string; active?: boolean }) {
+  return (
+    <span
+      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition"
+      style={{
+        backgroundColor: active ? (color ?? "#087cff") : `${color ?? "#64748b"}22`,
+        color: active ? "#fff" : (color ?? "#94a3b8"),
+      }}
+    >
+      <Icon name={name} fill className="text-[15px]" />
+    </span>
+  );
+}
+
+function MobileDrawerLink({ active, badge, color, href, icon, label, nested, onClick }: { active?: boolean; badge?: string; color?: string; href?: string; icon: string; label: string; nested?: boolean; onClick: () => void }) {
+  const cls = `flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-[12px] font-black transition active:scale-[0.98] ${active ? "bg-white/[0.06] text-white" : "text-slate-200 active:bg-white/[0.04]"}`;
   const inner = (
     <>
-      <Icon name={icon} fill className="text-[16px] text-slate-400" />
+      {nested ? (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center" style={{ color: active ? "#fff" : (color ?? "#94a3b8") }}>
+          <Icon name={icon} fill className="text-[15px]" />
+        </span>
+      ) : (
+        <IconChip name={icon} color={color} active={active} />
+      )}
       <span className="flex-1">{label}</span>
-      {badge && <span className="rounded-full bg-[#ff1979] px-2 py-0.5 text-[9px]">{badge}</span>}
+      {badge && <span className="rounded-full bg-[#ff1979] px-2 py-0.5 text-[9px] text-white shadow-[0_0_12px_rgba(255,25,121,.55)]">{badge}</span>}
     </>
   );
   if (!href) {
