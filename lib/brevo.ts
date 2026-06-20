@@ -235,6 +235,24 @@ export async function sendWelcomeEmail(to: string, firstName: string) {
   ));
 }
 
+export async function sendWithdrawReopenedEmail(to: string, firstName: string) {
+  const name = firstName || "there";
+  await sendEmail(
+    to,
+    name,
+    "M-Pesa withdrawals are back on Nezeem",
+    emailWrapper(`
+      <h1 style="margin:0 0 8px;font-size:24px;font-weight:800;color:#1a1a2e;">Good news, ${name} — withdrawals are back</h1>
+      <p style="margin:0 0 24px;font-size:15px;color:#4a5568;line-height:1.7;">
+        M-Pesa withdrawals are working again. You can now withdraw from your Nezeem wallet
+        straight to your M-Pesa. Thanks for your patience while we sorted it out.
+      </p>
+      ${ctaButton(`${APP_URL}/wallet`, "Withdraw now →")}
+    `,
+    "You received this email because you asked to be notified when M-Pesa withdrawals reopened on Nezeem."
+  ));
+}
+
 export async function sendNewLoginEmail(
   to: string,
   name: string,
