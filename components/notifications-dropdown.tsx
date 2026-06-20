@@ -42,6 +42,7 @@ const DB_NOTIF_META: Record<string, { badge: string; badgeColor: string }> = {
   kyc_approved:  { badge: "KYC ✓",    badgeColor: "bg-[#31c45d]/15 text-[#31c45d]" },
   kyc_rejected:  { badge: "KYC ✗",    badgeColor: "bg-red-500/15 text-red-400" },
   polymarket_comment: { badge: "COMMENT", badgeColor: "bg-violet-500/15 text-violet-300" },
+  withdraw_reopen:    { badge: "ALERT",   badgeColor: "bg-amber-400/15 text-amber-400" },
 };
 
 function timeAgo(dateStr: string): string {
