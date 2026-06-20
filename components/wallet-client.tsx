@@ -105,7 +105,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
   const [cryptoBalances, setCryptoBalances] = useState<CryptoBalance[]>([]);
 
   // ── crypto withdraw state ──
-  const [withdrawMode, setWithdrawMode] = useState<"crypto" | "fiat">("crypto");
+  const [withdrawMode, setWithdrawMode] = useState<"crypto" | "fiat">("fiat");
   const [cwAsset, setCwAsset]           = useState<CryptoWithdrawAsset>(CRYPTO_WITHDRAW_ASSETS[0]);
   const [cwAmount, setCwAmount]         = useState("");
   const [cwAddress, setCwAddress]       = useState("");
@@ -117,7 +117,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
   const [wdPhone, setWdPhone]   = useState("");
   const [wdLoading, setWdLoading] = useState(false);
   const [wdError, setWdError]   = useState("");
-  const [wdDone, setWdDone]     = useState<{ payout: number; fee: number } | null>(null);
+  const [wdDone, setWdDone]     = useState<{ payout: number; fee: number; queued?: boolean; message?: string } | null>(null);
 
   // ── "Notify me when M-Pesa withdrawals reopen" opt-in (while paused) ──
   const [notifyState, setNotifyState] = useState<"idle" | "loading" | "subscribed">("idle");
@@ -284,9 +284,9 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ amountKes: amt, phoneNumber: wdPhone }),
       });
-      const data = await res.json().catch(() => ({})) as { ok?: boolean; payout?: number; fee?: number; error?: string };
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; payout?: number; fee?: number; queued?: boolean; pendingApproval?: boolean; message?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? "Withdrawal failed");
-      setWdDone({ payout: data.payout!, fee: data.fee! });
+      setWdDone({ payout: data.payout ?? amt, fee: data.fee ?? 0, queued: data.queued || data.pendingApproval, message: data.message });
       refreshBalance();
     } catch (err) {
       setWdError(err instanceof Error ? err.message : "Withdrawal failed");
@@ -856,14 +856,23 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
               <div className="space-y-5">
                 {wdDone ? (
                   <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-white/[0.07] text-center space-y-3">
-                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#05b957]/15">
-                      <Icon name="check_circle" className="text-[32px] text-[#05b957]" />
+                    <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${wdDone.queued ? "bg-[#087cff]/15" : "bg-[#05b957]/15"}`}>
+                      <Icon name={wdDone.queued ? "schedule" : "check_circle"} className={`text-[32px] ${wdDone.queued ? "text-[#087cff]" : "text-[#05b957]"}`} />
                     </div>
-                    <h3 className="text-lg font-black text-white">Withdrawal Submitted</h3>
-                    <p className="text-sm text-slate-500">
-                      <span className="text-white font-bold">KSh {wdDone.payout.toLocaleString()}</span> is being sent to your M-Pesa.
-                      <br />Fee: KSh {wdDone.fee.toLocaleString()}
+                    <h3 className="text-lg font-black text-white">{wdDone.queued ? "Withdrawal is processing" : "Withdrawal Submitted"}</h3>
+                    <p className="text-sm leading-relaxed text-slate-400">
+                      {wdDone.message ? (
+                        wdDone.message
+                      ) : (
+                        <>
+                          <span className="text-white font-bold">KSh {wdDone.payout.toLocaleString()}</span> is being sent to your M-Pesa.
+                          <br />Fee: KSh {wdDone.fee.toLocaleString()}
+                        </>
+                      )}
                     </p>
+                    {wdDone.queued && (
+                      <p className="text-xs text-slate-600">You&rsquo;ll get a notification the moment it&rsquo;s on its way. No need to resubmit.</p>
+                    )}
                     <button
                       type="button"
                       onClick={() => { setWdDone(null); setWdAmount(""); setWdPhone(""); }}

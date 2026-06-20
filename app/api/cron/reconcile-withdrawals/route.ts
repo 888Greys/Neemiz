@@ -32,6 +32,9 @@ export async function GET(req: Request) {
       type:      TransactionType.WITHDRAWAL,
       status:    TransactionStatus.PENDING,
       createdAt: { lt: cutoff },
+      // Queued-for-low-float withdrawals are managed by process-queued-withdrawals
+      // (which has its own, longer timeout) — never refund them here.
+      NOT: { metadata: { path: ["queued"], equals: true } },
     },
     orderBy: { createdAt: "asc" },
     take: 100,
