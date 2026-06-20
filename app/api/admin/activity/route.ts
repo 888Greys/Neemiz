@@ -24,13 +24,17 @@ const userSelect = {
   username: true,
 } as const;
 
-export async function GET() {
+// Allowed live windows (minutes) — plus 30 days as the long view.
+const ALLOWED_MINUTES = [30, 60, 120, 240, 720, 1440, 43200];
+
+export async function GET(req: Request) {
   if (!await requireAdmin()) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const since = new Date();
-  since.setDate(since.getDate() - 30);
+  const requested = parseInt(new URL(req.url).searchParams.get("minutes") ?? "60", 10);
+  const minutes = ALLOWED_MINUTES.includes(requested) ? requested : 60;
+  const since = new Date(Date.now() - minutes * 60_000);
 
   const [
     sports,
@@ -61,7 +65,7 @@ export async function GET() {
     db.bet.findMany({
       where: { createdAt: { gte: since } },
       orderBy: { createdAt: "desc" },
-      take: 8,
+      take: 30,
       select: { id: true, stake: true, status: true, createdAt: true, user: { select: userSelect } },
     }),
     db.polymarketBet.aggregate({
@@ -73,7 +77,7 @@ export async function GET() {
     db.polymarketBet.findMany({
       where: { createdAt: { gte: since } },
       orderBy: { createdAt: "desc" },
-      take: 8,
+      take: 30,
       select: { id: true, question: true, outcome: true, stake: true, status: true, createdAt: true, user: { select: userSelect } },
     }),
     db.aviatorBet.aggregate({
@@ -85,7 +89,7 @@ export async function GET() {
     db.aviatorBet.findMany({
       where: { placedAt: { gte: since } },
       orderBy: { placedAt: "desc" },
-      take: 8,
+      take: 30,
       select: { id: true, betAmount: true, winAmount: true, status: true, placedAt: true, user: { select: userSelect } },
     }),
     db.binaryTrade.aggregate({
@@ -97,7 +101,7 @@ export async function GET() {
     db.binaryTrade.findMany({
       where: { createdAt: { gte: since } },
       orderBy: { createdAt: "desc" },
-      take: 8,
+      take: 30,
       select: { id: true, market: true, side: true, stake: true, status: true, createdAt: true, user: { select: userSelect } },
     }),
     db.forexTrade.aggregate({
@@ -109,7 +113,7 @@ export async function GET() {
     db.forexTrade.findMany({
       where: { openedAt: { gte: since } },
       orderBy: { openedAt: "desc" },
-      take: 8,
+      take: 30,
       select: { id: true, symbol: true, direction: true, margin: true, profitLoss: true, status: true, openedAt: true, user: { select: userSelect } },
     }),
     db.p2POrder.aggregate({
@@ -121,7 +125,7 @@ export async function GET() {
     db.p2POrder.findMany({
       where: { createdAt: { gte: since } },
       orderBy: { createdAt: "desc" },
-      take: 8,
+      take: 30,
       select: { id: true, crypto: true, fiatAmount: true, status: true, createdAt: true, buyer: { select: userSelect } },
     }),
   ]);
@@ -190,7 +194,7 @@ export async function GET() {
   ];
 
   return Response.json({
-    rangeDays: 30,
+    rangeMinutes: minutes,
     products,
     totals: {
       players: products.reduce((sum, product) => sum + product.players, 0),
