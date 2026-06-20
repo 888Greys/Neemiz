@@ -43,7 +43,25 @@ export async function initiateLipaHarakaWithdrawal(phone: string, amount: number
   try { body = JSON.parse(raw) as Record<string, unknown>; } catch {
     console.error("Lipa Haraka B2C returned non-JSON", { status: response.status, contentType: response.headers.get("content-type"), preview: raw.slice(0, 120) });
   }
-  const id = body.withdrawal_id ?? body.withdrawalId ?? body.payment_id;
-  if (!response.ok || !(body.ok === true || body.success === true) || !id) throw new Error(String(body.error ?? body.message ?? `Lipa Haraka error ${response.status}`));
+  const nested = (body.data ?? body.result ?? {}) as Record<string, unknown>;
+  const id = body.withdrawal_id ?? body.withdrawalId ?? body.payment_id
+    ?? nested.withdrawal_id ?? nested.withdrawalId ?? nested.payment_id;
+  const providerMessage = body.error ?? body.message ?? body.error_message ?? body.description ?? body.reason
+    ?? nested.error ?? nested.message ?? nested.error_message ?? nested.description ?? nested.reason;
+  const providerCode = body.code ?? body.status_code ?? body.error_code
+    ?? nested.code ?? nested.status_code ?? nested.error_code;
+  const success = body.ok === true || body.success === true || nested.ok === true || nested.success === true;
+
+  if (!response.ok || !success || !id) {
+    console.error("Lipa Haraka B2C response was rejected", {
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      keys: Object.keys(body),
+      nestedKeys: Object.keys(nested),
+      providerCode: providerCode == null ? undefined : String(providerCode),
+      providerMessage: providerMessage == null ? undefined : String(providerMessage),
+    });
+    throw new Error(String(providerMessage ?? `Lipa Haraka error ${response.status}`));
+  }
   return String(id);
 }
