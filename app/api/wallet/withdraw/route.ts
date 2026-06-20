@@ -115,31 +115,12 @@ export async function POST(req: Request) {
       return Response.json({ error: "Payment provider not configured" }, { status: 503 });
     }
 
+    let ack;
     try {
-      const providerReference = await initiateLipaHarakaWithdrawal(msisdn, payoutKes);
-
-      // Store Relworx reference for webhook matching
-      await db.transaction.update({
-        where: { id: withdrawalId },
-        data:  { reference: providerReference, metadata: {
-          msisdn,
-          fee:          feeKes,
-          payout:       payoutKes,
-          requestedAt:  new Date().toISOString(),
-          lipaWithdrawalId: providerReference,
-          submittedAt:  new Date().toISOString(),
-        }},
-      });
-
-      return Response.json({
-        ok:           true,
-        withdrawalId,
-        fee:          feeKes,
-        payout:       payoutKes,
-        message:      `KSh ${payoutKes.toLocaleString()} is on its way to +${msisdn} via M-Pesa.`,
-      });
+      ack = await initiateLipaHarakaWithdrawal(msisdn, payoutKes);
     } catch (apiErr) {
-      // Relworx call failed — refund the user immediately
+      // Transport failure — no response from Lipa, so it never received the
+      // request. Safe to refund immediately.
       await db.$transaction([
         db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } }),
         db.transaction.update({ where: { id: withdrawalId }, data: { status: TransactionStatus.FAILED } }),
@@ -147,6 +128,43 @@ export async function POST(req: Request) {
       const msg = apiErr instanceof Error ? apiErr.message : "Payment provider error";
       return Response.json({ error: msg }, { status: 502 });
     }
+
+    if (!ack.accepted) {
+      // Lipa explicitly rejected the request — refund.
+      await db.$transaction([
+        db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } }),
+        db.transaction.update({ where: { id: withdrawalId }, data: { status: TransactionStatus.FAILED } }),
+      ]);
+      return Response.json({ error: ack.message ?? "Withdrawal was rejected by the payment provider" }, { status: 502 });
+    }
+
+    // Accepted (async). Lipa is now processing; the final paid/failed outcome
+    // arrives via the callback webhook. Keep the withdrawal PENDING — do NOT
+    // refund here (that double-pays when Lipa later disburses). The provider
+    // reference is often null until PROCESSING, so the webhook also matches on
+    // msisdn + payout amount.
+    await db.transaction.update({
+      where: { id: withdrawalId },
+      data:  {
+        reference: ack.reference ?? undefined,
+        metadata: {
+          msisdn,
+          fee:          feeKes,
+          payout:       payoutKes,
+          requestedAt:  new Date().toISOString(),
+          lipaWithdrawalId: ack.reference,
+          submittedAt:  new Date().toISOString(),
+        },
+      },
+    });
+
+    return Response.json({
+      ok:           true,
+      withdrawalId,
+      fee:          feeKes,
+      payout:       payoutKes,
+      message:      `KSh ${payoutKes.toLocaleString()} is being sent to +${msisdn} via M-Pesa. You'll be notified once it's confirmed.`,
+    });
   } catch (err) {
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
