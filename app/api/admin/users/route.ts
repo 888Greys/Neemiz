@@ -22,6 +22,11 @@ export async function GET(req: Request) {
   const page   = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
   const limit  = 50;
   const search = searchParams.get("q") ?? "";
+  // Ranking: "balance" sorts richest-first so the owner sees top holders; the
+  // default keeps the newest accounts on top.
+  const orderBy = searchParams.get("sort") === "balance"
+    ? [{ walletBalance: "desc" as const }, { createdAt: "desc" as const }]
+    : [{ createdAt: "desc" as const }];
 
   const where = search
     ? {
@@ -36,7 +41,7 @@ export async function GET(req: Request) {
   const [users, total] = await Promise.all([
     db.user.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy,
       skip: (page - 1) * limit,
       take: limit,
       select: {
@@ -54,5 +59,8 @@ export async function GET(req: Request) {
     db.user.count({ where }),
   ]);
 
-  return Response.json({ users, total, page, pages: Math.ceil(total / limit) });
+  const balanceAgg = await db.user.aggregate({ where, _sum: { walletBalance: true } });
+  const totalBalance = Number(balanceAgg._sum?.walletBalance ?? 0);
+
+  return Response.json({ users, total, page, pages: Math.ceil(total / limit), limit, totalBalance });
 }
