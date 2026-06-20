@@ -21,7 +21,7 @@ export type ProfileView =
   | "language"
   | "support";
 
-type Props = { onClose: () => void; onOpenWallet: () => void; initialView?: ProfileView };
+type Props = { onClose: () => void; onOpenWallet: (tab?: "deposit" | "send" | "withdraw" | "history") => void; initialView?: ProfileView };
 
 // ── Bet history types ────────────────────────────────────────────────────────
 
@@ -1400,7 +1400,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setView("withdraw")}
+                    onClick={() => { onClose(); onOpenWallet("withdraw"); }}
                     className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-white/[0.07] py-1.5 text-[12px] font-black text-slate-300 ring-1 ring-white/[0.09] transition hover:bg-white/[0.11] active:scale-[0.98]"
                   >
                     <Icon name="remove_circle" fill className="text-[16px] text-slate-400" />

@@ -1427,7 +1427,7 @@ function AdCard({
           onDetails(ad);
         }
       }}
-      className={`cursor-pointer border-b border-white/[0.06] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.035] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#087cff]/40 sm:px-4 lg:py-2 ${AD_GRID}`}
+      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b border-white/[0.06] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.035] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#087cff]/40 sm:px-4 lg:block lg:py-2 ${AD_GRID}`}
     >
       {/* ── Advertiser ── */}
       <button
@@ -1436,7 +1436,7 @@ function AdCard({
           event.stopPropagation();
           onMerchantClick(ad.merchant);
         }}
-        className="flex min-w-0 items-center gap-2 rounded-lg text-left transition hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-[#087cff]/40"
+        className="col-span-2 flex min-w-0 items-center gap-2 rounded-lg text-left transition hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-[#087cff]/40"
         title={`View ${ad.merchant.displayName}`}
       >
         <div className="relative shrink-0">
@@ -1471,7 +1471,7 @@ function AdCard({
       </button>
 
       {/* ── Price + margin + limits ── */}
-      <div className="mt-2 lg:mt-0">
+      <div className="mt-2 min-w-0 lg:mt-0">
         <p className="lg:hidden text-[9px] font-bold uppercase tracking-wide text-white/35">Price</p>
         <div className="flex flex-wrap items-center gap-1">
           {CRYPTO_ICONS[ad.crypto] && (
@@ -1496,7 +1496,7 @@ function AdCard({
       </div>
 
       {/* ── Payment ── */}
-      <div className="mt-2 lg:mt-0">
+      <div className="mt-2 min-w-0 justify-self-end text-right lg:mt-0 lg:justify-self-auto lg:text-left">
         <p className="lg:hidden text-[9px] font-bold uppercase tracking-wide text-white/35">Payment</p>
         <div className="flex flex-wrap items-center gap-1">
           {ad.paymentMethods.slice(0, 3).map((m) => (
@@ -1509,7 +1509,7 @@ function AdCard({
       </div>
 
       {/* ── Available ── */}
-      <div className="mt-2 lg:mt-0">
+      <div className="mt-2 min-w-0 lg:mt-0">
         <p className="lg:hidden text-[9px] font-bold uppercase tracking-wide text-white/35">Available</p>
         <p className="text-[11px] font-bold text-white/80 tabular-nums">
           {ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })} <span className="text-white/45">{ad.crypto}</span>
@@ -1524,11 +1524,11 @@ function AdCard({
             event.stopPropagation();
             onDetails(ad);
           }}
-          className={`flex h-8 w-full items-center justify-center gap-1.5 rounded-lg px-4 text-[12px] font-black text-white transition active:scale-[0.98] lg:w-auto ${
+          className={`flex h-8 w-auto items-center justify-center gap-1.5 rounded-lg px-4 text-[12px] font-black text-white transition active:scale-[0.98] ${
             isMerchantSelling ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-400"
           }`}
         >
-          {actionLabel} {ad.crypto}
+          {actionLabel}
         </button>
       </div>
     </div>

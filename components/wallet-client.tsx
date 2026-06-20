@@ -89,13 +89,15 @@ const TXN_META: Record<string, { label: string; icon: string; color: string; sig
 // form is re-enabled. The backend also requires LIPAHARAKA_WITHDRAWALS_ENABLED=true.
 const MPESA_WITHDRAWALS_ENABLED = true;
 
-export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
+type WalletTab = "deposit" | "send" | "withdraw" | "history";
+
+export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: boolean; initialTab?: WalletTab } = {}) {
   const { isSignedIn, user } = useSupabaseAuth();
   const { openLogin }        = useAuthModal();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
 
   // ── fiat deposit state ──
-  const [tab, setTab]                     = useState<"deposit" | "send" | "withdraw" | "history">("deposit");
+  const [tab, setTab]                     = useState<WalletTab>(initialTab);
   const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">("mpesa");
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
