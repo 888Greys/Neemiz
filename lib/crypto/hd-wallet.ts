@@ -140,6 +140,29 @@ async function registerRealtimeDepositAddress(address: string, network: string) 
   }
 }
 
+// ─── SECURITY KILL SWITCH ─────────────────────────────────────────────────────
+//
+// 2026-06-20: the production MASTER_WALLET_MNEMONIC was leaked in git history and
+// every address derived from it is being auto-drained by a sweeper bot within
+// seconds of any deposit. Until the seed is ROTATED, handing out any deposit
+// address (new OR existing) just sends user funds straight to the thief.
+//
+// Fail-closed: deposits are OFF unless someone who knows the seed is safe sets
+// CRYPTO_DEPOSITS_ENABLED=true. Do NOT flip this until a fresh mnemonic is live
+// on all hosts. See memory: neemiz-seed-compromise.
+export class DepositsDisabledError extends Error {
+  constructor() {
+    super("Crypto deposits are temporarily disabled for security maintenance. Please check back soon.");
+    this.name = "DepositsDisabledError";
+  }
+}
+
+function assertDepositsEnabled() {
+  if (process.env.CRYPTO_DEPOSITS_ENABLED !== "true") {
+    throw new DepositsDisabledError();
+  }
+}
+
 // ─── Public: create/get deposit address ──────────────────────────────────────
 
 /**
@@ -152,6 +175,8 @@ export async function getOrCreateDepositAddress(
   crypto:  string,
   network: string,
 ): Promise<string> {
+  assertDepositsEnabled();
+
   const existing = await db.cryptoDepositAddress.findUnique({
     where: { userId_crypto_network: { userId, crypto, network } },
   });

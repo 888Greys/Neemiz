@@ -5,6 +5,13 @@ import { getOrCreateDepositAddress } from "@/lib/crypto/hd-wallet";
 
 export const dynamic = "force-dynamic";
 
+// SECURITY 2026-06-20: seed compromised, deposits frozen until rotation.
+// Fail-closed so even returning a stored address (which would send funds to a
+// drained, bot-watched address) is blocked. See memory: neemiz-seed-compromise.
+const DEPOSITS_ENABLED = process.env.CRYPTO_DEPOSITS_ENABLED === "true";
+const DEPOSITS_DISABLED_MSG =
+  "Crypto deposits are temporarily disabled for security maintenance. Please check back soon.";
+
 const VALID: Record<string, string[]> = {
   BTC:   ["BITCOIN"],
   USDT:  ["TRC20", "ERC20", "BEP20"],
@@ -33,6 +40,8 @@ function defaultNetwork(crypto: string): string {
  */
 
 export async function GET(req: Request) {
+  if (!DEPOSITS_ENABLED) return Response.json({ error: DEPOSITS_DISABLED_MSG }, { status: 503 });
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -51,6 +60,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!DEPOSITS_ENABLED) return Response.json({ error: DEPOSITS_DISABLED_MSG }, { status: 503 });
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
