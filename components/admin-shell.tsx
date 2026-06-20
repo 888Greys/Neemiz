@@ -12,6 +12,7 @@ const NAV = [
   { href: "/admin/withdrawals", label: "Approvals",   icon: "approval",           group: "Operate" },
   { href: "/admin/broadcast",   label: "Broadcast",   icon: "campaign",           group: "Operate" },
   { href: "/admin/profits",     label: "Finance",     icon: "account_balance",    group: "Analyze" },
+  { href: "/admin/crypto",      label: "Crypto",      icon: "currency_bitcoin",   group: "Analyze" },
 ];
 
 export function AdminShell({ children, adminEmail }: { children: React.ReactNode; adminEmail?: string }) {
