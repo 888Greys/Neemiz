@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import { Icon } from "@/components/icon";
+import { StatusBadge } from "@/components/admin-status-badge";
 
 interface TransactionRow {
   id: string;
@@ -217,9 +218,9 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
                   {stats.recentTransactions.map((tx) => (
                     <tr key={tx.id} className="border-b border-white/[0.04] text-[11px] hover:bg-white/[0.02]">
                       <td className="px-4 py-3"><Link href={`/admin/users/${tx.user.id}`} className="font-bold text-slate-300 hover:text-blue-400">{tx.user.email ?? tx.user.username ?? "Unknown"}</Link><p className="text-[9px] text-slate-700">{new Date(tx.createdAt).toLocaleString()}</p></td>
-                      <td className="font-black text-slate-500">{tx.type.replaceAll("_", " ")}</td>
+                      <td><StatusBadge status={tx.type} /></td>
                       <td className="text-slate-600">{tx.provider ?? "internal"}</td>
-                      <td><span className={tx.status === "COMPLETED" ? "text-emerald-400" : tx.status === "FAILED" ? "text-red-400" : "text-amber-400"}>{tx.status}</span></td>
+                      <td><StatusBadge status={tx.status} /></td>
                       <td className="pr-4 text-right font-mono font-bold text-white">{money(tx.amount)}</td>
                     </tr>
                   ))}

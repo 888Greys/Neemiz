@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Icon } from "@/components/icon";
+import { StatusBadge } from "@/components/admin-status-badge";
 
 interface RecentItem {
   id: string;
@@ -157,7 +158,7 @@ export function AdminActivityClient() {
                 <tr key={item.id} className="border-b border-white/[0.04] text-[11px] hover:bg-white/[0.02]">
                   <td className="px-4 py-3"><Link href={`/admin/users/${item.user.id}`} className="font-bold text-slate-300 hover:text-blue-400">{item.user.email ?? item.user.username ?? "Unknown"}</Link></td>
                   <td className="text-slate-500">{item.question ?? [item.market, item.side].filter(Boolean).join(" · ") ?? item.symbol ?? item.crypto ?? product.name}</td>
-                  <td><span className="font-black text-slate-400">{item.status}</span></td>
+                  <td><StatusBadge status={item.status} /></td>
                   <td className="text-slate-600">{new Date(item.at).toLocaleString()}</td>
                   <td className="pr-4 text-right font-mono font-black">{money(item.amount)}</td>
                 </tr>
