@@ -34,25 +34,60 @@ export async function initiateLipaHarakaStk(phone: string, amount: number) {
   } finally { clearTimeout(timer); }
 }
 
-export async function initiateLipaHarakaWithdrawal(phone: string, amount: number) {
+export interface LipaWithdrawalAck {
+  /** Lipa received and queued the request (async). NOT a confirmation of payout. */
+  accepted: boolean;
+  /** Provider withdrawal/transaction id, when returned immediately. Often null
+   *  until the request moves to PROCESSING — the final status arrives via callback. */
+  reference: string | null;
+  /** Human-readable provider message, e.g. "Withdrawal request sent". */
+  message: string | null;
+}
+
+/**
+ * Lipa Haraka B2C is ASYNC: a successful submit returns HTTP 200 with a body
+ * like `{ status: "...", message: "Withdrawal request sent" }` — usually with
+ * NO withdrawal id yet. The id/payout outcome arrives later via the callback
+ * webhook. So we must NOT treat a missing id as failure (doing so previously
+ * caused refunds for withdrawals Lipa had actually accepted).
+ *
+ * Returns `accepted:false` for an explicit provider rejection. Throws only on a
+ * transport-level failure (no response received) — the caller refunds in both
+ * of those cases, but keeps the withdrawal PENDING when `accepted:true`.
+ */
+export async function initiateLipaHarakaWithdrawal(phone: string, amount: number): Promise<LipaWithdrawalAck> {
   const apiKey = process.env.LIPAHARAKA_API_KEY;
   if (!apiKey) throw new Error("Lipa Haraka is not configured");
   const response = await fetch(`${BASE_URL}?action=api_withdraw`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: new URLSearchParams({ api_key: apiKey, phone, amount: String(amount) }) });
   const raw = await response.text();
   let body: Record<string, unknown> = {};
   try { body = JSON.parse(raw) as Record<string, unknown>; } catch {
-    console.error("Lipa Haraka B2C returned non-JSON", { status: response.status, contentType: response.headers.get("content-type"), preview: raw.slice(0, 120) });
+    // Lipa sometimes replies in plain text ("Withdrawal request sent") — that is
+    // still a valid async acknowledgement, so don't treat a non-JSON body as failure.
   }
   const nested = (body.data ?? body.result ?? {}) as Record<string, unknown>;
-  const id = body.withdrawal_id ?? body.withdrawalId ?? body.payment_id
-    ?? nested.withdrawal_id ?? nested.withdrawalId ?? nested.payment_id;
+  const id = body.withdrawal_id ?? body.withdrawalId ?? body.payment_id ?? body.transaction_id
+    ?? nested.withdrawal_id ?? nested.withdrawalId ?? nested.payment_id ?? nested.transaction_id;
   const providerMessage = body.error ?? body.message ?? body.error_message ?? body.description ?? body.reason
     ?? nested.error ?? nested.message ?? nested.error_message ?? nested.description ?? nested.reason;
   const providerCode = body.code ?? body.status_code ?? body.error_code
     ?? nested.code ?? nested.status_code ?? nested.error_code;
-  const success = body.ok === true || body.success === true || nested.ok === true || nested.success === true;
 
-  if (!response.ok || !success || !id) {
+  const statusStr = String(body.status ?? nested.status ?? "").toLowerCase();
+  const haystack = `${statusStr} ${String(providerMessage ?? "")} ${raw}`.toLowerCase();
+
+  // Explicit rejection signals — only these should refund.
+  const FAILURE = ["fail", "error", "reject", "declin", "insufficient", "invalid", "not allowed", "unauthor", "duplicate"];
+  const explicitFailure = body.success === false || nested.success === false
+    || FAILURE.some((s) => statusStr.includes(s));
+
+  // Acceptance signals — async "received/queued" replies count as accepted.
+  const ACCEPT = ["request sent", "request received", "queued", "processing", "pending", "success", "accepted", "on its way"];
+  const accepted = response.ok && !explicitFailure
+    && (body.ok === true || body.success === true || nested.ok === true || nested.success === true
+        || id != null || ACCEPT.some((s) => haystack.includes(s)));
+
+  if (!accepted) {
     console.error("Lipa Haraka B2C response was rejected", {
       status: response.status,
       contentType: response.headers.get("content-type"),
@@ -60,8 +95,10 @@ export async function initiateLipaHarakaWithdrawal(phone: string, amount: number
       nestedKeys: Object.keys(nested),
       providerCode: providerCode == null ? undefined : String(providerCode),
       providerMessage: providerMessage == null ? undefined : String(providerMessage),
+      preview: raw.slice(0, 160),
     });
-    throw new Error(String(providerMessage ?? `Lipa Haraka error ${response.status}`));
+    return { accepted: false, reference: id != null ? String(id) : null, message: providerMessage == null ? null : String(providerMessage) };
   }
-  return String(id);
+
+  return { accepted: true, reference: id != null ? String(id) : null, message: providerMessage == null ? null : String(providerMessage) };
 }
