@@ -10,6 +10,13 @@ import {
 import type { User, Session } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
+import { toast } from "@/lib/toast";
+
+// Money app: sign the user out after this much inactivity so an unlocked,
+// unattended device can't be used to move funds.
+const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 minutes
+const ACTIVITY_KEY = "nezeem-last-activity";
+const IDLE_FLAG_KEY = "nezeem-idle-logout";
 
 type AuthContextType = {
   user: User | null;
@@ -108,6 +115,60 @@ export function SupabaseAuthProvider({
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // One-time notice after an idle logout redirect, so the user knows why they
+  // were signed out.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(IDLE_FLAG_KEY)) {
+        localStorage.removeItem(IDLE_FLAG_KEY);
+        toast.info("Signed out", "You were signed out after 15 minutes of inactivity to protect your account.");
+      }
+    } catch { /* storage blocked */ }
+  }, []);
+
+  // ── Idle auto-logout ───────────────────────────────────────────────────────
+  // Tracks activity via a shared localStorage timestamp (so activity in any tab
+  // counts, and the check survives backgrounded tabs / phone lock) and signs out
+  // once the user has been inactive for IDLE_LIMIT_MS.
+  useEffect(() => {
+    if (DEV_AUTH_PUBLIC) return;          // dev local auth — skip
+    if (!user) return;                    // only while signed in
+
+    let lastWrite = 0;
+    const markActive = () => {
+      const now = Date.now();
+      if (now - lastWrite < 10_000) return; // throttle writes to ~once / 10s
+      lastWrite = now;
+      try { localStorage.setItem(ACTIVITY_KEY, String(now)); } catch { /* ignore */ }
+    };
+    // Seed activity at the start of the session so a fresh login isn't instantly idle.
+    try { localStorage.setItem(ACTIVITY_KEY, String(Date.now())); } catch { /* ignore */ }
+
+    async function logoutIdle() {
+      try { localStorage.setItem(IDLE_FLAG_KEY, "1"); } catch { /* ignore */ }
+      try { await createClient().auth.signOut(); } catch { /* ignore */ }
+      window.location.replace("/");
+    }
+
+    const check = () => {
+      let last = 0;
+      try { last = Number(localStorage.getItem(ACTIVITY_KEY) ?? "0"); } catch { /* ignore */ }
+      if (last && Date.now() - last > IDLE_LIMIT_MS) void logoutIdle();
+    };
+
+    const events: (keyof WindowEventMap)[] = ["pointerdown", "keydown", "mousemove", "scroll", "touchstart", "click"];
+    events.forEach((e) => window.addEventListener(e, markActive, { passive: true }));
+    const onVisible = () => { if (document.visibilityState === "visible") check(); };
+    document.addEventListener("visibilitychange", onVisible);
+    const interval = window.setInterval(check, 30_000); // re-check every 30s
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, markActive));
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(interval);
+    };
+  }, [user]);
 
   const signOut = useCallback(async () => {
     if (DEV_AUTH_PUBLIC) {
