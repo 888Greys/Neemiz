@@ -274,6 +274,10 @@ const MIN_CRYPTO: Record<string, number> = {
   USDT: 10, USDC: 10, BTC: 0.0001, ETH: 0.005, BNB: 0.01, MATIC: 5,
 };
 
+// Mirrors the temporary Lipa Haraka test-mode rules on the withdrawal API.
+const MPESA_MIN_WITHDRAWAL = 11;
+const MPESA_WITHDRAWAL_FEE_RATE = 0;
+
 type CryptoBal = { crypto: string; network: string; available: number };
 
 function WithdrawView({ balance, currency, onSuccess }: { balance: number; currency: string; onSuccess: (newBalance: number) => void }) {
@@ -324,7 +328,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
   async function submitFiat() {
     setError("");
     const amt = Number(amount);
-    if (!amt || amt < 100) { setError("Minimum withdrawal is KSh 100"); return; }
+    if (!amt || amt < MPESA_MIN_WITHDRAWAL) { setError(`Minimum withdrawal is KSh ${MPESA_MIN_WITHDRAWAL}`); return; }
     if (amt > balance) { setError("Amount exceeds your balance"); return; }
     setLoading(true);
     try {
@@ -370,14 +374,14 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
   }
 
   return (
-    <div className="space-y-4 px-4 py-3">
+    <div className="space-y-2.5 px-4 py-2">
 
       {/* ── Mode tabs ── */}
-      <div className="grid grid-cols-2 rounded-2xl bg-white/[0.04] p-1 ring-1 ring-white/[0.07]">
+      <div className="grid grid-cols-2 rounded-xl bg-white/[0.04] p-1 ring-1 ring-white/[0.07]">
         <button
           type="button"
           onClick={() => { setMode("fiat"); setDone(false); setError(""); }}
-          className={`flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-black transition ${mode === "fiat" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:text-white"}`}
+          className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-[12px] font-black transition ${mode === "fiat" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:text-white"}`}
         >
           <Icon name="phone_iphone" fill className="text-[15px]" />
           M-Pesa
@@ -385,7 +389,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
         <button
           type="button"
           onClick={() => { setMode("crypto"); setCwDone(false); setCwError(""); }}
-          className={`flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-black transition ${mode === "crypto" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:text-white"}`}
+          className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-[12px] font-black transition ${mode === "crypto" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:text-white"}`}
         >
           <Icon name="currency_bitcoin" fill className="text-[15px]" />
           Crypto
@@ -402,9 +406,9 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
           </div>
         ) : (
           <>
-            <div className="rounded-2xl bg-[#16171d] px-4 py-3 ring-1 ring-white/[0.07]">
+            <div className="rounded-xl bg-[#16171d] px-3 py-2 ring-1 ring-white/[0.07]">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Available</p>
-              <p className="text-2xl font-black text-white">{fmtBal}</p>
+              <p className="text-xl font-black text-white">{fmtBal}</p>
             </div>
 
             <input
@@ -412,26 +416,26 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="M-Pesa number (07XX or 01XX)"
-              className="h-14 w-full rounded-2xl bg-[#16171d] px-5 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
+              className="h-11 w-full rounded-xl bg-[#16171d] px-4 text-[13px] font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
             />
 
             <div className="relative">
               <span className="absolute left-5 top-2 text-[10px] font-black text-slate-500">Amount (KSh)</span>
               <input
                 type="number"
-                min="100"
+                min={MPESA_MIN_WITHDRAWAL}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
-                className="h-14 w-full rounded-2xl bg-[#16171d] px-5 pt-4 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
+                className="h-11 w-full rounded-xl bg-[#16171d] px-4 pt-3 text-[13px] font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
               />
             </div>
 
-            <p className="text-[11px] text-slate-600">Min KSh 100 · Max KSh 150,000 · 5% fee applies</p>
+            <p className="text-[11px] text-slate-600">Test mode: no fee · Min KSh {MPESA_MIN_WITHDRAWAL} · Max KSh 150,000</p>
             {Number(amount) > 0 && (
               <div className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-2.5 ring-1 ring-white/[0.06]">
                 <span className="text-[11px] text-slate-500">You will receive</span>
-                <span className="text-[13px] font-black text-emerald-400">KSh {(Number(amount) * 0.95).toLocaleString("en-KE", { minimumFractionDigits: 2 })}</span>
+                <span className="text-[13px] font-black text-emerald-400">KSh {(Number(amount) * (1 - MPESA_WITHDRAWAL_FEE_RATE)).toLocaleString("en-KE", { minimumFractionDigits: 2 })}</span>
               </div>
             )}
 
@@ -1307,7 +1311,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
           {view === "main" && (
             <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-2 lg:px-2 lg:pt-1">
             <div>{/* ── LEFT column (identity + balance) ── */}
-              <div className="flex flex-col items-center gap-1.5 px-5 pb-3 pt-1 text-center">
+              <div className="hidden flex-col items-center gap-1.5 px-5 pb-3 pt-1 text-center lg:flex">
                 {avatarUrl ? (
                   <img
                     src={avatarUrl}
@@ -1327,8 +1331,8 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
               </div>
 
               {/* ── Username editor ── */}
-              <div className="mx-4 mb-2 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
-                <p className="px-4 pt-2.5 pb-1 text-[10px] font-black uppercase tracking-widest text-slate-600">Username</p>
+              <div className="mx-4 mb-1.5 overflow-hidden rounded-xl bg-[#16171d] ring-1 ring-white/[0.07]">
+                <p className="px-3 pt-2 pb-0.5 text-[9px] font-black uppercase tracking-widest text-slate-600">Username</p>
                 {editingUsername ? (
                   <div className="px-4 pb-4">
                     <div className="flex items-center gap-2">
@@ -1363,7 +1367,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between px-4 py-2.5">
+                  <div className="flex items-center justify-between px-3 py-2">
                     <div className="flex items-center gap-2">
                       <Icon name="alternate_email" fill className="text-[15px] text-slate-500" />
                       <p className="text-[13px] font-black text-white">@{displayName}</p>
@@ -1371,7 +1375,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                     <button
                       type="button"
                       onClick={startEditUsername}
-                      className="flex items-center gap-1 rounded-lg bg-white/[0.06] px-2.5 py-1.5 text-[11px] font-black text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
+                      className="flex items-center gap-1 rounded-lg bg-white/[0.06] px-2 py-1 text-[10px] font-black text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
                     >
                       <Icon name="edit" className="text-[12px]" />
                       Edit
@@ -1380,16 +1384,16 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                 )}
               </div>
 
-              <div className="mx-4 mb-2.5 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.08]">
-                <div className="px-4 pt-2.5 pb-1.5">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Account Balance</p>
-                  <p className="mt-0.5 text-2xl font-black text-white">{fmtBalance}</p>
+              <div className="mx-4 mb-1.5 overflow-hidden rounded-xl bg-[#16171d] ring-1 ring-white/[0.08]">
+                <div className="px-3 pt-2 pb-1">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Account Balance</p>
+                  <p className="mt-0.5 text-xl font-black text-white">{fmtBalance}</p>
                 </div>
-                <div className="flex gap-2 px-4 pb-3">
+                <div className="flex gap-1.5 px-3 pb-2">
                   <button
                     type="button"
                     onClick={() => { onClose(); onOpenWallet(); }}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#05b957] py-2 text-sm font-black text-white transition hover:bg-[#07cc63] active:scale-[0.98]"
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#05b957] py-1.5 text-[12px] font-black text-white transition hover:bg-[#07cc63] active:scale-[0.98]"
                   >
                     <Icon name="add_circle" fill className="text-[16px]" />
                     Deposit
@@ -1397,7 +1401,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                   <button
                     type="button"
                     onClick={() => setView("withdraw")}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/[0.07] py-2 text-sm font-black text-slate-300 ring-1 ring-white/[0.09] transition hover:bg-white/[0.11] active:scale-[0.98]"
+                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-white/[0.07] py-1.5 text-[12px] font-black text-slate-300 ring-1 ring-white/[0.09] transition hover:bg-white/[0.11] active:scale-[0.98]"
                   >
                     <Icon name="remove_circle" fill className="text-[16px] text-slate-400" />
                     Withdraw
@@ -1413,7 +1417,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                     <button
                       type="button"
                       onClick={item.action}
-                      className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/[0.04] active:scale-[0.99]"
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition hover:bg-white/[0.04] active:scale-[0.99]"
                     >
                       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
                         <Icon name={item.icon} fill className="text-[15px] text-slate-400" />
