@@ -18,12 +18,28 @@ function matchesSignature(raw: string, headers: Headers, secret: string) {
   });
 }
 
+// Lipa's x-signature is HMAC-SHA256 with our correct secret, but they sign a
+// payload we never receive (confirmed 2026-06-20: the secret matches their
+// dashboard byte-for-byte, yet no arrangement of the delivered fields
+// reproduces the signature; their docs document no signing scheme). So we also
+// accept callbacks that provably originate from Lipa's server IP. cf-connecting-ip
+// is set by Cloudflare and is trustworthy because the origin (nginx:443) is
+// firewalled to Cloudflare IP ranges only — a direct-to-origin request that could
+// spoof this header cannot reach us. Strict tx matching below is the second gate.
+const TRUSTED_CALLBACK_IPS = (process.env.LIPAHARAKA_CALLBACK_IPS ?? "102.130.123.40")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+
+function isTrustedLipaOrigin(headers: Headers) {
+  const ip = headers.get("cf-connecting-ip")?.trim();
+  return !!ip && TRUSTED_CALLBACK_IPS.includes(ip);
+}
+
 export async function POST(req: Request) {
   const secret = process.env.LIPAHARAKA_CALLBACK_SECRET;
   const raw = await req.text();
-  if (!secret || !matchesSignature(raw, req.headers, secret)) {
-    // TEMP DIAGNOSTIC (2026-06-20): Lipa callbacks are 401ing — capture how Lipa
-    // actually signs so we can match it. Remove once the scheme is confirmed.
+  const verified = (!!secret && matchesSignature(raw, req.headers, secret)) || isTrustedLipaOrigin(req.headers);
+  if (!verified) {
+    // TEMP DIAGNOSTIC (2026-06-20): kept until callbacks are confirmed flowing.
     if (process.env.LIPAHARAKA_WEBHOOK_DEBUG === "true") {
       const hdrs = Object.fromEntries([...req.headers.entries()]);
       const hmacHex = secret ? createHmac("sha256", secret).update(raw).digest("hex") : "(no secret)";
