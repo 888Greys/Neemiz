@@ -3,8 +3,8 @@ import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { cookies } from "next/headers";
 
-const REAL_DEPOSIT_PROVIDERS = ["megapay"];
-const REAL_WITHDRAWAL_PROVIDERS = ["relworx", "megapay"];
+const REAL_DEPOSIT_PROVIDERS = ["megapay", "lipaharaka"];
+const REAL_WITHDRAWAL_PROVIDERS = ["relworx", "megapay", "lipaharaka"];
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -23,10 +23,11 @@ export async function GET(req: Request) {
   if (!await requireAdmin()) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
-  const days = Math.min(90, Math.max(7, parseInt(searchParams.get("days") ?? "30", 10)));
+  // Allow a single-day (today) view through to 90 days.
+  const days = Math.min(90, Math.max(1, parseInt(searchParams.get("days") ?? "30", 10)));
 
   const since = new Date();
-  since.setDate(since.getDate() - days);
+  since.setDate(since.getDate() - (days - 1));
   since.setHours(0, 0, 0, 0);
 
   const [deposits, withdrawals, betStakes, betWins, fees] = await Promise.all([

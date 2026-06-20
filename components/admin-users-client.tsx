@@ -20,6 +20,61 @@ function Spinner() {
   return <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />;
 }
 
+interface Summary {
+  totalUsers: number;
+  newToday: number;
+  suspended: number;
+  totalHeld: number;
+  deposits: { count: number; amount: number };
+  withdrawals: { count: number; amount: number };
+  bets: number;
+  gamesPlayed: number;
+}
+
+const compact = (n: number) =>
+  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` : `${n}`;
+const compactMoney = (n: number) => `KSh ${compact(n)}`;
+
+function SummaryCard({ icon, label, value, sub, accent }: { icon: string; label: string; value: string; sub?: string; accent: string }) {
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#121419] p-4">
+      <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl" style={{ backgroundColor: `${accent}22` }} />
+      <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${accent}1f`, color: accent }}>
+        <Icon name={icon} fill className="text-[18px]" />
+      </span>
+      <p className="mt-3 text-2xl font-black tracking-tight text-white">{value}</p>
+      <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      {sub && <p className="mt-0.5 text-[10px] text-slate-600">{sub}</p>}
+    </div>
+  );
+}
+
+function UsersSummary() {
+  const [s, setS] = useState<Summary | null>(null);
+  useEffect(() => {
+    fetch("/api/admin/users/summary").then((r) => (r.ok ? r.json() : null)).then((d) => d && setS(d)).catch(() => {});
+  }, []);
+
+  if (!s) {
+    return (
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-[116px] animate-pulse rounded-2xl bg-white/[0.04]" />)}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <SummaryCard icon="groups"                  accent="#087cff" label="Total users"   value={compact(s.totalUsers)} sub={`+${s.newToday} today · ${s.suspended} suspended`} />
+      <SummaryCard icon="account_balance_wallet"  accent="#22c55e" label="Total held"    value={compactMoney(s.totalHeld)} sub="Across all wallets" />
+      <SummaryCard icon="south_america"           accent="#38bdf8" label="Deposits"      value={compactMoney(s.deposits.amount)} sub={`${s.deposits.count.toLocaleString()} completed`} />
+      <SummaryCard icon="payments"                accent="#f97316" label="Withdrawals"   value={compactMoney(s.withdrawals.amount)} sub={`${s.withdrawals.count.toLocaleString()} paid out`} />
+      <SummaryCard icon="receipt_long"            accent="#a855f7" label="Bets placed"   value={compact(s.bets)} sub="Sports tickets" />
+      <SummaryCard icon="sports_esports"          accent="#ec4899" label="Games played"  value={compact(s.gamesPlayed)} sub="Aviator, binary, forex…" />
+    </div>
+  );
+}
+
 const money = (value: string) =>
   `KSh ${Number(value).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -79,9 +134,9 @@ export function AdminUsersClient() {
     <div className="admin-page">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Customer operations</p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight text-white">Customer directory</h1>
-          <p className="mt-1 text-[11px] text-slate-500">Search accounts, review balances, and investigate activity.</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">User operations</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-white">Users</h1>
+          <p className="mt-1 text-[11px] text-slate-500">Search accounts, rank balances, and investigate activity.</p>
         </div>
         <form
           onSubmit={(e) => { e.preventDefault(); setQuery(search); }}
@@ -101,6 +156,8 @@ export function AdminUsersClient() {
           </button>
         </form>
       </div>
+
+      <UsersSummary />
 
       {/* Sort toggle — rank by balance to see who holds the most */}
       <div className="mb-4 flex items-center gap-1 rounded-lg bg-white/[0.03] p-1 sm:inline-flex">
@@ -133,7 +190,7 @@ export function AdminUsersClient() {
           <div className="overflow-x-auto"><table className="w-full min-w-[980px] text-sm">
             <thead>
               <tr className="border-b border-white/[0.06]">
-                {["Customer", "Balance", "Activity", "Joined", "Account state", ""].map((h) => (
+                {["User", "Balance", "Activity", "Joined", "Account state", ""].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[10px] font-black uppercase tracking-[0.12em] text-slate-600">{h}</th>
                 ))}
               </tr>

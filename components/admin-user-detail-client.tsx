@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
+import { StatusBadge } from "@/components/admin-status-badge";
 
 type MoneyCount = { count: number; amount: number };
 type Transaction = {
@@ -165,9 +166,9 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
             <tbody>{user.transactions.map((transaction) => (
               <tr key={transaction.id} className="border-t border-white/[0.04]">
                 <td className="px-4 py-3 text-slate-500">{new Date(transaction.createdAt).toLocaleString()}</td>
-                <td className="px-4 py-3 font-bold text-slate-300">{transaction.type.replaceAll("_", " ")}</td>
+                <td className="px-4 py-3"><StatusBadge status={transaction.type} /></td>
                 <td className="px-4 py-3 font-bold text-slate-200">{money(transaction.amount)}</td>
-                <td className="px-4 py-3 text-slate-400">{transaction.status}</td>
+                <td className="px-4 py-3"><StatusBadge status={transaction.status} /></td>
                 <td className="px-4 py-3 text-slate-400">{transaction.provider ?? "internal"}</td>
                 <td className="max-w-[180px] truncate px-4 py-3 text-slate-600">{transaction.reference ?? "—"}</td>
               </tr>
@@ -191,7 +192,7 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
                 <td className="px-4 py-3 text-slate-300">{Number(bet.totalOdds).toFixed(2)}</td>
                 <td className="px-4 py-3 text-slate-300">{money(bet.potentialWin)}</td>
                 <td className="px-4 py-3 text-slate-300">{bet.winAmount ? money(bet.winAmount) : "—"}</td>
-                <td className="px-4 py-3 font-bold text-slate-400">{bet.status}</td>
+                <td className="px-4 py-3"><StatusBadge status={bet.status} /></td>
               </tr>
             ))}</tbody>
           </table>
