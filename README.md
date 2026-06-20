@@ -118,7 +118,7 @@ MEGAPAY_CALLBACK_TOKEN=
 MEGAPAY_PAYBILL=
 
 # Crypto deposits (HD wallet)
-MASTER_WALLET_MNEMONIC=        # 12-word BIP44 mnemonic — keep secret
+MASTER_WALLET_MNEMONIC=        # 12-word BIP44 mnemonic — SERVER ENV ONLY, never commit/paste/share
 ETHERSCAN_API_KEY=             # EVM cron fallback / manual recovery
 TRONGRID_API_KEY=              # TRC20 cron fallback / manual recovery
 MORALIS_API_KEY=               # Moralis Streams API key for EVM realtime deposits
@@ -258,12 +258,16 @@ Update in Vercel → Settings → Environment Variables. Redeploy to apply.
 
 ### Sweeping funds
 
-Coins sit in individual deposit addresses until swept. To access funds:
+Coins sit in individual deposit addresses until swept by the platform's
+server-side broadcaster (signs directly from each address using the derived
+key). Sweep regularly to a cold wallet after large deposits.
 
-1. **Trust Wallet** or **Exodus** — import `MASTER_WALLET_MNEMONIC`. All EVM addresses (ETH, BNB, USDT ERC20/BEP20) appear automatically.
-2. **TronLink** — import same mnemonic for Tron (USDT TRC20).
-
-Sweep regularly to a cold wallet after large deposits.
+> **🔐 NEVER paste `MASTER_WALLET_MNEMONIC` into a wallet app, a file, a chat,
+> a screenshot, or a commit.** It controls every deposit address and the hot
+> wallet. A leaked seed is drained by automated bots within seconds — treat any
+> exposure as a total compromise: rotate immediately (generate a new mnemonic
+> offline, swap it on all hosts, regenerate deposit addresses) and never reuse
+> the old one. The seed must only ever exist in the server's runtime env.
 
 ---
 
