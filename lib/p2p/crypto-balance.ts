@@ -86,16 +86,14 @@ export async function debitUserCrypto(
   network: string,
   amount: number,
 ) {
-  const balance = await tx.userCryptoBalance.findUnique({
-    where: { userId_crypto_network: { userId, crypto, network } },
-  });
-  const avail = Number(balance?.available ?? 0);
-  if (avail < amount) throw new Error("INSUFFICIENT_CRYPTO_BALANCE");
-
-  await tx.userCryptoBalance.update({
-    where: { userId_crypto_network: { userId, crypto, network } },
+  // Keep the sufficient-balance check in the same database statement as the
+  // decrement. A read followed by an update lets simultaneous withdrawals
+  // both observe the same available balance.
+  const debited = await tx.userCryptoBalance.updateMany({
+    where: { userId, crypto, network, available: { gte: amount } },
     data: { available: { decrement: amount } },
   });
+  if (debited.count === 0) throw new Error("INSUFFICIENT_CRYPTO_BALANCE");
 }
 
 // ─── KES coin (fiat-backed in-app P2P asset) ────────────────────────────────
