@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
+import { createClient } from "@/lib/supabase/client";
+import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
@@ -118,6 +120,13 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
   const [wdLoading, setWdLoading] = useState(false);
   const [wdError, setWdError]   = useState("");
   const [wdDone, setWdDone]     = useState<{ payout: number; fee: number; queued?: boolean; message?: string } | null>(null);
+
+  // ── Withdrawal step-up auth (password / passkey) ──
+  const [stepUpOpen, setStepUpOpen]   = useState(false);
+  const [stepUpPw, setStepUpPw]       = useState("");
+  const [stepUpError, setStepUpError] = useState("");
+  const [stepUpBusy, setStepUpBusy]   = useState(false);
+  const [stepUpShowPw, setStepUpShowPw] = useState(false);
 
   // ── "Notify me when M-Pesa withdrawals reopen" opt-in (while paused) ──
   const [notifyState, setNotifyState] = useState<"idle" | "loading" | "subscribed">("idle");
@@ -299,6 +308,48 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
         step:    "error",
         message: err instanceof Error ? err.message : "Withdrawal failed",
       });
+    }
+  }
+
+  // Step-up auth: every M-Pesa withdrawal must be confirmed with the account
+  // password or a passkey before any money moves.
+  function requestMpesaWithdraw() {
+    if (!isSignedIn) { openLogin(); return; }
+    const amt = Number(wdAmount);
+    if (!wdPhone.trim() || !amt) return;
+    setWdError("");
+    if (DEV_AUTH_PUBLIC) { void handleMpesaWithdraw(); return; } // no Supabase in dev
+    setStepUpPw(""); setStepUpError(""); setStepUpOpen(true);
+  }
+
+  async function confirmWithPassword() {
+    const email = user?.email;
+    if (!email) { setStepUpError("Could not verify your account. Please re-login."); return; }
+    if (!stepUpPw) { setStepUpError("Enter your password."); return; }
+    setStepUpBusy(true); setStepUpError("");
+    try {
+      const { error } = await createClient().auth.signInWithPassword({ email, password: stepUpPw });
+      if (error) { setStepUpError("Incorrect password. Please try again."); return; }
+      setStepUpOpen(false); setStepUpPw("");
+      await handleMpesaWithdraw();
+    } catch {
+      setStepUpError("Could not verify. Please try again.");
+    } finally {
+      setStepUpBusy(false);
+    }
+  }
+
+  async function confirmWithPasskey() {
+    setStepUpBusy(true); setStepUpError("");
+    try {
+      const { error } = await createClient().auth.signInWithPasskey();
+      if (error) { setStepUpError("Passkey check failed or was dismissed. Try again or use your password."); return; }
+      setStepUpOpen(false);
+      await handleMpesaWithdraw();
+    } catch {
+      setStepUpError("Passkey check failed. Try again or use your password.");
+    } finally {
+      setStepUpBusy(false);
     }
   }
 
@@ -964,7 +1015,7 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
 
                     <button
                       type="button"
-                      onClick={handleMpesaWithdraw}
+                      onClick={requestMpesaWithdraw}
                       disabled={wdLoading || !wdAmount || Number(wdAmount) < 11 || !wdPhone.trim()}
                       className="w-full rounded-2xl bg-[#087cff] py-4 text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
                     >
@@ -974,6 +1025,9 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
                         `Withdraw${wdAmount && Number(wdAmount) >= 11 ? ` KSh ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
                       )}
                     </button>
+                    <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
+                      <Icon name="lock" fill className="text-[13px]" /> You&rsquo;ll confirm with your password or passkey
+                    </p>
                   </>
                 )}
               </div>
@@ -985,6 +1039,67 @@ export function WalletClient({ wide = false }: { wide?: boolean } = {}) {
         {tab === "history" && <TransactionHistory isSignedIn={!!isSignedIn} />}
       </div>
       </div>{/* ── end right column ── */}
+
+      {/* ── Withdrawal step-up auth ── */}
+      {stepUpOpen && (
+        <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => !stepUpBusy && setStepUpOpen(false)}>
+          <div className="w-full rounded-t-3xl border border-white/[0.08] bg-[#111316] p-6 shadow-2xl sm:max-w-[400px] sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#087cff]/15">
+              <Icon name="lock" fill className="text-[24px] text-[#5ea9ff]" />
+            </div>
+            <h3 className="text-center text-lg font-black text-white">Confirm it&rsquo;s you</h3>
+            <p className="mt-1 mb-5 text-center text-xs leading-5 text-slate-500">
+              Withdrawing <span className="font-black text-slate-300">KSh {Number(wdAmount || 0).toLocaleString()}</span> to +{wdPhone.trim().startsWith("0") ? `254${wdPhone.trim().slice(1)}` : wdPhone.trim()}. Verify with your password or passkey.
+            </p>
+
+            <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+              <Icon name="lock" fill className="text-[18px] shrink-0 text-slate-500" />
+              <input
+                type={stepUpShowPw ? "text" : "password"}
+                autoFocus
+                value={stepUpPw}
+                onChange={(e) => { setStepUpPw(e.target.value); setStepUpError(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") void confirmWithPassword(); }}
+                placeholder="Account password"
+                className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder-slate-600 outline-none"
+              />
+              <button type="button" onClick={() => setStepUpShowPw((v) => !v)} className="text-slate-500 transition hover:text-slate-300">
+                <Icon name={stepUpShowPw ? "visibility_off" : "visibility"} className="text-[18px]" />
+              </button>
+            </div>
+
+            {stepUpError && <p className="mt-3 rounded-xl bg-red-500/10 px-4 py-2 text-xs font-bold text-red-400">{stepUpError}</p>}
+
+            <button
+              type="button"
+              onClick={confirmWithPassword}
+              disabled={stepUpBusy || !stepUpPw}
+              className="mt-4 w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-60"
+            >
+              {stepUpBusy ? <LoadingDots label="Verifying" /> : "Confirm & withdraw"}
+            </button>
+
+            <div className="my-3 flex items-center gap-3">
+              <div className="flex-1 border-t border-white/[0.07]" />
+              <span className="text-xs text-slate-600">or</span>
+              <div className="flex-1 border-t border-white/[0.07]" />
+            </div>
+
+            <button
+              type="button"
+              onClick={confirmWithPasskey}
+              disabled={stepUpBusy}
+              className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-[#18191f] py-3.5 text-sm font-black text-white ring-1 ring-white/[0.07] transition hover:bg-[#22252e] active:scale-[.98] disabled:opacity-60"
+            >
+              <Icon name="passkey" className="text-[18px] text-[#5ea9ff]" /> Use passkey
+            </button>
+
+            <button type="button" onClick={() => setStepUpOpen(false)} disabled={stepUpBusy} className="mt-4 w-full text-sm font-bold text-slate-500 transition hover:text-white disabled:opacity-50">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
