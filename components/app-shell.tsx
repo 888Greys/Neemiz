@@ -74,6 +74,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const [profileOpen, setProfileOpen]         = useState(false);
   const [profileInitialView, setProfileInitialView] = useState<ProfileView | undefined>(undefined);
   const [walletOpen, setWalletOpen]           = useState(false);
+  const [walletInitialTab, setWalletInitialTab] = useState<"deposit" | "send" | "withdraw" | "history">("deposit");
   // Optimistic nav target: highlight the tapped tab instantly (before the route
   // actually arrives), then fall back to the real pathname once it lands.
   const [pendingPath, setPendingPath]         = useState<string | null>(null);
@@ -81,6 +82,11 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   function openProfile(view?: ProfileView) {
     setProfileInitialView(view);
     setProfileOpen(true);
+  }
+
+  function openWallet(tab: "deposit" | "send" | "withdraw" | "history" = "deposit") {
+    setWalletInitialTab(tab);
+    setWalletOpen(true);
   }
 
   const toggleSidebar = () => {
@@ -167,16 +173,16 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
                 {/* Balance → floating wallet (deposit, withdraw, send, history) */}
                 <button
                   type="button"
-                  onClick={() => setWalletOpen(true)}
+                  onClick={() => openWallet()}
                   className="flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 sm:px-4 sm:py-2 transition hover:bg-[#22242a]"
                 >
                   <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
-                  <span className="text-xs sm:text-sm font-black text-white">{fmtBalance}</span>
+                  <span className="hidden text-sm font-black text-white sm:inline">{fmtBalance}</span>
                 </button>
                 {/* Quick deposit shortcut */}
                 <button
                   type="button"
-                  onClick={() => setWalletOpen(true)}
+                  onClick={() => openWallet()}
                   className="my-1 mr-1 hidden rounded-lg bg-[#05b957] px-2.5 py-1 text-xs font-black text-white transition hover:bg-[#06d169] sm:inline"
                 >
                   Deposit
@@ -225,7 +231,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             sidebarCollapsed ? "w-[78px]" : "w-[280px]"
           }`}
         >
-          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => setWalletOpen(true)} onOpenBonuses={() => openProfile("bonuses")} onOpenSupport={() => openProfile("support")} />
+          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => openWallet()} onOpenBonuses={() => openProfile("bonuses")} onOpenSupport={() => openProfile("support")} />
         </aside>
         )}
 
@@ -246,9 +252,9 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} />}
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
-      {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={() => { setProfileOpen(false); setWalletOpen(true); }} initialView={profileInitialView} />}
-      {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} />}
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} onOpenWallet={() => { setMobileMenuOpen(false); setWalletOpen(true); }} />}
+      {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={(tab) => { setProfileOpen(false); openWallet(tab); }} initialView={profileInitialView} />}
+      {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} initialTab={walletInitialTab} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} onOpenWallet={(tab) => { setMobileMenuOpen(false); openWallet(tab); }} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
@@ -653,7 +659,7 @@ function TelegramIcon() {
   );
 }
 
-function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenSupport, onOpenWallet }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenSupport: () => void; onOpenWallet: () => void }) {
+function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenSupport, onOpenWallet }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenSupport: () => void; onOpenWallet: (tab?: "deposit" | "send" | "withdraw" | "history") => void }) {
   const { isSignedIn, user, signOut } = useSupabaseAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -700,7 +706,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
               </button>
               <button
                 type="button"
-                onClick={onOpenWallet}
+                onClick={() => onOpenWallet()}
                 className="flex w-full items-center justify-between border-t border-white/[0.06] px-3 py-2 transition active:bg-white/[0.04]"
               >
                 <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-slate-400">
@@ -709,10 +715,10 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
                 <span className="text-[14px] font-black text-white">{fmtBalance}</span>
               </button>
               <div className="flex gap-1.5 px-2 pb-2">
-                <button type="button" onClick={onOpenWallet} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#05b957] py-2 text-[11px] font-black text-white transition active:scale-[0.98]">
+                <button type="button" onClick={() => onOpenWallet()} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#05b957] py-2 text-[11px] font-black text-white transition active:scale-[0.98]">
                   <Icon name="add" className="text-[14px]" /> Deposit
                 </button>
-                <button type="button" onClick={onOpenWallet} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-white/[0.07] py-2 text-[11px] font-black text-white transition active:scale-[0.98]">
+                <button type="button" onClick={() => onOpenWallet("withdraw")} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-white/[0.07] py-2 text-[11px] font-black text-white transition active:scale-[0.98]">
                   <Icon name="arrow_outward" className="text-[14px]" /> Withdraw
                 </button>
               </div>
