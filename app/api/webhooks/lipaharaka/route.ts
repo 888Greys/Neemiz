@@ -1,9 +1,21 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
 
+function safeEqual(a: string, b: string) {
+  return a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
 function matchesSignature(raw: string, headers: Headers, secret: string) {
-  const candidates = [createHmac("sha256", secret).update(raw).digest("hex"), createHmac("sha256", secret).update(raw).digest("base64")];
-  return [...headers.entries()].some(([, value]) => candidates.some((candidate) => value.length === candidate.length && timingSafeEqual(Buffer.from(value), Buffer.from(candidate))));
+  const hexLower = createHmac("sha256", secret).update(raw).digest("hex");
+  const b64 = createHmac("sha256", secret).update(raw).digest("base64");
+  // Lipa's x-signature is bare lowercase hex, but be tolerant of common provider
+  // quirks so a trivial encoding mismatch can't 401 a genuine callback: strip an
+  // optional "sha256=" algo prefix, compare hex case-insensitively, and also
+  // accept base64 (case-sensitive).
+  return [...headers.entries()].some(([, value]) => {
+    const v = value.replace(/^sha256=/i, "").trim();
+    return safeEqual(v.toLowerCase(), hexLower) || safeEqual(v, b64);
+  });
 }
 
 export async function POST(req: Request) {
