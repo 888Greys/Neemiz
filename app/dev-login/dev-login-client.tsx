@@ -25,7 +25,7 @@ export function DevLoginClient({ accounts }: { accounts: DevAccountInfo[] }) {
         return;
       }
       // Full navigation so the server picks up the cookie + auth-context refetches.
-      window.location.href = "/dashboard";
+      window.location.href = "key" in body && body.key === "owner" ? "/admin" : "/dashboard";
     } finally {
       setLoading(false);
     }
