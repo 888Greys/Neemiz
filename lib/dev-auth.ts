@@ -18,15 +18,17 @@ export const DEV_AUTH_PUBLIC =
 export const DEV_COOKIE = "dev_uid";
 
 export type DevAccount = {
-  key: "a" | "b";
+  key: "owner" | "a" | "b";
   id: string;        // used as the Supabase user id == User.supabaseId in the DB
   email: string;
   password: string;
   username: string;
+  isAdmin?: boolean;
 };
 
 // These ids must match the supabaseId values created by scripts/seed-local.ts.
 export const DEV_ACCOUNTS: DevAccount[] = [
+  { key: "owner", id: "dev-owner", email: "owner@local.test", password: "owner123", username: "owner", isAdmin: true },
   { key: "a", id: "dev-user-a", email: "usera@local.test", password: "usera123", username: "usera" },
   { key: "b", id: "dev-user-b", email: "userb@local.test", password: "userb123", username: "userb" },
 ];

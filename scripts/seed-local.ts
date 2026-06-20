@@ -27,6 +27,7 @@ const D = (v: number | string) => new Prisma.Decimal(v);
 
 // These supabaseId values must match DEV_ACCOUNTS in lib/dev-auth.ts.
 const ACCOUNTS = [
+  { id: "dev-owner", email: "owner@local.test", username: "owner", isAdmin: true },
   { id: "dev-user-a", email: "usera@local.test", username: "usera" },
   { id: "dev-user-b", email: "userb@local.test", username: "userb" },
 ];
@@ -107,17 +108,30 @@ async function main() {
     for (const a of ACCOUNTS) {
       const user = await db.user.upsert({
         where: { supabaseId: a.id },
-        update: { walletBalance: BALANCE, isActive: true },
+        update: { walletBalance: BALANCE, isActive: true, isAdmin: !!a.isAdmin },
         create: {
           supabaseId: a.id, email: a.email, username: a.username,
-          walletBalance: BALANCE, currency: "KES", isActive: true,
+          walletBalance: BALANCE, currency: "KES", isActive: true, isAdmin: !!a.isAdmin,
         },
       });
       devUsers[a.id] = user.id;
       console.log(`  ✓ ${a.username} (${a.email}) → KSh ${BALANCE.toString()}  [id ${user.id}]`);
     }
 
+    // ── Wipe generated local activity so re-runs remain deterministic ─────────
+    await db.aviatorBet.deleteMany({});
+    await db.aviatorRound.deleteMany({});
+    await db.binaryTrade.deleteMany({});
+    await db.forexTrade.deleteMany({});
+    await db.polymarketBet.deleteMany({});
+    await db.polymarketComment.deleteMany({});
+    await db.betSelection.deleteMany({});
+    await db.bet.deleteMany({});
+    await db.notification.deleteMany({});
+    await db.transaction.deleteMany({});
+
     // ── Wipe existing P2P data (local only) so re-runs stay clean ─────────────
+    await db.p2PFeedback.deleteMany({});
     await db.p2PMessage.deleteMany({});
     await db.p2PDispute.deleteMany({});
     await db.p2POrder.deleteMany({});
@@ -224,6 +238,92 @@ async function main() {
       made++;
     }
     console.log(`  ✓ seeded ${made} orders for usera`);
+
+    // ── Operations queue: a live dispute, pending KYC, and manual deposit ────
+    const disputeSource = pool[0];
+    if (disputeSource) {
+      const disputed = await db.p2POrder.create({
+        data: {
+          adId: disputeSource.id, buyerId, sellerId: disputeSource.sellerId,
+          crypto: disputeSource.crypto, cryptoAmount: D("18.42"), fiatAmount: D(2400), pricePerUnit: D(disputeSource.price),
+          status: "DISPUTED", paymentMethod: disputeSource.pay[0] ?? "MPESA", paymentRef: "TLOCALDISPUTE",
+          paidAt: new Date(now.getTime() - 18 * 60 * 1000),
+          expiresAt: new Date(now.getTime() + 2 * 60 * 60 * 1000),
+        },
+      });
+      await db.p2PDispute.create({
+        data: { orderId: disputed.id, raisedById: buyerId, reason: "Merchant has not released after payment confirmation.", status: "OPEN" },
+      });
+      await db.p2PMessage.createMany({
+        data: [
+          { orderId: disputed.id, senderId: buyerId, content: "I have paid. Please release the crypto.", createdAt: new Date(now.getTime() - 16 * 60 * 1000) },
+          { orderId: disputed.id, senderId: buyerId, content: "Opening a dispute because the payment is confirmed.", createdAt: new Date(now.getTime() - 4 * 60 * 1000) },
+        ],
+      });
+      await db.p2PCryptoDeposit.create({
+        data: { merchantId: disputeSource.sellerId, crypto: "USDT", amount: D("250.00"), network: "TRC20", txHash: "LOCALPENDINGDEPOSIT001", status: "PENDING", adminNote: "Local seed: review chain confirmation." },
+      });
+    }
+
+    const pendingMerchantUser = await db.user.upsert({
+      where: { supabaseId: "dev-pending-merchant" },
+      update: { isActive: true },
+      create: { supabaseId: "dev-pending-merchant", email: "review@merchant.local.test", username: "reviewmerchant", walletBalance: D(4200), currency: "KES", isActive: true },
+    });
+    await db.merchantProfile.create({
+      data: { userId: pendingMerchantUser.id, displayName: "Review Merchant", kycStatus: "PENDING", kycDocumentUrl: "https://example.test/local-kyc-document.jpg" },
+    });
+
+    // ── Wallet ledger and approval states ────────────────────────────────────
+    const userBId = devUsers["dev-user-b"];
+    await db.transaction.createMany({
+      data: [
+        { userId: buyerId, type: "DEPOSIT", amount: D(15000), currency: "KES", status: "COMPLETED", provider: "local_stk", reference: "LOCAL-DEPOSIT-001", createdAt: new Date(now.getTime() - 3 * 60 * 60 * 1000) },
+        { userId: buyerId, type: "BET_STAKE", amount: D(850), currency: "KES", status: "COMPLETED", provider: "sports", reference: "LOCAL-STAKE-001", createdAt: new Date(now.getTime() - 90 * 60 * 1000) },
+        { userId: buyerId, type: "BET_WIN", amount: D(1475), currency: "KES", status: "COMPLETED", provider: "binary", reference: "LOCAL-WIN-001", createdAt: new Date(now.getTime() - 45 * 60 * 1000) },
+        { userId: userBId, type: "WITHDRAWAL", amount: D(2500), currency: "KES", status: "PENDING_APPROVAL", provider: "manual_review", reference: "LOCAL-WITHDRAWAL-001", createdAt: new Date(now.getTime() - 12 * 60 * 1000) },
+        { userId: userBId, type: "WITHDRAWAL", amount: D(600), currency: "KES", status: "FAILED", provider: "local_b2c", reference: "LOCAL-WITHDRAWAL-FAILED", createdAt: new Date(now.getTime() - 2 * 60 * 60 * 1000) },
+      ],
+    });
+
+    // ── Product activity for the command center and User 360 ────────────────
+    await db.bet.create({
+      data: {
+        userId: buyerId, betType: "MULTI", stake: D(850), totalOdds: D("2.18"), potentialWin: D(1853), status: "PENDING",
+        selections: { create: [
+          { fixtureId: "local-fixture-1", matchName: "Nairobi City Stars v Tusker", market: "1X2", label: "Tusker", odds: D("1.45"), result: "PENDING" },
+          { fixtureId: "local-fixture-2", matchName: "Gor Mahia v AFC Leopards", market: "Both teams to score", label: "Yes", odds: D("1.50"), result: "PENDING" },
+        ] },
+      },
+    });
+    await db.polymarketBet.create({
+      data: { userId: userBId, marketId: "local-market-2026", question: "Will Nairobi receive above-average rainfall this month?", outcome: "Yes", price: D("0.58"), stake: D(1200), potentialWin: D(2068), status: "PENDING" },
+    });
+    const round = await db.aviatorRound.create({
+      data: { serverSeed: "local-seed-revealed", serverSeedHash: "local-seed-hash", crashPoint: D("3.42"), state: "CRASHED", bettingEndsAt: new Date(now.getTime() - 8 * 60 * 1000), flyingStartedAt: new Date(now.getTime() - 7 * 60 * 1000), crashedAt: new Date(now.getTime() - 6 * 60 * 1000) },
+    });
+    await db.aviatorBet.createMany({
+      data: [
+        { roundId: round.id, userId: buyerId, panelIndex: 0, betAmount: D(300), cashoutAt: D("2.10"), winAmount: D(630), status: "CASHEDOUT" },
+        { roundId: round.id, userId: userBId, panelIndex: 0, betAmount: D(500), status: "LOST" },
+      ],
+    });
+    await db.binaryTrade.createMany({
+      data: [
+        { userId: buyerId, market: "R_50", side: "Over", stake: D(500), payout: D(940), targetDigit: 4, entryDigit: 2, exitDigit: 7, durationTicks: 5, settleBefore: new Date(now.getTime() - 10 * 60 * 1000), status: "WON", settledAt: new Date(now.getTime() - 9 * 60 * 1000) },
+        { userId: userBId, market: "R_100", side: "Even", stake: D(350), payout: D(651), targetDigit: 0, entryDigit: 6, durationTicks: 3, settleBefore: new Date(now.getTime() + 30 * 1000), status: "PENDING" },
+      ],
+    });
+    await db.forexTrade.create({
+      data: { userId: userBId, symbol: "EUR/USD", direction: "BUY", size: 1000, entryPrice: D("1.08320"), stopLoss: D("1.08000"), takeProfit: D("1.08900"), precision: 5, margin: D(2500), status: "OPEN" },
+    });
+    await db.notification.createMany({
+      data: [
+        { userId: buyerId, type: "p2p_dispute", title: "Dispute opened", body: "Your P2P dispute is waiting for review.", link: "/p2p/orders/local" },
+        { userId: userBId, type: "withdrawal", title: "Withdrawal awaiting review", body: "Your KSh 2,500 withdrawal is pending approval.", link: "/wallet" },
+      ],
+    });
+    console.log("  ✓ seeded ledger, approvals, dispute, and product activity");
 
     console.log("\n  Done. Sign in at /dev-login.\n");
   } finally {

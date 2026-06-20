@@ -6,6 +6,7 @@ import {
   devAccountByKey,
   devSupabaseUser,
 } from "@/lib/dev-auth";
+import { createAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 
 // Dev-only local auth endpoint. Returns 404 unless DEV_AUTH is on and we're not
 // in production, so it simply doesn't exist in a real deployment.
@@ -39,6 +40,11 @@ export async function POST(req: Request) {
 
   const c = await cookies();
   c.set(DEV_COOKIE, acct.key, COOKIE_OPTS);
+  if (acct.isAdmin) {
+    c.set(COOKIE_NAME, createAdminToken("local-dev-owner"), { ...COOKIE_OPTS, maxAge: 60 * 60 * 8 });
+  } else {
+    c.delete(COOKIE_NAME);
+  }
   return Response.json({ user: devSupabaseUser(acct) });
 }
 
@@ -46,5 +52,6 @@ export async function DELETE() {
   if (!DEV_AUTH_ENABLED) return Response.json({ error: "Not found" }, { status: 404 });
   const c = await cookies();
   c.delete(DEV_COOKIE);
+  c.delete(COOKIE_NAME);
   return Response.json({ ok: true });
 }
