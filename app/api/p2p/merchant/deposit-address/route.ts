@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { getOrCreateDepositAddress } from "@/lib/crypto/hd-wallet";
+import { getOrCreateDepositAddress, DepositsDisabledError } from "@/lib/crypto/hd-wallet";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +37,9 @@ export async function GET(req: Request) {
     return Response.json({ address, crypto, network });
   } catch (err) {
     console.error("deposit-address GET:", err instanceof Error ? err.message : err);
+    if (err instanceof DepositsDisabledError) {
+      return Response.json({ error: err.message }, { status: 503 });
+    }
     return Response.json({ error: "Failed to get deposit address" }, { status: 500 });
   }
 }
