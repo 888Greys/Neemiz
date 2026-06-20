@@ -3,9 +3,11 @@
 import { WalletClient } from "@/components/wallet-client";
 import { Icon } from "@/components/icon";
 
+type WalletTab = "deposit" | "send" | "withdraw" | "history";
+
 // Floating wallet — wraps the full wallet UI (deposit / withdraw / send /
 // history) in the same mobile bottom-sheet pattern as the Profile modal.
-export function WalletSheet({ onClose }: { onClose: () => void }) {
+export function WalletSheet({ onClose, initialTab = "deposit" }: { onClose: () => void; initialTab?: WalletTab }) {
   return (
     <div
       className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4"
@@ -24,7 +26,7 @@ export function WalletSheet({ onClose }: { onClose: () => void }) {
         >
           <Icon name="close" className="text-[18px]" />
         </button>
-        <WalletClient wide />
+        <WalletClient wide initialTab={initialTab} />
       </div>
     </div>
   );

@@ -36,6 +36,7 @@ model User {
   p2pFeedbacksGiven    P2PFeedback[] @relation("P2PFeedbackGiven")
   p2pFeedbacksReceived P2PFeedback[] @relation("P2PFeedbackReceived")
   notifications    Notification[]
+  loginDevices     LoginDevice[]
   cryptoBalances   UserCryptoBalance[]
   depositAddresses CryptoDepositAddress[]
 
@@ -62,6 +63,22 @@ model User {
   leveragedTrades LeveragedTrade[]
 
   @@map("users")
+}
+
+// A browser-specific opaque token is stored in an HttpOnly cookie. Only its
+// hash is persisted, so security alerts are sent once per recognized device.
+model LoginDevice {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceHash   String   @map("device_hash")
+  userAgent    String?  @map("user_agent")
+  lastLocation String?  @map("last_location")
+  firstSeenAt  DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt   DateTime @default(now()) @map("last_seen_at")
+
+  @@unique([userId, deviceHash])
+  @@map("login_devices")
 }
 
 model Bet {

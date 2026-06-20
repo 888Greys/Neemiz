@@ -1,9 +1,19 @@
+import { createHash, randomUUID } from "crypto";
+import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { sendNewLoginEmail } from "@/lib/brevo";
 
 export const dynamic = "force-dynamic";
+
+const DEVICE_COOKIE = "nezeem-device";
+const DEVICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+function deviceHash(deviceId: string) {
+  return createHash("sha256").update(deviceId).digest("hex");
+}
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) =>
@@ -29,27 +39,15 @@ function describeDevice(ua: string): string {
   return `${browser} on ${os}`;
 }
 
-// Records a "new login detected" alert (in-app notification + email). Called by
-// the client auth listener on SIGNED_IN. Catches every sign-in method (OAuth,
-// OTP, passkey) because they all emit SIGNED_IN. Deduped client-side per session
-// and server-side per ~2 minutes so refreshes/tabs don't re-fire.
+// Records a "new login detected" alert only for a previously unseen browser
+// device. Country is shown for context but not used as a trigger: mobile IPs,
+// VPNs, and carriers can change location during normal use.
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const appUser = await getOrCreateUser(user.id, { email: user.email });
-
-  const recent = await db.notification.findFirst({
-    where: {
-      userId: appUser.id,
-      type: "security_login",
-      createdAt: { gte: new Date(Date.now() - 2 * 60_000) },
-    },
-    select: { id: true },
-  });
-  if (recent) return Response.json({ ok: true, deduped: true });
-
   const ua = request.headers.get("user-agent") ?? "";
   const ip = request.headers.get("cf-connecting-ip")
     ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
@@ -59,6 +57,42 @@ export async function POST(request: Request) {
   const location = countryRaw && countryRaw !== "XX" ? countryRaw : undefined;
   const device = describeDevice(ua);
   const when = new Date().toUTCString();
+
+  const cookieStore = cookies();
+  const existingDeviceId = cookieStore.get(DEVICE_COOKIE)?.value;
+  const rawDeviceId = existingDeviceId ?? randomUUID();
+  const knownDevice = await db.loginDevice.findUnique({
+    where: { userId_deviceHash: { userId: appUser.id, deviceHash: deviceHash(rawDeviceId) } },
+    select: { id: true },
+  });
+
+  const response = NextResponse.json({ ok: true, newDevice: !knownDevice });
+  if (!existingDeviceId) {
+    response.cookies.set(DEVICE_COOKIE, rawDeviceId, {
+      httpOnly: true,
+      maxAge: DEVICE_COOKIE_MAX_AGE,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+  }
+
+  if (knownDevice) {
+    await db.loginDevice.update({
+      where: { id: knownDevice.id },
+      data: { lastSeenAt: new Date(), userAgent: ua || null, lastLocation: location ?? null },
+    });
+    return response;
+  }
+
+  await db.loginDevice.create({
+    data: {
+      userId: appUser.id,
+      deviceHash: deviceHash(rawDeviceId),
+      userAgent: ua || null,
+      lastLocation: location ?? null,
+    },
+  });
 
   await db.notification.create({
     data: {
@@ -83,5 +117,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return Response.json({ ok: true });
+  return response;
 }
