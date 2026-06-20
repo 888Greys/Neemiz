@@ -4,6 +4,7 @@ import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsLowFloat } from "@/lib/admin-alert";
+import { withdrawalDayStart, withdrawalDayReset, dailyLimitKes } from "@/lib/withdrawal-window";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -35,15 +36,14 @@ export async function POST(req: Request) {
 
     const lipaTestMode = process.env.LIPAHARAKA_TEST_MODE === "true";
     const minimumWithdrawal = lipaTestMode ? 11 : 50;
-    // Daily cap: a user may withdraw at most this much (summed across all of the
-    // day's M-Pesa withdrawals). Configurable; defaults to KSh 500.
-    const parsedDailyLimit = Number(process.env.WITHDRAWAL_DAILY_LIMIT_KES ?? "500");
-    const dailyLimitKes = Number.isFinite(parsedDailyLimit) && parsedDailyLimit > 0 ? parsedDailyLimit : 500;
+    // Daily cap: a user may withdraw at most this much across the day's M-Pesa
+    // withdrawals. The window resets at 02:00 EAT (see lib/withdrawal-window).
+    const limit = dailyLimitKes();
     if (!Number.isFinite(amountKes) || amountKes < minimumWithdrawal) {
       return Response.json({ error: `Minimum withdrawal is KSh ${minimumWithdrawal}` }, { status: 400 });
     }
-    if (amountKes > dailyLimitKes) {
-      return Response.json({ error: `Daily withdrawal limit is KSh ${dailyLimitKes.toLocaleString()}` }, { status: 400 });
+    if (amountKes > limit) {
+      return Response.json({ error: `Daily withdrawal limit is KSh ${limit.toLocaleString()}` }, { status: 400 });
     }
     if (amountKes > 150_000) {
       return Response.json({ error: "Maximum withdrawal is KSh 150,000" }, { status: 400 });
@@ -64,8 +64,7 @@ export async function POST(req: Request) {
 
       if (balance < amountKes) throw new Error("INSUFFICIENT_BALANCE");
 
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
+      const startOfDay = withdrawalDayStart(); // resets 02:00 EAT
       // Scope the daily cap to M-Pesa (Lipa Haraka) cash withdrawals ONLY.
       // Other WITHDRAWAL-typed rows (P2P escrow `p2p_kes_escrow`, crypto
       // `self_custody`, internal transfers) must NOT count against this limit.
@@ -84,8 +83,8 @@ export async function POST(req: Request) {
       // requests can't both slip under the cap.
       const todaySum = await tx.transaction.aggregate({ where: todayWhere, _sum: { amount: true } });
       const withdrawnToday = Number(todaySum._sum?.amount ?? 0);
-      if (withdrawnToday + amountKes > dailyLimitKes) {
-        const remaining = Math.max(0, dailyLimitKes - withdrawnToday);
+      if (withdrawnToday + amountKes > limit) {
+        const remaining = Math.max(0, limit - withdrawnToday);
         throw new Error(`DAILY_LIMIT:${remaining}`);
       }
 
@@ -240,8 +239,8 @@ export async function POST(req: Request) {
       const remaining = Number(err.message.split(":")[1] ?? 0);
       return Response.json({
         error: remaining > 0
-          ? `Daily withdrawal limit reached. You can withdraw KSh ${remaining.toLocaleString()} more today.`
-          : "You've reached today's withdrawal limit. Please try again tomorrow.",
+          ? `Daily limit: you can withdraw KSh ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
+          : "You've reached today's KSh 500 withdrawal limit. It resets at 2:00 AM.",
       }, { status: 400 });
     }
     if (err instanceof SuspendedAccountError) {
@@ -250,4 +249,37 @@ export async function POST(req: Request) {
     console.error("Withdrawal route error:", err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
+}
+
+/**
+ * GET /api/wallet/withdraw — the caller's M-Pesa daily-limit status, so the UI
+ * can show how much is left and when it resets (02:00 EAT).
+ */
+export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const dbUser = await getOrCreateUser(user.id, { email: user.email });
+  const limit = dailyLimitKes();
+  const startOfDay = withdrawalDayStart();
+
+  const sum = await db.transaction.aggregate({
+    where: {
+      userId:   dbUser.id,
+      type:     TransactionType.WITHDRAWAL,
+      provider: "lipaharaka",
+      status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+      createdAt: { gte: startOfDay },
+    },
+    _sum: { amount: true },
+  });
+
+  const used = Number(sum._sum?.amount ?? 0);
+  return Response.json({
+    limit,
+    used,
+    remaining: Math.max(0, limit - used),
+    resetsAt:  withdrawalDayReset().toISOString(),
+  }, { headers: { "Cache-Control": "no-store" } });
 }
