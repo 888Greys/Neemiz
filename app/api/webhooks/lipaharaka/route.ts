@@ -9,7 +9,17 @@ function matchesSignature(raw: string, headers: Headers, secret: string) {
 export async function POST(req: Request) {
   const secret = process.env.LIPAHARAKA_CALLBACK_SECRET;
   const raw = await req.text();
-  if (!secret || !matchesSignature(raw, req.headers, secret)) return new Response("Unauthorized", { status: 401 });
+  if (!secret || !matchesSignature(raw, req.headers, secret)) {
+    // TEMP DIAGNOSTIC (2026-06-20): Lipa callbacks are 401ing — capture how Lipa
+    // actually signs so we can match it. Remove once the scheme is confirmed.
+    if (process.env.LIPAHARAKA_WEBHOOK_DEBUG === "true") {
+      const hdrs = Object.fromEntries([...req.headers.entries()]);
+      const hmacHex = secret ? createHmac("sha256", secret).update(raw).digest("hex") : "(no secret)";
+      const hmacB64 = secret ? createHmac("sha256", secret).update(raw).digest("base64") : "(no secret)";
+      console.log("[lipa-webhook-debug] 401 callback", JSON.stringify({ headers: hdrs, bodyPreview: raw.slice(0, 400), ourHmacHex: hmacHex, ourHmacB64: hmacB64 }));
+    }
+    return new Response("Unauthorized", { status: 401 });
+  }
   const body = JSON.parse(raw) as Record<string, unknown>;
   const reference = String(body.checkout_request_id ?? body.CheckoutRequestID ?? body.withdrawal_id ?? body.withdrawalId ?? body.transaction_id ?? "");
   const amount = Number(body.amount ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "Amount")?.Value);
