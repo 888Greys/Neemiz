@@ -459,7 +459,7 @@ function MobileP2POrderView({
   const [showReleaseConfirm, setShowReleaseConfirm] = useState(false);
   const [releaseChoice, setReleaseChoice] = useState<"none" | "received">("none");
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(true);
   const [followed, setFollowed] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
