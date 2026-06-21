@@ -108,8 +108,8 @@ function BalanceCleanupAlert() {
       <div className="min-w-0 flex-1 text-[12px] leading-relaxed text-slate-300">
         <p className="font-black text-amber-300">Balance cleanup — 21 Jun 2026</p>
         <p className="mt-0.5 text-slate-400">
-          Reset 27 suspended &amp; test accounts to their real net deposits — removed{" "}
-          <span className="font-bold text-white">KSh 6,326,498</span> of fabricated/exploit/test balance,
+          Reset 28 suspended, test &amp; owner accounts to their real net deposits — removed{" "}
+          <span className="font-bold text-white">KSh 6,363,668</span> of fabricated/exploit/test balance,
           preserved <span className="font-bold text-white">KSh 11,093</span> genuine deposits. Logged as{" "}
           <span className="font-mono text-slate-300">admin_balance_reset</span> refund adjustments; full
           before-state snapshot retained for reversal.
