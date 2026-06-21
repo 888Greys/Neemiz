@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
+import { dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 
 const recipientSelect = {
   id: true,
@@ -71,6 +72,17 @@ export async function POST(req: Request) {
   const reference = `wallet-transfer-${crypto.randomUUID()}`;
   try {
     const result = await db.$transaction(async (tx) => {
+      // Enforce the shared daily cash-out cap: outgoing transfers count against
+      // the same limit as M-Pesa withdrawals (see dailyCapWhere), so cash can't
+      // leave the platform faster than the cap by hopping through a transfer.
+      // Checked inside the transaction so concurrent sends can't both slip under.
+      const limit = dailyLimitKes();
+      const todaySum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });
+      const usedToday = Number(todaySum._sum?.amount ?? 0);
+      if (usedToday + amount > limit) {
+        throw new Error(`DAILY_LIMIT:${Math.max(0, limit - usedToday)}`);
+      }
+
       const debited = await tx.user.updateMany({
         where: { id: sender.id, walletBalance: { gte: amount } },
         data: { walletBalance: { decrement: amount } },
@@ -118,6 +130,14 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
+    }
+    if (error instanceof Error && error.message.startsWith("DAILY_LIMIT:")) {
+      const remaining = Number(error.message.split(":")[1] ?? 0);
+      return Response.json({
+        error: remaining > 0
+          ? `Daily limit: you can send or withdraw KSh ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
+          : "You've reached today's cash-out limit (sends + withdrawals). It resets at 2:00 AM.",
+      }, { status: 400 });
     }
     console.error("POST /api/wallet/transfer:", error);
     return Response.json({ error: "Transfer failed" }, { status: 500 });
