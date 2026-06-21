@@ -205,6 +205,7 @@ export const kesPayoutAmount = (amount: number) => parseFloat((amount * (1 - KES
 // KES Coin keeps its own 1%/1% split (kesLockAmount/kesPayoutAmount) for now.
 
 const round8 = (n: number) => parseFloat(n.toFixed(8));
+const round2 = (n: number) => parseFloat(n.toFixed(2));
 
 /** Current configured P2P fee rate (default 2%). */
 export function p2pFeeRate(): number {
@@ -226,7 +227,10 @@ export const p2pFeeOf = (amount: number, rate = p2pFeeRate()) => round8(amount *
  */
 export async function bookCryptoFee(
   tx: TxClient,
-  input: { crypto: string; network: string; feeAmount: number; orderId: string; payerUserId: string },
+  input: {
+    crypto: string; network: string; feeAmount: number; orderId: string; payerUserId: string;
+    feeKesAmount?: number;
+  },
 ) {
   if (!(input.feeAmount > 0)) return;
   await tx.transaction.create({
@@ -238,7 +242,17 @@ export async function bookCryptoFee(
       status:    TransactionStatus.COMPLETED,
       reference: `p2p-fee-${input.orderId}`,
       provider:  "p2p_fee",
-      metadata:  { action: "p2p_platform_fee", orderId: input.orderId, crypto: input.crypto, network: input.network },
+      metadata: {
+        action: "p2p_platform_fee",
+        orderId: input.orderId,
+        crypto: input.crypto,
+        network: input.network,
+        // This locks the ledger's KES P&L valuation to the executed P2P price,
+        // instead of repricing historical revenue against a later spot market.
+        ...(Number.isFinite(input.feeKesAmount) && (input.feeKesAmount ?? 0) >= 0
+          ? { feeKesAmount: round2(input.feeKesAmount!) }
+          : {}),
+      },
     },
   });
   const houseMerchantId = process.env.P2P_FEE_MERCHANT_ID;
@@ -267,6 +281,7 @@ export async function settleCryptoEscrowRelease(
   p: {
     crypto: string; network: string; amount: number; isMerchantSell: boolean;
     sellFeeRate: number; merchantId: string; merchantUserId: string; buyerId: string; orderId: string;
+    feeKesPerCrypto?: number;
   },
 ): Promise<{ receiverGets: number }> {
   if (p.isMerchantSell) {
@@ -288,7 +303,10 @@ export async function settleCryptoEscrowRelease(
       if (debited.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
     }
     await creditUserCrypto(tx, p.buyerId, p.crypto, p.network, p.amount); // taker made whole
-    await bookCryptoFee(tx, { crypto: p.crypto, network: p.network, feeAmount: fee, orderId: p.orderId, payerUserId: p.merchantUserId });
+    await bookCryptoFee(tx, {
+      crypto: p.crypto, network: p.network, feeAmount: fee, orderId: p.orderId, payerUserId: p.merchantUserId,
+      feeKesAmount: Number.isFinite(p.feeKesPerCrypto) ? fee * p.feeKesPerCrypto! : undefined,
+    });
     return { receiverGets: p.amount };
   }
 
@@ -306,7 +324,10 @@ export async function settleCryptoEscrowRelease(
     create: { merchantId: p.merchantId, crypto: p.crypto, total: makerReceives, available: makerReceives, locked: 0 },
     update: { total: { increment: makerReceives }, available: { increment: makerReceives } },
   });
-  await bookCryptoFee(tx, { crypto: p.crypto, network: p.network, feeAmount: fee, orderId: p.orderId, payerUserId: p.merchantUserId });
+  await bookCryptoFee(tx, {
+    crypto: p.crypto, network: p.network, feeAmount: fee, orderId: p.orderId, payerUserId: p.merchantUserId,
+    feeKesAmount: Number.isFinite(p.feeKesPerCrypto) ? fee * p.feeKesPerCrypto! : undefined,
+  });
   return { receiverGets: makerReceives };
 }
 

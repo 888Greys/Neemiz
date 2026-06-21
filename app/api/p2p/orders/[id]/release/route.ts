@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { defaultNetwork, isKesCoin, releaseKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement, settleCryptoEscrowRelease } from "@/lib/p2p/crypto-balance";
+import { convertToKES, getFxRatesToKES } from "@/lib/p2p/fx";
 import { sendTradeCompletedEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
 
@@ -45,6 +46,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const cryptoAmt   = Number(order.cryptoAmount);
     const network     = defaultNetwork(order.crypto);
     const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
+    // The executed ad price is immutable on the order. Convert it once while
+    // booking the fee so admin P&L is stable even when crypto prices move later.
+    const feeKesPerCrypto = isKesCoin(order.crypto)
+      ? 0
+      : convertToKES(Number(order.pricePerUnit), order.ad.fiat, (await getFxRatesToKES()).toKES);
 
     // Maker-pays fee (Binance-style): the merchant who posted the ad bears the
     // platform fee; the taker is always made whole. SELL reserves the fee in the
@@ -100,6 +106,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           merchantUserId: merchant.userId,
           buyerId:        order.buyerId,
           orderId:        order.id,
+          feeKesPerCrypto,
         });
         creditedAmount = receiverGets;
       }

@@ -10,6 +10,7 @@ interface DayData {
   withdrawals: number;
   betStakes: number;
   betWins: number;
+  p2pFees: number;
   grossProfit: number;
 }
 
@@ -21,6 +22,7 @@ interface ProfitsResponse {
     withdrawals: number;
     betStakes: number;
     betWins: number;
+    p2pFees: number;
     feesCollected: number;
     grossProfit: number;
   };
@@ -108,7 +110,7 @@ export function AdminProfitsClient() {
             <StatCard label="Real Cash Out"   value={fmt(t.withdrawals)}    sub="Completed provider payouts" color="text-orange-400" />
             <StatCard label="Bet Stakes"      value={fmt(t.betStakes)}      color="text-violet-400" />
             <StatCard label="Bet Wins Paid"   value={fmt(t.betWins)}        color="text-rose-400" />
-            <StatCard label="Fees Collected"  value={fmt(t.feesCollected)}  color="text-amber-400" />
+            <StatCard label="Fees Collected"  value={fmt(t.feesCollected)} sub={`P2P: ${fmt(t.p2pFees)}`} color="text-amber-400" />
           </div>
 
           {/* Gross profit chart */}

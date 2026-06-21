@@ -12,6 +12,7 @@ import {
   unlockKesCoinBalance,
   unlockUserCrypto,
 } from "@/lib/p2p/crypto-balance";
+import { convertToKES, getFxRatesToKES } from "@/lib/p2p/fx";
 import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
 
 // GET /api/admin/p2p/disputes/[id] — full dispute incl. message history.
@@ -155,8 +156,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           crypto: true,
           cryptoAmount: true,
           fiatAmount: true,
+          pricePerUnit: true,
           createdAt: true,
-          ad: { select: { side: true, feeRate: true } },
+          ad: { select: { side: true, feeRate: true, fiat: true } },
           buyer: { select: { email: true, firstName: true, username: true } },
           seller: {
             select: {
@@ -188,6 +190,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const cryptoBuyerWins = resolution === "CRYPTO_BUYER_WINS";
   const network = defaultNetwork(order.crypto);
   const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
+  const feeKesPerCrypto = cryptoBuyerWins && !isKesCoin(order.crypto)
+    ? convertToKES(Number(order.pricePerUnit), order.ad.fiat, (await getFxRatesToKES()).toKES)
+    : 0;
 
   await db.$transaction(async (tx) => {
     const claimed = await tx.p2PDispute.updateMany({
@@ -254,6 +259,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           merchantUserId: sellerUserId,
           buyerId,
           orderId:        order.id,
+          feeKesPerCrypto,
         });
       }
       const newTotal = order.seller.totalTrades + 1;
