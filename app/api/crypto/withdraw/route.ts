@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { debitUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
-import { broadcastWithdrawal, getHotWalletAddresses } from "@/lib/crypto/broadcaster";
+import { signWithdrawal } from "@/lib/crypto/signer-client";
+import { getHotWalletAddresses } from "@/lib/crypto/xpub";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -106,9 +107,20 @@ export async function POST(req: Request) {
     return Response.json({ error: "No deposit address found for this coin — deposit first to register your address" }, { status: 400 });
   }
 
-  // ── Broadcast on-chain (signs from user's own deposit address) ─────────
+  // ── Sign + broadcast via the off-box signer (WireGuard-only on soi) ─────
+  // The web app holds no seed; it hands the signer the HD index + addresses and
+  // the signer re-derives the key, enforces its own caps, and broadcasts. The
+  // tx record id is the idempotency key so a retry can't double-send.
   try {
-    const result = await broadcastWithdrawal(depositAddr.address, address, crypto, network, payoutAmount);
+    const result = await signWithdrawal({
+      hdIndex:        depositAddr.hdIndex,
+      fromAddress:    depositAddr.address,
+      to:             address,
+      crypto,
+      network,
+      amount:         payoutAmount,
+      idempotencyKey: txRecord.id,
+    });
 
     // Mark completed
     await db.transaction.update({
