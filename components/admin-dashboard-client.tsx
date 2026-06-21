@@ -93,6 +93,38 @@ function Panel({ title, action, children, className = "" }: {
   );
 }
 
+// One-time security notice: the 2026-06-21 fabricated-balance cleanup.
+// Dismissible per-admin (localStorage). Remove this component once acknowledged.
+function BalanceCleanupAlert() {
+  const [dismissed, setDismissed] = useState(true); // assume dismissed until checked (avoids SSR flash)
+  useEffect(() => {
+    try { setDismissed(localStorage.getItem("nezeem-admin-cleanup-20260621") === "1"); }
+    catch { setDismissed(false); }
+  }, []);
+  if (dismissed) return null;
+  return (
+    <div className="admin-panel mb-4 flex items-start gap-3 border-l-2 border-amber-400/60 bg-amber-400/[0.06] p-3">
+      <Icon name="shield" size={16} className="mt-0.5 shrink-0 text-amber-400" />
+      <div className="min-w-0 flex-1 text-[12px] leading-relaxed text-slate-300">
+        <p className="font-black text-amber-300">Balance cleanup — 21 Jun 2026</p>
+        <p className="mt-0.5 text-slate-400">
+          Reset 27 suspended &amp; test accounts to their real net deposits — removed{" "}
+          <span className="font-bold text-white">KSh 6,326,498</span> of fabricated/exploit/test balance,
+          preserved <span className="font-bold text-white">KSh 11,093</span> genuine deposits. Logged as{" "}
+          <span className="font-mono text-slate-300">admin_balance_reset</span> refund adjustments; full
+          before-state snapshot retained for reversal.
+        </p>
+      </div>
+      <button
+        onClick={() => { try { localStorage.setItem("nezeem-admin-cleanup-20260621", "1"); } catch { /* ignore */ } setDismissed(true); }}
+        className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-black text-slate-500 hover:text-white"
+      >
+        Dismiss
+      </button>
+    </div>
+  );
+}
+
 export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [profits, setProfits] = useState<ProfitData | null>(null);
@@ -166,6 +198,8 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
           <Icon name="refresh" size={13} /> Refresh terminal
         </button>
       </header>
+
+      <BalanceCleanupAlert />
 
       <div className="admin-panel mb-4 grid overflow-hidden sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Customer funds" value={money(stats.totalWalletBalance)} detail={stats.testAccounts && stats.testAccounts.count > 0 ? `${(stats.realWalletCount ?? stats.totalUsers).toLocaleString()} real wallets · ${stats.testAccounts.count} test excluded (${money(stats.testAccounts.balance)})` : `${stats.totalUsers.toLocaleString()} user wallets`} icon="account_balance_wallet" />
