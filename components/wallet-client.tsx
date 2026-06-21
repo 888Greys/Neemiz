@@ -1015,11 +1015,11 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                         <span className="shrink-0 text-sm font-black text-slate-500">KSh</span>
                         <input
                           type="number"
-                          min="50"
+                          min="11"
                           max="500"
                           value={wdAmount}
                           onChange={(e) => { setWdAmount(e.target.value); setWdError(""); }}
-                          placeholder="Enter amount"
+                          placeholder="Min KSh 11"
                           className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
                         />
                         {wdAmount && Number(wdAmount) >= 11 && (

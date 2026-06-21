@@ -1427,7 +1427,7 @@ function AdCard({
           onDetails(ad);
         }
       }}
-      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b border-white/[0.06] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.035] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#087cff]/40 sm:px-4 lg:block lg:py-2 ${AD_GRID}`}
+      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b border-white/[0.06] px-3 py-2.5 transition-colors last:border-b-0 hover:bg-white/[0.035] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#087cff]/40 sm:px-4 lg:py-2 ${AD_GRID}`}
     >
       {/* ── Advertiser ── */}
       <button
@@ -1436,7 +1436,7 @@ function AdCard({
           event.stopPropagation();
           onMerchantClick(ad.merchant);
         }}
-        className="col-span-2 flex min-w-0 items-center gap-2 rounded-lg text-left transition hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-[#087cff]/40"
+        className="col-span-2 lg:col-span-1 flex min-w-0 items-center gap-2 rounded-lg text-left transition hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-[#087cff]/40"
         title={`View ${ad.merchant.displayName}`}
       >
         <div className="relative shrink-0">
@@ -1524,7 +1524,7 @@ function AdCard({
             event.stopPropagation();
             onDetails(ad);
           }}
-          className={`flex h-8 w-auto items-center justify-center gap-1.5 rounded-lg px-4 text-[12px] font-black text-white transition active:scale-[0.98] ${
+          className={`flex h-8 w-auto min-w-[96px] items-center justify-center gap-1.5 rounded-lg px-5 text-[12px] font-black text-white transition active:scale-[0.98] lg:min-w-0 lg:px-4 ${
             isMerchantSelling ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-400"
           }`}
         >
