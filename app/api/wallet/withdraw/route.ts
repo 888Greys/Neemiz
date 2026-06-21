@@ -4,7 +4,7 @@ import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsLowFloat } from "@/lib/admin-alert";
-import { withdrawalDayStart, withdrawalDayReset, dailyLimitKes } from "@/lib/withdrawal-window";
+import { withdrawalDayReset, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -64,17 +64,11 @@ export async function POST(req: Request) {
 
       if (balance < amountKes) throw new Error("INSUFFICIENT_BALANCE");
 
-      const startOfDay = withdrawalDayStart(); // resets 02:00 EAT
-      // Scope the daily cap to M-Pesa (Lipa Haraka) cash withdrawals ONLY.
-      // Other WITHDRAWAL-typed rows (P2P escrow `p2p_kes_escrow`, crypto
-      // `self_custody`, internal transfers) must NOT count against this limit.
-      const todayWhere = {
-        userId:   dbUser.id,
-        type:     TransactionType.WITHDRAWAL,
-        provider: "lipaharaka",
-        status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
-        createdAt: { gte: startOfDay },
-      };
+      // Daily cap is shared across cash-out vectors: M-Pesa withdrawals AND
+      // outgoing wallet transfers both count (see dailyCapWhere). This stops a
+      // user from dodging the cap by transferring to an accomplice who then
+      // withdraws. Window resets 02:00 EAT. P2P escrow / crypto are excluded.
+      const todayWhere = dailyCapWhere(dbUser.id);
       const todayCount = await tx.transaction.count({ where: todayWhere });
 
       // Enforce the daily cap atomically: sum of today's withdrawals (refunds
@@ -262,16 +256,9 @@ export async function GET() {
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
   const limit = dailyLimitKes();
-  const startOfDay = withdrawalDayStart();
 
   const sum = await db.transaction.aggregate({
-    where: {
-      userId:   dbUser.id,
-      type:     TransactionType.WITHDRAWAL,
-      provider: "lipaharaka",
-      status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
-      createdAt: { gte: startOfDay },
-    },
+    where: dailyCapWhere(dbUser.id),
     _sum: { amount: true },
   });
 
