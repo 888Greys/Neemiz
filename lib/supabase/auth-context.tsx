@@ -14,7 +14,7 @@ import { toast } from "@/lib/toast";
 
 // Money app: sign the user out after this much inactivity so an unlocked,
 // unattended device can't be used to move funds.
-const IDLE_LIMIT_MS = 15 * 60 * 1000; // 15 minutes
+const IDLE_LIMIT_MS = 60 * 60 * 1000; // 1 hour
 const ACTIVITY_KEY = "nezeem-last-activity";
 const IDLE_FLAG_KEY = "nezeem-idle-logout";
 
@@ -97,7 +97,23 @@ export function SupabaseAuthProvider({
       } catch {
         // storage blocked — fall through; the server also dedups per ~2 min
       }
-      void fetch("/api/auth/login-alert", { method: "POST", cache: "no-store" }).catch(() => {});
+      // Stable per-browser device id (localStorage persists reliably, unlike the
+      // httpOnly cookie set on this fire-and-forget response) so a known device
+      // is never re-flagged as "new" → no repeat login notifications.
+      let deviceId = "";
+      try {
+        deviceId = localStorage.getItem("nezeem-device-id") ?? "";
+        if (!deviceId) {
+          deviceId = (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+          localStorage.setItem("nezeem-device-id", deviceId);
+        }
+      } catch { /* storage blocked — server falls back to its cookie */ }
+      void fetch("/api/auth/login-alert", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceId }),
+      }).catch(() => {});
     }
 
     // Stay in sync with sign-in / sign-out / token refresh events
@@ -122,7 +138,7 @@ export function SupabaseAuthProvider({
     try {
       if (localStorage.getItem(IDLE_FLAG_KEY)) {
         localStorage.removeItem(IDLE_FLAG_KEY);
-        toast.info("Signed out", "You were signed out after 15 minutes of inactivity to protect your account.");
+        toast.info("Signed out", "You were signed out after 1 hour of inactivity to protect your account.");
       }
     } catch { /* storage blocked */ }
   }, []);

@@ -59,15 +59,23 @@ export async function POST(request: Request) {
   const when = new Date().toUTCString();
 
   const cookieStore = cookies();
-  const existingDeviceId = cookieStore.get(DEVICE_COOKIE)?.value;
-  const rawDeviceId = existingDeviceId ?? randomUUID();
+  // Stable client-provided device id (localStorage) is the primary key — it
+  // survives the fire-and-forget response that the httpOnly cookie rides on, so
+  // a returning browser is reliably recognized and not re-notified every login.
+  let bodyDeviceId = "";
+  try {
+    const b = await request.json();
+    if (b && typeof b.deviceId === "string") bodyDeviceId = b.deviceId.trim();
+  } catch { /* no/invalid body — fall back to cookie */ }
+  const cookieDeviceId = cookieStore.get(DEVICE_COOKIE)?.value;
+  const rawDeviceId = bodyDeviceId || cookieDeviceId || randomUUID();
   const knownDevice = await db.loginDevice.findUnique({
     where: { userId_deviceHash: { userId: appUser.id, deviceHash: deviceHash(rawDeviceId) } },
     select: { id: true },
   });
 
   const response = NextResponse.json({ ok: true, newDevice: !knownDevice });
-  if (!existingDeviceId) {
+  if (!cookieDeviceId) {
     response.cookies.set(DEVICE_COOKIE, rawDeviceId, {
       httpOnly: true,
       maxAge: DEVICE_COOKIE_MAX_AGE,
