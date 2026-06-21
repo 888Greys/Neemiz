@@ -1,25 +1,36 @@
 /**
- * On-chain broadcaster (runs on the signer host only).
+ * Self-custody crypto broadcaster.
  *
- * Signs a withdrawal directly from the user's own deposit address. Gas is
- * funded from the hot wallet (HD index 0) when the user's address is short on
- * native coin. Adapted from the web app's former lib/crypto/broadcaster.ts —
- * the only change is that the user's private key is resolved by HD index here,
- * via keys.ts, instead of from the database.
+ * Withdrawals are signed DIRECTLY from the user's own deposit address.
+ * The user's tokens are already on-chain at their address — no platform
+ * token float needed.
+ *
+ * Gas model:
+ *   - If the user's address already has enough native coin for gas → use it
+ *   - If not → hot wallet (index 0) sends a gas top-up first
+ *   - The platform funds network gas separately from the withdrawal amount
+ *
+ * Hot wallet (index 0) only needs gas coins — NOT token float:
+ *   Polygon: MATIC  |  Ethereum: ETH  |  BSC: BNB  |  Tron: TRX
  */
-import { ethers } from "ethers";
+
+import { ethers, HDNodeWallet, Mnemonic } from "ethers";
 import { createHash } from "crypto";
-import { getHotEVMKey, getHotTronKey, resolveUserKey } from "./keys";
+import { getPrivateKeyForAddress } from "./hd-wallet";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 function getTronTxId(tx: Record<string, unknown>): string {
   const provided = typeof tx.txID === "string" ? tx.txID : "";
   if (/^[0-9a-fA-F]{64}$/.test(provided)) return provided;
+
   const rawDataHex = typeof tx.raw_data_hex === "string" ? tx.raw_data_hex : "";
   if (!/^[0-9a-fA-F]+$/.test(rawDataHex) || rawDataHex.length % 2 !== 0) {
     throw new Error("TronGrid returned an invalid unsigned transaction");
   }
+
   return createHash("sha256").update(Buffer.from(rawDataHex, "hex")).digest("hex");
 }
 
@@ -48,12 +59,49 @@ function tronToHex(tron: string): string {
   return "0x" + buf.subarray(1, 21).toString("hex");
 }
 
+function hexToTron(hex: string): string {
+  const raw  = Buffer.from("41" + hex.slice(2).toLowerCase(), "hex");
+  const h1   = createHash("sha256").update(raw).digest();
+  const h2   = createHash("sha256").update(h1).digest();
+  const full = Buffer.concat([raw, h2.subarray(0, 4)]);
+  const digits: number[] = [0];
+  for (let bi = 0; bi < full.length; bi++) {
+    let carry = full[bi];
+    for (let j = 0; j < digits.length; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = Math.floor(carry / 58);
+    }
+    while (carry) { digits.push(carry % 58); carry = Math.floor(carry / 58); }
+  }
+  let leading = 0;
+  for (let bi = 0; bi < full.length; bi++) { if (full[bi] === 0) leading++; else break; }
+  return "1".repeat(leading) + digits.reverse().map((d) => B58[d]).join("");
+}
+
+// ─── HD root + hot wallet ─────────────────────────────────────────────────────
+
+function getRoot(): HDNodeWallet {
+  const phrase = process.env.MASTER_WALLET_MNEMONIC;
+  if (!phrase) throw new Error("MASTER_WALLET_MNEMONIC is not set");
+  return HDNodeWallet.fromSeed(Mnemonic.fromPhrase(phrase.trim()).computeSeed());
+}
+
+function getHotEVMKey():  string { return getRoot().derivePath("m/44'/60'/0'/0/0").privateKey; }
+function getHotTronKey(): string { return getRoot().derivePath("m/44'/195'/0'/0/0").privateKey; }
+
+export function getHotWalletAddresses(): Record<string, string> {
+  const evm = getRoot().derivePath("m/44'/60'/0'/0/0");
+  const tron = getRoot().derivePath("m/44'/195'/0'/0/0");
+  return { EVM: evm.address, Tron: hexToTron(tron.address) };
+}
+
 // ─── Chain config ─────────────────────────────────────────────────────────────
 
 const EVM_CHAINS: Record<string, { chainId: number; rpc: string }> = {
-  ERC20:   { chainId: 1,   rpc: process.env.RPC_ERC20   ?? "https://ethereum-rpc.publicnode.com"    },
-  BEP20:   { chainId: 56,  rpc: process.env.RPC_BEP20   ?? "https://bsc-rpc.publicnode.com"         },
-  POLYGON: { chainId: 137, rpc: process.env.RPC_POLYGON ?? "https://polygon-bor-rpc.publicnode.com" },
+  ERC20:   { chainId: 1,   rpc: "https://ethereum-rpc.publicnode.com"    },
+  BEP20:   { chainId: 56,  rpc: "https://bsc-rpc.publicnode.com"         },
+  POLYGON: { chainId: 137, rpc: "https://polygon-bor-rpc.publicnode.com" },
 };
 
 const EVM_TOKENS: Record<string, string> = {
@@ -68,42 +116,62 @@ const EVM_TOKENS: Record<string, string> = {
   "LINK:ERC20":   "0x514910771AF9Ca656af840dff83E8264EcF986CA",
 };
 
-const TOKEN_DECIMALS: Record<string, number> = { USDT: 6, USDC: 6, DAI: 18, BUSD: 18, WBTC: 8, LINK: 18 };
-
-const MIN_GAS: Record<string, bigint> = {
-  ERC20:   ethers.parseEther("0.003"),
-  BEP20:   ethers.parseEther("0.002"),
-  POLYGON: ethers.parseEther("0.005"),
+const TOKEN_DECIMALS: Record<string, number> = {
+  USDT: 6, USDC: 6, DAI: 18, BUSD: 18, WBTC: 8, LINK: 18,
 };
+
+// Minimum native gas balance before top-up is triggered
+const MIN_GAS: Record<string, bigint> = {
+  ERC20:   ethers.parseEther("0.003"),   // ETH
+  BEP20:   ethers.parseEther("0.002"),   // BNB
+  POLYGON: ethers.parseEther("0.005"),   // MATIC
+};
+// How much to top up (slightly above minimum for buffer)
 const GAS_TOPUP: Record<string, bigint> = {
   ERC20:   ethers.parseEther("0.005"),
   BEP20:   ethers.parseEther("0.003"),
   POLYGON: ethers.parseEther("0.008"),
 };
 
-const ERC20_ABI = ["function transfer(address to, uint256 amount) returns (bool)"] as const;
+const ERC20_ABI = [
+  "function transfer(address to, uint256 amount) returns (bool)",
+] as const;
 
-// ─── EVM ──────────────────────────────────────────────────────────────────────
+// ─── EVM broadcaster (signs from user's own address) ─────────────────────────
 
-async function broadcastEVM(fromAddress: string, to: string, crypto: string, network: string, amount: number, userPrivKey: string): Promise<string> {
+async function broadcastEVM(
+  fromAddress: string,  // user's deposit address (already has the tokens)
+  to:          string,
+  crypto:      string,
+  network:     string,
+  amount:      number,
+): Promise<string> {
   const chain = EVM_CHAINS[network];
   if (!chain) throw new Error(`Unsupported EVM network: ${network}`);
 
-  const provider   = new ethers.JsonRpcProvider(chain.rpc, chain.chainId);
-  const userWallet = new ethers.Wallet(userPrivKey, provider);
-  const hotWallet  = new ethers.Wallet(getHotEVMKey(), provider);
+  const provider      = new ethers.JsonRpcProvider(chain.rpc, chain.chainId);
+  const userPrivKey   = await getPrivateKeyForAddress(fromAddress, network);
+  const userWallet    = new ethers.Wallet(userPrivKey, provider);
+  const hotWallet     = new ethers.Wallet(getHotEVMKey(), provider);
+
   const contractAddr = EVM_TOKENS[`${crypto}:${network}`];
 
+  // ── Gas check & top-up ───────────────────────────────────────────────────
   const gasBalance = await provider.getBalance(fromAddress);
   const minGas     = MIN_GAS[network] ?? ethers.parseEther("0.003");
+
   if (gasBalance < minGas) {
     const topUp = GAS_TOPUP[network] ?? ethers.parseEther("0.005");
+    console.log(`[broadcaster] Topping up gas for ${fromAddress}: sending ${ethers.formatEther(topUp)} native`);
     const gasTx = await hotWallet.sendTransaction({ to: fromAddress, value: topUp });
-    await gasTx.wait();
+    await gasTx.wait(); // wait for gas to arrive before sending tokens
+    console.log(`[broadcaster] Gas top-up confirmed: ${gasTx.hash}`);
   }
 
+  // ── Send tokens from user's address ──────────────────────────────────────
   if (!contractAddr) {
-    const tx = await userWallet.sendTransaction({ to, value: ethers.parseEther(String(amount)) });
+    // Native coin (ETH/BNB/MATIC)
+    const tx      = await userWallet.sendTransaction({ to, value: ethers.parseEther(String(amount)) });
     const receipt = await tx.wait();
     if (!receipt) throw new Error("No receipt");
     return receipt.hash;
@@ -118,7 +186,7 @@ async function broadcastEVM(fromAddress: string, to: string, crypto: string, net
   return receipt.hash;
 }
 
-// ─── Tron ──────────────────────────────────────────────────────────────────────
+// ─── Tron broadcaster (signs from user's own address) ────────────────────────
 
 const TRON_USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 const TRONGRID           = "https://api.trongrid.io";
@@ -127,6 +195,7 @@ function trxToSun(value: string | undefined, fallback: number): number {
   const trx = Number(value ?? fallback);
   return Math.round((Number.isFinite(trx) ? Math.max(trx, 1) : fallback) * 1_000_000);
 }
+
 const MIN_TRX   = trxToSun(process.env.TRON_MIN_GAS_TRX, 15);
 const TOPUP_TRX = trxToSun(process.env.TRON_GAS_TOPUP_TRX, 20);
 
@@ -145,38 +214,51 @@ async function getTronNativeBalance(address: string, apiKey: string): Promise<nu
 
 async function sendTRXFromHotWallet(toTronAddress: string, sunAmount: number, apiKey: string): Promise<void> {
   const headers: Record<string, string> = { "Content-Type": "application/json", ...(apiKey ? { "TRON-PRO-API-KEY": apiKey } : {}) };
-  const hotKey     = getHotTronKey();
-  const hotAddrEvm = new ethers.Wallet(hotKey).address;
-  const hotTronHex = "41" + hotAddrEvm.slice(2).toLowerCase();
+  const hotNode    = getRoot().derivePath("m/44'/195'/0'/0/0");
+  const hotTronHex = "41" + hotNode.address.slice(2).toLowerCase();
   const toHex      = "41" + tronToHex(toTronAddress).slice(2);
 
   const body = { owner_address: hotTronHex, to_address: toHex, amount: sunAmount, visible: false };
   const res  = await fetch(`${TRONGRID}/wallet/createtransaction`, { method: "POST", headers, body: JSON.stringify(body) });
   const tx   = await res.json() as Record<string, unknown>;
 
-  const txID       = getTronTxId(tx);
-  const signingKey = new ethers.SigningKey(hotKey);
+  const txID = getTronTxId(tx);
+  const signingKey = new ethers.SigningKey(getHotTronKey());
   const sig        = signingKey.sign("0x" + txID);
   const tronSig    = sig.r.slice(2) + sig.s.slice(2) + (sig.v - 27).toString(16).padStart(2, "0");
 
   const signedTx  = { ...tx, signature: [tronSig] };
-  const broadcast = await fetch(`${TRONGRID}/wallet/broadcasttransaction`, { method: "POST", headers, body: JSON.stringify(signedTx) });
-  const result    = await broadcast.json() as { result?: boolean };
+  const broadcast = await fetch(`${TRONGRID}/wallet/broadcasttransaction`, {
+    method: "POST", headers, body: JSON.stringify(signedTx),
+  });
+  const result = await broadcast.json() as { result?: boolean };
   if (!result.result) throw new Error("TRX top-up broadcast failed");
+  // Small delay for confirmation
   await new Promise((r) => setTimeout(r, 3000));
 }
 
-async function broadcastTron(fromTronAddress: string, to: string, crypto: string, amount: number, userPrivKey: string): Promise<string> {
+async function broadcastTron(
+  fromTronAddress: string,  // user's Tron deposit address
+  to:              string,  // destination Tron address
+  crypto:          string,
+  amount:          number,
+): Promise<string> {
   if (crypto !== "USDT") throw new Error(`TRC20 ${crypto} not yet supported`);
 
   const apiKey  = process.env.TRONGRID_API_KEY ?? "";
   const headers: Record<string, string> = { "Content-Type": "application/json", ...(apiKey ? { "TRON-PRO-API-KEY": apiKey } : {}) };
 
+  // ── TRX gas check & top-up ───────────────────────────────────────────────
   const trxBalance = await getTronNativeBalance(fromTronAddress, apiKey);
   if (trxBalance < MIN_TRX) {
+    console.log(`[broadcaster] Topping up TRX for ${fromTronAddress}`);
     await sendTRXFromHotWallet(fromTronAddress, TOPUP_TRX, apiKey);
+    console.log(`[broadcaster] TRX top-up done`);
   }
 
+  // ── Sign from user's address ─────────────────────────────────────────────
+  const userPrivKey = await getPrivateKeyForAddress(fromTronAddress, "TRC20");
+  const userEVMNode = new ethers.Wallet(userPrivKey); // ethers wallet for signing
   const fromHex     = "41" + tronToHex(fromTronAddress).slice(2);
   const toHex       = "41" + tronToHex(to).slice(2);
   const contractHex = "41" + tronToHex(TRON_USDT_CONTRACT).slice(2);
@@ -194,46 +276,54 @@ async function broadcastTron(fromTronAddress: string, to: string, crypto: string
 
   const triggerRes  = await fetch(`${TRONGRID}/wallet/triggersmartcontract`, { method: "POST", headers, body: JSON.stringify(body) });
   const triggerData = await triggerRes.json() as { result?: { result: boolean; message?: string }; transaction?: Record<string, unknown> };
+
   if (!triggerData?.result?.result) {
     throw new Error(`TronGrid trigger failed: ${triggerData?.result?.message ?? "unknown"}`);
   }
 
-  const tx      = triggerData.transaction!;
-  const txID    = getTronTxId(tx);
-  const sig     = new ethers.SigningKey(userPrivKey).sign("0x" + txID);
+  const tx     = triggerData.transaction!;
+  const txID   = getTronTxId(tx);
+  const sig    = new ethers.SigningKey(userEVMNode.privateKey).sign("0x" + txID);
   const tronSig = sig.r.slice(2) + sig.s.slice(2) + (sig.v - 27).toString(16).padStart(2, "0");
 
-  const signedTx      = { ...tx, signature: [tronSig] };
-  const broadcastRes  = await fetch(`${TRONGRID}/wallet/broadcasttransaction`, { method: "POST", headers, body: JSON.stringify(signedTx) });
-  const broadcastData = await broadcastRes.json() as { result?: boolean; txid?: string; message?: string; code?: string };
+  const signedTx       = { ...tx, signature: [tronSig] };
+  const broadcastRes   = await fetch(`${TRONGRID}/wallet/broadcasttransaction`, { method: "POST", headers, body: JSON.stringify(signedTx) });
+  const broadcastData  = await broadcastRes.json() as { result?: boolean; txid?: string; message?: string; code?: string };
+
   if (!broadcastData?.result) {
     throw new Error(`Tron broadcast failed: ${broadcastData?.message ?? broadcastData?.code ?? "unknown"}`);
   }
+
   return broadcastData.txid ?? txID;
 }
 
-// ─── Public dispatcher ──────────────────────────────────────────────────────
+// ─── Public dispatcher ────────────────────────────────────────────────────────
 
-export interface BroadcastResult { txHash: string; network: string; explorer: string; }
+export interface BroadcastResult {
+  txHash:   string;
+  network:  string;
+  explorer: string;
+}
 
-export async function broadcastWithdrawal(input: {
-  hdIndex: number | null;
-  fromAddress: string;
-  to: string;
-  crypto: string;
-  network: string;
-  amount: number;
-}): Promise<BroadcastResult> {
-  const { hdIndex, fromAddress, to, crypto, network, amount } = input;
-  const userPrivKey = resolveUserKey({ hdIndex, fromAddress, network });
-
+/**
+ * Sign and broadcast a withdrawal from the user's own deposit address.
+ * fromAddress must exist in crypto_deposit_addresses.
+ */
+export async function broadcastWithdrawal(
+  fromAddress: string,  // user's deposit address (tokens are already here)
+  to:          string,  // user's external destination wallet
+  crypto:      string,
+  network:     string,
+  amount:      number,
+): Promise<BroadcastResult> {
   let txHash: string;
+
   if (network === "TRC20") {
-    txHash = await broadcastTron(fromAddress, to, crypto, amount, userPrivKey);
+    txHash = await broadcastTron(fromAddress, to, crypto, amount);
   } else if (network === "BITCOIN") {
     throw new Error("BTC withdrawals not yet supported — coming soon");
   } else if (EVM_CHAINS[network]) {
-    txHash = await broadcastEVM(fromAddress, to, crypto, network, amount, userPrivKey);
+    txHash = await broadcastEVM(fromAddress, to, crypto, network, amount);
   } else {
     throw new Error(`Unsupported network: ${network}`);
   }
