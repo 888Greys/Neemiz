@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement, p2pMakerReceives } from "@/lib/p2p/crypto-balance";
 
 export const dynamic = "force-dynamic";
 
@@ -111,9 +111,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     ? { displayName: order.seller.displayName, paymentMethod: merchantPaymentMethod }
     : { displayName: takerDisplayName, paymentMethod: takerPaymentMethod };
   const cryptoAmount = Number(order.cryptoAmount);
+  // What the crypto receiver actually gets. Maker-pays: on a SELL ad the buyer
+  // (taker) receives the FULL amount; on a BUY ad the merchant (maker) receives
+  // amount − fee. KES Coin keeps its own 1% payout.
   const netCryptoAmount = isKesCoin(order.crypto)
     ? kesPayoutAmount(cryptoAmount)
-    : parseFloat((cryptoAmount * 0.98).toFixed(8));
+    : order.ad.side === "SELL"
+      ? cryptoAmount
+      : p2pMakerReceives(cryptoAmount);
   const myFeedback = await db.p2PFeedback.findFirst({
     where: { orderId: order.id, fromUserId: dbUser.id },
     select: { rating: true, comment: true, createdAt: true },
