@@ -555,7 +555,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                   <button
                     type="button"
                     onClick={() => setDepositMethod("mpesa")}
-                    className={`flex items-center gap-2 rounded-xl px-3 py-2 ring-1 transition ${depositMethod === "mpesa" ? "bg-[#087cff]/10 ring-[#087cff]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
+                    className={`flex items-center gap-2 rounded-full px-3 py-2 ring-1 transition ${depositMethod === "mpesa" ? "bg-[#087cff]/10 ring-[#087cff]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
                   >
                     <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "mpesa" ? "bg-[#087cff]/20" : "bg-white/[0.06]"}`}>
                       <Icon name="phone_iphone" fill className={`text-[18px] ${depositMethod === "mpesa" ? "text-[#087cff]" : "text-slate-500"}`} />
@@ -568,7 +568,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                   <button
                     type="button"
                     onClick={() => setDepositMethod("crypto")}
-                    className={`flex items-center gap-2 rounded-xl px-3 py-2 ring-1 transition ${depositMethod === "crypto" ? "bg-[#f59e0b]/10 ring-[#f59e0b]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
+                    className={`flex items-center gap-2 rounded-full px-3 py-2 ring-1 transition ${depositMethod === "crypto" ? "bg-[#f59e0b]/10 ring-[#f59e0b]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
                   >
                     <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "crypto" ? "bg-[#f59e0b]/20" : "bg-white/[0.06]"}`}>
                       <Icon name="currency_bitcoin" fill className={`text-[18px] ${depositMethod === "crypto" ? "text-[#f59e0b]" : "text-slate-500"}`} />
