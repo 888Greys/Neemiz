@@ -42,7 +42,7 @@ export async function GET(req: Request) {
   const excludedIds = await getExcludedUserIds();
   const notExcluded = excludedIds.length ? { userId: { notIn: excludedIds } } : {};
 
-  const [deposits, withdrawals, betStakes, betWins, fees] = await Promise.all([
+  const [deposits, withdrawals, betStakes, betWins, fees, p2pFees] = await Promise.all([
     // Real cash received through the configured payment gateway.
     db.transaction.groupBy({
       by: ["createdAt"],
@@ -98,6 +98,17 @@ export async function GET(req: Request) {
       },
       _sum: { amount: true },
     }),
+    // P2P fees are held in crypto. Their KES value is stamped into metadata
+    // when the trade releases, using the executed order price.
+    db.transaction.findMany({
+      where: {
+        provider: "p2p_fee",
+        status: "COMPLETED",
+        createdAt: { gte: since },
+        ...notExcluded,
+      },
+      select: { createdAt: true, metadata: true },
+    }),
   ]);
 
   // Build a map of date → aggregated values
@@ -107,6 +118,7 @@ export async function GET(req: Request) {
     withdrawals: number;
     betStakes: number;
     betWins: number;
+    p2pFees: number;
     grossProfit: number;
   };
 
@@ -123,14 +135,14 @@ export async function GET(req: Request) {
       const d = new Date(since);
       d.setHours(h);
       const k = key(d);
-      dayMap[k] = { date: k, deposits: 0, withdrawals: 0, betStakes: 0, betWins: 0, grossProfit: 0 };
+      dayMap[k] = { date: k, deposits: 0, withdrawals: 0, betStakes: 0, betWins: 0, p2pFees: 0, grossProfit: 0 };
     }
   } else {
     for (let i = 0; i < days; i++) {
       const d = new Date(since);
       d.setDate(d.getDate() + i);
       const k = key(d);
-      dayMap[k] = { date: k, deposits: 0, withdrawals: 0, betStakes: 0, betWins: 0, grossProfit: 0 };
+      dayMap[k] = { date: k, deposits: 0, withdrawals: 0, betStakes: 0, betWins: 0, p2pFees: 0, grossProfit: 0 };
     }
   }
 
@@ -138,11 +150,17 @@ export async function GET(req: Request) {
   for (const r of withdrawals) { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].withdrawals += Number(r._sum.amount ?? 0); }
   for (const r of betStakes)   { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].betStakes   += Number(r._sum.amount ?? 0); }
   for (const r of betWins)     { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].betWins     += Number(r._sum.amount ?? 0); }
+  for (const r of p2pFees) {
+    const metadata = r.metadata as { feeKesAmount?: unknown } | null;
+    const feeKesAmount = Number(metadata?.feeKesAmount);
+    const k = key(r.createdAt);
+    if (dayMap[k] && Number.isFinite(feeKesAmount) && feeKesAmount >= 0) dayMap[k].p2pFees += feeKesAmount;
+  }
 
   const days_data = Object.values(dayMap).map((d) => ({
     ...d,
-    // House profit = bet stakes - bet wins paid + withdrawal fees (5%)
-    grossProfit: parseFloat((d.betStakes - d.betWins + d.withdrawals * 0.05).toFixed(2)),
+    // House profit = bet stakes - bet wins paid + withdrawal fees + P2P fees.
+    grossProfit: parseFloat((d.betStakes - d.betWins + d.withdrawals * 0.05 + d.p2pFees).toFixed(2)),
   }));
 
   // Totals for the period
@@ -150,7 +168,8 @@ export async function GET(req: Request) {
   const totalWithdrawals  = days_data.reduce((s, d) => s + d.withdrawals, 0);
   const totalBetStakes    = days_data.reduce((s, d) => s + d.betStakes, 0);
   const totalBetWins      = days_data.reduce((s, d) => s + d.betWins, 0);
-  const totalFeesCollected = parseFloat((Number(fees._sum.amount ?? 0) * 0.05).toFixed(2));
+  const totalP2PFees      = days_data.reduce((s, d) => s + d.p2pFees, 0);
+  const totalFeesCollected = parseFloat((Number(fees._sum.amount ?? 0) * 0.05 + totalP2PFees).toFixed(2));
   const totalGrossProfit  = parseFloat((totalBetStakes - totalBetWins + totalFeesCollected).toFixed(2));
 
   return Response.json({

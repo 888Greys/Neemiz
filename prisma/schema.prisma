@@ -307,6 +307,12 @@ model P2PAd {
   minLimit Decimal @map("min_limit") @db.Decimal(18, 2) // min KES
   maxLimit Decimal @map("max_limit") @db.Decimal(18, 2) // max KES
 
+  // Platform fee rate locked in at ad creation (maker-pays). For crypto SELL ads
+  // the merchant escrows totalAmount * (1 + feeRate); release pays the buyer the
+  // full amount and the platform keeps the feeRate share. 0 for legacy ads (which
+  // pre-date maker-pays) so their releases stay fee-free and never under-debit.
+  feeRate Decimal @default(0) @map("fee_rate") @db.Decimal(6, 4)
+
   paymentMethods String[] @map("payment_methods") // ["mpesa","bank"]
   paymentWindow  Int      @default(15) @map("payment_window") // minutes
   terms          String?

@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { creditUserCrypto, debitUserCrypto, defaultNetwork, isKesCoin, releaseKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, isKesCoin, releaseKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement, settleCryptoEscrowRelease } from "@/lib/p2p/crypto-balance";
+import { convertToKES, getFxRatesToKES } from "@/lib/p2p/fx";
 import { sendTradeCompletedEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
 
@@ -45,11 +46,18 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const cryptoAmt   = Number(order.cryptoAmount);
     const network     = defaultNetwork(order.crypto);
     const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
+    // The executed ad price is immutable on the order. Convert it once while
+    // booking the fee so admin P&L is stable even when crypto prices move later.
+    const feeKesPerCrypto = isKesCoin(order.crypto)
+      ? 0
+      : convertToKES(Number(order.pricePerUnit), order.ad.fiat, (await getFxRatesToKES()).toKES);
 
-    // Platform escrow fee: 2% total (1% from buyer + 1% from seller).
-    // Deducted from the crypto being transferred — receiver gets 98% of trade amount.
-    const ESCROW_FEE_RATE = 0.02;
-    const netCryptoAmt    = parseFloat((cryptoAmt * (1 - ESCROW_FEE_RATE)).toFixed(8));
+    // Maker-pays fee (Binance-style): the merchant who posted the ad bears the
+    // platform fee; the taker is always made whole. SELL reserves the fee in the
+    // merchant's escrow at ad creation (order.ad.feeRate); BUY takes it from what
+    // the merchant receives. `creditedAmount` is what the receiver actually gets,
+    // used only for messaging below.
+    let creditedAmount = cryptoAmt;
 
     await db.$transaction(async (tx) => {
       const released = await tx.p2POrder.updateMany({
@@ -65,7 +73,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
 
       if (isKesCoin(order.crypto)) {
-        // KES coin: 1% from each side. The giver was escrowed amount+1% at
+        // KES coin keeps its own 1%/1% split. The giver was escrowed amount+1% at
         // order creation; pay the receiver amount-1% (platform keeps the 2%).
         const receiverUserId = isMerchantSell ? order.buyerId : merchant.userId;
         const payoutAmount = kesPayoutAmount(cryptoAmt);
@@ -83,46 +91,24 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           orderId: order.id,
           role: "receiver",
         });
-      } else if (isMerchantSell) {
-        const escrowBalance = await tx.p2PCryptoBalance.findUnique({
-          where: { merchantId_crypto: { merchantId: merchant.id, crypto: order.crypto } },
-        });
-
-        // Orders created before merchant escrow balances were introduced have
-        // no P2PCryptoBalance row. Settle those from the merchant's wallet when
-        // they explicitly release, while still enforcing sufficient funds.
-        if (!escrowBalance) {
-          await debitUserCrypto(tx, merchant.userId, order.crypto, network, cryptoAmt);
-        } else {
-          const escrowDebit = await tx.p2PCryptoBalance.updateMany({
-            where: {
-              merchantId: merchant.id,
-              crypto: order.crypto,
-              total:  { gte: cryptoAmt },
-              locked: { gte: cryptoAmt },
-            },
-            data: {
-              locked: { decrement: cryptoAmt },
-              total:  { decrement: cryptoAmt },
-            },
-          });
-          if (escrowDebit.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
-        }
-
-        // Buyer (user) receives 98% — 2% platform fee stays in escrow
-        await creditUserCrypto(tx, order.buyerId, order.crypto, network, netCryptoAmt);
+        creditedAmount = payoutAmount;
       } else {
-        const unlocked = await tx.userCryptoBalance.updateMany({
-          where: { userId: order.buyerId, crypto: order.crypto, network, locked: { gte: cryptoAmt } },
-          data:  { locked: { decrement: cryptoAmt } },
+        // Real crypto — maker-pays. SELL: merchant escrow funds amount + fee,
+        // buyer gets the full amount. BUY: taker delivers full, merchant gets
+        // amount − fee. Fee is booked to a p2p_fee ledger row (+ house escrow).
+        const { receiverGets } = await settleCryptoEscrowRelease(tx, {
+          crypto:         order.crypto,
+          network,
+          amount:         cryptoAmt,
+          isMerchantSell,
+          sellFeeRate:    Number(order.ad.feeRate),
+          merchantId:     merchant.id,
+          merchantUserId: merchant.userId,
+          buyerId:        order.buyerId,
+          orderId:        order.id,
+          feeKesPerCrypto,
         });
-        if (unlocked.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
-        // Merchant (buyer) receives 98% — 2% platform fee stays in escrow
-        await tx.p2PCryptoBalance.upsert({
-          where:  { merchantId_crypto: { merchantId: merchant.id, crypto: order.crypto } },
-          create: { merchantId: merchant.id, crypto: order.crypto, total: netCryptoAmt, available: netCryptoAmt, locked: 0 },
-          update: { total: { increment: netCryptoAmt }, available: { increment: netCryptoAmt } },
-        });
+        creditedAmount = receiverGets;
       }
 
       if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
@@ -143,7 +129,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       await createP2POrderEventMessage(tx, {
         orderId: order.id,
         senderId: dbUser.id,
-        content: `${netCryptoAmt.toFixed(6)} ${order.crypto} released. Trade completed.`,
+        content: `${creditedAmount.toFixed(6)} ${order.crypto} released. Trade completed.`,
       });
     });
 
@@ -151,7 +137,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const emailOpts = {
       crypto:      order.crypto,
       cryptoAmount: cryptoAmt,
-      netCryptoAmount: netCryptoAmt,
+      netCryptoAmount: creditedAmount,
       fiatAmount:  Number(order.fiatAmount),
       fiat:        order.ad.fiat,
       orderId:     order.id,
