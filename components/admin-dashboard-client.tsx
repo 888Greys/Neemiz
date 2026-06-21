@@ -130,30 +130,22 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
   const [profits, setProfits] = useState<ProfitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  // Gross P&L window: 1 = today (24h, the first clean day post-cleanup), 7, 30.
+  const [pnlDays, setPnlDays] = useState(30);
 
   const load = useCallback(async () => {
     // Render last-known data instantly (like the main site) so revisiting the
     // command center never shows a blank spinner; then revalidate in the
     // background. Only block on the spinner when there is nothing cached.
     const cachedStats = getCached<Stats>("/api/admin/stats");
-    const cachedProfits = getCached<ProfitData>("/api/admin/profits?days=30");
     if (cachedStats) setStats(cachedStats);
-    if (cachedProfits) setProfits(cachedProfits);
     setLoading(!cachedStats);
     try {
-      const [statsRes, profitsRes] = await Promise.all([
-        fetch("/api/admin/stats"),
-        fetch("/api/admin/profits?days=30"),
-      ]);
+      const statsRes = await fetch("/api/admin/stats");
       if (statsRes.ok) {
         const data = (await statsRes.json()) as Stats;
         setStats(data);
         setCached("/api/admin/stats", data);
-      }
-      if (profitsRes.ok) {
-        const data = (await profitsRes.json()) as ProfitData;
-        setProfits(data);
-        setCached("/api/admin/profits?days=30", data);
       }
       setUpdatedAt(new Date());
     } finally {
@@ -161,7 +153,24 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
     }
   }, []);
 
+  // P&L fetched separately so the 24H / 7D / 30D toggle can re-query just this
+  // card without reloading the whole dashboard. Cached per window.
+  const loadProfits = useCallback(async (days: number) => {
+    const key = `/api/admin/profits?days=${days}`;
+    const cached = getCached<ProfitData>(key);
+    if (cached) setProfits(cached);
+    try {
+      const res = await fetch(key);
+      if (res.ok) {
+        const data = (await res.json()) as ProfitData;
+        setProfits(data);
+        setCached(key, data);
+      }
+    } catch { /* keep last-known */ }
+  }, []);
+
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { loadProfits(pnlDays); }, [pnlDays, loadProfits]);
 
   if (loading && !stats) {
     return <div className="flex min-h-screen items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-white/10 border-t-blue-500" /></div>;
@@ -194,7 +203,7 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
           <h1 className="mt-1 text-2xl font-black tracking-tight">Owner command center</h1>
           <p className="text-[11px] text-slate-600">{adminEmail} · {updatedAt ? `Synced ${updatedAt.toLocaleTimeString()}` : "Connecting"}</p>
         </div>
-        <button onClick={load} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] font-black text-slate-400 hover:text-white">
+        <button onClick={() => { load(); loadProfits(pnlDays); }} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] font-black text-slate-400 hover:text-white">
           <Icon name="refresh" size={13} /> Refresh terminal
         </button>
       </header>
@@ -205,7 +214,26 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
         <Metric label="Customer funds" value={money(stats.totalWalletBalance)} detail={stats.testAccounts && stats.testAccounts.count > 0 ? `${(stats.realWalletCount ?? stats.totalUsers).toLocaleString()} real wallets · ${stats.testAccounts.count} test excluded (${money(stats.testAccounts.balance)})` : `${stats.totalUsers.toLocaleString()} user wallets`} icon="account_balance_wallet" />
         <Metric label="Cash in today" value={money(stats.depositsToday.amount)} detail={`${stats.depositsToday.count} completed deposits`} icon="arrow_downward" tone="green" />
         <Metric label="Bet turnover today" value={money(stats.bettingToday.stakes)} detail={`${stats.bettingToday.stakeCount} stakes placed`} icon="bolt" tone="violet" />
-        <Metric label="30D gross P&L" value={money(profits?.totals.grossProfit ?? 0)} detail={`${money(stats.bettingToday.wins)} wins paid today`} icon="trending_up" tone="amber" />
+        <div className="border-b border-r border-white/[0.06] bg-white/[0.012] p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">
+              {pnlDays === 1 ? "24H" : pnlDays === 7 ? "7D" : "30D"} gross P&amp;L
+            </p>
+            <span className="rounded-lg bg-amber-500/10 p-1.5 text-amber-400"><Icon name="trending_up" size={14} /></span>
+          </div>
+          <p className="mt-4 text-2xl font-black tracking-tight text-white">{money(profits?.totals.grossProfit ?? 0)}</p>
+          <div className="mt-2 flex gap-1">
+            {([[1, "24H"], [7, "7D"], [30, "30D"]] as const).map(([d, l]) => (
+              <button
+                key={d}
+                onClick={() => setPnlDays(d)}
+                className={`rounded px-2 py-0.5 text-[9px] font-black transition ${pnlDays === d ? "bg-amber-500/20 text-amber-300" : "text-slate-600 hover:text-slate-400"}`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.65fr_1fr]">
