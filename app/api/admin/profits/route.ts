@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
+import { getExcludedUserIds } from "@/lib/admin-excluded";
 import { cookies } from "next/headers";
 
 const REAL_DEPOSIT_PROVIDERS = ["megapay", "lipaharaka"];
@@ -36,6 +37,11 @@ export async function GET(req: Request) {
     since.setHours(0, 0, 0, 0);
   }
 
+  // Keep suspended exploiters + owner test accounts out of the real-money P&L
+  // so every window (24H/7D/30D) reflects genuine players only.
+  const excludedIds = await getExcludedUserIds();
+  const notExcluded = excludedIds.length ? { userId: { notIn: excludedIds } } : {};
+
   const [deposits, withdrawals, betStakes, betWins, fees] = await Promise.all([
     // Real cash received through the configured payment gateway.
     db.transaction.groupBy({
@@ -46,6 +52,7 @@ export async function GET(req: Request) {
         currency: "KES",
         provider: { in: REAL_DEPOSIT_PROVIDERS },
         createdAt: { gte: since },
+        ...notExcluded,
       },
       _sum: { amount: true },
       _count: true,
@@ -60,6 +67,7 @@ export async function GET(req: Request) {
         currency: "KES",
         provider: { in: REAL_WITHDRAWAL_PROVIDERS },
         createdAt: { gte: since },
+        ...notExcluded,
       },
       _sum: { amount: true },
       _count: true,
@@ -67,14 +75,14 @@ export async function GET(req: Request) {
     // Bet stakes
     db.transaction.groupBy({
       by: ["createdAt"],
-      where: { type: "BET_STAKE", status: "COMPLETED", createdAt: { gte: since } },
+      where: { type: "BET_STAKE", status: "COMPLETED", createdAt: { gte: since }, ...notExcluded },
       _sum: { amount: true },
       _count: true,
     }),
     // Bet wins paid out
     db.transaction.groupBy({
       by: ["createdAt"],
-      where: { type: "BET_WIN", status: "COMPLETED", createdAt: { gte: since } },
+      where: { type: "BET_WIN", status: "COMPLETED", createdAt: { gte: since }, ...notExcluded },
       _sum: { amount: true },
       _count: true,
     }),
@@ -86,6 +94,7 @@ export async function GET(req: Request) {
         currency: "KES",
         provider: { in: REAL_WITHDRAWAL_PROVIDERS },
         createdAt: { gte: since },
+        ...notExcluded,
       },
       _sum: { amount: true },
     }),

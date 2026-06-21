@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
+import { getExcludedUserIds } from "@/lib/admin-excluded";
 import { cookies } from "next/headers";
 import { TransactionStatus } from "@prisma/client";
 
@@ -46,6 +47,12 @@ export async function GET() {
     distinct: ["userId"],
   });
   const testUserIds = testCreditUsers.map((t) => t.userId);
+
+  // Broader real-money exclusion (suspended + test) for betting metrics so the
+  // overview turnover/wins match the cleaned P&L. Guard the empty case —
+  // `notIn: []` would match nothing.
+  const excludedIds = await getExcludedUserIds();
+  const notExcluded = excludedIds.length ? { userId: { notIn: excludedIds } } : {};
 
   const [
     totalUsers,
@@ -97,12 +104,12 @@ export async function GET() {
     db.forexTrade.count({ where: { status: "OPEN" } }),
     db.aviatorBet.count({ where: { status: "ACTIVE" } }),
     db.transaction.aggregate({
-      where: { type: "BET_STAKE", status: "COMPLETED", createdAt: { gte: startOfDay } },
+      where: { type: "BET_STAKE", status: "COMPLETED", createdAt: { gte: startOfDay }, ...notExcluded },
       _sum: { amount: true },
       _count: true,
     }),
     db.transaction.aggregate({
-      where: { type: "BET_WIN", status: "COMPLETED", createdAt: { gte: startOfDay } },
+      where: { type: "BET_WIN", status: "COMPLETED", createdAt: { gte: startOfDay }, ...notExcluded },
       _sum: { amount: true },
       _count: true,
     }),
