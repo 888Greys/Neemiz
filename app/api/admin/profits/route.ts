@@ -180,6 +180,7 @@ export async function GET(req: Request) {
       withdrawals:  parseFloat(totalWithdrawals.toFixed(2)),
       betStakes:    parseFloat(totalBetStakes.toFixed(2)),
       betWins:      parseFloat(totalBetWins.toFixed(2)),
+      p2pFees:      parseFloat(totalP2PFees.toFixed(2)),
       feesCollected: totalFeesCollected,
       grossProfit:  totalGrossProfit,
     },
