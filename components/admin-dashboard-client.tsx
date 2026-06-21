@@ -43,6 +43,7 @@ interface Stats {
   depositsMonth: { count: number; amount: number };
   bettingToday: { stakes: number; stakeCount: number; wins: number; winCount: number };
   exposure: { sports: number; predictions: number; binary: number; forex: number; aviator: number };
+  health?: { api: boolean; database: boolean; p2pFeeSchema: boolean; checkedAt: string };
   recentTransactions: TransactionRow[];
 }
 
@@ -130,8 +131,8 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
   const [profits, setProfits] = useState<ProfitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  // Gross P&L window: 1 = today (24h, the first clean day post-cleanup), 7, 30.
-  const [pnlDays, setPnlDays] = useState(30);
+  // Default to today so the first screen answers the operator's daily question.
+  const [pnlDays, setPnlDays] = useState(1);
 
   const load = useCallback(async () => {
     // Render last-known data instantly (like the main site) so revisiting the
@@ -191,14 +192,20 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
     ["Forex", stats.exposure.forex, "currency_exchange"],
     ["Aviator", stats.exposure.aviator, "flight_takeoff"],
   ] as const;
+  const gameResult = stats.bettingToday.stakes - stats.bettingToday.wins;
+  const health = stats.health;
+  const coreHealthy = health?.api && health.database && health.p2pFeeSchema;
+  const profitWindowLabel = pnlDays === 1 ? "Today" : pnlDays === 7 ? "7-day" : "30-day";
 
   return (
     <div className="admin-page">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Platform operational</p>
+            <span className={`h-2 w-2 rounded-full ${coreHealthy ? "animate-pulse bg-emerald-400" : "bg-amber-400"}`} />
+            <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${coreHealthy ? "text-emerald-400" : "text-amber-400"}`}>
+              {coreHealthy ? "Core services verified" : "Core check needs attention"}
+            </p>
           </div>
           <h1 className="mt-1 text-2xl font-black tracking-tight">Owner command center</h1>
           <p className="text-[11px] text-slate-600">{adminEmail} · {updatedAt ? `Synced ${updatedAt.toLocaleTimeString()}` : "Connecting"}</p>
@@ -210,14 +217,16 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
 
       <BalanceCleanupAlert />
 
-      <div className="admin-panel mb-4 grid overflow-hidden sm:grid-cols-2 xl:grid-cols-4">
+      <div className="admin-panel mb-4 grid overflow-hidden sm:grid-cols-2 xl:grid-cols-6">
         <Metric label="Customer funds" value={money(stats.totalWalletBalance)} detail={stats.testAccounts && stats.testAccounts.count > 0 ? `${(stats.realWalletCount ?? stats.totalUsers).toLocaleString()} real wallets · ${stats.testAccounts.count} test excluded (${money(stats.testAccounts.balance)})` : `${stats.totalUsers.toLocaleString()} user wallets`} icon="account_balance_wallet" />
         <Metric label="Cash in today" value={money(stats.depositsToday.amount)} detail={`${stats.depositsToday.count} completed deposits`} icon="arrow_downward" tone="green" />
-        <Metric label="Bet turnover today" value={money(stats.bettingToday.stakes)} detail={`${stats.bettingToday.stakeCount} stakes placed`} icon="bolt" tone="violet" />
+        <Metric label="Bet activity today" value={money(stats.bettingToday.stakes)} detail={`${stats.bettingToday.stakeCount} stakes placed`} icon="bolt" tone="violet" />
+        <Metric label="Wins paid today" value={money(stats.bettingToday.wins)} detail={`${stats.bettingToday.winCount} winning payouts`} icon="emoji_events" tone="amber" />
+        <Metric label="Game result today" value={money(Math.abs(gameResult))} detail={gameResult >= 0 ? "Customer losses after payouts" : "Customer wins exceed stakes"} icon={gameResult >= 0 ? "trending_up" : "trending_down"} tone={gameResult >= 0 ? "green" : "amber"} />
         <div className="border-b border-r border-white/[0.06] bg-white/[0.012] p-4">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">
-              {pnlDays === 1 ? "24H" : pnlDays === 7 ? "7D" : "30D"} gross P&amp;L
+              {pnlDays === 1 ? "Today" : pnlDays === 7 ? "7D" : "30D"} gross P&amp;L
             </p>
             <span className="rounded-lg bg-amber-500/10 p-1.5 text-amber-400"><Icon name="trending_up" size={14} /></span>
           </div>
@@ -238,7 +247,7 @@ export function AdminDashboardClient({ adminEmail }: { adminEmail: string }) {
 
       <div className="grid gap-4 xl:grid-cols-[1.65fr_1fr]">
         <div className="space-y-4">
-          <Panel title="30-day financial telemetry" action={<Link href="/admin/profits" className="text-[10px] font-black text-blue-400">OPEN FINANCE</Link>}>
+          <Panel title={`${profitWindowLabel} financial telemetry`} action={<Link href="/admin/profits" className="text-[10px] font-black text-blue-400">OPEN FINANCE</Link>}>
             <div className="h-[260px] p-3">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={profits?.days ?? []} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
