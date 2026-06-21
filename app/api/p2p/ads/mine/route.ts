@@ -3,6 +3,10 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
 import { assertKesSellBacking, deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
+import { isKesCoin, p2pMakerLock } from "@/lib/p2p/crypto-balance";
+import { OrderStatus } from "@prisma/client";
+
+const OPEN_ORDER_STATUSES: OrderStatus[] = ["PENDING", "PAID", "DISPUTED"];
 
 function hasPaymentMethods(value: unknown): value is string[] {
   return Array.isArray(value) && value.length > 0 && value.every((m) => typeof m === "string");
@@ -83,6 +87,9 @@ export async function PATCH(req: Request) {
   const paymentMethods = body.paymentMethods == null ? ad.paymentMethods : body.paymentMethods;
   const terms = body.terms == null ? ad.terms : String(body.terms || "");
   const isActive = typeof body.isActive === "boolean" ? body.isActive : ad.isActive;
+  const isCryptoSell = ad.side === "SELL" && !isKesCoin(ad.crypto);
+  const isPausing = isCryptoSell && ad.isActive && !isActive;
+  const isResuming = isCryptoSell && !ad.isActive && isActive;
 
   if (!Number.isFinite(pricePerUnit) || pricePerUnit <= 0) {
     return Response.json({ error: "Invalid price per unit" }, { status: 400 });
@@ -140,18 +147,67 @@ export async function PATCH(req: Request) {
     }
   }
 
-  const updated = await db.p2PAd.update({
-    where: { id: ad.id },
-    data: {
-      pricePerUnit,
-      minLimit,
-      maxLimit,
-      paymentMethods,
-      paymentWindow,
-      terms: terms || null,
-      isActive,
-    },
-  });
+  const adUpdate = {
+    pricePerUnit,
+    minLimit,
+    maxLimit,
+    paymentMethods,
+    paymentWindow,
+    terms: terms || null,
+    isActive,
+  };
+
+  let updated;
+  try {
+    updated = isPausing || isResuming
+      ? await db.$transaction(async (tx) => {
+          // Taking the ad row lock first prevents a concurrent order creation
+          // from reserving inventory after the no-open-orders check.
+          const stateChanged = await tx.p2PAd.updateMany({
+            where: { id: ad.id, isActive: ad.isActive },
+            data: { isActive },
+          });
+          if (stateChanged.count === 0) throw new Error("AD_STATE_CHANGED");
+
+          if (isPausing) {
+            const openOrders = await tx.p2POrder.count({
+              where: { adId: ad.id, status: { in: OPEN_ORDER_STATUSES } },
+            });
+            if (openOrders > 0) throw new Error("OPEN_ORDERS");
+          }
+
+          const reserve = p2pMakerLock(Number(ad.availableAmount), Number(ad.feeRate));
+          const balanceUpdated = await tx.p2PCryptoBalance.updateMany({
+            where: isPausing
+              ? { merchantId: merchant.id, crypto: ad.crypto, locked: { gte: reserve } }
+              : { merchantId: merchant.id, crypto: ad.crypto, available: { gte: reserve } },
+            data: isPausing
+              ? { locked: { decrement: reserve }, available: { increment: reserve } }
+              : { locked: { increment: reserve }, available: { decrement: reserve } },
+          });
+          if (balanceUpdated.count === 0) {
+            throw new Error(isPausing ? "INSUFFICIENT_LOCKED_CRYPTO" : "INSUFFICIENT_BALANCE");
+          }
+
+          return tx.p2PAd.update({ where: { id: ad.id }, data: adUpdate });
+        })
+      : await db.p2PAd.update({ where: { id: ad.id }, data: adUpdate });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "OPEN_ORDERS") {
+      return Response.json({ error: "This ad has open orders. Resolve them before pausing it." }, { status: 409 });
+    }
+    if (message === "INSUFFICIENT_BALANCE") {
+      return Response.json({ error: `Insufficient ${ad.crypto} balance to resume this ad.` }, { status: 400 });
+    }
+    if (message === "INSUFFICIENT_LOCKED_CRYPTO") {
+      return Response.json({ error: "This ad's escrow reserve is unavailable. Contact support." }, { status: 409 });
+    }
+    if (message === "AD_STATE_CHANGED") {
+      return Response.json({ error: "This ad was updated elsewhere. Refresh and try again." }, { status: 409 });
+    }
+    throw err;
+  }
 
   return Response.json({
     id: updated.id,
@@ -180,7 +236,15 @@ export async function DELETE(req: Request) {
 
   const ad = await db.p2PAd.findFirst({
     where: { id: adId, merchantId: merchant.id },
-    select: { id: true, _count: { select: { orders: true } } },
+    select: {
+      id: true,
+      isActive: true,
+      side: true,
+      crypto: true,
+      availableAmount: true,
+      feeRate: true,
+      _count: { select: { orders: true } },
+    },
   });
   if (!ad) return Response.json({ error: "Ad not found" }, { status: 404 });
   if (ad._count.orders > 0) {
@@ -189,6 +253,35 @@ export async function DELETE(req: Request) {
     }, { status: 409 });
   }
 
-  await db.p2PAd.delete({ where: { id: ad.id } });
+  try {
+    await db.$transaction(async (tx) => {
+      // Lock/deactivate the ad before checking its history. This makes a
+      // concurrent order creation fail its `isActive: true` reservation.
+      await tx.p2PAd.update({ where: { id: ad.id }, data: { isActive: false } });
+
+      const orderCount = await tx.p2POrder.count({ where: { adId: ad.id } });
+      if (orderCount > 0) throw new Error("AD_HAS_ORDERS");
+
+      if (ad.side === "SELL" && !isKesCoin(ad.crypto)) {
+        const reserve = p2pMakerLock(Number(ad.availableAmount), Number(ad.feeRate));
+        const balanceUpdated = await tx.p2PCryptoBalance.updateMany({
+          where: { merchantId: merchant.id, crypto: ad.crypto, locked: { gte: reserve } },
+          data:  { locked: { decrement: reserve }, available: { increment: reserve } },
+        });
+        if (balanceUpdated.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
+      }
+
+      await tx.p2PAd.delete({ where: { id: ad.id } });
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message === "AD_HAS_ORDERS") {
+      return Response.json({ error: "This ad has order history and cannot be deleted. Pause it instead." }, { status: 409 });
+    }
+    if (message === "INSUFFICIENT_LOCKED_CRYPTO") {
+      return Response.json({ error: "This ad's escrow reserve is unavailable. Contact support." }, { status: 409 });
+    }
+    throw err;
+  }
   return Response.json({ ok: true });
 }
