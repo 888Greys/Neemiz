@@ -197,9 +197,9 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
 
   // Derived stats (real where the API provides them; "—" placeholders for the
   // 30d split / counterparties / deposit fields that arrive with the feedback work).
-  const completionRate = Number(profile?.completionRate ?? merchant.completionRate ?? 0);
   const completedTrades = Number(profile?.completedTrades ?? merchant.completedTrades ?? 0);
   const totalTrades = Number(profile?.totalTrades ?? merchant.totalTrades ?? completedTrades);
+  const completionRate = totalTrades > 0 ? (completedTrades / totalTrades) * 100 : 0;
   const avgRelease = profile?.avgReleaseTime ?? merchant.avgReleaseTime;
   const adsCount = profile?.activeAds ?? offers.length;
   const feedback = profile?.feedback ?? [];
@@ -1401,6 +1401,8 @@ function AdCard({
   const isMerchantSelling = ad.side === "SELL";
   const color   = CRYPTO_COLOR[ad.crypto] ?? "#087cff";
   const actionLabel = isMerchantSelling ? "Buy" : "Sell";
+  const totalTrades = ad.merchant.totalTrades ?? 0;
+  const completionRate = totalTrades > 0 ? (ad.merchant.completedTrades / totalTrades) * 100 : 0;
 
   return (
     <div
@@ -1443,11 +1445,13 @@ function AdCard({
             <VerifiedSeal className="h-[13px] w-[13px]" />
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-white/45">
-            <span>{ad.merchant.completedTrades} trades</span>
-            <span className="flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#05b957]" />
-              {ad.merchant.completionRate.toFixed(0)}% completion
-            </span>
+            <span>{totalTrades} trade{totalTrades === 1 ? "" : "s"}</span>
+            {totalTrades > 0 ? (
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#05b957]" />
+                {completionRate.toFixed(0)}% completion
+              </span>
+            ) : <span>New merchant</span>}
             <span className="flex items-center gap-1">
               <span className={`h-1.5 w-1.5 rounded-full ${ad.merchant.isOnline ? "bg-[#05b957]" : "bg-slate-600"}`} />
               {ad.merchant.isOnline ? "Active" : "Offline"}
@@ -1483,6 +1487,10 @@ function AdCard({
               {fmtPm(m)}
             </span>
           ))}
+        </div>
+        <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-white/45">
+          <Icon name="schedule" className="text-[12px]" />
+          {ad.paymentWindow} min payment time
         </div>
       </div>
 

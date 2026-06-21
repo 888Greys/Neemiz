@@ -262,12 +262,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           feeKesPerCrypto,
         });
       }
-      const newTotal = order.seller.totalTrades + 1;
+      const newTotal = Math.max(order.seller.totalTrades, 1);
       const newCompleted = order.seller.completedTrades + 1;
       await tx.merchantProfile.update({
         where: { id: order.seller.id },
         data: {
-          totalTrades: newTotal,
           completedTrades: newCompleted,
           completionRate: (newCompleted / newTotal) * 100,
           avgReleaseTime: Math.round((order.seller.avgReleaseTime * order.seller.completedTrades + releaseTime) / newCompleted),

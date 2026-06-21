@@ -59,7 +59,12 @@ export async function GET(req: Request) {
       maxLimit: Number(ad.maxLimit),
     }));
 
-    return Response.json(tradableAds.map((ad) => ({
+    return Response.json(tradableAds.map((ad) => {
+      const totalTrades = ad.merchant.totalTrades;
+      const completedTrades = ad.merchant.completedTrades;
+      const completionRate = totalTrades > 0 ? (completedTrades / totalTrades) * 100 : 0;
+
+      return {
       id:              ad.id,
       side:            ad.side,
       crypto:          ad.crypto,
@@ -78,13 +83,14 @@ export async function GET(req: Request) {
         avatarUrl:       ad.merchant.avatarUrl,
         // Online = a heartbeat in the last 3 minutes.
         isOnline:        !!ad.merchant.lastSeenAt && (Date.now() - new Date(ad.merchant.lastSeenAt).getTime() < 3 * 60 * 1000),
-        totalTrades:     ad.merchant.totalTrades,
-        completedTrades: ad.merchant.completedTrades,
-        completionRate:  Number(ad.merchant.completionRate),
+        totalTrades,
+        completedTrades,
+        completionRate,
         avgReleaseTime:  ad.merchant.avgReleaseTime,
         joinedAt:        ad.merchant.createdAt.toISOString(),
       },
-    })), { headers: { "Cache-Control": "public, s-maxage=20, stale-while-revalidate=60" } });
+    };
+    }), { headers: { "Cache-Control": "public, s-maxage=20, stale-while-revalidate=60" } });
   } catch (err) {
     console.error("GET /api/p2p/ads:", err instanceof Error ? err.message : "Unknown error");
     return Response.json({ error: "Internal server error" }, { status: 500 });
