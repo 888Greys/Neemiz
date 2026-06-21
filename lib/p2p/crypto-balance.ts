@@ -194,6 +194,122 @@ export const kesLockAmount   = (amount: number) => parseFloat((amount * (1 + KES
 /** What the receiver is paid (order amount − their 1% fee). */
 export const kesPayoutAmount = (amount: number) => parseFloat((amount * (1 - KES_FEE_RATE)).toFixed(2));
 
+// ─── Real-crypto P2P platform fee (maker-pays / Binance-style) ───────────────
+// The MAKER (the merchant who posts the ad) bears the fee; the TAKER is always
+// made whole. Configurable via P2P_FEE_RATE (set 0 to run a zero-fee promo).
+//   • SELL ad: at ad creation the merchant escrows amount * (1 + feeRate). On
+//     release the buyer (taker) receives the FULL amount; the platform keeps the
+//     feeRate share out of the merchant's escrow.
+//   • BUY ad: the taker delivers the FULL amount; the merchant (maker) receives
+//     amount * (1 - feeRate); the platform keeps the rest.
+// KES Coin keeps its own 1%/1% split (kesLockAmount/kesPayoutAmount) for now.
+
+const round8 = (n: number) => parseFloat(n.toFixed(8));
+
+/** Current configured P2P fee rate (default 2%). */
+export function p2pFeeRate(): number {
+  const r = Number(process.env.P2P_FEE_RATE ?? "0.02");
+  return Number.isFinite(r) && r >= 0 && r < 1 ? r : 0.02;
+}
+/** What the maker must lock to sell `amount` (amount + fee). */
+export const p2pMakerLock = (amount: number, rate = p2pFeeRate()) => round8(amount * (1 + rate));
+/** What the maker receives when buying `amount` (amount − fee). */
+export const p2pMakerReceives = (amount: number, rate = p2pFeeRate()) => round8(amount * (1 - rate));
+/** The platform fee on `amount` at the given rate. */
+export const p2pFeeOf = (amount: number, rate = p2pFeeRate()) => round8(amount * rate);
+
+/**
+ * Record a collected platform fee (crypto) so it is visible + auditable. Always
+ * writes a `p2p_fee` Transaction; if P2P_FEE_MERCHANT_ID is set, also credits
+ * that house merchant's escrow so the fee is a real spendable balance (keeping
+ * the ledger fully balanced). No-op for zero/negative fees.
+ */
+export async function bookCryptoFee(
+  tx: TxClient,
+  input: { crypto: string; network: string; feeAmount: number; orderId: string; payerUserId: string },
+) {
+  if (!(input.feeAmount > 0)) return;
+  await tx.transaction.create({
+    data: {
+      userId:    input.payerUserId,
+      type:      TransactionType.WITHDRAWAL,
+      amount:    input.feeAmount,
+      currency:  input.crypto,
+      status:    TransactionStatus.COMPLETED,
+      reference: `p2p-fee-${input.orderId}`,
+      provider:  "p2p_fee",
+      metadata:  { action: "p2p_platform_fee", orderId: input.orderId, crypto: input.crypto, network: input.network },
+    },
+  });
+  const houseMerchantId = process.env.P2P_FEE_MERCHANT_ID;
+  if (houseMerchantId) {
+    await tx.p2PCryptoBalance.upsert({
+      where:  { merchantId_crypto: { merchantId: houseMerchantId, crypto: input.crypto } },
+      create: { merchantId: houseMerchantId, crypto: input.crypto, total: input.feeAmount, available: input.feeAmount, locked: 0 },
+      update: { total: { increment: input.feeAmount }, available: { increment: input.feeAmount } },
+    });
+  }
+}
+
+/**
+ * Settle a real-crypto (non-KES) escrow release for a completed/dispute-won
+ * trade, applying the maker-pays fee. Returns what the crypto receiver was
+ * credited (for messaging). Throws INSUFFICIENT_LOCKED_CRYPTO if escrow is short.
+ *
+ *  - SELL: debit the merchant's reserved escrow (amount + fee), credit the buyer
+ *    the full amount, book the fee. `sellFeeRate` is the ad's stored feeRate —
+ *    0 for legacy ads, which therefore pay no fee and only debit the principal.
+ *  - BUY: unlock the taker's full amount, credit the merchant amount − fee, book
+ *    the fee (always at the current rate; this matches pre-existing behaviour).
+ */
+export async function settleCryptoEscrowRelease(
+  tx: TxClient,
+  p: {
+    crypto: string; network: string; amount: number; isMerchantSell: boolean;
+    sellFeeRate: number; merchantId: string; merchantUserId: string; buyerId: string; orderId: string;
+  },
+): Promise<{ receiverGets: number }> {
+  if (p.isMerchantSell) {
+    const fee  = p2pFeeOf(p.amount, p.sellFeeRate);
+    const draw = round8(p.amount + fee); // what leaves the merchant's escrow
+
+    const escrowBalance = await tx.p2PCryptoBalance.findUnique({
+      where: { merchantId_crypto: { merchantId: p.merchantId, crypto: p.crypto } },
+    });
+    if (!escrowBalance) {
+      // Legacy order with no escrow row — settle the principal from the merchant
+      // wallet (no fee was reserved, so none is taken).
+      await debitUserCrypto(tx, p.merchantUserId, p.crypto, p.network, p.amount);
+    } else {
+      const debited = await tx.p2PCryptoBalance.updateMany({
+        where: { merchantId: p.merchantId, crypto: p.crypto, locked: { gte: draw }, total: { gte: draw } },
+        data:  { locked: { decrement: draw }, total: { decrement: draw } },
+      });
+      if (debited.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
+    }
+    await creditUserCrypto(tx, p.buyerId, p.crypto, p.network, p.amount); // taker made whole
+    await bookCryptoFee(tx, { crypto: p.crypto, network: p.network, feeAmount: fee, orderId: p.orderId, payerUserId: p.merchantUserId });
+    return { receiverGets: p.amount };
+  }
+
+  // BUY ad: taker delivers the full amount; merchant receives amount − fee.
+  const fee = p2pFeeOf(p.amount);
+  const unlocked = await tx.userCryptoBalance.updateMany({
+    where: { userId: p.buyerId, crypto: p.crypto, network: p.network, locked: { gte: p.amount } },
+    data:  { locked: { decrement: p.amount } },
+  });
+  if (unlocked.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
+
+  const makerReceives = p2pMakerReceives(p.amount);
+  await tx.p2PCryptoBalance.upsert({
+    where:  { merchantId_crypto: { merchantId: p.merchantId, crypto: p.crypto } },
+    create: { merchantId: p.merchantId, crypto: p.crypto, total: makerReceives, available: makerReceives, locked: 0 },
+    update: { total: { increment: makerReceives }, available: { increment: makerReceives } },
+  });
+  await bookCryptoFee(tx, { crypto: p.crypto, network: p.network, feeAmount: fee, orderId: p.orderId, payerUserId: p.merchantUserId });
+  return { receiverGets: makerReceives };
+}
+
 /**
  * Infer the default network for a given crypto symbol.
  * Update this as new networks are added.

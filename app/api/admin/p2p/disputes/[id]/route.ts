@@ -2,13 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import {
-  creditUserCrypto,
   defaultNetwork,
   isKesCoin,
   kesLockAmount,
   kesPayoutAmount,
   recordKesWalletMovement,
   releaseKesCoinBalance,
+  settleCryptoEscrowRelease,
   unlockKesCoinBalance,
   unlockUserCrypto,
 } from "@/lib/p2p/crypto-balance";
@@ -156,7 +156,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           cryptoAmount: true,
           fiatAmount: true,
           createdAt: true,
-          ad: { select: { side: true } },
+          ad: { select: { side: true, feeRate: true } },
           buyer: { select: { email: true, firstName: true, username: true } },
           seller: {
             select: {
@@ -187,7 +187,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const cryptoSellerUserId = kesGiverUserId;
   const cryptoBuyerWins = resolution === "CRYPTO_BUYER_WINS";
   const network = defaultNetwork(order.crypto);
-  const netCryptoAmt = parseFloat((cryptoAmt * 0.98).toFixed(8));
   const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
 
   await db.$transaction(async (tx) => {
@@ -244,25 +243,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           role: "receiver",
         });
       } else {
-        if (order.ad.side === "SELL") {
-          const debited = await tx.p2PCryptoBalance.updateMany({
-            where: { merchantId: order.seller.id, crypto: order.crypto, locked: { gte: cryptoAmt }, total: { gte: cryptoAmt } },
-            data: { locked: { decrement: cryptoAmt }, total: { decrement: cryptoAmt } },
-          });
-          if (debited.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
-          await creditUserCrypto(tx, buyerId, order.crypto, network, netCryptoAmt);
-        } else {
-          const unlocked = await tx.userCryptoBalance.updateMany({
-            where: { userId: buyerId, crypto: order.crypto, network, locked: { gte: cryptoAmt } },
-            data: { locked: { decrement: cryptoAmt } },
-          });
-          if (unlocked.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
-          await tx.p2PCryptoBalance.upsert({
-            where: { merchantId_crypto: { merchantId: order.seller.id, crypto: order.crypto } },
-            create: { merchantId: order.seller.id, crypto: order.crypto, total: netCryptoAmt, available: netCryptoAmt, locked: 0 },
-            update: { total: { increment: netCryptoAmt }, available: { increment: netCryptoAmt } },
-          });
-        }
+        // Real crypto — same maker-pays settlement as a normal release.
+        await settleCryptoEscrowRelease(tx, {
+          crypto:         order.crypto,
+          network,
+          amount:         cryptoAmt,
+          isMerchantSell: order.ad.side === "SELL",
+          sellFeeRate:    Number(order.ad.feeRate),
+          merchantId:     order.seller.id,
+          merchantUserId: sellerUserId,
+          buyerId,
+          orderId:        order.id,
+        });
       }
       const newTotal = order.seller.totalTrades + 1;
       const newCompleted = order.seller.completedTrades + 1;
