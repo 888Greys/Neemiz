@@ -24,3 +24,11 @@ npm-debug.log*
 .vercel
 *.tsbuildinfo
 dev-*.log
+
+# signer service
+signer/node_modules
+signer/data
+signer/.env
+
+# stray one-off build snapshot
+.next-preadmin-reset-*
