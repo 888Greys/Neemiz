@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { sendLowFloatAlertEmail } from "@/lib/brevo";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 /**
  * Alert all owners/admins that the M-Pesa float is too low to pay out a
@@ -24,7 +25,7 @@ export async function notifyAdminsLowFloat(info: { amountKes: number; msisdn?: s
         userId: a.id,
         type:   "admin_low_float",
         title:  "M-Pesa float low — top up now",
-        body:   `A customer withdrawal of KSh ${info.amountKes.toLocaleString()} couldn't be paid out (insufficient float). It's queued and will auto-send once you top up.`,
+        body:   `A customer withdrawal of ${CURRENCY_SYMBOL} ${info.amountKes.toLocaleString()} couldn't be paid out (insufficient float). It's queued and will auto-send once you top up.`,
         link:   "/admin/withdrawals",
       })),
     });

@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export type ProfileView =
   | "main"
@@ -115,7 +116,7 @@ function BetsView() {
                   ? bet.selections[0].matchName
                   : `${bet.type} · ${bet.selections.length} selections`}
               </p>
-              <p className="text-[10px] text-slate-500">{fmtDate(bet.createdAt)} · KSh {bet.stake.toLocaleString()}</p>
+              <p className="text-[10px] text-slate-500">{fmtDate(bet.createdAt)} · {CURRENCY_SYMBOL} {bet.stake.toLocaleString()}</p>
             </div>
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${STATUS_STYLE[bet.status] ?? STATUS_STYLE.PENDING}`}>
               {bet.status}
@@ -142,7 +143,7 @@ function BetsView() {
               ))}
               <div className="mt-2 flex items-center justify-between border-t border-white/[0.05] pt-2">
                 <span className="text-[10px] text-slate-500">
-                  {bet.status === "WON" ? "Won" : "Potential"}: KSh {(bet.winAmount ?? bet.potentialWin).toLocaleString()}
+                  {bet.status === "WON" ? "Won" : "Potential"}: {CURRENCY_SYMBOL} {(bet.winAmount ?? bet.potentialWin).toLocaleString()}
                 </span>
                 <span className="text-[10px] text-slate-500">Odds: {Number(bet.totalOdds).toFixed(2)}</span>
               </div>
@@ -238,7 +239,7 @@ function TransactionsView() {
             </div>
             <div className="text-right">
               <p className={`text-[14px] font-black ${meta.color}`}>
-                {meta.sign}KSh {Number(t.amount).toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                {meta.sign}{CURRENCY_SYMBOL} {Number(t.amount).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}
               </p>
               <p className={`text-[10px] font-black uppercase ${
                 t.status === "COMPLETED" ? "text-emerald-500/70"
@@ -322,13 +323,13 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
-  const fmtBal = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
+  const fmtBal = `${currency === "KES" ? CURRENCY_SYMBOL : currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`;
   const cwPrec = selectedBal?.crypto === "BTC" || selectedBal?.crypto === "ETH" ? 8 : 6;
 
   async function submitFiat() {
     setError("");
     const amt = Number(amount);
-    if (!amt || amt < MPESA_MIN_WITHDRAWAL) { setError(`Minimum withdrawal is KSh ${MPESA_MIN_WITHDRAWAL}`); return; }
+    if (!amt || amt < MPESA_MIN_WITHDRAWAL) { setError(`Minimum withdrawal is ${CURRENCY_SYMBOL} ${MPESA_MIN_WITHDRAWAL}`); return; }
     if (amt > balance) { setError("Amount exceeds your balance"); return; }
     setLoading(true);
     try {
@@ -431,11 +432,11 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               />
             </div>
 
-            <p className="text-[11px] text-slate-600">Test mode: no fee · Min KSh {MPESA_MIN_WITHDRAWAL} · Max KSh 150,000</p>
+            <p className="text-[11px] text-slate-600">Test mode: no fee · Min {CURRENCY_SYMBOL} {MPESA_MIN_WITHDRAWAL} · Max KSh 150,000</p>
             {Number(amount) > 0 && (
               <div className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-2.5 ring-1 ring-white/[0.06]">
                 <span className="text-[11px] text-slate-500">You will receive</span>
-                <span className="text-[13px] font-black text-emerald-400">KSh {(Number(amount) * (1 - MPESA_WITHDRAWAL_FEE_RATE)).toLocaleString("en-KE", { minimumFractionDigits: 2 })}</span>
+                <span className="text-[13px] font-black text-emerald-400">{CURRENCY_SYMBOL} {(Number(amount) * (1 - MPESA_WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}</span>
               </div>
             )}
 
@@ -1203,7 +1204,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const email       = user?.email;
   const phone       = user?.phone ?? meta.phone_number ?? null;
   const isVerified  = user?.email_confirmed_at != null;
-  const fmtBalance  = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
+  const fmtBalance  = `${currency === "KES" ? CURRENCY_SYMBOL : currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`;
   const memberId    = user?.id?.slice(-8).toUpperCase() ?? "—";
 
   const back = useCallback(() => {

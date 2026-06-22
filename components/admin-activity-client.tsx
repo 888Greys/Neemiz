@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Icon } from "@/components/icon";
 import { StatusBadge } from "@/components/admin-status-badge";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 interface RecentItem {
   id: string;
@@ -58,9 +59,9 @@ const icons: Record<string, string> = {
 };
 
 const money = (value: number) =>
-  value >= 1_000_000 ? `KSh ${(value / 1_000_000).toFixed(2)}M`
-    : value >= 1_000 ? `KSh ${(value / 1_000).toFixed(1)}K`
-      : `KSh ${value.toLocaleString("en-KE")}`;
+  value >= 1_000_000 ? `${CURRENCY_SYMBOL} ${(value / 1_000_000).toFixed(2)}M`
+    : value >= 1_000 ? `${CURRENCY_SYMBOL} ${(value / 1_000).toFixed(1)}K`
+      : `${CURRENCY_SYMBOL} ${value.toLocaleString(MONEY_LOCALE)}`;
 
 export function AdminActivityClient() {
   const [data, setData] = useState<ActivityData | null>(null);

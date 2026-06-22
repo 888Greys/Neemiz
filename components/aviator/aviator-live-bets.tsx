@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AviatorBetPublic } from "@/lib/aviator/types";
+import { MONEY_LOCALE } from "@/lib/currency";
 
 interface MyHistoryBet {
   id:          string;
@@ -154,7 +155,7 @@ function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
       {/* Bet */}
       <div className="text-right">
         <span className="text-[11px] font-black text-white/80">
-          {bet.betAmount.toLocaleString("en-KE")}
+          {bet.betAmount.toLocaleString(MONEY_LOCALE)}
         </span>
       </div>
       {/* @ multiplier */}
@@ -165,11 +166,11 @@ function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
       <div className="text-right">
         {cashed && bet.winAmount != null ? (
           <span className="text-[11px] font-black text-[#31c45d]">
-            {bet.winAmount.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+            {bet.winAmount.toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 0 })}
           </span>
         ) : lost ? (
           <span className="text-[11px] font-black text-red-400/60">
-            -{bet.betAmount.toLocaleString("en-KE")}
+            -{bet.betAmount.toLocaleString(MONEY_LOCALE)}
           </span>
         ) : (
           <span className="text-white/15 text-[11px]">—</span>
@@ -192,7 +193,7 @@ function HistoryRow({ bet }: { bet: MyHistoryBet }) {
       </div>
       {/* Bet */}
       <div className="text-right text-[11px] font-black text-white/70">
-        {bet.betAmount.toLocaleString("en-KE")}
+        {bet.betAmount.toLocaleString(MONEY_LOCALE)}
       </div>
       {/* @ */}
       <div className="text-right text-[11px]">
@@ -202,11 +203,11 @@ function HistoryRow({ bet }: { bet: MyHistoryBet }) {
       <div className="text-right">
         {won && bet.winAmount != null ? (
           <span className="text-[11px] font-black text-[#31c45d]">
-            +{bet.winAmount.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+            +{bet.winAmount.toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 0 })}
           </span>
         ) : (
           <span className="text-[11px] font-black text-red-400/60">
-            -{bet.betAmount.toLocaleString("en-KE")}
+            -{bet.betAmount.toLocaleString(MONEY_LOCALE)}
           </span>
         )}
       </div>

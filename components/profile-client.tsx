@@ -5,6 +5,7 @@ import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
 import Link from "next/link";
+import { MONEY_LOCALE, CURRENCY_SYMBOL } from "@/lib/currency";
 
 const QUICK_LINKS = [
   { href: "/wallet",  icon: "account_balance_wallet", label: "Wallet & Deposits",   sub: "Manage your funds",         color: "text-[#087cff]", bg: "bg-[#087cff]/10" },
@@ -55,7 +56,7 @@ export function ProfileClient() {
   const email       = user.email;
   const phone       = user.phone ?? meta.phone_number;
   const isVerified  = user.email_confirmed_at != null;
-  const fmtBalance  = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
+  const fmtBalance  = `${currency === "KES" ? CURRENCY_SYMBOL : currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`;
   const memberSince = user.created_at
     ? new Date(user.created_at).toLocaleDateString("en-KE", { month: "long", year: "numeric" })
     : "—";

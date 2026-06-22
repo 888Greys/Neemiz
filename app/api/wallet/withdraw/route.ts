@@ -5,6 +5,7 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsLowFloat } from "@/lib/admin-alert";
 import { withdrawalDayReset, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -40,10 +41,10 @@ export async function POST(req: Request) {
     // withdrawals. The window resets at 02:00 EAT (see lib/withdrawal-window).
     const limit = dailyLimitKes();
     if (!Number.isFinite(amountKes) || amountKes < minimumWithdrawal) {
-      return Response.json({ error: `Minimum withdrawal is KSh ${minimumWithdrawal}` }, { status: 400 });
+      return Response.json({ error: `Minimum withdrawal is ${CURRENCY_SYMBOL} ${minimumWithdrawal}` }, { status: 400 });
     }
     if (amountKes > limit) {
-      return Response.json({ error: `Daily withdrawal limit is KSh ${limit.toLocaleString()}` }, { status: 400 });
+      return Response.json({ error: `Daily withdrawal limit is ${CURRENCY_SYMBOL} ${limit.toLocaleString()}` }, { status: 400 });
     }
     if (amountKes > 150_000) {
       return Response.json({ error: "Maximum withdrawal is KSh 150,000" }, { status: 400 });
@@ -182,7 +183,7 @@ export async function POST(req: Request) {
           userId: dbUserId,
           type:   "withdrawal_processing",
           title:  "Withdrawal is processing",
-          body:   `Your withdrawal of KSh ${payoutKes.toLocaleString()} is being processed and will arrive shortly via M-Pesa.`,
+          body:   `Your withdrawal of ${CURRENCY_SYMBOL} ${payoutKes.toLocaleString()} is being processed and will arrive shortly via M-Pesa.`,
           link:   "/wallet",
         },
       }).catch(() => {});
@@ -194,7 +195,7 @@ export async function POST(req: Request) {
         queued:       true,
         fee:          feeKes,
         payout:       payoutKes,
-        message:      `Your withdrawal of KSh ${payoutKes.toLocaleString()} is being processed and will be sent to +${msisdn} shortly. We'll notify you the moment it's on its way — your balance is safe.`,
+        message:      `Your withdrawal of ${CURRENCY_SYMBOL} ${payoutKes.toLocaleString()} is being processed and will be sent to +${msisdn} shortly. We'll notify you the moment it's on its way — your balance is safe.`,
       });
     }
 
@@ -223,7 +224,7 @@ export async function POST(req: Request) {
       withdrawalId,
       fee:          feeKes,
       payout:       payoutKes,
-      message:      `KSh ${payoutKes.toLocaleString()} is being sent to +${msisdn} via M-Pesa. You'll be notified once it's confirmed.`,
+      message:      `${CURRENCY_SYMBOL} ${payoutKes.toLocaleString()} is being sent to +${msisdn} via M-Pesa. You'll be notified once it's confirmed.`,
     });
   } catch (err) {
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
@@ -233,7 +234,7 @@ export async function POST(req: Request) {
       const remaining = Number(err.message.split(":")[1] ?? 0);
       return Response.json({
         error: remaining > 0
-          ? `Daily limit: you can withdraw KSh ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
+          ? `Daily limit: you can withdraw ${CURRENCY_SYMBOL} ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
           : "You've reached today's KSh 500 withdrawal limit. It resets at 2:00 AM.",
       }, { status: 400 });
     }
