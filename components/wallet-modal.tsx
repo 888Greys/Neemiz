@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 const QUICK_AMOUNTS = [400, 1_000, 3_000, 5_000];
 const POLL_INTERVAL = 4_000;
@@ -529,11 +530,11 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                   /* KES balance */
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-sm font-bold text-slate-400">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff] text-[10px] font-black text-white">KSh</span>
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff] text-[10px] font-black text-white">{CURRENCY_SYMBOL}</span>
                       KES Wallet
                     </span>
                     <span className="text-sm font-black text-white">
-                      KSh {balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {CURRENCY_SYMBOL} {balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 ) : cryptoBalances.length > 0 ? (
@@ -635,7 +636,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                   <Icon name="check_circle" fill className="mx-auto text-[54px] text-[#05b957]" />
                   <p className="mt-2 text-3xl font-black text-white">Success</p>
                   <p className="mt-1 text-sm font-bold text-slate-400">
-                    Payment confirmed. KSh {deposit.amount.toLocaleString()} was added to your wallet.
+                    Payment confirmed. {CURRENCY_SYMBOL} {deposit.amount.toLocaleString()} was added to your wallet.
                   </p>
                   <button
                     type="button"

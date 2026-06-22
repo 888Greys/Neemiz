@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 import {
   callAviatorService,
   type GoAviatorState,
@@ -25,10 +26,10 @@ export async function POST(req: Request) {
 
   const { betAmount, panelIndex, autoCashout } = body;
   if (!Number.isFinite(betAmount) || betAmount < MIN_BET) {
-    return Response.json({ error: `Minimum bet is KSh ${MIN_BET}` }, { status: 400 });
+    return Response.json({ error: `Minimum bet is ${CURRENCY_SYMBOL} ${MIN_BET}` }, { status: 400 });
   }
   if (betAmount > MAX_BET) {
-    return Response.json({ error: `Maximum bet is KSh ${MAX_BET.toLocaleString()}` }, { status: 400 });
+    return Response.json({ error: `Maximum bet is ${CURRENCY_SYMBOL} ${MAX_BET.toLocaleString()}` }, { status: 400 });
   }
   if (panelIndex !== 0 && panelIndex !== 1) {
     return Response.json({ error: "panelIndex must be 0 or 1" }, { status: 400 });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import {
   AreaSeries,
   ColorType,
@@ -213,8 +214,8 @@ function toTick(epoch: number, quote: number): Tick {
 }
 
 function formatMoney(value: number, _isLive = false) {
-  const fmt = value.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `KSh ${fmt}`; // all binary amounts are KSh (demo + live)
+  const fmt = value.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${CURRENCY_SYMBOL} ${fmt}`; // all binary amounts are KSh (demo + live)
 }
 
 function formatQuote(value: number) {
@@ -1024,7 +1025,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         const won = evaluateTrade(trade.side, digit, trade.targetDigit);
         setDemoBalance((b) => won ? b + trade.payout : b);
         if (won) {
-          toast.cashout(`+KSh ${trade.payout.toFixed(2)} — Trade won!`, `${trade.side} · Exit digit: ${digit}`);
+          toast.cashout(`+${CURRENCY_SYMBOL} ${trade.payout.toFixed(2)} — Trade won!`, `${trade.side} · Exit digit: ${digit}`);
         } else {
           toast.error("Trade lost", `${trade.side} · Exit digit: ${digit}`);
         }
@@ -1075,7 +1076,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         setAccaPos(null);
         if (!busted) {
           setDemoBalance((b) => b + payout);
-          toast.cashout(`+KSh ${payout.toFixed(2)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
+          toast.cashout(`+${CURRENCY_SYMBOL} ${payout.toFixed(2)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
         } else {
           toast.error("Accumulator busted", `Hit the barrier after ${pos.ticksSurvived} ticks.`);
         }
@@ -1205,7 +1206,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         setLevPos(null);
         if (payout > 0) {
           setDemoBalance((b) => b + payout);
-          toast.cashout(`+KSh ${payout.toFixed(2)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
+          toast.cashout(`+${CURRENCY_SYMBOL} ${payout.toFixed(2)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
         } else {
           toast.error(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
@@ -1340,7 +1341,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           if (!res.ready) continue; // outcome not determined yet
           dirSettled.current.add(t.id);
           setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
-          if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+KSh ${res.credit.toFixed(2)} — ${t.side} won!`, t.market); }
+          if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${CURRENCY_SYMBOL} ${res.credit.toFixed(2)} — ${t.side} won!`, t.market); }
           else { toast.error(`${t.side} lost`, t.market); }
         }
       }
@@ -1450,7 +1451,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
         setOpenTrades((current) => [trade, ...current].slice(0, 12));
-        setTransactions((current) => [`${side} ${market.symbol} KSh ${stake}`, ...current].slice(0, 12));
+        setTransactions((current) => [`${side} ${market.symbol} ${CURRENCY_SYMBOL} ${stake}`, ...current].slice(0, 12));
         // Surface the live position immediately — jump to the Open tab so the
         // countdown is visible, and confirm with a toast so the click registers.
         setTab("open");
@@ -1474,7 +1475,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       };
       setDemoBalance((b) => b - stake);
       setOpenTrades((current) => [trade, ...current].slice(0, 12));
-      setTransactions((current) => [`${side} ${market.symbol} KSh ${stake}`, ...current].slice(0, 12));
+      setTransactions((current) => [`${side} ${market.symbol} ${CURRENCY_SYMBOL} ${stake}`, ...current].slice(0, 12));
       setTab("open");
       toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
     }
@@ -1579,7 +1580,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
 
             {tradeType === "accumulators" ? (
               <AccumulatorsPanel
-                currency={"KSh"}
+                currency={CURRENCY_SYMBOL}
                 stake={stake} setStake={setStake}
                 growthRate={growthRate} setGrowthRate={setGrowthRate}
                 takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
@@ -1599,7 +1600,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               />
             ) : isDigitType ? (
               <DigitPanel
-                currency={"KSh"}
+                currency={CURRENCY_SYMBOL}
                 family={family}
                 sides={selectedSides}
                 stake={stake} setStake={setStake}
@@ -1616,7 +1617,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               />
             ) : isVanillaType && dirKind ? (
               <VanillaPanel
-                currency={"KSh"}
+                currency={CURRENCY_SYMBOL}
                 sides={dirSides}
                 stake={stake} setStake={setStake}
                 duration={duration} setDuration={setDuration}
@@ -1634,7 +1635,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               />
             ) : isDirectionalType && dirKind ? (
               <DirectionalPanel
-                currency={"KSh"}
+                currency={CURRENCY_SYMBOL}
                 kind={dirKind}
                 sides={dirSides}
                 stake={stake} setStake={setStake}
@@ -1652,7 +1653,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               />
             ) : isLeveragedType && levKind ? (
               <LeveragedPanel
-                currency={"KSh"}
+                currency={CURRENCY_SYMBOL}
                 kind={levKind}
                 stake={stake} setStake={setStake}
                 multiplier={multiplier} setMultiplier={setMultiplier}

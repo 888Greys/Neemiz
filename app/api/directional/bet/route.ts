@@ -6,6 +6,7 @@ import { applyProfitRetention } from "@/lib/house-retention";
 import { getServerTickHistory } from "@/lib/binary-price";
 import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
 import { payoutRate, vanillaPayoutPerPoint, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_KINDS = ["RISE_FALL", "HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"];
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
   if (!side || !SIDES_BY_KIND[kind].includes(side as DirectionalSide))
     return Response.json({ error: "Invalid side" }, { status: 400 });
   if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
-    return Response.json({ error: `Stake must be between KSh ${MIN_STAKE} and KSh ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
+    return Response.json({ error: `Stake must be between ${CURRENCY_SYMBOL} ${MIN_STAKE} and ${CURRENCY_SYMBOL} ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
   if (!Number.isInteger(durationTicks) || durationTicks! < 1 || durationTicks! > 30)
     return Response.json({ error: "Duration must be 1–30 ticks" }, { status: 400 });
   const offset = barrierOffset == null ? 0 : Number(barrierOffset);

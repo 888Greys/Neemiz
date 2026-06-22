@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import {
   CandlestickSeries,
   ColorType,
@@ -800,11 +801,11 @@ export function ForexClient() {
               <div className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Risk</span>
-                  <span className="font-mono text-[11px] font-black text-[#ff6171]">−KSh {riskKes.toFixed(2)}</span>
+                  <span className="font-mono text-[11px] font-black text-[#ff6171]">−{CURRENCY_SYMBOL} {riskKes.toFixed(2)}</span>
                 </div>
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Reward</span>
-                  <span className="font-mono text-[11px] font-black text-[#33d49b]">+KSh {rewardKes.toFixed(2)}</span>
+                  <span className="font-mono text-[11px] font-black text-[#33d49b]">+{CURRENCY_SYMBOL} {rewardKes.toFixed(2)}</span>
                 </div>
                 <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-black ${rrRatio >= 1 ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>
                   1:{rrRatio.toFixed(2)}
@@ -821,7 +822,7 @@ export function ForexClient() {
               {/* Margin the server will reserve for this position. */}
               <div className="flex items-center justify-between rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Margin required</span>
-                <span className="font-mono text-sm font-black text-white">KSh {calcMargin(size).toLocaleString("en-KE")}</span>
+                <span className="font-mono text-sm font-black text-white">{CURRENCY_SYMBOL} {calcMargin(size).toLocaleString(MONEY_LOCALE)}</span>
               </div>
 
               {tradeError && (
@@ -1086,13 +1087,13 @@ function ForexSessionStats({ openTrades, forexHistory, price }: { openTrades: Tr
       <div className="px-3 py-2">
         <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Realized</div>
         <div className={`mt-0.5 font-mono text-sm font-black ${realized > 0 ? "text-[#33d49b]" : realized < 0 ? "text-[#ff6171]" : "text-white"}`}>
-          {realized >= 0 ? "+" : "−"}KSh {Math.abs(realized).toFixed(0)}
+          {realized >= 0 ? "+" : "−"}{CURRENCY_SYMBOL} {Math.abs(realized).toFixed(0)}
         </div>
       </div>
       <div className="px-3 py-2">
         <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Open P/L</div>
         <div className={`mt-0.5 font-mono text-sm font-black ${unrealized > 0 ? "text-[#33d49b]" : unrealized < 0 ? "text-[#ff6171]" : "text-white"}`}>
-          {unrealized >= 0 ? "+" : "−"}KSh {Math.abs(unrealized).toFixed(0)}
+          {unrealized >= 0 ? "+" : "−"}{CURRENCY_SYMBOL} {Math.abs(unrealized).toFixed(0)}
         </div>
       </div>
     </div>
@@ -1110,7 +1111,7 @@ function TransactionRow({ tx }: { tx: ForexTx }) {
         <div className="text-[10px] font-bold text-slate-600">{time}</div>
       </div>
       <div className={`shrink-0 font-mono text-xs font-black ${positive ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
-        {positive ? "+" : "−"}KSh {Math.abs(tx.amount).toFixed(2)}
+        {positive ? "+" : "−"}{CURRENCY_SYMBOL} {Math.abs(tx.amount).toFixed(2)}
       </div>
     </div>
   );
@@ -1280,7 +1281,7 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
             {trade.direction.toUpperCase()} {trade.size.toLocaleString("en-US")} @ {formatPrice(trade, trade.entry)}
           </div>
           {trade.margin && (
-            <div className="text-[10px] text-slate-600">Margin: KSh {trade.margin}</div>
+            <div className="text-[10px] text-slate-600">Margin: {CURRENCY_SYMBOL} {trade.margin}</div>
           )}
         </div>
         <div className="text-right">
@@ -1288,7 +1289,7 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
             {pips >= 0 ? "+" : ""}{pips.toFixed(1)} pips
           </div>
           <div className={`font-mono text-[11px] font-bold tabular-nums ${plKes >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
-            {plKes >= 0 ? "+" : ""}KSh {plKes.toFixed(2)}
+            {plKes >= 0 ? "+" : ""}{CURRENCY_SYMBOL} {plKes.toFixed(2)}
           </div>
         </div>
       </div>
@@ -1349,7 +1350,7 @@ function HistoryRow({ trade }: { trade: ClosedTrade }) {
         </div>
         <div className="text-right">
           <div className={`font-mono text-sm font-black ${won ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
-            {won ? "+" : ""}KSh {pl.toFixed(2)}
+            {won ? "+" : ""}{CURRENCY_SYMBOL} {pl.toFixed(2)}
           </div>
           <div className={`rounded px-2 py-0.5 text-[9px] font-black ${won ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
             {won ? "WIN" : "LOSS"}

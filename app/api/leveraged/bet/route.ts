@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType, type LeveragedKind } from "@prisma/client";
 import { getServerTickHistory } from "@/lib/binary-price";
 import { applyProfitRetention } from "@/lib/house-retention";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 import {
   isValidMultiplier, multiplierStopOutPrice, clampTurboBarrier, turboPayoutPerPoint,
   LEVERAGED_MAX_MULT, type LeveragedDirection,
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
   if (direction !== "UP" && direction !== "DOWN")
     return Response.json({ error: "Invalid direction" }, { status: 400 });
   if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
-    return Response.json({ error: `Stake must be between KSh ${MIN_STAKE} and KSh ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
+    return Response.json({ error: `Stake must be between ${CURRENCY_SYMBOL} ${MIN_STAKE} and ${CURRENCY_SYMBOL} ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
   if (kind === "MULTIPLIER" && (!Number.isInteger(multiplier) || !isValidMultiplier(multiplier!)))
     return Response.json({ error: "Invalid multiplier" }, { status: 400 });
   if (kind === "TURBO" && !Number.isFinite(barrierOffset))

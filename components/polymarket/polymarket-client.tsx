@@ -8,6 +8,7 @@ import { ProbabilityChart } from "./probability-chart";
 import { toast }      from "@/lib/toast";
 import type { PolymarketMarket } from "@/lib/polymarket";
 import { createClient } from "@/lib/supabase/client";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const TAGS = [
   "Trending", "Breaking", "New",
@@ -530,7 +531,7 @@ function formatCents(price: number) {
 }
 
 function formatKes(value: number, options?: Intl.NumberFormatOptions) {
-  return `KSh ${value.toLocaleString(undefined, options)}`;
+  return `${CURRENCY_SYMBOL} ${value.toLocaleString(undefined, options)}`;
 }
 
 function DetailTradeTicket({

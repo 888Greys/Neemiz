@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyForexProfitRetention } from "@/lib/house-retention";
 import { getServerForexPrice } from "@/lib/forex-price";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 // NOTE: closePrice from the client is ignored for settlement. The close price
 // is fetched server-side from the live Deriv feed.
@@ -108,7 +109,7 @@ export async function POST(req: Request) {
           userId: dbUser.id,
           type: profitLoss >= 0 ? "FOREX_WON" : "FOREX_LOST",
           title: profitLoss >= 0 ? "Forex trade closed in profit" : "Forex trade closed",
-          body: `${trade.symbol} ${trade.direction}: ${profitLoss >= 0 ? "+" : ""}KSh ${profitLoss.toLocaleString("en-KE")}.`,
+          body: `${trade.symbol} ${trade.direction}: ${profitLoss >= 0 ? "+" : ""}${CURRENCY_SYMBOL} ${profitLoss.toLocaleString(MONEY_LOCALE)}.`,
           link: "/forex",
         },
       });

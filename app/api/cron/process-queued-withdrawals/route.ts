@@ -18,6 +18,7 @@
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 export const runtime = "nodejs";
 
@@ -62,7 +63,7 @@ export async function GET(req: Request) {
               userId: w.userId,
               type:   "withdrawal_refunded",
               title:  "Withdrawal refunded",
-              body:   `We couldn't complete your KSh ${Number(w.amount).toLocaleString()} M-Pesa withdrawal, so it's been returned to your wallet. Please try again.`,
+              body:   `We couldn't complete your ${CURRENCY_SYMBOL} ${Number(w.amount).toLocaleString()} M-Pesa withdrawal, so it's been returned to your wallet. Please try again.`,
               link:   "/wallet",
             },
           }).catch(() => {});
@@ -91,7 +92,7 @@ export async function GET(req: Request) {
             userId: w.userId,
             type:   "withdrawal_sent",
             title:  "Withdrawal on its way",
-            body:   `Your KSh ${payout.toLocaleString()} is now being sent to +${msisdn} via M-Pesa.`,
+            body:   `Your ${CURRENCY_SYMBOL} ${payout.toLocaleString()} is now being sent to +${msisdn} via M-Pesa.`,
             link:   "/wallet",
           },
         }).catch(() => {});
