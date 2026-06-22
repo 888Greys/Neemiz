@@ -221,6 +221,19 @@ function formatQuote(value: number) {
   return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+// lightweight-charts renders the time axis in UTC. Format axis ticks and the
+// crosshair in the viewer's local timezone so the clock matches their wall time
+// (and other trading sites) instead of running hours behind.
+function fmtClock(time: Time, withSeconds: boolean): string {
+  const epoch = typeof time === "number" ? time : 0;
+  return new Date(epoch * 1000).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(withSeconds ? { second: "2-digit" } : {}),
+    hour12: false,
+  });
+}
+
 function payoutRate(side: ContractSide, targetDigit: number) {
   if (side === "Matches") return 9.15;
   if (side === "Differs") return 1.05;
@@ -313,6 +326,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
         rightOffset: RIGHT_GAP_BARS,        // whitespace on the right (Deriv-style gap)
         barSpacing: 16,
         shiftVisibleRangeOnNewBar: false,   // we drive the scroll ourselves in the rAF loop
+        tickMarkFormatter: (time: Time) => fmtClock(time, true),
       },
       crosshair: {
         vertLine: { color: "rgba(56,189,248,0.5)", labelBackgroundColor: "#2563eb" },
@@ -320,6 +334,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
       },
       localization: {
         priceFormatter: (price: number) => formatQuote(price),
+        timeFormatter: (time: Time) => fmtClock(time, true),
       },
     });
 
