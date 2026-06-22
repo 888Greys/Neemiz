@@ -8,6 +8,7 @@ import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ function kickoffEAT(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const date = new Date(iso);
   if (isNaN(date.getTime())) return null;
-  return date.toLocaleString("en-KE", {
+  return date.toLocaleString(MONEY_LOCALE, {
     timeZone: "Africa/Nairobi",
     weekday: "short",
     day: "numeric",
@@ -246,10 +247,10 @@ function WheelOfFortune({
             result.netChange < 0 ? "text-red-400" : result.multiplier >= 5 ? "text-amber-400" : "text-emerald-400"
           }`}>
             {result.multiplier === 0
-              ? `KSh ${result.stake.toFixed(2)} lost`
+              ? `${CURRENCY_SYMBOL} ${result.stake.toFixed(2)} lost`
               : result.netChange < 0
-              ? `KSh ${result.winAmount.toFixed(2)} returned`
-              : `+KSh ${result.netChange.toFixed(2)} profit`}
+              ? `${CURRENCY_SYMBOL} ${result.winAmount.toFixed(2)} returned`
+              : `+${CURRENCY_SYMBOL} ${result.netChange.toFixed(2)} profit`}
           </p>
         </div>
       )}
@@ -261,7 +262,7 @@ function WheelOfFortune({
           <span className={`font-black tabular-nums ${
             result ? result.netChange < 0 ? "text-red-400" : "text-emerald-400" : "text-slate-300"
           }`}>
-            KSh {result ? result.winAmount.toFixed(2) : "—"}
+            {CURRENCY_SYMBOL} {result ? result.winAmount.toFixed(2) : "—"}
           </span>
         </div>
       </div>
@@ -271,7 +272,7 @@ function WheelOfFortune({
         <div className={`flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2.5 ring-1 transition-shadow ${
           notEnoughFunds ? "ring-red-500/40" : "ring-white/[0.07] focus-within:ring-[#087cff]/40"
         }`}>
-          <span className="shrink-0 text-[11px] font-black text-slate-500">KSh</span>
+          <span className="shrink-0 text-[11px] font-black text-slate-500">{CURRENCY_SYMBOL}</span>
           <input
             type="number" min={MIN_PLAY_AMOUNT} placeholder="Bet amount"
             value={amount}
@@ -281,14 +282,14 @@ function WheelOfFortune({
         </div>
         {notEnoughFunds && (
           <p className="mt-1 text-[10px] text-red-400 font-bold">
-            Insufficient balance — KSh {balance.toFixed(2)} available
+            Insufficient balance — {CURRENCY_SYMBOL} {balance.toFixed(2)} available
           </p>
         )}
       </div>
 
       {/* Range hint */}
       <p className="mb-2.5 text-[10px] text-slate-600 self-start">
-        from KSh {MIN_PLAY_AMOUNT} to KSh {balance > 0 ? balance.toLocaleString("en-KE", { maximumFractionDigits: 2 }) : "—"}
+        from {CURRENCY_SYMBOL} {MIN_PLAY_AMOUNT} to {CURRENCY_SYMBOL} {balance > 0 ? balance.toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 2 }) : "—"}
       </p>
 
       {/* Multiplier quick-pick */}
@@ -467,7 +468,7 @@ export function SportsBetSlip() {
     try {
       if (tab === "multi") {
         if (!multiStake || multiStake < MIN_PLAY_AMOUNT) {
-          setPlacedMsg({ ok: false, text: `Minimum stake is KSh ${MIN_PLAY_AMOUNT}` });
+          setPlacedMsg({ ok: false, text: `Minimum stake is ${CURRENCY_SYMBOL} ${MIN_PLAY_AMOUNT}` });
           return;
         }
         const res = await fetch("/api/bets", {
@@ -493,7 +494,7 @@ export function SportsBetSlip() {
         const results = await Promise.all(
           bets.map(async (bet) => {
             const stake = parseFloat(amounts[bet.id] || "0");
-            if (!stake || stake < MIN_PLAY_AMOUNT) return { ok: false, error: `Minimum stake is KSh ${MIN_PLAY_AMOUNT}` };
+            if (!stake || stake < MIN_PLAY_AMOUNT) return { ok: false, error: `Minimum stake is ${CURRENCY_SYMBOL} ${MIN_PLAY_AMOUNT}` };
             const res = await fetch("/api/bets", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -527,7 +528,7 @@ export function SportsBetSlip() {
     }
   }
 
-  const fmtBalance = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtBalance = `${currency === "KES" ? CURRENCY_SYMBOL : currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const stakeTotal = tab === "multi"
     ? multiStake
@@ -649,7 +650,7 @@ export function SportsBetSlip() {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] text-slate-600">
-                            {new Date(bet.createdAt).toLocaleString("en-KE", { timeZone: "Africa/Nairobi", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            {new Date(bet.createdAt).toLocaleString(MONEY_LOCALE, { timeZone: "Africa/Nairobi", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                           </span>
                           <Icon name="expand_more" className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                         </div>
@@ -686,13 +687,13 @@ export function SportsBetSlip() {
                       )}
                     </button>
                     <div className="mt-2 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 text-[11px]">
-                      <span className="text-slate-500">Stake <span className="font-black text-white">KSh {bet.stake.toFixed(2)}</span></span>
+                      <span className="text-slate-500">Stake <span className="font-black text-white">{CURRENCY_SYMBOL} {bet.stake.toFixed(2)}</span></span>
                       {bet.status === "WON" && bet.winAmount ? (
-                        <span className="font-black text-emerald-400">+KSh {bet.winAmount.toFixed(2)}</span>
+                        <span className="font-black text-emerald-400">+{CURRENCY_SYMBOL} {bet.winAmount.toFixed(2)}</span>
                       ) : bet.status === "LOST" ? (
-                        <span className="text-red-400 font-black">-KSh {bet.stake.toFixed(2)}</span>
+                        <span className="text-red-400 font-black">-{CURRENCY_SYMBOL} {bet.stake.toFixed(2)}</span>
                       ) : (
-                        <span className="text-slate-500">To win <span className="font-black text-amber-400">KSh {bet.potentialWin.toFixed(2)}</span></span>
+                        <span className="text-slate-500">To win <span className="font-black text-amber-400">{CURRENCY_SYMBOL} {bet.potentialWin.toFixed(2)}</span></span>
                       )}
                     </div>
                     {isOpen && (
@@ -703,12 +704,12 @@ export function SportsBetSlip() {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Potential win</span>
-                          <span className="font-black text-amber-400">KSh {bet.potentialWin.toFixed(2)}</span>
+                          <span className="font-black text-amber-400">{CURRENCY_SYMBOL} {bet.potentialWin.toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Placed</span>
                           <span className="font-bold text-slate-300">
-                            {new Date(bet.createdAt).toLocaleString("en-KE", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            {new Date(bet.createdAt).toLocaleString(MONEY_LOCALE, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -767,7 +768,7 @@ export function SportsBetSlip() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/40">
-                      <span className="shrink-0 text-[11px] font-black text-slate-500">KSh</span>
+                      <span className="shrink-0 text-[11px] font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                       <input
                         type="number" min="0" placeholder="0"
                         value={amounts[bet.id] ?? ""}
@@ -792,7 +793,7 @@ export function SportsBetSlip() {
                     <div className="mt-2 flex items-center justify-between text-[11px]">
                       <span className="text-slate-500">Possible win</span>
                       <span className={`font-black ${payout ? "text-emerald-400" : "text-slate-600"}`}>
-                        KSh {payout ?? "0.00"}
+                        {CURRENCY_SYMBOL} {payout ?? "0.00"}
                       </span>
                     </div>
                   </div>
@@ -838,7 +839,7 @@ export function SportsBetSlip() {
                 <div className="mt-2 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Possible win</span>
                   <span className={`font-black ${multiPayout ? "text-emerald-400" : "text-slate-600"}`}>
-                    KSh {multiPayout ?? "0.00"}
+                    {CURRENCY_SYMBOL} {multiPayout ?? "0.00"}
                   </span>
                 </div>
               </div>
@@ -898,7 +899,7 @@ export function SportsBetSlip() {
                   <span className="text-[11px] text-slate-500">Possible win</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[13px] font-black text-emerald-400 tabular-nums">
-                      KSh {tab === "multi"
+                      {CURRENCY_SYMBOL} {tab === "multi"
                         ? (multiPayout ?? "0.00")
                         : bets.reduce((s, b) => {
                             const stake = parseFloat(amounts[b.id] || "0");

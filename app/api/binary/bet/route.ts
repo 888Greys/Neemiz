@@ -8,6 +8,7 @@ import { applyProfitRetention } from "@/lib/house-retention";
 // House edge ~5% on all contract types; Over/Under scales with win probability
 // so no barrier digit gives the player +EV.
 import { payoutRate } from "@/lib/binary-settle";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_SIDES   = ["Even", "Odd", "Matches", "Differs", "Over", "Under"];
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
   if (!side || !VALID_SIDES.includes(side))
     return Response.json({ error: "Invalid side" }, { status: 400 });
   if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
-    return Response.json({ error: `Stake must be between KSh ${MIN_STAKE} and KSh ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
+    return Response.json({ error: `Stake must be between ${CURRENCY_SYMBOL} ${MIN_STAKE} and ${CURRENCY_SYMBOL} ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
   if (!Number.isInteger(entryDigit) || entryDigit! < 0 || entryDigit! > 9)
     return Response.json({ error: "Invalid entry digit" }, { status: 400 });
   if (!Number.isInteger(targetDigit) || targetDigit! < 0 || targetDigit! > 9)

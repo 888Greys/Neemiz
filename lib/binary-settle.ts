@@ -13,6 +13,7 @@
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type BinaryTrade } from "@prisma/client";
 import { retainedProfit } from "@/lib/house-retention";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export function evaluateTrade(side: string, exitDigit: number, targetDigit: number): boolean {
   if (side === "Even")    return exitDigit % 2 === 0;
@@ -92,8 +93,8 @@ export async function settleTradeWithDigit(trade: BinaryTrade, exitDigit: number
         type:   won ? "BINARY_WON" : "BINARY_LOST",
         title:  won ? "Binary trade won" : "Binary trade settled",
         body:   won
-          ? `KSh ${winAmount.toLocaleString("en-KE")} was credited to your wallet.`
-          : `Your KSh ${stake.toLocaleString("en-KE")} trade did not win.`,
+          ? `${CURRENCY_SYMBOL} ${winAmount.toLocaleString(MONEY_LOCALE)} was credited to your wallet.`
+          : `Your ${CURRENCY_SYMBOL} ${stake.toLocaleString(MONEY_LOCALE)} trade did not win.`,
         link:   "/binary",
       },
     });
@@ -141,7 +142,7 @@ export async function voidTrade(trade: BinaryTrade, reason: string): Promise<Voi
         userId: trade.userId,
         type:   "BINARY_VOID",
         title:  "Binary trade refunded",
-        body:   `Your KSh ${stake.toLocaleString("en-KE")} stake was refunded — the trade couldn't be settled.`,
+        body:   `Your ${CURRENCY_SYMBOL} ${stake.toLocaleString(MONEY_LOCALE)} stake was refunded — the trade couldn't be settled.`,
         link:   "/binary",
       },
     });

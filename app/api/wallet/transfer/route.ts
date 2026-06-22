@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
 import { dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 const recipientSelect = {
   id: true,
@@ -110,14 +111,14 @@ export async function POST(req: Request) {
             userId: sender.id,
             type: "wallet_transfer_sent",
             title: "Money sent",
-            body: `You sent KSh ${amount.toLocaleString("en-KE")} to @${recipient.username}.`,
+            body: `You sent ${CURRENCY_SYMBOL} ${amount.toLocaleString(MONEY_LOCALE)} to @${recipient.username}.`,
             link: "/wallet",
           },
           {
             userId: recipient.id,
             type: "wallet_transfer_received",
             title: "Money received",
-            body: `@${sender.username} sent you KSh ${amount.toLocaleString("en-KE")}.`,
+            body: `@${sender.username} sent you ${CURRENCY_SYMBOL} ${amount.toLocaleString(MONEY_LOCALE)}.`,
             link: "/wallet",
           },
         ],
@@ -135,7 +136,7 @@ export async function POST(req: Request) {
       const remaining = Number(error.message.split(":")[1] ?? 0);
       return Response.json({
         error: remaining > 0
-          ? `Daily limit: you can send or withdraw KSh ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
+          ? `Daily limit: you can send or withdraw ${CURRENCY_SYMBOL} ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
           : "You've reached today's cash-out limit (sends + withdrawals). It resets at 2:00 AM.",
       }, { status: 400 });
     }

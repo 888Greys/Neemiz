@@ -12,6 +12,7 @@
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type LeveragedTrade } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export type LeveragedTerminal = "CLOSED" | "STOPPED" | "KNOCKED_OUT";
 
@@ -88,8 +89,8 @@ export async function finalizeLeveraged(
           ? (profit ? `${kindLabel} closed in profit` : `${kindLabel} closed`)
           : `${kindLabel} ${opts.status === "STOPPED" ? "stopped out" : "knocked out"}`,
         body: closed
-          ? `KSh ${creditedPayout.toLocaleString("en-KE")} was credited to your wallet.`
-          : `Your KSh ${stake.toLocaleString("en-KE")} ${kindLabel.toLowerCase()} ${opts.status === "STOPPED" ? "hit its stop-out" : "hit its knockout barrier"}.`,
+          ? `${CURRENCY_SYMBOL} ${creditedPayout.toLocaleString(MONEY_LOCALE)} was credited to your wallet.`
+          : `Your ${CURRENCY_SYMBOL} ${stake.toLocaleString(MONEY_LOCALE)} ${kindLabel.toLowerCase()} ${opts.status === "STOPPED" ? "hit its stop-out" : "hit its knockout barrier"}.`,
         link: "/binary",
       },
     });
@@ -133,7 +134,7 @@ export async function voidLeveraged(trade: LeveragedTrade, reason: string): Prom
         userId: trade.userId,
         type: "LEVERAGED_VOID",
         title: "Contract refunded",
-        body: `Your KSh ${stake.toLocaleString("en-KE")} stake was refunded — the contract couldn't be settled.`,
+        body: `Your ${CURRENCY_SYMBOL} ${stake.toLocaleString(MONEY_LOCALE)} stake was refunded — the contract couldn't be settled.`,
         link: "/binary",
       },
     });

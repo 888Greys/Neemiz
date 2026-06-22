@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { getServerTickHistory } from "@/lib/binary-price";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 import {
   SIGMA_WINDOW, computeSigma, barrierFracFor, maxTicksFor, isValidGrowthRate, payoutAtTick,
 } from "@/lib/accumulator";
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
   if (!market || !VALID_MARKETS.includes(market))
     return Response.json({ error: "Invalid market" }, { status: 400 });
   if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
-    return Response.json({ error: `Stake must be between KSh ${MIN_STAKE} and KSh ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
+    return Response.json({ error: `Stake must be between ${CURRENCY_SYMBOL} ${MIN_STAKE} and ${CURRENCY_SYMBOL} ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
   if (!Number.isInteger(growthRate) || !isValidGrowthRate(growthRate!))
     return Response.json({ error: "Invalid growth rate" }, { status: 400 });
   const tp = takeProfit == null ? null : Number(takeProfit);

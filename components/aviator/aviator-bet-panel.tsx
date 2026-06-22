@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { AviatorRound, AviatorBetPublic } from "@/lib/aviator/types";
 import { LoadingDots } from "@/components/loading-dots";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 interface Props {
   panelIndex:        0 | 1;
@@ -107,7 +108,7 @@ export function AviatorBetPanel({
   }, [onBet, panelIndex]);
 
   const handleBet = useCallback(async () => {
-    if (amount < MIN_BET) { setError(`Minimum KSh ${MIN_BET}`); return; }
+    if (amount < MIN_BET) { setError(`Minimum ${CURRENCY_SYMBOL} ${MIN_BET}`); return; }
     if (amount > balance) { setError("Insufficient balance"); return; }
     await placeBet(amount, acEnabled && autoCashout >= 1.01 ? autoCashout : undefined);
   }, [amount, balance, acEnabled, autoCashout, placeBet]);
@@ -205,12 +206,12 @@ export function AviatorBetPanel({
             <div className="flex flex-col justify-center gap-1.5 rounded-xl bg-white/[0.04] px-3 py-2">
               <div className="flex items-baseline justify-between">
                 <span className="text-[10px] text-white/35">Staked</span>
-                <span className="font-black text-white">KSh {myBet.betAmount.toLocaleString()}</span>
+                <span className="font-black text-white">{CURRENCY_SYMBOL} {myBet.betAmount.toLocaleString()}</span>
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-[10px] text-white/35">Win now</span>
                 <span className="font-black text-[#31c45d]">
-                  KSh {potWin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {CURRENCY_SYMBOL} {potWin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
@@ -222,7 +223,7 @@ export function AviatorBetPanel({
             >
               <p className="text-[11px] font-bold leading-none opacity-80">Cashout</p>
               <p className="mt-0.5 text-[15px] font-black leading-tight">
-                KSh {potWin.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                {CURRENCY_SYMBOL} {potWin.toLocaleString(undefined, { maximumFractionDigits: 0 })}
               </p>
               <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-10" />
             </button>
@@ -248,8 +249,8 @@ export function AviatorBetPanel({
           </p>
           <p className="text-lg font-black text-white">
             {won
-              ? `KSh ${myBet.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—"}`
-              : `-KSh ${myBet.betAmount.toLocaleString()}`}
+              ? `${CURRENCY_SYMBOL} ${myBet.winAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "—"}`
+              : `-${CURRENCY_SYMBOL} ${myBet.betAmount.toLocaleString()}`}
           </p>
           {won && <p className="text-[11px] text-white/30">at {myBet.cashoutAt?.toFixed(2)}×</p>}
         </div>
@@ -266,7 +267,7 @@ export function AviatorBetPanel({
         {TabBar}
         <div className="flex flex-col items-center gap-0.5 p-2 text-center sm:gap-1 sm:p-3">
           <p className="text-[12px] font-black text-yellow-400 sm:text-[13px]">Bet confirmed</p>
-          <p className="text-base font-black text-white sm:text-lg">KSh {myBet.betAmount.toLocaleString()}</p>
+          <p className="text-base font-black text-white sm:text-lg">{CURRENCY_SYMBOL} {myBet.betAmount.toLocaleString()}</p>
           {myBet.autoCashout && <p className="text-[10px] text-white/40 sm:text-[11px]">Auto cashout at {myBet.autoCashout.toFixed(2)}×</p>}
           <p className="text-[10px] text-white/25">Waiting for launch…</p>
         </div>
@@ -284,7 +285,7 @@ export function AviatorBetPanel({
         <div className="flex flex-col items-center gap-0.5 p-2 text-center sm:gap-1.5 sm:p-3">
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff]/15 text-sm sm:h-8 sm:w-8 sm:text-base">⏳</div>
           <p className="text-[12px] font-black text-[#087cff] sm:text-[13px]">Queued for next round</p>
-          <p className="text-base font-black text-white sm:text-lg">KSh {nextBet.amount.toLocaleString()}</p>
+          <p className="text-base font-black text-white sm:text-lg">{CURRENCY_SYMBOL} {nextBet.amount.toLocaleString()}</p>
           {nextBet.autoCashout && (
             <p className="text-[10px] text-white/40 sm:text-[11px]">Auto cashout at {nextBet.autoCashout.toFixed(2)}×</p>
           )}
@@ -326,7 +327,7 @@ export function AviatorBetPanel({
   // BETTING / FLYING (no bet) — main Betika-style form
   // ─────────────────────────────────────────────────────────────────────────
   const queueForNext = () => {
-    if (amount < MIN_BET) { setError(`Minimum KSh ${MIN_BET}`); return; }
+    if (amount < MIN_BET) { setError(`Minimum ${CURRENCY_SYMBOL} ${MIN_BET}`); return; }
     if (amount > balance) { setError("Insufficient balance"); return; }
     setError(null);
     setNextBet({ amount, autoCashout: acEnabled && autoCashout >= 1.01 ? autoCashout : undefined });

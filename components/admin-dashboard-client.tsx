@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { getCached, setCached } from "@/lib/client-cache";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import {
   Area,
   AreaChart,
@@ -53,10 +54,10 @@ interface ProfitData {
 
 const money = (value: number) =>
   value >= 1_000_000
-    ? `KSh ${(value / 1_000_000).toFixed(2)}M`
+    ? `${CURRENCY_SYMBOL} ${(value / 1_000_000).toFixed(2)}M`
     : value >= 1_000
-      ? `KSh ${(value / 1_000).toFixed(1)}K`
-      : `KSh ${value.toLocaleString("en-KE")}`;
+      ? `${CURRENCY_SYMBOL} ${(value / 1_000).toFixed(1)}K`
+      : `${CURRENCY_SYMBOL} ${value.toLocaleString(MONEY_LOCALE)}`;
 
 function Metric({ label, value, detail, icon, tone = "blue" }: {
   label: string; value: string; detail: string; icon: string; tone?: "blue" | "green" | "amber" | "violet";
