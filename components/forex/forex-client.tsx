@@ -60,7 +60,16 @@ type Candle = CandlestickData<Time> & {
 const DEFAULT_SYMBOL = "EUR/USD";
 const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
 const CANDLE_SECONDS = 60;
-const SIZES = [1000, 2000, 5000, 10000, 25000, 50000];
+const SIZES = [1000, 2000, 5000, 10000, 25000];
+
+// One-tap stop-loss / take-profit shapes. Labels read as risk:reward so the
+// trader picks an intent ("1:2") rather than typing raw pips.
+const RR_PRESETS: { label: string; sl: number; tp: number }[] = [
+  { label: "1:1", sl: 20, tp: 20 },
+  { label: "1:2", sl: 25, tp: 50 },
+  { label: "1:3", sl: 20, tp: 60 },
+  { label: "Scalp", sl: 10, tp: 15 },
+];
 
 const MARKETS: ForexMarket[] = [
   { symbol: "EUR/USD", derivSymbol: "frxEURUSD", name: "Euro / US Dollar", base: "EUR", quote: "USD", fallbackPrice: 1.16, precision: 5 },
@@ -84,35 +93,18 @@ function pipSize(market: Pick<ForexMarket, "precision">) {
   return market.precision === 3 ? 0.01 : 0.0001;
 }
 
+// Mirror of calcMargin in app/api/forex/open/route.ts so the ticket can show the
+// exact KES the server will reserve before the user commits.
+function calcMargin(size: number) {
+  return Math.max(10, Math.round(size / 100));
+}
+
 function getPips(entry: number, price: number, market: Pick<ForexMarket, "precision">) {
   return (price - entry) / pipSize(market);
 }
 
 function bucketTime(epoch: number) {
   return (Math.floor(epoch / CANDLE_SECONDS) * CANDLE_SECONDS) as UTCTimestamp;
-}
-
-function upsertCandle(candles: Candle[], epoch: number, price: number) {
-  const time = bucketTime(epoch);
-  const last = candles[candles.length - 1];
-
-  if (last?.time === time) {
-    return [
-      ...candles.slice(0, -1),
-      {
-        ...last,
-        high: Math.max(last.high, price),
-        low: Math.min(last.low, price),
-        close: price,
-      },
-    ].slice(-180);
-  }
-
-  const open = last?.close ?? price;
-  return [
-    ...candles,
-    { time, open, high: Math.max(open, price), low: Math.min(open, price), close: price },
-  ].slice(-180);
 }
 
 function buildFallbackCandles(market: ForexMarket): Candle[] {
@@ -284,7 +276,7 @@ export function ForexClient() {
   const [openingTrade, setOpeningTrade] = useState(false);
   const [closingId, setClosingId] = useState<string | null>(null);
   const [forexHistory, setForexHistory] = useState<ClosedTrade[]>([]);
-  const [activityTab, setActivityTab] = useState<"open" | "history">("open");
+  const [activityTab, setActivityTab] = useState<"open" | "history" | "tx">("open");
   // Desktop activity rail is collapsed by default to give the chart room; it
   // pops open the moment a position is opened (mirrors the Binary rail).
   const [railOpen, setRailOpen] = useState(false);
@@ -296,25 +288,53 @@ export function ForexClient() {
     let active = true;
     let retryCount = 0;
     let retryTimer: number | undefined;
+    let dataTimer: number | undefined;
+    let gotData = false;
     let socket: WebSocket | undefined;
 
     setCandles([]);
     setStreamStatus("connecting");
     setStreamError(null);
 
+    // Watchdog: the socket can open but then stall (slow link / Deriv never
+    // sends history). Without this the chart sits on "Loading live candles"
+    // forever. After the grace period, drop to fallback candles so the user
+    // always sees a chart instead of a permanent spinner.
+    const WS_DATA_TIMEOUT = 6000;
+    function armWatchdog() {
+      if (dataTimer) window.clearTimeout(dataTimer);
+      dataTimer = window.setTimeout(() => {
+        if (!active || gotData) return;
+        setStreamStatus("fallback");
+        setStreamError("Live feed is slow to respond. Reconnecting…");
+        setCandles((current) => current.length ? current : buildFallbackCandles(selectedMarket));
+      }, WS_DATA_TIMEOUT);
+    }
+
     function connect() {
       if (!active) return;
       socket = new WebSocket(DERIV_WS_URL);
+      armWatchdog();
 
       socket.onopen = () => {
         if (!active || !socket) return;
         retryCount = 0;
+        // Two requests on the one socket:
+        //  1) ready-made OHLC candle history (reliable bars — fixes the old
+        //     "only 2 candles" bug from rebuilding history out of raw ticks).
+        //  2) a live tick subscription that drives the forming bar every tick,
+        //     so the chart actually moves second-to-second instead of only
+        //     jumping when a minute closes.
         socket.send(JSON.stringify({
           ticks_history: selectedMarket.derivSymbol,
           adjust_start_time: 1,
-          count: 5000,
+          count: 200,
           end: "latest",
-          style: "ticks",
+          style: "candles",
+          granularity: CANDLE_SECONDS,
+        }));
+        socket.send(JSON.stringify({
+          ticks: selectedMarket.derivSymbol,
           subscribe: 1,
         }));
       };
@@ -324,7 +344,7 @@ export function ForexClient() {
 
         let response: {
           error?: { message?: string };
-          history?: { prices?: number[]; times?: number[] };
+          candles?: { epoch: number; open: number; high: number; low: number; close: number }[];
           tick?: { epoch: number; quote: number };
         };
 
@@ -342,18 +362,39 @@ export function ForexClient() {
           return;
         }
 
-        if (response.history?.prices?.length && response.history.times?.length) {
-          const historyCandles = response.history.prices.reduce<Candle[]>((result, price, index) => {
-            const epoch = response.history?.times?.[index] ?? Math.floor(Date.now() / 1000);
-            return upsertCandle(result, epoch, price);
-          }, []);
+        // Initial OHLC snapshot — the full history of bars for this market.
+        if (response.candles?.length) {
+          gotData = true;
+          if (dataTimer) window.clearTimeout(dataTimer);
+          const historyCandles: Candle[] = response.candles
+            .map((c) => ({
+              time: bucketTime(c.epoch),
+              open: c.open, high: c.high, low: c.low, close: c.close,
+            }))
+            .slice(-180);
           setCandles(historyCandles);
           setStreamStatus("live");
           setStreamError(null);
         }
 
+        // Live tick — fold it into the forming bar (or start a new one at the
+        // top of the minute) so the candle grows in real time.
         if (response.tick) {
-          setCandles((current) => upsertCandle(current, response.tick!.epoch, response.tick!.quote));
+          gotData = true;
+          if (dataTimer) window.clearTimeout(dataTimer);
+          const { epoch, quote } = response.tick;
+          const time = bucketTime(epoch);
+          setCandles((current) => {
+            const last = current[current.length - 1];
+            if (last && last.time === time) {
+              return [
+                ...current.slice(0, -1),
+                { ...last, high: Math.max(last.high, quote), low: Math.min(last.low, quote), close: quote },
+              ];
+            }
+            const open = last?.close ?? quote;
+            return [...current, { time, open, high: Math.max(open, quote), low: Math.min(open, quote), close: quote }].slice(-180);
+          });
           setStreamStatus("live");
           setStreamError(null);
         }
@@ -381,6 +422,7 @@ export function ForexClient() {
     return () => {
       active = false;
       if (retryTimer) window.clearTimeout(retryTimer);
+      if (dataTimer) window.clearTimeout(dataTimer);
       if (socket) {
         socket.onopen = null;
         socket.onmessage = null;
@@ -411,6 +453,20 @@ export function ForexClient() {
   const lots = size / 100000;
   const openTrades = trades;
   const exposure = openTrades.reduce((total, trade) => total + trade.size, 0);
+
+  // Track the direction of the latest tick so the header price can flash
+  // green/red on every move — makes the live feed obviously "alive" even when
+  // forex only ticks a fraction of a pip at a time.
+  const prevPriceRef = useRef(price);
+  const [tickDir, setTickDir] = useState<"up" | "down" | "flat">("flat");
+  const [tickKey, setTickKey] = useState(0);
+  useEffect(() => {
+    const prev = prevPriceRef.current;
+    if (price > prev) setTickDir("up");
+    else if (price < prev) setTickDir("down");
+    if (price !== prev) setTickKey((k) => k + 1);
+    prevPriceRef.current = price;
+  }, [price]);
   const estimatedPnl = openTrades.reduce((total, trade) => {
     const pips = getPips(trade.entry, price, trade);
     return total + (trade.direction === "buy" ? pips : -pips) * (trade.size / 10000);
@@ -612,8 +668,8 @@ export function ForexClient() {
                   <span className={`rounded px-2 py-1 text-[10px] font-black ${changePct >= 0 ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
                     {changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%
                   </span>
+                  <LiveTicker price={formatPrice(selectedMarket, price)} dir={tickDir} flashKey={tickKey} live={streamStatus === "live"} />
                 </div>
-                <div className="mt-0.5 hidden text-xs font-bold text-slate-500 sm:block">{selectedMarket.name}</div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="hidden text-right sm:block">
@@ -685,7 +741,7 @@ export function ForexClient() {
                   step={1000}
                   value={size}
                   onChange={(event) => setSize(Math.max(1000, Number(event.target.value) || 1000))}
-                  className="h-12 w-full rounded border border-white/[0.08] bg-black/25 px-4 font-mono text-lg font-black text-white outline-none transition focus:border-[#087cff]/70"
+                  className="h-10 w-full rounded border border-white/[0.08] bg-black/25 px-4 font-mono text-base font-black text-white outline-none transition focus:border-[#087cff]/70"
                 />
                 <div className="mt-2 grid grid-cols-5 gap-1 sm:gap-2">
                   {SIZES.map((item) => (
@@ -706,25 +762,38 @@ export function ForexClient() {
                 <NumberField id="target-pips" label="Take profit" suffix="pips" value={targetPips} onChange={setTargetPips} />
               </div>
 
-              {/* Risk / Reward — turns the pip inputs into real money so the trader
-                  sees what they're risking to make, plus the R:R ratio. */}
-              <div className="overflow-hidden rounded-lg border border-white/[0.07] bg-black/20">
-                <div className="grid grid-cols-2 divide-x divide-white/[0.06]">
-                  <div className="p-3">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Risk</div>
-                    <div className="mt-0.5 font-mono text-base font-black text-[#ff6171]">−KSh {riskKes.toFixed(2)}</div>
-                  </div>
-                  <div className="p-3 text-right">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Reward</div>
-                    <div className="mt-0.5 font-mono text-base font-black text-[#33d49b]">+KSh {rewardKes.toFixed(2)}</div>
-                  </div>
+              {/* Quick R:R presets — one tap sets both SL and TP to a common
+                  risk/reward shape, so beginners don't have to type pips. */}
+              <div className="grid grid-cols-4 gap-1.5">
+                {RR_PRESETS.map((preset) => {
+                  const active = riskPips === preset.sl && targetPips === preset.tp;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => { setRiskPips(preset.sl); setTargetPips(preset.tp); }}
+                      className={`rounded px-1 py-1.5 text-[10px] font-black transition ${active ? "bg-[#087cff] text-white" : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.1] hover:text-white"}`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Risk / Reward — pip inputs as real money plus the R:R ratio,
+                  packed into one compact row to keep the Open button in view. */}
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Risk</span>
+                  <span className="font-mono text-[11px] font-black text-[#ff6171]">−KSh {riskKes.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-white/[0.06] bg-black/30 px-3 py-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Risk : Reward</span>
-                  <span className={`rounded px-2 py-0.5 font-mono text-[11px] font-black ${rrRatio >= 1 ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>
-                    1 : {rrRatio.toFixed(2)}
-                  </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Reward</span>
+                  <span className="font-mono text-[11px] font-black text-[#33d49b]">+KSh {rewardKes.toFixed(2)}</span>
                 </div>
+                <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-black ${rrRatio >= 1 ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>
+                  1:{rrRatio.toFixed(2)}
+                </span>
               </div>
 
               {/* Entry / SL / TP price chips */}
@@ -732,6 +801,12 @@ export function ForexClient() {
                 <PriceChip label="Entry" value={formatPrice(selectedMarket, price)} />
                 <PriceChip label="Stop" value={formatPrice(selectedMarket, stopLoss)} tone="sell" />
                 <PriceChip label="Target" value={formatPrice(selectedMarket, takeProfit)} tone="buy" />
+              </div>
+
+              {/* Margin the server will reserve for this position. */}
+              <div className="flex items-center justify-between rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Margin required</span>
+                <span className="font-mono text-sm font-black text-white">KSh {calcMargin(size).toLocaleString("en-KE")}</span>
               </div>
 
               {tradeError && (
@@ -745,10 +820,10 @@ export function ForexClient() {
                 type="button"
                 onClick={() => openTrade()}
                 disabled={streamStatus !== "live" || openingTrade}
-                className={`hidden w-full rounded-lg py-4 text-sm font-black text-white shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none xl:block ${
+                className={`hidden w-full rounded-lg py-4 text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 xl:block ${
                   direction === "buy"
-                    ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68] shadow-emerald-500/20 hover:from-[#1ac98a] hover:to-[#13ae73]"
-                    : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b] shadow-red-500/20 hover:from-[#f25a69] hover:to-[#e24755]"
+                    ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68] hover:from-[#1ac98a] hover:to-[#13ae73]"
+                    : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b] hover:from-[#f25a69] hover:to-[#e24755]"
                 }`}
               >
                 {openingTrade ? "Opening…" : streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
@@ -778,10 +853,10 @@ export function ForexClient() {
           type="button"
           onClick={() => openTrade()}
           disabled={streamStatus !== "live" || openingTrade}
-          className={`flex min-h-14 w-full items-center justify-between rounded-lg px-4 text-white shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
+          className={`flex min-h-14 w-full items-center justify-between rounded-lg px-4 text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
             direction === "buy"
-              ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68] shadow-emerald-500/20"
-              : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b] shadow-red-500/20"
+              ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68]"
+              : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b]"
           }`}
         >
           <span className="text-sm font-black">
@@ -830,7 +905,7 @@ function PairDropdown({ markets, onSelect, price, selected, streamStatus }: {
       </button>
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-64 overflow-hidden rounded-lg border border-white/[0.1] bg-[#0f1218] shadow-2xl shadow-black/50">
-          <div className="max-h-[60vh] overflow-y-auto [scrollbar-width:thin]">
+          <div className="max-h-[60vh] overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {markets.map((market) => {
               const isSelected = market.symbol === selected.symbol;
               const isLive = isSelected && streamStatus === "live";
@@ -859,9 +934,11 @@ function PairDropdown({ markets, onSelect, price, selected, streamStatus }: {
   );
 }
 
+type ActivityTab = "open" | "history" | "tx";
+
 interface ForexActivityProps {
-  tab: "open" | "history";
-  setTab: (t: "open" | "history") => void;
+  tab: ActivityTab;
+  setTab: (t: ActivityTab) => void;
   openTrades: Trade[];
   forexHistory: ClosedTrade[];
   price: number;
@@ -870,20 +947,56 @@ interface ForexActivityProps {
   onCollapse?: () => void;
 }
 
+// A single line in the Transactions tab, derived client-side from the trades we
+// already hold — open positions become "reserved margin" rows, closed trades
+// become win/loss settlement rows. Mirrors Binary's Tx tab without a new route.
+type ForexTx = {
+  id: string;
+  kind: "stake" | "win" | "loss";
+  symbol: string;
+  amount: number; // signed KES: negative = out of wallet, positive = credited
+  at: number;
+};
+
+function buildForexTransactions(openTrades: Trade[], history: ClosedTrade[]): ForexTx[] {
+  const stakes: ForexTx[] = openTrades.map((t) => ({
+    id: `stake-${t.id}`,
+    kind: "stake",
+    symbol: t.symbol,
+    amount: -(t.margin ?? calcMargin(t.size)),
+    at: t.openedAt,
+  }));
+  const settlements: ForexTx[] = history.map((t) => {
+    const pl = t.profitLoss ?? 0;
+    return {
+      id: `settle-${t.id}`,
+      kind: pl >= 0 ? "win" : "loss",
+      symbol: t.symbol,
+      amount: pl,
+      at: t.closedAt ?? t.openedAt,
+    };
+  });
+  return [...stakes, ...settlements].sort((a, b) => b.at - a.at).slice(0, 40);
+}
+
 // Shared Positions / History tabs — used by the desktop left rail and the
 // mobile collapsible, so both surfaces show identical detail (mirrors Binary).
 function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, closingId, closeTrade, onCollapse }: ForexActivityProps) {
+  const transactions = useMemo(() => buildForexTransactions(openTrades, forexHistory), [openTrades, forexHistory]);
+
   return (
     <>
+      <ForexSessionStats openTrades={openTrades} forexHistory={forexHistory} price={price} />
+
       <div className="flex shrink-0 items-stretch border-b border-white/[0.07] bg-[#0f1218] text-xs font-black">
-        {(["open", "history"] as const).map((t) => (
+        {(["open", "history", "tx"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={`flex-1 py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
           >
-            {t === "open" ? `Positions (${openTrades.length})` : `History (${forexHistory.length})`}
+            {t === "open" ? `Positions (${openTrades.length})` : t === "history" ? `History (${forexHistory.length})` : "Tx"}
           </button>
         ))}
         {onCollapse && (
@@ -920,8 +1033,71 @@ function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, clos
             )}
           </div>
         )}
+        {tab === "tx" && (
+          <div className="space-y-1.5 p-3">
+            {transactions.length === 0 ? (
+              <div className="rounded border border-dashed border-white/[0.08] py-6 text-center text-xs font-bold text-slate-600">No transactions yet</div>
+            ) : (
+              transactions.map((tx) => <TransactionRow key={tx.id} tx={tx} />)
+            )}
+          </div>
+        )}
       </div>
     </>
+  );
+}
+
+// Session summary — realized result from this session's closed trades plus the
+// live unrealized P/L across open positions. Mirrors Binary's rail stats.
+function ForexSessionStats({ openTrades, forexHistory, price }: { openTrades: Trade[]; forexHistory: ClosedTrade[]; price: number }) {
+  const wins = forexHistory.filter((t) => (t.profitLoss ?? 0) >= 0).length;
+  const losses = forexHistory.length - wins;
+  const realized = forexHistory.reduce((sum, t) => sum + (t.profitLoss ?? 0), 0);
+  const unrealized = openTrades.reduce((sum, t) => {
+    const pips = getPips(t.entry, price, t);
+    return sum + (t.direction === "buy" ? pips : -pips) * (t.size / 10000);
+  }, 0);
+
+  return (
+    <div className="grid shrink-0 grid-cols-3 divide-x divide-white/[0.06] border-b border-white/[0.07] bg-[#0b0f15]">
+      <div className="px-3 py-2">
+        <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">W / L</div>
+        <div className="mt-0.5 font-mono text-sm font-black text-white">
+          <span className="text-[#33d49b]">{wins}</span>
+          <span className="text-slate-600"> / </span>
+          <span className="text-[#ff6171]">{losses}</span>
+        </div>
+      </div>
+      <div className="px-3 py-2">
+        <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Realized</div>
+        <div className={`mt-0.5 font-mono text-sm font-black ${realized > 0 ? "text-[#33d49b]" : realized < 0 ? "text-[#ff6171]" : "text-white"}`}>
+          {realized >= 0 ? "+" : "−"}KSh {Math.abs(realized).toFixed(0)}
+        </div>
+      </div>
+      <div className="px-3 py-2">
+        <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Open P/L</div>
+        <div className={`mt-0.5 font-mono text-sm font-black ${unrealized > 0 ? "text-[#33d49b]" : unrealized < 0 ? "text-[#ff6171]" : "text-white"}`}>
+          {unrealized >= 0 ? "+" : "−"}KSh {Math.abs(unrealized).toFixed(0)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TransactionRow({ tx }: { tx: ForexTx }) {
+  const label = tx.kind === "stake" ? "Margin reserved" : tx.kind === "win" ? "Trade closed · profit" : "Trade closed · loss";
+  const positive = tx.amount >= 0;
+  const time = new Intl.DateTimeFormat("en-KE", { dateStyle: "short", timeStyle: "short" }).format(new Date(tx.at));
+  return (
+    <div className="flex items-center justify-between gap-3 rounded bg-black/25 px-3 py-2">
+      <div className="min-w-0">
+        <div className="truncate text-xs font-black text-slate-200">{tx.symbol} · {label}</div>
+        <div className="text-[10px] font-bold text-slate-600">{time}</div>
+      </div>
+      <div className={`shrink-0 font-mono text-xs font-black ${positive ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
+        {positive ? "+" : "−"}KSh {Math.abs(tx.amount).toFixed(2)}
+      </div>
+    </div>
   );
 }
 
@@ -980,6 +1156,29 @@ function MobileForexActivity(props: ForexActivityProps) {
   );
 }
 
+// Live mid-price pill that flashes green on an up-tick and red on a down-tick.
+// The inner value remounts on `flashKey` so the flash animation replays every
+// tick — makes the feed read as alive even on sub-pip forex moves.
+function LiveTicker({ price, dir, flashKey, live }: { price: string; dir: "up" | "down" | "flat"; flashKey: number; live: boolean }) {
+  const color = dir === "up" ? "#33d49b" : dir === "down" ? "#ff6171" : "#94a3b8";
+  return (
+    <span className="hidden items-center gap-1.5 rounded px-2 py-1 sm:inline-flex" style={{ background: "rgba(255,255,255,0.04)" }}>
+      <style>{`@keyframes fxflash{0%{transform:scale(1.12);opacity:.55}100%{transform:scale(1);opacity:1}}`}</style>
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${live ? "animate-pulse" : ""}`}
+        style={{ background: live ? color : "#64748b" }}
+      />
+      <span
+        key={flashKey}
+        className="font-mono text-[11px] font-black tabular-nums"
+        style={{ color, animation: "fxflash .4s ease-out" }}
+      >
+        {dir === "up" ? "▲" : dir === "down" ? "▼" : "•"} {price}
+      </span>
+    </span>
+  );
+}
+
 function QuoteBox({ label, tone, value }: { label: string; tone: "buy" | "sell"; value: string }) {
   return (
     <div className={`min-w-0 overflow-hidden rounded border px-2 py-1 sm:min-w-[80px] ${tone === "buy" ? "border-[#33d49b]/30 bg-[#33d49b]/8" : "border-[#ff6171]/30 bg-[#ff6171]/8"}`}>
@@ -995,11 +1194,11 @@ function QuoteToggle({ active, label, onClick, price, tone }: { active: boolean;
     <button
       type="button"
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-lg border px-4 py-2.5 text-left transition active:scale-[0.98] ${
+      className={`group relative overflow-hidden rounded-lg border px-3 py-1.5 text-left transition active:scale-[0.98] ${
         active
           ? tone === "buy"
-            ? "border-[#33d49b]/60 bg-[#0f9f68]/15 shadow-[0_0_24px_-6px_rgba(51,212,155,0.5)]"
-            : "border-[#ff6171]/60 bg-[#d33d4b]/15 shadow-[0_0_24px_-6px_rgba(255,97,113,0.5)]"
+            ? "border-[#33d49b]/60 bg-[#0f9f68]/15"
+            : "border-[#ff6171]/60 bg-[#d33d4b]/15"
           : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
       }`}
     >
@@ -1047,6 +1246,16 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
   const pips = trade.direction === "buy" ? rawPips : -rawPips;
   const plKes = parseFloat((pips * (trade.size / 10000)).toFixed(2));
 
+  // Where the live price sits between stop loss (0) and take profit (1). The
+  // formula holds for both directions: 0 = at SL (worst), 1 = at TP (best).
+  const span = trade.takeProfit - trade.stopLoss;
+  const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+  const progress = span !== 0 ? clamp01((currentPrice - trade.stopLoss) / span) : 0.5;
+  const entryMark = span !== 0 ? clamp01((trade.entry - trade.stopLoss) / span) : 0.5;
+  const inProfit = plKes >= 0;
+  // Pulse the bar when price is closing in on either barrier.
+  const nearBarrier = progress <= 0.12 || progress >= 0.88;
+
   return (
     <div className="rounded border border-white/[0.07] bg-black/20 p-3">
       <div className="flex items-center justify-between gap-3">
@@ -1060,14 +1269,37 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
           )}
         </div>
         <div className="text-right">
-          <div className={`font-mono text-sm font-black ${pips >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
+          <div className={`font-mono text-sm font-black tabular-nums ${pips >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
             {pips >= 0 ? "+" : ""}{pips.toFixed(1)} pips
           </div>
-          <div className={`font-mono text-[11px] font-bold ${plKes >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
+          <div className={`font-mono text-[11px] font-bold tabular-nums ${plKes >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
             {plKes >= 0 ? "+" : ""}KSh {plKes.toFixed(2)}
           </div>
         </div>
       </div>
+
+      {/* SL ←→ TP track. Fill grows from the SL end; an entry tick and a live
+          price marker show how close the position is to either barrier. */}
+      <div className="mt-3">
+        <div className="relative h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+          <div
+            className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 ease-out ${inProfit ? "bg-[#33d49b]" : "bg-[#ff6171]"} ${nearBarrier ? "animate-pulse" : ""}`}
+            style={{ width: `${progress * 100}%` }}
+          />
+          {/* entry reference tick */}
+          <div className="absolute inset-y-0 w-px bg-white/40" style={{ left: `${entryMark * 100}%` }} />
+          {/* live price marker */}
+          <div
+            className={`absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/40 shadow ${inProfit ? "bg-[#33d49b]" : "bg-[#ff6171]"} ${nearBarrier ? "animate-pulse" : ""}`}
+            style={{ left: `${progress * 100}%` }}
+          />
+        </div>
+        <div className="mt-1 flex justify-between text-[9px] font-black uppercase tracking-wider">
+          <span className="text-[#ff6171]/80">SL {formatPrice(trade, trade.stopLoss)}</span>
+          <span className="text-[#33d49b]/80">TP {formatPrice(trade, trade.takeProfit)}</span>
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={onClose}
