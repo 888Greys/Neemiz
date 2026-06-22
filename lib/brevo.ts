@@ -1,3 +1,4 @@
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 // Transactional email via Resend.
 const RESEND_API_KEY = process.env.RESEND_API_KEY!;
 const SENDER_EMAIL = process.env.MAIL_SENDER_EMAIL ?? process.env.BREVO_SENDER_EMAIL ?? "noreply@nezeem.com";
@@ -33,7 +34,7 @@ export async function sendLowFloatAlertEmail(amountKes: number, msisdn?: string)
     <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
       <h2 style="margin:0 0 8px">Top up your M-Pesa float</h2>
       <p style="margin:0 0 16px;color:#475569;line-height:1.6">
-        A customer withdrawal of <strong>KSh ${amountKes.toLocaleString()}</strong>${msisdn ? ` to <strong>+${msisdn}</strong>` : ""}
+        A customer withdrawal of <strong>${CURRENCY_SYMBOL} ${amountKes.toLocaleString()}</strong>${msisdn ? ` to <strong>+${msisdn}</strong>` : ""}
         could not be paid out — the payout provider reported insufficient float.
       </p>
       <p style="margin:0 0 16px;color:#475569;line-height:1.6">
@@ -182,7 +183,7 @@ export async function sendGameResultEmail(
   const color = won ? "#05c46b" : voided ? "#f5a524" : "#ff4d5e";
   const title = won ? "You won!" : voided ? "Bet refunded" : "Bet settled";
   const subject = won
-    ? `You won KSh ${Number(opts.payout ?? 0).toLocaleString("en-KE")} on Nezeem`
+    ? `You won ${CURRENCY_SYMBOL} ${Number(opts.payout ?? 0).toLocaleString(MONEY_LOCALE)} on Nezeem`
     : voided
       ? `${opts.game} bet refunded`
       : `${opts.game} bet result`;
@@ -202,8 +203,8 @@ export async function sendGameResultEmail(
         <tr><td style="padding:4px 20px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow("Result", `<strong style="color:${color};">${opts.outcome}</strong>`)}
-            ${detailRow("Stake", `KSh ${opts.stake.toLocaleString("en-KE")}`)}
-            ${opts.payout !== undefined ? detailRow(won ? "Credited" : "Returned", `KSh ${opts.payout.toLocaleString("en-KE")}`) : ""}
+            ${detailRow("Stake", `${CURRENCY_SYMBOL} ${opts.stake.toLocaleString(MONEY_LOCALE)}`)}
+            ${opts.payout !== undefined ? detailRow(won ? "Credited" : "Returned", `${CURRENCY_SYMBOL} ${opts.payout.toLocaleString(MONEY_LOCALE)}`) : ""}
             ${detailRow("Reference", opts.reference.slice(0, 18).toUpperCase(), true)}
           </table>
         </td></tr>
@@ -436,7 +437,7 @@ export async function sendTradeCompletedEmail(
         <tr><td style="padding:4px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow(isReceiver ? "You received" : "You released", `<strong style="color:#05b957;">${(isReceiver ? receivedCrypto : cryptoAmount).toFixed(6)} ${crypto}</strong>`)}
-            ${detailRow(isReceiver ? "You paid" : "You received", `${fiat} ${fiatAmount.toLocaleString("en-KE")}`)}
+            ${detailRow(isReceiver ? "You paid" : "You received", `${fiat} ${fiatAmount.toLocaleString(MONEY_LOCALE)}`)}
             ${detailRow("Order ID", orderId.slice(0, 16).toUpperCase(), true)}
           </table>
         </td></tr>
@@ -481,8 +482,8 @@ export async function sendAdCreatedEmail(
         <tr><td style="padding:4px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow(`Total ${crypto}`, `<strong>${totalAmount.toFixed(6)} ${crypto}</strong>`)}
-            ${detailRow(`Price per ${crypto}`, `<strong style="color:#087cff;">${pricePerUnit.toLocaleString("en-KE")} ${fiat}</strong>`)}
-            ${detailRow("Order Limit", `${fiat} ${minLimit.toLocaleString("en-KE")} – ${maxLimit.toLocaleString("en-KE")}`, true)}
+            ${detailRow(`Price per ${crypto}`, `<strong style="color:#087cff;">${pricePerUnit.toLocaleString(MONEY_LOCALE)} ${fiat}</strong>`)}
+            ${detailRow("Order Limit", `${fiat} ${minLimit.toLocaleString(MONEY_LOCALE)} – ${maxLimit.toLocaleString(MONEY_LOCALE)}`, true)}
           </table>
         </td></tr>
       </table>
@@ -529,7 +530,7 @@ export async function sendNewP2POrderEmail(
         <tr><td style="padding:4px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow("Crypto Amount", `<strong>${cryptoAmount.toFixed(6)} ${crypto}</strong>`)}
-            ${detailRow(fiatRowLabel, `<strong style="color:#05b957;">${fiat} ${fiatAmount.toLocaleString("en-KE")}</strong>`)}
+            ${detailRow(fiatRowLabel, `<strong style="color:#05b957;">${fiat} ${fiatAmount.toLocaleString(MONEY_LOCALE)}</strong>`)}
             ${detailRow("Payment Method", method)}
             ${detailRow("Order ID", orderId.slice(0, 16).toUpperCase(), true)}
           </table>
@@ -610,7 +611,7 @@ export async function sendP2POrderStatusEmail(
         <tr><td style="padding:4px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow("Crypto Amount", `<strong>${opts.cryptoAmount.toFixed(6)} ${escapeHtml(opts.crypto)}</strong>`)}
-            ${detailRow("Fiat Amount", `<strong>${escapeHtml(opts.fiat)} ${opts.fiatAmount.toLocaleString("en-KE")}</strong>`)}
+            ${detailRow("Fiat Amount", `<strong>${escapeHtml(opts.fiat)} ${opts.fiatAmount.toLocaleString(MONEY_LOCALE)}</strong>`)}
             ${detailRow("Order ID", opts.orderId.slice(0, 16).toUpperCase(), true)}
           </table>
         </td></tr>

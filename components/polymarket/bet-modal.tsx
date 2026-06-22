@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PolymarketMarket } from "@/lib/polymarket";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 interface Props {
   market:  PolymarketMarket;
@@ -15,7 +16,7 @@ interface Props {
 const QUICK = [50, 100, 250, 500, 1000];
 
 function formatKes(value: number, options?: Intl.NumberFormatOptions) {
-  return `KSh ${value.toLocaleString(undefined, options)}`;
+  return `${CURRENCY_SYMBOL} ${value.toLocaleString(undefined, options)}`;
 }
 
 function formatCents(price: number) {

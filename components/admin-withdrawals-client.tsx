@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Icon } from "@/components/icon";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 interface PendingWithdrawal {
   id: string;
@@ -118,7 +119,7 @@ export function AdminWithdrawalsClient() {
                       </span>
                     </div>
                     <p className="text-2xl font-black text-white">
-                      KSh {amount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                      {CURRENCY_SYMBOL} {amount.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}
                     </p>
                     {isSell ? (
                       <div className="space-y-0.5">
@@ -126,7 +127,7 @@ export function AdminWithdrawalsClient() {
                           Send ≈ {sellAmount} {sellCrypto} <span className="text-slate-600 font-bold">({sellNetwork})</span>
                         </p>
                         {sellFeeKes != null && (
-                          <p className="text-[11px] text-slate-600">Fee: KSh {sellFeeKes.toLocaleString()}</p>
+                          <p className="text-[11px] text-slate-600">Fee: {CURRENCY_SYMBOL} {sellFeeKes.toLocaleString()}</p>
                         )}
                         {sellAddress && (
                           <p className="text-[11px] text-slate-500 font-mono break-all">{sellAddress}</p>
@@ -135,7 +136,7 @@ export function AdminWithdrawalsClient() {
                     ) : (
                       payout && fee && (
                         <p className="text-[11px] text-slate-600">
-                          Payout: KSh {payout.toLocaleString()} · Fee: KSh {fee.toLocaleString()}
+                          Payout: {CURRENCY_SYMBOL} {payout.toLocaleString()} · Fee: {CURRENCY_SYMBOL} {fee.toLocaleString()}
                         </p>
                       )
                     )}
@@ -194,7 +195,7 @@ export function AdminWithdrawalsClient() {
             <div className="w-full max-w-md border border-white/[0.1] bg-[#121419] p-5 shadow-2xl">
               <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${isApproval ? "text-emerald-400" : "text-red-400"}`}>Confirm financial action</p>
               <h2 className="mt-2 text-lg font-black text-white">{isApproval ? (isCryptoSale ? "Mark crypto payout sent?" : "Approve and send payout?") : "Reject and refund payout?"}</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-400">This will {isApproval ? "finalize the withdrawal" : "return funds to the customer wallet"} for <strong className="text-white">KSh {Number(withdrawal.amount).toLocaleString("en-KE", { minimumFractionDigits: 2 })}</strong>. Verify the account, destination, and payment evidence before continuing.</p>
+              <p className="mt-3 text-sm leading-6 text-slate-400">This will {isApproval ? "finalize the withdrawal" : "return funds to the customer wallet"} for <strong className="text-white">{CURRENCY_SYMBOL} {Number(withdrawal.amount).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}</strong>. Verify the account, destination, and payment evidence before continuing.</p>
               <div className="mt-5 flex gap-2">
                 <button onClick={() => setConfirming(null)} className="flex-1 rounded-md border border-white/[0.1] px-3 py-2.5 text-[11px] font-black text-slate-300 hover:bg-white/[0.05]">Cancel</button>
                 <button

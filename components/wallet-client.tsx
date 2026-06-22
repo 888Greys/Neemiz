@@ -11,6 +11,7 @@ import { toast } from "@/lib/toast";
 import { LoadingDots } from "@/components/loading-dots";
 import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown";
 import { cachedFetch, getCached } from "@/lib/client-cache";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
@@ -395,7 +396,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
 
   function reset() { setDeposit({ step: "idle" }); setAmount(""); setError(""); pollCount.current = 0; }
 
-  const fmtBalance = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
+  const fmtBalance = `${currency === "KES" ? CURRENCY_SYMBOL : currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`;
   const kesCoinAvailable = currency === "KES" ? balance : 0;
 
   // Crypto balance for currently selected withdraw asset
@@ -482,13 +483,13 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                 </div>
                 <h2 className="text-2xl font-black text-white">Payment Received!</h2>
                 <p className="mt-2 text-sm text-slate-400">
-                  <span className="font-bold text-emerald-400">KSh {deposit.amount.toLocaleString()}</span>{" "}
+                  <span className="font-bold text-emerald-400">{CURRENCY_SYMBOL} {deposit.amount.toLocaleString()}</span>{" "}
                   has been added to your wallet
                 </p>
                 <div className="my-5 rounded-2xl bg-white/[0.04] px-5 py-4">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">New Balance</p>
                   <p className="mt-1 text-3xl font-black text-white">
-                    KSh {deposit.newBalance.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+                    {CURRENCY_SYMBOL} {deposit.newBalance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}
                   </p>
                 </div>
                 {deposit.receipt && (
@@ -534,7 +535,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                 </p>
                 <div className="my-5 rounded-2xl bg-white/[0.04] px-5 py-4">
                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Amount</p>
-                  <p className="mt-1 text-3xl font-black text-white">KSh {deposit.amount.toLocaleString()}</p>
+                  <p className="mt-1 text-3xl font-black text-white">{CURRENCY_SYMBOL} {deposit.amount.toLocaleString()}</p>
                 </div>
                 <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-400/8 px-4 py-2.5 text-xs font-bold text-amber-400">
                   <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-amber-400" />
@@ -588,7 +589,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                     Amount (KSh)
                   </p>
                   <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50 transition">
-                    <span className="shrink-0 text-sm font-black text-slate-500">KSh</span>
+                    <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                     <input
                       type="number"
                       min="49"
@@ -643,7 +644,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                   {loading ? (
                     <LoadingDots label="Sending prompt" />
                   ) : (
-                    `Deposit KSh ${Number(amount || 0).toLocaleString() || "—"}`
+                    `Deposit ${CURRENCY_SYMBOL} ${Number(amount || 0).toLocaleString() || "—"}`
                   )}
                 </button>
 
@@ -963,8 +964,8 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                         wdDone.message
                       ) : (
                         <>
-                          <span className="text-white font-bold">KSh {wdDone.payout.toLocaleString()}</span> is being sent to your M-Pesa.
-                          <br />Fee: KSh {wdDone.fee.toLocaleString()}
+                          <span className="text-white font-bold">{CURRENCY_SYMBOL} {wdDone.payout.toLocaleString()}</span> is being sent to your M-Pesa.
+                          <br />Fee: {CURRENCY_SYMBOL} {wdDone.fee.toLocaleString()}
                         </>
                       )}
                     </p>
@@ -983,7 +984,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                   <>
                     <div className="rounded-2xl bg-[#16171d]/60 px-4 py-3 ring-1 ring-white/[0.05]">
                       <p className="text-xs text-slate-500">
-                        <span className="font-bold text-slate-300">Test mode:</span> no fee. Min KSh 11 · Max KSh {(wdLimit?.limit ?? 500).toLocaleString()} per day.
+                        <span className="font-bold text-slate-300">Test mode:</span> no fee. Min KSh 11 · Max {CURRENCY_SYMBOL} {(wdLimit?.limit ?? 500).toLocaleString()} per day.
                         Money arrives within 1–5 minutes via Safaricom M-Pesa.
                       </p>
                     </div>
@@ -994,7 +995,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Daily limit left</span>
                           <span className={`text-sm font-black ${wdLimit.remaining > 0 ? "text-[#05b957]" : "text-amber-400"}`}>
-                            KSh {wdLimit.remaining.toLocaleString()} <span className="text-[11px] font-bold text-slate-600">/ {wdLimit.limit.toLocaleString()}</span>
+                            {CURRENCY_SYMBOL} {wdLimit.remaining.toLocaleString()} <span className="text-[11px] font-bold text-slate-600">/ {wdLimit.limit.toLocaleString()}</span>
                           </span>
                         </div>
                         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
@@ -1004,7 +1005,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                           />
                         </div>
                         <p className="mt-1.5 text-[10px] text-slate-600">
-                          {wdLimit.used > 0 ? `KSh ${wdLimit.used.toLocaleString()} used today · ` : ""}Resets daily at 2:00 AM
+                          {wdLimit.used > 0 ? `${CURRENCY_SYMBOL} ${wdLimit.used.toLocaleString()} used today · ` : ""}Resets daily at 2:00 AM
                         </p>
                       </div>
                     )}
@@ -1012,7 +1013,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                     <div>
                       <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount (KSh)</p>
                       <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/40 transition">
-                        <span className="shrink-0 text-sm font-black text-slate-500">KSh</span>
+                        <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                         <input
                           type="number"
                           min="11"
@@ -1024,7 +1025,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                         />
                         {wdAmount && Number(wdAmount) >= 11 && (
                           <span className="shrink-0 text-xs text-slate-600">
-                            → KSh {Number(wdAmount).toLocaleString("en-KE")}
+                            → {CURRENCY_SYMBOL} {Number(wdAmount).toLocaleString(MONEY_LOCALE)}
                           </span>
                         )}
                       </div>
@@ -1060,7 +1061,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                       {wdLoading ? (
                         <LoadingDots label="Processing" />
                       ) : (
-                        `Withdraw${wdAmount && Number(wdAmount) >= 11 ? ` KSh ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
+                        `Withdraw${wdAmount && Number(wdAmount) >= 11 ? ` ${CURRENCY_SYMBOL} ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
                       )}
                     </button>
                     <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
@@ -1087,7 +1088,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
             </div>
             <h3 className="text-center text-lg font-black text-white">Confirm it&rsquo;s you</h3>
             <p className="mt-1 mb-5 text-center text-xs leading-5 text-slate-500">
-              Withdrawing <span className="font-black text-slate-300">KSh {Number(wdAmount || 0).toLocaleString()}</span> to +{wdPhone.trim().startsWith("0") ? `254${wdPhone.trim().slice(1)}` : wdPhone.trim()}. Verify with your password or passkey.
+              Withdrawing <span className="font-black text-slate-300">{CURRENCY_SYMBOL} {Number(wdAmount || 0).toLocaleString()}</span> to +{wdPhone.trim().startsWith("0") ? `254${wdPhone.trim().slice(1)}` : wdPhone.trim()}. Verify with your password or passkey.
             </p>
 
             <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
@@ -1240,7 +1241,7 @@ function WalletTransferPanel({
         </div>
         <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-emerald-400">Transfer successful</p>
         <h2 className="mt-2 text-4xl font-black tracking-tight text-white">
-          KSh {receipt.amount.toLocaleString("en-KE", { minimumFractionDigits: 2 })}
+          {CURRENCY_SYMBOL} {receipt.amount.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}
         </h2>
 
         <div className="mx-auto mt-6 flex max-w-sm items-center gap-3 rounded-2xl bg-white/[0.05] p-4 text-left ring-1 ring-white/[0.08]">
@@ -1335,10 +1336,10 @@ function WalletTransferPanel({
       <div>
         <div className="mb-2 flex items-center justify-between">
           <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount</p>
-          <p className="text-xs font-bold text-slate-500">Balance: KSh {balance.toLocaleString("en-KE")}</p>
+          <p className="text-xs font-bold text-slate-500">Balance: {CURRENCY_SYMBOL} {balance.toLocaleString(MONEY_LOCALE)}</p>
         </div>
         <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
-          <span className="text-sm font-black text-slate-500">KSh</span>
+          <span className="text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
           <input
             type="number"
             min="1"
@@ -1453,7 +1454,7 @@ const KES_CURRENCIES = new Set(["KES"]);
 
 function fmtTxAmount(amount: number, currency: string): string {
   if (KES_CURRENCIES.has(currency)) {
-    return `KSh ${amount.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${CURRENCY_SYMBOL} ${amount.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
   // Crypto — show up to 6 decimals, strip trailing zeros
   const decimals = ["BTC", "ETH"].includes(currency) ? 8 : 6;
@@ -1599,7 +1600,7 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
 
           <div className="space-y-0 border-t border-white/[0.06] px-5 py-2">
             {[
-              { label: "Date and time", value: new Date(selected.createdAt).toLocaleString("en-KE", { dateStyle: "medium", timeStyle: "short" }) },
+              { label: "Date and time", value: new Date(selected.createdAt).toLocaleString(MONEY_LOCALE, { dateStyle: "medium", timeStyle: "short" }) },
               { label: "Payment method", value: selected.provider ? selected.provider.replace(/_/g, " ").toUpperCase() : "Nezeem wallet" },
               ...context,
               { label: "Reference", value: selected.reference ?? selected.id },

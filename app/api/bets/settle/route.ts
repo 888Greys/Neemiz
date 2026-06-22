@@ -5,6 +5,7 @@ import { getThesportsdbResult, parseMatchName } from "@/lib/thesportsdb";
 import { resolveSelection, determineBetOutcome, calculateWinAmount } from "@/lib/settle-bet";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 // Vercel Cron invokes endpoints with GET (and an Authorization: Bearer
 // <CRON_SECRET> header when CRON_SECRET is set). Reuse the same handler.
@@ -211,9 +212,9 @@ export async function POST(req: Request) {
             type: `BET_${betOutcome}`,
             title: betOutcome === "WON" ? "Bet won" : betOutcome === "VOID" ? "Bet refunded" : "Bet settled",
             body: betOutcome === "WON"
-              ? `KSh ${winAmount.toLocaleString("en-KE")} was credited to your wallet.`
+              ? `${CURRENCY_SYMBOL} ${winAmount.toLocaleString(MONEY_LOCALE)} was credited to your wallet.`
               : betOutcome === "VOID"
-                ? `Your KSh ${Number(bet.stake).toLocaleString("en-KE")} stake was refunded.`
+                ? `Your ${CURRENCY_SYMBOL} ${Number(bet.stake).toLocaleString(MONEY_LOCALE)} stake was refunded.`
                 : "Your sports bet did not win.",
             link: "/my-bets",
           },
@@ -275,7 +276,7 @@ export async function POST(req: Request) {
             userId: bet.userId,
             type: "BET_VOID",
             title: "Bet refunded",
-            body: `Your KSh ${Number(bet.stake).toLocaleString("en-KE")} stake was refunded.`,
+            body: `Your ${CURRENCY_SYMBOL} ${Number(bet.stake).toLocaleString(MONEY_LOCALE)} stake was refunded.`,
             link: "/my-bets",
           },
         });

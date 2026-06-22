@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { MONEY_LOCALE } from "@/lib/currency";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ function avatarCls(name: string | null) {
 }
 
 function fmtKsh(n: number) {
-  return "KSh " + n.toLocaleString("en-KE", { maximumFractionDigits: 0 });
+  return "KSh " + n.toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 0 });
 }
 
 // ─── Live Status Card ─────────────────────────────────────────────────────────

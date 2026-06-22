@@ -7,6 +7,7 @@ import { AviatorBetPanel } from "./aviator-bet-panel";
 import { AviatorHistory, VerifyModal } from "./aviator-history";
 import { toast } from "@/lib/toast";
 import { Icon } from "@/components/icon";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import type {
   AviatorRoundState,
   AviatorRound,
@@ -561,7 +562,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       if (serverWin !== pendingWin) setBalance((b) => b - pendingWin + serverWin);
       toast.cashout(
         `Cashed out at ${serverMult.toFixed(2)}×`,
-        `+KSh ${serverWin.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `+${CURRENCY_SYMBOL} ${serverWin.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       );
       playTone(720, 0.1, "sine", 0.08);
       playTone(960, 0.13, "sine", 0.07, 0.08);
