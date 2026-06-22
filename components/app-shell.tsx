@@ -306,7 +306,7 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
       onFocus={() => router.prefetch(href)}
       className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#18191d] ${
         active
-          ? "bg-[#087cff] text-white shadow-[0_4px_16px_rgba(8,124,255,.35)]"
+          ? "bg-gradient-to-b from-[#2b8bff] to-[#0a6ef0] text-white ring-1 ring-inset ring-white/15"
           : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
       }`}
     >
