@@ -107,6 +107,19 @@ function bucketTime(epoch: number) {
   return (Math.floor(epoch / CANDLE_SECONDS) * CANDLE_SECONDS) as UTCTimestamp;
 }
 
+// lightweight-charts renders the time axis in UTC. Format axis ticks and the
+// crosshair in the viewer's local timezone so the clock matches their wall time
+// (and other trading sites) instead of running hours behind.
+function fmtClock(time: Time, withSeconds: boolean): string {
+  const epoch = typeof time === "number" ? time : 0;
+  return new Date(epoch * 1000).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(withSeconds ? { second: "2-digit" } : {}),
+    hour12: false,
+  });
+}
+
 function buildFallbackCandles(market: ForexMarket): Candle[] {
   const now = bucketTime(Math.floor(Date.now() / 1000));
   const pip = pipSize(market);
@@ -156,6 +169,7 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
         secondsVisible: false,
         rightOffset: 8,
         barSpacing: 16,
+        tickMarkFormatter: (time: Time) => fmtClock(time, false),
       },
       crosshair: {
         vertLine: { color: "rgba(56,189,248,0.5)", labelBackgroundColor: "#2563eb" },
@@ -163,6 +177,7 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
       },
       localization: {
         priceFormatter: (price: number) => formatPrice(market, price),
+        timeFormatter: (time: Time) => fmtClock(time, true),
       },
     });
 
