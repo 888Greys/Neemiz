@@ -6,12 +6,16 @@ name: Deploy Staging (nez-test)
 # end-to-end before it is merged to main.
 
 on:
+  # Auto-deploy: every push to the `staging` branch goes live on nez-test.
+  push:
+    branches: [staging]
+  # Manual: deploy ANY branch/SHA on demand without merging into `staging`.
   workflow_dispatch:
     inputs:
       ref:
         description: "Branch or commit SHA to deploy to staging"
         required: true
-        default: main
+        default: staging
 
 permissions:
   contents: read
@@ -31,7 +35,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.inputs.ref }}
+          # manual run → the chosen ref; push to `staging` → the pushed commit
+          ref: ${{ github.event.inputs.ref || github.sha }}
 
       - name: Write build-time public env (STAGING)
         # NEXT_PUBLIC_* are inlined into the client bundle at build time, so
