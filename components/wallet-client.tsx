@@ -1016,14 +1016,14 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                         <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                         <input
                           type="number"
-                          min="11"
+                          min="100"
                           max="500"
                           value={wdAmount}
                           onChange={(e) => { setWdAmount(e.target.value); setWdError(""); }}
-                          placeholder="Min KSh 11"
+                          placeholder="Min KSh 100"
                           className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
                         />
-                        {wdAmount && Number(wdAmount) >= 11 && (
+                        {wdAmount && Number(wdAmount) >= 100 && (
                           <span className="shrink-0 text-right text-xs text-slate-600">
                             you get → <span className="font-bold text-slate-400">{CURRENCY_SYMBOL} {(Number(wdAmount) * (1 - WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 2 })}</span>
                             <br />after {WITHDRAWAL_FEE_PCT} fee
@@ -1056,13 +1056,13 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                     <button
                       type="button"
                       onClick={requestMpesaWithdraw}
-                      disabled={wdLoading || !wdAmount || Number(wdAmount) < 11 || !wdPhone.trim()}
+                      disabled={wdLoading || !wdAmount || Number(wdAmount) < 100 || !wdPhone.trim()}
                       className="w-full rounded-2xl bg-[#087cff] py-4 text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
                     >
                       {wdLoading ? (
                         <LoadingDots label="Processing" />
                       ) : (
-                        `Withdraw${wdAmount && Number(wdAmount) >= 11 ? ` ${CURRENCY_SYMBOL} ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
+                        `Withdraw${wdAmount && Number(wdAmount) >= 100 ? ` ${CURRENCY_SYMBOL} ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
                       )}
                     </button>
                     <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
