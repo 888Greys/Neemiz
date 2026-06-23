@@ -29,6 +29,7 @@ import { DigitPanel } from "./panels/digit-panel";
 import { DirectionalPanel } from "./panels/directional-panel";
 import { VanillaPanel } from "./panels/vanilla-panel";
 import { LeveragedPanel } from "./panels/leveraged-panel";
+import { AutoPanel } from "./panels/auto-panel";
 import { tradeTypeById, type TradeTypeId } from "./trade-types";
 import { payoutRate as dirPayoutRate, vanillaPayoutPerPoint, resolveContract, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
 import {
@@ -585,6 +586,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [ticks, setTicks] = useState(() => seedTicks(market));
   const [family, setFamily] = useState<ContractFamily>("evenOdd");
   const [tradeType, setTradeType] = useState<TradeTypeId>("even_odd");
+  // Manual vs. server-driven auto-trader (lib/auto-trade). Self-contained panel.
+  const [autoMode, setAutoMode] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [growthRate, setGrowthRate] = useState(3);
   const [takeProfitOn, setTakeProfitOn] = useState(false);
@@ -1578,7 +1581,23 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               <span className="text-[13px] font-black text-white">{tradeTypeById(tradeType).label}</span>
             </button>
 
-            {tradeType === "accumulators" ? (
+            {/* Manual vs Auto toggle */}
+            <div className="flex shrink-0 gap-1 border-b border-white/[0.07] px-3 py-1.5">
+              {([["Manual", false], ["Auto", true]] as const).map(([label, val]) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setAutoMode(val)}
+                  className={`flex-1 rounded-lg py-1.5 text-[11px] font-black transition ${autoMode === val ? "bg-[#087cff] text-white" : "bg-white/[0.04] text-slate-400 hover:bg-white/[0.07]"}`}
+                >
+                  {label === "Auto" ? "⚡ Auto" : label}
+                </button>
+              ))}
+            </div>
+
+            {autoMode ? (
+              <AutoPanel currency={CURRENCY_SYMBOL} />
+            ) : tradeType === "accumulators" ? (
               <AccumulatorsPanel
                 currency={CURRENCY_SYMBOL}
                 stake={stake} setStake={setStake}
