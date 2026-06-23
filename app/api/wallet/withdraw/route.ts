@@ -5,7 +5,7 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsLowFloat } from "@/lib/admin-alert";
 import { withdrawalDayReset, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
-import { CURRENCY_SYMBOL } from "@/lib/currency";
+import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -53,8 +53,8 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XX or 01XX format." }, { status: 400 });
     }
 
-    const WITHDRAWAL_FEE_RATE = lipaTestMode ? 0 : 0.05;
-    const feeKes    = parseFloat((amountKes * WITHDRAWAL_FEE_RATE).toFixed(2));
+    const feeRate   = lipaTestMode ? 0 : WITHDRAWAL_FEE_RATE;
+    const feeKes    = parseFloat((amountKes * feeRate).toFixed(2));
     const payoutKes = parseFloat((amountKes - feeKes).toFixed(2));
 
     // ── Step 1: deduct balance + create record atomically ──
