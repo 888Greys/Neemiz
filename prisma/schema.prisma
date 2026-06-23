@@ -50,6 +50,9 @@ model User {
   // Binary
   binaryTrades BinaryTrade[]
 
+  // Binary auto-trader (server-driven strategy sessions)
+  autoTradeSessions AutoTradeSession[]
+
   // Forex
   forexTrades ForexTrade[]
 
@@ -722,10 +725,79 @@ model BinaryTrade {
   status    BinaryTradeStatus @default(PENDING)
   settledAt DateTime?         @map("settled_at")
 
+  // Set when this trade was placed by an auto-trader session (lib/auto-trade).
+  // Plain reference (no FK) so the settle path stays untouched; the auto engine
+  // looks up a session's latest trade by this column.
+  autoSessionId String? @map("auto_session_id")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([autoSessionId, createdAt(sort: Desc)])
   @@map("binary_trades")
+}
+
+// ─── Binary Auto-Trader ───────────────────────────────────────────────────────
+// Server-driven "like Deriv" strategy runner. A session repeatedly places a
+// fixed-duration binary digit contract, sizing the next stake from a strategy
+// and the previous win/loss, until Take-Profit / Stop-Loss / max-runs is hit.
+// Stepping happens in /api/cron/auto-trade so it runs with the browser closed.
+
+enum AutoStrategy {
+  FIXED      // always the base stake
+  MARTINGALE // multiply stake after a loss, reset to base after a win
+  DALEMBERT  // +1 unit after a loss, -1 unit after a win
+  OSCARS     // Oscar's Grind — raise only after a win, target +1 unit profit
+}
+
+enum AutoSessionStatus {
+  RUNNING
+  STOPPED    // user-stopped
+  DONE_TP    // take-profit reached
+  DONE_SL    // stop-loss reached
+  DONE_RUNS  // max-runs reached
+  ERROR      // halted (e.g. insufficient balance to place next trade)
+}
+
+model AutoTradeSession {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  // Contract template (binary digit contracts: Even/Odd, Matches/Differs, Over/Under)
+  market        String
+  side          String
+  targetDigit   Int  @map("target_digit")
+  durationTicks Int  @map("duration_ticks")
+
+  // Strategy + sizing
+  strategy     AutoStrategy
+  baseStake    Decimal @map("base_stake")    @db.Decimal(18, 2)
+  currentStake Decimal @map("current_stake") @db.Decimal(18, 2)
+  multiplier   Decimal @default(2) @db.Decimal(6, 2) // Martingale factor / D'Alembert+Oscar's unit basis
+
+  // Limits (all in KSh of net P&L, except maxRuns)
+  takeProfit Decimal @map("take_profit") @db.Decimal(18, 2)
+  stopLoss   Decimal @map("stop_loss")   @db.Decimal(18, 2) // positive number; halts at -stopLoss
+  maxRuns    Int     @map("max_runs")
+
+  // Live progress
+  runsDone   Int     @default(0) @map("runs_done")
+  wins       Int     @default(0)
+  losses     Int     @default(0)
+  totalPnl   Decimal @default(0) @map("total_pnl") @db.Decimal(18, 2)
+  cyclePnl   Decimal @default(0) @map("cycle_pnl") @db.Decimal(18, 2) // Oscar's Grind cycle P&L
+  lastTradeId String? @map("last_trade_id") // most recent BinaryTrade placed by this session
+
+  status     AutoSessionStatus @default(RUNNING)
+  stopReason String?           @map("stop_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("auto_trade_sessions")
 }
 
 // ─── Accumulator Trades ───────────────────────────────────────────────────────
