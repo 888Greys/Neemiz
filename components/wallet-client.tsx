@@ -11,7 +11,7 @@ import { toast } from "@/lib/toast";
 import { LoadingDots } from "@/components/loading-dots";
 import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown";
 import { cachedFetch, getCached } from "@/lib/client-cache";
-import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { CURRENCY_SYMBOL, MONEY_LOCALE, WITHDRAWAL_FEE_RATE, WITHDRAWAL_FEE_PCT } from "@/lib/currency";
 
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
@@ -984,7 +984,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                   <>
                     <div className="rounded-2xl bg-[#16171d]/60 px-4 py-3 ring-1 ring-white/[0.05]">
                       <p className="text-xs text-slate-500">
-                        <span className="font-bold text-slate-300">Test mode:</span> no fee. Min KSh 11 · Max {CURRENCY_SYMBOL} {(wdLimit?.limit ?? 500).toLocaleString()} per day.
+                        <span className="font-bold text-slate-300">Fee:</span> a {WITHDRAWAL_FEE_PCT} withdrawal fee applies. Min KSh 50 · Max {CURRENCY_SYMBOL} {(wdLimit?.limit ?? 500).toLocaleString()} per day.
                         Money arrives within 1–5 minutes via Safaricom M-Pesa.
                       </p>
                     </div>
@@ -1024,8 +1024,9 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                           className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
                         />
                         {wdAmount && Number(wdAmount) >= 11 && (
-                          <span className="shrink-0 text-xs text-slate-600">
-                            → {CURRENCY_SYMBOL} {Number(wdAmount).toLocaleString(MONEY_LOCALE)}
+                          <span className="shrink-0 text-right text-xs text-slate-600">
+                            you get → <span className="font-bold text-slate-400">{CURRENCY_SYMBOL} {(Number(wdAmount) * (1 - WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 2 })}</span>
+                            <br />after {WITHDRAWAL_FEE_PCT} fee
                           </span>
                         )}
                       </div>

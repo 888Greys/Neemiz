@@ -21,6 +21,12 @@ export const MONEY_LOCALE = process.env.NEXT_PUBLIC_MONEY_LOCALE ?? "en-KE";
 // transaction ledger (those still write "KES" directly).
 export const CURRENCY_CODE = process.env.NEXT_PUBLIC_CURRENCY_CODE ?? "KES";
 
+// M-Pesa fiat withdrawal fee — single source of truth for the backend charge
+// (app/api/wallet/withdraw) and the user-facing disclosure (wallet-client).
+// Keep these in sync by importing rather than re-hardcoding the rate.
+export const WITHDRAWAL_FEE_RATE = 0.13;
+export const WITHDRAWAL_FEE_PCT = `${Math.round(WITHDRAWAL_FEE_RATE * 100)}%`;
+
 /** Format a number the way money amounts are shown (locale grouping). */
 export function formatAmount(value: number, opts?: Intl.NumberFormatOptions): string {
   const n = Number.isFinite(value) ? value : 0;
