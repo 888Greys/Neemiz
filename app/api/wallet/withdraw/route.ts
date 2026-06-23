@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const msisdn = normalizeMsisdn(String(phoneNumber ?? ""));
 
     const lipaTestMode = process.env.LIPAHARAKA_TEST_MODE === "true";
-    const minimumWithdrawal = lipaTestMode ? 11 : 100;
+    const minimumWithdrawal = 100;
     // Daily cap: a user may withdraw at most this much across the day's M-Pesa
     // withdrawals. The window resets at 02:00 EAT (see lib/withdrawal-window).
     const limit = dailyLimitKes();
