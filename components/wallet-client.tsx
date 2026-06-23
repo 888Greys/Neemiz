@@ -984,7 +984,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                   <>
                     <div className="rounded-2xl bg-[#16171d]/60 px-4 py-3 ring-1 ring-white/[0.05]">
                       <p className="text-xs text-slate-500">
-                        <span className="font-bold text-slate-300">Fee:</span> a {WITHDRAWAL_FEE_PCT} withdrawal fee applies. Min KSh 50 · Max {CURRENCY_SYMBOL} {(wdLimit?.limit ?? 500).toLocaleString()} per day.
+                        <span className="font-bold text-slate-300">Fee:</span> a {WITHDRAWAL_FEE_PCT} withdrawal fee applies. Min KSh 100 · Max {CURRENCY_SYMBOL} {(wdLimit?.limit ?? 500).toLocaleString()} per day.
                         Money arrives within 1–5 minutes via Safaricom M-Pesa.
                       </p>
                     </div>
