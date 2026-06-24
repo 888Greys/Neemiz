@@ -917,6 +917,21 @@ function MobileP2POrderView({
         </div>
       )}
 
+      {!(order.status === "PENDING" && isReleaseActor(order)) && (
+        <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3">
+          <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
+            {counterpartyName(order)}
+            <Icon name="chevron_right" className="text-[16px] text-slate-500" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowChat(true)}
+            className="rounded-full bg-[#087cff] px-4 py-2 text-xs font-black text-white hover:bg-[#0570e8] transition-colors"
+          >
+            Contact Trader
+          </button>
+        </div>
+      )}
 
       {order.status === "PENDING" && canMarkPaid && (
       <section className="mb-5">
