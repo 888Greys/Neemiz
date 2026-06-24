@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
-import { ValuePickerSheet } from "./digit-panel";
+import { ValuePickerSheet, DurationPickerSheet } from "./digit-panel";
 import { BarrierSheet } from "./directional-panel";
 import type { DirectionalSide } from "@/lib/directional";
 
@@ -18,7 +18,7 @@ const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06
 export function VanillaPanel({
   currency, sides,
   stake, setStake,
-  duration, setDuration,
+  duration, setDuration, secPerTick,
   strikeOffset, setStrikeOffset,
   latestSpot,
   stakePresets, minStake,
@@ -30,6 +30,7 @@ export function VanillaPanel({
   sides: DirSide[];
   stake: number; setStake: (v: number) => void;
   duration: number; setDuration: (v: number) => void;
+  secPerTick: number;
   strikeOffset: number; setStrikeOffset: (v: number) => void;
   latestSpot: number;
   stakePresets: number[];
@@ -58,7 +59,7 @@ export function VanillaPanel({
         selectedSide={selectedSide}
         onArmSide={setArmedSide}
         stake={stake} setStake={setStake}
-        duration={duration} setDuration={setDuration}
+        duration={duration} setDuration={setDuration} secPerTick={secPerTick}
         strikeOffset={strikeOffset} setStrikeOffset={setStrikeOffset}
         strike={strike}
         latestSpot={latestSpot}
@@ -192,7 +193,7 @@ export function VanillaPanel({
 // the live per-point payout. Shown only below sm.
 function MobileVanilla({
   currency, sides, selectedSide, onArmSide,
-  stake, setStake, duration, setDuration,
+  stake, setStake, duration, setDuration, secPerTick,
   strikeOffset, setStrikeOffset, strike, latestSpot, offsetStep,
   stakePresets, minStake, payoutPerPointFor, maxPayout,
   format, formatSpot, onTrade, placing, openPositions,
@@ -203,6 +204,7 @@ function MobileVanilla({
   onArmSide: (s: DirSide) => void;
   stake: number; setStake: (v: number) => void;
   duration: number; setDuration: (v: number) => void;
+  secPerTick: number;
   strikeOffset: number; setStrikeOffset: (v: number) => void;
   strike: number;
   latestSpot: number;
@@ -226,8 +228,9 @@ function MobileVanilla({
 
   // Deriv shows the strike as a signed offset from spot (e.g. "+0.00", "-1.28").
   const strikeLabel = `${strikeOffset >= 0 ? "+" : ""}${strikeOffset.toFixed(2)}`;
+  // Call/Put is offered in time units only (Deriv has no Ticks tab here).
   const cards = [
-    { key: "duration", label: "Duration", value: `${duration} ticks`, accent: "text-white", onClick: () => setPicker("duration") },
+    { key: "duration", label: "Duration", value: `${duration * secPerTick} sec`, accent: "text-white", onClick: () => setPicker("duration") },
     { key: "strike", label: "Strike", value: strikeLabel, accent: "text-amber-300", onClick: () => setPicker("strike") },
     { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
   ] as const;
@@ -292,17 +295,12 @@ function MobileVanilla({
           <span className="font-bold text-slate-400">Max payout</span>
           <span className="font-black text-emerald-300">{format(maxPayout)}</span>
         </div>
-        <div className="flex items-center justify-between px-1 text-[12px]">
-          <span className="font-bold text-slate-400">Spot</span>
-          <span className="font-mono font-black text-sky-300">{formatSpot(latestSpot)}</span>
-        </div>
       </div>
 
       {picker === "duration" && (
-        <ValuePickerSheet
-          title="Duration" unit="ticks" value={duration}
-          presets={[1, 3, 5, 7, 10, 15]} min={1} max={30} integer
-          onChange={setDuration} onClose={() => setPicker(null)}
+        <DurationPickerSheet
+          ticks={duration} secPerTick={secPerTick} unit="seconds" allowTicks={false}
+          onChange={(t) => setDuration(t)} onClose={() => setPicker(null)}
         />
       )}
       {picker === "stake" && (
