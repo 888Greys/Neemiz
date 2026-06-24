@@ -38,7 +38,7 @@ interface MarketDetail {
   health: { label: string; detail: string; tone: "ok" | "warn" | "danger" }[];
 }
 
-const RANGES = [["today", "Today"], ["7d", "7d"], ["mtd", "MTD"], ["all", "All"]] as const;
+const RANGES = [["today", "Today"], ["yesterday", "Yesterday"], ["7d", "7d"], ["mtd", "MTD"], ["all", "All"]] as const;
 type Range = (typeof RANGES)[number][0];
 
 const money = (value: number) => {

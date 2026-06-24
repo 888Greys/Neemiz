@@ -83,6 +83,15 @@ export function todayWindow(): Window {
   return { start, end: new Date() };
 }
 
+/** The last *complete* day: [start of yesterday, start of today). */
+export function yesterdayWindow(): Window {
+  const end = new Date();
+  end.setHours(0, 0, 0, 0); // midnight today = end of yesterday
+  const start = new Date(end);
+  start.setDate(start.getDate() - 1);
+  return { start, end };
+}
+
 export function monthToDateWindow(): Window {
   const now = new Date();
   return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
