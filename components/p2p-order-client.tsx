@@ -933,15 +933,6 @@ function MobileP2POrderView({
         </div>
       )}
 
-      {isKesCoinOrder(order) && (
-        <div className="mb-5 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-3">
-          <p className="text-xs font-black text-amber-300">KES Coin fee and escrow</p>
-          <p className="mt-1 text-[11px] leading-5 text-slate-400">
-            Each party pays a 1% platform fee. The KES Coin principal stays locked in escrow until the receiver confirms payment and releases the trade.
-          </p>
-        </div>
-      )}
-
       {order.status === "PENDING" && canMarkPaid && (
       <section className="mb-5">
         <div className="mb-3 flex items-center gap-2">

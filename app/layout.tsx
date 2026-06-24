@@ -46,7 +46,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Suspense fallback={null}>
             <NavigationFeedback />
           </Suspense>
-          <PageTransition>{children}</PageTransition>
+          {/* Suspense boundary so client hooks that read the URL query
+              (useSearchParams in AppShell's section-aware bottom nav) don't
+              force a CSR bailout / build error on prerendered routes. */}
+          <Suspense fallback={null}>
+            <PageTransition>{children}</PageTransition>
+          </Suspense>
           <Toaster />
         </SupabaseAuthProvider>
       </body>
