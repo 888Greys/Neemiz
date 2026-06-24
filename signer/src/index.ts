@@ -10,6 +10,7 @@ import express from "express";
 import { createHmac, timingSafeEqual } from "crypto";
 import { broadcastWithdrawal } from "./broadcaster";
 import { assertWithinPolicy, recordSpend, priorTxHash, recordTxHash, PolicyError } from "./policy";
+import { isHalted, haltFilePath } from "./halt";
 import { alert } from "./alert";
 
 const PORT     = Number(process.env.SIGNER_PORT ?? 8787);
@@ -23,7 +24,7 @@ if (!process.env.MASTER_WALLET_MNEMONIC) { console.error("FATAL: MASTER_WALLET_M
 const app = express();
 app.use(express.raw({ type: "*/*", limit: "16kb" }));
 
-app.get("/health", (_req, res) => res.json({ ok: true }));
+app.get("/health", (_req, res) => res.json({ ok: true, halted: isHalted() }));
 
 function explorerFor(network: string, txHash: string): string {
   return network === "TRC20"   ? `https://tronscan.org/#/transaction/${txHash}`
@@ -58,6 +59,14 @@ interface SignBody {
 }
 
 app.post("/sign-withdrawal", async (req, res) => {
+  // 0. KILL SWITCH — refuse to sign anything while halted. Checked first so a halt
+  //    overrides a valid HMAC and a request that would otherwise be within caps.
+  //    Fail-closed and instant: flipping the flag needs no restart.
+  if (isHalted()) {
+    console.warn("[signer] HALTED — refused a withdrawal request");
+    return res.status(503).json({ ok: false, error: "Signing is halted", code: "SIGNING_HALTED" });
+  }
+
   const ts  = String(req.header("X-Signer-Timestamp") ?? "");
   const sig = String(req.header("X-Signer-Signature") ?? "");
   const rawBody = Buffer.isBuffer(req.body) ? req.body.toString("utf8") : "";
@@ -112,4 +121,7 @@ app.post("/sign-withdrawal", async (req, res) => {
 
 app.listen(PORT, BIND, () => {
   console.log(`[signer] listening on ${BIND}:${PORT}`);
+  if (isHalted()) {
+    console.warn(`[signer] ⚠ STARTED IN HALTED STATE — kill switch is on (${haltFilePath()}). No withdrawals will be signed until it is cleared.`);
+  }
 });

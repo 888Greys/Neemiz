@@ -16,6 +16,8 @@ What protects funds, in layers:
 3. **HMAC + timestamp** — only nez (with the shared secret) can call it; no replays.
 4. **Independent caps on the signer** — per-tx + rolling 24h, enforced even if nez is owned.
 5. **Telegram alerts** — every sign and every block pings you.
+6. **Kill switch** — one command (or an automatic trip from the wallet-watcher)
+   freezes ALL signing instantly, no restart, and the freeze survives a redeploy.
 
 ---
 
@@ -113,7 +115,7 @@ SIGNER_TG_CHAT_ID=<chat id>
 
 Health check from **nez** (over the tunnel):
 ```bash
-curl -s http://10.8.0.2:8787/health    # -> {"ok":true}
+curl -s http://10.8.0.2:8787/health    # -> {"ok":true,"halted":false}
 ```
 
 ---
@@ -154,6 +156,38 @@ the web tier.
    - The tx confirms on-chain.
 3. Try a withdrawal **over the per-tx cap** → app shows the signer's rejection,
    Telegram fires a ⛔ "BLOCKED" alert, balance is refunded.
+
+---
+
+## 6. Kill switch (panic button)
+
+If you ever suspect the seed is compromised — or just want to be safe while you
+investigate — freeze all signing in one command. It is **fail-closed** (the
+signer refuses to sign while frozen), **instant** (no restart; checked on the
+next request), and **persistent** (the flag lives on the `/data` volume, so it
+outlives a container restart/redeploy — clearing it is a deliberate human act).
+
+```bash
+cd ~/neemiz-signer
+./halt.sh      # 🔴 freeze — POST /sign-withdrawal now returns 503 SIGNING_HALTED
+./status.sh    # show whether the switch is engaged + /health
+./resume.sh    # 🟢 unfreeze — only once you're sure the seed is safe
+```
+
+Under the hood the switch is just a file, `HALT`, on the signer's state volume
+(`$SIGNER_STATE_DIR/HALT`, default `/data/HALT`). Any of these also work:
+
+```bash
+# from inside the container
+sudo docker exec neemiz-signer touch /data/HALT     # freeze
+sudo docker exec neemiz-signer rm -f /data/HALT     # unfreeze
+```
+
+**Automatic trip:** the on-box wallet-watcher (`/opt/nezeem-watch`) creates this
+flag by itself the moment it detects the hot wallet being drained or funds
+reaching the active attacker address — so signing stops within one watch cycle
+(~3 min) even if nobody is awake. (Harmless dust to a dead/old address only
+alerts; it does NOT auto-halt.) Clearing the flag is always manual.
 
 ---
 
