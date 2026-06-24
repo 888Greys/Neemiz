@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
+import { ValuePickerSheet } from "./digit-panel";
+import { TakeProfitSheet } from "./accumulators-panel";
 import { MULTIPLIERS, type LeveragedKindT, type LeveragedDirection } from "@/lib/leveraged";
 
 const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
@@ -60,7 +63,33 @@ export function LeveragedPanel({
   const offsetStep = Math.max(0.01, Math.round(latestSpot * 0.0003 * 100) / 100);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <>
+      {isTurbo ? (
+        <MobileTurboPanel
+          currency={currency}
+          stake={stake} setStake={setStake}
+          barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
+          takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
+          takeProfit={takeProfit} setTakeProfit={setTakeProfit}
+          payoutPerPoint={payoutPerPoint} dangerSpot={dangerSpot}
+          stakePresets={stakePresets} minStake={minStake}
+          format={format} formatSpot={formatSpot}
+          onTrade={onTrade} placing={placing} offsetStep={offsetStep}
+        />
+      ) : (
+        <MobileMultiplierPanel
+          currency={currency}
+          stake={stake} setStake={setStake}
+          multiplier={multiplier} setMultiplier={setMultiplier}
+          takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
+          stopLossOn={stopLossOn} setStopLossOn={setStopLossOn}
+          dangerSpot={dangerSpot} maxPayout={maxPayout}
+          stakePresets={stakePresets} minStake={minStake}
+          format={format} formatSpot={formatSpot}
+          onTrade={onTrade} placing={placing}
+        />
+      )}
+    <div className="hidden h-full min-h-0 flex-col sm:flex">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         {/* Multiplier (MULTIPLIER) or barrier distance (TURBO) */}
         {!isTurbo ? (
@@ -168,6 +197,225 @@ export function LeveragedPanel({
           </span>
           <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{isTurbo ? "Short" : `×${multiplier}`}</span>
         </button>
+      </div>
+    </div>
+    </>
+  );
+}
+
+// Turbo has a dedicated compact mobile ticket. It follows the same card rhythm
+// as the Deriv ticket (direction first, concise fields, one clear Buy action)
+// while retaining our live knockout and cash-out contract mechanics.
+function MobileTurboPanel({
+  currency, stake, setStake, barrierOffset, setBarrierOffset,
+  takeProfitOn, setTakeProfitOn, takeProfit, setTakeProfit,
+  payoutPerPoint, dangerSpot, stakePresets, minStake,
+  format, formatSpot, onTrade, placing, offsetStep,
+}: {
+  currency: string; stake: number; setStake: (v: number) => void;
+  barrierOffset: number; setBarrierOffset: (v: number) => void;
+  takeProfitOn: boolean; setTakeProfitOn: (v: boolean) => void;
+  takeProfit: number; setTakeProfit: (v: number) => void;
+  payoutPerPoint: number; dangerSpot: number; stakePresets: number[]; minStake: number;
+  format: (v: number) => string; formatSpot: (v: number) => string;
+  onTrade: (direction: LeveragedDirection) => void; placing: boolean; offsetStep: number;
+}) {
+  const [direction, setDirection] = useState<LeveragedDirection>("UP");
+  const [picker, setPicker] = useState<null | "stake" | "barrier" | "tp">(null);
+  const [barrierInfoOpen, setBarrierInfoOpen] = useState(false);
+  // Collapsed by default: the 3 cards sit in a row where the 3rd (Take profit)
+  // peeks off the right edge (Deriv); the grab handle expands to full-width.
+  const [expanded, setExpanded] = useState(false);
+  const fieldCard = "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+
+  const cards = [
+    { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
+    { key: "payout", label: "Payout per point", value: format(payoutPerPoint), accent: "text-white", onClick: () => setPicker("barrier") },
+    { key: "tp", label: "Take profit", value: takeProfitOn ? `${takeProfit}` : "—", accent: "text-white", onClick: () => setPicker("tp") },
+  ] as const;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col sm:hidden">
+      <div className="min-h-0 flex-1" />
+
+      {/* Centered grab handle (Deriv-style) — expands/collapses the field cards */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-label={expanded ? "Collapse" : "Expand"}
+        className="flex w-full shrink-0 justify-center py-1.5 text-slate-400 active:text-white"
+      >
+        <Icon name={expanded ? "expand_more" : "expand_less"} className="text-[22px]" />
+      </button>
+
+      <div className="space-y-2.5 px-3 pb-2">
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0d1015] p-1 ring-1 ring-white/[0.07]">
+          {(["UP", "DOWN"] as LeveragedDirection[]).map((side) => (
+            <button key={side} type="button" onClick={() => setDirection(side)}
+              className={`rounded-full py-2 text-[13px] font-black transition ${
+                direction === side
+                  ? side === "UP" ? "bg-[#16a085] text-white" : "bg-[#e2474b] text-white"
+                  : "text-slate-400"
+              }`}
+            >{side === "UP" ? "Up" : "Down"}</button>
+          ))}
+        </div>
+
+        {/* Fields: Stake | Payout per point | Take profit — peek row collapsed, stack expanded */}
+        {expanded ? (
+          <div className="space-y-2.5">
+            {cards.map((c) => (
+              <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-full`}>
+                <span className="text-[11px] font-bold text-slate-400">{c.label}</span>
+                <span className={`mt-0.5 text-[16px] font-black ${c.accent}`}>{c.value}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {cards.map((c) => (
+              <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-[40%] shrink-0`}>
+                <span className="whitespace-nowrap text-[11px] font-bold text-slate-400">{c.label}</span>
+                <span className={`mt-0.5 whitespace-nowrap text-[16px] font-black ${c.accent}`}>{c.value}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Barrier — Deriv keeps this as a dotted-underline line (Turbo's knockout
+            doubles as the stop-loss, so there's no separate stop-loss control). */}
+        <button type="button" onClick={() => setBarrierInfoOpen(true)} className="flex w-full items-center justify-between border-b border-dotted border-slate-500 pb-1 text-[12px] text-slate-300">
+          <span className="font-bold">Barrier</span>
+          <span className="font-mono font-black text-amber-300">{formatSpot(dangerSpot)}</span>
+        </button>
+
+        <button type="button" onClick={() => onTrade(direction)} disabled={placing}
+          className={`flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${direction === "UP" ? "bg-[#16a085]" : "bg-[#e2474b]"}`}>
+          {placing ? <LoadingDots /> : <>Buy {direction === "UP" ? "Up" : "Down"}</>}
+        </button>
+      </div>
+      {picker === "stake" && <ValuePickerSheet title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setPicker(null)} />}
+      {picker === "barrier" && <ValuePickerSheet title="Payout per point" unit="" value={barrierOffset} presets={[offsetStep, offsetStep * 2, offsetStep * 3, offsetStep * 5, offsetStep * 8, offsetStep * 13].map((v) => Number(v.toFixed(2)))} min={-999_999} max={999_999} onChange={setBarrierOffset} onClose={() => setPicker(null)} />}
+      {picker === "tp" && <TakeProfitSheet currency={currency} on={takeProfitOn} setOn={setTakeProfitOn} value={takeProfit || 10} setValue={setTakeProfit} note="Note: Cannot be adjusted for ongoing Turbo contracts." onClose={() => setPicker(null)} />}
+      {barrierInfoOpen && <BarrierInfoSheet onClose={() => setBarrierInfoOpen(false)} />}
+    </div>
+  );
+}
+
+// Multipliers get a dedicated mobile ticket matching the Turbo/Deriv rhythm:
+// direction first, a compact multiplier chip row, a tappable Stake card, TP/SL
+// toggles, the live stop-out, and one clear Buy action.
+function MobileMultiplierPanel({
+  currency, stake, setStake, multiplier, setMultiplier,
+  takeProfitOn, setTakeProfitOn, stopLossOn, setStopLossOn,
+  dangerSpot, maxPayout, stakePresets, minStake,
+  format, formatSpot, onTrade, placing,
+}: {
+  currency: string; stake: number; setStake: (v: number) => void;
+  multiplier: number; setMultiplier: (v: number) => void;
+  takeProfitOn: boolean; setTakeProfitOn: (v: boolean) => void;
+  stopLossOn: boolean; setStopLossOn: (v: boolean) => void;
+  dangerSpot: number; maxPayout: number; stakePresets: number[]; minStake: number;
+  format: (v: number) => string; formatSpot: (v: number) => string;
+  onTrade: (direction: LeveragedDirection) => void; placing: boolean;
+}) {
+  const [direction, setDirection] = useState<LeveragedDirection>("UP");
+  const [picker, setPicker] = useState<null | "stake">(null);
+  // Collapsed by default: the 3 cards sit in a row where the 3rd peeks off the
+  // right edge (Deriv); the grab handle expands to full-width stacks + TP/SL.
+  const [expanded, setExpanded] = useState(false);
+  const fieldCard = "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+
+  const cards = [
+    { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
+    { key: "maxpayout", label: "Max payout", value: format(maxPayout), accent: "text-white", onClick: undefined },
+    { key: "stopout", label: "Stop-out", value: formatSpot(dangerSpot), accent: "text-amber-300", onClick: undefined },
+  ] as const;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col sm:hidden">
+      <div className="min-h-0 flex-1" />
+
+      {/* Centered grab handle (Deriv-style) — expands/collapses the field cards */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-label={expanded ? "Collapse" : "Expand"}
+        className="flex w-full shrink-0 justify-center py-1.5 text-slate-400 active:text-white"
+      >
+        <Icon name={expanded ? "expand_more" : "expand_less"} className="text-[22px]" />
+      </button>
+
+      <div className="space-y-2.5 px-3 pb-2">
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0d1015] p-1 ring-1 ring-white/[0.07]">
+          {(["UP", "DOWN"] as LeveragedDirection[]).map((side) => (
+            <button key={side} type="button" onClick={() => setDirection(side)}
+              className={`rounded-full py-2 text-[13px] font-black transition ${
+                direction === side
+                  ? side === "UP" ? "bg-[#16a085] text-white" : "bg-[#e2474b] text-white"
+                  : "text-slate-400"
+              }`}
+            >{side === "UP" ? "Up" : "Down"}</button>
+          ))}
+        </div>
+
+        {/* Multiplier chip row */}
+        <div className="grid grid-cols-5 gap-1.5">
+          {MULTIPLIERS.map((m) => (
+            <button key={m} type="button" onClick={() => setMultiplier(m)}
+              className={`rounded-lg py-2 text-[12px] font-black transition active:scale-95 ${
+                multiplier === m ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60" : "bg-[#181b22] text-slate-400"
+              }`}>×{m}</button>
+          ))}
+        </div>
+
+        {/* Fields: Stake | Max payout | Stop-out — peek row collapsed, stack expanded */}
+        {expanded ? (
+          <div className="space-y-2.5">
+            {cards.map((c) => (
+              <button key={c.key} type="button" onClick={c.onClick} disabled={!c.onClick} className={`${fieldCard} w-full disabled:active:scale-100`}>
+                <span className="text-[11px] font-bold text-slate-400">{c.label}</span>
+                <span className={`mt-0.5 text-[16px] font-black ${c.accent}`}>{c.value}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {cards.map((c) => (
+              <button key={c.key} type="button" onClick={c.onClick} disabled={!c.onClick} className={`${fieldCard} w-[40%] shrink-0 disabled:active:scale-100`}>
+                <span className="whitespace-nowrap text-[11px] font-bold text-slate-400">{c.label}</span>
+                <span className={`mt-0.5 whitespace-nowrap text-[16px] font-black ${c.accent}`}>{c.value}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Take profit / Stop loss — revealed when expanded (Deriv) */}
+        {expanded && (
+          <div className="flex gap-2 text-[10px] font-bold text-slate-300">
+            <label className="flex flex-1 items-center gap-1.5 rounded-lg bg-[#181b22] px-2 py-2"><input type="checkbox" checked={takeProfitOn} onChange={(e) => setTakeProfitOn(e.target.checked)} className="accent-[#16a085]" />Take profit</label>
+            <label className="flex flex-1 items-center gap-1.5 rounded-lg bg-[#181b22] px-2 py-2"><input type="checkbox" checked={stopLossOn} onChange={(e) => setStopLossOn(e.target.checked)} className="accent-[#16a085]" />Stop loss</label>
+          </div>
+        )}
+
+        <button type="button" onClick={() => onTrade(direction)} disabled={placing}
+          className={`flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${direction === "UP" ? "bg-[#16a085]" : "bg-[#e2474b]"}`}>
+          {placing ? <LoadingDots /> : <>Buy {direction === "UP" ? "Up" : "Down"} · ×{multiplier}</>}
+        </button>
+      </div>
+      {picker === "stake" && <ValuePickerSheet title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setPicker(null)} />}
+    </div>
+  );
+}
+
+function BarrierInfoSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end bg-black/65 sm:hidden" role="dialog" aria-modal="true" aria-label="About the barrier">
+      <div className="rounded-t-3xl bg-[#1b202a] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2 shadow-2xl">
+        <div className="mx-auto h-1 w-9 rounded-full bg-white/25" />
+        <h2 className="mt-5 text-center text-[17px] font-black text-white">Barrier</h2>
+        <p className="mt-3 text-[14px] font-medium leading-6 text-slate-300">This is the knockout price for your Turbo contract. If the market reaches this barrier, the contract closes with no payout.</p>
+        <button type="button" onClick={onClose} className="mt-6 w-full rounded-2xl bg-white py-3.5 text-[14px] font-black text-[#16181d]">Got it</button>
       </div>
     </div>
   );

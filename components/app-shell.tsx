@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { getMobileNav } from "@/lib/mock-data";
@@ -16,6 +16,7 @@ import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import type { ProfileView } from "@/components/profile-modal";
 import { MONEY_LOCALE, CURRENCY_SYMBOL } from "@/lib/currency";
+import { NavBadgeContext } from "@/lib/nav-badge-context";
 
 const LoginModal = dynamic(
   () => import("@/components/login-modal").then((mod) => mod.LoginModal),
@@ -84,6 +85,22 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   // Optimistic nav target: highlight the tapped tab instantly (before the route
   // actually arrives), then fall back to the real pathname once it lands.
   const [pendingPath, setPendingPath]         = useState<string | null>(null);
+  const [navBadges, setNavBadges]             = useState<Record<string, number>>({});
+  const setNavBadge = useCallback((key: string, count: number) => {
+    setNavBadges((current) => {
+      const nextCount = Math.max(0, Math.floor(count));
+      if ((current[key] ?? 0) === nextCount) return current;
+      if (nextCount === 0) {
+        const { [key]: _, ...rest } = current;
+        return rest;
+      }
+      return { ...current, [key]: nextCount };
+    });
+  }, []);
+  const navBadgeContext = useMemo(
+    () => ({ badges: navBadges, setBadge: setNavBadge }),
+    [navBadges, setNavBadge],
+  );
 
   function openProfile(view?: ProfileView) {
     setProfileInitialView(view);
@@ -114,6 +131,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   return (
     <BetslipProvider>
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
+    <NavBadgeContext.Provider value={navBadgeContext}>
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
       <header className="fixed left-0 right-0 top-0 z-50 flex h-14 max-w-[100vw] items-center overflow-visible bg-[#111113] px-3 lg:h-20 lg:px-0">
         {!hideSidebar && (
@@ -292,13 +310,21 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
               onClick={() => { if (activePath !== pathname) setPendingPath(activePath); }}
               className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}
             >
-              <Icon name={item.icon} fill={active} className={`text-[20px] ${navigating ? "animate-pulse" : ""}`} />
+              <span className="relative">
+                <Icon name={item.icon} fill={active} className={`text-[20px] ${navigating ? "animate-pulse" : ""}`} />
+                {(navBadges[item.panel ?? item.label] ?? 0) > 0 && (
+                  <span className="absolute -right-2 -top-2 grid min-w-4 h-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#111113]">
+                    {(navBadges[item.panel ?? item.label] ?? 0) > 99 ? "99+" : navBadges[item.panel ?? item.label]}
+                  </span>
+                )}
+              </span>
               <span className="mt-0.5 max-w-full truncate font-bold leading-none">{item.label}</span>
             </Link>
           );
         })}
       </nav>
     </div>
+    </NavBadgeContext.Provider>
     </AuthModalContext.Provider>
     </BetslipProvider>
   );

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
+import { ValuePickerSheet } from "./digit-panel";
 import type { DirectionalSide, DirectionalKind } from "@/lib/directional";
 
 type DirKind = DirectionalKind;
@@ -48,8 +49,32 @@ export function DirectionalPanel({
   const offsetStep = Math.max(0.01, Math.round(latestSpot * 0.0003 * 100) / 100);
   const barrier = latestSpot + barrierOffset;
 
+  // Mobile uses Deriv's single-CTA model: a side toggle + one Buy button.
+  const [armedSide, setArmedSide] = useState<DirSide>(sides[0]);
+  const selectedSide = sides.includes(armedSide) ? armedSide : sides[0];
+
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* ── Mobile: Deriv-style single-CTA surface (hidden on sm+) ── */}
+      <MobileDirectional
+        currency={currency}
+        sides={sides}
+        selectedSide={selectedSide}
+        onArmSide={setArmedSide}
+        stake={stake} setStake={setStake}
+        duration={duration} setDuration={setDuration}
+        barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
+        needsBarrier={needsBarrier}
+        barrier={barrier}
+        latestSpot={latestSpot}
+        offsetStep={offsetStep}
+        stakePresets={stakePresets} minStake={minStake}
+        payoutFor={payoutFor} format={format} formatSpot={formatSpot}
+        onTrade={onTrade} placing={placing} openPositions={openPositions}
+      />
+
+      {/* ── Desktop (sm+): existing dual-button layout, untouched ── */}
+      <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         {/* Stake */}
         <div className={CARD}>
@@ -159,6 +184,242 @@ export function DirectionalPanel({
             </button>
           );
         })}
+      </div>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style mobile trade surface for directional contracts: a side toggle
+// (Rise|Fall, Higher|Lower, Touch|No Touch) over tappable Duration / Barrier /
+// Stake cards, and one full-width Buy button with the live payout. Shown only
+// below sm; the desktop dual-button layout lives in DirectionalPanel.
+function MobileDirectional({
+  currency, sides, selectedSide, onArmSide,
+  stake, setStake, duration, setDuration,
+  barrierOffset, setBarrierOffset, needsBarrier, barrier, latestSpot, offsetStep,
+  stakePresets, minStake, payoutFor, format, formatSpot,
+  onTrade, placing, openPositions,
+}: {
+  currency: string;
+  sides: DirSide[];
+  selectedSide: DirSide;
+  onArmSide: (s: DirSide) => void;
+  stake: number; setStake: (v: number) => void;
+  duration: number; setDuration: (v: number) => void;
+  barrierOffset: number; setBarrierOffset: (v: number) => void;
+  needsBarrier: boolean;
+  barrier: number;
+  latestSpot: number;
+  offsetStep: number;
+  stakePresets: number[];
+  minStake: number;
+  payoutFor: (side: DirSide) => number;
+  format: (v: number) => string;
+  formatSpot: (v: number) => string;
+  onTrade: (side: DirSide) => void;
+  placing: boolean;
+  openPositions: { id: string; side: DirSide; settlesAt: number }[];
+}) {
+  const armedRed = RED_SIDES.has(selectedSide);
+  const [picker, setPicker] = useState<null | "duration" | "stake" | "barrier">(null);
+  // Collapsed by default: the cards sit in a row where the last peeks off the
+  // right edge (Deriv); the grab handle expands to full-width stacks.
+  const [expanded, setExpanded] = useState(false);
+  const fieldCard = "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+
+  const cards = [
+    { key: "duration", label: "Duration", value: `${duration} ticks`, accent: "text-white", onClick: () => setPicker("duration") },
+    ...(needsBarrier ? [{ key: "barrier", label: "Barrier", value: formatSpot(barrier), accent: "text-amber-300", onClick: () => setPicker("barrier") }] : []),
+    { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
+  ];
+
+  return (
+    <div className="flex h-full min-h-0 flex-col sm:hidden">
+      <div className="min-h-0 flex-1" />
+
+      {/* Centered grab handle (Deriv-style) — expands/collapses the field cards */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-label={expanded ? "Collapse" : "Expand"}
+        className="flex w-full shrink-0 justify-center py-1.5 text-slate-400 active:text-white"
+      >
+        <Icon name={expanded ? "expand_more" : "expand_less"} className="text-[22px]" />
+      </button>
+
+      <div className="space-y-2.5 px-3 pb-1">
+        {/* Side toggle — slim pills (Deriv-style) */}
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0f1319] p-1 ring-1 ring-white/[0.06]">
+          {sides.map((side) => {
+            const active = side === selectedSide;
+            const red = RED_SIDES.has(side);
+            return (
+              <button
+                key={side}
+                type="button"
+                onClick={() => onArmSide(side)}
+                className={`flex items-center justify-center rounded-full py-2 text-[13px] font-black transition active:scale-[0.98] ${
+                  active ? (red ? "bg-[#e2474b] text-white" : "bg-[#16a085] text-white") : "text-slate-400"
+                }`}
+              >
+                {sideLabel(side)}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Fields: Duration | (Barrier) | Stake — peek row collapsed, stack expanded */}
+        {expanded ? (
+          <div className="space-y-2.5">
+            {cards.map((c) => (
+              <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-full`}>
+                <span className="text-[11px] font-bold text-slate-400">{c.label}</span>
+                <span className={`mt-0.5 text-[16px] font-black ${c.accent}`}>{c.value}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {cards.map((c) => (
+              <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-[40%] shrink-0`}>
+                <span className="whitespace-nowrap text-[11px] font-bold text-slate-400">{c.label}</span>
+                <span className={`mt-0.5 whitespace-nowrap text-[16px] font-black ${c.accent}`}>{c.value}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between px-1 text-[12px]">
+          <span className="font-bold text-slate-400">Spot</span>
+          <span className="font-mono font-black text-sky-300">{formatSpot(latestSpot)}</span>
+        </div>
+      </div>
+
+      {picker === "duration" && (
+        <ValuePickerSheet
+          title="Duration" unit="ticks" value={duration}
+          presets={[1, 3, 5, 7, 10, 15]} min={1} max={30} integer
+          onChange={setDuration} onClose={() => setPicker(null)}
+        />
+      )}
+      {picker === "stake" && (
+        <ValuePickerSheet
+          title="Stake" unit={currency} value={stake}
+          presets={stakePresets} min={minStake} max={1_000_000}
+          onChange={setStake} onClose={() => setPicker(null)}
+        />
+      )}
+      {picker === "barrier" && (
+        <BarrierSheet
+          latestSpot={latestSpot} offset={barrierOffset} setOffset={setBarrierOffset}
+          offsetStep={offsetStep} formatSpot={formatSpot} onClose={() => setPicker(null)}
+        />
+      )}
+
+      {openPositions.length > 0 && <ActivePositions positions={openPositions} />}
+
+      {/* One slim, pill-shaped Buy button (Deriv-style) */}
+      <div className="px-3 pb-2 pt-1">
+        <button
+          type="button"
+          onClick={() => onTrade(selectedSide)}
+          disabled={placing}
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${
+            armedRed ? "bg-[#e2474b] active:bg-[#ec5a5e]" : "bg-[#16a085] active:bg-[#1bb198]"
+          }`}
+        >
+          <span className="text-[15px] leading-tight">{placing ? <LoadingDots /> : `Buy ${sideLabel(selectedSide)}`}</span>
+          <span className="font-mono text-[11px] leading-tight text-white/85">Payout {format(payoutFor(selectedSide))}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style Barrier sheet: pick Above spot / Below spot (signed offset from the
+// live spot) or Fixed barrier (absolute price). Internally everything resolves to
+// a signed offset (target = spot + offset), so callers are unchanged. Exported so
+// the Vanilla panel reuses it for its Strike (same signed-offset model).
+export function BarrierSheet({
+  title = "Barrier", latestSpot, offset, setOffset, offsetStep, formatSpot, onClose,
+}: {
+  title?: string;
+  latestSpot: number;
+  offset: number; setOffset: (v: number) => void;
+  offsetStep: number;
+  formatSpot: (v: number) => string;
+  onClose: () => void;
+}) {
+  type Mode = "above" | "below" | "fixed";
+  const [mode, setMode] = useState<Mode>(offset < 0 ? "below" : "above");
+  // `amount` means: offset magnitude for above/below, absolute price for fixed.
+  const [amount, setAmount] = useState(() => Math.abs(offset) || offsetStep);
+
+  const round = (v: number) => Number(v.toFixed(2));
+  const switchMode = (m: Mode) => {
+    if (m === mode) return;
+    if (m === "fixed") {
+      const signed = mode === "below" ? -amount : amount;
+      setAmount(round(latestSpot + signed));
+    } else if (mode === "fixed") {
+      setAmount(round(Math.abs(amount - latestSpot)));
+    }
+    setMode(m);
+  };
+
+  const min = 0;
+  const step = (dir: 1 | -1) => setAmount((a) => round(Math.max(min, (a || 0) + dir * offsetStep)));
+
+  const save = () => {
+    const signed = mode === "fixed" ? amount - latestSpot : mode === "below" ? -Math.abs(amount) : Math.abs(amount);
+    setOffset(round(signed));
+    onClose();
+  };
+
+  const tabs: [Mode, string][] = [["above", "Above spot"], ["below", "Below spot"], ["fixed", "Fixed barrier"]];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+        <div className="px-4 pb-1 pt-2 text-center text-[15px] font-black text-white">{title}</div>
+
+        {/* Mode tabs */}
+        <div className="grid grid-cols-3 gap-2 px-4 pt-2">
+          {tabs.map(([m, label]) => (
+            <button key={m} type="button" onClick={() => switchMode(m)}
+              className={`rounded-xl py-2.5 text-[12px] font-black transition ${mode === m ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Stepper */}
+        <div className="px-4 pt-3">
+          <div className="flex items-center rounded-xl bg-[#0f1319] px-1 ring-1 ring-white/[0.06]">
+            <button type="button" onClick={() => step(-1)} className="grid h-12 w-12 place-items-center text-slate-300">
+              <Icon name="remove" className="text-[18px]" />
+            </button>
+            <input type="number" inputMode="decimal" value={amount}
+              onChange={(e) => setAmount(Math.max(min, Number(e.target.value) || 0))}
+              className="w-full min-w-0 bg-transparent text-center text-[18px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            <button type="button" onClick={() => step(1)} className="grid h-12 w-12 place-items-center text-slate-300">
+              <Icon name="add" className="text-[18px]" />
+            </button>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between text-[13px]">
+            <span className="font-bold text-slate-400">Current spot</span>
+            <span className="font-mono font-black text-white">{formatSpot(latestSpot)}</span>
+          </div>
+
+          <button type="button" onClick={save}
+            className="mt-4 w-full rounded-2xl bg-white py-3.5 text-[15px] font-black text-[#16181d] transition active:scale-[0.98]">
+            Save
+          </button>
+        </div>
       </div>
     </div>
   );
