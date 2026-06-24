@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { GROWTH_RATES, maxTicksFor, payoutAtTick } from "@/lib/accumulator";
+import { ValuePickerSheet } from "./digit-panel";
 
 const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
 const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
@@ -45,6 +47,19 @@ export function AccumulatorsPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* ── Mobile: Deriv-style (Growth/Stake/Take-profit cards + slim Buy) ── */}
+      <MobileAccumulators
+        currency={currency}
+        stake={stake} setStake={setStake}
+        growthRate={growthRate} setGrowthRate={setGrowthRate}
+        takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
+        takeProfit={takeProfit} setTakeProfit={setTakeProfit}
+        maxPayout={maxPayout}
+        onBuy={onBuy} placing={placing} format={format}
+      />
+
+      {/* ── Desktop (sm+): existing config layout, untouched ── */}
+      <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         {/* Growth rate */}
         <div className={CARD}>
@@ -147,6 +162,95 @@ export function AccumulatorsPanel({
           <Icon name="arrow_forward" className="ml-auto text-[16px] sm:text-[18px]" />
         </button>
       </div>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style mobile Accumulators surface: Growth rate / Stake / Take profit as
+// three tappable cards (open picker sheets), a Max-payout line, and one slim Buy
+// button. Mirrors the digit panel. Shown only below sm.
+function MobileAccumulators({
+  currency, stake, setStake, growthRate, setGrowthRate,
+  takeProfitOn, setTakeProfitOn, takeProfit, setTakeProfit,
+  maxPayout, onBuy, placing, format,
+}: {
+  currency: string;
+  stake: number; setStake: (v: number) => void;
+  growthRate: number; setGrowthRate: (v: number) => void;
+  takeProfitOn: boolean; setTakeProfitOn: (v: boolean) => void;
+  takeProfit: number; setTakeProfit: (v: number) => void;
+  maxPayout: number;
+  onBuy: () => void; placing: boolean;
+  format: (v: number) => string;
+}) {
+  const [sheet, setSheet] = useState<null | "growth" | "stake" | "tp">(null);
+  const fieldCard = "flex flex-col items-start rounded-2xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+
+  return (
+    <div className="flex h-full min-h-0 flex-col sm:hidden">
+      <div className="min-h-0 flex-1" />
+
+      <div className="space-y-2.5 px-3 pb-1">
+        <div className="grid grid-cols-3 gap-2.5">
+          <button type="button" onClick={() => setSheet("growth")} className={fieldCard}>
+            <span className="text-[11px] font-bold text-slate-400">Growth rate</span>
+            <span className="mt-0.5 text-[16px] font-black text-white">{growthRate}%</span>
+          </button>
+          <button type="button" onClick={() => setSheet("stake")} className={fieldCard}>
+            <span className="text-[11px] font-bold text-slate-400">Stake</span>
+            <span className="mt-0.5 text-[16px] font-black text-white">{stake} {currency}</span>
+          </button>
+          <button type="button" onClick={() => setSheet("tp")} className={`${fieldCard} relative`}>
+            <span className="text-[11px] font-bold text-slate-400">Take profit</span>
+            <span className="mt-0.5 text-[16px] font-black text-white">{takeProfitOn ? `${takeProfit}` : "—"}</span>
+            {takeProfitOn && (
+              <span role="button" tabIndex={-1} onClick={(e) => { e.stopPropagation(); setTakeProfitOn(false); }}
+                className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white/[0.06] text-slate-400">
+                <Icon name="close" className="text-[12px]" />
+              </span>
+            )}
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between px-1 text-[12px]">
+          <span className="font-bold text-slate-400">Max. payout</span>
+          <span className="font-black text-white">{format(maxPayout)}</span>
+        </div>
+      </div>
+
+      <div className="px-3 pb-2 pt-1">
+        <button
+          type="button"
+          onClick={onBuy}
+          disabled={placing}
+          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#16a085] py-3 text-[15px] font-black text-white transition active:scale-[0.98] active:bg-[#1bb198] disabled:opacity-50"
+        >
+          {placing ? <LoadingDots /> : "Buy"}
+        </button>
+      </div>
+
+      {sheet === "growth" && (
+        <ValuePickerSheet
+          title="Growth rate" unit="%" value={growthRate}
+          presets={[...GROWTH_RATES]} min={GROWTH_RATES[0]} max={GROWTH_RATES[GROWTH_RATES.length - 1]} integer
+          onChange={setGrowthRate} onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet === "stake" && (
+        <ValuePickerSheet
+          title="Stake" unit={currency} value={stake}
+          presets={[10, 50, 100, 500, 1000, 5000]} min={1} max={1_000_000}
+          onChange={setStake} onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet === "tp" && (
+        <ValuePickerSheet
+          title="Take profit" unit={currency} value={takeProfit || 10}
+          presets={[5, 10, 20, 50, 100]} min={1} max={1_000_000}
+          onChange={(v) => { setTakeProfit(v); setTakeProfitOn(true); }} onClose={() => setSheet(null)}
+        />
+      )}
     </div>
   );
 }
