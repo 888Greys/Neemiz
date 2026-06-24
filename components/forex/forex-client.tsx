@@ -15,6 +15,7 @@ import {
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
 import { ValuePickerSheet } from "@/components/binary/panels/digit-panel";
+import { useNavBadge } from "@/lib/nav-badge-context";
 
 type Direction = "buy" | "sell";
 type StreamStatus = "connecting" | "live" | "fallback";
@@ -311,6 +312,13 @@ export function ForexClient() {
   const closePanel = useCallback(() => { router.replace(pathname, { scroll: false }); }, [router, pathname]);
 
   const selectedMarket = MARKETS.find((item) => item.symbol === selectedSymbol) ?? MARKETS[0];
+
+  // Badge the Positions bottom-nav tab with the open-trade count (like binary).
+  const setNavBadge = useNavBadge()?.setBadge;
+  useEffect(() => {
+    setNavBadge?.("positions", trades.length);
+    return () => setNavBadge?.("positions", 0);
+  }, [setNavBadge, trades.length]);
 
   useEffect(() => {
     let active = true;
@@ -731,6 +739,12 @@ export function ForexClient() {
                     <span className="text-slate-600">/</span>
                     <span className="text-[#33d49b]">{formatPrice(selectedMarket, ask)}</span>
                     <span className={changePct >= 0 ? "text-emerald-300" : "text-red-300"}>{changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%</span>
+                  </span>
+                  {/* Session High / Avg / Low — tucked under the header (option 2) */}
+                  <span className="mt-0.5 flex items-baseline gap-2.5 font-mono text-[9px] font-black text-slate-500">
+                    <span>H <span className="text-emerald-300/80">{formatPrice(selectedMarket, levels.high)}</span></span>
+                    <span>A <span className="text-slate-300">{formatPrice(selectedMarket, levels.average)}</span></span>
+                    <span>L <span className="text-red-300/80">{formatPrice(selectedMarket, levels.low)}</span></span>
                   </span>
                 </span>
               </button>
