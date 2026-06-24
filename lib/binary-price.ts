@@ -13,7 +13,7 @@ const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
 
 // Synthetic index symbols accepted for binary trades. Mirrors VALID_MARKETS in
 // app/api/binary/bet/route.ts and MARKETS in components/binary/binary-client.tsx.
-const VALID_SYMBOLS = new Set(["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"]);
+const VALID_SYMBOLS = new Set(["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"]);
 
 export function isKnownBinarySymbol(symbol: string): boolean {
   return VALID_SYMBOLS.has(symbol);

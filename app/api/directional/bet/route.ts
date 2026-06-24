@@ -8,7 +8,7 @@ import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
 import { payoutRate, vanillaPayoutPerPoint, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
-const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_KINDS = ["RISE_FALL", "HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"];
 const SIDES_BY_KIND: Record<string, DirectionalSide[]> = {
   RISE_FALL: ["RISE", "FALL"],
