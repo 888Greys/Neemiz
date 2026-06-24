@@ -747,7 +747,7 @@ export function ForexClient() {
             </div>
           </section>
 
-          <section className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.08] bg-[#0f1218] px-3 py-1.5 text-[11px] sm:px-4">
+          <section className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.08] bg-[#0f1218] px-3 py-1.5 text-[11px] sm:flex sm:px-4">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">Session</span>
             <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">High</span><span className="font-mono font-black text-emerald-300">{formatPrice(selectedMarket, levels.high)}</span></span>
             <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">Avg</span><span className="font-mono font-black text-white">{formatPrice(selectedMarket, levels.average)}</span></span>
@@ -1243,7 +1243,7 @@ function MobileForexTicket({
   riskKes: number; rewardKes: number; rrRatio: number;
   onOpen: () => void; opening: boolean; live: boolean;
 }) {
-  const [sheet, setSheet] = useState<null | "size" | "sl" | "tp">(null);
+  const [sheet, setSheet] = useState<null | "size" | "sl" | "tp" | "rr">(null);
   const buy = direction === "buy";
   const fieldCard = "flex flex-col items-start rounded-2xl bg-[#181b22] px-3 py-2.5 text-left transition active:scale-[0.99]";
 
@@ -1282,25 +1282,19 @@ function MobileForexTicket({
           </button>
         </div>
 
-        {/* R:R presets */}
-        <div className="grid grid-cols-4 gap-2">
-          {rrPresets.map((p) => {
-            const active = riskPips === p.sl && targetPips === p.tp;
-            return (
-              <button key={p.label} type="button" onClick={() => { setRiskPips(p.sl); setTargetPips(p.tp); }}
-                className={`rounded-lg py-2 text-[11px] font-black transition active:scale-95 ${active ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400"}`}>
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Risk / Reward line */}
-        <div className="flex items-center justify-between px-1 text-[11px] font-black">
-          <span className="font-mono text-[#ff6171]">−{CURRENCY_SYMBOL} {riskKes.toFixed(2)}</span>
-          <span className="font-mono text-[#33d49b]">+{CURRENCY_SYMBOL} {rewardKes.toFixed(2)}</span>
-          <span className={`rounded px-1.5 py-0.5 font-mono ${rrRatio >= 1 ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>1:{rrRatio.toFixed(2)}</span>
-        </div>
+        {/* Risk : Reward — one tappable card (opens the presets sheet) */}
+        <button type="button" onClick={() => setSheet("rr")}
+          className="flex w-full items-center justify-between rounded-2xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]">
+          <span className="flex flex-col items-start">
+            <span className="text-[11px] font-bold text-slate-400">Risk : Reward</span>
+            <span className="mt-0.5 text-[15px] font-black text-white">1:{rrRatio.toFixed(2)}</span>
+          </span>
+          <span className="flex items-center gap-2.5 font-mono text-[11px] font-black">
+            <span className="text-[#ff6171]">−{CURRENCY_SYMBOL}{riskKes.toFixed(0)}</span>
+            <span className="text-[#33d49b]">+{CURRENCY_SYMBOL}{rewardKes.toFixed(0)}</span>
+            <Icon name="expand_more" className="text-[18px] text-slate-400" />
+          </span>
+        </button>
       </div>
 
       {/* Open pill */}
@@ -1322,11 +1316,52 @@ function MobileForexTicket({
           presets={[10, 15, 20, 25, 40, 60]} min={1} max={500} integer
           onChange={setRiskPips} onClose={() => setSheet(null)} />
       )}
+      {sheet === "rr" && (
+        <RrSheet presets={rrPresets} riskPips={riskPips} targetPips={targetPips}
+          riskKes={riskKes} rewardKes={rewardKes}
+          onSelect={(sl, tp) => { setRiskPips(sl); setTargetPips(tp); }} onClose={() => setSheet(null)} />
+      )}
       {sheet === "tp" && (
         <ValuePickerSheet title="Take profit" unit="pips" value={targetPips}
           presets={[15, 20, 30, 45, 60, 100]} min={1} max={1000} integer
           onChange={setTargetPips} onClose={() => setSheet(null)} />
       )}
+    </div>
+  );
+}
+
+// Risk:Reward preset picker sheet — replaces the bare 1:1/1:2/1:3/Scalp buttons
+// with a neat popup (matches the Size/SL/TP picker pattern).
+function RrSheet({
+  presets, riskPips, targetPips, riskKes, rewardKes, onSelect, onClose,
+}: {
+  presets: { label: string; sl: number; tp: number }[];
+  riskPips: number; targetPips: number; riskKes: number; rewardKes: number;
+  onSelect: (sl: number, tp: number) => void; onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+        <div className="px-4 pb-1 pt-2 text-center text-[13px] font-black text-white">Risk : Reward</div>
+        <div className="flex items-center justify-center gap-3 pb-2 font-mono text-[11px] font-black">
+          <span className="text-[#ff6171]">−{CURRENCY_SYMBOL} {riskKes.toFixed(2)}</span>
+          <span className="text-[#33d49b]">+{CURRENCY_SYMBOL} {rewardKes.toFixed(2)}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 px-4 pb-4 pt-1">
+          {presets.map((p) => {
+            const active = riskPips === p.sl && targetPips === p.tp;
+            return (
+              <button key={p.label} type="button" onClick={() => { onSelect(p.sl, p.tp); onClose(); }}
+                className={`flex flex-col items-start rounded-2xl px-4 py-3 transition active:scale-[0.98] ${active ? "bg-white text-[#16181d]" : "bg-[#0f1319] text-white"}`}>
+                <span className="text-[15px] font-black">{p.label}</span>
+                <span className={`text-[11px] font-bold ${active ? "text-slate-600" : "text-slate-500"}`}>SL {p.sl} · TP {p.tp} pips</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
