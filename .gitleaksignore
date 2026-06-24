@@ -1,0 +1,11 @@
+# Acknowledged, ACCEPTED historical findings — gitleaks skips these exact
+# fingerprints but still scans everything else (including all history) for any
+# NEW secret.
+#
+# 2026-06 leaked master wallet seed in README.md @ commit 8bdc68b. The seed is
+# DEAD: rotated out (twice) and burned — it cannot move any funds. We chose to
+# keep git history as-is rather than do a destructive force-push rewrite for a
+# dead secret. The `wallet-mnemonic` rule correctly flags it on every full-history
+# scan, so we pin this one fingerprint here. Re-leak protection is live elsewhere
+# (rotation + this rule for NEW seeds + the local pre-commit hook).
+8bdc68be4960f9ce32f3c3c7d92bcd552a1c3463:README.md:wallet-mnemonic:142
