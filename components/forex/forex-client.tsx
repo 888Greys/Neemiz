@@ -769,7 +769,7 @@ export function ForexClient() {
           </section>
         </main>
 
-        <aside className="order-2 shrink-0 min-w-0 overflow-hidden rounded-none border-y border-white/[0.08] bg-[#0f1218] sm:rounded sm:border xl:order-none xl:block xl:min-h-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+        <aside className="order-2 shrink-0 min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f1218] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 sm:rounded sm:border xl:order-none xl:block xl:min-h-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
           <section className="flex h-full min-h-0 flex-col xl:h-full xl:min-h-0">
             {/* Mobile Deriv-style ticket (sm:hidden); desktop/tablet ticket below */}
             <MobileForexTicket
