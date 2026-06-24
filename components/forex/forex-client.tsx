@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import {
   CandlestickSeries,
@@ -297,6 +298,16 @@ export function ForexClient() {
   // pops open the moment a position is opened (mirrors the Binary rail).
   const [railOpen, setRailOpen] = useState(false);
   const autoClosingRef = useRef<Set<string>>(new Set());
+
+  // Mobile bottom-nav panels (Markets / Positions) are URL-driven via `?panel=`,
+  // mirroring binary. Trade is the base view (no param).
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const panel = searchParams.get("panel");
+  const marketsOpen = panel === "markets";
+  const positionsOpen = panel === "positions";
+  const closePanel = useCallback(() => { router.replace(pathname, { scroll: false }); }, [router, pathname]);
 
   const selectedMarket = MARKETS.find((item) => item.symbol === selectedSymbol) ?? MARKETS[0];
 
@@ -855,16 +866,33 @@ export function ForexClient() {
         </aside>
       </div>
 
-      {/* Mobile-only: positions / history — hidden on desktop where the left rail shows it */}
-      <MobileForexActivity
-        tab={activityTab} setTab={setActivityTab}
-        openTrades={trades} forexHistory={forexHistory}
-        price={price} closingId={closingId} closeTrade={closeTrade}
-      />
+      {/* Mobile Positions screen (Deriv-style) — opened by the Positions tab
+          (?panel=positions); full surface between app header and bottom nav. */}
+      {positionsOpen && (
+        <div className="fixed inset-x-0 bottom-14 top-14 z-40 flex flex-col bg-[#0b0d12] lg:hidden">
+          <ForexActivityPanel
+            tab={activityTab} setTab={setActivityTab}
+            openTrades={trades} forexHistory={forexHistory}
+            price={price} closingId={closingId} closeTrade={closeTrade}
+            onCollapse={closePanel}
+          />
+        </div>
+      )}
+
+      {/* Mobile pair picker — opened by the Markets tab (?panel=markets). */}
+      {marketsOpen && (
+        <ForexPairSheet
+          markets={MARKETS}
+          current={selectedMarket.symbol}
+          onSelect={(sym) => { setSelectedSymbol(sym); closePanel(); }}
+          onClose={closePanel}
+        />
+      )}
 
       {/* Sticky mobile CTA — a single Open button that follows the Buy/Sell
-          toggle above, so there's one clear action (no duplicate buttons). */}
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur lg:bottom-0 xl:hidden">
+          toggle above, so there's one clear action (no duplicate buttons).
+          Hidden while a nav panel sheet (Markets/Positions) is open. */}
+      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur lg:bottom-0 xl:hidden ${positionsOpen || marketsOpen ? "hidden" : ""}`}>
         <button
           type="button"
           onClick={() => openTrade()}
@@ -1143,31 +1171,73 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
   );
 }
 
-// Mobile-only collapsible wrapper around the activity panel. Hidden on xl where
-// the left rail shows it.
-function MobileForexActivity(props: ForexActivityProps) {
-  const [open, setOpen] = useState(true);
-  const activeCount = props.openTrades.length;
+// Deriv-style mobile pair picker (opened by the Markets tab). Search + favourites
+// (persisted) + the current pair highlighted white. Mirrors binary's MarketsSheet.
+function ForexPairSheet({
+  markets, current, onSelect, onClose,
+}: {
+  markets: ForexMarket[];
+  current: string;
+  onSelect: (symbol: string) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const [favs, setFavs] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("forex-fav-pairs") ?? "[]");
+      if (Array.isArray(saved)) setFavs(new Set(saved));
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("forex-fav-pairs", JSON.stringify([...favs])); } catch { /* ignore */ }
+  }, [favs]);
+  const toggleFav = (sym: string) =>
+    setFavs((s) => { const n = new Set(s); n.has(sym) ? n.delete(sym) : n.add(sym); return n; });
+
+  const term = q.trim().toLowerCase();
+  const filtered = markets.filter(
+    (m) => term === "" || m.symbol.toLowerCase().includes(term) || m.name.toLowerCase().includes(term),
+  );
+
   return (
-    <div className="mx-2 mb-4 mt-1 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f1218] xl:hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-3 text-[12px] font-black text-white/70 transition-colors hover:text-white active:scale-[0.99]"
-      >
-        <span className="flex items-center gap-2 uppercase tracking-wider">
-          My Positions
-          {activeCount > 0 && (
-            <span className="rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-300">{activeCount} open</span>
-          )}
-        </span>
-        <Icon name={open ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[18px] text-slate-500" />
-      </button>
-      {open && (
-        <div className="flex max-h-[60vh] flex-col overflow-hidden border-t border-white/[0.07]">
-          <ForexActivityPanel {...props} />
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#0d0e11] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+        <div className="flex items-center gap-2 px-4 pb-3 pt-2.5">
+          <div className="flex flex-1 items-center gap-2 rounded-xl bg-white/[0.05] px-3 ring-1 ring-white/[0.07] focus-within:ring-sky-500/50">
+            <Icon name="search" className="text-[18px] text-slate-500" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search pairs"
+              className="h-9 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-slate-600" />
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-400 active:scale-95">
+            <Icon name="close" className="text-[13px]" />
+          </button>
         </div>
-      )}
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+          <p className="px-3 pb-1 pt-1 text-[11px] font-black uppercase tracking-wide text-slate-500">Forex pairs</p>
+          {filtered.length === 0 ? (
+            <p className="py-10 text-center text-[12px] font-bold text-slate-600">No pairs match “{q}”.</p>
+          ) : filtered.map((m) => {
+            const active = m.symbol === current;
+            const starred = favs.has(m.symbol);
+            return (
+              <button key={m.symbol} type="button" onClick={() => onSelect(m.symbol)}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition active:scale-[0.99] ${active ? "bg-white" : "hover:bg-white/[0.04]"}`}>
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#1b2433] text-[10px] font-black text-sky-300">{m.base}</span>
+                <span className="min-w-0 flex-1">
+                  <span className={`block truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>{m.symbol}</span>
+                  <span className={`block truncate text-[11px] font-bold ${active ? "text-slate-600" : "text-slate-500"}`}>{m.name}</span>
+                </span>
+                <span role="button" tabIndex={-1} onClick={(e) => { e.stopPropagation(); toggleFav(m.symbol); }} className="shrink-0">
+                  <Icon name="star" className={`text-[20px] ${starred ? "fill-current text-amber-400" : active ? "text-slate-500" : "text-slate-600"}`} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
