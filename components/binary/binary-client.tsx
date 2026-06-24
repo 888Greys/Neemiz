@@ -569,7 +569,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
 
       {/* Deriv-style zoom / recenter controls — lifted above the TradingView
           attribution logo and given enough contrast to read on the dark chart */}
-      <div className="absolute bottom-12 left-3 z-10 hidden flex-col gap-1 sm:flex">
+      <div className="absolute bottom-14 left-3 z-10 flex flex-col gap-1 sm:bottom-12">
         <button type="button" onClick={() => zoom(1.3)} title="Zoom in" aria-label="Zoom in"
           className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42] sm:h-8 sm:w-8">
           <Icon name="add" className="text-[15px] sm:text-[18px]" />
