@@ -60,8 +60,38 @@ export function DigitPanel({
   const targetVerb = family === "matchDiffer" ? "Target digit" : "Barrier digit";
   const compactStakeDuration = family === "overUnder";
 
+  // Mobile uses Deriv's single-CTA model: a side toggle + one Buy button. We
+  // track which side is armed locally; if the family (and thus `sides`) changes
+  // we fall back to the first side so the toggle never points at a stale value.
+  const [armedSide, setArmedSide] = useState<ContractSide>(sides[0]);
+  const selectedSide = sides.includes(armedSide) ? armedSide : sides[0];
+
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* ── Mobile: Deriv-style single-CTA surface (hidden on sm+, where the
+          desktop dual-button layout below takes over) ── */}
+      <MobileDerivDigits
+        currency={currency}
+        sides={sides}
+        selectedSide={selectedSide}
+        onArmSide={setArmedSide}
+        stake={stake} setStake={setStake}
+        duration={duration} setDuration={setDuration}
+        targetDigit={targetDigit} setTargetDigit={setTargetDigit}
+        lastDigit={lastDigit}
+        stakePresets={stakePresets}
+        minStake={minStake}
+        needsTarget={needsTarget}
+        targetVerb={targetVerb}
+        payoutFor={payoutFor}
+        format={format}
+        onTrade={onTrade}
+        placing={placing}
+        openPositions={openPositions}
+      />
+
+      {/* ── Desktop (sm+): existing dual-button layout, untouched ── */}
+      <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         <div className={compactStakeDuration ? "grid grid-cols-2 gap-1.5 sm:block sm:space-y-1.5" : "flex flex-col gap-1.5"}>
           {/* Duration */}
@@ -187,6 +217,252 @@ export function DigitPanel({
             </button>
           );
         })}
+      </div>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style mobile trade surface: a side toggle (Even | Odd) over big,
+// thumb-friendly Duration / Stake steppers, and one full-width Buy button with
+// the live payout on it — mirroring Deriv's mobile app. Shown only below sm;
+// the desktop dual-button layout lives in DigitPanel's main return.
+function MobileDerivDigits({
+  currency, sides, selectedSide, onArmSide,
+  stake, setStake, duration, setDuration,
+  targetDigit, setTargetDigit, lastDigit,
+  stakePresets, minStake, needsTarget, targetVerb,
+  payoutFor, format, onTrade, placing, openPositions,
+}: {
+  currency: string;
+  sides: ContractSide[];
+  selectedSide: ContractSide;
+  onArmSide: (s: ContractSide) => void;
+  stake: number; setStake: (v: number) => void;
+  duration: number; setDuration: (v: number) => void;
+  targetDigit: number; setTargetDigit: (v: number) => void;
+  lastDigit: number;
+  stakePresets: number[];
+  minStake: number;
+  needsTarget: boolean;
+  targetVerb: string;
+  payoutFor: (side: ContractSide) => number;
+  format: (v: number) => string;
+  onTrade: (side: ContractSide) => void;
+  placing: boolean;
+  openPositions: { id: string; side: ContractSide; settlesAt: number }[];
+}) {
+  const armedRed = RED_SIDES.has(selectedSide);
+  // Which value the bottom-sheet picker is editing (Deriv-style); null = closed.
+  const [picker, setPicker] = useState<null | "duration" | "stake">(null);
+  // The barrier/target digit grid is collapsed by default to keep the chart big;
+  // the header shows the current pick and a chevron to expand it.
+  const [gridOpen, setGridOpen] = useState(false);
+
+  const fieldCard =
+    "flex flex-col items-start rounded-2xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+
+  return (
+    <div className="flex h-full min-h-0 flex-col sm:hidden">
+      {/* Spacer pushes the control cluster to the bottom, over the chart bg (Deriv) */}
+      <div className="min-h-0 flex-1" />
+
+      {/* Centered grab handle (Deriv-style) — toggles the digit grid for the
+          target types; sits above the whole control cluster. */}
+      {needsTarget && (
+        <button
+          type="button"
+          onClick={() => setGridOpen((v) => !v)}
+          aria-label={gridOpen ? "Hide digit grid" : "Show digit grid"}
+          className="flex w-full shrink-0 justify-center py-1.5 text-slate-400 active:text-white"
+        >
+          <Icon name={gridOpen ? "expand_more" : "expand_less"} className="text-[22px]" />
+        </button>
+      )}
+
+      <div className="space-y-2.5 px-3 pb-1">
+        {/* Side toggle — text only (no icon), slim pills (Deriv-style) */}
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0f1319] p-1 ring-1 ring-white/[0.06]">
+          {sides.map((side) => {
+            const active = side === selectedSide;
+            const red = RED_SIDES.has(side);
+            return (
+              <button
+                key={side}
+                type="button"
+                onClick={() => onArmSide(side)}
+                className={`flex items-center justify-center rounded-full py-2 text-[13px] font-black transition active:scale-[0.98] ${
+                  active
+                    ? red
+                      ? "bg-[#e2474b] text-white"
+                      : "bg-[#16a085] text-white"
+                    : "text-slate-400"
+                }`}
+              >
+                {actionLabel(side)}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Expanded barrier/target grid — full-width above the fields (Deriv).
+            Collapsed by default; tap the compact field below to expand. */}
+        {needsTarget && gridOpen && (
+          <div className="rounded-2xl bg-[#181b22] p-3">
+            <div className="flex items-center justify-between px-0.5">
+              <span className="text-[12px] font-bold text-slate-200">{targetVerb}</span>
+              <span className="font-mono text-[14px] font-black text-white">{targetDigit}</span>
+            </div>
+            <div className="mt-2.5 grid grid-cols-5 gap-2">
+              {DIGITS.map((d) => {
+                const active = targetDigit === d;
+                const isLast = lastDigit === d;
+                return (
+                  <button key={d} type="button" onClick={() => setTargetDigit(d)}
+                    className={`relative rounded-2xl py-2.5 font-mono text-[16px] font-black transition active:scale-95 ${
+                      active ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
+                             : "bg-[#0f1319] text-slate-400"
+                    }`}>
+                    {d}
+                    {isLast && <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-400" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Fields row (Deriv): when a barrier digit applies and the grid is
+            collapsed, it sits inline as a 3rd card; otherwise just Duration|Stake. */}
+        <div className={`grid gap-2.5 ${needsTarget && !gridOpen ? "grid-cols-3" : "grid-cols-2"}`}>
+          {needsTarget && !gridOpen && (
+            <button type="button" onClick={() => setGridOpen(true)} className={fieldCard}>
+              <span className="truncate text-[11px] font-bold text-slate-400">{targetVerb}</span>
+              <span className="mt-0.5 text-[16px] font-black text-white">{targetDigit}</span>
+            </button>
+          )}
+          <button type="button" onClick={() => setPicker("duration")} className={fieldCard}>
+            <span className="text-[11px] font-bold text-slate-400">Duration</span>
+            <span className="mt-0.5 text-[16px] font-black text-white">{duration} ticks</span>
+          </button>
+          <button type="button" onClick={() => setPicker("stake")} className={fieldCard}>
+            <span className="text-[11px] font-bold text-slate-400">Stake</span>
+            <span className="mt-0.5 text-[16px] font-black text-white">{stake} {currency}</span>
+          </button>
+        </div>
+      </div>
+
+      {picker === "duration" && (
+        <ValuePickerSheet
+          title="Duration" unit="ticks" value={duration}
+          presets={[3, 5, 7, 10, 15, 30]} min={3} max={30} integer
+          onChange={setDuration} onClose={() => setPicker(null)}
+        />
+      )}
+      {picker === "stake" && (
+        <ValuePickerSheet
+          title="Stake" unit={currency} value={stake}
+          presets={stakePresets} min={minStake} max={1_000_000}
+          onChange={setStake} onClose={() => setPicker(null)}
+        />
+      )}
+
+      {openPositions.length > 0 && <ActivePositions positions={openPositions} format={format} />}
+
+      {/* One slim, pill-shaped Buy button (Deriv-style), flush above the nav */}
+      <div className="px-3 pb-2 pt-1">
+        <button
+          type="button"
+          onClick={() => onTrade(selectedSide)}
+          disabled={placing}
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${
+            armedRed ? "bg-[#e2474b] active:bg-[#ec5a5e]" : "bg-[#16a085] active:bg-[#1bb198]"
+          }`}
+        >
+          <span className="text-[15px] leading-tight">{placing ? <LoadingDots /> : `Buy ${actionLabel(selectedSide)}`}</span>
+          <span className="font-mono text-[11px] leading-tight text-white/85">Payout {format(payoutFor(selectedSide))}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style bottom-sheet value picker for Duration / Stake. Two modes: quick
+// preset chips (lightning) or a number keypad (keyboard) for a custom value.
+function ValuePickerSheet({
+  title, unit, value, presets, min, max, integer, onChange, onClose,
+}: {
+  title: string;
+  unit: string;
+  value: number;
+  presets: number[];
+  min: number;
+  max: number;
+  integer?: boolean;
+  onChange: (v: number) => void;
+  onClose: () => void;
+}) {
+  const [mode, setMode] = useState<"presets" | "keypad">("presets");
+  const [draft, setDraft] = useState(String(value));
+
+  const clamp = (v: number) => {
+    const c = Math.min(max, Math.max(min, v || min));
+    return integer ? Math.round(c) : c;
+  };
+  const commit = (v: number) => { onChange(clamp(v)); onClose(); };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5">
+          <span className="h-1 w-9 rounded-full bg-white/20" />
+        </div>
+        <div className="px-4 pb-1 pt-2 text-center text-[13px] font-black text-white">{title}</div>
+
+        {/* Mode toggle: presets (lightning) vs keypad (keyboard) */}
+        <div className="grid grid-cols-2 gap-2 px-4 pb-3 pt-1">
+          {([["presets", "bolt"], ["keypad", "keyboard"]] as const).map(([m, icon]) => (
+            <button key={m} type="button" onClick={() => setMode(m)}
+              className={`grid place-items-center rounded-xl py-2.5 transition ${mode === m ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400"}`}>
+              <Icon name={icon} className="text-[18px]" />
+            </button>
+          ))}
+        </div>
+
+        {mode === "presets" ? (
+          <div className="grid grid-cols-3 gap-2 px-4 pb-4">
+            {presets.map((p) => {
+              const active = p === value;
+              return (
+                <button key={p} type="button" onClick={() => commit(p)}
+                  className={`rounded-xl py-3.5 text-[14px] font-black transition active:scale-95 ${
+                    active ? "bg-white text-[#16181d]" : "bg-[#0f1319] text-slate-200"
+                  }`}>
+                  {p} {unit}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="px-4 pb-4">
+            <div className="flex items-center rounded-xl bg-[#0f1319] px-3 ring-1 ring-white/[0.06]">
+              <input
+                autoFocus
+                type="number"
+                inputMode={integer ? "numeric" : "decimal"}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                className="w-full bg-transparent py-3.5 text-center text-[18px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+              <span className="pl-2 text-[13px] font-black text-slate-500">{unit}</span>
+            </div>
+            <button type="button" onClick={() => commit(Number(draft))}
+              className="mt-3 w-full rounded-full bg-[#16a085] py-3 text-[15px] font-black text-white transition active:scale-[0.98]">
+              Confirm
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

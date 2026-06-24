@@ -3,9 +3,9 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useState, useRef, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
-import { mobileNav } from "@/lib/mock-data";
+import { getMobileNav } from "@/lib/mock-data";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
@@ -51,6 +51,11 @@ type AppShellProps = {
 export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = true }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Bottom-nav tab set is section-aware (binary gets Markets/Trade/Positions);
+  // `currentPanel` drives active-state for same-route panel tabs.
+  const mobileNav = getMobileNav(pathname);
+  const currentPanel = searchParams.get("panel") ?? "";
   const isLogin = pathname === "/login";
   const isSportsPage = pathname.startsWith("/sports");
   const { isSignedIn, user } = useSupabaseAuth();
@@ -260,11 +265,15 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
-          const activePath = ("activePath" in item ? item.activePath : (item.href ?? "").split("?")[0].split("#")[0]) as string;
-          // Use the optimistic target while a tap is in flight so the tab lights
-          // up the instant it's pressed, not after the page finishes loading.
-          const active = activePath === (pendingPath ?? pathname);
-          const navigating = pendingPath === activePath && pathname !== activePath;
+          const activePath = item.activePath ?? (item.href ?? "").split("?")[0].split("#")[0];
+          // Panel tabs (binary's Markets/Trade/Positions) share one route and are
+          // distinguished by the `?panel=` value, so match on panel rather than
+          // path — otherwise every same-route tab would light up at once.
+          const isPanelTab = item.panel !== undefined;
+          const active = isPanelTab
+            ? pathname.startsWith(activePath) && currentPanel === item.panel
+            : activePath === (pendingPath ?? pathname);
+          const navigating = !isPanelTab && pendingPath === activePath && pathname !== activePath;
           if (item.label === "Menu") {
             return (
               <button key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset" onClick={() => setMobileMenuOpen(true)} type="button">

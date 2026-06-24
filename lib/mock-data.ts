@@ -12,13 +12,47 @@ export const navItems = [
   { href: "/", label: "Promotions", icon: "campaign" },
 ];
 
-export const mobileNav = [
+export type MobileNavItem = {
+  label: string;
+  icon: string;
+  href?: string;
+  // Section-native tabs (e.g. binary) that all live on one route but open
+  // different in-page panels via a `?panel=` query param. `panel: ""` is the
+  // base view (no param). When set, the active state keys off the panel value
+  // instead of the path, so sibling tabs on the same route don't all light up.
+  panel?: string;
+  // Path used for active-state matching when it differs from `href` (e.g. a tab
+  // whose href carries a query string). Defaults to href's pathname.
+  activePath?: string;
+};
+
+// Default cross-product switcher — shown on the dashboard and any section that
+// doesn't define its own native nav. `Menu` opens the full platform drawer.
+export const mobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
   { href: "/sports", label: "Sports", icon: "sports_soccer" },
   { href: "/aviator", label: "Aviator", icon: "rocket_launch" },
   { href: "/p2p", label: "P2P", icon: "swap_horiz" },
   { href: "/binary", label: "Binary", icon: "candlestick_chart" },
 ];
+
+// Binary is a destination in itself (Deriv-style): users who come only for
+// digits get a self-contained Markets / Trade / Positions surface, with Menu as
+// the constant escape hatch back to the rest of the platform. The first three
+// stay on /binary and toggle in-page panels via `?panel=`.
+export const binaryMobileNav: MobileNavItem[] = [
+  { label: "Menu", icon: "menu" },
+  { href: "/binary?panel=markets",   label: "Markets",   icon: "candlestick_chart", panel: "markets",   activePath: "/binary" },
+  { href: "/binary",                 label: "Trade",     icon: "show_chart",        panel: "",          activePath: "/binary" },
+  { href: "/binary?panel=positions", label: "Positions", icon: "receipt_long",      panel: "positions", activePath: "/binary" },
+];
+
+// Resolve the bottom-nav tab set for the current route. Section-native navs win
+// by path prefix; everything else falls back to the cross-product switcher.
+export function getMobileNav(pathname: string): MobileNavItem[] {
+  if (pathname.startsWith("/binary")) return binaryMobileNav;
+  return mobileNav;
+}
 
 export const productCards = [
   { href: "/sports", label: "Sports", icon: "sports_soccer" },
