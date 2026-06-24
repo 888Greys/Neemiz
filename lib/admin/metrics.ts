@@ -97,6 +97,35 @@ export function monthToDateWindow(): Window {
   return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
 }
 
+/** The last N calendar days incl. today: [midnight (N-1) days ago, now). */
+export function lastNDaysWindow(n: number): Window {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (n - 1));
+  return { start, end: new Date() };
+}
+
+/**
+ * Canonical window for an admin range token. Single source of truth shared by
+ * every windowed admin API; the matching UI labels live in lib/admin/ranges.ts.
+ */
+export function rangeWindow(range: string | null): Window {
+  switch (range) {
+    case "yesterday": return yesterdayWindow();
+    case "7d":  return lastNDaysWindow(7);
+    case "30d": return lastNDaysWindow(30);
+    case "mtd": return monthToDateWindow();
+    case "all": return lastNDaysWindow(3650);
+    default:    return todayWindow(); // "today"
+  }
+}
+
+/** Number of day-buckets to seed for a daily chart over a window (capped). */
+export function windowDays(w: Window, cap = 92): number {
+  const d = Math.ceil((w.end.getTime() - w.start.getTime()) / 86_400_000);
+  return Math.min(Math.max(1, d), cap);
+}
+
 // Single seam for the country dimension. Today there is no country column, so
 // every country resolves to the whole dataset. When User gains a country (from
 // the +254-style phone prefix or signup geo), return `{ user: { country } }`

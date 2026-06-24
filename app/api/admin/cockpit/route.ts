@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
-import { getMarketScorecards, todayWindow } from "@/lib/admin/metrics";
+import { getMarketScorecards, rangeWindow } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
 import { TransactionStatus } from "@prisma/client";
 
@@ -23,10 +23,11 @@ async function requireAdmin() {
 
 // Owner Cockpit feed (Phase 1). One call powers the landing screen: money +
 // growth top line, the 6 independent market scorecards, and the alerts queue.
-export async function GET() {
+export async function GET(req: Request) {
   if (!await requireAdmin()) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const today = todayWindow();
+  const { searchParams } = new URL(req.url);
+  const window = rangeWindow(searchParams.get("range")); // windowed P&L; references below stay live
   const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const week = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
@@ -47,13 +48,13 @@ export async function GET() {
     pendingDeposits,
     unsettledSports,
   ] = await Promise.all([
-    getMarketScorecards({ window: today, country: "KE" }),
+    getMarketScorecards({ window, country: "KE" }),
     db.transaction.aggregate({
-      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: REAL_DEPOSIT_PROVIDERS }, createdAt: { gte: today.start }, ...notExcluded },
+      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: REAL_DEPOSIT_PROVIDERS }, createdAt: { gte: window.start, lt: window.end }, ...notExcluded },
       _sum: { amount: true }, _count: true,
     }),
     db.transaction.aggregate({
-      where: { type: "WITHDRAWAL", status: "COMPLETED", currency: "KES", provider: { in: REAL_WITHDRAWAL_PROVIDERS }, createdAt: { gte: today.start }, ...notExcluded },
+      where: { type: "WITHDRAWAL", status: "COMPLETED", currency: "KES", provider: { in: REAL_WITHDRAWAL_PROVIDERS }, createdAt: { gte: window.start, lt: window.end }, ...notExcluded },
       _sum: { amount: true },
     }),
     // What the house owes genuine players right now.
@@ -61,7 +62,7 @@ export async function GET() {
       where: excludedIds.length ? { id: { notIn: excludedIds } } : {},
       _sum: { walletBalance: true }, _count: true,
     }),
-    db.user.count({ where: { createdAt: { gte: today.start } } }),
+    db.user.count({ where: { createdAt: { gte: window.start, lt: window.end } } }),
     db.user.count({ where: { createdAt: { gte: week } } }),
     // Busiest single signup day in the last 30 days (the "peak" reference).
     db.$queryRaw<Array<{ peak: bigint }>>`

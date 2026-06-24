@@ -5,6 +5,8 @@ import Link from "next/link";
 import { getCached, setCached } from "@/lib/client-cache";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { Icon } from "@/components/icon";
+import { RangeTabs } from "@/components/admin-range-tabs";
+import { type AdminRange } from "@/lib/admin/ranges";
 
 // ─── Owner Cockpit (Phase 1) ──────────────────────────────────────────────────
 // Reads /api/admin/cockpit → lib/admin/metrics. Reading order matches the agreed
@@ -110,20 +112,22 @@ function KpiCard({ label, value, detail, tone }: {
 }
 
 export function AdminCockpitClient({ adminEmail }: { adminEmail: string }) {
+  const [range, setRange] = useState<AdminRange>("today");
   const [data, setData] = useState<Cockpit | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
-  const load = useCallback(async () => {
-    const cached = getCached<Cockpit>("/api/admin/cockpit");
+  const load = useCallback(async (r: AdminRange) => {
+    const key = `/api/admin/cockpit?range=${r}`;
+    const cached = getCached<Cockpit>(key);
     if (cached) setData(cached);
     setLoading(!cached);
     try {
-      const res = await fetch("/api/admin/cockpit");
+      const res = await fetch(key);
       if (res.ok) {
         const fresh = (await res.json()) as Cockpit;
         setData(fresh);
-        setCached("/api/admin/cockpit", fresh);
+        setCached(key, fresh);
         setUpdatedAt(new Date());
       }
     } finally {
@@ -131,7 +135,7 @@ export function AdminCockpitClient({ adminEmail }: { adminEmail: string }) {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(range); }, [range, load]);
 
   if (loading && !data) {
     return <div className="flex min-h-screen items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-white/10 border-t-blue-500" /></div>;
@@ -160,20 +164,23 @@ export function AdminCockpitClient({ adminEmail }: { adminEmail: string }) {
           <h1 className="mt-1 text-2xl font-black tracking-tight">Owner cockpit</h1>
           <p className="text-[11px] text-slate-600">{adminEmail} · {updatedAt ? `Synced ${updatedAt.toLocaleTimeString()}` : "Connecting"}</p>
         </div>
-        <button onClick={load} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] font-black text-slate-400 hover:text-white">
-          <Icon name="refresh" size={13} /> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <RangeTabs value={range} onChange={setRange} />
+          <button onClick={() => load(range)} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-[11px] font-black text-slate-400 hover:text-white">
+            <Icon name="refresh" size={13} /> Refresh
+          </button>
+        </div>
       </header>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          label="Net deposits today"
+          label="Net deposits"
           value={money(m.netDepositsToday)}
           tone={netUp ? "green" : "amber"}
           detail={<><Icon name={netUp ? "arrow_upward" : "arrow_downward"} size={11} /> {money(m.depositsToday)} in · {money(m.withdrawalsToday)} out</>}
         />
         <KpiCard
-          label="GGR today (house)"
+          label="GGR (house)"
           value={money(m.ggrToday)}
           detail={`${markets.length} markets combined`}
         />
@@ -183,7 +190,7 @@ export function AdminCockpitClient({ adminEmail }: { adminEmail: string }) {
           detail={`owed to ${m.playerCount.toLocaleString()} players`}
         />
         <KpiCard
-          label="Signups today"
+          label="Signups"
           value={`+${growth.signupsToday}`}
           tone="green"
           detail={`peak ${growth.peak30d} · 7d avg ${growth.avg7d}`}
