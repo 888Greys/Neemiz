@@ -917,30 +917,6 @@ function MobileP2POrderView({
         </div>
       )}
 
-      {!(order.status === "PENDING" && isReleaseActor(order)) && (
-        <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3">
-          <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
-            {counterpartyName(order)}
-            <Icon name="chevron_right" className="text-[16px] text-slate-500" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowChat(true)}
-            className="rounded-full bg-[#087cff] px-4 py-2 text-xs font-black text-white hover:bg-[#0570e8] transition-colors"
-          >
-            Contact Trader
-          </button>
-        </div>
-      )}
-
-      {isKesCoinOrder(order) && (
-        <div className="mb-5 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-3">
-          <p className="text-xs font-black text-amber-300">KES Coin fee and escrow</p>
-          <p className="mt-1 text-[11px] leading-5 text-slate-400">
-            Each party pays a 1% platform fee. The KES Coin principal stays locked in escrow until the receiver confirms payment and releases the trade.
-          </p>
-        </div>
-      )}
 
       {order.status === "PENDING" && canMarkPaid && (
       <section className="mb-5">
