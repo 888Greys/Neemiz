@@ -47,10 +47,20 @@ export const binaryMobileNav: MobileNavItem[] = [
   { href: "/binary?panel=positions", label: "Positions", icon: "schedule",          panel: "positions", activePath: "/binary" },
 ];
 
+// Forex is its own destination too — same self-contained shape as binary
+// (Markets pair-picker / Trade / Positions), Menu as the constant escape hatch.
+export const forexMobileNav: MobileNavItem[] = [
+  { label: "Menu", icon: "menu" },
+  { href: "/forex?panel=markets",   label: "Markets",   icon: "candlestick_chart", panel: "markets",   activePath: "/forex" },
+  { href: "/forex",                 label: "Trade",     icon: "show_chart",        panel: "",          activePath: "/forex" },
+  { href: "/forex?panel=positions", label: "Positions", icon: "schedule",          panel: "positions", activePath: "/forex" },
+];
+
 // Resolve the bottom-nav tab set for the current route. Section-native navs win
 // by path prefix; everything else falls back to the cross-product switcher.
 export function getMobileNav(pathname: string): MobileNavItem[] {
   if (pathname.startsWith("/binary")) return binaryMobileNav;
+  if (pathname.startsWith("/forex")) return forexMobileNav;
   return mobileNav;
 }
 

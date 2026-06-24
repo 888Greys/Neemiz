@@ -395,7 +395,7 @@ function MobileDerivDigits({
 // preset chips (lightning) or a number keypad (keyboard) for a custom value.
 // Exported so other panels (Accumulators) reuse the same picker.
 export function ValuePickerSheet({
-  title, unit, value, presets, min, max, integer, onChange, onClose,
+  title, unit, value, presets, min, max, integer, onChange, onClose, footer,
 }: {
   title: string;
   unit: string;
@@ -406,6 +406,7 @@ export function ValuePickerSheet({
   integer?: boolean;
   onChange: (v: number) => void;
   onClose: () => void;
+  footer?: React.ReactNode;
 }) {
   const [mode, setMode] = useState<"presets" | "keypad">("presets");
   const [draft, setDraft] = useState(String(value));
@@ -466,6 +467,77 @@ export function ValuePickerSheet({
               className="mt-3 w-full rounded-full bg-[#16a085] py-3 text-[15px] font-black text-white transition active:scale-[0.98]">
               Confirm
             </button>
+          </div>
+        )}
+
+        {footer && <div className="border-t border-white/[0.06] px-4 pb-1 pt-3">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style duration picker for the options contracts: Ticks and/or Seconds
+// tabs. Duration is canonical in ticks; seconds map to ticks via the market's
+// tick speed and stay within the server's 1–30 tick cap. `allowTicks={false}`
+// hides the Ticks tab (Call/Put, which Deriv offers in time units only).
+export function DurationPickerSheet({
+  ticks, secPerTick, unit, allowTicks = true, onChange, onClose,
+}: {
+  ticks: number;
+  secPerTick: number;
+  unit: "ticks" | "seconds";
+  allowTicks?: boolean;
+  onChange: (ticks: number, unit: "ticks" | "seconds") => void;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<"ticks" | "seconds">(allowTicks ? unit : "seconds");
+  const TICK_PRESETS = [1, 3, 5, 7, 10, 15];
+  // Seconds presets that resolve to a valid 1–30 tick duration for this market.
+  const secToTicks = (s: number) => Math.min(30, Math.max(1, Math.round(s / secPerTick)));
+  const SEC_PRESETS = [5, 10, 15, 20, 30, 60, 120].filter((s) => Math.round(s / secPerTick) <= 30);
+  const curSeconds = ticks * secPerTick;
+
+  const tabs: ["ticks" | "seconds", string][] = allowTicks
+    ? [["ticks", "Ticks"], ["seconds", "Seconds"]]
+    : [["seconds", "Seconds"]];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+
+        {/* Unit tabs (Deriv-style) */}
+        <div className="flex items-center gap-5 px-4 pt-2 text-[14px] font-black">
+          {tabs.map(([t, label]) => (
+            <button key={t} type="button" onClick={() => setTab(t)}
+              className={`-mb-px border-b-2 pb-2 pt-1 transition ${tab === t ? "border-[#e2474b] text-white" : "border-transparent text-slate-500"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="border-b border-white/[0.06]" />
+
+        {tab === "ticks" ? (
+          <div className="grid grid-cols-3 gap-2 px-4 pb-4 pt-3">
+            {TICK_PRESETS.map((p) => (
+              <button key={p} type="button" onClick={() => { onChange(p, "ticks"); onClose(); }}
+                className={`rounded-xl py-3.5 text-[14px] font-black transition active:scale-95 ${p === ticks ? "bg-white text-[#16181d]" : "bg-[#0f1319] text-slate-200"}`}>
+                {p} {p === 1 ? "tick" : "ticks"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2 px-4 pb-4 pt-3">
+            {SEC_PRESETS.map((s) => {
+              const active = unit === "seconds" && s === curSeconds;
+              return (
+                <button key={s} type="button" onClick={() => { onChange(secToTicks(s), "seconds"); onClose(); }}
+                  className={`rounded-xl py-3.5 text-[14px] font-black transition active:scale-95 ${active ? "bg-white text-[#16181d]" : "bg-[#0f1319] text-slate-200"}`}>
+                  {s} sec
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

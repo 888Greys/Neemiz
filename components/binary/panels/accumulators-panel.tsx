@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
-import { GROWTH_RATES, maxTicksFor, payoutAtTick } from "@/lib/accumulator";
+import { GROWTH_RATES, maxTicksFor, payoutAtTick, barrierFracFor } from "@/lib/accumulator";
 import { ValuePickerSheet } from "./digit-panel";
 
 const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
@@ -28,6 +28,7 @@ export function AccumulatorsPanel({
   takeProfit, setTakeProfit,
   onBuy, placing,
   position, onCashOut, closing, format,
+  sigma,
 }: {
   currency: string;
   stake: number; setStake: (v: number) => void;
@@ -38,6 +39,7 @@ export function AccumulatorsPanel({
   position: RunningAccumulator | null;
   onCashOut: () => void; closing: boolean;
   format: (v: number) => string;
+  sigma: number | null;
 }) {
   const maxTicks  = maxTicksFor(growthRate);
   const maxPayout = payoutAtTick(stake, growthRate, maxTicks);
@@ -56,6 +58,7 @@ export function AccumulatorsPanel({
         takeProfit={takeProfit} setTakeProfit={setTakeProfit}
         maxPayout={maxPayout}
         onBuy={onBuy} placing={placing} format={format}
+        sigma={sigma}
       />
 
       {/* ── Desktop (sm+): existing config layout, untouched ── */}
@@ -173,7 +176,7 @@ export function AccumulatorsPanel({
 function MobileAccumulators({
   currency, stake, setStake, growthRate, setGrowthRate,
   takeProfitOn, setTakeProfitOn, takeProfit, setTakeProfit,
-  maxPayout, onBuy, placing, format,
+  maxPayout, onBuy, placing, format, sigma,
 }: {
   currency: string;
   stake: number; setStake: (v: number) => void;
@@ -183,8 +186,24 @@ function MobileAccumulators({
   maxPayout: number;
   onBuy: () => void; placing: boolean;
   format: (v: number) => string;
+  sigma: number | null;
 }) {
   const [sheet, setSheet] = useState<null | "growth" | "stake" | "tp" | "maxpayout">(null);
+  // Deriv shows the resulting barrier band (±%) and the max duration for the
+  // selected growth rate at the foot of the growth-rate sheet.
+  const barrierPct = sigma != null ? barrierFracFor(sigma, growthRate) * 100 : null;
+  const growthFooter = (
+    <div className="grid grid-cols-2 gap-2 text-center">
+      <div>
+        <div className="border-b border-dotted border-slate-600 pb-0.5 text-[11px] font-bold text-slate-400">Barrier</div>
+        <div className="mt-1 text-[13px] font-black text-white">{barrierPct != null ? `±${barrierPct.toFixed(5)}%` : "—"}</div>
+      </div>
+      <div>
+        <div className="border-b border-dotted border-slate-600 pb-0.5 text-[11px] font-bold text-slate-400">Max duration</div>
+        <div className="mt-1 text-[13px] font-black text-white">{maxTicksFor(growthRate)} ticks</div>
+      </div>
+    </div>
+  );
   // Collapsed by default: the three cards sit in a row where the 3rd peeks off
   // the right edge (Deriv). Tapping the grab handle expands to full-width stacks.
   const [expanded, setExpanded] = useState(false);
@@ -256,7 +275,7 @@ function MobileAccumulators({
         <ValuePickerSheet
           title="Growth rate" unit="%" value={growthRate}
           presets={[...GROWTH_RATES]} min={GROWTH_RATES[0]} max={GROWTH_RATES[GROWTH_RATES.length - 1]} integer
-          onChange={setGrowthRate} onClose={() => setSheet(null)}
+          onChange={setGrowthRate} onClose={() => setSheet(null)} footer={growthFooter}
         />
       )}
       {sheet === "stake" && (

@@ -569,7 +569,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
 
       {/* Deriv-style zoom / recenter controls — lifted above the TradingView
           attribution logo and given enough contrast to read on the dark chart */}
-      <div className="absolute bottom-12 left-3 z-10 hidden flex-col gap-1 sm:flex">
+      <div className="absolute bottom-14 left-3 z-10 flex flex-col gap-1 sm:bottom-12">
         <button type="button" onClick={() => zoom(1.3)} title="Zoom in" aria-label="Zoom in"
           className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42] sm:h-8 sm:w-8">
           <Icon name="add" className="text-[15px] sm:text-[18px]" />
@@ -627,6 +627,10 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [stake, setStake] = useState(10);
   const [targetDigit, setTargetDigit] = useState(5);
   const [duration, setDuration] = useState(5);
+  // Duration is canonical in ticks; for options contracts the user may pick in
+  // seconds instead (Deriv-style). We keep the unit only for display/picker — the
+  // contract is still placed in ticks (seconds → ticks via the market's tick speed).
+  const [durationUnit, setDurationUnit] = useState<"ticks" | "seconds">("ticks");
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
   const [streamError, setStreamError] = useState<string | null>(null);
   const [liveBalance, setLiveBalance] = useState(initialBalance);
@@ -916,7 +920,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     }
     if (levPos && market.derivSymbol === levPos.derivSymbol) {
       const out: ChartLine[] = [{ id: "lev-entry", price: levPos.entrySpot, color: ENTRY_COLOR, title: "Entry", dashed: true }];
-      if (levPos.barrier != null) out.push({ id: "lev-danger", price: levPos.barrier, color: DANGER_COLOR, title: levPos.kind === "TURBO" ? "Knockout" : "Stop out" });
+      if (levPos.barrier != null) out.push({ id: "lev-danger", price: levPos.barrier, color: DANGER_COLOR, title: levPos.kind === "TURBO" ? "Barrier" : "Stop out" });
       return out;
     }
     const out: ChartLine[] = [];
@@ -930,7 +934,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     if (isDirectionalType && dirKind && dirKind !== "RISE_FALL") {
       out.push({ id: "cfg-barrier", price: latest.quote + barrierOffset, color: BARRIER_COLOR, title: dirKind === "VANILLA" ? "Strike" : "Barrier", dashed: true });
     } else if (isLeveragedType && !levPos) {
-      out.push({ id: "cfg-danger", price: levConfigDanger, color: DANGER_COLOR, title: levKind === "TURBO" ? "Knockout" : "Stop out", dashed: true });
+      out.push({ id: "cfg-danger", price: levConfigDanger, color: DANGER_COLOR, title: levKind === "TURBO" ? "Barrier" : "Stop out", dashed: true });
     }
     return out;
   })();
@@ -1726,6 +1730,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 onCashOut={() => closeAccumulator()}
                 closing={accaClosing}
                 format={(v) => formatMoney(v, isLive)}
+                sigma={clientSigma}
               />
             ) : isDigitType ? (
               <DigitPanel
@@ -1750,6 +1755,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 sides={dirSides}
                 stake={stake} setStake={setStake}
                 duration={duration} setDuration={setDuration}
+                secPerTick={Math.max(1, Math.round(market.speedMs / 1000))}
                 strikeOffset={barrierOffset} setStrikeOffset={setBarrierOffset}
                 latestSpot={latest.quote}
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
@@ -1769,6 +1775,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 sides={dirSides}
                 stake={stake} setStake={setStake}
                 duration={duration} setDuration={setDuration}
+                durationUnit={durationUnit} setDurationUnit={setDurationUnit}
+                secPerTick={Math.max(1, Math.round(market.speedMs / 1000))}
                 barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
                 latestSpot={latest.quote}
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
-import { ValuePickerSheet } from "./digit-panel";
+import { ValuePickerSheet, DurationPickerSheet } from "./digit-panel";
 import type { DirectionalSide, DirectionalKind } from "@/lib/directional";
 
 type DirKind = DirectionalKind;
@@ -23,6 +23,7 @@ export function DirectionalPanel({
   currency, kind, sides,
   stake, setStake,
   duration, setDuration,
+  durationUnit, setDurationUnit, secPerTick,
   barrierOffset, setBarrierOffset,
   latestSpot,
   stakePresets, minStake,
@@ -34,6 +35,8 @@ export function DirectionalPanel({
   sides: DirSide[];
   stake: number; setStake: (v: number) => void;
   duration: number; setDuration: (v: number) => void;
+  durationUnit: "ticks" | "seconds"; setDurationUnit: (v: "ticks" | "seconds") => void;
+  secPerTick: number;
   barrierOffset: number; setBarrierOffset: (v: number) => void;
   latestSpot: number;
   stakePresets: number[];
@@ -63,6 +66,7 @@ export function DirectionalPanel({
         onArmSide={setArmedSide}
         stake={stake} setStake={setStake}
         duration={duration} setDuration={setDuration}
+        durationUnit={durationUnit} setDurationUnit={setDurationUnit} secPerTick={secPerTick}
         barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
         needsBarrier={needsBarrier}
         barrier={barrier}
@@ -197,6 +201,7 @@ export function DirectionalPanel({
 function MobileDirectional({
   currency, sides, selectedSide, onArmSide,
   stake, setStake, duration, setDuration,
+  durationUnit, setDurationUnit, secPerTick,
   barrierOffset, setBarrierOffset, needsBarrier, barrier, latestSpot, offsetStep,
   stakePresets, minStake, payoutFor, format, formatSpot,
   onTrade, placing, openPositions,
@@ -207,6 +212,8 @@ function MobileDirectional({
   onArmSide: (s: DirSide) => void;
   stake: number; setStake: (v: number) => void;
   duration: number; setDuration: (v: number) => void;
+  durationUnit: "ticks" | "seconds"; setDurationUnit: (v: "ticks" | "seconds") => void;
+  secPerTick: number;
   barrierOffset: number; setBarrierOffset: (v: number) => void;
   needsBarrier: boolean;
   barrier: number;
@@ -222,16 +229,20 @@ function MobileDirectional({
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
 }) {
   const armedRed = RED_SIDES.has(selectedSide);
-  const [picker, setPicker] = useState<null | "duration" | "stake" | "barrier">(null);
+  const [picker, setPicker] = useState<null | "duration" | "stake" | "barrier" | "allow">(null);
   // Collapsed by default: the cards sit in a row where the last peeks off the
   // right edge (Deriv); the grab handle expands to full-width stacks.
   const [expanded, setExpanded] = useState(false);
   const fieldCard = "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
 
+  // Deriv shows the barrier as a signed offset from spot (e.g. "+0.00", "-1.28").
+  const barrierLabel = `${barrierOffset >= 0 ? "+" : ""}${barrierOffset.toFixed(2)}`;
+  const durationLabel = durationUnit === "seconds" ? `${duration * secPerTick} sec` : `${duration} ${duration === 1 ? "tick" : "ticks"}`;
   const cards = [
-    { key: "duration", label: "Duration", value: `${duration} ticks`, accent: "text-white", onClick: () => setPicker("duration") },
-    ...(needsBarrier ? [{ key: "barrier", label: "Barrier", value: formatSpot(barrier), accent: "text-amber-300", onClick: () => setPicker("barrier") }] : []),
+    { key: "duration", label: "Duration", value: durationLabel, accent: "text-white", onClick: () => setPicker("duration") },
+    ...(needsBarrier ? [{ key: "barrier", label: "Barrier", value: barrierLabel, accent: "text-amber-300", onClick: () => setPicker("barrier") }] : []),
     { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
+    ...(needsBarrier ? [] : [{ key: "allow", label: "Allow equals", value: "Soon", accent: "text-slate-500", onClick: () => setPicker("allow") }]),
   ];
 
   return (
@@ -289,18 +300,13 @@ function MobileDirectional({
             ))}
           </div>
         )}
-
-        <div className="flex items-center justify-between px-1 text-[12px]">
-          <span className="font-bold text-slate-400">Spot</span>
-          <span className="font-mono font-black text-sky-300">{formatSpot(latestSpot)}</span>
-        </div>
       </div>
 
       {picker === "duration" && (
-        <ValuePickerSheet
-          title="Duration" unit="ticks" value={duration}
-          presets={[1, 3, 5, 7, 10, 15]} min={1} max={30} integer
-          onChange={setDuration} onClose={() => setPicker(null)}
+        <DurationPickerSheet
+          ticks={duration} secPerTick={secPerTick} unit={durationUnit}
+          onChange={(t, u) => { setDuration(t); setDurationUnit(u); }}
+          onClose={() => setPicker(null)}
         />
       )}
       {picker === "stake" && (
@@ -316,6 +322,7 @@ function MobileDirectional({
           offsetStep={offsetStep} formatSpot={formatSpot} onClose={() => setPicker(null)}
         />
       )}
+      {picker === "allow" && <AllowEqualsSheet onClose={() => setPicker(null)} />}
 
       {openPositions.length > 0 && <ActivePositions positions={openPositions} />}
 
@@ -418,6 +425,40 @@ export function BarrierSheet({
           <button type="button" onClick={save}
             className="mt-4 w-full rounded-2xl bg-white py-3.5 text-[15px] font-black text-[#16181d] transition active:scale-[0.98]">
             Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style Allow equals sheet. "Allow equals" lets Rise win on exit ≥ entry
+// (and Fall on exit ≤ entry) at a slightly lower payout — it changes the win
+// condition, so it's shown for parity but not yet offered (disabled / coming soon).
+function AllowEqualsSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+        <div className="px-4 pb-1 pt-2 text-center text-[15px] font-black text-white">Allow equals</div>
+
+        <div className="px-4 pt-4">
+          <div className="flex items-center justify-between opacity-50">
+            <span className="text-[14px] font-bold text-slate-200">Allow equals</span>
+            <span className="relative h-6 w-11 rounded-full bg-[#3a414d]">
+              <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white" />
+            </span>
+          </div>
+          <p className="mt-3 text-center text-[12px] font-medium leading-5 text-slate-500">
+            Win when the exit spot is equal to the entry spot, at a lower payout. Coming soon.
+          </p>
+        </div>
+
+        <div className="px-4 pt-5">
+          <button type="button" onClick={onClose}
+            className="w-full rounded-2xl bg-white py-3.5 text-[15px] font-black text-[#16181d] transition active:scale-[0.98]">
+            Got it
           </button>
         </div>
       </div>

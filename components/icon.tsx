@@ -65,6 +65,8 @@ import {
   Lock,
   LogOut,
   Mail,
+  Maximize2,
+  Minimize2,
   Megaphone,
   Menu,
   MessageCircle,
@@ -207,6 +209,8 @@ const iconMap: Record<string, LucideIcon> = {
   // M
   mail: Mail,
   manage_search: SearchCode,
+  fullscreen: Maximize2,
+  fullscreen_exit: Minimize2,
   menu: Menu,
   my_location: Crosshair,
 
