@@ -389,7 +389,8 @@ function MobileDerivDigits({
 
 // Deriv-style bottom-sheet value picker for Duration / Stake. Two modes: quick
 // preset chips (lightning) or a number keypad (keyboard) for a custom value.
-function ValuePickerSheet({
+// Exported so other panels (Accumulators) reuse the same picker.
+export function ValuePickerSheet({
   title, unit, value, presets, min, max, integer, onChange, onClose,
 }: {
   title: string;
