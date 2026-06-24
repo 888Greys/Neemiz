@@ -310,6 +310,16 @@ input[type="email"]:focus {
 }
 .animate-sheet-in { animation: sheet-in 0.28s cubic-bezier(0,0,0.2,1) both; }
 
+/* Digit-strip "push": the live pointer lands on a digit and springs its ring,
+   as if the moving marker pressed it. Re-runs each time a digit becomes active. */
+@keyframes digit-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.24); }
+  65%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+.animate-digit-pop { animation: digit-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both; transform-origin: center; }
+
 /* Admin command center */
 .admin-root {
   background: #0a0b0e;

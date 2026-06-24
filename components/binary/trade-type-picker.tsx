@@ -18,7 +18,7 @@ export function TradeTypePicker({
   onSelect: (id: TradeTypeId) => void;
   onClose: () => void;
 }) {
-  const [cat, setCat] = useState<TradeCategory>("all");
+  const [cat, setCat] = useState<TradeCategory>("digits");
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   // Auto-focus the search only on desktop. On mobile, focusing pops the
@@ -98,10 +98,10 @@ export function TradeTypePicker({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-400 transition hover:bg-white/10 hover:text-white"
             aria-label="Close"
           >
-            <Icon name="close" className="text-[15px]" />
+            <Icon name="close" className="text-[13px]" />
           </button>
         </div>
 

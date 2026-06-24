@@ -15,6 +15,9 @@ import {
   Bell,
   BellOff,
   Bitcoin,
+  Briefcase,
+  Keyboard,
+  Star,
   BrainCircuit,
   Calendar,
   CalendarDays,
@@ -129,6 +132,8 @@ const iconMap: Record<string, LucideIcon> = {
   bar_chart: BarChart2,
   block: Ban,
   bolt: Zap,
+  briefcase: Briefcase,
+  work: Briefcase,
 
   // C
   calendar_month: Calendar,
@@ -184,6 +189,7 @@ const iconMap: Record<string, LucideIcon> = {
   info: Info,
 
   // K
+  keyboard: Keyboard,
   keyboard_arrow_down: ChevronDown,
   keyboard_double_arrow_left: ChevronsLeft,
   keyboard_double_arrow_right: ChevronsRight,
@@ -241,6 +247,7 @@ const iconMap: Record<string, LucideIcon> = {
   settings: Settings,
   shield: Shield,
   south_america: Coins,
+  star: Star,
   sports_esports: Gamepad2,
   sports_soccer: CircleDot,
   storefront: Store,
