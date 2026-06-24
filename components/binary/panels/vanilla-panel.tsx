@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
+import { ValuePickerSheet } from "./digit-panel";
+import { BarrierSheet } from "./directional-panel";
 import type { DirectionalSide } from "@/lib/directional";
 
 type DirSide = DirectionalSide;
@@ -43,8 +45,32 @@ export function VanillaPanel({
   const offsetStep = Math.max(0.01, Math.round(latestSpot * 0.0003 * 100) / 100);
   const strike = latestSpot + strikeOffset;
 
+  // Mobile uses Deriv's single-CTA model: a Call/Put toggle + one Buy button.
+  const [armedSide, setArmedSide] = useState<DirSide>(sides[0]);
+  const selectedSide = sides.includes(armedSide) ? armedSide : sides[0];
+
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* ── Mobile: Deriv-style single-CTA surface (hidden on sm+) ── */}
+      <MobileVanilla
+        currency={currency}
+        sides={sides}
+        selectedSide={selectedSide}
+        onArmSide={setArmedSide}
+        stake={stake} setStake={setStake}
+        duration={duration} setDuration={setDuration}
+        strikeOffset={strikeOffset} setStrikeOffset={setStrikeOffset}
+        strike={strike}
+        latestSpot={latestSpot}
+        offsetStep={offsetStep}
+        stakePresets={stakePresets} minStake={minStake}
+        payoutPerPointFor={payoutPerPointFor} maxPayout={maxPayout}
+        format={format} formatSpot={formatSpot}
+        onTrade={onTrade} placing={placing} openPositions={openPositions}
+      />
+
+      {/* ── Desktop (sm+): existing dual-button layout, untouched ── */}
+      <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         {/* Stake */}
         <div className={CARD}>
@@ -155,6 +181,159 @@ export function VanillaPanel({
             </button>
           );
         })}
+      </div>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style mobile trade surface for vanilla options: a Call/Put toggle over
+// tappable Duration / Strike / Stake cards, and one full-width Buy button with
+// the live per-point payout. Shown only below sm.
+function MobileVanilla({
+  currency, sides, selectedSide, onArmSide,
+  stake, setStake, duration, setDuration,
+  strikeOffset, setStrikeOffset, strike, latestSpot, offsetStep,
+  stakePresets, minStake, payoutPerPointFor, maxPayout,
+  format, formatSpot, onTrade, placing, openPositions,
+}: {
+  currency: string;
+  sides: DirSide[];
+  selectedSide: DirSide;
+  onArmSide: (s: DirSide) => void;
+  stake: number; setStake: (v: number) => void;
+  duration: number; setDuration: (v: number) => void;
+  strikeOffset: number; setStrikeOffset: (v: number) => void;
+  strike: number;
+  latestSpot: number;
+  offsetStep: number;
+  stakePresets: number[];
+  minStake: number;
+  payoutPerPointFor: (side: DirSide) => number;
+  maxPayout: number;
+  format: (v: number) => string;
+  formatSpot: (v: number) => string;
+  onTrade: (side: DirSide) => void;
+  placing: boolean;
+  openPositions: { id: string; side: DirSide; settlesAt: number }[];
+}) {
+  const armedPut = selectedSide === "PUT";
+  const [picker, setPicker] = useState<null | "duration" | "stake" | "strike">(null);
+  // Collapsed by default: the 3 cards sit in a row where the 3rd peeks off the
+  // right edge (Deriv). The grab handle expands to full-width stacked cards.
+  const [expanded, setExpanded] = useState(false);
+  const fieldCard = "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+
+  // Deriv shows the strike as a signed offset from spot (e.g. "+0.00", "-1.28").
+  const strikeLabel = `${strikeOffset >= 0 ? "+" : ""}${strikeOffset.toFixed(2)}`;
+  const cards = [
+    { key: "duration", label: "Duration", value: `${duration} ticks`, accent: "text-white", onClick: () => setPicker("duration") },
+    { key: "strike", label: "Strike", value: strikeLabel, accent: "text-amber-300", onClick: () => setPicker("strike") },
+    { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
+  ] as const;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col sm:hidden">
+      <div className="min-h-0 flex-1" />
+
+      {/* Centered grab handle (Deriv-style) — expands/collapses the field cards */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-label={expanded ? "Collapse" : "Expand"}
+        className="flex w-full shrink-0 justify-center py-1.5 text-slate-400 active:text-white"
+      >
+        <Icon name={expanded ? "expand_more" : "expand_less"} className="text-[22px]" />
+      </button>
+
+      <div className="space-y-2.5 px-3 pb-1">
+        {/* Call/Put toggle — slim pills (Deriv-style) */}
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0f1319] p-1 ring-1 ring-white/[0.06]">
+          {sides.map((side) => {
+            const active = side === selectedSide;
+            const put = side === "PUT";
+            return (
+              <button
+                key={side}
+                type="button"
+                onClick={() => onArmSide(side)}
+                className={`flex items-center justify-center rounded-full py-2 text-[13px] font-black transition active:scale-[0.98] ${
+                  active ? (put ? "bg-[#e2474b] text-white" : "bg-[#16a085] text-white") : "text-slate-400"
+                }`}
+              >
+                {side}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Fields: Duration | Strike | Stake — peek row collapsed, stack expanded */}
+        {expanded ? (
+          <div className="space-y-2.5">
+            {cards.map((c) => (
+              <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-full`}>
+                <span className="text-[11px] font-bold text-slate-400">{c.label}</span>
+                <span className={`mt-0.5 text-[16px] font-black ${c.accent}`}>{c.value}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {cards.map((c) => (
+              <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-[40%] shrink-0`}>
+                <span className="whitespace-nowrap text-[11px] font-bold text-slate-400">{c.label}</span>
+                <span className={`mt-0.5 whitespace-nowrap text-[16px] font-black ${c.accent}`}>{c.value}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between px-1 text-[12px]">
+          <span className="font-bold text-slate-400">Max payout</span>
+          <span className="font-black text-emerald-300">{format(maxPayout)}</span>
+        </div>
+        <div className="flex items-center justify-between px-1 text-[12px]">
+          <span className="font-bold text-slate-400">Spot</span>
+          <span className="font-mono font-black text-sky-300">{formatSpot(latestSpot)}</span>
+        </div>
+      </div>
+
+      {picker === "duration" && (
+        <ValuePickerSheet
+          title="Duration" unit="ticks" value={duration}
+          presets={[1, 3, 5, 7, 10, 15]} min={1} max={30} integer
+          onChange={setDuration} onClose={() => setPicker(null)}
+        />
+      )}
+      {picker === "stake" && (
+        <ValuePickerSheet
+          title="Stake" unit={currency} value={stake}
+          presets={stakePresets} min={minStake} max={1_000_000}
+          onChange={setStake} onClose={() => setPicker(null)}
+        />
+      )}
+      {picker === "strike" && (
+        <BarrierSheet
+          title="Strike" latestSpot={latestSpot} offset={strikeOffset} setOffset={setStrikeOffset}
+          offsetStep={offsetStep} formatSpot={formatSpot} onClose={() => setPicker(null)}
+        />
+      )}
+
+      {openPositions.length > 0 && <ActivePositions positions={openPositions} />}
+
+      {/* One slim, pill-shaped Buy button (Deriv-style) */}
+      <div className="px-3 pb-2 pt-1">
+        <button
+          type="button"
+          onClick={() => onTrade(selectedSide)}
+          disabled={placing}
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${
+            armedPut ? "bg-[#e2474b] active:bg-[#ec5a5e]" : "bg-[#16a085] active:bg-[#1bb198]"
+          }`}
+        >
+          <span className="text-[15px] leading-tight">{placing ? <LoadingDots /> : `Buy ${selectedSide}`}</span>
+          <span className="font-mono text-[11px] leading-tight text-white/85">{format(payoutPerPointFor(selectedSide))}/pt</span>
+        </button>
       </div>
     </div>
   );

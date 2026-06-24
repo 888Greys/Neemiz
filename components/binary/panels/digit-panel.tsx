@@ -258,27 +258,29 @@ function MobileDerivDigits({
   // The barrier/target digit grid is collapsed by default to keep the chart big;
   // the header shows the current pick and a chevron to expand it.
   const [gridOpen, setGridOpen] = useState(false);
+  // Even/Odd has no target grid, so its grab handle instead expands the
+  // Duration/Stake cards from a 2-up row to a full-width stack (Deriv-style).
+  const [expanded, setExpanded] = useState(false);
+  const handleOpen = needsTarget ? gridOpen : expanded;
 
   const fieldCard =
-    "flex flex-col items-start rounded-2xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+    "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
 
   return (
     <div className="flex h-full min-h-0 flex-col sm:hidden">
       {/* Spacer pushes the control cluster to the bottom, over the chart bg (Deriv) */}
       <div className="min-h-0 flex-1" />
 
-      {/* Centered grab handle (Deriv-style) — toggles the digit grid for the
-          target types; sits above the whole control cluster. */}
-      {needsTarget && (
-        <button
-          type="button"
-          onClick={() => setGridOpen((v) => !v)}
-          aria-label={gridOpen ? "Hide digit grid" : "Show digit grid"}
-          className="flex w-full shrink-0 justify-center py-1.5 text-slate-400 active:text-white"
-        >
-          <Icon name={gridOpen ? "expand_more" : "expand_less"} className="text-[22px]" />
-        </button>
-      )}
+      {/* Centered grab handle (Deriv-style) — for target types it toggles the
+          digit grid; for Even/Odd it expands the Duration/Stake cards. */}
+      <button
+        type="button"
+        onClick={() => (needsTarget ? setGridOpen((v) => !v) : setExpanded((v) => !v))}
+        aria-label={handleOpen ? "Collapse" : "Expand"}
+        className="flex w-full shrink-0 justify-center py-1.5 text-slate-400 active:text-white"
+      >
+        <Icon name={handleOpen ? "expand_more" : "expand_less"} className="text-[22px]" />
+      </button>
 
       <div className="space-y-2.5 px-3 pb-1">
         {/* Side toggle — text only (no icon), slim pills (Deriv-style) */}
@@ -334,7 +336,9 @@ function MobileDerivDigits({
 
         {/* Fields row (Deriv): when a barrier digit applies and the grid is
             collapsed, it sits inline as a 3rd card; otherwise just Duration|Stake. */}
-        <div className={`grid gap-2.5 ${needsTarget && !gridOpen ? "grid-cols-3" : "grid-cols-2"}`}>
+        <div className={`grid gap-2.5 ${
+          needsTarget ? (gridOpen ? "grid-cols-2" : "grid-cols-3") : (expanded ? "grid-cols-1" : "grid-cols-2")
+        }`}>
           {needsTarget && !gridOpen && (
             <button type="button" onClick={() => setGridOpen(true)} className={fieldCard}>
               <span className="truncate text-[11px] font-bold text-slate-400">{targetVerb}</span>

@@ -78,22 +78,22 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
 
   return (
     <div
-      className={`relative flex items-start gap-3 overflow-hidden rounded-2xl bg-[#111319]/95 px-4 py-4 shadow-[0_18px_55px_rgba(0,0,0,0.65)] ring-1 backdrop-blur-xl ${ringColor} transition-[transform,opacity] duration-500 ease-out ${
-        visible ? "translate-x-0 scale-100 opacity-100" : "translate-x-10 scale-[0.96] opacity-0"
+      className={`relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-[#111319]/95 py-2 pl-3 pr-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] ring-1 backdrop-blur-xl ${ringColor} transition-[transform,opacity] duration-300 ease-out ${
+        visible ? "translate-x-0 scale-100 opacity-100" : "translate-x-8 scale-[0.97] opacity-0"
       }`}
-      style={{ minWidth: 300, maxWidth: 380 }}
+      style={{ minWidth: 200, maxWidth: 300 }}
     >
-      <div className={`absolute inset-y-0 left-0 w-1 ${accentColor}`} />
+      <div className={`absolute inset-y-0 left-0 w-0.5 ${accentColor}`} />
       {/* Icon */}
-      <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.06] ${iconColor}`}>
-        <IconComponent size={21} strokeWidth={2.5} />
+      <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/[0.06] ${iconColor}`}>
+        <IconComponent size={15} strokeWidth={2.5} />
       </div>
 
       {/* Text */}
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-black leading-snug text-white">{item.title}</p>
+      <div className="min-w-0 flex-1 py-0.5">
+        <p className="truncate text-[12.5px] font-bold leading-tight text-white">{item.title}</p>
         {item.description && (
-          <p className="mt-1 text-xs font-medium leading-relaxed text-slate-300">{item.description}</p>
+          <p className="mt-0.5 truncate text-[11px] font-medium leading-tight text-slate-400">{item.description}</p>
         )}
       </div>
 
@@ -101,9 +101,9 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
       <button
         type="button"
         onClick={() => { setVisible(false); setTimeout(onRemove, 300); }}
-        className="shrink-0 text-slate-600 hover:text-slate-300 transition mt-0.5"
+        className="shrink-0 text-slate-600 transition hover:text-slate-300"
       >
-        <X size={15} strokeWidth={2} />
+        <X size={13} strokeWidth={2} />
       </button>
       <div
         className={`absolute bottom-0 left-0 h-0.5 ${accentColor} transition-[width] ease-linear`}
@@ -137,7 +137,7 @@ export function Toaster() {
   return createPortal(
     <div
       aria-live="polite"
-      className="pointer-events-none fixed right-3 top-3 z-[9999] flex flex-col items-end gap-3 sm:right-5 sm:top-5"
+      className="pointer-events-none fixed right-3 top-3 z-[9999] flex flex-col items-end gap-2 sm:right-5 sm:top-5"
     >
       {items.map((item) => (
         <div key={item.id} className="pointer-events-auto">

@@ -33,6 +33,7 @@ import { VanillaPanel } from "./panels/vanilla-panel";
 import { LeveragedPanel } from "./panels/leveraged-panel";
 import { AutoPanel } from "./panels/auto-panel";
 import { tradeTypeById, TRADE_TYPES, type TradeTypeId } from "./trade-types";
+import { MarketIcon } from "./market-icon";
 import { payoutRate as dirPayoutRate, vanillaPayoutPerPoint, resolveContract, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
 import {
   resolveLeveraged, leveragedValueAt, multiplierStopOutPrice, clampTurboBarrier, turboPayoutPerPoint,
@@ -615,27 +616,13 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [stopLoss, setStopLoss] = useState(5);
 
   const isDigitType = tradeType in DIGIT_TYPE_TO_FAMILY;
-  // Most-recently-used order for the mobile quick bar: the tapped type jumps to
-  // the front. Seeded with digits first (most-played), persisted across reloads.
-  const [recentTypes, setRecentTypes] = useState<TradeTypeId[]>(DEFAULT_TYPE_ORDER);
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("binary-recent-types") ?? "null");
-      if (Array.isArray(saved)) {
-        const ids = saved.filter((id): id is TradeTypeId => DEFAULT_TYPE_ORDER.includes(id));
-        setRecentTypes([...ids, ...DEFAULT_TYPE_ORDER.filter((id) => !ids.includes(id))]);
-      }
-    } catch { /* ignore */ }
-  }, []);
+  // Mobile quick bar uses a fixed order (digits first, most-played) so tapping a
+  // type never reshuffles the bar under the user's finger.
+  const recentTypes = DEFAULT_TYPE_ORDER;
   const selectTradeType = useCallback((id: TradeTypeId) => {
     setTradeType(id);
     const fam = DIGIT_TYPE_TO_FAMILY[id];
     if (fam) setFamily(fam);
-    setRecentTypes((prev) => {
-      const next = [id, ...prev.filter((x) => x !== id)];
-      try { localStorage.setItem("binary-recent-types", JSON.stringify(next)); } catch { /* ignore */ }
-      return next;
-    });
   }, []);
   const [stake, setStake] = useState(10);
   const [targetDigit, setTargetDigit] = useState(5);
@@ -1599,32 +1586,33 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               </div>
             </div>
 
-            {/* Mobile trade-type quick bar (Deriv-style) — horizontal scroll of
-                types with the active one outlined, plus "View all" → full picker.
-                Replaces the bottom selector on mobile; desktop keeps that one. */}
-            <div className="flex shrink-0 items-center gap-2 overflow-x-auto px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
-              {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => selectTradeType(t.id)}
-                  className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black transition ${
-                    tradeType === t.id ? "bg-transparent text-white ring-1 ring-white/70" : "bg-white/[0.05] text-slate-400"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setPickerOpen(true)}
-                className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black text-sky-400 underline underline-offset-2"
-              >
-                View all
-              </button>
-            </div>
-
             <div className="relative min-h-0 flex-1">
+              {/* Mobile trade-type quick bar (Deriv-style) — floats over the chart's
+                  faded top (no solid bar) so it reads as part of the graph. The
+                  active type is outlined; "View all" opens the full picker. */}
+              <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 overflow-x-auto bg-gradient-to-b from-[#070b10] via-[#070b10]/70 to-transparent px-2 pb-5 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
+                {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => selectTradeType(t.id)}
+                    className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black transition ${
+                      tradeType === t.id ? "bg-white/[0.06] text-white ring-1 ring-white/70" : "bg-white/[0.05] text-slate-400"
+                    }`}
+                  >
+                    {t.label}
+                    {t.hot && <span className="animate-flame text-[12px] leading-none">🔥</span>}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black text-sky-400 underline underline-offset-2"
+                >
+                  View all
+                </button>
+              </div>
+
               {/* Mobile market header — floats over the chart and fades into it
                   (Deriv-style): a top-down gradient from the chart bg to clear,
                   no hard bar/border. Tap to open the markets picker. */}
@@ -1632,14 +1620,9 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 type="button"
                 onClick={() => setMarketsOpen(true)}
                 disabled={!!accaPos || !!levPos}
-                className="absolute inset-x-0 top-0 z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#070b10] via-[#070b10]/85 to-transparent px-3 pb-6 pt-2 text-left disabled:opacity-50 sm:hidden"
+                className="absolute inset-x-0 top-[44px] z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#070b10] via-[#070b10]/85 to-transparent px-3 pb-6 pt-1 text-left disabled:opacity-50 sm:hidden"
               >
-                <span className="relative grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#1b2433] text-[11px] font-black text-sky-300">
-                  {market.symbol.match(/\d+/)?.[0] ?? "•"}
-                  {market.symbol.includes("1s") && (
-                    <span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1 text-[8px] font-black text-white">1s</span>
-                  )}
-                </span>
+                <MarketIcon symbol={market.symbol} size={32} />
                 <span className="min-w-0">
                   <span className="flex items-center gap-0.5">
                     <span className="truncate text-[13px] font-black text-white">{market.symbol}</span>
@@ -1664,7 +1647,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 </button>
                 <button type="button" onClick={() => setChartSheet("drawing")} aria-label="Drawing tools"
                   className="grid h-9 w-9 place-items-center rounded-full bg-[#1b2332]/90 text-slate-100 ring-1 ring-white/10 backdrop-blur active:scale-95">
-                  <Icon name="edit" className="text-[16px]" />
+                  <Icon name="draw" className="text-[16px]" />
                 </button>
               </div>
             </div>
@@ -1691,7 +1674,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           </section>
         </main>
 
-        <aside className="order-2 flex min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] sm:flex-none sm:max-h-[calc(100svh-8rem)] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+        <aside className="order-2 flex min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 sm:flex-none sm:max-h-[calc(100svh-8rem)] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
           <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
             {/* Trade-type selector — desktop only; mobile uses the top quick bar */}
             <button
@@ -1907,8 +1890,6 @@ function MarketsSheet({
     const g = groups.find((x) => x.heading === heading);
     if (g) g.items.push(m); else groups.push({ heading, items: [m] });
   }
-  const badgeOf = (symbol: string) => symbol.match(/\d+/)?.[0] ?? "•";
-  const isFast = (symbol: string) => symbol.includes("1s");
   const toggleFav = (symbol: string) =>
     setFavs((s) => { const n = new Set(s); n.has(symbol) ? n.delete(symbol) : n.add(symbol); return n; });
 
@@ -1976,10 +1957,7 @@ function MarketsSheet({
                         active ? "bg-white" : "hover:bg-white/[0.04]"
                       }`}
                     >
-                      <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#1b2433] text-[11px] font-black text-sky-300">
-                        {badgeOf(m.symbol)}
-                        {isFast(m.symbol) && <span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1 text-[8px] font-black text-white">1s</span>}
-                      </span>
+                      <MarketIcon symbol={m.symbol} size={36} />
                       <span className={`min-w-0 flex-1 truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>{m.symbol}</span>
                       <span
                         role="button"

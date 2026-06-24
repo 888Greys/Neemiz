@@ -72,6 +72,7 @@ import {
   MinusCircle,
   Monitor,
   LineChart,
+  PenTool,
   Phone,
   PlaneTakeoff,
   Plus,
@@ -160,6 +161,7 @@ const iconMap: Record<string, LucideIcon> = {
   delete_outline: Trash2,
   desktop_windows: Monitor,
   devices: Laptop2,
+  draw: PenTool,
 
   // E
   edit: FileEdit,

@@ -184,37 +184,59 @@ function MobileAccumulators({
   onBuy: () => void; placing: boolean;
   format: (v: number) => string;
 }) {
-  const [sheet, setSheet] = useState<null | "growth" | "stake" | "tp">(null);
-  const fieldCard = "flex flex-col items-start rounded-2xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+  const [sheet, setSheet] = useState<null | "growth" | "stake" | "tp" | "maxpayout">(null);
+  // Collapsed by default: the three cards sit in a row where the 3rd peeks off
+  // the right edge (Deriv). Tapping the grab handle expands to full-width stacks.
+  const [expanded, setExpanded] = useState(false);
+  const fieldCard = "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+
+  const cards = [
+    { key: "growth", label: "Growth rate", value: `${growthRate}%`, onClick: () => setSheet("growth") },
+    { key: "stake", label: "Stake", value: `${stake} ${currency}`, onClick: () => setSheet("stake") },
+    { key: "tp", label: "Take profit", value: takeProfitOn ? `${takeProfit}` : "—", onClick: () => setSheet("tp") },
+  ] as const;
 
   return (
     <div className="flex h-full min-h-0 flex-col sm:hidden">
       <div className="min-h-0 flex-1" />
 
-      <div className="space-y-2.5 px-3 pb-1">
-        <div className="grid grid-cols-3 gap-2.5">
-          <button type="button" onClick={() => setSheet("growth")} className={fieldCard}>
-            <span className="text-[11px] font-bold text-slate-400">Growth rate</span>
-            <span className="mt-0.5 text-[16px] font-black text-white">{growthRate}%</span>
-          </button>
-          <button type="button" onClick={() => setSheet("stake")} className={fieldCard}>
-            <span className="text-[11px] font-bold text-slate-400">Stake</span>
-            <span className="mt-0.5 text-[16px] font-black text-white">{stake} {currency}</span>
-          </button>
-          <button type="button" onClick={() => setSheet("tp")} className={`${fieldCard} relative`}>
-            <span className="text-[11px] font-bold text-slate-400">Take profit</span>
-            <span className="mt-0.5 text-[16px] font-black text-white">{takeProfitOn ? `${takeProfit}` : "—"}</span>
-            {takeProfitOn && (
-              <span role="button" tabIndex={-1} onClick={(e) => { e.stopPropagation(); setTakeProfitOn(false); }}
-                className="absolute right-2 top-2 grid h-5 w-5 place-items-center rounded-full bg-white/[0.06] text-slate-400">
-                <Icon name="close" className="text-[12px]" />
-              </span>
-            )}
-          </button>
-        </div>
+      {/* Centered grab handle (Deriv-style) — expands/collapses the field cards */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-label={expanded ? "Collapse" : "Expand"}
+        className="flex w-full shrink-0 justify-center py-1.5 text-slate-400 active:text-white"
+      >
+        <Icon name={expanded ? "expand_more" : "expand_less"} className="text-[22px]" />
+      </button>
 
+      <div className="space-y-2.5 px-3 pb-1">
+        {expanded ? (
+          <div className="space-y-2.5">
+            {cards.map((c) => (
+              <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-full`}>
+                <span className="text-[11px] font-bold text-slate-400">{c.label}</span>
+                <span className="mt-0.5 text-[16px] font-black text-white">{c.value}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {cards.map((c) => (
+              <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-[40%] shrink-0`}>
+                <span className="whitespace-nowrap text-[11px] font-bold text-slate-400">{c.label}</span>
+                <span className="mt-0.5 whitespace-nowrap text-[16px] font-black text-white">{c.value}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Max. payout — tappable (dotted underline) opens the info sheet, Deriv-style */}
         <div className="flex items-center justify-between px-1 text-[12px]">
-          <span className="font-bold text-slate-400">Max. payout</span>
+          <button type="button" onClick={() => setSheet("maxpayout")}
+            className="border-b border-dotted border-slate-500 pb-px font-bold text-slate-400">
+            Max. payout
+          </button>
           <span className="font-black text-white">{format(maxPayout)}</span>
         </div>
       </div>
@@ -245,12 +267,95 @@ function MobileAccumulators({
         />
       )}
       {sheet === "tp" && (
-        <ValuePickerSheet
-          title="Take profit" unit={currency} value={takeProfit || 10}
-          presets={[5, 10, 20, 50, 100]} min={1} max={1_000_000}
-          onChange={(v) => { setTakeProfit(v); setTakeProfitOn(true); }} onClose={() => setSheet(null)}
+        <TakeProfitSheet
+          currency={currency}
+          on={takeProfitOn} setOn={setTakeProfitOn}
+          value={takeProfit || 10} setValue={setTakeProfit}
+          onClose={() => setSheet(null)}
         />
       )}
+      {sheet === "maxpayout" && <MaxPayoutInfoSheet onClose={() => setSheet(null)} />}
+    </div>
+  );
+}
+
+// Deriv-exact Take profit sheet: a toggle switch, a +/- amount stepper that's
+// disabled until the toggle is on, the ongoing-contract note, and one Save CTA.
+// Exported so other leveraged panels (Turbo) reuse the same sheet.
+export function TakeProfitSheet({
+  currency, on, setOn, value, setValue, onClose, note = "Note: Cannot be adjusted for ongoing accumulator contracts.",
+}: {
+  currency: string;
+  on: boolean; setOn: (v: boolean) => void;
+  value: number; setValue: (v: number) => void;
+  onClose: () => void;
+  note?: string;
+}) {
+  const [enabled, setEnabled] = useState(on);
+  const [amount, setAmount] = useState(value);
+  const save = () => {
+    setOn(enabled);
+    if (enabled) setValue(Math.max(1, amount || 1));
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+        <div className="flex items-center justify-center px-4 pb-1 pt-2">
+          <span className="text-[15px] font-black text-white">Take profit</span>
+        </div>
+
+        <div className="px-4 pt-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[14px] font-bold text-slate-200">Take profit</span>
+            <button type="button" role="switch" aria-checked={enabled} onClick={() => setEnabled((v) => !v)}
+              className={`relative h-6 w-11 rounded-full transition ${enabled ? "bg-[#16a085]" : "bg-[#3a414d]"}`}>
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${enabled ? "left-[22px]" : "left-0.5"}`} />
+            </button>
+          </div>
+
+          <div className={`mt-3 flex items-center rounded-xl bg-[#0f1319] px-1 ring-1 ring-white/[0.06] transition ${enabled ? "" : "opacity-40"}`}>
+            <button type="button" disabled={!enabled} onClick={() => setAmount((a) => Math.max(1, (a || 1) - 1))}
+              className="grid h-11 w-11 place-items-center text-slate-300">
+              <Icon name="remove" className="text-[18px]" />
+            </button>
+            <input type="number" inputMode="decimal" disabled={!enabled} value={amount}
+              onChange={(e) => setAmount(Number(e.target.value) || 0)}
+              className="w-full min-w-0 bg-transparent text-center text-[16px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            <span className="px-1 text-[12px] font-black text-slate-500">{currency}</span>
+            <button type="button" disabled={!enabled} onClick={() => setAmount((a) => (a || 0) + 1)}
+              className="grid h-11 w-11 place-items-center text-slate-300">
+              <Icon name="add" className="text-[18px]" />
+            </button>
+          </div>
+
+          <p className="mt-4 text-center text-[12px] font-medium text-slate-500">{note}</p>
+
+          <button type="button" onClick={save}
+            className="mt-4 w-full rounded-2xl bg-white py-3.5 text-[15px] font-black text-[#16181d] transition active:scale-[0.98]">
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-exact Max. payout info sheet.
+function MaxPayoutInfoSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end bg-black/65 lg:hidden" role="dialog" aria-modal="true" aria-label="About max payout">
+      <div className="rounded-t-3xl bg-[#1b202a] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2 shadow-2xl">
+        <div className="mx-auto h-1 w-9 rounded-full bg-white/25" />
+        <h2 className="mt-5 text-[20px] font-black text-white">Max. payout</h2>
+        <p className="mt-3 text-[14px] font-medium leading-6 text-slate-300">
+          Your contract will be automatically closed when your payout reaches this amount.
+        </p>
+        <button type="button" onClick={onClose} className="mt-6 w-full rounded-2xl bg-white py-3.5 text-[14px] font-black text-[#16181d]">Got it</button>
+      </div>
     </div>
   );
 }
