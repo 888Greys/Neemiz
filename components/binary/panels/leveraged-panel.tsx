@@ -81,9 +81,9 @@ export function LeveragedPanel({
           currency={currency}
           stake={stake} setStake={setStake}
           multiplier={multiplier} setMultiplier={setMultiplier}
-          takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
-          stopLossOn={stopLossOn} setStopLossOn={setStopLossOn}
-          dangerSpot={dangerSpot} maxPayout={maxPayout}
+          takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn} takeProfit={takeProfit} setTakeProfit={setTakeProfit}
+          stopLossOn={stopLossOn} setStopLossOn={setStopLossOn} stopLoss={stopLoss} setStopLoss={setStopLoss}
+          dangerSpot={dangerSpot}
           stakePresets={stakePresets} minStake={minStake}
           format={format} formatSpot={formatSpot}
           onTrade={onTrade} placing={placing}
@@ -222,7 +222,6 @@ function MobileTurboPanel({
 }) {
   const [direction, setDirection] = useState<LeveragedDirection>("UP");
   const [picker, setPicker] = useState<null | "stake" | "barrier" | "tp">(null);
-  const [barrierInfoOpen, setBarrierInfoOpen] = useState(false);
   // Collapsed by default: the 3 cards sit in a row where the 3rd (Take profit)
   // peeks off the right edge (Deriv); the grab handle expands to full-width.
   const [expanded, setExpanded] = useState(false);
@@ -282,12 +281,6 @@ function MobileTurboPanel({
           </div>
         )}
 
-        {/* Barrier — Deriv keeps this as a dotted-underline line (Turbo's knockout
-            doubles as the stop-loss, so there's no separate stop-loss control). */}
-        <button type="button" onClick={() => setBarrierInfoOpen(true)} className="flex w-full items-center justify-between border-b border-dotted border-slate-500 pb-1 text-[12px] text-slate-300">
-          <span className="font-bold">Barrier</span>
-          <span className="font-mono font-black text-amber-300">{formatSpot(dangerSpot)}</span>
-        </button>
 
         <button type="button" onClick={() => onTrade(direction)} disabled={placing}
           className={`flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${direction === "UP" ? "bg-[#16a085]" : "bg-[#e2474b]"}`}>
@@ -297,39 +290,42 @@ function MobileTurboPanel({
       {picker === "stake" && <ValuePickerSheet title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setPicker(null)} />}
       {picker === "barrier" && <ValuePickerSheet title="Payout per point" unit="" value={barrierOffset} presets={[offsetStep, offsetStep * 2, offsetStep * 3, offsetStep * 5, offsetStep * 8, offsetStep * 13].map((v) => Number(v.toFixed(2)))} min={-999_999} max={999_999} onChange={setBarrierOffset} onClose={() => setPicker(null)} />}
       {picker === "tp" && <TakeProfitSheet currency={currency} on={takeProfitOn} setOn={setTakeProfitOn} value={takeProfit || 10} setValue={setTakeProfit} note="Note: Cannot be adjusted for ongoing Turbo contracts." onClose={() => setPicker(null)} />}
-      {barrierInfoOpen && <BarrierInfoSheet onClose={() => setBarrierInfoOpen(false)} />}
     </div>
   );
 }
 
-// Multipliers get a dedicated mobile ticket matching the Turbo/Deriv rhythm:
-// direction first, a compact multiplier chip row, a tappable Stake card, TP/SL
-// toggles, the live stop-out, and one clear Buy action.
+// Multipliers mobile ticket, matched to Deriv: direction toggle, then three
+// tappable cards — Multiplier (sheet), Stake (sheet) and Risk management (TP/SL
+// + deal-cancellation sheet) — with the live Stop-out line and one Buy action.
 function MobileMultiplierPanel({
   currency, stake, setStake, multiplier, setMultiplier,
-  takeProfitOn, setTakeProfitOn, stopLossOn, setStopLossOn,
-  dangerSpot, maxPayout, stakePresets, minStake,
+  takeProfitOn, setTakeProfitOn, takeProfit, setTakeProfit,
+  stopLossOn, setStopLossOn, stopLoss, setStopLoss,
+  dangerSpot, stakePresets, minStake,
   format, formatSpot, onTrade, placing,
 }: {
   currency: string; stake: number; setStake: (v: number) => void;
   multiplier: number; setMultiplier: (v: number) => void;
   takeProfitOn: boolean; setTakeProfitOn: (v: boolean) => void;
+  takeProfit: number; setTakeProfit: (v: number) => void;
   stopLossOn: boolean; setStopLossOn: (v: boolean) => void;
-  dangerSpot: number; maxPayout: number; stakePresets: number[]; minStake: number;
+  stopLoss: number; setStopLoss: (v: number) => void;
+  dangerSpot: number; stakePresets: number[]; minStake: number;
   format: (v: number) => string; formatSpot: (v: number) => string;
   onTrade: (direction: LeveragedDirection) => void; placing: boolean;
 }) {
   const [direction, setDirection] = useState<LeveragedDirection>("UP");
-  const [picker, setPicker] = useState<null | "stake">(null);
+  const [sheet, setSheet] = useState<null | "multiplier" | "stake" | "risk" | "stopout">(null);
   // Collapsed by default: the 3 cards sit in a row where the 3rd peeks off the
-  // right edge (Deriv); the grab handle expands to full-width stacks + TP/SL.
+  // right edge (Deriv); the grab handle expands to a full-width stack.
   const [expanded, setExpanded] = useState(false);
   const fieldCard = "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
 
+  const riskValue = takeProfitOn || stopLossOn ? [takeProfitOn ? "TP" : null, stopLossOn ? "SL" : null].filter(Boolean).join(" · ") : "—";
   const cards = [
-    { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
-    { key: "maxpayout", label: "Max payout", value: format(maxPayout), accent: "text-white", onClick: undefined },
-    { key: "stopout", label: "Stop-out", value: formatSpot(dangerSpot), accent: "text-amber-300", onClick: undefined },
+    { key: "multiplier", label: "Multiplier", value: `x${multiplier}`, accent: "text-white", onClick: () => setSheet("multiplier") },
+    { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setSheet("stake") },
+    { key: "risk", label: "Risk management", value: riskValue, accent: "text-white", onClick: () => setSheet("risk") },
   ] as const;
 
   return (
@@ -359,21 +355,11 @@ function MobileMultiplierPanel({
           ))}
         </div>
 
-        {/* Multiplier chip row */}
-        <div className="grid grid-cols-5 gap-1.5">
-          {MULTIPLIERS.map((m) => (
-            <button key={m} type="button" onClick={() => setMultiplier(m)}
-              className={`rounded-lg py-2 text-[12px] font-black transition active:scale-95 ${
-                multiplier === m ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60" : "bg-[#181b22] text-slate-400"
-              }`}>×{m}</button>
-          ))}
-        </div>
-
-        {/* Fields: Stake | Max payout | Stop-out — peek row collapsed, stack expanded */}
+        {/* Fields: Multiplier | Stake | Risk management — peek row / full stack */}
         {expanded ? (
           <div className="space-y-2.5">
             {cards.map((c) => (
-              <button key={c.key} type="button" onClick={c.onClick} disabled={!c.onClick} className={`${fieldCard} w-full disabled:active:scale-100`}>
+              <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-full`}>
                 <span className="text-[11px] font-bold text-slate-400">{c.label}</span>
                 <span className={`mt-0.5 text-[16px] font-black ${c.accent}`}>{c.value}</span>
               </button>
@@ -382,7 +368,7 @@ function MobileMultiplierPanel({
         ) : (
           <div className="flex gap-2.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {cards.map((c) => (
-              <button key={c.key} type="button" onClick={c.onClick} disabled={!c.onClick} className={`${fieldCard} w-[40%] shrink-0 disabled:active:scale-100`}>
+              <button key={c.key} type="button" onClick={c.onClick} className={`${fieldCard} w-[40%] shrink-0`}>
                 <span className="whitespace-nowrap text-[11px] font-bold text-slate-400">{c.label}</span>
                 <span className={`mt-0.5 whitespace-nowrap text-[16px] font-black ${c.accent}`}>{c.value}</span>
               </button>
@@ -390,31 +376,165 @@ function MobileMultiplierPanel({
           </div>
         )}
 
-        {/* Take profit / Stop loss — revealed when expanded (Deriv) */}
-        {expanded && (
-          <div className="flex gap-2 text-[10px] font-bold text-slate-300">
-            <label className="flex flex-1 items-center gap-1.5 rounded-lg bg-[#181b22] px-2 py-2"><input type="checkbox" checked={takeProfitOn} onChange={(e) => setTakeProfitOn(e.target.checked)} className="accent-[#16a085]" />Take profit</label>
-            <label className="flex flex-1 items-center gap-1.5 rounded-lg bg-[#181b22] px-2 py-2"><input type="checkbox" checked={stopLossOn} onChange={(e) => setStopLossOn(e.target.checked)} className="accent-[#16a085]" />Stop loss</label>
-          </div>
-        )}
+        {/* Stop out — dotted-underline line that opens the info sheet (Deriv) */}
+        <button type="button" onClick={() => setSheet("stopout")} className="flex w-full items-center justify-between border-b border-dotted border-slate-500 pb-1 text-[12px] text-slate-300">
+          <span className="font-bold">Stop out</span>
+          <span className="font-mono font-black text-amber-300">{formatSpot(dangerSpot)}</span>
+        </button>
 
         <button type="button" onClick={() => onTrade(direction)} disabled={placing}
           className={`flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${direction === "UP" ? "bg-[#16a085]" : "bg-[#e2474b]"}`}>
           {placing ? <LoadingDots /> : <>Buy {direction === "UP" ? "Up" : "Down"} · ×{multiplier}</>}
         </button>
       </div>
-      {picker === "stake" && <ValuePickerSheet title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setPicker(null)} />}
+
+      {sheet === "multiplier" && <MultiplierSheet value={multiplier} onChange={setMultiplier} onClose={() => setSheet(null)} />}
+      {sheet === "stake" && <ValuePickerSheet title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setSheet(null)} />}
+      {sheet === "risk" && (
+        <RiskManagementSheet
+          currency={currency}
+          takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn} takeProfit={takeProfit} setTakeProfit={setTakeProfit}
+          stopLossOn={stopLossOn} setStopLossOn={setStopLossOn} stopLoss={stopLoss} setStopLoss={setStopLoss}
+          maxStopLoss={stake} onClose={() => setSheet(null)}
+        />
+      )}
+      {sheet === "stopout" && <StopOutInfoSheet onClose={() => setSheet(null)} />}
     </div>
   );
 }
 
-function BarrierInfoSheet({ onClose }: { onClose: () => void }) {
+// Deriv-style Multiplier picker: the available multiplier chips stacked, with a
+// Save action. (Commission is omitted — we don't charge a per-trade commission.)
+function MultiplierSheet({ value, onChange, onClose }: { value: number; onChange: (v: number) => void; onClose: () => void }) {
+  const [sel, setSel] = useState(value);
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end bg-black/65 sm:hidden" role="dialog" aria-modal="true" aria-label="About the barrier">
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+        <div className="px-4 pb-1 pt-2 text-center text-[15px] font-black text-white">Multiplier</div>
+        <div className="space-y-2 px-4 pt-3">
+          {MULTIPLIERS.map((m) => (
+            <button key={m} type="button" onClick={() => setSel(m)}
+              className={`w-full rounded-xl py-3 text-[15px] font-black transition ${sel === m ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60" : "bg-[#0f1319] text-slate-300"}`}>
+              x{m}
+            </button>
+          ))}
+        </div>
+        <div className="px-4 pt-4">
+          <button type="button" onClick={() => { onChange(sel); onClose(); }}
+            className="w-full rounded-2xl bg-white py-3.5 text-[15px] font-black text-[#16181d] transition active:scale-[0.98]">
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style Risk management sheet. The "TP & SL" tab is fully wired; the
+// "Deal cancellation" tab is shown for parity but not yet offered (disabled).
+function RiskManagementSheet({
+  currency, takeProfitOn, setTakeProfitOn, takeProfit, setTakeProfit,
+  stopLossOn, setStopLossOn, stopLoss, setStopLoss, maxStopLoss, onClose,
+}: {
+  currency: string;
+  takeProfitOn: boolean; setTakeProfitOn: (v: boolean) => void; takeProfit: number; setTakeProfit: (v: number) => void;
+  stopLossOn: boolean; setStopLossOn: (v: boolean) => void; stopLoss: number; setStopLoss: (v: number) => void;
+  maxStopLoss: number; onClose: () => void;
+}) {
+  const [tab, setTab] = useState<"tpsl" | "deal">("tpsl");
+  const [tpOn, setTpOn] = useState(takeProfitOn);
+  const [tp, setTp] = useState(takeProfit || 10);
+  const [slOn, setSlOn] = useState(stopLossOn);
+  const [sl, setSl] = useState(stopLoss || Math.max(1, Math.round(maxStopLoss / 2)));
+
+  const save = () => {
+    setTakeProfitOn(tpOn); if (tpOn) setTakeProfit(Math.max(1, tp || 1));
+    setStopLossOn(slOn); if (slOn) setStopLoss(Math.min(maxStopLoss, Math.max(1, sl || 1)));
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+        <div className="px-4 pb-1 pt-2 text-center text-[15px] font-black text-white">Risk management</div>
+
+        <div className="grid grid-cols-2 gap-2 px-4 pt-2">
+          {([["tpsl", "TP & SL"], ["deal", "Deal cancellation"]] as const).map(([t, label]) => (
+            <button key={t} type="button" onClick={() => setTab(t)}
+              className={`rounded-xl py-2.5 text-[12px] font-black transition ${tab === t ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "tpsl" ? (
+          <div className="space-y-4 px-4 pt-4">
+            <RiskRow label="Take profit" on={tpOn} setOn={setTpOn} value={tp} setValue={setTp} currency={currency} />
+            <RiskRow label="Stop loss" on={slOn} setOn={setSlOn} value={sl} setValue={setSl} currency={currency} max={maxStopLoss} />
+          </div>
+        ) : (
+          <div className="px-4 pt-6 pb-2 text-center">
+            <p className="text-[13px] font-bold text-slate-300">Deal cancellation</p>
+            <p className="mt-2 text-[12px] font-medium leading-5 text-slate-500">Cancel a losing trade within a set window. Coming soon.</p>
+          </div>
+        )}
+
+        <div className="px-4 pt-5">
+          <button type="button" onClick={save}
+            className="w-full rounded-2xl bg-white py-3.5 text-[15px] font-black text-[#16181d] transition active:scale-[0.98]">
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// One toggle + amount stepper row inside the Risk management sheet.
+function RiskRow({
+  label, on, setOn, value, setValue, currency, max,
+}: {
+  label: string; on: boolean; setOn: (v: boolean) => void;
+  value: number; setValue: (v: number) => void; currency: string; max?: number;
+}) {
+  const clamp = (v: number) => Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(1, v));
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className="text-[14px] font-bold text-slate-200">{label}</span>
+        <button type="button" role="switch" aria-checked={on} onClick={() => setOn(!on)}
+          className={`relative h-6 w-11 rounded-full transition ${on ? "bg-[#16a085]" : "bg-[#3a414d]"}`}>
+          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${on ? "left-[22px]" : "left-0.5"}`} />
+        </button>
+      </div>
+      <div className={`mt-2 flex items-center rounded-xl bg-[#0f1319] px-1 ring-1 ring-white/[0.06] transition ${on ? "" : "opacity-40"}`}>
+        <button type="button" disabled={!on} onClick={() => setValue(clamp((value || 1) - 1))} className="grid h-11 w-11 place-items-center text-slate-300">
+          <Icon name="remove" className="text-[18px]" />
+        </button>
+        <input type="number" inputMode="decimal" disabled={!on} value={value}
+          onChange={(e) => setValue(Number(e.target.value) || 0)}
+          className="w-full min-w-0 bg-transparent text-center text-[16px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+        <span className="px-1 text-[12px] font-black text-slate-500">{currency}</span>
+        <button type="button" disabled={!on} onClick={() => setValue(clamp((value || 0) + 1))} className="grid h-11 w-11 place-items-center text-slate-300">
+          <Icon name="add" className="text-[18px]" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style Stop out info sheet.
+function StopOutInfoSheet({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end bg-black/65 lg:hidden" role="dialog" aria-modal="true" aria-label="About stop out">
       <div className="rounded-t-3xl bg-[#1b202a] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-2 shadow-2xl">
         <div className="mx-auto h-1 w-9 rounded-full bg-white/25" />
-        <h2 className="mt-5 text-center text-[17px] font-black text-white">Barrier</h2>
-        <p className="mt-3 text-[14px] font-medium leading-6 text-slate-300">This is the knockout price for your Turbo contract. If the market reaches this barrier, the contract closes with no payout.</p>
+        <h2 className="mt-5 text-[20px] font-black text-white">Stop out</h2>
+        <p className="mt-3 text-[14px] font-medium leading-6 text-slate-300">Your contract will be closed automatically when your loss reaches 100% of your stake.</p>
         <button type="button" onClick={onClose} className="mt-6 w-full rounded-2xl bg-white py-3.5 text-[14px] font-black text-[#16181d]">Got it</button>
       </div>
     </div>
