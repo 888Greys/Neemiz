@@ -14,6 +14,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
+import { ValuePickerSheet } from "@/components/binary/panels/digit-panel";
 
 type Direction = "buy" | "sell";
 type StreamStatus = "connecting" | "live" | "fallback";
@@ -657,7 +658,7 @@ export function ForexClient() {
   }, [price, trades]);
 
   return (
-    <div className="min-h-full max-w-full overflow-x-hidden bg-[#050506] pb-36 text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+    <div className="flex h-full min-h-0 max-w-full flex-col overflow-hidden bg-[#050506] text-white sm:block sm:h-auto sm:min-h-full sm:overflow-x-hidden sm:pb-36 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       {streamStatus === "fallback" && (() => {
         const isClosed = /closed|presently closed|market.*open/i.test(streamError ?? "");
         return isClosed ? (
@@ -672,7 +673,7 @@ export function ForexClient() {
         );
       })()}
 
-      <div data-forex-grid="true" className={`grid max-w-full min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
+      <div data-forex-grid="true" className={`flex min-h-0 flex-1 flex-col max-w-full min-w-0 gap-1 overflow-hidden px-0 py-0 sm:grid sm:overflow-visible sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         <aside className="order-2 hidden min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:flex xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
           {railOpen ? (
             <ForexActivityPanel
@@ -686,9 +687,9 @@ export function ForexClient() {
           )}
         </aside>
 
-        <main className="order-1 flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
+        <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:flex-none sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
-            <div className="shrink-0 flex flex-col gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2">
+            <div className="hidden shrink-0 flex-col gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <PairDropdown markets={MARKETS} selected={selectedMarket} price={price} streamStatus={streamStatus} onSelect={setSelectedSymbol} />
@@ -712,6 +713,27 @@ export function ForexClient() {
               </div>
             </div>
             <div className="relative min-h-0 flex-1">
+              {/* Mobile market header — floats over the chart and fades into it.
+                  Tap to open the pair picker (Markets tab). */}
+              <button
+                type="button"
+                onClick={() => router.replace(`${pathname}?panel=markets`, { scroll: false })}
+                className="absolute inset-x-0 top-0 z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#070b10] via-[#070b10]/85 to-transparent px-3 pb-6 pt-2 text-left sm:hidden"
+              >
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#1b2433] text-[10px] font-black text-sky-300">{selectedMarket.base}</span>
+                <span className="min-w-0">
+                  <span className="flex items-center gap-0.5">
+                    <span className="truncate text-[13px] font-black text-white">{selectedMarket.symbol}</span>
+                    <Icon name="expand_more" className="text-[18px] text-slate-400" />
+                  </span>
+                  <span className="mt-0.5 flex items-baseline gap-2 font-mono text-[11px] font-black">
+                    <span className="text-[#ff6171]">{formatPrice(selectedMarket, bid)}</span>
+                    <span className="text-slate-600">/</span>
+                    <span className="text-[#33d49b]">{formatPrice(selectedMarket, ask)}</span>
+                    <span className={changePct >= 0 ? "text-emerald-300" : "text-red-300"}>{changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%</span>
+                  </span>
+                </span>
+              </button>
               <TradingViewCandles candles={chartCandles} market={selectedMarket} />
               {chartCandles.length === 0 && (
                 <div className="absolute inset-0 grid place-items-center bg-[#070b10]/80">
@@ -733,8 +755,21 @@ export function ForexClient() {
           </section>
         </main>
 
-        <aside className="order-2 min-w-0 overflow-hidden rounded-none border-y border-white/[0.08] bg-[#0f1218] sm:rounded sm:border xl:order-none xl:block xl:min-h-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
-          <section className="flex flex-col xl:h-full xl:min-h-0">
+        <aside className="order-2 shrink-0 min-w-0 overflow-hidden rounded-none border-y border-white/[0.08] bg-[#0f1218] sm:rounded sm:border xl:order-none xl:block xl:min-h-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+          <section className="flex h-full min-h-0 flex-col xl:h-full xl:min-h-0">
+            {/* Mobile Deriv-style ticket (sm:hidden); desktop/tablet ticket below */}
+            <MobileForexTicket
+              symbol={selectedMarket.symbol}
+              direction={direction} setDirection={setDirection}
+              bidLabel={formatPrice(selectedMarket, bid)} askLabel={formatPrice(selectedMarket, ask)}
+              size={size} setSize={setSize} lots={lots} sizePresets={SIZES}
+              riskPips={riskPips} setRiskPips={setRiskPips}
+              targetPips={targetPips} setTargetPips={setTargetPips}
+              rrPresets={RR_PRESETS}
+              riskKes={riskKes} rewardKes={rewardKes} rrRatio={rrRatio}
+              onOpen={() => openTrade()} opening={openingTrade} live={streamStatus === "live"}
+            />
+            <div className="hidden sm:flex sm:flex-col xl:h-full xl:min-h-0">
             <div className="shrink-0 border-b border-white/[0.07] px-3 py-2 sm:px-4 sm:py-3">
               <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Order ticket</div>
               <div className="mt-1 text-base font-black text-white sm:text-lg">{selectedMarket.symbol} {direction.toUpperCase()}</div>
@@ -862,6 +897,7 @@ export function ForexClient() {
                 Positions &amp; history live in the panel on the left.
               </p>
             </div>
+            </div>
           </section>
         </aside>
       </div>
@@ -892,7 +928,7 @@ export function ForexClient() {
       {/* Sticky mobile CTA — a single Open button that follows the Buy/Sell
           toggle above, so there's one clear action (no duplicate buttons).
           Hidden while a nav panel sheet (Markets/Positions) is open. */}
-      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur lg:bottom-0 xl:hidden ${positionsOpen || marketsOpen ? "hidden" : ""}`}>
+      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 hidden border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur sm:block lg:bottom-0 xl:hidden ${positionsOpen || marketsOpen ? "sm:hidden" : ""}`}>
         <button
           type="button"
           onClick={() => openTrade()}
@@ -1168,6 +1204,113 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
         Positions
       </span>
     </button>
+  );
+}
+
+// Deriv-style mobile order ticket: Buy/Sell toggle (with fill price), Size /
+// Stop loss / Take profit tappable cards (picker sheets), R:R presets, a
+// risk/reward line, and one big Open pill. Shown only below sm.
+function MobileForexTicket({
+  symbol, direction, setDirection, bidLabel, askLabel,
+  size, setSize, lots, sizePresets,
+  riskPips, setRiskPips, targetPips, setTargetPips, rrPresets,
+  riskKes, rewardKes, rrRatio, onOpen, opening, live,
+}: {
+  symbol: string;
+  direction: Direction; setDirection: (d: Direction) => void;
+  bidLabel: string; askLabel: string;
+  size: number; setSize: (v: number) => void; lots: number; sizePresets: number[];
+  riskPips: number; setRiskPips: (v: number) => void;
+  targetPips: number; setTargetPips: (v: number) => void;
+  rrPresets: { label: string; sl: number; tp: number }[];
+  riskKes: number; rewardKes: number; rrRatio: number;
+  onOpen: () => void; opening: boolean; live: boolean;
+}) {
+  const [sheet, setSheet] = useState<null | "size" | "sl" | "tp">(null);
+  const buy = direction === "buy";
+  const fieldCard = "flex flex-col items-start rounded-2xl bg-[#181b22] px-3 py-2.5 text-left transition active:scale-[0.99]";
+
+  return (
+    <div className="flex h-full min-h-0 flex-col sm:hidden">
+      <div className="min-h-0 flex-1" />
+
+      <div className="space-y-2.5 px-3 pb-1">
+        {/* Buy / Sell toggle — armed side glows, fill price beneath */}
+        <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-[#0f1319] p-1.5 ring-1 ring-white/[0.06]">
+          <button type="button" onClick={() => setDirection("buy")}
+            className={`flex flex-col items-center rounded-xl py-2 transition active:scale-[0.98] ${buy ? "bg-[#16a085] text-white" : "text-slate-400"}`}>
+            <span className="text-[13px] font-black">BUY</span>
+            <span className="font-mono text-[10px] leading-none opacity-85">{askLabel}</span>
+          </button>
+          <button type="button" onClick={() => setDirection("sell")}
+            className={`flex flex-col items-center rounded-xl py-2 transition active:scale-[0.98] ${!buy ? "bg-[#e2474b] text-white" : "text-slate-400"}`}>
+            <span className="text-[13px] font-black">SELL</span>
+            <span className="font-mono text-[10px] leading-none opacity-85">{bidLabel}</span>
+          </button>
+        </div>
+
+        {/* Size | Stop loss | Take profit */}
+        <div className="grid grid-cols-3 gap-2.5">
+          <button type="button" onClick={() => setSheet("size")} className={fieldCard}>
+            <span className="truncate text-[11px] font-bold text-slate-400">Size</span>
+            <span className="mt-0.5 text-[15px] font-black text-white">{lots.toFixed(2)} lot</span>
+          </button>
+          <button type="button" onClick={() => setSheet("sl")} className={fieldCard}>
+            <span className="truncate text-[11px] font-bold text-slate-400">Stop loss</span>
+            <span className="mt-0.5 text-[15px] font-black text-white">{riskPips} <span className="text-[11px] text-slate-500">pips</span></span>
+          </button>
+          <button type="button" onClick={() => setSheet("tp")} className={fieldCard}>
+            <span className="truncate text-[11px] font-bold text-slate-400">Take profit</span>
+            <span className="mt-0.5 text-[15px] font-black text-white">{targetPips} <span className="text-[11px] text-slate-500">pips</span></span>
+          </button>
+        </div>
+
+        {/* R:R presets */}
+        <div className="grid grid-cols-4 gap-2">
+          {rrPresets.map((p) => {
+            const active = riskPips === p.sl && targetPips === p.tp;
+            return (
+              <button key={p.label} type="button" onClick={() => { setRiskPips(p.sl); setTargetPips(p.tp); }}
+                className={`rounded-lg py-2 text-[11px] font-black transition active:scale-95 ${active ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400"}`}>
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Risk / Reward line */}
+        <div className="flex items-center justify-between px-1 text-[11px] font-black">
+          <span className="font-mono text-[#ff6171]">−{CURRENCY_SYMBOL} {riskKes.toFixed(2)}</span>
+          <span className="font-mono text-[#33d49b]">+{CURRENCY_SYMBOL} {rewardKes.toFixed(2)}</span>
+          <span className={`rounded px-1.5 py-0.5 font-mono ${rrRatio >= 1 ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>1:{rrRatio.toFixed(2)}</span>
+        </div>
+      </div>
+
+      {/* Open pill */}
+      <div className="px-3 pb-2 pt-1">
+        <button type="button" onClick={onOpen} disabled={opening || !live}
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${buy ? "bg-[#16a085] active:bg-[#1bb198]" : "bg-[#e2474b] active:bg-[#ec5a5e]"}`}>
+          <span className="text-[15px] leading-tight">{opening ? "Opening…" : !live ? "Awaiting feed…" : `Open ${buy ? "BUY" : "SELL"} ${symbol}`}</span>
+          <span className="font-mono text-[11px] leading-tight text-white/85">{buy ? askLabel : bidLabel}</span>
+        </button>
+      </div>
+
+      {sheet === "size" && (
+        <ValuePickerSheet title="Position size" unit="units" value={size}
+          presets={[...sizePresets]} min={1000} max={10_000_000} integer
+          onChange={setSize} onClose={() => setSheet(null)} />
+      )}
+      {sheet === "sl" && (
+        <ValuePickerSheet title="Stop loss" unit="pips" value={riskPips}
+          presets={[10, 15, 20, 25, 40, 60]} min={1} max={500} integer
+          onChange={setRiskPips} onClose={() => setSheet(null)} />
+      )}
+      {sheet === "tp" && (
+        <ValuePickerSheet title="Take profit" unit="pips" value={targetPips}
+          presets={[15, 20, 30, 45, 60, 100]} min={1} max={1000} integer
+          onChange={setTargetPips} onClose={() => setSheet(null)} />
+      )}
+    </div>
   );
 }
 
