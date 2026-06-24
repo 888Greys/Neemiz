@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { getMarketDetail } from "@/lib/admin/market-detail";
-import { MARKET_KEYS, todayWindow, windowOf, monthToDateWindow, type MarketKey, type Window } from "@/lib/admin/metrics";
+import { MARKET_KEYS, todayWindow, yesterdayWindow, windowOf, monthToDateWindow, type MarketKey, type Window } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
 
 async function requireAdmin() {
@@ -20,6 +20,7 @@ async function requireAdmin() {
 // KPI window selector for the deep-dive. The 14-day GGR series is fixed.
 function rangeWindow(range: string | null): Window {
   switch (range) {
+    case "yesterday": return yesterdayWindow();
     case "7d": return windowOf(7);
     case "mtd": return monthToDateWindow();
     case "all": return windowOf(3650);
