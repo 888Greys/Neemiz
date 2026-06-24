@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { useNavBadge } from "@/lib/nav-badge-context";
 import {
   AreaSeries,
   ColorType,
@@ -595,6 +596,7 @@ interface BinaryClientProps {
 
 export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClientProps) {
   const isLive = !!userId;
+  const setNavBadge = useNavBadge()?.setBadge;
 
   const [marketSymbol, setMarketSymbol] = useState(MARKETS[0].symbol);
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
@@ -984,6 +986,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       subtitle: levPos.market, stake: levPos.stake, value: levRunning.netPayout, isReal: levPos.isReal,
     }] : []),
   ];
+
+  // The mobile bottom nav lives in AppShell, outside this trader. Publish the
+  // complete cross-contract count so Positions retains the red badge until the
+  // last digit, directional, accumulator, or leveraged contract settles.
+  useEffect(() => {
+    setNavBadge?.("positions", openPositions.length);
+    return () => setNavBadge?.("positions", 0);
+  }, [setNavBadge, openPositions.length]);
 
   const digitStats = useMemo(() => {
     const recent = ticks.slice(-80);
@@ -1681,7 +1691,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           </section>
         </main>
 
-        <aside className="order-2 flex min-h-0 shrink-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:flex-none sm:max-h-[calc(100svh-8rem)] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+        <aside className="order-2 flex min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] sm:flex-none sm:max-h-[calc(100svh-8rem)] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
           <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
             {/* Trade-type selector — desktop only; mobile uses the top quick bar */}
             <button

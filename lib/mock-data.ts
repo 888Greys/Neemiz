@@ -44,7 +44,7 @@ export const binaryMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
   { href: "/binary?panel=markets",   label: "Markets",   icon: "candlestick_chart", panel: "markets",   activePath: "/binary" },
   { href: "/binary",                 label: "Trade",     icon: "show_chart",        panel: "",          activePath: "/binary" },
-  { href: "/binary?panel=positions", label: "Positions", icon: "receipt_long",      panel: "positions", activePath: "/binary" },
+  { href: "/binary?panel=positions", label: "Positions", icon: "schedule",          panel: "positions", activePath: "/binary" },
 ];
 
 // Resolve the bottom-nav tab set for the current route. Section-native navs win
