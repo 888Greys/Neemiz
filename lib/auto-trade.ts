@@ -111,7 +111,7 @@ export interface StartInput {
   maxRuns?: number;
 }
 
-export const AUTO_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+export const AUTO_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 export const AUTO_SIDES   = ["Even", "Odd", "Matches", "Differs", "Over", "Under"];
 const STRATEGIES: AutoStrategy[] = ["FIXED", "MARTINGALE", "DALEMBERT", "OSCARS"];
 

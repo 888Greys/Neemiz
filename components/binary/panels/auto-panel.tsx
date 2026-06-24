@@ -9,7 +9,7 @@ import { LoadingDots } from "@/components/loading-dots";
 // Engine + settlement live server-side (lib/auto-trade-engine), so this keeps
 // running with the tab closed — the UI just reflects state.
 
-const MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+const MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const SIDES = [
   { id: "Even", label: "Even", needsDigit: false },
   { id: "Odd", label: "Odd", needsDigit: false },
