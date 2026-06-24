@@ -720,7 +720,7 @@ export function ForexClient() {
                 onClick={() => router.replace(`${pathname}?panel=markets`, { scroll: false })}
                 className="absolute inset-x-0 top-0 z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#070b10] via-[#070b10]/85 to-transparent px-3 pb-6 pt-2 text-left sm:hidden"
               >
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#1b2433] text-[10px] font-black text-sky-300">{selectedMarket.base}</span>
+                <PairFlags base={selectedMarket.base} quote={selectedMarket.quote} />
                 <span className="min-w-0">
                   <span className="flex items-center gap-0.5">
                     <span className="truncate text-[13px] font-black text-white">{selectedMarket.symbol}</span>
@@ -1207,6 +1207,23 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
   );
 }
 
+// Currency → ISO country code for flag images (flagcdn.com, public-domain).
+const CURRENCY_ISO: Record<string, string> = {
+  EUR: "eu", USD: "us", GBP: "gb", JPY: "jp", CHF: "ch", AUD: "au", CAD: "ca", NZD: "nz",
+};
+const flagUrl = (cur: string) => `https://flagcdn.com/w40/${CURRENCY_ISO[cur] ?? "un"}.png`;
+
+// Overlapped base/quote flags for a forex pair (Deriv-style). Rendered as
+// background images (real flags that display on Android, unlike emoji flags).
+function PairFlags({ base, quote, className = "" }: { base: string; quote: string; className?: string }) {
+  return (
+    <span className={`relative inline-block h-9 w-9 shrink-0 ${className}`} aria-hidden>
+      <span className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-[#1b2433] bg-cover bg-center ring-2 ring-[#0d0e11]" style={{ backgroundImage: `url(${flagUrl(quote)})` }} />
+      <span className="absolute left-0 top-0 h-6 w-6 rounded-full bg-[#1b2433] bg-cover bg-center ring-2 ring-[#0d0e11]" style={{ backgroundImage: `url(${flagUrl(base)})` }} />
+    </span>
+  );
+}
+
 // Deriv-style mobile order ticket: Buy/Sell toggle (with fill price), Size /
 // Stop loss / Take profit tappable cards (picker sheets), R:R presets, a
 // risk/reward line, and one big Open pill. Shown only below sm.
@@ -1368,7 +1385,7 @@ function ForexPairSheet({
             return (
               <button key={m.symbol} type="button" onClick={() => onSelect(m.symbol)}
                 className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition active:scale-[0.99] ${active ? "bg-white" : "hover:bg-white/[0.04]"}`}>
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#1b2433] text-[10px] font-black text-sky-300">{m.base}</span>
+                <PairFlags base={m.base} quote={m.quote} />
                 <span className="min-w-0 flex-1">
                   <span className={`block truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>{m.symbol}</span>
                   <span className={`block truncate text-[11px] font-bold ${active ? "text-slate-600" : "text-slate-500"}`}>{m.name}</span>
