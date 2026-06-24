@@ -8,6 +8,8 @@ import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { Icon } from "@/components/icon";
+import { RangeTabs } from "@/components/admin-range-tabs";
+import { type AdminRange } from "@/lib/admin/ranges";
 
 // ─── Market deep-dive template (Phase 2) ──────────────────────────────────────
 // ONE component, rendered for all 6 markets. Reads /api/admin/markets/[key].
@@ -38,8 +40,6 @@ interface MarketDetail {
   health: { label: string; detail: string; tone: "ok" | "warn" | "danger" }[];
 }
 
-const RANGES = [["today", "Today"], ["yesterday", "Yesterday"], ["7d", "7d"], ["mtd", "MTD"], ["all", "All"]] as const;
-type Range = (typeof RANGES)[number][0];
 
 const money = (value: number) => {
   const sign = value < 0 ? "-" : "";
@@ -87,11 +87,11 @@ function RankPanel({ title, icon, rows, empty }: {
 export function MarketDetailClient({ marketKey }: { marketKey: MarketKey }) {
   const meta = MARKET_META[marketKey];
   const isP2P = marketKey === "p2p";
-  const [range, setRange] = useState<Range>("today");
+  const [range, setRange] = useState<AdminRange>("today");
   const [data, setData] = useState<MarketDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (r: Range) => {
+  const load = useCallback(async (r: AdminRange) => {
     const url = `/api/admin/markets/${marketKey}?range=${r}`;
     const cached = getCached<MarketDetail>(url);
     if (cached) setData(cached);
@@ -125,14 +125,7 @@ export function MarketDetailClient({ marketKey }: { marketKey: MarketKey }) {
             <p className="text-[10px] font-bold text-slate-600">Independent P&amp;L unit · Kenya</p>
           </div>
         </div>
-        <div className="flex gap-1 rounded-lg border border-white/[0.07] bg-white/[0.02] p-1">
-          {RANGES.map(([r, l]) => (
-            <button key={r} onClick={() => setRange(r)}
-              className={`rounded-md px-3 py-1 text-[10px] font-black transition ${range === r ? "bg-[#087cff] text-white" : "text-slate-500 hover:text-slate-300"}`}>
-              {l}
-            </button>
-          ))}
-        </div>
+        <RangeTabs value={range} onChange={setRange} />
       </header>
 
       {loading && !data ? (

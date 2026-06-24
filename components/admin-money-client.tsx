@@ -8,6 +8,8 @@ import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import { Icon } from "@/components/icon";
+import { RangeTabs } from "@/components/admin-range-tabs";
+import { type AdminRange } from "@/lib/admin/ranges";
 
 // ─── Money screen (Phase 3) ───────────────────────────────────────────────────
 // Cashflow consolidation, reading /api/admin/money. Same primitives as the
@@ -25,7 +27,6 @@ interface Money {
   pendingWithdrawals: { count: number; amount: number };
 }
 
-const RANGES = [[7, "7d"], [30, "30d"], [90, "90d"]] as const;
 
 const money = (value: number) => {
   const sign = value < 0 ? "-" : "";
@@ -79,12 +80,12 @@ function ProviderPanel({ title, rows, total }: { title: string; rows: ProviderRo
 }
 
 export function MoneyClient() {
-  const [days, setDays] = useState<number>(30);
+  const [range, setRange] = useState<AdminRange>("today");
   const [data, setData] = useState<Money | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (d: number) => {
-    const url = `/api/admin/money?days=${d}`;
+  const load = useCallback(async (r: AdminRange) => {
+    const url = `/api/admin/money?range=${r}`;
     const cached = getCached<Money>(url);
     if (cached) setData(cached);
     setLoading(!cached);
@@ -94,7 +95,7 @@ export function MoneyClient() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { load(days); }, [days, load]);
+  useEffect(() => { load(range); }, [range, load]);
 
   return (
     <div className="admin-page">
@@ -103,14 +104,7 @@ export function MoneyClient() {
           <h1 className="text-2xl font-black tracking-tight">Money</h1>
           <p className="text-[11px] text-slate-600">Real-money cashflow · genuine providers only · Kenya</p>
         </div>
-        <div className="flex gap-1 rounded-lg border border-white/[0.07] bg-white/[0.02] p-1">
-          {RANGES.map(([d, l]) => (
-            <button key={d} onClick={() => setDays(d)}
-              className={`rounded-md px-3 py-1 text-[10px] font-black transition ${days === d ? "bg-[#087cff] text-white" : "text-slate-500 hover:text-slate-300"}`}>
-              {l}
-            </button>
-          ))}
-        </div>
+        <RangeTabs value={range} onChange={setRange} />
       </header>
 
       {loading && !data ? (

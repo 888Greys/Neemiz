@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
+import { rangeWindow } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
 
 async function requireAdmin() {
@@ -26,10 +27,14 @@ export async function GET(req: Request) {
   if (!await requireAdmin()) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
-  const days = Math.min(90, Math.max(7, parseInt(searchParams.get("days") ?? "30", 10)));
-  const since = new Date();
-  since.setDate(since.getDate() - (days - 1));
-  since.setHours(0, 0, 0, 0);
+  const window = rangeWindow(searchParams.get("range"));
+  const since = window.start;                      // signup trend + peak cover the full window
+  const spanDays = Math.max(1, Math.ceil((window.end.getTime() - since.getTime()) / 86_400_000));
+  const chartDays = Math.min(spanDays, 92);        // cap chart buckets so long ranges don't explode
+  const chartEnd = new Date(window.end.getTime() - 1);
+  const chartStart = new Date(chartEnd);
+  chartStart.setHours(0, 0, 0, 0);
+  chartStart.setDate(chartStart.getDate() - (chartDays - 1));
 
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -56,7 +61,7 @@ export async function GET(req: Request) {
     db.merchantProfile.count({ where: { kycStatus: "REJECTED" } }),
     db.$queryRaw<Array<{ day: Date; count: bigint }>>`
       SELECT date_trunc('day', created_at)::date AS day, COUNT(*)::int AS count
-      FROM users WHERE created_at >= ${since}
+      FROM users WHERE created_at >= ${since} AND created_at < ${window.end}
       GROUP BY day ORDER BY day`,
     db.user.findMany({
       where: excludedIds.length ? { id: { notIn: excludedIds } } : {},
@@ -71,7 +76,7 @@ export async function GET(req: Request) {
 
   // Seed every day so the chart has no gaps; overlay the grouped counts.
   const series: Record<string, { date: string; signups: number }> = {};
-  for (let i = 0; i < days; i++) { const d = new Date(since); d.setDate(d.getDate() + i); series[dayKey(d)] = { date: dayKey(d), signups: 0 }; }
+  for (let i = 0; i < chartDays; i++) { const d = new Date(chartStart); d.setDate(d.getDate() + i); series[dayKey(d)] = { date: dayKey(d), signups: 0 }; }
   let peak = 0;
   for (const r of signupRows) {
     const k = dayKey(new Date(r.day));
@@ -84,7 +89,7 @@ export async function GET(req: Request) {
   const name = (u: { username: string | null; email: string | null }) => u.username ?? u.email ?? "unknown";
 
   return Response.json({
-    days,
+    days: spanDays,
     totals: {
       totalUsers, newToday, new7d, new30d, suspended,
       active24h: active24h.length, active7d: active7d.length,
