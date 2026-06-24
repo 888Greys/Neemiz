@@ -1342,6 +1342,7 @@ function ForexPairSheet({
   onClose: () => void;
 }) {
   const [q, setQ] = useState("");
+  const [tab, setTab] = useState<"favourites" | "all">("all");
   const [favs, setFavs] = useState<Set<string>>(new Set());
   useEffect(() => {
     try {
@@ -1356,7 +1357,8 @@ function ForexPairSheet({
     setFavs((s) => { const n = new Set(s); n.has(sym) ? n.delete(sym) : n.add(sym); return n; });
 
   const term = q.trim().toLowerCase();
-  const filtered = markets.filter(
+  const base = tab === "favourites" ? markets.filter((m) => favs.has(m.symbol)) : markets;
+  const filtered = base.filter(
     (m) => term === "" || m.symbol.toLowerCase().includes(term) || m.name.toLowerCase().includes(term),
   );
 
@@ -1375,11 +1377,29 @@ function ForexPairSheet({
             <Icon name="close" className="text-[13px]" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-          <p className="px-3 pb-1 pt-1 text-[11px] font-black uppercase tracking-wide text-slate-500">Forex pairs</p>
-          {filtered.length === 0 ? (
+
+        {/* Favourites / All tabs */}
+        <div className="flex items-stretch gap-5 border-b border-white/[0.07] px-4 text-[13px] font-black">
+          {(["favourites", "all"] as const).map((t) => (
+            <button key={t} type="button" onClick={() => setTab(t)}
+              className={`-mb-px border-b-2 py-2.5 capitalize transition ${tab === t ? "border-white text-white" : "border-transparent text-slate-500"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1">
+          {tab === "favourites" && filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
+              <Icon name="star" className="text-[56px] text-slate-700" />
+              <div className="mt-3 text-[14px] font-black text-slate-400">No favourites</div>
+              <div className="mt-1 text-[12px] font-bold text-slate-600">Tap the star on a pair to add it here.</div>
+            </div>
+          ) : filtered.length === 0 ? (
             <p className="py-10 text-center text-[12px] font-bold text-slate-600">No pairs match “{q}”.</p>
-          ) : filtered.map((m) => {
+          ) : (<>
+          <p className="px-3 pb-1 pt-1 text-[11px] font-black uppercase tracking-wide text-slate-500">Forex pairs</p>
+          {filtered.map((m) => {
             const active = m.symbol === current;
             const starred = favs.has(m.symbol);
             return (
@@ -1396,6 +1416,7 @@ function ForexPairSheet({
               </button>
             );
           })}
+          </>)}
         </div>
       </div>
     </div>
