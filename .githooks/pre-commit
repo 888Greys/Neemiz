@@ -1,0 +1,38 @@
+#!/bin/sh
+# ─────────────────────────────────────────────────────────────────────────────
+# Secret guard — blocks wallet seeds / private keys from ever being committed.
+# Added after the 2026-06 MASTER_WALLET_MNEMONIC leak. Scans only STAGED adds.
+# Enable once per clone:  git config core.hooksPath .githooks
+# (npm install does this automatically via the "prepare" script.)
+# ─────────────────────────────────────────────────────────────────────────────
+fail=0
+added=$(git diff --cached --no-color -U0 | grep '^+' | grep -v '^+++')
+
+# 1) BIP39 mnemonic: a seed/mnemonic key followed by 12–24 lowercase words.
+#    Placeholders like "word1 word2 … word12" contain digits, so they're skipped.
+if printf '%s\n' "$added" | grep -Eiq '(mnemonic|seed[_ ]?phrase)[^a-z]{0,6}([a-z]{3,}[ ]+){11,23}[a-z]{3,}'; then
+  echo "✖ pre-commit: a wallet seed phrase / BIP39 mnemonic is in your staged changes."
+  fail=1
+fi
+
+# 2) Raw 32-byte private key (0x + 64 hex).
+if printf '%s\n' "$added" | grep -Eq '0x[a-fA-F0-9]{64}'; then
+  echo "✖ pre-commit: a raw private key (0x…64 hex) is in your staged changes."
+  fail=1
+fi
+
+# 3) Extended private key (xprv / tprv).
+if printf '%s\n' "$added" | grep -Eq '[xt]prv[a-zA-Z0-9]{50,}'; then
+  echo "✖ pre-commit: an extended private key (xprv…) is in your staged changes."
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "Commit BLOCKED to prevent a secret leak."
+  echo "  • Real seeds/keys belong ONLY in git-ignored .env.local or the off-box signer."
+  echo "  • In docs/examples use placeholders: word1 word2 … word12"
+  echo "  • False positive? Replace the value with a placeholder, then re-commit."
+  exit 1
+fi
+exit 0
