@@ -3,6 +3,16 @@
 [extend]
 useDefault = true
 
+# Custom rule: catch a plaintext wallet seed phrase. Gitleaks' default rules
+# don't recognise a BIP39 mnemonic, which is exactly how the 2026-06 leak got
+# through. Matches a mnemonic/seed key followed by 12–24 lowercase words.
+# Placeholders (word1 word2 … word12) contain digits, so they don't match.
+[[rules]]
+id = "wallet-mnemonic"
+description = "Wallet seed phrase / BIP39 mnemonic"
+regex = '''(?i)(mnemonic|seed[_ ]?phrase)["'\s:=]{1,6}["']?([a-z]{3,}\s+){11,23}[a-z]{3,}'''
+keywords = ["mnemonic", "seed"]
+
 [allowlist]
 description = "Known non-secrets / local-dev-only values"
 paths = [
@@ -15,4 +25,6 @@ regexes = [
   '''userb123''',
   # Documentation placeholders (e.g. README cron example), not real secrets.
   '''YOUR_[A-Z_]+''',
+  # Mnemonic placeholders used in docs / example env files.
+  '''word1 word2''',
 ]

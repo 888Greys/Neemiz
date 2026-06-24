@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "next dev --turbo",
     "dev:turbo": "next dev --turbo",
     "dev:fast": "set NEXT_PUBLIC_DEV_FAST=1&& next dev --turbo",
