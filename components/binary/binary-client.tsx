@@ -179,6 +179,14 @@ const MARKETS: BinaryMarket[] = [
   { symbol: "Vol 100", derivSymbol: "R_100", name: "Deriv synthetic index", price: 1762.48, volatility: 2.2,  speedMs: 2000 },
 ];
 
+// Default mobile quick-bar order — digits first (most-played), then the rest.
+// User navigation reorders this (most-recent first), persisted to localStorage.
+const DEFAULT_TYPE_ORDER: TradeTypeId[] = [
+  "even_odd", "over_under", "matches_differs",
+  "accumulators", "vanillas", "turbos", "multipliers",
+  "rise_fall", "higher_lower", "touch_no_touch",
+];
+
 const STAKE_PRESETS_LIVE = [10, 50, 100, 500, 1000, 5000];
 const STAKE_PRESETS_DEMO = [1, 5, 10, 25, 50, 100];
 const DIGITS = Array.from({ length: 10 }, (_, index) => index);
@@ -605,10 +613,27 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [stopLoss, setStopLoss] = useState(5);
 
   const isDigitType = tradeType in DIGIT_TYPE_TO_FAMILY;
+  // Most-recently-used order for the mobile quick bar: the tapped type jumps to
+  // the front. Seeded with digits first (most-played), persisted across reloads.
+  const [recentTypes, setRecentTypes] = useState<TradeTypeId[]>(DEFAULT_TYPE_ORDER);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("binary-recent-types") ?? "null");
+      if (Array.isArray(saved)) {
+        const ids = saved.filter((id): id is TradeTypeId => DEFAULT_TYPE_ORDER.includes(id));
+        setRecentTypes([...ids, ...DEFAULT_TYPE_ORDER.filter((id) => !ids.includes(id))]);
+      }
+    } catch { /* ignore */ }
+  }, []);
   const selectTradeType = useCallback((id: TradeTypeId) => {
     setTradeType(id);
     const fam = DIGIT_TYPE_TO_FAMILY[id];
     if (fam) setFamily(fam);
+    setRecentTypes((prev) => {
+      const next = [id, ...prev.filter((x) => x !== id)];
+      try { localStorage.setItem("binary-recent-types", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
   }, []);
   const [stake, setStake] = useState(10);
   const [targetDigit, setTargetDigit] = useState(5);
@@ -1567,8 +1592,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
             {/* Mobile trade-type quick bar (Deriv-style) — horizontal scroll of
                 types with the active one outlined, plus "View all" → full picker.
                 Replaces the bottom selector on mobile; desktop keeps that one. */}
-            <div className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-white/[0.07] px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
-              {TRADE_TYPES.map((t) => (
+            <div className="flex shrink-0 items-center gap-2 overflow-x-auto px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
+              {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
                 <button
                   key={t.id}
                   type="button"

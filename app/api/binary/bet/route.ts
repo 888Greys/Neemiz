@@ -10,7 +10,7 @@ import { applyProfitRetention } from "@/lib/house-retention";
 import { payoutRate } from "@/lib/binary-settle";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
-const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_SIDES   = ["Even", "Odd", "Matches", "Differs", "Over", "Under"];
 const MIN_STAKE     = 10;
 const MAX_STAKE     = 10_000;

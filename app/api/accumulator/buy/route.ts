@@ -8,7 +8,7 @@ import {
   SIGMA_WINDOW, computeSigma, barrierFracFor, maxTicksFor, isValidGrowthRate, payoutAtTick,
 } from "@/lib/accumulator";
 
-const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const MIN_STAKE = 10;
 const MAX_STAKE = 10_000;
 const LOOKBACK_SEC = 600; // pull ~600 recent ticks to measure volatility

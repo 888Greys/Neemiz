@@ -10,7 +10,7 @@ import {
   LEVERAGED_MAX_MULT, type LeveragedDirection,
 } from "@/lib/leveraged";
 
-const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const MIN_STAKE = 10;
 const MAX_STAKE = 10_000;
 const LOOKBACK_SEC = 120; // pull recent ticks to grab a fresh entry spot
