@@ -273,34 +273,30 @@ async function predictionsMetric(ctx: Ctx): Promise<MarketMetric> {
 
 async function aviatorMetric(ctx: Ctx): Promise<MarketMetric> {
   const { window: w, notExcluded } = ctx;
-  const base = { ...notExcluded, ...countryFilter(ctx.country) };
+  // The live Aviator engine (the Go crash service) records to the transaction
+  // ledger as provider="aviator-service": BET_STAKE on a placed bet, BET_WIN on
+  // cashout, REFUND on a voided round. The legacy `aviator_bets` table has not
+  // been written since the engine swap (2026-05-25), so we MUST read the ledger
+  // here or every aviator figure reads zero. Rounds last seconds, so in-flight
+  // open liability is negligible and not tracked.
+  const base = {
+    ...notExcluded,
+    provider: "aviator-service",
+    status: "COMPLETED" as const,
+    createdAt: { gte: w.start, lt: w.end },
+  };
 
-  const [staked, won, open, players] = await Promise.all([
-    db.aviatorBet.aggregate({
-      where: { ...base, placedAt: { gte: w.start, lt: w.end } },
-      _sum: { betAmount: true },
-    }),
-    // Aviator settles in-round; use placedAt as the realisation time.
-    db.aviatorBet.aggregate({
-      where: { ...base, status: "CASHEDOUT", placedAt: { gte: w.start, lt: w.end } },
-      _sum: { winAmount: true },
-    }),
-    db.aviatorBet.aggregate({
-      where: { ...base, status: "ACTIVE" },
-      _sum: { betAmount: true },
-      _count: true,
-    }),
-    db.aviatorBet.findMany({
-      where: { ...base, placedAt: { gte: w.start, lt: w.end } },
-      select: { userId: true },
-      distinct: ["userId"],
-    }),
+  const [staked, won, refunded, players] = await Promise.all([
+    db.transaction.aggregate({ where: { ...base, type: "BET_STAKE" }, _sum: { amount: true } }),
+    db.transaction.aggregate({ where: { ...base, type: "BET_WIN" }, _sum: { amount: true } }),
+    db.transaction.aggregate({ where: { ...base, type: "REFUND" }, _sum: { amount: true } }),
+    db.transaction.findMany({ where: { ...base, type: "BET_STAKE" }, select: { userId: true }, distinct: ["userId"] }),
   ]);
 
-  const turnover = num(staked._sum.betAmount);
-  const ggr = turnover - num(won._sum.winAmount);
-  // A flying bet's payout is unbounded until it crashes; stake is the only
-  // figure we can stand behind as committed liability.
+  // Refunds return a stake that never played, so net them out of both turnover
+  // (amount actually wagered) and GGR (house take).
+  const turnover = num(staked._sum.amount) - num(refunded._sum.amount);
+  const ggr = turnover - num(won._sum.amount);
   return {
     key: "aviator",
     label: MARKET_LABELS.aviator,
@@ -308,8 +304,8 @@ async function aviatorMetric(ctx: Ctx): Promise<MarketMetric> {
     ggr,
     margin: margin(ggr, turnover),
     activePlayers: players.length,
-    openContracts: open._count,
-    openLiability: num(open._sum.betAmount),
+    openContracts: 0,
+    openLiability: 0,
     liabilityExact: false,
   };
 }
