@@ -12,4 +12,24 @@ export const ADMIN_RANGES = [
 
 export type AdminRange = (typeof ADMIN_RANGES)[number][0];
 
+// A specific Nairobi calendar day, e.g. "day:2026-06-25". Selected via the
+// calendar picker rather than the preset tabs, but understood everywhere the
+// preset tokens are (rangeWindow on the server, the filter UI on the client).
+export type DayRange = `day:${string}`;
+export type AdminRangeValue = AdminRange | DayRange;
+
 export const DEFAULT_RANGE: AdminRange = "today";
+
+export const isDayRange = (r: string): r is DayRange => r.startsWith("day:");
+
+/** The `YYYY-MM-DD` inside a day token (or "" if it isn't one). */
+export const dayOf = (r: string): string => (isDayRange(r) ? r.slice(4) : "");
+
+/** Human label for any range token, for headers and the picker button. */
+export function rangeLabel(r: string): string {
+  if (isDayRange(r)) {
+    const d = new Date(`${dayOf(r)}T00:00:00`);
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  }
+  return ADMIN_RANGES.find(([t]) => t === r)?.[1] ?? r;
+}

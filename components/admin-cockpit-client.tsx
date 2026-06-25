@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { getCached, setCached } from "@/lib/client-cache";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Icon } from "@/components/icon";
 import { RangeTabs } from "@/components/admin-range-tabs";
-import { type AdminRange } from "@/lib/admin/ranges";
+import { isDayRange, rangeLabel, type AdminRangeValue } from "@/lib/admin/ranges";
 
 // ─── Owner Cockpit (Phase 1) ──────────────────────────────────────────────────
 // Reads /api/admin/cockpit → lib/admin/metrics. Reading order matches the agreed
@@ -40,6 +41,7 @@ interface Cockpit {
     playerCount: number;
   };
   growth: { signupsToday: number; avg7d: number; peak30d: number };
+  series: { granularity: "hour" | "day"; points: Array<{ t: string; deposits: number; withdrawals: number; net: number }> };
   markets: MarketMetric[];
   alerts: {
     pendingWithdrawals: number;
@@ -112,12 +114,12 @@ function KpiCard({ label, value, detail, tone }: {
 }
 
 export function AdminCockpitClient({ adminEmail }: { adminEmail: string }) {
-  const [range, setRange] = useState<AdminRange>("today");
+  const [range, setRange] = useState<AdminRangeValue>("today");
   const [data, setData] = useState<Cockpit | null>(null);
   const [loading, setLoading] = useState(true);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
-  const load = useCallback(async (r: AdminRange) => {
+  const load = useCallback(async (r: AdminRangeValue) => {
     const key = `/api/admin/cockpit?range=${r}`;
     const cached = getCached<Cockpit>(key);
     if (cached) setData(cached);
@@ -142,8 +144,11 @@ export function AdminCockpitClient({ adminEmail }: { adminEmail: string }) {
   }
   if (!data) return <div className="p-8 text-sm text-red-400">Cockpit data could not be loaded.</div>;
 
-  const { money: m, growth, markets, alerts } = data;
+  const { money: m, growth, markets, alerts, series } = data;
   const netUp = m.netDepositsToday >= 0;
+  const hourly = series.granularity === "hour";
+  // Subtitle reflects the selected range: a named day, the live "today", or the preset.
+  const rangeText = isDayRange(range) ? rangeLabel(range) : range === "today" ? "Today · live" : rangeLabel(range);
 
   const queue = [
     { label: `${alerts.pendingWithdrawals} withdrawals pending`, detail: "approve or refund", href: "/admin/withdrawals", icon: "hourglass_top", tone: "text-orange-400", on: alerts.pendingWithdrawals > 0 },
@@ -162,7 +167,7 @@ export function AdminCockpitClient({ adminEmail }: { adminEmail: string }) {
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">Platform operational · Kenya</p>
           </div>
           <h1 className="mt-1 text-2xl font-black tracking-tight">Owner cockpit</h1>
-          <p className="text-[11px] text-slate-600">{adminEmail} · {updatedAt ? `Synced ${updatedAt.toLocaleTimeString()}` : "Connecting"}</p>
+          <p className="text-[11px] text-slate-600">{adminEmail} · <span className="text-slate-500">{rangeText}</span> · {updatedAt ? `Synced ${updatedAt.toLocaleTimeString()}` : "Connecting"}</p>
         </div>
         <div className="flex items-center gap-2">
           <RangeTabs value={range} onChange={setRange} />
@@ -196,6 +201,34 @@ export function AdminCockpitClient({ adminEmail }: { adminEmail: string }) {
           detail={`peak ${growth.peak30d} · 7d avg ${growth.avg7d}`}
         />
       </div>
+
+      <section className="admin-panel mb-4 overflow-hidden">
+        <div className="flex h-11 items-center justify-between border-b border-white/[0.06] px-4">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">
+            Cashflow · {hourly ? "hour by hour (12am → 12am, Nairobi)" : "day by day"}
+          </h2>
+          <div className="flex gap-3 text-[9px] font-bold">
+            <span className="flex items-center gap-1 text-emerald-400"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />Deposits</span>
+            <span className="flex items-center gap-1 text-orange-400"><span className="h-1.5 w-1.5 rounded-full bg-orange-400" />Withdrawals</span>
+          </div>
+        </div>
+        <div className="h-[240px] p-3">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={series.points} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="cpDep" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.3} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
+                <linearGradient id="cpWd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f97316" stopOpacity={0.25} /><stop offset="100%" stopColor="#f97316" stopOpacity={0} /></linearGradient>
+              </defs>
+              <CartesianGrid stroke="rgba(255,255,255,.04)" vertical={false} />
+              <XAxis dataKey="t" tickFormatter={(v: string) => (hourly ? v : v.slice(5))} tick={{ fill: "#475569", fontSize: 9 }} axisLine={false} tickLine={false} interval={hourly ? 2 : "preserveStartEnd"} />
+              <YAxis tickFormatter={(v: number) => (Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}K` : String(v))} tick={{ fill: "#475569", fontSize: 9 }} axisLine={false} tickLine={false} width={42} />
+              <Tooltip contentStyle={{ background: "#0b0f16", border: "1px solid rgba(255,255,255,.08)", borderRadius: 8, fontSize: 11 }} formatter={(v) => money(Number(v ?? 0))} />
+              <Area type="monotone" dataKey="deposits" stroke="#10b981" fill="url(#cpDep)" strokeWidth={1.5} dot={false} />
+              <Area type="monotone" dataKey="withdrawals" stroke="#f97316" fill="url(#cpWd)" strokeWidth={1.5} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
 
       <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
         <div>

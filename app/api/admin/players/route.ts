@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
-import { rangeWindow } from "@/lib/admin/metrics";
+import { rangeWindow, nairobiDayKey, nairobiMidnight, EAT_OFFSET_MS } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
 
 async function requireAdmin() {
@@ -17,7 +17,7 @@ async function requireAdmin() {
   return true;
 }
 
-const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+const dayKey = nairobiDayKey;
 
 // Players / Growth feed (Phase 3). The acquisition + base-health screen: signup
 // trend with peak/avg, active-user counts, KYC funnel, and a real-money balance
@@ -31,12 +31,12 @@ export async function GET(req: Request) {
   const since = window.start;                      // signup trend + peak cover the full window
   const spanDays = Math.max(1, Math.ceil((window.end.getTime() - since.getTime()) / 86_400_000));
   const chartDays = Math.min(spanDays, 92);        // cap chart buckets so long ranges don't explode
-  const chartEnd = new Date(window.end.getTime() - 1);
-  const chartStart = new Date(chartEnd);
-  chartStart.setHours(0, 0, 0, 0);
-  chartStart.setDate(chartStart.getDate() - (chartDays - 1));
+  // Anchor the series on Nairobi midnights so each bucket is a local day.
+  const chartEndEat = new Date((window.end.getTime() - 1) + EAT_OFFSET_MS);
+  chartEndEat.setUTCHours(0, 0, 0, 0);
+  const chartStart = new Date(chartEndEat.getTime() - EAT_OFFSET_MS - (chartDays - 1) * 86_400_000);
 
-  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday = nairobiMidnight(0);
   const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const last7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const last30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -60,7 +60,7 @@ export async function GET(req: Request) {
     db.merchantProfile.count({ where: { kycStatus: "APPROVED" } }),
     db.merchantProfile.count({ where: { kycStatus: "REJECTED" } }),
     db.$queryRaw<Array<{ day: Date; count: bigint }>>`
-      SELECT date_trunc('day', created_at)::date AS day, COUNT(*)::int AS count
+      SELECT date_trunc('day', created_at AT TIME ZONE 'Africa/Nairobi')::date AS day, COUNT(*)::int AS count
       FROM users WHERE created_at >= ${since} AND created_at < ${window.end}
       GROUP BY day ORDER BY day`,
     db.user.findMany({
@@ -76,7 +76,7 @@ export async function GET(req: Request) {
 
   // Seed every day so the chart has no gaps; overlay the grouped counts.
   const series: Record<string, { date: string; signups: number }> = {};
-  for (let i = 0; i < chartDays; i++) { const d = new Date(chartStart); d.setDate(d.getDate() + i); series[dayKey(d)] = { date: dayKey(d), signups: 0 }; }
+  for (let i = 0; i < chartDays; i++) { const d = new Date(chartStart.getTime() + i * 86_400_000); series[dayKey(d)] = { date: dayKey(d), signups: 0 }; }
   let peak = 0;
   for (const r of signupRows) {
     const k = dayKey(new Date(r.day));
