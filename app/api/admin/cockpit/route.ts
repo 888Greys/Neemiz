@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
-import { getMarketScorecards, rangeWindow } from "@/lib/admin/metrics";
+import { getMarketScorecards, rangeWindow, nairobiHourKey, nairobiDayKey, EAT_OFFSET_MS } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
 import { TransactionStatus } from "@prisma/client";
 
@@ -47,6 +47,7 @@ export async function GET(req: Request) {
     pendingKyc,
     pendingDeposits,
     unsettledSports,
+    flowRows,
   ] = await Promise.all([
     getMarketScorecards({ window, country: "KE" }),
     db.transaction.aggregate({
@@ -78,7 +79,54 @@ export async function GET(req: Request) {
     // Settlement health: sports bets stuck PENDING past 24h (the known
     // getFixtureDetail stateId-5 bug). Surfaced so the owner sees it bite.
     db.bet.count({ where: { status: "PENDING", createdAt: { lt: dayAgo } } }),
+    // Cashflow movements within the window, for the deposits/withdrawals trend.
+    db.transaction.findMany({
+      where: {
+        OR: [
+          { type: "DEPOSIT", provider: { in: REAL_DEPOSIT_PROVIDERS } },
+          { type: "WITHDRAWAL", provider: { in: REAL_WITHDRAWAL_PROVIDERS } },
+        ],
+        status: "COMPLETED", currency: "KES",
+        createdAt: { gte: window.start, lt: window.end }, ...notExcluded,
+      },
+      select: { type: true, amount: true, createdAt: true },
+    }),
   ]);
+
+  // Trend series: hourly buckets for a single Nairobi day (≤ ~25h window, i.e.
+  // "Today" or a picked day) so the owner sees the 12am→12am shape; daily
+  // buckets for longer ranges. Always seeded so the axis has no gaps.
+  const spanMs = window.end.getTime() - window.start.getTime();
+  const hourly = spanMs <= 25 * 60 * 60 * 1000;
+  const seriesMap: Record<string, { t: string; deposits: number; withdrawals: number; net: number }> = {};
+  if (hourly) {
+    // 24 fixed hours from the window's Nairobi midnight.
+    const eat = new Date(window.start.getTime() + EAT_OFFSET_MS);
+    eat.setUTCHours(0, 0, 0, 0);
+    const base = eat.getTime() - EAT_OFFSET_MS;
+    for (let h = 0; h < 24; h++) {
+      const k = nairobiHourKey(new Date(base + h * 3_600_000));
+      seriesMap[k] = { t: k, deposits: 0, withdrawals: 0, net: 0 };
+    }
+  } else {
+    const dayCount = Math.min(92, Math.max(1, Math.ceil(spanMs / 86_400_000)));
+    const eat = new Date(window.start.getTime() + EAT_OFFSET_MS);
+    eat.setUTCHours(0, 0, 0, 0);
+    const base = eat.getTime() - EAT_OFFSET_MS;
+    for (let i = 0; i < dayCount; i++) {
+      const k = nairobiDayKey(new Date(base + i * 86_400_000));
+      seriesMap[k] = { t: k, deposits: 0, withdrawals: 0, net: 0 };
+    }
+  }
+  for (const r of flowRows) {
+    const k = hourly ? nairobiHourKey(r.createdAt) : nairobiDayKey(r.createdAt);
+    const b = seriesMap[k];
+    if (!b) continue;
+    const amt = Number(r.amount);
+    if (r.type === "DEPOSIT") { b.deposits += amt; b.net += amt; }
+    else { b.withdrawals += amt; b.net -= amt; }
+  }
+  const series = Object.values(seriesMap);
 
   const ggrToday = markets.reduce((s, m) => s + m.ggr, 0);
   const deposits = Number(depositsToday._sum.amount ?? 0);
@@ -101,6 +149,7 @@ export async function GET(req: Request) {
       avg7d: Math.round(signups7d / 7),
       peak30d,
     },
+    series: { granularity: hourly ? "hour" : "day", points: series },
     markets,
     alerts: {
       pendingWithdrawals,
