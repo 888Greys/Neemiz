@@ -34,6 +34,7 @@ interface MarketMetric {
 }
 interface MarketDetail {
   metric: MarketMetric;
+  granularity: "hour" | "day";
   series: { date: string; ggr: number }[];
   openPositions: { id: string; user: string; label: string; amount: number }[];
   topPlayers: { user: string; net: number }[];
@@ -145,7 +146,7 @@ export function MarketDetailClient({ marketKey }: { marketKey: MarketKey }) {
 
           <section className="admin-panel mb-4 overflow-hidden">
             <div className="flex h-11 items-center justify-between border-b border-white/[0.06] px-4">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{isP2P ? "Fees" : "GGR"} — last 14 days</h2>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">{isP2P ? "Fees" : "GGR"} — {data.granularity === "hour" ? "hour by hour (12am → 12am, Nairobi)" : "by day"}</h2>
               <span className="text-[9px] font-bold text-slate-700">{isP2P ? "platform take" : "stakes − payouts"}</span>
             </div>
             <div className="h-[220px] p-3">
@@ -158,7 +159,7 @@ export function MarketDetailClient({ marketKey }: { marketKey: MarketKey }) {
                     </linearGradient>
                   </defs>
                   <CartesianGrid stroke="rgba(255,255,255,.04)" vertical={false} />
-                  <XAxis dataKey="date" tickFormatter={(v: string) => v.slice(5)} tick={{ fill: "#475569", fontSize: 9 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="date" tickFormatter={(v: string) => (data.granularity === "hour" ? v : v.slice(5))} tick={{ fill: "#475569", fontSize: 9 }} axisLine={false} tickLine={false} interval={data.granularity === "hour" ? 2 : "preserveStartEnd"} />
                   <YAxis tickFormatter={(v: number) => Math.abs(v) >= 1000 ? `${Math.round(v / 1000)}K` : String(v)} tick={{ fill: "#475569", fontSize: 9 }} axisLine={false} tickLine={false} width={42} />
                   <Tooltip contentStyle={{ background: "#0b0f16", border: "1px solid rgba(255,255,255,.08)", borderRadius: 8, fontSize: 11 }} formatter={(v) => money(Number(v ?? 0))} />
                   <Area type="monotone" dataKey="ggr" stroke="#087cff" fill="url(#mktGgr)" strokeWidth={1.5} dot={false} />
