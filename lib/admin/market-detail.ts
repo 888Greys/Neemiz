@@ -334,6 +334,41 @@ async function p2pDetail(base: object, w: Window): Promise<Omit<MarketDetail, "m
   };
 }
 
+// Aviator runs on the Go crash engine, which records to the transaction ledger
+// (provider="aviator-service") rather than the legacy `aviator_bets` table. So
+// its deep-dive — like the cockpit metric — must read the ledger: BET_STAKE adds
+// to house GGR, BET_WIN and REFUND subtract. Rounds are seconds long, so there
+// are no meaningful open positions to surface.
+async function aviatorDetail(base: object, w: Window): Promise<Omit<MarketDetail, "metric" | "health" | "granularity">> {
+  const range = { gte: w.start, lt: w.end };
+  const led = { ...base, provider: "aviator-service", status: "COMPLETED" as const, createdAt: range };
+  const { key, map } = seriesBuckets(w);
+
+  const [stakeRows, winRows, refundRows] = await Promise.all([
+    db.transaction.findMany({ where: { ...led, type: "BET_STAKE" }, select: { userId: true, createdAt: true, amount: true } }),
+    db.transaction.findMany({ where: { ...led, type: "BET_WIN" }, select: { userId: true, createdAt: true, amount: true } }),
+    db.transaction.findMany({ where: { ...led, type: "REFUND" }, select: { userId: true, createdAt: true, amount: true } }),
+  ]);
+
+  const net = new Map<string, number>(); // userId → player net (wins + refunds − stakes)
+  const bump = (id: string, v: number) => net.set(id, (net.get(id) ?? 0) + v);
+  for (const r of stakeRows)  { const k = key(r.createdAt); if (k in map) map[k] += num(r.amount); bump(r.userId, -num(r.amount)); }
+  for (const r of winRows)    { const k = key(r.createdAt); if (k in map) map[k] -= num(r.amount); bump(r.userId, +num(r.amount)); }
+  for (const r of refundRows) { const k = key(r.createdAt); if (k in map) map[k] -= num(r.amount); bump(r.userId, +num(r.amount)); }
+
+  const top = [...net.entries()].filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const users = top.length
+    ? await db.user.findMany({ where: { id: { in: top.map(([id]) => id) } }, select: { id: true, username: true, email: true } })
+    : [];
+  const byId = new Map(users.map((u) => [u.id, displayUser(u)]));
+
+  return {
+    series: Object.entries(map).sort(([a], [b]) => a.localeCompare(b)).map(([date, ggr]) => ({ date, ggr: Math.round(ggr) })),
+    openPositions: [],
+    topPlayers: top.map(([id, v]) => ({ user: byId.get(id) ?? "unknown", net: Math.round(v) })),
+  };
+}
+
 // ─── Per-market health strips ─────────────────────────────────────────────────
 
 async function healthFor(key: MarketKey): Promise<HealthItem[]> {
@@ -390,6 +425,7 @@ export async function getMarketDetail(
     (async (): Promise<Omit<MarketDetail, "metric" | "health" | "granularity">> => {
       if (key === "forex") return forexDetail(base, seriesWindow);
       if (key === "p2p") return p2pDetail({}, seriesWindow);
+      if (key === "aviator") return aviatorDetail(base, seriesWindow);
       const sources = SOURCES[key]!;
       const [series, openPositions, topPlayers] = await Promise.all([
         bettingSeries(sources, base, seriesWindow),
