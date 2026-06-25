@@ -3,6 +3,7 @@ import { getExcludedUserIds } from "@/lib/admin-excluded";
 import {
   getMarketScorecard,
   windowOf,
+  EAT_OFFSET_MS,
   type MarketKey,
   type MarketMetric,
   type CountryCode,
@@ -64,17 +65,22 @@ type Source = {
 };
 
 const num = (v: unknown): number => Number(v ?? 0);
-const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+// Day buckets are Nairobi calendar days: shift the instant into EAT before
+// slicing the date, so a row at 01:00 EAT lands on the right local day rather
+// than the previous UTC day.
+const dayKey = (d: Date) => new Date(d.getTime() + EAT_OFFSET_MS).toISOString().slice(0, 10);
 const displayUser = (u: UserSel | undefined | null) =>
   u?.username ?? u?.email ?? "unknown";
 
 function seedSeries(w: Window): Record<string, number> {
   const map: Record<string, number> = {};
-  const cur = new Date(w.start);
-  cur.setHours(0, 0, 0, 0);
-  while (cur < w.end) {
-    map[dayKey(cur)] = 0;
-    cur.setDate(cur.getDate() + 1);
+  // Walk one EAT day at a time from the Nairobi-midnight of the window start.
+  const startEat = new Date(w.start.getTime() + EAT_OFFSET_MS);
+  startEat.setUTCHours(0, 0, 0, 0);
+  let cur = startEat.getTime() - EAT_OFFSET_MS;
+  while (cur < w.end.getTime()) {
+    map[dayKey(new Date(cur))] = 0;
+    cur += 24 * 60 * 60 * 1000;
   }
   return map;
 }

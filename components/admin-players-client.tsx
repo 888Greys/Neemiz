@@ -9,7 +9,7 @@ import {
 } from "recharts";
 import { Icon } from "@/components/icon";
 import { RangeTabs } from "@/components/admin-range-tabs";
-import { type AdminRange } from "@/lib/admin/ranges";
+import { type AdminRangeValue } from "@/lib/admin/ranges";
 
 // ─── Players / Growth screen (Phase 3) ────────────────────────────────────────
 // Acquisition + base-health, reading /api/admin/players. Same primitives:
@@ -68,11 +68,11 @@ function LeaderPanel({ title, icon, rows, metricLabel }: { title: string; icon: 
 }
 
 export function PlayersClient() {
-  const [range, setRange] = useState<AdminRange>("today");
+  const [range, setRange] = useState<AdminRangeValue>("today");
   const [data, setData] = useState<Players | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (r: AdminRange) => {
+  const load = useCallback(async (r: AdminRangeValue) => {
     const url = `/api/admin/players?range=${r}`;
     const cached = getCached<Players>(url);
     if (cached) setData(cached);

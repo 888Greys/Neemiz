@@ -9,7 +9,7 @@ import {
 } from "recharts";
 import { Icon } from "@/components/icon";
 import { RangeTabs } from "@/components/admin-range-tabs";
-import { type AdminRange } from "@/lib/admin/ranges";
+import { type AdminRangeValue } from "@/lib/admin/ranges";
 
 // ─── Money screen (Phase 3) ───────────────────────────────────────────────────
 // Cashflow consolidation, reading /api/admin/money. Same primitives as the
@@ -80,11 +80,11 @@ function ProviderPanel({ title, rows, total }: { title: string; rows: ProviderRo
 }
 
 export function MoneyClient() {
-  const [range, setRange] = useState<AdminRange>("today");
+  const [range, setRange] = useState<AdminRangeValue>("today");
   const [data, setData] = useState<Money | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (r: AdminRange) => {
+  const load = useCallback(async (r: AdminRangeValue) => {
     const url = `/api/admin/money?range=${r}`;
     const cached = getCached<Money>(url);
     if (cached) setData(cached);

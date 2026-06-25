@@ -19,7 +19,7 @@ const SECTIONS: { name: string; nodes: Node[] }[] = [
     name: "Monitor",
     nodes: [
       { type: "link", href: "/admin", label: "Cockpit", icon: "dashboard" },
-      { type: "link", href: "/admin/activity", label: "Activity", icon: "monitoring" },
+      // Players merges the old growth screen + user directory (two tabs).
       { type: "link", href: "/admin/players", label: "Players", icon: "groups_2" },
       {
         type: "tree", label: "Markets", icon: "stacked_bar_chart", base: "/admin/markets",
@@ -37,7 +37,6 @@ const SECTIONS: { name: string; nodes: Node[] }[] = [
   {
     name: "Operate",
     nodes: [
-      { type: "link", href: "/admin/users", label: "Users", icon: "groups" },
       { type: "link", href: "/admin/p2p", label: "P2P ops", icon: "handshake" },
       { type: "link", href: "/admin/withdrawals", label: "Approvals", icon: "approval" },
       { type: "link", href: "/admin/broadcast", label: "Broadcast", icon: "campaign" },
@@ -46,8 +45,8 @@ const SECTIONS: { name: string; nodes: Node[] }[] = [
   {
     name: "Analyze",
     nodes: [
+      // Money merges cashflow/treasury + the daily P&L statement (two tabs).
       { type: "link", href: "/admin/money", label: "Money", icon: "payments" },
-      { type: "link", href: "/admin/profits", label: "Finance", icon: "account_balance" },
       { type: "link", href: "/admin/crypto", label: "Crypto", icon: "currency_bitcoin" },
     ],
   },

@@ -1,6 +1,7 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { AdminShell } from "@/components/admin-shell";
-import { MoneyClient } from "@/components/admin-money-client";
+import { AdminTreasuryClient } from "@/components/admin-treasury-client";
 
 export const metadata = { title: "Money · Nezeem Admin" };
 
@@ -9,7 +10,9 @@ export default async function MoneyPage() {
   const { data: { user } } = await supabase.auth.getUser();
   return (
     <AdminShell adminEmail={user?.email ?? ""}>
-      <MoneyClient />
+      <Suspense>
+        <AdminTreasuryClient />
+      </Suspense>
     </AdminShell>
   );
 }
