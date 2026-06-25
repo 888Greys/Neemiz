@@ -4,6 +4,7 @@ import {
   getMarketScorecard,
   windowOf,
   EAT_OFFSET_MS,
+  nairobiHourKey,
   type MarketKey,
   type MarketMetric,
   type CountryCode,
@@ -33,6 +34,8 @@ export type HealthItem = { label: string; detail: string; tone: "ok" | "warn" | 
 
 export type MarketDetail = {
   metric: MarketMetric;
+  /** "hour" when the chart covers a single Nairobi day, else "day". */
+  granularity: "hour" | "day";
   series: SeriesPoint[];
   openPositions: OpenPosition[];
   topPlayers: PlayerPnl[];
@@ -72,21 +75,41 @@ const dayKey = (d: Date) => new Date(d.getTime() + EAT_OFFSET_MS).toISOString().
 const displayUser = (u: UserSel | undefined | null) =>
   u?.username ?? u?.email ?? "unknown";
 
-function seedSeries(w: Window): Record<string, number> {
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+const SERIES_DAY_CAP = 92; // keep long ranges ("All") from exploding the chart
+
+/**
+ * Buckets for the GGR/fees chart, driven by the selected window so the chart
+ * follows the range filter (it used to be pinned to a fixed 14 days). A window
+ * spanning a single Nairobi day ("Today" / a picked day) is bucketed hour-by-hour
+ * (12am→12am) like the cockpit; longer ranges are daily, capped to the most
+ * recent SERIES_DAY_CAP days. Returns the seeded map plus the matching keyer so
+ * callers bucket their rows the same way.
+ */
+function seriesBuckets(w: Window): { hourly: boolean; key: (d: Date) => string; map: Record<string, number> } {
+  const hourly = w.end.getTime() - w.start.getTime() <= 25 * HOUR_MS;
+  const key = hourly ? nairobiHourKey : dayKey;
   const map: Record<string, number> = {};
-  // Walk one EAT day at a time from the Nairobi-midnight of the window start.
+
+  // Nairobi midnight at/just-before the window start.
   const startEat = new Date(w.start.getTime() + EAT_OFFSET_MS);
   startEat.setUTCHours(0, 0, 0, 0);
-  let cur = startEat.getTime() - EAT_OFFSET_MS;
-  while (cur < w.end.getTime()) {
-    map[dayKey(new Date(cur))] = 0;
-    cur += 24 * 60 * 60 * 1000;
+  const midnight = startEat.getTime() - EAT_OFFSET_MS;
+
+  if (hourly) {
+    for (let h = 0; h < 24; h++) map[key(new Date(midnight + h * HOUR_MS))] = 0;
+  } else {
+    const fullDays = Math.max(1, Math.ceil((w.end.getTime() - midnight) / DAY_MS));
+    const count = Math.min(SERIES_DAY_CAP, fullDays);
+    const base = midnight + (fullDays - count) * DAY_MS; // show the most recent `count` days
+    for (let i = 0; i < count; i++) map[key(new Date(base + i * DAY_MS))] = 0;
   }
-  return map;
+  return { hourly, key, map };
 }
 
 async function bettingSeries(sources: Source[], base: object, w: Window): Promise<SeriesPoint[]> {
-  const map = seedSeries(w);
+  const { key, map } = seriesBuckets(w);
   const range = { gte: w.start, lt: w.end };
 
   await Promise.all(sources.flatMap((s) => [
@@ -94,7 +117,7 @@ async function bettingSeries(sources: Source[], base: object, w: Window): Promis
       .findMany({ where: { ...base, [s.stakeTime]: range }, select: { [s.stakeTime]: true, [s.stakeField]: true } })
       .then((rows) => {
         for (const r of rows) {
-          const k = dayKey(r[s.stakeTime] as Date);
+          const k = key(r[s.stakeTime] as Date);
           if (k in map) map[k] += num(r[s.stakeField]);
         }
       }),
@@ -102,7 +125,7 @@ async function bettingSeries(sources: Source[], base: object, w: Window): Promis
       .findMany({ where: { ...base, ...s.payoutWhere, [s.payoutTime]: range }, select: { [s.payoutTime]: true, [s.payoutField]: true } })
       .then((rows) => {
         for (const r of rows) {
-          const k = dayKey(r[s.payoutTime] as Date);
+          const k = key(r[s.payoutTime] as Date);
           if (k in map) map[k] -= num(r[s.payoutField]);
         }
       }),
@@ -218,9 +241,9 @@ const SOURCES: Partial<Record<MarketKey, Source[]>> = {
 
 // ─── Forex & P2P (non-generic) ────────────────────────────────────────────────
 
-async function forexDetail(base: object, w: Window): Promise<Omit<MarketDetail, "metric" | "health">> {
+async function forexDetail(base: object, w: Window): Promise<Omit<MarketDetail, "metric" | "health" | "granularity">> {
   const range = { gte: w.start, lt: w.end };
-  const map = seedSeries(w);
+  const { key, map } = seriesBuckets(w);
 
   const [closed, open, byUser] = await Promise.all([
     (db.forexTrade as unknown as Delegate).findMany({
@@ -238,7 +261,7 @@ async function forexDetail(base: object, w: Window): Promise<Omit<MarketDetail, 
   ]);
 
   for (const r of closed) {
-    const k = dayKey(r.closedAt as Date);
+    const k = key(r.closedAt as Date);
     if (k in map) map[k] += -num(r.profitLoss); // house GGR = −player P&L
   }
 
@@ -264,9 +287,9 @@ async function forexDetail(base: object, w: Window): Promise<Omit<MarketDetail, 
   };
 }
 
-async function p2pDetail(base: object, w: Window): Promise<Omit<MarketDetail, "metric" | "health">> {
+async function p2pDetail(base: object, w: Window): Promise<Omit<MarketDetail, "metric" | "health" | "granularity">> {
   const range = { gte: w.start, lt: w.end };
-  const map = seedSeries(w);
+  const { key, map } = seriesBuckets(w);
 
   const [feeRows, open, volByUser] = await Promise.all([
     db.transaction.findMany({
@@ -286,7 +309,7 @@ async function p2pDetail(base: object, w: Window): Promise<Omit<MarketDetail, "m
   for (const r of feeRows) {
     const meta = r.metadata as { feeKesAmount?: unknown } | null;
     const fee = Number(meta?.feeKesAmount);
-    const k = dayKey(r.createdAt);
+    const k = key(r.createdAt);
     if (k in map && Number.isFinite(fee) && fee >= 0) map[k] += fee;
   }
 
@@ -348,8 +371,12 @@ export async function getMarketDetail(
   opts?: { window?: Window; seriesDays?: number; country?: CountryCode },
 ): Promise<MarketDetail> {
   const country = opts?.country ?? "KE";
-  const seriesWindow = windowOf(opts?.seriesDays ?? 14);
-  const playerWindow = opts?.window ?? seriesWindow;
+  // The chart now follows the selected range (was pinned to a fixed 14 days).
+  // Fall back to the last 14 days only when no window is supplied.
+  const seriesWindow = opts?.window ?? windowOf(opts?.seriesDays ?? 14);
+  const playerWindow = seriesWindow;
+  const granularity: "hour" | "day" =
+    seriesWindow.end.getTime() - seriesWindow.start.getTime() <= 25 * HOUR_MS ? "hour" : "day";
 
   const excludedIds = await getExcludedUserIds();
   const notExcluded = excludedIds.length ? { userId: { notIn: excludedIds } } : {};
@@ -360,7 +387,7 @@ export async function getMarketDetail(
   const [metric, health, body] = await Promise.all([
     getMarketScorecard(key, { window: opts?.window, country }),
     healthFor(key),
-    (async (): Promise<Omit<MarketDetail, "metric" | "health">> => {
+    (async (): Promise<Omit<MarketDetail, "metric" | "health" | "granularity">> => {
       if (key === "forex") return forexDetail(base, seriesWindow);
       if (key === "p2p") return p2pDetail({}, seriesWindow);
       const sources = SOURCES[key]!;
@@ -373,5 +400,5 @@ export async function getMarketDetail(
     })(),
   ]);
 
-  return { metric, health, ...body };
+  return { metric, health, granularity, ...body };
 }

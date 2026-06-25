@@ -22,7 +22,10 @@ export function AdminTreasuryClient() {
 
   return (
     <div>
-      <div className="admin-page pb-0">
+      {/* Slim tab strip — must NOT use `admin-page` (its min-height:100vh would
+          push the tab content a full viewport down, since the child below is
+          itself an `admin-page`). */}
+      <div className="mx-auto w-full max-w-[1640px] px-3 pt-4 sm:px-6">
         <div className="flex gap-0.5 rounded-lg border border-white/[0.08] bg-white/[0.02] p-0.5">
           {tabs.map((t) => (
             <button
