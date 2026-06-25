@@ -9,7 +9,7 @@ import {
 } from "recharts";
 import { Icon } from "@/components/icon";
 import { RangeTabs } from "@/components/admin-range-tabs";
-import { type AdminRange } from "@/lib/admin/ranges";
+import { type AdminRangeValue } from "@/lib/admin/ranges";
 
 // ─── Market deep-dive template (Phase 2) ──────────────────────────────────────
 // ONE component, rendered for all 6 markets. Reads /api/admin/markets/[key].
@@ -87,11 +87,11 @@ function RankPanel({ title, icon, rows, empty }: {
 export function MarketDetailClient({ marketKey }: { marketKey: MarketKey }) {
   const meta = MARKET_META[marketKey];
   const isP2P = marketKey === "p2p";
-  const [range, setRange] = useState<AdminRange>("today");
+  const [range, setRange] = useState<AdminRangeValue>("today");
   const [data, setData] = useState<MarketDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async (r: AdminRange) => {
+  const load = useCallback(async (r: AdminRangeValue) => {
     const url = `/api/admin/markets/${marketKey}?range=${r}`;
     const cached = getCached<MarketDetail>(url);
     if (cached) setData(cached);

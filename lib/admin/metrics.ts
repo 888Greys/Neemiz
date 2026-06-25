@@ -69,6 +69,41 @@ export type MarketMetric = {
 
 export type Window = { start: Date; end: Date };
 
+// ─── Nairobi-anchored day boundaries ─────────────────────────────────────────
+// The business is Kenya-only, so a "day" must mean a Nairobi calendar day —
+// 00:00→24:00 EAT — regardless of where the server process runs (Docker on the
+// nez VPS in France defaults to UTC). Kenya observes no DST, so EAT is a fixed
+// UTC+3 the year round and we can anchor every boundary with a constant offset
+// instead of pulling in a tz database. All returned Dates are absolute UTC
+// instants, which is exactly what Prisma compares timestamptz columns against.
+export const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+/** The UTC instant of Nairobi midnight, `daysAgo` Nairobi-days before today. */
+export function nairobiMidnight(daysAgo = 0): Date {
+  // Shift "now" into EAT wall-clock space, floor to midnight there, then shift
+  // the instant back to real UTC.
+  const eat = new Date(Date.now() + EAT_OFFSET_MS);
+  eat.setUTCHours(0, 0, 0, 0);
+  eat.setUTCDate(eat.getUTCDate() - daysAgo);
+  return new Date(eat.getTime() - EAT_OFFSET_MS);
+}
+
+/** Nairobi midnight for an explicit `YYYY-MM-DD` (interpreted as an EAT date). */
+export function nairobiMidnightOf(ymd: string): Date {
+  const [y, mo, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, mo - 1, d) - EAT_OFFSET_MS);
+}
+
+/** `YYYY-MM-DD` for the Nairobi calendar day an instant falls on. */
+export function nairobiDayKey(d: Date): string {
+  return new Date(d.getTime() + EAT_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+/** `HH:00` for the Nairobi clock-hour an instant falls on. */
+export function nairobiHourKey(d: Date): string {
+  return `${new Date(d.getTime() + EAT_OFFSET_MS).toISOString().slice(11, 13)}:00`;
+}
+
 /** Build a [start, end) window ending now. */
 export function windowOf(days: number): Window {
   const end = new Date();
@@ -78,38 +113,42 @@ export function windowOf(days: number): Window {
 }
 
 export function todayWindow(): Window {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  return { start, end: new Date() };
+  return { start: nairobiMidnight(0), end: new Date() };
 }
 
-/** The last *complete* day: [start of yesterday, start of today). */
+/** The last *complete* Nairobi day: [start of yesterday, start of today). */
 export function yesterdayWindow(): Window {
-  const end = new Date();
-  end.setHours(0, 0, 0, 0); // midnight today = end of yesterday
-  const start = new Date(end);
-  start.setDate(start.getDate() - 1);
-  return { start, end };
+  return { start: nairobiMidnight(1), end: nairobiMidnight(0) };
+}
+
+/** A single explicit Nairobi day: [its midnight, the next midnight). */
+export function dayWindow(ymd: string): Window {
+  const start = nairobiMidnightOf(ymd);
+  return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
 }
 
 export function monthToDateWindow(): Window {
-  const now = new Date();
-  return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
+  // First of the current month at Nairobi midnight.
+  const eat = new Date(Date.now() + EAT_OFFSET_MS);
+  const start = new Date(Date.UTC(eat.getUTCFullYear(), eat.getUTCMonth(), 1) - EAT_OFFSET_MS);
+  return { start, end: new Date() };
 }
 
-/** The last N calendar days incl. today: [midnight (N-1) days ago, now). */
+/** The last N Nairobi-calendar days incl. today: [midnight (N-1) days ago, now). */
 export function lastNDaysWindow(n: number): Window {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - (n - 1));
-  return { start, end: new Date() };
+  return { start: nairobiMidnight(n - 1), end: new Date() };
 }
 
 /**
  * Canonical window for an admin range token. Single source of truth shared by
  * every windowed admin API; the matching UI labels live in lib/admin/ranges.ts.
+ * A `day:YYYY-MM-DD` token selects one explicit Nairobi calendar day.
  */
 export function rangeWindow(range: string | null): Window {
+  if (range?.startsWith("day:")) {
+    const ymd = range.slice(4);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return dayWindow(ymd);
+  }
   switch (range) {
     case "yesterday": return yesterdayWindow();
     case "7d":  return lastNDaysWindow(7);

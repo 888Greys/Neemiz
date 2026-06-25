@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
+import { nairobiMidnight, nairobiDayKey, nairobiHourKey } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
 
 const REAL_DEPOSIT_PROVIDERS = ["megapay", "lipaharaka"];
@@ -29,13 +30,9 @@ export async function GET(req: Request) {
   // "Today" is plotted hour-by-hour so the graph isn't a single point.
   const hourly = days === 1;
 
-  const since = new Date();
-  if (hourly) {
-    since.setHours(0, 0, 0, 0); // start of today
-  } else {
-    since.setDate(since.getDate() - (days - 1));
-    since.setHours(0, 0, 0, 0);
-  }
+  // Nairobi midnight (today for hourly, N-1 days back otherwise) so buckets line
+  // up with the Kenya calendar regardless of the server's own timezone.
+  const since = hourly ? nairobiMidnight(0) : nairobiMidnight(days - 1);
 
   // Keep suspended exploiters + owner test accounts out of the real-money P&L
   // so every window (24H/7D/30D) reflects genuine players only.
@@ -124,26 +121,14 @@ export async function GET(req: Request) {
 
   const dayMap: Record<string, DayData> = {};
 
-  const pad = (n: number) => String(n).padStart(2, "0");
-  function key(d: Date) {
-    return hourly ? `${pad(d.getHours())}:00` : d.toISOString().slice(0, 10);
-  }
+  const key = (d: Date) => (hourly ? nairobiHourKey(d) : nairobiDayKey(d));
 
-  // Seed every bucket in the range (24 hours for today, else one per day).
-  if (hourly) {
-    for (let h = 0; h < 24; h++) {
-      const d = new Date(since);
-      d.setHours(h);
-      const k = key(d);
-      dayMap[k] = { date: k, deposits: 0, withdrawals: 0, betStakes: 0, betWins: 0, p2pFees: 0, grossProfit: 0 };
-    }
-  } else {
-    for (let i = 0; i < days; i++) {
-      const d = new Date(since);
-      d.setDate(d.getDate() + i);
-      const k = key(d);
-      dayMap[k] = { date: k, deposits: 0, withdrawals: 0, betStakes: 0, betWins: 0, p2pFees: 0, grossProfit: 0 };
-    }
+  // Seed every bucket in the range (24 Nairobi hours for today, else one per day).
+  const buckets = hourly ? 24 : days;
+  const step = hourly ? 3_600_000 : 86_400_000;
+  for (let i = 0; i < buckets; i++) {
+    const k = key(new Date(since.getTime() + i * step));
+    dayMap[k] = { date: k, deposits: 0, withdrawals: 0, betStakes: 0, betWins: 0, p2pFees: 0, grossProfit: 0 };
   }
 
   for (const r of deposits)    { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].deposits    += Number(r._sum.amount ?? 0); }

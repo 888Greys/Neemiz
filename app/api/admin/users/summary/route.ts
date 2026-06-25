@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
+import { nairobiMidnight } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
@@ -25,8 +26,7 @@ async function requireAdmin() {
 export async function GET() {
   if (!(await requireAdmin())) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
+  const startOfDay = nairobiMidnight(0); // Nairobi midnight
 
   const [
     totalUsers,

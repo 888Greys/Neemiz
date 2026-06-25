@@ -19,10 +19,14 @@ export async function GET(req: Request) {
   if (!secret) return Response.json({ error: "CRON_SECRET is not configured" }, { status: 503 });
   if (auth !== `Bearer ${secret}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  // M-Pesa STK prompts normally expire quickly. Keep the default conservative so
-  // delayed callbacks still have ample time; a paid callback may also revive a
-  // row after it expires here.
-  const staleMinutes = Math.max(10, Number(process.env.LIPAHARAKA_DEPOSIT_STALE_MINUTES ?? "30"));
+  // M-Pesa STK prompts expire fast and, in production, every PAID Lipa callback
+  // has arrived within ~70s of initiation (measured over 7 days: 222/235 inside
+  // 30s, max 67s). A deposit still PENDING after a few minutes is therefore an
+  // abandoned/declined prompt, not a slow success — so expire it promptly to keep
+  // the wallet/cockpit honest and let the user retry, rather than leaving it
+  // "processing" for half an hour. Staying safe in the rare slow case: the webhook
+  // atomically accepts FAILED deposits, so a late paid callback still credits once.
+  const staleMinutes = Math.max(3, Number(process.env.LIPAHARAKA_DEPOSIT_STALE_MINUTES ?? "5"));
   const cutoff = new Date(Date.now() - staleMinutes * 60_000);
 
   const stale = await db.transaction.findMany({

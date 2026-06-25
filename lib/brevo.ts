@@ -47,6 +47,42 @@ export async function sendLowFloatAlertEmail(amountKes: number, msisdn?: string)
   await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
 }
 
+/**
+ * Consolidated owner alert when one or more business-health metrics breach their
+ * thresholds (deposit/payout/settlement). One email lists every firing metric.
+ */
+export async function sendBusinessMetricAlertEmail(
+  alerts: Array<{ title: string; detail: string; link: string; severity: "warn" | "critical" }>,
+) {
+  if (alerts.length === 0) return;
+  const hasCritical = alerts.some((a) => a.severity === "critical");
+  const subject = `${hasCritical ? "🔴" : "🟠"} Nezeem health alert — ${alerts.length} metric${alerts.length > 1 ? "s" : ""} need attention`;
+  const rows = alerts.map((a) => {
+    const accent = a.severity === "critical" ? "#e53e3e" : "#f59e0b";
+    return `
+      <div style="background:#fafbfc;border:1px solid #e8ebef;border-left:4px solid ${accent};border-radius:0 10px 10px 0;padding:14px 18px;margin-bottom:12px;">
+        <p style="margin:0 0 4px;font-size:11px;font-weight:800;color:${accent};text-transform:uppercase;letter-spacing:1px;">${a.severity === "critical" ? "Critical" : "Warning"}</p>
+        <p style="margin:0 0 6px;font-size:15px;font-weight:800;color:#17192a;">${escapeHtml(a.title)}</p>
+        <p style="margin:0;font-size:13px;color:#4a5568;line-height:1.6;">${escapeHtml(a.detail)}</p>
+      </div>`;
+  }).join("");
+
+  await sendEmail(
+    ADMIN_EMAIL,
+    "Nezeem Admin",
+    subject,
+    emailWrapper(`
+      <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:${hasCritical ? "#e53e3e" : "#f59e0b"};text-transform:uppercase;letter-spacing:1px;">Platform Health</p>
+      <h2 style="margin:0 0 16px;font-size:22px;font-weight:800;color:#1a1a2e;">${alerts.length} metric${alerts.length > 1 ? "s" : ""} need attention</h2>
+      <p style="margin:0 0 20px;font-size:14px;color:#4a5568;line-height:1.7;">
+        Automated health check flagged the following on the money-movement spine. Open the admin console to investigate.
+      </p>
+      ${rows}
+      ${ctaButton(`${APP_URL}/admin`, "Open admin console →", hasCritical ? "#e53e3e" : "#087cff")}
+    `, "Automated health alert. You receive this because you're an owner/admin.", subject)
+  );
+}
+
 export async function waitForEmailDelivery(
   label: string,
   emails: Array<Promise<unknown> | null | undefined>,

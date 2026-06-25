@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
-import { rangeWindow } from "@/lib/admin/metrics";
+import { rangeWindow, nairobiDayKey, EAT_OFFSET_MS } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
 import { TransactionStatus } from "@prisma/client";
 
@@ -22,7 +22,7 @@ async function requireAdmin() {
   return true;
 }
 
-const dayKey = (d: Date) => d.toISOString().slice(0, 10);
+const dayKey = nairobiDayKey;
 
 // Money screen feed (Phase 3). Cashflow consolidation: deposits vs withdrawals
 // with a daily series, provider breakdown, fee revenue, ledger GGR, the
@@ -36,10 +36,10 @@ export async function GET(req: Request) {
   const since = window.start;                      // totals/breakdown cover the full window
   const spanDays = Math.max(1, Math.ceil((window.end.getTime() - since.getTime()) / 86_400_000));
   const chartDays = Math.min(spanDays, 92);        // cap the daily series so long ranges don't explode
-  const chartEnd = new Date(window.end.getTime() - 1);
-  const chartStart = new Date(chartEnd);
-  chartStart.setHours(0, 0, 0, 0);
-  chartStart.setDate(chartStart.getDate() - (chartDays - 1));
+  // Anchor the series on Nairobi midnights so each bucket is a local day.
+  const chartEndEat = new Date((window.end.getTime() - 1) + EAT_OFFSET_MS);
+  chartEndEat.setUTCHours(0, 0, 0, 0);
+  const chartStart = new Date(chartEndEat.getTime() - EAT_OFFSET_MS - (chartDays - 1) * 86_400_000);
 
   const excludedIds = await getExcludedUserIds();
   const notExcluded = excludedIds.length ? { userId: { notIn: excludedIds } } : {};
@@ -67,7 +67,7 @@ export async function GET(req: Request) {
   // Seed every day in range so the chart has no gaps.
   const series: Record<string, { date: string; deposits: number; withdrawals: number; net: number }> = {};
   for (let i = 0; i < chartDays; i++) {
-    const d = new Date(chartStart); d.setDate(d.getDate() + i);
+    const d = new Date(chartStart.getTime() + i * 86_400_000);
     series[dayKey(d)] = { date: dayKey(d), deposits: 0, withdrawals: 0, net: 0 };
   }
 
