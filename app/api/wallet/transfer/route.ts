@@ -5,6 +5,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
 import { dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 
 const recipientSelect = {
   id: true,
@@ -48,6 +49,9 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const killed = withdrawalsDisabledResponse();
+  if (killed) return killed;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });

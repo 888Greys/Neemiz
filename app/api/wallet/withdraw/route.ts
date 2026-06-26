@@ -6,6 +6,7 @@ import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsLowFloat } from "@/lib/admin-alert";
 import { withdrawalDayReset, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
+import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -17,6 +18,9 @@ function normalizeMsisdn(phone: string): string {
 
 export async function POST(req: Request) {
   try {
+    const killed = withdrawalsDisabledResponse();
+    if (killed) return killed;
+
     if (process.env.LIPAHARAKA_WITHDRAWALS_ENABLED !== "true") {
       return Response.json({ error: "M-Pesa withdrawals are temporarily paused for reconciliation." }, { status: 503 });
     }
@@ -61,9 +65,6 @@ export async function POST(req: Request) {
     // Gate: amounts > 1,000,000 KES or > 10 withdrawals today require admin approval
     const { withdrawalId, dbUserId, needsApproval } = await db.$transaction(async (tx) => {
       const dbUser = await getOrCreateUser(user.id, { email: user.email });
-      const balance = Number(dbUser.walletBalance);
-
-      if (balance < amountKes) throw new Error("INSUFFICIENT_BALANCE");
 
       // Daily cap is shared across cash-out vectors: M-Pesa withdrawals AND
       // outgoing wallet transfers both count (see dailyCapWhere). This stops a
@@ -86,10 +87,17 @@ export async function POST(req: Request) {
       const needsApproval = amountKes > 1_000_000 || todayCount >= 10;
       const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
-      await tx.user.update({
-        where: { id: dbUser.id },
+      // Race-safe debit: the conditional WHERE (walletBalance >= amountKes)
+      // takes a row lock, so two concurrent withdrawals can't both pass the
+      // balance check and double-spend — the second blocks until the first
+      // commits, then re-evaluates against the decremented balance. The gte
+      // guard also doubles as the DB-level non-negative floor. count === 0
+      // means the balance was insufficient at commit time.
+      const debited = await tx.user.updateMany({
+        where: { id: dbUser.id, walletBalance: { gte: amountKes } },
         data:  { walletBalance: { decrement: amountKes } },
       });
+      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
       const withdrawal = await tx.transaction.create({
         data: {
