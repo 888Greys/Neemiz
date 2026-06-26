@@ -131,8 +131,8 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
   const [stepUpBusy, setStepUpBusy]   = useState(false);
   const [stepUpShowPw, setStepUpShowPw] = useState(false);
 
-  // ── Daily withdrawal allowance (resets 02:00 EAT) ──
-  const [wdLimit, setWdLimit] = useState<{ limit: number; used: number; remaining: number; resetsAt: string } | null>(null);
+  // ── Withdrawal allowance (rolling 24h window) ──
+  const [wdLimit, setWdLimit] = useState<{ limit: number; used: number; remaining: number; resetsAt: string | null } | null>(null);
   const loadWdLimit = useCallback(() => {
     fetch("/api/wallet/withdraw", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
@@ -1005,7 +1005,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                           />
                         </div>
                         <p className="mt-1.5 text-[10px] text-slate-600">
-                          {wdLimit.used > 0 ? `${CURRENCY_SYMBOL} ${wdLimit.used.toLocaleString()} used today · ` : ""}Resets daily at 2:00 AM
+                          {wdLimit.used > 0 ? `${CURRENCY_SYMBOL} ${wdLimit.used.toLocaleString()} used · ` : ""}Limit is per rolling 24 hours
                         </p>
                       </div>
                     )}
