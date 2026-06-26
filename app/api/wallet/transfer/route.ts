@@ -77,22 +77,25 @@ export async function POST(req: Request) {
   const reference = `wallet-transfer-${crypto.randomUUID()}`;
   try {
     const result = await db.$transaction(async (tx) => {
-      // Enforce the shared daily cash-out cap: outgoing transfers count against
-      // the same limit as M-Pesa withdrawals (see dailyCapWhere), so cash can't
-      // leave the platform faster than the cap by hopping through a transfer.
-      // Checked inside the transaction so concurrent sends can't both slip under.
-      const limit = dailyLimitKes();
-      const todaySum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });
-      const usedToday = Number(todaySum._sum?.amount ?? 0);
-      if (usedToday + amount > limit) {
-        throw new Error(`DAILY_LIMIT:${Math.max(0, limit - usedToday)}`);
-      }
-
+      // Race-safe debit FIRST: the conditional updateMany takes a row lock on
+      // the sender, serializing concurrent cash-outs so the cap aggregate below
+      // can't be raced (two sends both reading a stale "usedToday").
       const debited = await tx.user.updateMany({
         where: { id: sender.id, walletBalance: { gte: amount } },
         data: { walletBalance: { decrement: amount } },
       });
       if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+
+      // Shared rolling-24h cash-out cap: outgoing transfers count against the
+      // same limit as M-Pesa withdrawals (see dailyCapWhere), so cash can't leave
+      // the platform faster than the cap by hopping through a transfer. Evaluated
+      // after the debit (under the row lock); over-cap throws and rolls back.
+      const limit = dailyLimitKes();
+      const priorSum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });
+      const usedWindow = Number(priorSum._sum?.amount ?? 0);
+      if (usedWindow + amount > limit) {
+        throw new Error(`DAILY_LIMIT:${Math.max(0, limit - usedWindow)}`);
+      }
 
       await tx.user.update({ where: { id: recipient.id }, data: { walletBalance: { increment: amount } } });
       await tx.transaction.createMany({

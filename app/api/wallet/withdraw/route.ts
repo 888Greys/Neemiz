@@ -4,7 +4,7 @@ import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsLowFloat } from "@/lib/admin-alert";
-import { withdrawalDayReset, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
+import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 
@@ -66,38 +66,35 @@ export async function POST(req: Request) {
     const { withdrawalId, dbUserId, needsApproval } = await db.$transaction(async (tx) => {
       const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
-      // Daily cap is shared across cash-out vectors: M-Pesa withdrawals AND
-      // outgoing wallet transfers both count (see dailyCapWhere). This stops a
-      // user from dodging the cap by transferring to an accomplice who then
-      // withdraws. Window resets 02:00 EAT. P2P escrow / crypto are excluded.
-      const todayWhere = dailyCapWhere(dbUser.id);
-      const todayCount = await tx.transaction.count({ where: todayWhere });
-
-      // Enforce the daily cap atomically: sum of today's withdrawals (refunds
-      // excluded — FAILED/CANCELLED are filtered above) plus this one must not
-      // exceed the limit. Checked inside the transaction so two concurrent
-      // requests can't both slip under the cap.
-      const todaySum = await tx.transaction.aggregate({ where: todayWhere, _sum: { amount: true } });
-      const withdrawnToday = Number(todaySum._sum?.amount ?? 0);
-      if (withdrawnToday + amountKes > limit) {
-        const remaining = Math.max(0, limit - withdrawnToday);
-        throw new Error(`DAILY_LIMIT:${remaining}`);
-      }
-
-      const needsApproval = amountKes > 1_000_000 || todayCount >= 10;
-      const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
-
-      // Race-safe debit: the conditional WHERE (walletBalance >= amountKes)
-      // takes a row lock, so two concurrent withdrawals can't both pass the
-      // balance check and double-spend — the second blocks until the first
-      // commits, then re-evaluates against the decremented balance. The gte
-      // guard also doubles as the DB-level non-negative floor. count === 0
-      // means the balance was insufficient at commit time.
+      // Race-safe debit FIRST. The conditional updateMany (walletBalance >=
+      // amountKes) takes a row lock on the user, which serializes ALL concurrent
+      // cash-outs for this user: a second request blocks here until the first
+      // commits. That single lock closes both the balance double-spend AND the
+      // daily-cap race — because the cap aggregate below runs only after we hold
+      // the lock, it always sees any concurrent withdrawal that committed first.
+      // The gte guard is also the DB-level non-negative floor; count === 0 means
+      // the balance was insufficient at commit time.
       const debited = await tx.user.updateMany({
         where: { id: dbUser.id, walletBalance: { gte: amountKes } },
         data:  { walletBalance: { decrement: amountKes } },
       });
       if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+
+      // Rolling-24h cash-out cap, shared across vectors: M-Pesa withdrawals AND
+      // outgoing wallet transfers both count (see dailyCapWhere), so a user can't
+      // dodge it by routing through an accomplice. Evaluated AFTER the debit so
+      // the row lock above has serialized us; if over the cap we throw, rolling
+      // back the debit. P2P escrow / crypto are excluded.
+      const capWhere = dailyCapWhere(dbUser.id);
+      const priorCount = await tx.transaction.count({ where: capWhere });
+      const priorSum = await tx.transaction.aggregate({ where: capWhere, _sum: { amount: true } });
+      const withdrawnWindow = Number(priorSum._sum?.amount ?? 0);
+      if (withdrawnWindow + amountKes > limit) {
+        throw new Error(`DAILY_LIMIT:${Math.max(0, limit - withdrawnWindow)}`);
+      }
+
+      const needsApproval = amountKes > 1_000_000 || priorCount >= 10;
+      const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
       const withdrawal = await tx.transaction.create({
         data: {
@@ -266,9 +263,15 @@ export async function GET() {
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
   const limit = dailyLimitKes();
 
-  const sum = await db.transaction.aggregate({
-    where: dailyCapWhere(dbUser.id),
-    _sum: { amount: true },
+  const capWhere = dailyCapWhere(dbUser.id);
+  const sum = await db.transaction.aggregate({ where: capWhere, _sum: { amount: true } });
+  // Rolling window: capacity frees up gradually as each withdrawal ages past
+  // 24h. The soonest the user regains room is when their OLDEST in-window
+  // withdrawal exits, i.e. its createdAt + 24h.
+  const oldest = await db.transaction.findFirst({
+    where: capWhere,
+    orderBy: { createdAt: "asc" },
+    select: { createdAt: true },
   });
 
   const used = Number(sum._sum?.amount ?? 0);
@@ -276,6 +279,6 @@ export async function GET() {
     limit,
     used,
     remaining: Math.max(0, limit - used),
-    resetsAt:  withdrawalDayReset().toISOString(),
+    resetsAt:  oldest ? new Date(oldest.createdAt.getTime() + WINDOW_MS).toISOString() : null,
   }, { headers: { "Cache-Control": "no-store" } });
 }
