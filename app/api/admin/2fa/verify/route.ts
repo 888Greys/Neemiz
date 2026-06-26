@@ -1,11 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyTotp, createAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
+import { isOwnerEmail } from "@/lib/admin-allowlist";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Defense-in-depth: admin access requires an allowlisted owner email, not
+  // just is_admin (which lives in the DB an attacker can write). See
+  // lib/admin-allowlist.ts.
+  if (!isOwnerEmail(user.email)) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const dbUser = await db.user.findUnique({
     where: { supabaseId: user.id },

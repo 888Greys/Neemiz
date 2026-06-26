@@ -5,6 +5,7 @@ import { debitUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
 import { signWithdrawal } from "@/lib/crypto/signer-client";
 import { getHotWalletAddresses } from "@/lib/crypto/xpub";
 import { TransactionType, TransactionStatus } from "@prisma/client";
+import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,9 @@ const FEE_RATE = Number.isFinite(configuredFeeRate)
  * the transaction directly from the Nezeem hot wallet.
  */
 export async function POST(req: Request) {
+  const killed = withdrawalsDisabledResponse();
+  if (killed) return killed;
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
