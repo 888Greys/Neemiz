@@ -275,7 +275,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
     if (!isSignedIn) { openLogin(); return; }
-    if (Number(amount) < 49) { setError("Minimum deposit is KSh 49."); return; }
+    if (Number(amount) < 100) { setError("Minimum deposit is KSh 100."); return; }
     setError(""); setLoading(true);
     try {
       const res  = await fetch("/api/wallet/deposit/lipaharaka", {
@@ -592,7 +592,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                     <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                     <input
                       type="number"
-                      min="49"
+                      min="100"
                       step="1"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
@@ -606,7 +606,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                       </button>
                     )}
                   </div>
-                  <p className="mt-2 text-[11px] font-bold text-slate-600">Minimum deposit: KSh 49</p>
+                  <p className="mt-2 text-[11px] font-bold text-slate-600">Minimum deposit: KSh 100</p>
                 </div>
 
                 {depositMethod === "mpesa" && (
