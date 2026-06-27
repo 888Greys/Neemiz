@@ -5,7 +5,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
 import { dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
-import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
+import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
 
 const recipientSelect = {
   id: true,
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const killed = withdrawalsDisabledResponse();
+  const killed = await transfersDisabledResponse();
   if (killed) return killed;
 
   const supabase = await createClient();

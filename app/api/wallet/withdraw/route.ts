@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
-import { notifyAdminsLowFloat } from "@/lib/admin-alert";
+import { notifyAdminsLowFloat, notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
 import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
@@ -18,7 +18,7 @@ function normalizeMsisdn(phone: string): string {
 
 export async function POST(req: Request) {
   try {
-    const killed = withdrawalsDisabledResponse();
+    const killed = await withdrawalsDisabledResponse();
     if (killed) return killed;
 
     if (process.env.LIPAHARAKA_WITHDRAWALS_ENABLED !== "true") {
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
     // ── Step 1: deduct balance + create record atomically ──
     // Gate: amounts > 1,000,000 KES or > 10 withdrawals today require admin approval
-    const { withdrawalId, dbUserId, needsApproval } = await db.$transaction(async (tx) => {
+    const { withdrawalId, dbUserId, needsApproval, numberTripped, numberCount } = await db.$transaction(async (tx) => {
       const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
       // Race-safe debit FIRST. The conditional updateMany (walletBalance >=
@@ -93,7 +93,26 @@ export async function POST(req: Request) {
         throw new Error(`DAILY_LIMIT:${Math.max(0, limit - withdrawnWindow)}`);
       }
 
-      const needsApproval = amountKes > 1_000_000 || priorCount >= 10;
+      // Anti-mule: count withdrawals to THIS destination number across ALL
+      // users in the rolling 24h window. The per-user cap above does nothing
+      // when many accounts funnel cash into one collector number, so if a
+      // number is hit repeatedly we hold the payout for approval and alert the
+      // owner. Threshold is the Nth withdrawal to the number (default 2 =
+      // alert/hold from the 2nd onward). metadata->>msisdn is the dest number.
+      const numberThreshold = Math.max(2, Number(process.env.WITHDRAWAL_NUMBER_ALERT_THRESHOLD ?? 2));
+      const priorToNumber = await tx.transaction.count({
+        where: {
+          type:      TransactionType.WITHDRAWAL,
+          provider:  "lipaharaka",
+          status:    { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+          createdAt: { gte: new Date(Date.now() - WINDOW_MS) },
+          metadata:  { path: ["msisdn"], equals: msisdn },
+        },
+      });
+      const numberCount = priorToNumber + 1; // including the one we're about to create
+      const numberTripped = numberCount >= numberThreshold;
+
+      const needsApproval = amountKes > 1_000_000 || priorCount >= 10 || numberTripped;
       const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
       const withdrawal = await tx.transaction.create({
@@ -113,18 +132,23 @@ export async function POST(req: Request) {
         },
       });
 
-      return { withdrawalId: withdrawal.id, dbUserId: dbUser.id, needsApproval };
+      return { withdrawalId: withdrawal.id, dbUserId: dbUser.id, needsApproval, numberTripped, numberCount };
     });
 
     // ── Step 2: if approval required, stop here ──
     if (needsApproval) {
+      // Alert the owner when a destination number tripped the velocity guard.
+      if (numberTripped) {
+        notifyAdminsSuspiciousNumber({ msisdn, count: numberCount, amountKes, held: true })
+          .catch((e) => console.error("[withdraw] suspicious-number alert failed", e));
+      }
       return Response.json({
         ok:           true,
         withdrawalId,
         pendingApproval: true,
         message: amountKes > 1_000_000
           ? "Withdrawals above KSh 1,000,000 require admin approval. Your balance has been held and will be processed within 24 hours."
-          : "You have reached the daily withdrawal limit. This withdrawal is pending admin approval and will be processed within 24 hours.",
+          : "This withdrawal is pending review and will be processed within 24 hours. Your balance is safe.",
       });
     }
 

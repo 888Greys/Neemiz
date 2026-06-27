@@ -126,8 +126,13 @@ TRONGRID_API_KEY=<from trongrid.io>
 | `BTC_KES_RATE` | Fallback rate: BTC → KES |
 | `ETH_KES_RATE` | Fallback rate: ETH → KES |
 | `BNB_KES_RATE` | Fallback rate: BNB → KES |
+| `WITHDRAWALS_DISABLED` | `true` = master kill switch, blocks ALL cash-out (env-level; needs restart). Also flippable instantly via `POST /api/admin/kill-switch` (DB flag). |
+| `TRANSFERS_ENABLED` | User-to-user transfers (KES + crypto) are **disabled by default**. Set `true` (or DB flag `transfers_disabled=false`) to re-enable. |
+| `WITHDRAWAL_NUMBER_ALERT_THRESHOLD` | Hold + alert when an M-Pesa number receives this many withdrawals in 24h (default `2`). |
 
 > **Critical:** `MASTER_WALLET_MNEMONIC` must be identical on VPS and Vercel. It controls ALL deposit addresses and the hot wallet.
+
+> **Money-out kill switches:** `GET /api/admin/kill-switch` shows state; `POST` with `{ switch: "withdrawals"|"transfers", disabled: bool }` flips it instantly with no restart (admin only). Propagates within ~10s across workers.
 
 ---
 

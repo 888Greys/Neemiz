@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { sendLowFloatAlertEmail } from "@/lib/brevo";
+import { sendLowFloatAlertEmail, sendSuspiciousNumberAlertEmail } from "@/lib/brevo";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 /**
@@ -34,4 +34,38 @@ export async function notifyAdminsLowFloat(info: { amountKes: number; msisdn?: s
   // Best-effort owner email — never let a mail failure block the withdrawal flow.
   try { await sendLowFloatAlertEmail(info.amountKes, info.msisdn); }
   catch (e) { console.error("[admin-alert] low-float email failed", e); }
+}
+
+/**
+ * Alert all owners/admins that one M-Pesa destination number is receiving an
+ * unusual volume of withdrawals (possible mule/collector funneling drained
+ * accounts into a single number). The triggering withdrawal is auto-held for
+ * approval by the caller; this just raises the alert.
+ *
+ * Deduped per number: if an unread alert for the same msisdn was raised in the
+ * last 30 min, we skip re-notifying.
+ */
+export async function notifyAdminsSuspiciousNumber(info: { msisdn: string; count: number; amountKes: number; held: boolean }) {
+  const since = new Date(Date.now() - 30 * 60_000);
+  const recent = await db.notification.findFirst({
+    where: { type: "admin_suspicious_number", isRead: false, createdAt: { gte: since }, body: { contains: info.msisdn } },
+    select: { id: true },
+  });
+  if (recent) return; // already alerted for this number recently
+
+  const admins = await db.user.findMany({ where: { isAdmin: true }, select: { id: true } });
+  if (admins.length > 0) {
+    await db.notification.createMany({
+      data: admins.map((a) => ({
+        userId: a.id,
+        type:   "admin_suspicious_number",
+        title:  "⚠️ Repeated withdrawals to one number",
+        body:   `+${info.msisdn} has received ${info.count} withdrawals in 24h (latest ${CURRENCY_SYMBOL} ${info.amountKes.toLocaleString()}). ${info.held ? "Held for approval." : "Allowed."}`,
+        link:   "/admin/withdrawals",
+      })),
+    });
+  }
+
+  try { await sendSuspiciousNumberAlertEmail(info); }
+  catch (e) { console.error("[admin-alert] suspicious-number email failed", e); }
 }
