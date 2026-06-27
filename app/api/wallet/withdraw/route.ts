@@ -6,7 +6,7 @@ import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsLowFloat, notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
 import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
-import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
+import { withdrawalsDisabledResponse, setWithdrawalsDisabled } from "@/lib/withdrawal-guard";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
     // ── Step 1: deduct balance + create record atomically ──
     // Gate: amounts > 1,000,000 KES or > 10 withdrawals today require admin approval
-    const { withdrawalId, dbUserId, needsApproval, numberTripped, numberCount } = await db.$transaction(async (tx) => {
+    const { withdrawalId, dbUserId, needsApproval, numberTripped, numberCount, killTripped, distinctUsers } = await db.$transaction(async (tx) => {
       const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
       // Race-safe debit FIRST. The conditional updateMany (walletBalance >=
@@ -112,7 +112,32 @@ export async function POST(req: Request) {
       const numberCount = priorToNumber + 1; // including the one we're about to create
       const numberTripped = numberCount >= numberThreshold;
 
-      const needsApproval = amountKes > 1_000_000 || priorCount >= 10 || numberTripped;
+      // Strong auto-kill trigger: a number hammered by MANY accounts (over 24h)
+      // or MANY withdrawals fast (last hour) is almost certainly active draining
+      // into a collector. That flips the global withdrawals kill switch (after
+      // this txn) — far stronger than holding a single payout. Both thresholds
+      // are env-tunable; defaults chosen to avoid one coincidence (e.g. two
+      // family members to one number) taking the platform offline.
+      const killDistinctUsers = Math.max(2, Number(process.env.WITHDRAWAL_NUMBER_KILL_DISTINCT_USERS ?? 4));
+      const killHourCount     = Math.max(2, Number(process.env.WITHDRAWAL_NUMBER_KILL_HOUR_COUNT ?? 5));
+      const numberFilter = {
+        type:     TransactionType.WITHDRAWAL,
+        provider: "lipaharaka",
+        status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+        metadata: { path: ["msisdn"], equals: msisdn },
+      };
+      const priorDistinctUsers = (await tx.transaction.findMany({
+        where:  { ...numberFilter, createdAt: { gte: new Date(Date.now() - WINDOW_MS) } },
+        select: { userId: true },
+        distinct: ["userId"],
+      })).map((r) => r.userId);
+      const distinctUsers = new Set([...priorDistinctUsers, dbUser.id]).size;
+      const priorHourCount = await tx.transaction.count({
+        where: { ...numberFilter, createdAt: { gte: new Date(Date.now() - 60 * 60_000) } },
+      });
+      const killTripped = distinctUsers >= killDistinctUsers || priorHourCount + 1 >= killHourCount;
+
+      const needsApproval = amountKes > 1_000_000 || priorCount >= 10 || numberTripped || killTripped;
       const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
       const withdrawal = await tx.transaction.create({
@@ -132,13 +157,23 @@ export async function POST(req: Request) {
         },
       });
 
-      return { withdrawalId: withdrawal.id, dbUserId: dbUser.id, needsApproval, numberTripped, numberCount };
+      return { withdrawalId: withdrawal.id, dbUserId: dbUser.id, needsApproval, numberTripped, numberCount, killTripped, distinctUsers };
     });
+
+    // ── Step 1b: strong trigger — auto-disable ALL withdrawals ──
+    // Flip the instant kill switch so no further payouts go out until the owner
+    // reviews. This withdrawal is already held (needsApproval) above.
+    if (killTripped) {
+      await setWithdrawalsDisabled(true).catch((e) => console.error("[withdraw] auto kill-switch failed", e));
+      notifyAdminsSuspiciousNumber({ msisdn, count: numberCount, amountKes, held: true, autoKilled: true, distinctUsers })
+        .catch((e) => console.error("[withdraw] auto-kill alert failed", e));
+    }
 
     // ── Step 2: if approval required, stop here ──
     if (needsApproval) {
-      // Alert the owner when a destination number tripped the velocity guard.
-      if (numberTripped) {
+      // Alert the owner when a destination number tripped the velocity guard
+      // (skip if we already sent the stronger auto-kill alert above).
+      if (numberTripped && !killTripped) {
         notifyAdminsSuspiciousNumber({ msisdn, count: numberCount, amountKes, held: true })
           .catch((e) => console.error("[withdraw] suspicious-number alert failed", e));
       }

@@ -129,6 +129,8 @@ TRONGRID_API_KEY=<from trongrid.io>
 | `WITHDRAWALS_DISABLED` | `true` = master kill switch, blocks ALL cash-out (env-level; needs restart). Also flippable instantly via `POST /api/admin/kill-switch` (DB flag). |
 | `TRANSFERS_ENABLED` | User-to-user transfers (KES + crypto) are **disabled by default**. Set `true` (or DB flag `transfers_disabled=false`) to re-enable. |
 | `WITHDRAWAL_NUMBER_ALERT_THRESHOLD` | Hold + alert when an M-Pesa number receives this many withdrawals in 24h (default `2`). |
+| `WITHDRAWAL_NUMBER_KILL_DISTINCT_USERS` | Auto-disable ALL withdrawals when one number is paid by this many distinct accounts in 24h (default `4`). |
+| `WITHDRAWAL_NUMBER_KILL_HOUR_COUNT` | Auto-disable ALL withdrawals when one number receives this many withdrawals in 1h (default `5`). |
 
 > **Critical:** `MASTER_WALLET_MNEMONIC` must be identical on VPS and Vercel. It controls ALL deposit addresses and the hot wallet.
 

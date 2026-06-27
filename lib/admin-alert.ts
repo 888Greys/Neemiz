@@ -45,13 +45,24 @@ export async function notifyAdminsLowFloat(info: { amountKes: number; msisdn?: s
  * Deduped per number: if an unread alert for the same msisdn was raised in the
  * last 30 min, we skip re-notifying.
  */
-export async function notifyAdminsSuspiciousNumber(info: { msisdn: string; count: number; amountKes: number; held: boolean }) {
-  const since = new Date(Date.now() - 30 * 60_000);
-  const recent = await db.notification.findFirst({
-    where: { type: "admin_suspicious_number", isRead: false, createdAt: { gte: since }, body: { contains: info.msisdn } },
-    select: { id: true },
-  });
-  if (recent) return; // already alerted for this number recently
+export async function notifyAdminsSuspiciousNumber(info: { msisdn: string; count: number; amountKes: number; held: boolean; autoKilled?: boolean; distinctUsers?: number }) {
+  // An auto-kill event is high-severity — never suppress it by dedupe.
+  if (!info.autoKilled) {
+    const since = new Date(Date.now() - 30 * 60_000);
+    const recent = await db.notification.findFirst({
+      where: { type: "admin_suspicious_number", isRead: false, createdAt: { gte: since }, body: { contains: info.msisdn } },
+      select: { id: true },
+    });
+    if (recent) return; // already alerted for this number recently
+  }
+
+  const usersNote = info.distinctUsers ? ` from ${info.distinctUsers} accounts` : "";
+  const title = info.autoKilled
+    ? "🚨 Withdrawals AUTO-DISABLED — collector number"
+    : "⚠️ Repeated withdrawals to one number";
+  const body = info.autoKilled
+    ? `+${info.msisdn} received ${info.count} withdrawals${usersNote} — all withdrawals have been automatically frozen. Review and re-enable from the kill switch when safe.`
+    : `+${info.msisdn} has received ${info.count} withdrawals in 24h (latest ${CURRENCY_SYMBOL} ${info.amountKes.toLocaleString()}). ${info.held ? "Held for approval." : "Allowed."}`;
 
   const admins = await db.user.findMany({ where: { isAdmin: true }, select: { id: true } });
   if (admins.length > 0) {
@@ -59,8 +70,8 @@ export async function notifyAdminsSuspiciousNumber(info: { msisdn: string; count
       data: admins.map((a) => ({
         userId: a.id,
         type:   "admin_suspicious_number",
-        title:  "⚠️ Repeated withdrawals to one number",
-        body:   `+${info.msisdn} has received ${info.count} withdrawals in 24h (latest ${CURRENCY_SYMBOL} ${info.amountKes.toLocaleString()}). ${info.held ? "Held for approval." : "Allowed."}`,
+        title,
+        body,
         link:   "/admin/withdrawals",
       })),
     });
