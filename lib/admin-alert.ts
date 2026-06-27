@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { sendLowFloatAlertEmail, sendSuspiciousNumberAlertEmail } from "@/lib/brevo";
+import { sendLowFloatAlertEmail, sendSuspiciousNumberAlertEmail, sendReconMismatchEmail } from "@/lib/brevo";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 /**
@@ -79,4 +79,44 @@ export async function notifyAdminsSuspiciousNumber(info: { msisdn: string; count
 
   try { await sendSuspiciousNumberAlertEmail(info); }
   catch (e) { console.error("[admin-alert] suspicious-number email failed", e); }
+}
+
+/**
+ * Alert all owners/admins that the daily ledger reconciliation found accounts
+ * holding balance the transactions ledger can't explain — i.e. money injected
+ * straight into wallet_balance (the signature of a DB compromise / re-breach).
+ *
+ * Deduped: one alert per 12h (the cron runs daily, but guard against retries).
+ */
+export async function notifyAdminsReconMismatch(
+  findings: Array<{ username: string | null; balance: number; unexplained: number }>,
+) {
+  if (findings.length === 0) return;
+
+  const since = new Date(Date.now() - 12 * 60 * 60_000);
+  const recent = await db.notification.findFirst({
+    where: { type: "admin_recon", isRead: false, createdAt: { gte: since } },
+    select: { id: true },
+  });
+  if (recent) return;
+
+  const total = findings.reduce((s, f) => s + f.unexplained, 0);
+  const top = findings.slice(0, 5).map((f) => `@${f.username ?? "?"} (+${CURRENCY_SYMBOL} ${f.unexplained.toLocaleString()})`).join(", ");
+  const body = `${findings.length} active account(s) hold unexplained balance (no ledger trail) totaling ${CURRENCY_SYMBOL} ${total.toLocaleString()} — possible balance injection / DB re-breach. ${top}. Verify keys are not leaked and review immediately.`;
+
+  const admins = await db.user.findMany({ where: { isAdmin: true }, select: { id: true } });
+  if (admins.length > 0) {
+    await db.notification.createMany({
+      data: admins.map((a) => ({
+        userId: a.id,
+        type:   "admin_recon",
+        title:  "🚨 Unexplained balances detected (possible re-breach)",
+        body,
+        link:   "/admin/withdrawals",
+      })),
+    });
+  }
+
+  try { await sendReconMismatchEmail(findings, total); }
+  catch (e) { console.error("[admin-alert] recon email failed", e); }
 }
