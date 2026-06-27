@@ -48,6 +48,33 @@ export async function sendLowFloatAlertEmail(amountKes: number, msisdn?: string)
 }
 
 /**
+ * Alert the owner that a single M-Pesa destination number is receiving an
+ * unusual number of withdrawals (possible mule/collector). The latest
+ * withdrawal has been auto-held for approval.
+ */
+export async function sendSuspiciousNumberAlertEmail(info: { msisdn: string; count: number; amountKes: number; held: boolean }) {
+  const subject = `🚨 Nezeem: ${info.count} withdrawals to one number (+${info.msisdn})`;
+  const html = `
+    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
+      <h2 style="margin:0 0 8px">Possible withdrawal mule pattern</h2>
+      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
+        The M-Pesa number <strong>+${info.msisdn}</strong> has received <strong>${info.count}</strong> withdrawals
+        in the last 24 hours, across one or more accounts. The latest is
+        <strong>${CURRENCY_SYMBOL} ${info.amountKes.toLocaleString()}</strong>.
+      </p>
+      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
+        ${info.held
+          ? "This withdrawal has been <strong>held for your approval</strong> — it will not pay out until you approve it."
+          : "This withdrawal was allowed to proceed."}
+        Review the recent activity and, if it looks like account draining, hit the withdrawal kill switch.
+      </p>
+      <a href="${APP_URL}/admin/withdrawals" style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Review withdrawals</a>
+      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated alert from Nezeem. You receive this because you're an owner/admin.</p>
+    </div>`;
+  await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
+}
+
+/**
  * Consolidated owner alert when one or more business-health metrics breach their
  * thresholds (deposit/payout/settlement). One email lists every firing metric.
  */

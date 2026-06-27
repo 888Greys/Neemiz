@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { debitUserCrypto, creditUserCrypto } from "@/lib/p2p/crypto-balance";
 import { TransactionType, TransactionStatus } from "@prisma/client";
-import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
+import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
 
 // ── GET /api/crypto/transfer?username=xxx  ──────────────────────────────────
 // Look up a recipient by username — returns display name if found.
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
 // Execute an internal crypto transfer between two Nezeem users.
 export async function POST(req: Request) {
   try {
-    const killed = withdrawalsDisabledResponse();
+    const killed = await transfersDisabledResponse();
     if (killed) return killed;
 
     const supabase = await createClient();
