@@ -178,7 +178,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success("Application submitted! We&apos;ll review within 24 hours.");
+      toast.success("Application submitted! Your account is usually verified within the hour.");
       onApplied();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -230,7 +230,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       <div className="max-w-lg">
         <div className="rounded-lg border border-white/[0.07] bg-[#111118] p-4">
           <h2 className="mb-1 text-lg font-black text-white">Start your application</h2>
-          <p className="mb-4 text-sm text-slate-500">Takes less than a minute. Reviewed within 24 hours.</p>
+          <p className="mb-4 text-sm text-slate-500">Takes less than a minute. Verification usually completes within the hour.</p>
 
           <div className="space-y-4">
             <div>
@@ -2527,6 +2527,14 @@ export function P2PMerchantClient() {
     if (isSignedIn) check();
     else setLoading(false);
   }, [isSignedIn, check]);
+
+  // While an application is pending, poll so the "Under Review" screen
+  // clears on its own once auto-verification kicks in (no manual refresh).
+  useEffect(() => {
+    if (!status?.applied || status.kycStatus !== "PENDING") return;
+    const interval = setInterval(check, 60_000);
+    return () => clearInterval(interval);
+  }, [status?.applied, status?.kycStatus, check]);
 
   return (
     <>
