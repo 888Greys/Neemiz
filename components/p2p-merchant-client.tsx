@@ -178,7 +178,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success("Application submitted! We&apos;ll review within 24 hours.");
+      toast.success("You're now a merchant! Set up payments and fund your escrow to go live.");
       onApplied();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -229,8 +229,8 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       {/* Application form */}
       <div className="max-w-lg">
         <div className="rounded-lg border border-white/[0.07] bg-[#111118] p-4">
-          <h2 className="mb-1 text-lg font-black text-white">Start your application</h2>
-          <p className="mb-4 text-sm text-slate-500">Takes less than a minute. Reviewed within 24 hours.</p>
+          <h2 className="mb-1 text-lg font-black text-white">Become a merchant</h2>
+          <p className="mb-4 text-sm text-slate-500">Takes less than a minute. Instant activation — no waiting.</p>
 
           <div className="space-y-4">
             <div>
