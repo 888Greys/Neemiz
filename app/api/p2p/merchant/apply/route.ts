@@ -33,16 +33,19 @@ export async function POST(req: Request) {
       return Response.json({ error: "Display name must be 2–50 characters" }, { status: 400 });
     }
 
+    // Open merchant signup: anybody can be a merchant — auto-approve on apply,
+    // no admin review step required.
     const merchant = await db.merchantProfile.create({
       data: {
         userId:         dbUser.id,
         displayName:    trimmed,
         kycDocumentUrl: kycDocumentUrl ?? null,
-        kycStatus:      "PENDING",
+        kycStatus:      "APPROVED",
+        isVerified:     true,
       },
     });
 
-    // Email admin about new application (fire and forget)
+    // Email admin about new merchant (fire and forget)
     if (dbUser.email) {
       sendMerchantApplicationEmail(dbUser.email, trimmed).catch(() => {});
     }
