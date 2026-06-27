@@ -80,6 +80,43 @@ export async function sendSuspiciousNumberAlertEmail(info: { msisdn: string; cou
 }
 
 /**
+ * Alert the owner that the daily ledger reconciliation found accounts holding
+ * balance with no transaction trail — the signature of money injected straight
+ * into wallet_balance (DB compromise / re-breach).
+ */
+export async function sendReconMismatchEmail(
+  findings: Array<{ username: string | null; balance: number; unexplained: number }>,
+  total: number,
+) {
+  const subject = `🚨 Nezeem: unexplained balances detected (${findings.length} account${findings.length === 1 ? "" : "s"})`;
+  const rows = findings.slice(0, 25).map((f) => `
+    <tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #eef2f7">@${f.username ?? "?"}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eef2f7;text-align:right">${CURRENCY_SYMBOL} ${f.balance.toLocaleString()}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eef2f7;text-align:right;color:#dc2626;font-weight:700">+${CURRENCY_SYMBOL} ${f.unexplained.toLocaleString()}</td>
+    </tr>`).join("");
+  const html = `
+    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#0f172a">
+      <h2 style="margin:0 0 8px">Unexplained balances — possible re-breach</h2>
+      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
+        The daily reconciliation found <strong>${findings.length}</strong> active account(s) holding
+        <strong>${CURRENCY_SYMBOL} ${total.toLocaleString()}</strong> of balance that the transactions
+        ledger cannot account for. Balance that appears with no ledger row is the signature of a direct
+        write to <code>wallet_balance</code> — i.e. database-level access. <strong>Treat keys as potentially leaked.</strong>
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin:0 0 16px">
+        <thead><tr style="text-align:left;color:#64748b">
+          <th style="padding:6px 10px">Account</th><th style="padding:6px 10px;text-align:right">Balance</th><th style="padding:6px 10px;text-align:right">Unexplained</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <a href="${APP_URL}/admin/withdrawals" style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Open admin console</a>
+      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated daily reconciliation. You receive this because you're an owner/admin.</p>
+    </div>`;
+  await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
+}
+
+/**
  * Consolidated owner alert when one or more business-health metrics breach their
  * thresholds (deposit/payout/settlement). One email lists every firing metric.
  */

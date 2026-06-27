@@ -131,6 +131,8 @@ TRONGRID_API_KEY=<from trongrid.io>
 | `WITHDRAWAL_NUMBER_ALERT_THRESHOLD` | Hold + alert when an M-Pesa number receives this many withdrawals in 24h (default `2`). |
 | `WITHDRAWAL_NUMBER_KILL_DISTINCT_USERS` | Auto-disable ALL withdrawals when one number is paid by this many distinct accounts in 24h (default `4`). |
 | `WITHDRAWAL_NUMBER_KILL_HOUR_COUNT` | Auto-disable ALL withdrawals when one number receives this many withdrawals in 1h (default `5`). |
+| `RECON_ALERT_THRESHOLD` | Daily reconciliation flags active accounts whose balance exceeds the ledger by more than this KES (default `100`). |
+| `RECON_EXCLUDE_USERNAMES` | Extra comma-separated usernames the reconciliation should ignore (owner/test accounts already excluded by default). |
 
 > **Critical:** `MASTER_WALLET_MNEMONIC` must be identical on VPS and Vercel. It controls ALL deposit addresses and the hot wallet.
 
@@ -611,6 +613,13 @@ File: `/var/lib/cron/crontabs/root` or `crontab -e`
   curl -sL -X POST -H "Authorization: Bearer $CRON_SECRET" \
   https://www.nezeem.com/api/cron/approve-merchants \
   >> /var/log/neemiz-merchants.log 2>&1
+
+# Ledger reconciliation tripwire (daily 06:00) — alerts admins if any active
+# account holds balance the transactions ledger can't explain (re-breach signal).
+0 6 * * * source /opt/neemiz/settle.env && \
+  curl -sL -X POST -H "Authorization: Bearer $CRON_SECRET" \
+  https://www.nezeem.com/api/cron/reconcile-balances \
+  >> /var/log/neemiz-reconcile.log 2>&1
 ```
 
 ### Viewing Cron Logs
