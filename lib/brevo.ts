@@ -52,21 +52,26 @@ export async function sendLowFloatAlertEmail(amountKes: number, msisdn?: string)
  * unusual number of withdrawals (possible mule/collector). The latest
  * withdrawal has been auto-held for approval.
  */
-export async function sendSuspiciousNumberAlertEmail(info: { msisdn: string; count: number; amountKes: number; held: boolean }) {
-  const subject = `🚨 Nezeem: ${info.count} withdrawals to one number (+${info.msisdn})`;
+export async function sendSuspiciousNumberAlertEmail(info: { msisdn: string; count: number; amountKes: number; held: boolean; autoKilled?: boolean; distinctUsers?: number }) {
+  const subject = info.autoKilled
+    ? `🚨 Nezeem: withdrawals AUTO-DISABLED — +${info.msisdn}`
+    : `🚨 Nezeem: ${info.count} withdrawals to one number (+${info.msisdn})`;
+  const usersNote = info.distinctUsers ? ` across <strong>${info.distinctUsers}</strong> accounts` : "";
   const html = `
     <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
-      <h2 style="margin:0 0 8px">Possible withdrawal mule pattern</h2>
+      <h2 style="margin:0 0 8px">${info.autoKilled ? "Withdrawals automatically frozen" : "Possible withdrawal mule pattern"}</h2>
       <p style="margin:0 0 16px;color:#475569;line-height:1.6">
         The M-Pesa number <strong>+${info.msisdn}</strong> has received <strong>${info.count}</strong> withdrawals
-        in the last 24 hours, across one or more accounts. The latest is
+        in the last 24 hours${usersNote}. The latest is
         <strong>${CURRENCY_SYMBOL} ${info.amountKes.toLocaleString()}</strong>.
       </p>
       <p style="margin:0 0 16px;color:#475569;line-height:1.6">
-        ${info.held
-          ? "This withdrawal has been <strong>held for your approval</strong> — it will not pay out until you approve it."
-          : "This withdrawal was allowed to proceed."}
-        Review the recent activity and, if it looks like account draining, hit the withdrawal kill switch.
+        ${info.autoKilled
+          ? "This crossed the auto-kill threshold, so <strong>ALL withdrawals have been automatically disabled</strong>. Review the activity and re-enable from the kill switch once it's safe."
+          : (info.held
+            ? "This withdrawal has been <strong>held for your approval</strong> — it will not pay out until you approve it."
+            : "This withdrawal was allowed to proceed.")}
+        ${info.autoKilled ? "" : "Review the recent activity and, if it looks like account draining, hit the withdrawal kill switch."}
       </p>
       <a href="${APP_URL}/admin/withdrawals" style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Review withdrawals</a>
       <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated alert from Nezeem. You receive this because you're an owner/admin.</p>
