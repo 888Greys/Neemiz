@@ -41,7 +41,7 @@ const FEE_RATE = Number.isFinite(configuredFeeRate)
  * the transaction directly from the Nezeem hot wallet.
  */
 export async function POST(req: Request) {
-  const killed = withdrawalsDisabledResponse();
+  const killed = await withdrawalsDisabledResponse();
   if (killed) return killed;
 
   const supabase = await createClient();
