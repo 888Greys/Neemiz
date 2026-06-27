@@ -597,6 +597,13 @@ File: `/var/lib/cron/crontabs/root` or `crontab -e`
   https://www.nezeem.com/api/cron/check-deposits \
   >> /var/log/neemiz-deposits.log 2>&1 && \
   echo "" >> /var/log/neemiz-deposits.log
+
+# Merchant auto-approval sweep (every 5 min) — verifies applications past
+# their 30–40 min review window so the approval email fires while offline.
+*/5 * * * * source /opt/neemiz/settle.env && \
+  curl -sL -X POST -H "Authorization: Bearer $CRON_SECRET" \
+  https://www.nezeem.com/api/cron/approve-merchants \
+  >> /var/log/neemiz-merchants.log 2>&1
 ```
 
 ### Viewing Cron Logs
