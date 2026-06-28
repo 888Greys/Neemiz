@@ -66,7 +66,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          tags: ${{ env.IMAGE_NAME }}:${{ github.sha }}-staging
           cache-from: type=gha
           cache-to: type=gha,mode=max
           secrets: |
@@ -88,4 +88,4 @@ jobs:
               -o ConnectTimeout=20 -o TCPKeepAlive=yes \
               -i ~/.ssh/id_ed25519 \
               "${{ secrets.NEZ_USER }}@${{ secrets.NEZ_HOST }}" \
-              "deploy-staging ${{ env.IMAGE_NAME }}:${{ github.sha }}"
+              "deploy-staging ${{ env.IMAGE_NAME }}:${{ github.sha }}-staging"
