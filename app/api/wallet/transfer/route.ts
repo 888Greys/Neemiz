@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
+import { dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
 
@@ -86,7 +87,18 @@ export async function POST(req: Request) {
       });
       if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
-
+      // Shared rolling-24h cash-out cap: outgoing transfers count against the
+      // same limit as M-Pesa withdrawals (see dailyCapWhere), so cash can't leave
+      // the platform faster than the cap by hopping through a transfer. Evaluated
+      // after the debit (under the row lock); over-cap throws and rolls back.
+      if (!sender.isAdmin) {
+        const limit = dailyLimitKes();
+        const priorSum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });
+        const usedWindow = Number(priorSum._sum?.amount ?? 0);
+        if (usedWindow + amount > limit) {
+          throw new Error(`DAILY_LIMIT:${Math.max(0, limit - usedWindow)}`);
+        }
+      }
 
       await tx.user.update({ where: { id: recipient.id }, data: { walletBalance: { increment: amount } } });
       await tx.transaction.createMany({

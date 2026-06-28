@@ -33,7 +33,7 @@ export function dailyLimitKes(): number {
  * Deliberately EXCLUDED (own controls, not simple cash-outs): p2p_kes_escrow,
  * self_custody (crypto).
  */
-export const DAILY_CAP_PROVIDERS = ["lipaharaka"] as const;
+export const DAILY_CAP_PROVIDERS = ["lipaharaka", "wallet_transfer"] as const;
 
 /**
  * Prisma `where` for the rows that count against a user's cash-out cap, scoped
