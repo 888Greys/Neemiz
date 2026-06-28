@@ -953,3 +953,17 @@ model SystemSetting {
 
   @@map("system_settings")
 }
+
+// ─── Admin Audit Logs ─────────────────────────────────────────────────────────
+/// Immutable audit logs tracking operations performed by admins on the platform.
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  adminId   String   @map("admin_id")
+  action    String
+  targetId  String?  @map("target_id")
+  metadata  Json?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("admin_audit_logs")
+}
