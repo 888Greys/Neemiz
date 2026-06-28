@@ -18,16 +18,18 @@ function normalizeMsisdn(phone: string): string {
 
 export async function POST(req: Request) {
   try {
-    const killed = await withdrawalsDisabledResponse();
-    if (killed) return killed;
-
-    if (process.env.LIPAHARAKA_WITHDRAWALS_ENABLED !== "true") {
-      return Response.json({ error: "M-Pesa withdrawals are temporarily paused for reconciliation." }, { status: 503 });
-    }
-
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+    const killed = await withdrawalsDisabledResponse();
+    if (killed && !dbUser.isAdmin) return killed;
+
+    if (process.env.LIPAHARAKA_WITHDRAWALS_ENABLED !== "true" && !dbUser.isAdmin) {
+      return Response.json({ error: "M-Pesa withdrawals are temporarily paused for reconciliation." }, { status: 503 });
+    }
 
     let body: { amountKes: number; phoneNumber: string };
     try {
@@ -47,10 +49,10 @@ export async function POST(req: Request) {
     if (!Number.isFinite(amountKes) || amountKes < minimumWithdrawal) {
       return Response.json({ error: `Minimum withdrawal is ${CURRENCY_SYMBOL} ${minimumWithdrawal}` }, { status: 400 });
     }
-    if (amountKes > limit) {
+    if (!dbUser.isAdmin && amountKes > limit) {
       return Response.json({ error: `Daily withdrawal limit is ${CURRENCY_SYMBOL} ${limit.toLocaleString()}` }, { status: 400 });
     }
-    if (amountKes > 150_000) {
+    if (!dbUser.isAdmin && amountKes > 150_000) {
       return Response.json({ error: "Maximum withdrawal is KSh 150,000" }, { status: 400 });
     }
     if (!/^254[17]\d{8}$/.test(msisdn)) {
@@ -64,8 +66,6 @@ export async function POST(req: Request) {
     // ── Step 1: deduct balance + create record atomically ──
     // Gate: amounts > 1,000,000 KES or > 10 withdrawals today require admin approval
     const { withdrawalId, dbUserId, needsApproval, numberTripped, numberCount, killTripped, distinctUsers } = await db.$transaction(async (tx) => {
-      const dbUser = await getOrCreateUser(user.id, { email: user.email });
-
       // Race-safe debit FIRST. The conditional updateMany (walletBalance >=
       // amountKes) takes a row lock on the user, which serializes ALL concurrent
       // cash-outs for this user: a second request blocks here until the first
@@ -85,12 +85,15 @@ export async function POST(req: Request) {
       // dodge it by routing through an accomplice. Evaluated AFTER the debit so
       // the row lock above has serialized us; if over the cap we throw, rolling
       // back the debit. P2P escrow / crypto are excluded.
-      const capWhere = dailyCapWhere(dbUser.id);
-      const priorCount = await tx.transaction.count({ where: capWhere });
-      const priorSum = await tx.transaction.aggregate({ where: capWhere, _sum: { amount: true } });
-      const withdrawnWindow = Number(priorSum._sum?.amount ?? 0);
-      if (withdrawnWindow + amountKes > limit) {
-        throw new Error(`DAILY_LIMIT:${Math.max(0, limit - withdrawnWindow)}`);
+      let priorCount = 0;
+      if (!dbUser.isAdmin) {
+        const capWhere = dailyCapWhere(dbUser.id);
+        priorCount = await tx.transaction.count({ where: capWhere });
+        const priorSum = await tx.transaction.aggregate({ where: capWhere, _sum: { amount: true } });
+        const withdrawnWindow = Number(priorSum._sum?.amount ?? 0);
+        if (withdrawnWindow + amountKes > limit) {
+          throw new Error(`DAILY_LIMIT:${Math.max(0, limit - withdrawnWindow)}`);
+        }
       }
 
       // Anti-mule: count withdrawals to THIS destination number across ALL
@@ -110,7 +113,7 @@ export async function POST(req: Request) {
         },
       });
       const numberCount = priorToNumber + 1; // including the one we're about to create
-      const numberTripped = numberCount >= numberThreshold;
+      const numberTripped = !dbUser.isAdmin && numberCount >= numberThreshold;
 
       // Strong auto-kill trigger: a number hammered by MANY accounts (over 24h)
       // or MANY withdrawals fast (last hour) is almost certainly active draining
@@ -135,9 +138,9 @@ export async function POST(req: Request) {
       const priorHourCount = await tx.transaction.count({
         where: { ...numberFilter, createdAt: { gte: new Date(Date.now() - 60 * 60_000) } },
       });
-      const killTripped = distinctUsers >= killDistinctUsers || priorHourCount + 1 >= killHourCount;
+      const killTripped = !dbUser.isAdmin && (distinctUsers >= killDistinctUsers || priorHourCount + 1 >= killHourCount);
 
-      const needsApproval = amountKes > 1_000_000 || priorCount >= 10 || numberTripped || killTripped;
+      const needsApproval = !dbUser.isAdmin && (amountKes > 1_000_000 || priorCount >= 10 || numberTripped || killTripped);
       const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
       const withdrawal = await tx.transaction.create({
@@ -320,6 +323,16 @@ export async function GET() {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+  if (dbUser.isAdmin) {
+    return Response.json({
+      limit: 999999,
+      used: 0,
+      remaining: 999999,
+      resetsAt: null,
+    }, { headers: { "Cache-Control": "no-store" } });
+  }
+
   const limit = dailyLimitKes();
 
   const capWhere = dailyCapWhere(dbUser.id);
