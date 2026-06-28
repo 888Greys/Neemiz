@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
@@ -141,12 +142,21 @@ export function AdminWithdrawalsClient() {
                       )
                     )}
                   </div>
-                  <div className="text-right space-y-0.5">
-                    <p className="text-[13px] font-bold text-white">{w.user.email ?? w.user.phone ?? "—"}</p>
-                    {w.user.username && <p className="text-[11px] text-slate-600">@{w.user.username}</p>}
-                    {!isSell && msisdn && <p className="text-[11px] text-slate-600 font-mono">+{msisdn}</p>}
-                    <p className="text-[10px] text-slate-700">{new Date(w.createdAt).toLocaleString()}</p>
-                  </div>
+                   <div className="text-right space-y-0.5">
+                     <p className="text-[13px] font-bold text-white">{w.user.email ?? w.user.phone ?? "—"}</p>
+                     <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                       {w.user.username && <span className="text-[11px] text-slate-600">@{w.user.username}</span>}
+                       <Link
+                         href={`/admin/users/${w.user.id}`}
+                         target="_blank"
+                         className="inline-flex items-center gap-0.5 rounded bg-blue-500/12 px-1.5 py-0.5 text-[9px] font-black text-blue-300 ring-1 ring-blue-500/20 hover:bg-blue-500/20 transition-colors"
+                       >
+                         Inspect
+                       </Link>
+                     </div>
+                     {!isSell && msisdn && <p className="text-[11px] text-slate-600 font-mono">+{msisdn}</p>}
+                     <p className="text-[10px] text-slate-700">{new Date(w.createdAt).toLocaleString()}</p>
+                   </div>
                 </div>
 
                 <div className="min-w-[260px] lg:border-l lg:border-white/[0.06] lg:pl-4">
