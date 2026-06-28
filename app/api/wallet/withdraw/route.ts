@@ -96,51 +96,28 @@ export async function POST(req: Request) {
         }
       }
 
-      // Anti-mule: count withdrawals to THIS destination number across ALL
-      // users in the rolling 24h window. The per-user cap above does nothing
-      // when many accounts funnel cash into one collector number, so if a
-      // number is hit repeatedly we hold the payout for approval and alert the
-      // owner. Threshold is the Nth withdrawal to the number (default 2 =
-      // alert/hold from the 2nd onward). metadata->>msisdn is the dest number.
-      const numberThreshold = Math.max(2, Number(process.env.WITHDRAWAL_NUMBER_ALERT_THRESHOLD ?? 2));
-      const priorToNumber = await tx.transaction.count({
+      // Ensure that the destination phone number (msisdn) is associated with only ONE account.
+      // If any other user account has successfully withdrawn to this number, block it.
+      const existingOwner = await tx.transaction.findFirst({
         where: {
-          type:      TransactionType.WITHDRAWAL,
-          provider:  "lipaharaka",
-          status:    { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
-          createdAt: { gte: new Date(Date.now() - WINDOW_MS) },
-          metadata:  { path: ["msisdn"], equals: msisdn },
+          type:     TransactionType.WITHDRAWAL,
+          provider: "lipaharaka",
+          status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+          metadata: { path: ["msisdn"], equals: msisdn },
+          userId:   { not: dbUser.id },
         },
-      });
-      const numberCount = priorToNumber + 1; // including the one we're about to create
-      const numberTripped = !dbUser.isAdmin && numberCount >= numberThreshold;
-
-      // Strong auto-kill trigger: a number hammered by MANY accounts (over 24h)
-      // or MANY withdrawals fast (last hour) is almost certainly active draining
-      // into a collector. That flips the global withdrawals kill switch (after
-      // this txn) — far stronger than holding a single payout. Both thresholds
-      // are env-tunable; defaults chosen to avoid one coincidence (e.g. two
-      // family members to one number) taking the platform offline.
-      const killDistinctUsers = Math.max(2, Number(process.env.WITHDRAWAL_NUMBER_KILL_DISTINCT_USERS ?? 4));
-      const killHourCount     = Math.max(2, Number(process.env.WITHDRAWAL_NUMBER_KILL_HOUR_COUNT ?? 5));
-      const numberFilter = {
-        type:     TransactionType.WITHDRAWAL,
-        provider: "lipaharaka",
-        status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
-        metadata: { path: ["msisdn"], equals: msisdn },
-      };
-      const priorDistinctUsers = (await tx.transaction.findMany({
-        where:  { ...numberFilter, createdAt: { gte: new Date(Date.now() - WINDOW_MS) } },
         select: { userId: true },
-        distinct: ["userId"],
-      })).map((r) => r.userId);
-      const distinctUsers = new Set([...priorDistinctUsers, dbUser.id]).size;
-      const priorHourCount = await tx.transaction.count({
-        where: { ...numberFilter, createdAt: { gte: new Date(Date.now() - 60 * 60_000) } },
       });
-      const killTripped = !dbUser.isAdmin && (distinctUsers >= killDistinctUsers || priorHourCount + 1 >= killHourCount);
+      if (existingOwner) {
+        throw new Error("PHONE_NUMBER_LINKED");
+      }
 
-      const needsApproval = !dbUser.isAdmin && (amountKes > 1_000_000 || priorCount >= 10 || numberTripped || killTripped);
+      const numberCount = 0;
+      const numberTripped = false;
+      const distinctUsers = 0;
+      const killTripped = false;
+
+      const needsApproval = !dbUser.isAdmin && (amountKes > 1_000_000 || priorCount >= 10);
       const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
       const withdrawal = await tx.transaction.create({
@@ -294,6 +271,9 @@ export async function POST(req: Request) {
       message:      `${CURRENCY_SYMBOL} ${payoutKes.toLocaleString()} is being sent to +${msisdn} via M-Pesa. You'll be notified once it's confirmed.`,
     });
   } catch (err) {
+    if (err instanceof Error && err.message === "PHONE_NUMBER_LINKED") {
+      return Response.json({ error: "This phone number is already linked to another account. Each phone number can only be used by one account." }, { status: 400 });
+    }
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
     }
