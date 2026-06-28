@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
@@ -56,7 +56,7 @@ function isActive(pathname: string, href: string) {
   return pathname === href || (href !== "/admin" && pathname.startsWith(href));
 }
 
-function NavLink({ href, label, icon, active, indent }: Leaf & { active: boolean; indent?: boolean }) {
+function NavLink({ href, label, icon, active, indent, badge }: Leaf & { active: boolean; indent?: boolean; badge?: number | null }) {
   return (
     <Link
       href={href}
@@ -71,6 +71,11 @@ function NavLink({ href, label, icon, active, indent }: Leaf & { active: boolean
       </span>
       <span className="hidden min-w-0 text-[11px] font-black lg:block">{label}</span>
       <span className="text-[10px] font-bold lg:hidden">{label}</span>
+      {badge != null && badge > 0 && (
+        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[9px] font-black text-white ring-1 ring-amber-500/30">
+          {badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -80,6 +85,16 @@ export function AdminShell({ children, adminEmail }: { children: React.ReactNode
   const router = useRouter();
   // Markets opens automatically when you're already on a market page.
   const [marketsOpen, setMarketsOpen] = useState(() => pathname.startsWith("/admin/markets"));
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/withdrawals")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data) => {
+        if (Array.isArray(data)) setPendingCount(data.length);
+      })
+      .catch(() => {});
+  }, []);
 
   async function exitAdmin() {
     await fetch("/api/admin/signout", { method: "POST" });
@@ -110,7 +125,16 @@ export function AdminShell({ children, adminEmail }: { children: React.ReactNode
               <p className={`mb-2 hidden px-2 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600 lg:block ${si === 0 ? "" : "mt-5"}`}>{section.name}</p>
               {section.nodes.map((node) => {
                 if (node.type === "link") {
-                  return <NavLink key={node.href} href={node.href} label={node.label} icon={node.icon} active={isActive(pathname, node.href)} />;
+                  return (
+                    <NavLink
+                      key={node.href}
+                      href={node.href}
+                      label={node.label}
+                      icon={node.icon}
+                      active={isActive(pathname, node.href)}
+                      badge={node.href === "/admin/withdrawals" ? pendingCount : undefined}
+                    />
+                  );
                 }
                 // tree (Markets)
                 const parentActive = pathname.startsWith(node.base);
