@@ -108,7 +108,7 @@ export async function POST(req: Request) {
         },
         select: { userId: true },
       });
-      if (existingOwner) {
+      if (existingOwner && !dbUser.isAdmin) {
         throw new Error("PHONE_NUMBER_LINKED");
       }
 
