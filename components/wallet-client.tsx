@@ -663,8 +663,6 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
             balance={balance}
             openLogin={openLogin}
             refreshBalance={refreshBalance}
-            wdLimit={wdLimit}
-            refreshWdLimit={loadWdLimit}
           />
         )}
 
@@ -1166,15 +1164,11 @@ function WalletTransferPanel({
   balance,
   openLogin,
   refreshBalance,
-  wdLimit,
-  refreshWdLimit,
 }: {
   isSignedIn: boolean;
   balance: number;
   openLogin: () => void;
   refreshBalance: () => void;
-  wdLimit: { limit: number; used: number; remaining: number; resetsAt: string | null } | null;
-  refreshWdLimit: () => void;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<TransferRecipient[]>([]);
@@ -1231,7 +1225,6 @@ function WalletTransferPanel({
       });
       window.dispatchEvent(new Event(NOTIFICATIONS_REFRESH_EVENT));
       refreshBalance();
-      refreshWdLimit();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Transfer failed");
     } finally {
@@ -1360,25 +1353,7 @@ function WalletTransferPanel({
         </div>
       </div>
 
-      {wdLimit && (
-        <div className="rounded-2xl bg-white/[0.03] p-4.5 ring-1 ring-white/[0.06]">
-          <div className="flex items-center justify-between text-xs mb-2">
-            <span className="font-bold text-slate-500">24h Cash-out Limit</span>
-            <span className={`text-sm font-black ${wdLimit.remaining > 0 ? "text-[#05b957]" : "text-amber-400"}`}>
-              {CURRENCY_SYMBOL} {wdLimit.remaining.toLocaleString()} <span className="text-[11px] font-bold text-slate-600">/ {wdLimit.limit.toLocaleString()}</span>
-            </span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-900 ring-1 ring-white/[0.04]">
-            <div
-              className="h-full rounded-full bg-[#087cff]"
-              style={{ width: `${Math.min(100, (wdLimit.remaining / wdLimit.limit) * 100)}%` }}
-            />
-          </div>
-          <p className="mt-2.5 text-[10px] font-bold leading-normal text-slate-700">
-            {wdLimit.used > 0 ? `${CURRENCY_SYMBOL} ${wdLimit.used.toLocaleString()} used · ` : ""}Limit is shared across sends and withdrawals
-          </p>
-        </div>
-      )}
+
 
       {error && <p className="text-xs font-bold text-red-400">{error}</p>}
       <button
