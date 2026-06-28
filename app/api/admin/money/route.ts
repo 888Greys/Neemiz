@@ -1,26 +1,12 @@
-import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
+import { requireOwnerAdmin } from "@/lib/admin-guard";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
 import { rangeWindow, nairobiDayKey, EAT_OFFSET_MS } from "@/lib/admin/metrics";
-import { cookies } from "next/headers";
 import { TransactionStatus } from "@prisma/client";
 
 const REAL_DEPOSIT_PROVIDERS = ["megapay", "lipaharaka"];
 const REAL_WITHDRAWAL_PROVIDERS = ["relworx", "megapay", "lipaharaka"];
 const WITHDRAWAL_FEE_RATE = 0.05;
-
-async function requireAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const dbUser = await db.user.findUnique({ where: { supabaseId: user.id }, select: { isAdmin: true } });
-  if (!dbUser?.isAdmin) return null;
-  const cookieStore = await cookies();
-  const token = cookieStore.get(COOKIE_NAME)?.value;
-  if (!token || !verifyAdminToken(token)) return null;
-  return true;
-}
 
 const dayKey = nairobiDayKey;
 
@@ -29,7 +15,7 @@ const dayKey = nairobiDayKey;
 // real-vs-test float split, and the pending-payout queue. Real-money only
 // (genuine providers, excluded test/suspended accounts).
 export async function GET(req: Request) {
-  if (!await requireAdmin()) return Response.json({ error: "Forbidden" }, { status: 403 });
+  if (!await requireOwnerAdmin()) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
   const window = rangeWindow(searchParams.get("range"));

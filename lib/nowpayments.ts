@@ -8,7 +8,7 @@
  *   NOWPAYMENTS_CALLBACK_URL — public URL of /api/crypto/deposit-webhook
  */
 
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
 const BASE    = "https://api.nowpayments.io/v1";
 const API_KEY = process.env.NOWPAYMENTS_API_KEY ?? "";
@@ -171,7 +171,14 @@ export function verifyIpnSignature(rawBody: string, signature: string): boolean 
     return false;
   }
   const expected = createHmac("sha512", secret).update(rawBody).digest("hex");
-  return expected === signature;
+  // Constant-time compare to avoid leaking the expected signature via timing.
+  // Bail first if lengths differ (timingSafeEqual throws on unequal lengths).
+  if (signature.length !== expected.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  } catch {
+    return false;
+  }
 }
 
 // ─── IPN payload types ────────────────────────────────────────────────────────

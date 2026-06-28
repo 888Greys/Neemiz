@@ -6,6 +6,7 @@ import { signWithdrawal } from "@/lib/crypto/signer-client";
 import { getHotWalletAddresses } from "@/lib/crypto/xpub";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
+import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -49,6 +50,11 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+  // Cap payout attempts per user (covers brute-forcing balance edges / spamming
+  // the signer). Keyed by account, not IP, so it can't be sidestepped via proxies.
+  const rl = rateLimit(`crypto-withdraw:${dbUser.id}`, 5, 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   let body: { crypto: string; network?: string; amount: number; address: string };
   try   { body = await req.json(); }
