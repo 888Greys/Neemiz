@@ -49,14 +49,15 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const killed = await transfersDisabledResponse();
-  if (killed) return killed;
-
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const sender = await getOrCreateUser(user.id, { email: user.email, phone: user.phone });
+
+  const killed = await transfersDisabledResponse();
+  if (killed && !sender.isAdmin) return killed;
+
   let body: { recipientId?: string; amount?: number };
   try { body = await req.json(); } catch {
     return Response.json({ error: "Invalid request body" }, { status: 400 });
@@ -90,11 +91,13 @@ export async function POST(req: Request) {
       // same limit as M-Pesa withdrawals (see dailyCapWhere), so cash can't leave
       // the platform faster than the cap by hopping through a transfer. Evaluated
       // after the debit (under the row lock); over-cap throws and rolls back.
-      const limit = dailyLimitKes();
-      const priorSum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });
-      const usedWindow = Number(priorSum._sum?.amount ?? 0);
-      if (usedWindow + amount > limit) {
-        throw new Error(`DAILY_LIMIT:${Math.max(0, limit - usedWindow)}`);
+      if (!sender.isAdmin) {
+        const limit = dailyLimitKes();
+        const priorSum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });
+        const usedWindow = Number(priorSum._sum?.amount ?? 0);
+        if (usedWindow + amount > limit) {
+          throw new Error(`DAILY_LIMIT:${Math.max(0, limit - usedWindow)}`);
+        }
       }
 
       await tx.user.update({ where: { id: recipient.id }, data: { walletBalance: { increment: amount } } });
