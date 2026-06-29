@@ -45,23 +45,42 @@ const HISTORY_FILTERS: { label: string; status?: string }[] = [
   { label: "Failed",    status: "FAILED" },
 ];
 
+const PAGE_SIZE = 25;
+
 function WithdrawalsHistory() {
   const [items, setItems]     = useState<PendingWithdrawal[]>([]);
+  const [total, setTotal]     = useState(0);
+  const [page, setPage]       = useState(1);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter]   = useState<string | undefined>(undefined);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const qs  = filter ? `?status=${filter}` : "";
-      const res = await fetch(`/api/admin/withdrawals/history${qs}`);
-      if (res.ok) setItems(await res.json());
+      const params = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+      if (filter) params.set("status", filter);
+      const res = await fetch(`/api/admin/withdrawals/history?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setItems(data.rows ?? []);
+        setTotal(data.total ?? 0);
+      }
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, page]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reset to page 1 whenever the filter changes.
+  function changeFilter(status: string | undefined) {
+    setPage(1);
+    setFilter(status);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to   = Math.min(page * PAGE_SIZE, total);
 
   return (
     <div>
@@ -70,7 +89,7 @@ function WithdrawalsHistory() {
           {HISTORY_FILTERS.map((f) => (
             <button
               key={f.label}
-              onClick={() => setFilter(f.status)}
+              onClick={() => changeFilter(f.status)}
               className={`rounded-md px-2.5 py-1 text-[10px] font-black transition-colors ${
                 filter === f.status ? "bg-white/[0.1] text-white" : "text-slate-500 hover:text-white"
               }`}
@@ -133,6 +152,31 @@ function WithdrawalsHistory() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && total > 0 && (
+        <div className="mt-3 flex items-center justify-between border border-white/[0.07] bg-[#121419] px-4 py-3">
+          <p className="text-[11px] text-slate-500">
+            Showing <span className="font-black text-slate-300">{from}–{to}</span> of <span className="font-black text-slate-300">{total}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="rounded-md px-2.5 py-1 text-[10px] font-black text-slate-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              ← Prev
+            </button>
+            <span className="text-[10px] font-black text-slate-500">{page} / {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="rounded-md px-2.5 py-1 text-[10px] font-black text-slate-400 transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              Next →
+            </button>
+          </div>
         </div>
       )}
     </div>
