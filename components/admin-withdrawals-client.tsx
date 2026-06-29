@@ -10,6 +10,8 @@ interface PendingWithdrawal {
   amount: string;
   currency: string;
   provider: string | null;
+  status: string;
+  reference: string | null;
   createdAt: string;
   metadata: Record<string, unknown> | null;
   user: { id: string; email: string | null; username: string | null; phone: string | null };
@@ -19,7 +21,126 @@ function Spinner() {
   return <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />;
 }
 
+const STATUS_STYLES: Record<string, string> = {
+  COMPLETED:        "bg-emerald-500/12 text-emerald-400",
+  PENDING:          "bg-sky-500/12 text-sky-400",
+  PENDING_APPROVAL: "bg-amber-500/12 text-amber-400",
+  FAILED:           "bg-red-500/12 text-red-400",
+  CANCELLED:        "bg-slate-500/12 text-slate-400",
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const cls = STATUS_STYLES[status] ?? "bg-slate-500/12 text-slate-400";
+  return (
+    <span className={`rounded-md px-2 py-1 text-[10px] font-black ${cls}`}>
+      {status.replace(/_/g, " ")}
+    </span>
+  );
+}
+
+const HISTORY_FILTERS: { label: string; status?: string }[] = [
+  { label: "All" },
+  { label: "Completed", status: "COMPLETED" },
+  { label: "Pending",   status: "PENDING" },
+  { label: "Failed",    status: "FAILED" },
+];
+
+function WithdrawalsHistory() {
+  const [items, setItems]     = useState<PendingWithdrawal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter]   = useState<string | undefined>(undefined);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const qs  = filter ? `?status=${filter}` : "";
+      const res = await fetch(`/api/admin/withdrawals/history${qs}`);
+      if (res.ok) setItems(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }, [filter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border border-white/[0.07] bg-[#121419] px-4 py-3">
+        <div className="flex flex-wrap gap-1.5">
+          {HISTORY_FILTERS.map((f) => (
+            <button
+              key={f.label}
+              onClick={() => setFilter(f.status)}
+              className={`rounded-md px-2.5 py-1 text-[10px] font-black transition-colors ${
+                filter === f.status ? "bg-white/[0.1] text-white" : "text-slate-500 hover:text-white"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={load}
+          className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 transition-colors hover:text-white"
+        >
+          <Icon name="refresh" className="text-[13px]" />
+          Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16"><Spinner /></div>
+      ) : items.length === 0 ? (
+        <div className="admin-panel flex min-h-[200px] flex-col items-center justify-center py-16">
+          <p className="text-sm font-black text-slate-200">No withdrawals found</p>
+          <p className="mt-1 text-[11px] text-slate-600">Nothing matches this filter yet.</p>
+        </div>
+      ) : (
+        <div className="admin-panel overflow-x-auto">
+          <table className="w-full min-w-[680px] text-left">
+            <thead>
+              <tr className="border-b border-white/[0.07] text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+                <th className="px-4 py-3">When</th>
+                <th className="px-4 py-3">User</th>
+                <th className="px-4 py-3 text-right">Amount</th>
+                <th className="px-4 py-3">Destination</th>
+                <th className="px-4 py-3">Provider</th>
+                <th className="px-4 py-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((w) => {
+                const meta    = w.metadata ?? {};
+                const msisdn  = meta.msisdn as string | undefined;
+                const address = meta.address as string | undefined;
+                const dest    = msisdn ? `+${msisdn}` : address ? `${address.slice(0, 10)}…${address.slice(-6)}` : "—";
+                return (
+                  <tr key={w.id} className="border-b border-white/[0.04] text-[12px] hover:bg-white/[0.02]">
+                    <td className="px-4 py-3 text-slate-500 whitespace-nowrap">{new Date(w.createdAt).toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/admin/users/${w.user.id}`} target="_blank" className="font-bold text-slate-200 hover:text-blue-300">
+                        {w.user.username ? `@${w.user.username}` : w.user.email ?? w.user.phone ?? "—"}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-black text-white whitespace-nowrap">
+                      {Number(w.amount).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })} {w.currency}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-slate-400 break-all">{dest}</td>
+                    <td className="px-4 py-3 text-slate-500">{w.provider ?? "—"}</td>
+                    <td className="px-4 py-3"><StatusBadge status={w.status} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AdminWithdrawalsClient() {
+  const [tab, setTab] = useState<"approvals" | "history">("approvals");
   const [items, setItems]       = useState<PendingWithdrawal[]>([]);
   const [loading, setLoading]   = useState(true);
   const [acting, setActing]     = useState<string | null>(null);
@@ -60,20 +181,39 @@ export function AdminWithdrawalsClient() {
     <div className="admin-page">
       <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">Financial approvals</p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight text-white">Withdrawal approvals</h1>
-          <p className="mt-1 max-w-2xl text-[11px] text-slate-500">Review crypto sales, large payouts and unusual withdrawal velocity before funds leave the platform.</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">Financial</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-white">Withdrawals</h1>
+          <p className="mt-1 max-w-2xl text-[11px] text-slate-500">Review payouts awaiting approval, and monitor every withdrawal across the platform.</p>
         </div>
-        <button
-          onClick={load}
-          className="admin-panel-soft flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-slate-500 transition-colors hover:text-white"
-        >
-          <Icon name="refresh" className="text-[13px]" />
-          Refresh
-        </button>
+        {tab === "approvals" && (
+          <button
+            onClick={load}
+            className="admin-panel-soft flex items-center gap-1.5 px-3 py-2 text-[10px] font-black text-slate-500 transition-colors hover:text-white"
+          >
+            <Icon name="refresh" className="text-[13px]" />
+            Refresh
+          </button>
+        )}
       </div>
 
-      {loading ? (
+      <div className="mb-4 flex gap-1 border-b border-white/[0.07]">
+        {([["approvals", "Approvals"], ["history", "History"]] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`-mb-px border-b-2 px-3 py-2 text-[11px] font-black transition-colors ${
+              tab === key ? "border-[#087cff] text-white" : "border-transparent text-slate-500 hover:text-white"
+            }`}
+          >
+            {label}
+            {key === "approvals" && items.length > 0 && (
+              <span className="ml-1.5 rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] text-amber-300">{items.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {tab === "history" ? <WithdrawalsHistory /> : loading ? (
         <div className="flex justify-center py-16"><Spinner /></div>
       ) : items.length === 0 ? (
         <div className="admin-panel relative flex min-h-[280px] flex-col items-center justify-center overflow-hidden py-16">
