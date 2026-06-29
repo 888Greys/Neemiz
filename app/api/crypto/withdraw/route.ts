@@ -42,14 +42,17 @@ const FEE_RATE = Number.isFinite(configuredFeeRate)
  * the transaction directly from the Nezeem hot wallet.
  */
 export async function POST(req: Request) {
-  const killed = await withdrawalsDisabledResponse();
-  if (killed) return killed;
-
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+  // Global money-out kill switch. Admins are exempt (matching the fiat path in
+  // app/api/wallet/withdraw) so the owner can still cash out / manage float
+  // while withdrawals are disabled platform-wide during an incident.
+  const killed = await withdrawalsDisabledResponse();
+  if (killed && !dbUser.isAdmin) return killed;
 
   // Cap payout attempts per user (covers brute-forcing balance edges / spamming
   // the signer). Keyed by account, not IP, so it can't be sidestepped via proxies.
