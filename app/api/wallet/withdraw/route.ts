@@ -7,6 +7,7 @@ import { notifyAdminsLowFloat, notifyAdminsSuspiciousNumber } from "@/lib/admin-
 import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 import { withdrawalsDisabledResponse, setWithdrawalsDisabled } from "@/lib/withdrawal-guard";
+import { assertLedgerBacked, LedgerUnbackedError } from "@/lib/ledger-guard";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -79,6 +80,15 @@ export async function POST(req: Request) {
         data:  { walletBalance: { decrement: amountKes } },
       });
       if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+
+      // Ledger-backed balance guard. The balance debit above only proves the
+      // wallet_balance column is high enough — but that column can be written
+      // directly in the DB with no transaction record (the 2026-06-29 injection
+      // incident). Refuse to pay out more than the transaction ledger can
+      // account for, so phantom/injected balance can never leave the platform
+      // even if DB credentials are compromised. Applies to everyone incl. admins
+      // (legit admin balances are backed by BONUS/manual ledger rows).
+      await assertLedgerBacked(tx, dbUser.id, amountKes);
 
       // Rolling-24h cash-out cap, shared across vectors: M-Pesa withdrawals AND
       // outgoing wallet transfers both count (see dailyCapWhere), so a user can't
@@ -271,6 +281,18 @@ export async function POST(req: Request) {
       message:      `${CURRENCY_SYMBOL} ${payoutKes.toLocaleString()} is being sent to +${msisdn} via M-Pesa. You'll be notified once it's confirmed.`,
     });
   } catch (err) {
+    if (err instanceof LedgerUnbackedError) {
+      // The requested amount exceeds the ledger-backed balance — i.e. part of
+      // this wallet_balance has no transaction history behind it. Refuse and
+      // alert; do NOT reveal the mechanism to the client.
+      console.error(
+        `[withdraw] LEDGER_UNBACKED blocked: backed=${err.backed} requested=${err.requested}`,
+      );
+      return Response.json(
+        { error: "This withdrawal could not be processed. Please contact support." },
+        { status: 403 },
+      );
+    }
     if (err instanceof Error && err.message === "PHONE_NUMBER_LINKED") {
       return Response.json({ error: "This phone number is already linked to another account. Each phone number can only be used by one account." }, { status: 400 });
     }
