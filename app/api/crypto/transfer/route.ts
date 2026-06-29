@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { debitUserCrypto, creditUserCrypto } from "@/lib/p2p/crypto-balance";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 // ── GET /api/crypto/transfer?username=xxx  ──────────────────────────────────
 // Look up a recipient by username — returns display name if found.
@@ -55,6 +56,11 @@ export async function POST(req: Request) {
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbSender = await getOrCreateUser(user.id, { email: user.email });
+
+    // Cap transfer attempts per account (anti-abuse / mule-fan-out throttle).
+    // Keyed by account, not IP, so proxies can't sidestep it.
+    const rl = rateLimit(`crypto-transfer:${dbSender.id}`, 10, 60_000);
+    if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
     let body: Record<string, unknown>;
     try { body = await req.json(); } catch {
