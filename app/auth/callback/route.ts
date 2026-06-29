@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 
 // This route handles the OAuth redirect from Supabase after Google/GitHub sign-in.
-// Set your Supabase Auth Redirect URL to: https://yourdomain.com/auth/callback
+// Supabase Auth Redirect URL: https://www.nezeem.com/auth/callback
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
