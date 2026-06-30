@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { ValuePickerSheet, DurationPickerSheet } from "./digit-panel";
+import { useCurrency } from "@/lib/currency-context";
 import type { DirectionalSide, DirectionalKind } from "@/lib/directional";
 
 type DirKind = DirectionalKind;
@@ -48,6 +49,9 @@ export function DirectionalPanel({
   placing: boolean;
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
 }) {
+  const { convert, toKes, currency: cc } = useCurrency();
+  const stakeDisplay = Number(convert(stake).toFixed(cc.decimals));
+  const setStakeDisplay = (shown: number) => setStake(Math.max(minStake, Math.round(toKes(shown))));
   const needsBarrier = kind !== "RISE_FALL";
   const offsetStep = Math.max(0.01, Math.round(latestSpot * 0.0003 * 100) / 100);
   const barrier = latestSpot + barrierOffset;
@@ -85,14 +89,14 @@ export function DirectionalPanel({
           <div className="mb-1.5 text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">Stake</div>
           <div className="flex gap-1.5">
             <div className={`flex-1 ${FIELD}`}>
-              <button type="button" onClick={() => setStake(Math.max(minStake, stake - 1))}
+              <button type="button" onClick={() => setStakeDisplay(stakeDisplay - 1)}
                 className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="remove" className="text-[14px] sm:text-[18px]" />
               </button>
-              <input type="number" value={stake}
-                onChange={(e) => setStake(Math.max(minStake, Number(e.target.value) || 0))}
+              <input type="number" value={stakeDisplay}
+                onChange={(e) => setStakeDisplay(Number(e.target.value) || 0)}
                 className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-              <button type="button" onClick={() => setStake(stake + 1)}
+              <button type="button" onClick={() => setStakeDisplay(stakeDisplay + 1)}
                 className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="add" className="text-[14px] sm:text-[18px]" />
               </button>
@@ -104,7 +108,7 @@ export function DirectionalPanel({
               <button key={amount} type="button" onClick={() => setStake(amount)}
                 className={`rounded-md py-0.5 text-[10px] font-black transition sm:py-1.5 sm:text-[11px] ${
                   stake === amount ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
-                }`}>{amount}</button>
+                }`}>{convert(amount).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals })}</button>
             ))}
           </div>
         </div>
@@ -229,6 +233,8 @@ function MobileDirectional({
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
 }) {
   const armedRed = RED_SIDES.has(selectedSide);
+  const { convert, currency: cc } = useCurrency();
+  const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
   const [picker, setPicker] = useState<null | "duration" | "stake" | "barrier" | "allow">(null);
   // Collapsed by default: the cards sit in a row where the last peeks off the
   // right edge (Deriv); the grab handle expands to full-width stacks.
@@ -241,7 +247,7 @@ function MobileDirectional({
   const cards = [
     { key: "duration", label: "Duration", value: durationLabel, accent: "text-white", onClick: () => setPicker("duration") },
     ...(needsBarrier ? [{ key: "barrier", label: "Barrier", value: barrierLabel, accent: "text-amber-300", onClick: () => setPicker("barrier") }] : []),
-    { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
+    { key: "stake", label: "Stake", value: `${stakeShown} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
     ...(needsBarrier ? [] : [{ key: "allow", label: "Allow equals", value: "Soon", accent: "text-slate-500", onClick: () => setPicker("allow") }]),
   ];
 
@@ -311,6 +317,7 @@ function MobileDirectional({
       )}
       {picker === "stake" && (
         <ValuePickerSheet
+          money
           title="Stake" unit={currency} value={stake}
           presets={stakePresets} min={minStake} max={1_000_000}
           onChange={setStake} onClose={() => setPicker(null)}
