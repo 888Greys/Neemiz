@@ -5,6 +5,7 @@ import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { ValuePickerSheet, DurationPickerSheet } from "./digit-panel";
 import { BarrierSheet } from "./directional-panel";
+import { useCurrency } from "@/lib/currency-context";
 import type { DirectionalSide } from "@/lib/directional";
 
 type DirSide = DirectionalSide;
@@ -43,6 +44,9 @@ export function VanillaPanel({
   placing: boolean;
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
 }) {
+  const { convert, toKes, currency: cc } = useCurrency();
+  const stakeDisplay = Number(convert(stake).toFixed(cc.decimals));
+  const setStakeDisplay = (shown: number) => setStake(Math.max(minStake, Math.round(toKes(shown))));
   const offsetStep = Math.max(0.01, Math.round(latestSpot * 0.0003 * 100) / 100);
   const strike = latestSpot + strikeOffset;
 
@@ -78,14 +82,14 @@ export function VanillaPanel({
           <div className="mb-1 text-center text-[10px] font-bold text-slate-300 sm:mb-2.5 sm:text-[13px] sm:text-slate-200">Stake</div>
           <div className="flex gap-1.5">
             <div className={`flex-1 ${FIELD}`}>
-              <button type="button" onClick={() => setStake(Math.max(minStake, stake - 1))}
+              <button type="button" onClick={() => setStakeDisplay(stakeDisplay - 1)}
                 className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="remove" className="text-[14px] sm:text-[18px]" />
               </button>
-              <input type="number" value={stake}
-                onChange={(e) => setStake(Math.max(minStake, Number(e.target.value) || 0))}
+              <input type="number" value={stakeDisplay}
+                onChange={(e) => setStakeDisplay(Number(e.target.value) || 0)}
                 className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-              <button type="button" onClick={() => setStake(stake + 1)}
+              <button type="button" onClick={() => setStakeDisplay(stakeDisplay + 1)}
                 className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="add" className="text-[14px] sm:text-[18px]" />
               </button>
@@ -97,7 +101,7 @@ export function VanillaPanel({
               <button key={amount} type="button" onClick={() => setStake(amount)}
                 className={`rounded-md py-0.5 text-[10px] font-black transition sm:py-1.5 sm:text-[11px] ${
                   stake === amount ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
-                }`}>{amount}</button>
+                }`}>{convert(amount).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals })}</button>
             ))}
           </div>
         </div>
@@ -220,6 +224,8 @@ function MobileVanilla({
   openPositions: { id: string; side: DirSide; settlesAt: number }[];
 }) {
   const armedPut = selectedSide === "PUT";
+  const { convert, currency: cc } = useCurrency();
+  const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
   const [picker, setPicker] = useState<null | "duration" | "stake" | "strike">(null);
   // Collapsed by default: the 3 cards sit in a row where the 3rd peeks off the
   // right edge (Deriv). The grab handle expands to full-width stacked cards.
@@ -232,7 +238,7 @@ function MobileVanilla({
   const cards = [
     { key: "duration", label: "Duration", value: `${duration * secPerTick} sec`, accent: "text-white", onClick: () => setPicker("duration") },
     { key: "strike", label: "Strike", value: strikeLabel, accent: "text-amber-300", onClick: () => setPicker("strike") },
-    { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
+    { key: "stake", label: "Stake", value: `${stakeShown} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
   ] as const;
 
   return (
@@ -305,6 +311,7 @@ function MobileVanilla({
       )}
       {picker === "stake" && (
         <ValuePickerSheet
+          money
           title="Stake" unit={currency} value={stake}
           presets={stakePresets} min={minStake} max={1_000_000}
           onChange={setStake} onClose={() => setPicker(null)}

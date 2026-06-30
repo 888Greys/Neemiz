@@ -5,6 +5,7 @@ import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { GROWTH_RATES, maxTicksFor, payoutAtTick, barrierFracFor } from "@/lib/accumulator";
 import { ValuePickerSheet } from "./digit-panel";
+import { useCurrency } from "@/lib/currency-context";
 
 const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
 const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
@@ -41,6 +42,9 @@ export function AccumulatorsPanel({
   format: (v: number) => string;
   sigma: number | null;
 }) {
+  const { convert, toKes, currency: cc } = useCurrency();
+  const stakeDisplay = Number(convert(stake).toFixed(cc.decimals));
+  const setStakeDisplay = (shown: number) => setStake(Math.max(1, Math.round(toKes(shown))));
   const maxTicks  = maxTicksFor(growthRate);
   const maxPayout = payoutAtTick(stake, growthRate, maxTicks);
 
@@ -92,16 +96,16 @@ export function AccumulatorsPanel({
           <div className="mb-1.5 text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">Stake</div>
           <div className="flex gap-1.5">
             <div className={`flex-1 ${FIELD}`}>
-              <button type="button" onClick={() => setStake(Math.max(1, stake - 1))}
+              <button type="button" onClick={() => setStakeDisplay(stakeDisplay - 1)}
                 className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="remove" className="text-[14px] sm:text-[18px]" />
               </button>
               <input
-                type="number" value={stake}
-                onChange={(e) => setStake(Math.max(1, Number(e.target.value) || 0))}
+                type="number" value={stakeDisplay}
+                onChange={(e) => setStakeDisplay(Number(e.target.value) || 0)}
                 className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
-              <button type="button" onClick={() => setStake(stake + 1)}
+              <button type="button" onClick={() => setStakeDisplay(stakeDisplay + 1)}
                 className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="add" className="text-[14px] sm:text-[18px]" />
               </button>
@@ -188,6 +192,8 @@ function MobileAccumulators({
   format: (v: number) => string;
   sigma: number | null;
 }) {
+  const { convert, currency: cc } = useCurrency();
+  const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
   const [sheet, setSheet] = useState<null | "growth" | "stake" | "tp" | "maxpayout">(null);
   // Deriv shows the resulting barrier band (±%) and the max duration for the
   // selected growth rate at the foot of the growth-rate sheet.
@@ -211,7 +217,7 @@ function MobileAccumulators({
 
   const cards = [
     { key: "growth", label: "Growth rate", value: `${growthRate}%`, onClick: () => setSheet("growth") },
-    { key: "stake", label: "Stake", value: `${stake} ${currency}`, onClick: () => setSheet("stake") },
+    { key: "stake", label: "Stake", value: `${stakeShown} ${currency}`, onClick: () => setSheet("stake") },
     { key: "tp", label: "Take profit", value: takeProfitOn ? `${takeProfit}` : "—", onClick: () => setSheet("tp") },
   ] as const;
 
@@ -280,6 +286,7 @@ function MobileAccumulators({
       )}
       {sheet === "stake" && (
         <ValuePickerSheet
+          money
           title="Stake" unit={currency} value={stake}
           presets={[10, 50, 100, 500, 1000, 5000]} min={1} max={1_000_000}
           onChange={setStake} onClose={() => setSheet(null)}

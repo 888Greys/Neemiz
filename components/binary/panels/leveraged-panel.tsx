@@ -5,6 +5,7 @@ import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { ValuePickerSheet } from "./digit-panel";
 import { TakeProfitSheet } from "./accumulators-panel";
+import { useCurrency } from "@/lib/currency-context";
 import { MULTIPLIERS, type LeveragedKindT, type LeveragedDirection } from "@/lib/leveraged";
 
 const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
@@ -57,6 +58,13 @@ export function LeveragedPanel({
   position: RunningLeveraged | null;
   onCashOut: () => void; closing: boolean;
 }) {
+  // Hook must run before the early return below (Rules of Hooks). Stake stays
+  // canonical KES — incl. for the stop-loss `max={stake}` limit — only its
+  // display/entry is converted to the active currency.
+  const { convert, toKes, currency: cc } = useCurrency();
+  const stakeDisplay = Number(convert(stake).toFixed(cc.decimals));
+  const setStakeDisplay = (shown: number) => setStake(Math.max(minStake, Math.round(toKes(shown))));
+
   if (position) return <RunningContract position={position} onCashOut={onCashOut} closing={closing} format={format} formatSpot={formatSpot} />;
 
   const isTurbo = kind === "TURBO";
@@ -132,14 +140,14 @@ export function LeveragedPanel({
           <div className="mb-1.5 text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">Stake</div>
           <div className="flex gap-1.5">
             <div className={`flex-1 ${FIELD}`}>
-              <button type="button" onClick={() => setStake(Math.max(minStake, stake - 1))}
+              <button type="button" onClick={() => setStakeDisplay(stakeDisplay - 1)}
                 className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="remove" className="text-[14px] sm:text-[18px]" />
               </button>
-              <input type="number" value={stake}
-                onChange={(e) => setStake(Math.max(minStake, Number(e.target.value) || 0))}
+              <input type="number" value={stakeDisplay}
+                onChange={(e) => setStakeDisplay(Number(e.target.value) || 0)}
                 className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-              <button type="button" onClick={() => setStake(stake + 1)}
+              <button type="button" onClick={() => setStakeDisplay(stakeDisplay + 1)}
                 className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="add" className="text-[14px] sm:text-[18px]" />
               </button>
@@ -151,7 +159,7 @@ export function LeveragedPanel({
               <button key={amount} type="button" onClick={() => setStake(amount)}
                 className={`rounded-md py-0.5 text-[10px] font-black transition sm:py-1.5 sm:text-[11px] ${
                   stake === amount ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
-                }`}>{amount}</button>
+                }`}>{convert(amount).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals })}</button>
             ))}
           </div>
         </div>
@@ -220,6 +228,8 @@ function MobileTurboPanel({
   format: (v: number) => string; formatSpot: (v: number) => string;
   onTrade: (direction: LeveragedDirection) => void; placing: boolean; offsetStep: number;
 }) {
+  const { convert, currency: cc } = useCurrency();
+  const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
   const [direction, setDirection] = useState<LeveragedDirection>("UP");
   const [picker, setPicker] = useState<null | "stake" | "barrier" | "tp">(null);
   // Collapsed by default: the 3 cards sit in a row where the 3rd (Take profit)
@@ -228,7 +238,7 @@ function MobileTurboPanel({
   const fieldCard = "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
 
   const cards = [
-    { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
+    { key: "stake", label: "Stake", value: `${stakeShown} ${currency}`, accent: "text-white", onClick: () => setPicker("stake") },
     { key: "payout", label: "Payout per point", value: format(payoutPerPoint), accent: "text-white", onClick: () => setPicker("barrier") },
     { key: "tp", label: "Take profit", value: takeProfitOn ? `${takeProfit}` : "—", accent: "text-white", onClick: () => setPicker("tp") },
   ] as const;
@@ -287,7 +297,7 @@ function MobileTurboPanel({
           {placing ? <LoadingDots /> : <>Buy {direction === "UP" ? "Up" : "Down"}</>}
         </button>
       </div>
-      {picker === "stake" && <ValuePickerSheet title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setPicker(null)} />}
+      {picker === "stake" && <ValuePickerSheet money title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setPicker(null)} />}
       {picker === "barrier" && <ValuePickerSheet title="Payout per point" unit="" value={barrierOffset} presets={[offsetStep, offsetStep * 2, offsetStep * 3, offsetStep * 5, offsetStep * 8, offsetStep * 13].map((v) => Number(v.toFixed(2)))} min={-999_999} max={999_999} onChange={setBarrierOffset} onClose={() => setPicker(null)} />}
       {picker === "tp" && <TakeProfitSheet currency={currency} on={takeProfitOn} setOn={setTakeProfitOn} value={takeProfit || 10} setValue={setTakeProfit} note="Note: Cannot be adjusted for ongoing Turbo contracts." onClose={() => setPicker(null)} />}
     </div>
@@ -314,6 +324,8 @@ function MobileMultiplierPanel({
   format: (v: number) => string; formatSpot: (v: number) => string;
   onTrade: (direction: LeveragedDirection) => void; placing: boolean;
 }) {
+  const { convert, currency: cc } = useCurrency();
+  const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
   const [direction, setDirection] = useState<LeveragedDirection>("UP");
   const [sheet, setSheet] = useState<null | "multiplier" | "stake" | "risk" | "stopout">(null);
   // Collapsed by default: the 3 cards sit in a row where the 3rd peeks off the
@@ -324,7 +336,7 @@ function MobileMultiplierPanel({
   const riskValue = takeProfitOn || stopLossOn ? [takeProfitOn ? "TP" : null, stopLossOn ? "SL" : null].filter(Boolean).join(" · ") : "—";
   const cards = [
     { key: "multiplier", label: "Multiplier", value: `x${multiplier}`, accent: "text-white", onClick: () => setSheet("multiplier") },
-    { key: "stake", label: "Stake", value: `${stake} ${currency}`, accent: "text-white", onClick: () => setSheet("stake") },
+    { key: "stake", label: "Stake", value: `${stakeShown} ${currency}`, accent: "text-white", onClick: () => setSheet("stake") },
     { key: "risk", label: "Risk management", value: riskValue, accent: "text-white", onClick: () => setSheet("risk") },
   ] as const;
 
@@ -389,7 +401,7 @@ function MobileMultiplierPanel({
       </div>
 
       {sheet === "multiplier" && <MultiplierSheet value={multiplier} onChange={setMultiplier} onClose={() => setSheet(null)} />}
-      {sheet === "stake" && <ValuePickerSheet title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setSheet(null)} />}
+      {sheet === "stake" && <ValuePickerSheet money title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setSheet(null)} />}
       {sheet === "risk" && (
         <RiskManagementSheet
           currency={currency}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
+import { useCurrency } from "@/lib/currency-context";
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
 type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
@@ -55,6 +56,10 @@ export function DigitPanel({
   placing: boolean;
   openPositions: { id: string; side: ContractSide; settlesAt: number }[];
 }) {
+  // Stake is canonical KES; show/enter it in the active display currency.
+  const { convert, toKes, currency: cc } = useCurrency();
+  const stakeDisplay = Number(convert(stake).toFixed(cc.decimals));
+  const setStakeDisplay = (shown: number) => setStake(Math.max(minStake, Math.round(toKes(shown))));
   // Even/Odd is decided purely by the exit digit's parity — no barrier digit.
   const needsTarget = family !== "evenOdd";
   const targetVerb = family === "matchDiffer" ? "Target digit" : "Barrier digit";
@@ -122,16 +127,16 @@ export function DigitPanel({
             <div className={`${compactStakeDuration ? "mb-1 text-[10px]" : "mb-1.5 text-[11px]"} text-center font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]`}>Stake</div>
             <div className="flex gap-1.5">
               <div className={`flex-1 ${FIELD}`}>
-                <button type="button" onClick={() => setStake(Math.max(minStake, stake - 1))}
+                <button type="button" onClick={() => setStakeDisplay(stakeDisplay - 1)}
                   className="grid h-6 w-6 shrink-0 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                   <Icon name="remove" className="text-[13px] sm:text-[18px]" />
                 </button>
                 <input
-                  type="number" value={stake}
-                  onChange={(e) => setStake(Math.max(minStake, Number(e.target.value) || 0))}
+                  type="number" value={stakeDisplay}
+                  onChange={(e) => setStakeDisplay(Number(e.target.value) || 0)}
                   className="w-full min-w-0 bg-transparent text-center text-[13px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
-                <button type="button" onClick={() => setStake(stake + 1)}
+                <button type="button" onClick={() => setStakeDisplay(stakeDisplay + 1)}
                   className="grid h-6 w-6 shrink-0 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                   <Icon name="add" className="text-[13px] sm:text-[18px]" />
                 </button>
@@ -145,7 +150,7 @@ export function DigitPanel({
                     className={`rounded-md py-0.5 text-[10px] font-black transition sm:py-1.5 sm:text-[11px] ${
                       stake === amount ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
                     }`}>
-                    {amount}
+                    {convert(amount).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals })}
                   </button>
                 ))}
               </div>
@@ -253,6 +258,8 @@ function MobileDerivDigits({
   openPositions: { id: string; side: ContractSide; settlesAt: number }[];
 }) {
   const armedRed = RED_SIDES.has(selectedSide);
+  const { convert, currency: cc } = useCurrency();
+  const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
   // Which value the bottom-sheet picker is editing (Deriv-style); null = closed.
   const [picker, setPicker] = useState<null | "duration" | "stake">(null);
   // The barrier/target digit grid is collapsed by default to keep the chart big;
@@ -351,7 +358,7 @@ function MobileDerivDigits({
           </button>
           <button type="button" onClick={() => setPicker("stake")} className={fieldCard}>
             <span className="text-[11px] font-bold text-slate-400">Stake</span>
-            <span className="mt-0.5 text-[16px] font-black text-white">{stake} {currency}</span>
+            <span className="mt-0.5 text-[16px] font-black text-white">{stakeShown} {currency}</span>
           </button>
         </div>
       </div>
@@ -365,6 +372,7 @@ function MobileDerivDigits({
       )}
       {picker === "stake" && (
         <ValuePickerSheet
+          money
           title="Stake" unit={currency} value={stake}
           presets={stakePresets} min={minStake} max={1_000_000}
           onChange={setStake} onClose={() => setPicker(null)}
@@ -395,7 +403,7 @@ function MobileDerivDigits({
 // preset chips (lightning) or a number keypad (keyboard) for a custom value.
 // Exported so other panels (Accumulators) reuse the same picker.
 export function ValuePickerSheet({
-  title, unit, value, presets, min, max, integer, onChange, onClose, footer,
+  title, unit, value, presets, min, max, integer, onChange, onClose, footer, money,
 }: {
   title: string;
   unit: string;
@@ -407,15 +415,25 @@ export function ValuePickerSheet({
   onChange: (v: number) => void;
   onClose: () => void;
   footer?: React.ReactNode;
+  // When true, `value`/`presets`/`min`/`max`/`onChange` are all canonical KES,
+  // but the sheet DISPLAYS them in the active currency and converts the user's
+  // typed/picked amount back to KES before calling onChange.
+  money?: boolean;
 }) {
+  const { convert, toKes, currency } = useCurrency();
   const [mode, setMode] = useState<"presets" | "keypad">("presets");
-  const [draft, setDraft] = useState(String(value));
+  // Draft holds the displayed (possibly converted) value the user is editing.
+  const disp = (kes: number) => (money ? Number(convert(kes).toFixed(currency.decimals)) : kes);
+  const [draft, setDraft] = useState(String(disp(value)));
 
   const clamp = (v: number) => {
     const c = Math.min(max, Math.max(min, v || min));
     return integer ? Math.round(c) : c;
   };
-  const commit = (v: number) => { onChange(clamp(v)); onClose(); };
+  // Preset values stay KES; keypad drafts are in display units → back to KES.
+  const commit = (vKes: number) => { onChange(clamp(vKes)); onClose(); };
+  const commitDraft = (shown: number) => commit(money ? Math.round(toKes(shown)) : shown);
+  const fmtPreset = (kes: number) => (money ? convert(kes).toLocaleString(currency.locale, { maximumFractionDigits: currency.decimals }) : String(kes));
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
@@ -445,7 +463,7 @@ export function ValuePickerSheet({
                   className={`rounded-xl py-3.5 text-[14px] font-black transition active:scale-95 ${
                     active ? "bg-white text-[#16181d]" : "bg-[#0f1319] text-slate-200"
                   }`}>
-                  {p} {unit}
+                  {fmtPreset(p)} {unit}
                 </button>
               );
             })}
@@ -463,7 +481,7 @@ export function ValuePickerSheet({
               />
               <span className="pl-2 text-[13px] font-black text-slate-500">{unit}</span>
             </div>
-            <button type="button" onClick={() => commit(Number(draft))}
+            <button type="button" onClick={() => commitDraft(Number(draft))}
               className="mt-3 w-full rounded-full bg-[#16a085] py-3 text-[15px] font-black text-white transition active:scale-[0.98]">
               Confirm
             </button>
