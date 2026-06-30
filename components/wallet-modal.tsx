@@ -5,6 +5,7 @@ import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { useCurrency } from "@/lib/currency-context";
 
 const QUICK_AMOUNTS = [400, 1_000, 3_000, 5_000];
 const POLL_INTERVAL = 4_000;
@@ -319,7 +320,11 @@ function CryptoDepositPanel({
 export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   const { isSignedIn, user } = useSupabaseAuth();
   const { balance, currency, cryptoBalances } = useWalletBalance();
-  const [mode, setMode] = useState<"fiat" | "crypto">("fiat");
+  // Default deposit rail by the user's display currency: M-Pesa (fiat) only
+  // serves Kenya/KES — everyone else defaults to crypto until local payment
+  // rails (Pesapal etc.) are wired for their currency.
+  const { code: displayCurrency } = useCurrency();
+  const [mode, setMode] = useState<"fiat" | "crypto">(displayCurrency === "KES" ? "fiat" : "crypto");
   const [screen, setScreen] = useState<"methods" | "mpesa">("methods");
 
   // Crypto deposit state
