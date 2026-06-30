@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCurrency } from "@/lib/currency-context";
 import { CURRENCIES } from "@/lib/currency-config";
+import { CurrencyFlag } from "@/components/currency-flag";
 
 /**
  * Compact display-currency picker. Changing it updates the in-page context
@@ -38,7 +39,7 @@ export function CurrencySwitcher({ className = "" }: { className?: string }) {
         className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-on-surface-variant ring-1 ring-white/10 transition hover:ring-white/20"
         aria-label="Change display currency"
       >
-        <span>{currency.flag}</span>
+        <CurrencyFlag currency={currency} size={14} />
         <span>{code}</span>
         <span className="text-[9px] opacity-60">▾</span>
       </button>
@@ -53,7 +54,7 @@ export function CurrencySwitcher({ className = "" }: { className?: string }) {
                 c.code === code ? "bg-white/[0.05] text-white" : "text-slate-300"
               }`}
             >
-              <span className="text-base">{c.flag}</span>
+              <CurrencyFlag currency={c} size={16} />
               <span className="font-bold">{c.code}</span>
               <span className="ml-auto truncate text-[11px] text-slate-500">{c.name}</span>
               {c.kind === "crypto" && (

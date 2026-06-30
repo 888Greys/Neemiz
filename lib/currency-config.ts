@@ -13,7 +13,7 @@ export interface DisplayCurrency {
   symbol: string;   // display symbol/prefix
   locale: string;   // Intl locale for grouping
   name: string;     // human label
-  flag: string;     // emoji flag / icon
+  cc: string;       // ISO-3166 alpha-2 for the flag image ("" for crypto)
   kind: CurrencyKind;
   decimals: number; // typical display precision
 }
@@ -21,16 +21,16 @@ export interface DisplayCurrency {
 // Ordered for the picker. KES first (home), USDT highlighted as the borderless
 // option, then the fiats we have FX coverage for (see lib/p2p/fx).
 export const CURRENCIES: DisplayCurrency[] = [
-  { code: "KES",  symbol: "KSh",  locale: "en-KE", name: "Kenyan Shilling",   flag: "🇰🇪", kind: "fiat",   decimals: 2 },
-  { code: "USDT", symbol: "USDT", locale: "en-US", name: "Tether (USDT)",     flag: "🪙", kind: "crypto", decimals: 2 },
-  { code: "USD",  symbol: "$",    locale: "en-US", name: "US Dollar",         flag: "🇺🇸", kind: "fiat",   decimals: 2 },
-  { code: "NGN",  symbol: "₦",    locale: "en-NG", name: "Nigerian Naira",    flag: "🇳🇬", kind: "fiat",   decimals: 2 },
-  { code: "GHS",  symbol: "GH₵",  locale: "en-GH", name: "Ghanaian Cedi",     flag: "🇬🇭", kind: "fiat",   decimals: 2 },
-  { code: "ZAR",  symbol: "R",    locale: "en-ZA", name: "South African Rand",flag: "🇿🇦", kind: "fiat",   decimals: 2 },
-  { code: "TZS",  symbol: "TSh",  locale: "en-TZ", name: "Tanzanian Shilling",flag: "🇹🇿", kind: "fiat",   decimals: 2 },
-  { code: "UGX",  symbol: "USh",  locale: "en-UG", name: "Ugandan Shilling",  flag: "🇺🇬", kind: "fiat",   decimals: 0 },
-  { code: "EUR",  symbol: "€",    locale: "en-IE", name: "Euro",              flag: "🇪🇺", kind: "fiat",   decimals: 2 },
-  { code: "GBP",  symbol: "£",    locale: "en-GB", name: "British Pound",     flag: "🇬🇧", kind: "fiat",   decimals: 2 },
+  { code: "KES",  symbol: "KSh",  locale: "en-KE", name: "Kenyan Shilling",   cc: "ke", kind: "fiat",   decimals: 2 },
+  { code: "USDT", symbol: "USDT", locale: "en-US", name: "Tether (USDT)",     cc: "",   kind: "crypto", decimals: 2 },
+  { code: "USD",  symbol: "$",    locale: "en-US", name: "US Dollar",         cc: "us", kind: "fiat",   decimals: 2 },
+  { code: "NGN",  symbol: "₦",    locale: "en-NG", name: "Nigerian Naira",    cc: "ng", kind: "fiat",   decimals: 2 },
+  { code: "GHS",  symbol: "GH₵",  locale: "en-GH", name: "Ghanaian Cedi",     cc: "gh", kind: "fiat",   decimals: 2 },
+  { code: "ZAR",  symbol: "R",    locale: "en-ZA", name: "South African Rand",cc: "za", kind: "fiat",   decimals: 2 },
+  { code: "TZS",  symbol: "TSh",  locale: "en-TZ", name: "Tanzanian Shilling",cc: "tz", kind: "fiat",   decimals: 2 },
+  { code: "UGX",  symbol: "USh",  locale: "en-UG", name: "Ugandan Shilling",  cc: "ug", kind: "fiat",   decimals: 0 },
+  { code: "EUR",  symbol: "€",    locale: "en-IE", name: "Euro",              cc: "eu", kind: "fiat",   decimals: 2 },
+  { code: "GBP",  symbol: "£",    locale: "en-GB", name: "British Pound",     cc: "gb", kind: "fiat",   decimals: 2 },
 ];
 
 export const CURRENCY_BY_CODE: Record<string, DisplayCurrency> =
