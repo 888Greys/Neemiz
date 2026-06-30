@@ -5,6 +5,7 @@ import { CountryPicker } from "@/components/country-picker";
 import { COUNTRIES, type Country } from "@/lib/countries";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { createClient } from "@/lib/supabase/client";
 
 type PhonePromptModalProps = {
   onComplete: (phone: string) => void;
@@ -63,6 +64,12 @@ export function PhonePromptModal({ onComplete }: PhonePromptModalProps) {
         return;
       }
 
+      // Sync updated phone number to client session metadata so it displays in settings immediately
+      const supabase = createClient();
+      await supabase.auth.updateUser({
+        data: { phone_number: normalized }
+      });
+
       toast.success("Phone number linked!", "Your account is now secure.");
       onComplete(normalized);
     } catch {
@@ -79,9 +86,9 @@ export function PhonePromptModal({ onComplete }: PhonePromptModalProps) {
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#087cff]/10 text-[#087cff]">
             <Icon name="verified_user" fill className="text-[32px]" />
           </div>
-          <h2 className="text-2xl font-black text-white">Secure Your Account</h2>
+          <h2 className="text-2xl font-black text-white">Link Mobile Number</h2>
           <p className="mt-2 text-sm text-slate-400">
-            A valid Safaricom mobile number is required for all deposits and withdrawals to prevent fraud.
+            A valid Safaricom mobile number is required for all deposits and withdrawals.
           </p>
         </div>
 
