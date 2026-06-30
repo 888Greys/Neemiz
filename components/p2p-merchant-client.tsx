@@ -9,7 +9,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { paymentMethodsForFiat, paymentMethodLabel } from "@/lib/p2p/payment-methods";
+import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
@@ -395,7 +395,8 @@ interface PayMethod {
   id: string; type: string; name: string;
   accountName: string; accountNo: string; bankName: string | null;
 }
-const PAY_RAILS = paymentMethodsForFiat("KES"); // M-Pesa / Airtel / Bank
+const PAY_RAILS = GLOBAL_PAYMENT_METHODS;                 // full world catalogue
+const PAY_RAILS_BY_CATEGORY = paymentMethodsByCategory(); // grouped for the picker
 const BANKISH = new Set(["BANK", "KUDA", "FNB", "CAPITEC"]);
 
 function PaymentMethodsSection() {
@@ -483,7 +484,11 @@ function PaymentMethodsSection() {
         <div className="grid grid-cols-2 gap-2 border-t border-white/[0.05] px-3 py-3">
           <select value={method} onChange={(e) => setMethod(e.target.value)}
             className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] font-bold text-white outline-none">
-            {PAY_RAILS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            {Object.entries(PAY_RAILS_BY_CATEGORY).map(([cat, list]) => (
+              <optgroup key={cat} label={cat}>
+                {list.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+              </optgroup>
+            ))}
           </select>
           <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
             className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
@@ -1557,7 +1562,11 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                             key={c.code}
                             type="button"
                             onClick={() => {
-                              const allowed = new Set(paymentMethodsForFiat(c.code).map((m) => m.value));
+                              // Keep selections that the merchant actually has
+                              // configured — payment methods are NOT restricted
+                              // by the ad's fiat (a merchant may accept PayPal,
+                              // Wise, etc. for any currency).
+                              const allowed = new Set(savedPaymentMethods.map((m) => m.name));
                               setForm((p) => ({
                                 ...p,
                                 fiat: c.code,
@@ -1842,14 +1851,15 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {paymentMethodsForFiat(form.fiat)
-                  .filter(({ value }) => savedPaymentMethods.some((method) => method.name === value))
-                  .map(({ value, label }) => (
+                {savedPaymentMethods.map((method) => {
+                  const value = method.name;
+                  return (
                     <button key={value} type="button" onClick={() => togglePm(value)}
                       className={`rounded-xl border py-2 text-xs font-bold transition-all ${form.paymentMethods.includes(value) ? "bg-[#087cff]/20 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"}`}>
-                      {label}
+                      {paymentMethodLabel(value)}{method.bankName ? ` · ${method.bankName}` : ""}
                     </button>
-                  ))}
+                  );
+                })}
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import {
   CURRENCY_BY_CODE,
   DEFAULT_CURRENCY,
@@ -39,11 +39,41 @@ export function CurrencyProvider({
 }) {
   const [code, setCode] = useState(isSupportedCurrency(initialCode) ? initialCode : DEFAULT_CURRENCY);
 
+  function writeCookie(next: string) {
+    document.cookie = `${CURRENCY_COOKIE}=${next}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+  }
+
   const setCurrency = useCallback((next: string) => {
     if (!isSupportedCurrency(next)) return;
     setCode(next);
-    // 1-year cookie; SameSite=Lax is fine (no cross-site need).
-    document.cookie = `${CURRENCY_COOKIE}=${next}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+    writeCookie(next);
+    // Persist to the user's account (Binance-style) so the choice follows them
+    // across devices. No-op / 401 when signed out — ignored.
+    fetch("/api/account/currency", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: next }),
+    }).catch(() => {});
+  }, []);
+
+  // On mount, if the signed-in user has a saved account currency that differs
+  // from what the server rendered (e.g. fresh device with no cookie yet), adopt
+  // it and sync the cookie. The account preference is the source of truth.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/account/currency")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { code?: string | null } | null) => {
+        const saved = data?.code;
+        if (!cancelled && isSupportedCurrency(saved) && saved !== code) {
+          setCode(saved!);
+          writeCookie(saved!);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = useMemo<CurrencyContextValue>(() => {
