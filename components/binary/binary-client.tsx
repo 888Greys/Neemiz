@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { useCurrency } from "@/lib/currency-context";
+import type { DisplayCurrency } from "@/lib/currency-config";
 import { useNavBadge } from "@/lib/nav-badge-context";
 import {
   AreaSeries,
@@ -231,9 +232,16 @@ function toTick(epoch: number, quote: number): Tick {
   };
 }
 
-function formatMoney(value: number, _isLive = false) {
-  const fmt = value.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${CURRENCY_SYMBOL} ${fmt}`; // all binary amounts are KSh (demo + live)
+// All binary amounts are canonical KES (demo + live). `fmtMoney` converts a KES
+// amount into the active display currency for showing only — stakes posted to
+// the server stay KES (converted back via context.toKes at the input boundary).
+function fmtMoney(
+  kes: number,
+  currency: DisplayCurrency,
+  convert: (k: number) => number,
+  opts: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+) {
+  return `${currency.symbol} ${convert(kes).toLocaleString(currency.locale, opts)}`;
 }
 
 function formatQuote(value: number) {
@@ -598,6 +606,10 @@ interface BinaryClientProps {
 export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClientProps) {
   const isLive = !!userId;
   const setNavBadge = useNavBadge()?.setBadge;
+  // Display currency: convert KES amounts for display, and convert typed stakes
+  // back to KES (toKes) before they hit the KES-only server.
+  const { convert, toKes, currency } = useCurrency();
+  const money = (kes: number, opts?: Intl.NumberFormatOptions) => fmtMoney(kes, currency, convert, opts);
 
   const [marketSymbol, setMarketSymbol] = useState(MARKETS[0].symbol);
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
@@ -1032,7 +1044,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         window.dispatchEvent(new Event("wallet-refresh"));
       }
       if (won) {
-        toast.cashout(`+KSh${(data.winAmount ?? trade.payout).toFixed(2)} — Trade won!`, `${trade.side} · Exit digit: ${exitDigit}`);
+        toast.cashout(`+${money(data.winAmount ?? trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${exitDigit}`);
       } else {
         toast.error("Trade lost", `${trade.side} · Exit digit: ${exitDigit}`);
       }
@@ -1082,7 +1094,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         const won = evaluateTrade(trade.side, digit, trade.targetDigit);
         setDemoBalance((b) => won ? b + trade.payout : b);
         if (won) {
-          toast.cashout(`+${CURRENCY_SYMBOL} ${trade.payout.toFixed(2)} — Trade won!`, `${trade.side} · Exit digit: ${digit}`);
+          toast.cashout(`+${money(trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${digit}`);
         } else {
           toast.error("Trade lost", `${trade.side} · Exit digit: ${digit}`);
         }
@@ -1122,7 +1134,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         if (!busted && payout > 0) {
           setLiveBalance((b) => b + payout);
           window.dispatchEvent(new Event("wallet-refresh"));
-          toast.cashout(`+KSh${payout.toFixed(2)} — Accumulator closed!`, `${data.ticksSurvived ?? pos.ticksSurvived} ticks · ${pos.market}`);
+          toast.cashout(`+${money(payout)} — Accumulator closed!`, `${data.ticksSurvived ?? pos.ticksSurvived} ticks · ${pos.market}`);
         } else {
           toast.error("Accumulator busted", `Hit the barrier after ${data.ticksSurvived ?? pos.ticksSurvived} ticks.`);
         }
@@ -1133,7 +1145,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         setAccaPos(null);
         if (!busted) {
           setDemoBalance((b) => b + payout);
-          toast.cashout(`+${CURRENCY_SYMBOL} ${payout.toFixed(2)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
+          toast.cashout(`+${money(payout)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
         } else {
           toast.error("Accumulator busted", `Hit the barrier after ${pos.ticksSurvived} ticks.`);
         }
@@ -1198,7 +1210,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         });
         setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
-        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${money(stake)}`);
       } finally {
         setAccaPlacing(false);
       }
@@ -1215,7 +1227,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           barrierFrac, maxTicks: maxTicksFor(growthRate), takeProfit: tp,
           isReal: false, ticksSurvived: 0, lastEpoch: entry.time as number, prevSpot: entry.quote, status: "open",
         });
-        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${money(stake)}`);
       } catch {
         toast.error("Not enough market data", "Wait for a few more ticks and try again.");
       }
@@ -1246,7 +1258,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         if (payout > 0) {
           setLiveBalance((b) => b + payout);
           window.dispatchEvent(new Event("wallet-refresh"));
-          toast.cashout(`+KSh${payout.toFixed(2)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
+          toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
         } else {
           toast.error(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
@@ -1263,7 +1275,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         setLevPos(null);
         if (payout > 0) {
           setDemoBalance((b) => b + payout);
-          toast.cashout(`+${CURRENCY_SYMBOL} ${payout.toFixed(2)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
+          toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
         } else {
           toast.error(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
@@ -1324,7 +1336,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         });
         setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
-        toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+        toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${money(stake)}`);
       } finally {
         setLevPlacing(false);
       }
@@ -1341,7 +1353,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         barrier, payoutPerPoint, entrySpot: entry.quote, entryEpoch: entry.time as number, takeProfit: tp, stopLoss: sl,
         isReal: false, lastEpoch: entry.time as number, status: "open",
       });
-      toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+      toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${money(stake)}`);
     }
   }, [levPlacing, levPos, stake, balance, isLive, levKind, multiplier, barrierOffset, takeProfit, takeProfitOn, stopLoss, stopLossOn, market, ticks]);
 
@@ -1364,7 +1376,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       if (won && data.winAmount) {
         setLiveBalance((b) => b + data.winAmount!);
         window.dispatchEvent(new Event("wallet-refresh"));
-        toast.cashout(`+KSh${data.winAmount.toFixed(2)} — ${t.side} won!`, t.market);
+        toast.cashout(`+${money(data.winAmount)} — ${t.side} won!`, t.market);
       } else {
         toast.error(`${t.side} lost`, t.market);
       }
@@ -1398,7 +1410,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           if (!res.ready) continue; // outcome not determined yet
           dirSettled.current.add(t.id);
           setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
-          if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${CURRENCY_SYMBOL} ${res.credit.toFixed(2)} — ${t.side} won!`, t.market); }
+          if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${money(res.credit)} — ${t.side} won!`, t.market); }
           else { toast.error(`${t.side} lost`, t.market); }
         }
       }
@@ -1438,7 +1450,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           entrySpot: data.entrySpot!, entryEpoch: data.entryEpoch!,
           barrier: data.barrier ?? null, durationTicks: duration, isReal: true, settlesAt, status: "open" as const,
         }, ...cur].slice(0, 12));
-        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
       } finally {
         setDirPlacing(false);
       }
@@ -1461,7 +1473,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         stake, payout, payoutPerPoint, entrySpot: entry.quote, entryEpoch: entry.time as number,
         barrier, durationTicks: duration, isReal: false, settlesAt, status: "open" as const,
       }, ...cur].slice(0, 12));
-      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
     }
   }, [dirPlacing, stake, balance, isLive, dirKind, barrierOffset, duration, market, ticks, clientSigma]);
 
@@ -1508,11 +1520,11 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
         setOpenTrades((current) => [trade, ...current].slice(0, 12));
-        setTransactions((current) => [`${side} ${market.symbol} ${CURRENCY_SYMBOL} ${stake}`, ...current].slice(0, 12));
+        setTransactions((current) => [`${side} ${market.symbol} ${money(stake)}`, ...current].slice(0, 12));
         // Surface the live position immediately — jump to the Open tab so the
         // countdown is visible, and confirm with a toast so the click registers.
         setTab("open");
-        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
       } finally {
         setPlacing(false);
       }
@@ -1532,9 +1544,9 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       };
       setDemoBalance((b) => b - stake);
       setOpenTrades((current) => [trade, ...current].slice(0, 12));
-      setTransactions((current) => [`${side} ${market.symbol} ${CURRENCY_SYMBOL} ${stake}`, ...current].slice(0, 12));
+      setTransactions((current) => [`${side} ${market.symbol} ${money(stake)}`, ...current].slice(0, 12));
       setTab("open");
-      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
     }
   }
 
@@ -1710,10 +1722,10 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
             </div>
 
             {autoMode ? (
-              <AutoPanel currency={CURRENCY_SYMBOL} />
+              <AutoPanel currency={currency.symbol} />
             ) : tradeType === "accumulators" ? (
               <AccumulatorsPanel
-                currency={CURRENCY_SYMBOL}
+                currency={currency.symbol}
                 stake={stake} setStake={setStake}
                 growthRate={growthRate} setGrowthRate={setGrowthRate}
                 takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
@@ -1729,12 +1741,12 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 } : null}
                 onCashOut={() => closeAccumulator()}
                 closing={accaClosing}
-                format={(v) => formatMoney(v, isLive)}
+                format={money}
                 sigma={clientSigma}
               />
             ) : isDigitType ? (
               <DigitPanel
-                currency={CURRENCY_SYMBOL}
+                currency={currency.symbol}
                 family={family}
                 sides={selectedSides}
                 stake={stake} setStake={setStake}
@@ -1744,14 +1756,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
                 minStake={isLive ? 10 : 1}
                 payoutFor={(side) => displayedPayout(stake, side, targetDigit)}
-                format={(v) => formatMoney(v, isLive)}
+                format={money}
                 onTrade={placeTrade}
                 placing={placing}
                 openPositions={openTrades.map((t) => ({ id: t.id, side: t.side, settlesAt: t.settlesAt }))}
               />
             ) : isVanillaType && dirKind ? (
               <VanillaPanel
-                currency={CURRENCY_SYMBOL}
+                currency={currency.symbol}
                 sides={dirSides}
                 stake={stake} setStake={setStake}
                 duration={duration} setDuration={setDuration}
@@ -1762,7 +1774,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 minStake={isLive ? 10 : 1}
                 payoutPerPointFor={dirPayoutPerPoint}
                 maxPayout={dirMaxPayout}
-                format={(v) => formatMoney(v, isLive)}
+                format={money}
                 formatSpot={formatQuote}
                 onTrade={placeDirectional}
                 placing={dirPlacing}
@@ -1770,7 +1782,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               />
             ) : isDirectionalType && dirKind ? (
               <DirectionalPanel
-                currency={CURRENCY_SYMBOL}
+                currency={currency.symbol}
                 kind={dirKind}
                 sides={dirSides}
                 stake={stake} setStake={setStake}
@@ -1782,7 +1794,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
                 minStake={isLive ? 10 : 1}
                 payoutFor={dirPayoutFor}
-                format={(v) => formatMoney(v, isLive)}
+                format={money}
                 formatSpot={formatQuote}
                 onTrade={placeDirectional}
                 placing={dirPlacing}
@@ -1790,7 +1802,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               />
             ) : isLeveragedType && levKind ? (
               <LeveragedPanel
-                currency={CURRENCY_SYMBOL}
+                currency={currency.symbol}
                 kind={levKind}
                 stake={stake} setStake={setStake}
                 multiplier={multiplier} setMultiplier={setMultiplier}
@@ -1805,7 +1817,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 maxPayout={levMaxPayout}
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
                 minStake={isLive ? 10 : 1}
-                format={(v) => formatMoney(v, isLive)}
+                format={money}
                 formatSpot={formatQuote}
                 onTrade={placeLeveraged}
                 placing={levPlacing}
@@ -2357,7 +2369,8 @@ function EmptyState({ subtitle, title }: { subtitle: string; title: string }) {
 function TradeRow({ trade }: { trade: BinaryTrade }) {
   const isOpen = trade.status === "open";
   const isWon = trade.status === "won";
-  const isReal = trade.isReal ?? false;
+  const { convert, currency } = useCurrency();
+  const money = (kes: number) => fmtMoney(kes, currency, convert);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -2380,8 +2393,8 @@ function TradeRow({ trade }: { trade: BinaryTrade }) {
         </span>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs font-black">
-        <span className="text-slate-500">Stake {formatMoney(trade.stake, isReal)}</span>
-        <span className={isOpen || isWon ? "text-emerald-300" : "text-red-300"}>{isOpen ? formatMoney(trade.payout, isReal) : isWon ? `+${formatMoney(trade.payout - trade.stake, isReal)}` : `-${formatMoney(trade.stake, isReal)}`}</span>
+        <span className="text-slate-500">Stake {money(trade.stake)}</span>
+        <span className={isOpen || isWon ? "text-emerald-300" : "text-red-300"}>{isOpen ? money(trade.payout) : isWon ? `+${money(trade.payout - trade.stake)}` : `-${money(trade.stake)}`}</span>
       </div>
     </div>
   );
@@ -2392,6 +2405,8 @@ function TradeRow({ trade }: { trade: BinaryTrade }) {
 // types (accumulator / leveraged) show "LIVE" and a value that moves each tick.
 function PositionRow({ pos }: { pos: OpenPositionView }) {
   const hasCountdown = pos.settlesAt != null;
+  const { convert, currency } = useCurrency();
+  const money = (kes: number) => fmtMoney(kes, currency, convert);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!hasCountdown) return;
@@ -2413,8 +2428,8 @@ function PositionRow({ pos }: { pos: OpenPositionView }) {
         </span>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs font-black">
-        <span className="text-slate-500">Stake {formatMoney(pos.stake, pos.isReal)}</span>
-        <span className={profit >= 0 ? "text-emerald-300" : "text-red-300"}>{formatMoney(pos.value, pos.isReal)}</span>
+        <span className="text-slate-500">Stake {money(pos.stake)}</span>
+        <span className={profit >= 0 ? "text-emerald-300" : "text-red-300"}>{money(pos.value)}</span>
       </div>
     </div>
   );
