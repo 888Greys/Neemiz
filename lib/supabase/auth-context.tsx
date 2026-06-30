@@ -78,11 +78,32 @@ export function SupabaseAuthProvider({
     }
 
     // Prime from existing session immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoaded(true);
       void enforceAccountStatus(session);
+
+      // getSession() only decodes the local cookie — it does NOT verify the
+      // token against the auth server. A cookie issued by a previous Supabase
+      // project (e.g. after an auth-backend migration) still decodes fine, so
+      // the UI thinks it's signed in while every server call returns 401. Verify
+      // the primed session against the auth server and, if the token is rejected,
+      // clear it so the user is cleanly logged out instead of hitting
+      // "Unauthorized" on the phone prompt, deposits, withdrawals, etc.
+      if (session) {
+        try {
+          const { data: { user: verified }, error } = await supabase.auth.getUser();
+          const rejected = (error && (error.status === 401 || error.status === 403)) || (!error && !verified);
+          if (rejected) {
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+          }
+        } catch {
+          // Network/transient error — keep the session; protected APIs still gate.
+        }
+      }
     });
 
     // Fire a "new login detected" alert once per actual sign-in. Deduped on
