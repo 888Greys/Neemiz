@@ -5,6 +5,7 @@ import {
   CURRENCY_BY_CODE,
   DEFAULT_CURRENCY,
   convertFromKes,
+  convertToKes,
   formatInCurrency,
   isSupportedCurrency,
   type DisplayCurrency,
@@ -22,6 +23,9 @@ interface CurrencyContextValue {
   setCurrency: (code: string) => void;
   /** Convert a canonical KES amount into the active display currency (number). */
   convert: (amountKes: number) => number;
+  /** Inverse of `convert`: turn a display-currency amount the user entered back
+   *  into canonical KES, for posting to the (KES-only) server. */
+  toKes: (displayAmount: number) => number;
   /** Convert + format a KES amount, e.g. "$ 12.34" / "KSh 1,590.00". */
   format: (amountKes: number) => string;
 }
@@ -84,6 +88,7 @@ export function CurrencyProvider({
       toKES,
       setCurrency,
       convert: (amountKes: number) => convertFromKes(amountKes, code, toKES),
+      toKes: (displayAmount: number) => convertToKes(displayAmount, code, toKES),
       format: (amountKes: number) => formatInCurrency(convertFromKes(amountKes, code, toKES), code),
     };
   }, [code, toKES, setCurrency]);
