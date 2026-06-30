@@ -6,8 +6,6 @@
 // unreachable we fall back to a rough static table so the UI degrades instead
 // of breaking — flagged via `live: false` so callers can label it.
 
-import { FIAT_CURRENCIES } from "./currencies";
-
 // KES per 1 unit of currency. Rough fallback only — refreshed live in normal use.
 const FALLBACK_KES_PER_UNIT: Record<string, number> = {
   KES: 1,
@@ -42,13 +40,17 @@ export async function getFxRatesToKES(): Promise<FxRates> {
     if (data.result !== "success" || !data.rates) throw new Error("FX provider bad payload");
 
     const toKES: Record<string, number> = { KES: 1 };
-    for (const c of FIAT_CURRENCIES) {
-      const perKes = data.rates[c.code]; // <code> per 1 KES
+    // Pass through EVERY currency the provider returns (~160) so the display
+    // layer can localize to any world currency. The curated P2P FIAT_CURRENCIES
+    // list is unaffected (it governs the P2P UI, not this rate map).
+    for (const [code, perKes] of Object.entries(data.rates)) {
       if (typeof perKes === "number" && perKes > 0) {
-        toKES[c.code] = 1 / perKes;       // → KES per 1 <code>
-      } else if (FALLBACK_KES_PER_UNIT[c.code]) {
-        toKES[c.code] = FALLBACK_KES_PER_UNIT[c.code];
+        toKES[code] = 1 / perKes;          // → KES per 1 <code>
       }
+    }
+    // Backstop core currencies if the provider omitted any.
+    for (const [code, v] of Object.entries(FALLBACK_KES_PER_UNIT)) {
+      if (!(code in toKES)) toKES[code] = v;
     }
     return {
       base: "KES",
