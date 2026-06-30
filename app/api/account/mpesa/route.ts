@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   } catch (err) {
     // Unique constraint — the number is linked to a different account.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return Response.json({ error: "This M-Pesa number is already linked to another account." }, { status: 409 });
+      return Response.json({ error: "This mobile number is already registered." }, { status: 409 });
     }
     throw err;
   }
