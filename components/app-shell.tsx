@@ -761,6 +761,10 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
                 </span>
                 <span className="text-[14px] font-black text-white">{fmtBalance}</span>
               </button>
+              <div className="flex items-center justify-between border-t border-white/[0.06] px-3 py-2">
+                <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Display currency</span>
+                <CurrencySwitcher />
+              </div>
               <div className="flex gap-1.5 px-2 pb-2">
                 <button type="button" onClick={() => onOpenWallet()} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#05b957] py-2 text-[11px] font-black text-white transition active:scale-[0.98]">
                   <Icon name="add" className="text-[14px]" /> Deposit
