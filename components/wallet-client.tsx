@@ -12,6 +12,7 @@ import { LoadingDots } from "@/components/loading-dots";
 import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown";
 import { cachedFetch, getCached } from "@/lib/client-cache";
 import { CURRENCY_SYMBOL, MONEY_LOCALE, WITHDRAWAL_FEE_RATE, WITHDRAWAL_FEE_PCT } from "@/lib/currency";
+import { useCurrency } from "@/lib/currency-context";
 
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
@@ -96,10 +97,14 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
   const { isSignedIn, user } = useSupabaseAuth();
   const { openLogin }        = useAuthModal();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
+  // Display currency (header switcher). KES balances render in the chosen
+  // currency; M-Pesa amounts stay KES below (it's a Kenya-only rail).
+  const { format: formatDisplay, code: displayCurrency } = useCurrency();
 
   // ── fiat deposit state ──
   const [tab, setTab]                     = useState<WalletTab>(initialTab);
-  const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">("mpesa");
+  // Non-KES users default to the crypto rail — M-Pesa only serves Kenya/KES.
+  const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">(displayCurrency === "KES" ? "mpesa" : "crypto");
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
   const [loading, setLoading]             = useState(false);
@@ -396,7 +401,9 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
 
   function reset() { setDeposit({ step: "idle" }); setAmount(""); setError(""); pollCount.current = 0; }
 
-  const fmtBalance = `${currency === "KES" ? CURRENCY_SYMBOL : currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`;
+  const fmtBalance = currency === "KES"
+    ? formatDisplay(balance)
+    : `${currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`;
   const kesCoinAvailable = currency === "KES" ? balance : 0;
 
   // Crypto balance for currently selected withdraw asset
@@ -1176,6 +1183,7 @@ function WalletTransferPanel({
   wdLimit: { limit: number; used: number; remaining: number; resetsAt: string | null } | null;
   refreshWdLimit: () => void;
 }) {
+  const { format: formatDisplay } = useCurrency();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<TransferRecipient[]>([]);
   const [recipient, setRecipient] = useState<TransferRecipient | null>(null);
@@ -1344,7 +1352,7 @@ function WalletTransferPanel({
       <div>
         <div className="mb-2 flex items-center justify-between">
           <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount</p>
-          <p className="text-xs font-bold text-slate-500">Balance: {CURRENCY_SYMBOL} {balance.toLocaleString(MONEY_LOCALE)}</p>
+          <p className="text-xs font-bold text-slate-500">Balance: {formatDisplay(balance)}</p>
         </div>
         <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
           <span className="text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>

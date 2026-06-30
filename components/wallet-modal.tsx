@@ -323,7 +323,7 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
   // Default deposit rail by the user's display currency: M-Pesa (fiat) only
   // serves Kenya/KES — everyone else defaults to crypto until local payment
   // rails (Pesapal etc.) are wired for their currency.
-  const { code: displayCurrency } = useCurrency();
+  const { code: displayCurrency, format: formatDisplay, currency: displayCur } = useCurrency();
   const [mode, setMode] = useState<"fiat" | "crypto">(displayCurrency === "KES" ? "fiat" : "crypto");
   const [screen, setScreen] = useState<"methods" | "mpesa">("methods");
 
@@ -535,11 +535,11 @@ export function WalletModal({ onClose, onDepositConfirmed }: Props) {
                   /* KES balance */
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-sm font-bold text-slate-400">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff] text-[10px] font-black text-white">{CURRENCY_SYMBOL}</span>
-                      KES Wallet
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff] text-[10px] font-black text-white">{displayCur.symbol}</span>
+                      Wallet
                     </span>
                     <span className="text-sm font-black text-white">
-                      {CURRENCY_SYMBOL} {balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {formatDisplay(balance)}
                     </span>
                   </div>
                 ) : cryptoBalances.length > 0 ? (

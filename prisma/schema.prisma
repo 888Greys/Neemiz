@@ -17,6 +17,7 @@ model User {
   firstName         String?   @map("first_name")
   lastName          String?   @map("last_name")
   imageUrl          String?   @map("image_url")
+  displayCurrency   String?   @map("display_currency")
   walletBalance     Decimal   @default(0.00) @map("wallet_balance") @db.Decimal(18, 2)
   currency          String    @default("KES")
   isActive          Boolean   @default(true) @map("is_active")
