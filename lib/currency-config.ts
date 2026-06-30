@@ -146,12 +146,17 @@ export function convertFromKes(amountKes: number, code: string, toKES: Record<st
   return n / kesPerUnit;
 }
 
-/** Format an already-converted amount with the currency's symbol + locale. */
+/**
+ * Format an already-converted amount with the currency's symbol + locale.
+ * Non-base currencies get a "≈" prefix (Binance-style) because the real balance
+ * is KES and the converted figure is an indicative value at current FX.
+ */
 export function formatInCurrency(amount: number, code: string): string {
   const c = CURRENCY_BY_CODE[code] ?? CURRENCY_BY_CODE[DEFAULT_CURRENCY];
   const n = Number.isFinite(amount) ? amount : 0;
   const num = n.toLocaleString(c.locale, { minimumFractionDigits: c.decimals, maximumFractionDigits: c.decimals });
-  return `${c.symbol} ${num}`;
+  const approx = code === DEFAULT_CURRENCY ? "" : "≈ ";
+  return `${approx}${c.symbol} ${num}`;
 }
 
 /** Convert KES → code and format in one step. */
