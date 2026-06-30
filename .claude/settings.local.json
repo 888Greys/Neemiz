@@ -68,7 +68,8 @@
       "Bash(git pull *)",
       "Bash(git stash *)",
       "Bash(ssh nez *)",
-      "mcp__visualize__read_me"
+      "mcp__visualize__read_me",
+      "Bash(ssh -o ConnectTimeout=15 -o BatchMode=yes nez 'echo CONNECTED; hostname; whoami; uptime')"
     ]
   }
 }

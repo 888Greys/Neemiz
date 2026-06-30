@@ -16,6 +16,8 @@ import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import type { ProfileView } from "@/components/profile-modal";
 import { MONEY_LOCALE, CURRENCY_SYMBOL } from "@/lib/currency";
+import { useMoney } from "@/lib/currency-context";
+import { CurrencySwitcher } from "@/components/currency-switcher";
 import { NavBadgeContext } from "@/lib/nav-badge-context";
 
 const LoginModal = dynamic(
@@ -65,8 +67,13 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const initials = displayName.charAt(0).toUpperCase();
   const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
   const { balance, currency } = useWalletBalance();
+  const money = useMoney();
+  // KES is the canonical ledger balance — convert it to the user's chosen
+  // display currency. Non-KES (crypto) balances are shown in their own unit.
   const fmtBalance = isSignedIn
-    ? `${currency === "KES" ? CURRENCY_SYMBOL : currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    ? (currency === "KES"
+        ? money.format(balance)
+        : `${currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
     : null;
   // Start collapsed on both server and first client render to avoid a hydration
   // mismatch, then sync the persisted preference from localStorage after mount.
@@ -212,6 +219,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
                   Deposit
                 </button>
               </div>
+              <CurrencySwitcher className="hidden sm:block" />
               <NotificationsBell />
               {/* Profile entry point — needed on desktop when the sidebar (which
                   used to hold the avatar) is hidden. */}
@@ -700,7 +708,10 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
   const router = useRouter();
   const pathname = usePathname();
   const { balance, currency } = useWalletBalance();
-  const fmtBalance = `${currency === "KES" ? CURRENCY_SYMBOL : currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = useMoney();
+  const fmtBalance = currency === "KES"
+    ? money.format(balance)
+    : `${currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const meta = user?.user_metadata ?? {};
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
