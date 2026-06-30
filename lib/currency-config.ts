@@ -147,6 +147,21 @@ export function convertFromKes(amountKes: number, code: string, toKES: Record<st
 }
 
 /**
+ * Inverse of convertFromKes: turn an amount the user entered in `code` back into
+ * canonical KES, using the same toKES rate map. Used at the input boundary so a
+ * user can transact in their display currency while the ledger/server stay KES.
+ * Returns the amount unchanged if we lack a rate (mirrors convertFromKes).
+ */
+export function convertToKes(amount: number, code: string, toKES: Record<string, number>): number {
+  const n = Number.isFinite(amount) ? amount : 0;
+  if (code === "KES") return n;
+  const rateCode = code === "USDT" ? "USD" : code;
+  const kesPerUnit = toKES[rateCode];
+  if (!kesPerUnit || kesPerUnit <= 0) return n; // no rate → treat as KES
+  return n * kesPerUnit;
+}
+
+/**
  * Format an already-converted amount with the currency's symbol + locale.
  * Non-base currencies get a "≈" prefix (Binance-style) because the real balance
  * is KES and the converted figure is an indicative value at current FX.
