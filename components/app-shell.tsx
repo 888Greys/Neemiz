@@ -219,7 +219,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
                   Deposit
                 </button>
               </div>
-              <CurrencySwitcher className="hidden sm:block" />
+              <CurrencySwitcher />
               <NotificationsBell />
               {/* Profile entry point — needed on desktop when the sidebar (which
                   used to hold the avatar) is hidden. */}
