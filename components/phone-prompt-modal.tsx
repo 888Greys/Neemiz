@@ -1,0 +1,129 @@
+"use client";
+
+import { useState, FormEvent } from "react";
+import { CountryPicker } from "@/components/country-picker";
+import { COUNTRIES, type Country } from "@/lib/countries";
+import { Icon } from "@/components/icon";
+import { toast } from "@/lib/toast";
+
+type PhonePromptModalProps = {
+  onComplete: (phone: string) => void;
+};
+
+export function PhonePromptModal({ onComplete }: PhonePromptModalProps) {
+  const [phone, setPhone] = useState("");
+  const [country, setCountry] = useState<Country>(() => {
+    return COUNTRIES.find((c) => c.iso === "KE") || COUNTRIES[0];
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (loading) return;
+    setError("");
+
+    if (!phone) {
+      setError("Please enter your phone number.");
+      return;
+    }
+
+    const rawPhone = phone.trim().replace(/\s+/g, "").replace("+", "");
+    let normalized = rawPhone;
+
+    if (country.code === "+254") {
+      if (normalized.startsWith("0")) {
+        normalized = "254" + normalized.slice(1);
+      } else if (!normalized.startsWith("254") && normalized.length === 9) {
+        normalized = "254" + normalized;
+      }
+      if (!/^254[17]\d{8}$/.test(normalized)) {
+        setError("Please enter a valid Safaricom number (e.g. 07XX or 01XX).");
+        return;
+      }
+    } else {
+      const cleanCode = country.code.replace("+", "");
+      if (!normalized.startsWith(cleanCode)) {
+        normalized = cleanCode + normalized;
+      }
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/account/mpesa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: normalized }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to update phone number.");
+        return;
+      }
+
+      toast.success("Phone number linked!", "Your account is now secure.");
+      onComplete(normalized);
+    } catch {
+      setError("Connection error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+      <div className="w-full max-w-[420px] rounded-3xl border border-white/[0.08] bg-[#111316] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+        <div className="flex flex-col items-center text-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#087cff]/10 text-[#087cff]">
+            <Icon name="verified_user" fill className="text-[32px]" />
+          </div>
+          <h2 className="text-2xl font-black text-white">Secure Your Account</h2>
+          <p className="mt-2 text-sm text-slate-400">
+            A valid Safaricom mobile number is required for all deposits and withdrawals to prevent fraud.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <div className="flex rounded-2xl bg-[#18191f] ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+            <CountryPicker value={country} onChange={setCountry} />
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="700 000000"
+              required
+              disabled={loading}
+              className="flex-1 bg-transparent px-4 py-3.5 text-sm text-white placeholder-slate-600 outline-none disabled:opacity-50"
+            />
+          </div>
+
+          {error && (
+            <p className="rounded-xl bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-400">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1a85ff] active:scale-[.98] disabled:opacity-60"
+          >
+            {loading ? (
+              <>
+                <svg className="h-4 w-4 shrink-0 animate-spin text-white" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Saving...
+              </>
+            ) : (
+              "Verify & Link Number"
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

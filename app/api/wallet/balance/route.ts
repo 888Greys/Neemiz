@@ -12,7 +12,7 @@ export async function GET() {
 
     const dbUser = await getOrCreateUser(user.id, {
       email:     user.email,
-      phone:     user.phone,
+      phone:     user.phone ?? user.user_metadata?.phone_number,
       username:  user.user_metadata?.username,
       firstName: user.user_metadata?.first_name,
       lastName:  user.user_metadata?.last_name,
