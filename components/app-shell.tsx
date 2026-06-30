@@ -17,6 +17,7 @@ import { useWalletBalance } from "@/lib/use-wallet-balance";
 import type { ProfileView } from "@/components/profile-modal";
 import { MONEY_LOCALE, CURRENCY_SYMBOL } from "@/lib/currency";
 import { NavBadgeContext } from "@/lib/nav-badge-context";
+import { PhonePromptModal } from "@/components/phone-prompt-modal";
 
 const LoginModal = dynamic(
   () => import("@/components/login-modal").then((mod) => mod.LoginModal),
@@ -86,6 +87,38 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   // actually arrives), then fall back to the real pathname once it lands.
   const [pendingPath, setPendingPath]         = useState<string | null>(null);
   const [navBadges, setNavBadges]             = useState<Record<string, number>>({});
+  const [checkingPhone, setCheckingPhone]     = useState(false);
+  const [missingPhone, setMissingPhone]       = useState(false);
+
+  useEffect(() => {
+    if (isSignedIn && user) {
+      const hasPhoneInAuth = !!(user.phone || user.user_metadata?.phone_number || user.email?.endsWith("@phone.nezeem.com"));
+      if (hasPhoneInAuth) {
+        setMissingPhone(false);
+        return;
+      }
+
+      setCheckingPhone(true);
+      fetch("/api/account/mpesa")
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data.phone) {
+            setMissingPhone(true);
+          } else {
+            setMissingPhone(false);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setCheckingPhone(false));
+    } else {
+      setMissingPhone(false);
+    }
+  }, [isSignedIn, user]);
+
+  const handlePhoneComplete = useCallback((phone: string) => {
+    setMissingPhone(false);
+    window.dispatchEvent(new CustomEvent("wallet-refresh"));
+  }, []);
   const setNavBadge = useCallback((key: string, count: number) => {
     setNavBadges((current) => {
       const nextCount = Math.max(0, Math.floor(count));
@@ -279,6 +312,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={(tab) => { setProfileOpen(false); openWallet(tab); }} initialView={profileInitialView} />}
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} initialTab={walletInitialTab} />}
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} onOpenWallet={(tab) => { setMobileMenuOpen(false); openWallet(tab); }} />}
+      {missingPhone && <PhonePromptModal onComplete={handlePhoneComplete} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
