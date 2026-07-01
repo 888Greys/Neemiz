@@ -1,6 +1,15 @@
 import { db } from "@/lib/db";
-import { sendLowFloatAlertEmail, sendSuspiciousNumberAlertEmail, sendReconMismatchEmail } from "@/lib/brevo";
+import { sendLowFloatAlertEmail, sendSuspiciousNumberAlertEmail, sendReconMismatchEmail, sendBotSignupAlertEmail } from "@/lib/brevo";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
+
+export interface BotSignupReport {
+  windowMinutes: number;
+  totalSignups: number;
+  burst: boolean;
+  burstThreshold: number;
+  clusters: Array<{ at: string; count: number }>;
+  devices: Array<{ deviceHash: string; users: number }>;
+}
 
 /**
  * Alert all owners/admins that the M-Pesa float is too low to pay out a
@@ -119,4 +128,42 @@ export async function notifyAdminsReconMismatch(
 
   try { await sendReconMismatchEmail(findings, total); }
   catch (e) { console.error("[admin-alert] recon email failed", e); }
+}
+
+/**
+ * Alert all owners/admins that the signup-velocity tripwire detected likely bot
+ * account farming (abnormal signup burst, tight same-second clusters, or one
+ * device registering many accounts). Detection-only — no accounts are frozen.
+ *
+ * Deduped: one alert per 30 min (guards against overlapping cron runs).
+ */
+export async function notifyAdminsBotSignups(report: BotSignupReport) {
+  const since = new Date(Date.now() - 30 * 60_000);
+  const recent = await db.notification.findFirst({
+    where: { type: "admin_bot_signup", isRead: false, createdAt: { gte: since } },
+    select: { id: true },
+  });
+  if (recent) return; // already alerted recently — avoid noise
+
+  const reasons: string[] = [];
+  if (report.burst) reasons.push(`${report.totalSignups} signups in ${report.windowMinutes}m`);
+  if (report.clusters.length) reasons.push(`${report.clusters.length} same-second cluster(s)`);
+  if (report.devices.length) reasons.push(`${report.devices.length} shared-device group(s)`);
+  const body = `Possible bot account farming: ${reasons.join(", ")}. ${report.totalSignups} new account(s) in the last ${report.windowMinutes} min. No accounts frozen — review new signups.`;
+
+  const admins = await db.user.findMany({ where: { isAdmin: true }, select: { id: true } });
+  if (admins.length > 0) {
+    await db.notification.createMany({
+      data: admins.map((a) => ({
+        userId: a.id,
+        type:   "admin_bot_signup",
+        title:  "🤖 Possible bot signups detected",
+        body,
+        link:   "/admin/players",
+      })),
+    });
+  }
+
+  try { await sendBotSignupAlertEmail(report); }
+  catch (e) { console.error("[admin-alert] bot-signup email failed", e); }
 }
