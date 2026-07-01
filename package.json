@@ -23,6 +23,7 @@
     "seed:local": "bunx tsx --env-file=.env scripts/seed-local.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1077.0",
     "@getbrevo/brevo": "^2.2.0",
     "@polymarket/clob-client-v2": "^1.0.6",
     "@prisma/client": "^6.8.2",

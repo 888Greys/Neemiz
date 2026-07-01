@@ -1972,14 +1972,14 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
     setAvatarUploading(true);
     try {
       const supabase = createClient();
-      const ext  = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, { upsert: true, contentType: file.type });
-      if (upErr) throw upErr;
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("kind", "avatar");
+      const upRes = await fetch("/api/upload", { method: "POST", body: fd });
+      const upJson = await upRes.json().catch(() => ({}));
+      if (!upRes.ok) throw new Error(upJson.error || "Upload failed");
+      const publicUrl: string = upJson.url;
 
-      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
       const { error: updErr } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
       if (updErr) throw updErr;
 
