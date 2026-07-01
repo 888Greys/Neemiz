@@ -4,6 +4,35 @@ All notable changes to Neemiz are documented here. From v1.0.0 onward this file
 is maintained automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.4.0](https://github.com/888Greys/Neemiz/compare/v1.3.0...v1.4.0) (2026-07-01)
+
+
+### Features
+
+* **auth:** host GoTrue email-confirmation OTP template ([b332114](https://github.com/888Greys/Neemiz/commit/b332114afa203b30bf9d67415c4afa02cc60187c))
+* build-version update prompt + password-reset OTP email template ([34b0208](https://github.com/888Greys/Neemiz/commit/34b020869679dbe5eda90dd652987543762929c7))
+* **currency:** ~60 world currencies, searchable picker, mobile header switcher ([#123](https://github.com/888Greys/Neemiz/issues/123)) ([54b3ca6](https://github.com/888Greys/Neemiz/commit/54b3ca67b9c1967acc044f9af846cb640e9d8148))
+* **currency:** forex + sports/wheel multi-currency ([#131](https://github.com/888Greys/Neemiz/issues/131)) ([c3b45a1](https://github.com/888Greys/Neemiz/commit/c3b45a162a73295fc0eeca73ca9e2f83688b5995))
+* **currency:** multi-currency display layer (Phase 1) ([#122](https://github.com/888Greys/Neemiz/issues/122)) ([fb14c61](https://github.com/888Greys/Neemiz/commit/fb14c61206b0c6ad7ffc02419b5c83f41e5730a2))
+* **currency:** transactional multi-currency in Aviator ([#128](https://github.com/888Greys/Neemiz/issues/128)) ([5e085ba](https://github.com/888Greys/Neemiz/commit/5e085ba62e43cebcaed8bce7102798f57bbd57fe))
+* **currency:** transactional stake entry in binary panels ([c152f92](https://github.com/888Greys/Neemiz/commit/c152f92afcf7b97afcb00bdf4360e339d304a681))
+* **currency:** transactional stakes in polymarket predictions ([6c8d686](https://github.com/888Greys/Neemiz/commit/6c8d686d272fb177e4a696c74b87191d2973c304))
+* enforce mandatory phone number for registration and login prompt overlay ([388e993](https://github.com/888Greys/Neemiz/commit/388e9938c5c3e2dcf5ee420073ff229b0e4af842))
+* polish phone prompt copy, display setting sync, and customize already registered error ([4505283](https://github.com/888Greys/Neemiz/commit/450528341d34ef2b5ae16c74a0475ea8ca0e00d4))
+* **security:** add email-alias signal to signup tripwire ([#139](https://github.com/888Greys/Neemiz/issues/139)) ([bfdf064](https://github.com/888Greys/Neemiz/commit/bfdf064982dff7818ef5b3a7940847b512219370))
+* **security:** ledger-backed balance guard on withdrawals ([#119](https://github.com/888Greys/Neemiz/issues/119)) ([155652c](https://github.com/888Greys/Neemiz/commit/155652cf45712b636ab46b2bf07018d72daf68a3))
+* **security:** rate-limit crypto transfers + constant-time megapay token ([#121](https://github.com/888Greys/Neemiz/issues/121)) ([b43fc1e](https://github.com/888Greys/Neemiz/commit/b43fc1e4ff75a7a6f4b5c4ca394458042cc381cf))
+* **security:** signup-velocity tripwire for bot account farming ([#138](https://github.com/888Greys/Neemiz/issues/138)) ([a01b9e1](https://github.com/888Greys/Neemiz/commit/a01b9e1316940b9979ee1183bd04e54ebb8b058d))
+* **storage:** move avatar + P2P chat uploads to Cloudflare R2 ([#134](https://github.com/888Greys/Neemiz/issues/134)) ([7febf1d](https://github.com/888Greys/Neemiz/commit/7febf1d44c78c4bb41ed27a6ba6ddebb2fb5d819))
+
+
+### Bug Fixes
+
+* **auth:** log out stale pre-migration sessions instead of 401ing ([690e56c](https://github.com/888Greys/Neemiz/commit/690e56ccee4e0a6b72384ef5f29923c91d4c90b9))
+* **currency:** sports bet-history + payout-preview formatting ([#133](https://github.com/888Greys/Neemiz/issues/133)) ([dfcc4fd](https://github.com/888Greys/Neemiz/commit/dfcc4fde3a9c0847c255dea51eb01062a4222b99))
+* **deps:** sync package-lock.json with @aws-sdk/client-s3 ([#135](https://github.com/888Greys/Neemiz/issues/135)) ([7b52797](https://github.com/888Greys/Neemiz/commit/7b52797436406d742b5b6d0d33c764205ec75d56))
+* update auth callback comment to reflect production URL ([1953da9](https://github.com/888Greys/Neemiz/commit/1953da90d32e5b552f434d6994143669116dca82))
+
 ## [1.3.0](https://github.com/888Greys/Neemiz/compare/v1.2.0...v1.3.0) (2026-06-29)
 
 
