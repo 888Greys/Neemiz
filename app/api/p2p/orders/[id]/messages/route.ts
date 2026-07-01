@@ -14,10 +14,23 @@ function isAllowedChatImage(value: string) {
   if (!value) return true;
   try {
     const imageUrl = new URL(value);
-    const supabaseUrl = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!);
-    return imageUrl.protocol === "https:"
-      && imageUrl.host === supabaseUrl.host
-      && imageUrl.pathname.includes("/storage/v1/object/public/p2p-chat/");
+    if (imageUrl.protocol !== "https:") return false;
+
+    // New uploads live in Cloudflare R2, served from R2_PUBLIC_BASE_URL under a
+    // /p2p-chat/ prefix (see app/api/upload/route.ts).
+    const r2Base = process.env.R2_PUBLIC_BASE_URL;
+    if (r2Base) {
+      const r2Host = new URL(r2Base).host;
+      if (imageUrl.host === r2Host && imageUrl.pathname.includes("/p2p-chat/")) return true;
+    }
+
+    // Legacy: Supabase Storage public objects (pre-R2 uploads).
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const supabaseHost = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host;
+      if (imageUrl.host === supabaseHost && imageUrl.pathname.includes("/storage/v1/object/public/p2p-chat/")) return true;
+    }
+
+    return false;
   } catch {
     return false;
   }
