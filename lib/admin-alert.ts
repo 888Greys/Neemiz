@@ -9,6 +9,7 @@ export interface BotSignupReport {
   burstThreshold: number;
   clusters: Array<{ at: string; count: number }>;
   devices: Array<{ deviceHash: string; users: number }>;
+  emailClusters: Array<{ email: string; count: number }>;
 }
 
 /**
@@ -149,6 +150,7 @@ export async function notifyAdminsBotSignups(report: BotSignupReport) {
   if (report.burst) reasons.push(`${report.totalSignups} signups in ${report.windowMinutes}m`);
   if (report.clusters.length) reasons.push(`${report.clusters.length} same-second cluster(s)`);
   if (report.devices.length) reasons.push(`${report.devices.length} shared-device group(s)`);
+  if (report.emailClusters.length) reasons.push(`${report.emailClusters.length} email-alias group(s)`);
   const body = `Possible bot account farming: ${reasons.join(", ")}. ${report.totalSignups} new account(s) in the last ${report.windowMinutes} min. No accounts frozen — review new signups.`;
 
   const admins = await db.user.findMany({ where: { isAdmin: true }, select: { id: true } });
