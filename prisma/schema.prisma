@@ -12,6 +12,7 @@ model User {
   supabaseId        String    @unique @map("supabase_id")
   email             String?   @unique
   phone             String?   @unique
+  phoneVerified     Boolean   @default(false) @map("phone_verified")
   username          String?   @unique
   usernameChangedAt DateTime? @map("username_changed_at")
   firstName         String?   @map("first_name")
