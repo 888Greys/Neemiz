@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { useMoney } from "@/lib/currency-context";
 import {
   CandlestickSeries,
   ColorType,
@@ -282,6 +282,7 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
 }
 
 export function ForexClient() {
+  const { format } = useMoney(); // KES amounts → active display currency
   const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
   const [direction, setDirection] = useState<Direction>("buy");
   const [size, setSize] = useState(10000);
@@ -861,11 +862,11 @@ export function ForexClient() {
               <div className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Risk</span>
-                  <span className="font-mono text-[11px] font-black text-[#ff6171]">−{CURRENCY_SYMBOL} {riskKes.toFixed(2)}</span>
+                  <span className="font-mono text-[11px] font-black text-[#ff6171]">−{format(riskKes)}</span>
                 </div>
                 <div className="flex items-baseline gap-1.5">
                   <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Reward</span>
-                  <span className="font-mono text-[11px] font-black text-[#33d49b]">+{CURRENCY_SYMBOL} {rewardKes.toFixed(2)}</span>
+                  <span className="font-mono text-[11px] font-black text-[#33d49b]">+{format(rewardKes)}</span>
                 </div>
                 <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-black ${rrRatio >= 1 ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>
                   1:{rrRatio.toFixed(2)}
@@ -882,7 +883,7 @@ export function ForexClient() {
               {/* Margin the server will reserve for this position. */}
               <div className="flex items-center justify-between rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Margin required</span>
-                <span className="font-mono text-sm font-black text-white">{CURRENCY_SYMBOL} {calcMargin(size).toLocaleString(MONEY_LOCALE)}</span>
+                <span className="font-mono text-sm font-black text-white">{format(calcMargin(size))}</span>
               </div>
 
               {tradeError && (
@@ -1144,6 +1145,7 @@ function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, clos
 // Session summary — realized result from this session's closed trades plus the
 // live unrealized P/L across open positions. Mirrors Binary's rail stats.
 function ForexSessionStats({ openTrades, forexHistory, price }: { openTrades: Trade[]; forexHistory: ClosedTrade[]; price: number }) {
+  const { format } = useMoney();
   const wins = forexHistory.filter((t) => (t.profitLoss ?? 0) >= 0).length;
   const losses = forexHistory.length - wins;
   const realized = forexHistory.reduce((sum, t) => sum + (t.profitLoss ?? 0), 0);
@@ -1165,13 +1167,13 @@ function ForexSessionStats({ openTrades, forexHistory, price }: { openTrades: Tr
       <div className="px-3 py-2">
         <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Realized</div>
         <div className={`mt-0.5 font-mono text-sm font-black ${realized > 0 ? "text-[#33d49b]" : realized < 0 ? "text-[#ff6171]" : "text-white"}`}>
-          {realized >= 0 ? "+" : "−"}{CURRENCY_SYMBOL} {Math.abs(realized).toFixed(0)}
+          {realized >= 0 ? "+" : "−"}{format(Math.abs(realized))}
         </div>
       </div>
       <div className="px-3 py-2">
         <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Open P/L</div>
         <div className={`mt-0.5 font-mono text-sm font-black ${unrealized > 0 ? "text-[#33d49b]" : unrealized < 0 ? "text-[#ff6171]" : "text-white"}`}>
-          {unrealized >= 0 ? "+" : "−"}{CURRENCY_SYMBOL} {Math.abs(unrealized).toFixed(0)}
+          {unrealized >= 0 ? "+" : "−"}{format(Math.abs(unrealized))}
         </div>
       </div>
     </div>
@@ -1179,6 +1181,7 @@ function ForexSessionStats({ openTrades, forexHistory, price }: { openTrades: Tr
 }
 
 function TransactionRow({ tx }: { tx: ForexTx }) {
+  const { format } = useMoney();
   const label = tx.kind === "stake" ? "Margin reserved" : tx.kind === "win" ? "Trade closed · profit" : "Trade closed · loss";
   const positive = tx.amount >= 0;
   const time = new Intl.DateTimeFormat("en-KE", { dateStyle: "short", timeStyle: "short" }).format(new Date(tx.at));
@@ -1189,7 +1192,7 @@ function TransactionRow({ tx }: { tx: ForexTx }) {
         <div className="text-[10px] font-bold text-slate-600">{time}</div>
       </div>
       <div className={`shrink-0 font-mono text-xs font-black ${positive ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
-        {positive ? "+" : "−"}{CURRENCY_SYMBOL} {Math.abs(tx.amount).toFixed(2)}
+        {positive ? "+" : "−"}{format(Math.abs(tx.amount))}
       </div>
     </div>
   );
@@ -1257,6 +1260,7 @@ function MobileForexTicket({
   riskKes: number; rewardKes: number; rrRatio: number;
   onOpen: () => void; opening: boolean; live: boolean;
 }) {
+  const { format } = useMoney();
   const [sheet, setSheet] = useState<null | "size" | "sl" | "tp" | "rr">(null);
   const buy = direction === "buy";
   const fieldCard = "flex flex-col items-start rounded-2xl bg-[#181b22] px-3 py-2.5 text-left transition active:scale-[0.99]";
@@ -1304,8 +1308,8 @@ function MobileForexTicket({
             <span className="mt-0.5 text-[15px] font-black text-white">1:{rrRatio.toFixed(2)}</span>
           </span>
           <span className="flex items-center gap-2.5 font-mono text-[11px] font-black">
-            <span className="text-[#ff6171]">−{CURRENCY_SYMBOL}{riskKes.toFixed(0)}</span>
-            <span className="text-[#33d49b]">+{CURRENCY_SYMBOL}{rewardKes.toFixed(0)}</span>
+            <span className="text-[#ff6171]">−{format(riskKes)}</span>
+            <span className="text-[#33d49b]">+{format(rewardKes)}</span>
             <Icon name="expand_more" className="text-[18px] text-slate-400" />
           </span>
         </button>
@@ -1353,6 +1357,7 @@ function RrSheet({
   riskPips: number; targetPips: number; riskKes: number; rewardKes: number;
   onSelect: (sl: number, tp: number) => void; onClose: () => void;
 }) {
+  const { format } = useMoney();
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
@@ -1360,8 +1365,8 @@ function RrSheet({
         <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
         <div className="px-4 pb-1 pt-2 text-center text-[13px] font-black text-white">Risk : Reward</div>
         <div className="flex items-center justify-center gap-3 pb-2 font-mono text-[11px] font-black">
-          <span className="text-[#ff6171]">−{CURRENCY_SYMBOL} {riskKes.toFixed(2)}</span>
-          <span className="text-[#33d49b]">+{CURRENCY_SYMBOL} {rewardKes.toFixed(2)}</span>
+          <span className="text-[#ff6171]">−{format(riskKes)}</span>
+          <span className="text-[#33d49b]">+{format(rewardKes)}</span>
         </div>
         <div className="grid grid-cols-2 gap-2 px-4 pb-4 pt-1">
           {presets.map((p) => {
@@ -1558,6 +1563,7 @@ function NumberField({ id, label, onChange, suffix, value }: { id: string; label
 }
 
 function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: boolean; currentPrice: number; onClose: () => void; trade: Trade }) {
+  const { format } = useMoney();
   const rawPips = getPips(trade.entry, currentPrice, trade);
   const pips = trade.direction === "buy" ? rawPips : -rawPips;
   const plKes = parseFloat((pips * (trade.size / 10000)).toFixed(2));
@@ -1581,7 +1587,7 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
             {trade.direction.toUpperCase()} {trade.size.toLocaleString("en-US")} @ {formatPrice(trade, trade.entry)}
           </div>
           {trade.margin && (
-            <div className="text-[10px] text-slate-600">Margin: {CURRENCY_SYMBOL} {trade.margin}</div>
+            <div className="text-[10px] text-slate-600">Margin: {format(Number(trade.margin))}</div>
           )}
         </div>
         <div className="text-right">
@@ -1589,7 +1595,7 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
             {pips >= 0 ? "+" : ""}{pips.toFixed(1)} pips
           </div>
           <div className={`font-mono text-[11px] font-bold tabular-nums ${plKes >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
-            {plKes >= 0 ? "+" : ""}{CURRENCY_SYMBOL} {plKes.toFixed(2)}
+            {plKes >= 0 ? "+" : ""}{format(plKes)}
           </div>
         </div>
       </div>
@@ -1629,6 +1635,7 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
 }
 
 function HistoryRow({ trade }: { trade: ClosedTrade }) {
+  const { format } = useMoney();
   const pl = trade.profitLoss ?? 0;
   const won = pl >= 0;
   const closedDate = trade.closedAt ? new Intl.DateTimeFormat("en-KE", { dateStyle: "short", timeStyle: "short" }).format(new Date(trade.closedAt)) : "—";
@@ -1650,7 +1657,7 @@ function HistoryRow({ trade }: { trade: ClosedTrade }) {
         </div>
         <div className="text-right">
           <div className={`font-mono text-sm font-black ${won ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
-            {won ? "+" : ""}{CURRENCY_SYMBOL} {pl.toFixed(2)}
+            {won ? "+" : ""}{format(pl)}
           </div>
           <div className={`rounded px-2 py-0.5 text-[9px] font-black ${won ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
             {won ? "WIN" : "LOSS"}
