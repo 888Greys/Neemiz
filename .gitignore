@@ -32,3 +32,4 @@ signer/.env
 
 # stray one-off build snapshot
 .next-preadmin-reset-*
+.wrangler/
