@@ -10,6 +10,7 @@ import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { MONEY_LOCALE } from "@/lib/currency";
 import { useCurrency } from "@/lib/currency-context";
+import { formatInCurrency } from "@/lib/currency-config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -809,7 +810,7 @@ export function SportsBetSlip() {
                     <div className="mt-2 flex items-center justify-between text-[11px]">
                       <span className="text-slate-500">Possible win</span>
                       <span className={`font-black ${payout ? "text-emerald-400" : "text-slate-600"}`}>
-                        {dispCur.symbol} {payout ?? "0.00"}
+                        {formatInCurrency(payout ? Number(payout) : 0, dispCur.code)}
                       </span>
                     </div>
                   </div>
@@ -855,7 +856,7 @@ export function SportsBetSlip() {
                 <div className="mt-2 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Possible win</span>
                   <span className={`font-black ${multiPayout ? "text-emerald-400" : "text-slate-600"}`}>
-                    {dispCur.symbol} {multiPayout ?? "0.00"}
+                    {formatInCurrency(multiPayout ? Number(multiPayout) : 0, dispCur.code)}
                   </span>
                 </div>
               </div>
@@ -915,12 +916,15 @@ export function SportsBetSlip() {
                   <span className="text-[11px] text-slate-500">Possible win</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[13px] font-black text-emerald-400 tabular-nums">
-                      {dispCur.symbol} {tab === "multi"
-                        ? (multiPayout ?? "0.00")
-                        : bets.reduce((s, b) => {
-                            const stake = parseFloat(amounts[b.id] || "0");
-                            return s + (stake > 0 ? retainedPayout(stake, stake * parseFloat(b.value)) : 0);
-                          }, 0).toFixed(2)}
+                      {formatInCurrency(
+                        tab === "multi"
+                          ? (multiPayout ? Number(multiPayout) : 0)
+                          : bets.reduce((s, b) => {
+                              const stake = parseFloat(amounts[b.id] || "0");
+                              return s + (stake > 0 ? retainedPayout(stake, stake * parseFloat(b.value)) : 0);
+                            }, 0),
+                        dispCur.code
+                      )}
                     </span>
                     {/* Share button */}
                     <button
