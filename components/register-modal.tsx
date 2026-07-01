@@ -30,6 +30,9 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState("");
   const [pendingVerify, setPendingVerify] = useState(false);
+  // Which OTP we're confirming: email (Supabase) or phone (Twilio Verify).
+  const [verifyChannel, setVerifyChannel] = useState<"email" | "phone">("email");
+  const [verifyPhone, setVerifyPhone] = useState("");
   const [code, setCode]               = useState("");
   const [resending, setResending]     = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -90,6 +93,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         }
 
         // Show OTP screen — Supabase sends a 6-digit code to the email
+        setVerifyChannel("email");
         setPendingVerify(true);
         startResendCooldown();
       } else {
@@ -113,7 +117,25 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
           return;
         }
 
-        // Phone registrations are auto-confirmed (no email OTP for phone-alias accounts)
+        // Phone-alias accounts are auto-confirmed by Supabase, so a session
+        // exists now — send an SMS OTP (Twilio Verify) to confirm the number.
+        // If verification can't run (Twilio not configured, or a transient
+        // failure), don't block account creation: let them in unverified.
+        try {
+          const res = await fetch("/api/account/phone/send-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone: normalized }),
+          });
+          if (res.ok) {
+            setVerifyChannel("phone");
+            setVerifyPhone(normalized);
+            setPendingVerify(true);
+            startResendCooldown();
+            return;
+          }
+        } catch { /* fall through to unverified entry */ }
+
         onClose();
         toast.success("Account created!", "Welcome to Nezeem 🎉");
         router.push("/dashboard");
@@ -132,23 +154,35 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     setLoading(true);
     setError("");
 
-    const supabase = createClient();
-
     try {
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email,
-        token,
-        type: "signup",
-      });
-
-      if (verifyError) {
-        setCode("");
-        setError(
-          verifyError.message === "Token has expired or is invalid"
-            ? "Code expired or invalid — request a new one below."
-            : verifyError.message
-        );
-        return;
+      if (verifyChannel === "phone") {
+        const res = await fetch("/api/account/phone/verify-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: verifyPhone, code: token }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setCode("");
+          setError(json.error || "Verification failed. Please try again.");
+          return;
+        }
+      } else {
+        const supabase = createClient();
+        const { error: verifyError } = await supabase.auth.verifyOtp({
+          email,
+          token,
+          type: "signup",
+        });
+        if (verifyError) {
+          setCode("");
+          setError(
+            verifyError.message === "Token has expired or is invalid"
+              ? "Code expired or invalid — request a new one below."
+              : verifyError.message
+          );
+          return;
+        }
       }
 
       onClose();
@@ -177,21 +211,33 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     setResending(true);
     setError("");
 
-    const supabase = createClient();
-
     try {
-      const { error: resendError } = await supabase.auth.resend({
-        type: "signup",
-        email,
-      });
-
-      if (resendError) {
-        setError(resendError.message);
-        return;
+      if (verifyChannel === "phone") {
+        const res = await fetch("/api/account/phone/send-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: verifyPhone }),
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          setError(json.error || "Failed to resend. Please try again.");
+          return;
+        }
+        startResendCooldown();
+        toast.info("Code resent", "Check your SMS messages.");
+      } else {
+        const supabase = createClient();
+        const { error: resendError } = await supabase.auth.resend({
+          type: "signup",
+          email,
+        });
+        if (resendError) {
+          setError(resendError.message);
+          return;
+        }
+        startResendCooldown();
+        toast.info("Code resent", "Check your inbox (and spam folder).");
       }
-
-      startResendCooldown();
-      toast.info("Code resent", "Check your inbox (and spam folder).");
     } catch {
       setError("Failed to resend. Please try again.");
     } finally {
@@ -247,8 +293,12 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
             <form onSubmit={handleVerify} className="space-y-4">
               {/* Sent-to info */}
               <div className="rounded-2xl bg-[#18191f] px-4 py-3.5 ring-1 ring-white/[0.07]">
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Code sent to</p>
-                <p className="mt-0.5 font-bold text-white truncate">{email}</p>
+                <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                  {verifyChannel === "phone" ? "Code sent via SMS to" : "Code sent to"}
+                </p>
+                <p className="mt-0.5 font-bold text-white truncate">
+                  {verifyChannel === "phone" ? `+${verifyPhone}` : email}
+                </p>
               </div>
 
 
