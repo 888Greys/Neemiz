@@ -5,7 +5,7 @@ import { TransactionStatus, TransactionType } from "@prisma/client";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { getServerTickHistory } from "@/lib/binary-price";
 import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
-import { payoutRate, vanillaPayoutPerPoint, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
+import { payoutRate, vanillaPayoutPerPoint, contractWinProb, MAX_VANILLA_MULT, MAX_WIN_PROB, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
@@ -69,6 +69,17 @@ export async function POST(req: Request) {
   }
 
   const barrier = kind === "RISE_FALL" ? null : Number((entrySpot + offset).toFixed(5));
+
+  // Reject contracts the player has made near-certain. A deep in-the-money
+  // barrier (e.g. LOWER far above spot, or NO_TOUCH far away) wins ~100% of the
+  // time; paying it out at a rate ≥ its true probability is a risk-free +EV
+  // money printer. VANILLA is priced continuously and is exempt.
+  if (kind === "HIGHER_LOWER" || kind === "TOUCH_NO_TOUCH") {
+    const winProb = contractWinProb({ kind, side: side as DirectionalSide, entrySpot, barrier, sigmaTick, durationTicks: ticks });
+    if (winProb > MAX_WIN_PROB)
+      return Response.json({ error: "Barrier too safe — choose a barrier closer to the current spot" }, { status: 400 });
+  }
+
   let payoutVal = 0;            // fixed net payout (non-vanilla)
   let payoutPerPoint: number | null = null;
   let grossPayout = 0;
