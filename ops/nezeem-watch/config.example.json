@@ -15,9 +15,9 @@
   },
 
   "watch": [
-    { "key": "hot-polygon",  "role": "hot",             "chain": "polygon",  "address": "0xYOUR_CURRENT_HOT_WALLET", "label": "Hot wallet (new)" },
-    { "key": "hot-tron",     "role": "hot",             "chain": "tron",     "address": "TYOUR_CURRENT_HOT_WALLET",  "label": "Hot wallet (new)" },
-    { "key": "old-evm",      "role": "old_compromised", "chain": "polygon",  "address": "0xLEAKED_SEED_WALLET",      "label": "OLD compromised EVM" },
-    { "key": "attacker-evm", "role": "attacker",        "chain": "polygon",  "address": "0xKNOWN_ATTACKER_ADDRESS",  "label": "Attacker EVM" }
+    { "key": "hot-polygon",  "role": "hot", "chain": "polygon",  "address": "0xYOUR_CURRENT_HOT_WALLET", "label": "Hot wallet (new)" },
+    { "key": "hot-bsc",      "role": "hot", "chain": "bsc",      "address": "0xYOUR_CURRENT_HOT_WALLET", "label": "Hot wallet (new)" },
+    { "key": "hot-ethereum", "role": "hot", "chain": "ethereum", "address": "0xYOUR_CURRENT_HOT_WALLET", "label": "Hot wallet (new)" },
+    { "key": "hot-tron",     "role": "hot", "chain": "tron",     "address": "TYOUR_CURRENT_HOT_WALLET",  "label": "Hot wallet (new)" }
   ]
 }
