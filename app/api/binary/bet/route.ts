@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
@@ -19,6 +20,10 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Throttle bet placement per user — defense-in-depth against settlement/stake spam.
+  const rl = rateLimit(`binary-bet:${user.id}`, 30, 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   let body: { market?: string; side?: string; stake?: number; targetDigit?: number; entryDigit?: number; durationTicks?: number };
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
