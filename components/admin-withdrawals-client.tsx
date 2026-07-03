@@ -116,11 +116,12 @@ function WithdrawalsHistory() {
         </div>
       ) : (
         <div className="admin-panel overflow-x-auto">
-          <table className="w-full min-w-[680px] text-left">
+          <table className="w-full min-w-[820px] text-left">
             <thead>
               <tr className="border-b border-white/[0.07] text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
                 <th className="px-4 py-3">When</th>
                 <th className="px-4 py-3">User</th>
+                <th className="px-4 py-3">Email</th>
                 <th className="px-4 py-3 text-right">Amount</th>
                 <th className="px-4 py-3">Destination</th>
                 <th className="px-4 py-3">Provider</th>
@@ -141,6 +142,7 @@ function WithdrawalsHistory() {
                         {w.user.username ? `@${w.user.username}` : w.user.email ?? w.user.phone ?? "—"}
                       </Link>
                     </td>
+                    <td className="px-4 py-3 text-slate-400 break-all">{w.user.email ?? "—"}</td>
                     <td className="px-4 py-3 text-right font-mono font-black text-white whitespace-nowrap">
                       {Number(w.amount).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })} {w.currency}
                     </td>
