@@ -68,6 +68,15 @@ export async function POST(req: Request) {
     return Response.json({ error: "Select a recipient and enter a valid amount" }, { status: 400 });
   }
 
+  // Per-transfer cap: a user may send at most KSh 50 to another account in one
+  // transfer. This throttles the "seed an account then cash it out" fan-out
+  // pattern where balance is moved in bulk to accomplices who withdraw it.
+  // Admins are exempt (owner treasury operations).
+  const MAX_TRANSFER_KES = 50;
+  if (!sender.isAdmin && amount > MAX_TRANSFER_KES) {
+    return Response.json({ error: `You can send at most ${CURRENCY_SYMBOL} ${MAX_TRANSFER_KES} per transfer.` }, { status: 400 });
+  }
+
   const recipient = await db.user.findFirst({
     where: { id: body.recipientId, isActive: true },
     select: { id: true, username: true },
