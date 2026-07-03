@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType, type LeveragedKind } from "@prisma/client";
@@ -19,6 +20,9 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = rateLimit(`leveraged-bet:${user.id}`, 30, 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   let body: {
     market?: string; kind?: string; direction?: string; stake?: number;
