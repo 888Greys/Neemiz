@@ -7,6 +7,7 @@ import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
+import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { LoadingDots } from "@/components/loading-dots";
 import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown";
@@ -504,13 +505,9 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                     M-Pesa ref: <span className="font-bold text-slate-300">{deposit.receipt}</span>
                   </p>
                 )}
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff]"
-                >
+                <Button onClick={reset} className="h-12 w-full rounded-2xl text-sm shadow-lg shadow-blue-500/20">
                   Deposit More
-                </button>
+                </Button>
               </div>
             ) : deposit.step === "failed" ? (
               <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-red-500/25 text-center animate-in fade-in zoom-in-95 duration-300">
@@ -642,18 +639,17 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                   </div>
                 )}
 
-                <button
-                  type="button"
+                <Button
                   onClick={(e) => handleDeposit(e as unknown as React.FormEvent)}
                   disabled={loading || !amount || !phone}
-                  className="w-full rounded-2xl bg-[#087cff] py-4 text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
+                  className="h-14 w-full rounded-2xl text-base shadow-lg shadow-blue-500/20"
                 >
                   {loading ? (
                     <LoadingDots label="Sending prompt" />
                   ) : (
                     `Deposit ${CURRENCY_SYMBOL} ${Number(amount || 0).toLocaleString() || "—"}`
                   )}
-                </button>
+                </Button>
 
                 <p className="text-center text-[11px] text-slate-700">
                   Powered by Safaricom M-Pesa · Instant credit to your account
@@ -725,13 +721,12 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                     <p className="mt-3 font-mono text-[11px] text-slate-600">
                       TX: {cwState.txId}
                     </p>
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => { setCwState({ step: "idle" }); setCwAmount(""); setCwAddress(""); }}
-                      className="mt-6 w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff]"
+                      className="mt-6 h-12 w-full rounded-2xl text-sm shadow-lg shadow-blue-500/20"
                     >
                       New Withdrawal
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -896,8 +891,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                       </div>
                     )}
 
-                    <button
-                      type="button"
+                    <Button
                       onClick={handleCryptoWithdraw}
                       disabled={
                         cwState.step === "loading" ||
@@ -905,14 +899,14 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                         !cwAddress.trim() ||
                         !isSignedIn
                       }
-                      className="w-full rounded-2xl bg-[#087cff] py-4 text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
+                      className="h-14 w-full rounded-2xl text-base shadow-lg shadow-blue-500/20"
                     >
                       {cwState.step === "loading" ? (
                         <LoadingDots label="Submitting withdrawal" />
                       ) : (
                         `Withdraw ${cwAmount ? `${cwAmount} ` : ""}${cwAsset.code}`
                       )}
-                    </button>
+                    </Button>
                   </div>
                 )}
 
@@ -1062,18 +1056,17 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                       </p>
                     )}
 
-                    <button
-                      type="button"
+                    <Button
                       onClick={requestMpesaWithdraw}
                       disabled={wdLoading || !wdAmount || Number(wdAmount) < 100 || !wdPhone.trim()}
-                      className="w-full rounded-2xl bg-[#087cff] py-4 text-base font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
+                      className="h-14 w-full rounded-2xl text-base shadow-lg shadow-blue-500/20"
                     >
                       {wdLoading ? (
                         <LoadingDots label="Processing" />
                       ) : (
                         `Withdraw${wdAmount && Number(wdAmount) >= 100 ? ` ${CURRENCY_SYMBOL} ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
                       )}
-                    </button>
+                    </Button>
                     <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
                       <Icon name="lock" fill className="text-[13px]" /> You&rsquo;ll confirm with your password or passkey
                     </p>
@@ -1274,18 +1267,17 @@ function WalletTransferPanel({
         </div>
 
         <p className="mt-4 text-xs font-medium text-slate-500">The recipient&apos;s Nezeem wallet was credited instantly.</p>
-        <button
-          type="button"
+        <Button
           onClick={() => {
             setReceipt(null);
             setQuery("");
             setRecipient(null);
             setAmount("");
           }}
-          className="mt-6 w-full rounded-2xl bg-[#087cff] py-4 text-sm font-black text-white transition hover:bg-[#2a90ff] active:scale-[0.98]"
+          className="mt-6 h-14 w-full rounded-2xl text-sm"
         >
           Send Again
-        </button>
+        </Button>
       </div>
     );
   }
@@ -1389,14 +1381,13 @@ function WalletTransferPanel({
       )}
 
       {error && <p className="text-xs font-bold text-red-400">{error}</p>}
-      <button
-        type="button"
+      <Button
         onClick={sendMoney}
         disabled={sending || !recipient || !amount || Number(amount) <= 0}
-        className="w-full rounded-2xl bg-[#087cff] py-4 text-base font-black text-white transition hover:bg-[#2a90ff] active:scale-[.98] disabled:opacity-50"
+        className="h-14 w-full rounded-2xl text-base"
       >
         {sending ? <LoadingDots label="Sending" /> : "Send Money"}
-      </button>
+      </Button>
     </div>
   );
 }
