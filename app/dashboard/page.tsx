@@ -10,106 +10,8 @@ import { TrendingMatchCarousel } from "@/components/trending-match-carousel";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { toast } from "@/lib/toast";
 
-const tempAssets = {
-  bonusMobile: "https://v3.bundlecdn.com/b02632/plain/bonus/bonus-banner.1/main_bonus_360-v2.png",
-  bonusDesktop: "https://v3.bundlecdn.com/b02632/plain/bonus/bonus-banner.1/main_bonus_768-v2.png",
-  gameWeekMobile: "https://v3.bundlecdn.com/b02632/plain/casino/game-of-the-week.1/mobile.png",
-  freebet: "https://v3.bundlecdn.com/b02632/plain/betting/brand-freebet.png",
-  randomGame: "https://v3.bundlecdn.com/b02632/plain/casino/random-game.1/bg-right-mobile.png",
-  jackpot: "https://v3.bundlecdn.com/b02632/plain/casino/jackpot.1/start.png",
-  poker: "https://v3.bundlecdn.com/b02632/plain/casino/poker/poker-cards.png",
-};
+const AVIATOR_BANNER = "https://v3.bundlecdn.com/b02632/plain/casino/game-of-the-week.1/mobile.png";
 
-
-const products = [
-  {
-    href: "/sports",
-    icon: "sports_soccer",
-    title: "Sports Betting",
-    desc: "Live odds on 30+ sports with in-play markets.",
-    cta: "Bet now",
-    glow: "rgba(139,92,246,.45)",
-    bg: "from-violet-600/20 via-violet-900/10 to-[#0d0e12]",
-    border: "border-violet-500/30 hover:border-violet-400/60",
-    iconColor: "text-violet-300",
-    iconBg: "bg-violet-500/15",
-    badge: null,
-  },
-  {
-    href: "/aviator",
-    icon: "rocket_launch",
-    title: "Aviator",
-    desc: "Provably fair crash game. Cash out in time.",
-    cta: "Play now",
-    glow: "rgba(249,115,22,.45)",
-    bg: "from-orange-600/20 via-orange-900/10 to-[#0d0e12]",
-    border: "border-orange-500/30 hover:border-orange-400/60",
-    iconColor: "text-orange-300",
-    iconBg: "bg-orange-500/15",
-    badge: "HOT",
-  },
-  {
-    href: "/predictions",
-    icon: "online_prediction",
-    title: "Polymarket",
-    desc: "Trade YES/NO on real-world events.",
-    cta: "Explore",
-    glow: "rgba(236,72,153,.45)",
-    bg: "from-pink-600/20 via-pink-900/10 to-[#0d0e12]",
-    border: "border-pink-500/30 hover:border-pink-400/60",
-    iconColor: "text-pink-300",
-    iconBg: "bg-pink-500/15",
-    badge: null,
-  },
-  {
-    href: "/p2p",
-    icon: "swap_horiz",
-    title: "P2P Trading",
-    desc: "Buy & sell with verified merchants. Escrow-protected.",
-    cta: "Trade",
-    glow: "rgba(16,185,129,.45)",
-    bg: "from-emerald-600/20 via-emerald-900/10 to-[#0d0e12]",
-    border: "border-emerald-500/30 hover:border-emerald-400/60",
-    iconColor: "text-emerald-300",
-    iconBg: "bg-emerald-500/15",
-    badge: null,
-  },
-  {
-    href: "/binary",
-    icon: "candlestick_chart",
-    title: "Binary",
-    desc: "Digit contracts with fixed stake, payout, and timed settlement.",
-    cta: "Trade",
-    glow: "rgba(59,130,246,.45)",
-    bg: "from-blue-600/20 via-blue-900/10 to-[#0d0e12]",
-    border: "border-blue-500/30 hover:border-blue-400/60",
-    iconColor: "text-blue-300",
-    iconBg: "bg-blue-500/15",
-    badge: null,
-  },
-  {
-    href: "/wallet",
-    icon: "account_balance_wallet",
-    title: "Smart Wallet",
-    desc: "Multi-currency. Deposit, withdraw, transfer instantly.",
-    cta: "Open",
-    glow: "rgba(245,158,11,.45)",
-    bg: "from-amber-600/20 via-amber-900/10 to-[#0d0e12]",
-    border: "border-amber-500/30 hover:border-amber-400/60",
-    iconColor: "text-amber-300",
-    iconBg: "bg-amber-500/15",
-    badge: null,
-  },
-];
-
-const gameCards = [
-  { title: "Aviator", icon: "rocket_launch", color: "from-red-500 to-red-900", image: tempAssets.gameWeekMobile, href: "/aviator" },
-  { title: "Mines", icon: "grid_view", color: "from-sky-500 to-blue-900", image: tempAssets.randomGame, href: "/aviator" },
-  { title: "Lucky Jet", icon: "flight_takeoff", color: "from-violet-400 to-purple-900", image: tempAssets.jackpot, href: "/aviator" },
-  { title: "Dice", icon: "casino", color: "from-blue-300 to-blue-900", image: tempAssets.poker, href: "/aviator" },
-  { title: "Coinflip", icon: "paid", color: "from-amber-300 to-orange-800", image: tempAssets.freebet, href: "/aviator" },
-  { title: "Penalty", icon: "sports_soccer", color: "from-green-400 to-green-900", image: tempAssets.bonusMobile, href: "/sports" },
-];
 
 export default function DashboardPage() {
   return (
@@ -247,9 +149,14 @@ function MobileDashboard() {
       {/* ── Quick nav ── */}
       <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-4 py-4">
         {QUICK_NAV.map((item) => {
+          // Shared tile styling — includes a focus-visible ring so keyboard and
+          // switch-control users can see which shortcut is focused.
+          const tile =
+            "group flex shrink-0 flex-col items-center gap-1.5 rounded-2xl outline-none " +
+            "focus-visible:ring-2 focus-visible:ring-primary-fixed/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
           const inner = (
             <>
-              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.color} ring-1 ring-white/10`}>
+              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.color} ring-1 ring-white/10 transition-transform duration-fast group-hover:scale-105 group-active:scale-95`}>
                 <Icon name={item.icon} fill className="text-[22px]" />
               </span>
               <span className="text-[10px] font-black text-white/60">{item.label}</span>
@@ -257,20 +164,20 @@ function MobileDashboard() {
           );
           if (item.action === "wallet") {
             return (
-              <button key={item.label} type="button" onClick={openWallet} className="flex shrink-0 flex-col items-center gap-1.5">
+              <button key={item.label} type="button" onClick={openWallet} aria-label={item.label} className={tile}>
                 {inner}
               </button>
             );
           }
           if (item.action === "casino") {
             return (
-              <button key={item.label} type="button" onClick={() => toast.info("Coming soon", "Casino lobby launching soon! 🎰")} className="flex shrink-0 flex-col items-center gap-1.5">
+              <button key={item.label} type="button" onClick={() => toast.info("Coming soon", "Casino lobby launching soon! 🎰")} aria-label={item.label} className={tile}>
                 {inner}
               </button>
             );
           }
           return (
-            <Link key={item.label} href={item.href!} prefetch={false} className="flex shrink-0 flex-col items-center gap-1.5">
+            <Link key={item.label} href={item.href!} prefetch={false} aria-label={item.label} className={tile}>
               {inner}
             </Link>
           );
@@ -282,18 +189,18 @@ function MobileDashboard() {
         <Link
           href="/aviator"
           prefetch={false}
-          className="flex min-h-[190px] items-end overflow-hidden rounded-3xl bg-cover bg-center p-5"
-          style={{ backgroundImage: `linear-gradient(135deg, rgba(20,8,4,.95) 0%, rgba(20,8,4,.6) 60%, rgba(20,8,4,.2) 100%), url(${tempAssets.gameWeekMobile})` }}
+          className="flex min-h-[190px] items-end overflow-hidden rounded-3xl bg-cover bg-center p-5 outline-none focus-visible:ring-2 focus-visible:ring-primary-fixed/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          style={{ backgroundImage: `linear-gradient(135deg, rgba(20,8,4,.95) 0%, rgba(20,8,4,.6) 60%, rgba(20,8,4,.2) 100%), url(${AVIATOR_BANNER})` }}
         >
           <div className="flex w-full items-end justify-between">
             <div>
               <div className="mb-2.5 flex items-center gap-1.5">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-[#ff1979]" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-[#ff1979]">Live now</span>
+                <span className="h-2 w-2 animate-pulse rounded-full bg-accent-casino motion-reduce:animate-none" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-accent-casino">Live now</span>
               </div>
               <h2 className="text-[32px] font-black leading-none">Aviator</h2>
               <p className="mt-1.5 text-[12px] text-white/60">Cash out before it flies away</p>
-              <span className="mt-4 inline-block rounded-2xl bg-[#ff1979] px-5 py-2 text-[12px] font-black text-white shadow-lg shadow-[#ff1979]/30">
+              <span className="mt-4 inline-block rounded-2xl bg-accent-casino px-5 py-2 text-[12px] font-black text-white shadow-lg shadow-accent-casino/30">
                 Play now →
               </span>
             </div>
