@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
@@ -17,6 +18,9 @@ export async function POST(req: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    const rl = rateLimit(`wallet-deposit:${user.id}`, 10, 60_000);
+    if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
     const accountNo = process.env.RELWORX_ACCOUNT_NO;
     if (!accountNo || !process.env.RELWORX_API_KEY) {
