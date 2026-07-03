@@ -106,20 +106,22 @@ export async function POST(req: Request) {
         }
       }
 
-      // Ensure that the destination phone number (msisdn) is associated with only ONE account.
-      // If any other user account has successfully withdrawn to this number, block it.
-      const existingOwner = await tx.transaction.findFirst({
+      // A destination number may receive cash only ONCE. If any prior
+      // (non-failed) M-Pesa withdrawal already went to this msisdn — whether by
+      // this user or any other account — block it. This stops a single number
+      // being used as a repeat cash-out endpoint for seeded/mule accounts.
+      // Admins are exempt (owner may re-pay their own number).
+      const priorToNumber = await tx.transaction.findFirst({
         where: {
           type:     TransactionType.WITHDRAWAL,
           provider: "lipaharaka",
           status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
           metadata: { path: ["msisdn"], equals: msisdn },
-          userId:   { not: dbUser.id },
         },
-        select: { userId: true },
+        select: { id: true },
       });
-      if (existingOwner && !dbUser.isAdmin) {
-        throw new Error("PHONE_NUMBER_LINKED");
+      if (priorToNumber && !dbUser.isAdmin) {
+        throw new Error("PHONE_NUMBER_USED");
       }
 
       const numberCount = 0;
@@ -293,8 +295,8 @@ export async function POST(req: Request) {
         { status: 403 },
       );
     }
-    if (err instanceof Error && err.message === "PHONE_NUMBER_LINKED") {
-      return Response.json({ error: "This phone number is already linked to another account. Each phone number can only be used by one account." }, { status: 400 });
+    if (err instanceof Error && err.message === "PHONE_NUMBER_USED") {
+      return Response.json({ error: "This M-Pesa number has already received a withdrawal. Each number can only be paid out once." }, { status: 400 });
     }
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
