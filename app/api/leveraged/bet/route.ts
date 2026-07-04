@@ -81,6 +81,12 @@ export async function POST(req: Request) {
     barrier = Number(multiplierStopOutPrice(entrySpot, multiplier!, dir).toFixed(5)); // stop-out price (display)
   } else {
     barrier = Number(clampTurboBarrier(entrySpot, entrySpot + barrierOffset!, dir).toFixed(5));
+    // Defense in depth (mirrors the directional negative-barrier fix): clampTurboBarrier
+    // already forces the barrier onto the correct side within [0.1%, 5%] of spot, so a
+    // negative/extreme offset can't produce a degenerate barrier. Assert the invariant
+    // anyway — a non-positive barrier must never reach settlement.
+    if (!(barrier > 0))
+      return Response.json({ error: "Invalid barrier" }, { status: 400 });
     payoutPerPoint = Number(turboPayoutPerPoint(stakeVal, entrySpot, barrier).toFixed(8));
   }
 
