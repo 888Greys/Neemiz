@@ -765,14 +765,28 @@ function SecurityView({ email }: { email: string | undefined }) {
     setPasskeyBusy(true);
     try {
       const supabase = createClient();
-      // register() runs the full enroll → challenge → verify ceremony against the
-      // MFA/factors endpoints. rpId/rpOrigins must match the server's
-      // GOTRUE_MFA_RP_ID / RP_ORIGINS, which are set to the live origin.
+      // Clear out half-finished (unverified) webauthn factors from earlier
+      // attempts — GoTrue keeps them and they reserve the friendly name, which is
+      // what caused "a factor with the friendly name … already exists".
+      try {
+        const { data: fs } = await supabase.auth.mfa.listFactors();
+        const stale = (fs?.webauthn ?? []).filter((f) => f.status !== "verified");
+        for (const f of stale) await supabase.auth.mfa.unenroll({ factorId: f.id });
+      } catch { /* best-effort cleanup */ }
+
+      // register() runs the full enroll → challenge → verify ceremony. The
+      // friendly name must be UNIQUE per account, so include a timestamp.
       const { error } = await supabase.auth.mfa.webauthn.register({
-        friendlyName: `${navigator.platform || "Device"} · ${new Date().toLocaleDateString()}`,
+        friendlyName: `Passkey · ${new Date().toLocaleString()}`,
         webauthn: { rpId: window.location.hostname, rpOrigins: [window.location.origin] },
       });
-      if (error) { toast.error("Couldn't add passkey", error.message); return; }
+      if (error) {
+        const msg = /already exists/i.test(error.message)
+          ? "You already have a passkey with that name. Remove it first, then add again."
+          : error.message;
+        toast.error("Couldn't add passkey", msg);
+        return;
+      }
       toast.success("Passkey added", "Use it to confirm withdrawals and as your second factor.");
       await loadPasskeys();
     } catch {
