@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
@@ -26,10 +26,6 @@ type Props = {
 
 type RecoveryStep = "login" | "email" | "code" | "password";
 
-// Remember that this device has signed in with a passkey before, so next time
-// we can lead with it and auto-prompt.
-const PASSKEY_DEVICE_KEY = "nezeem-passkey-device";
-
 export function LoginModal({ onClose, onSwitchToRegister }: Props) {
   const [tab, setTab]           = useState<"phone" | "email">("email");
   const [country, setCountry]   = useState<Country>(COUNTRIES[0]);
@@ -45,25 +41,8 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
-  // Has this device used a passkey before? If so we lead with it + auto-prompt.
-  const [passkeyDevice] = useState(() => {
-    if (DEV_AUTH_PUBLIC) return false;
-    try { return localStorage.getItem(PASSKEY_DEVICE_KEY) === "1"; } catch { return false; }
-  });
-  const autoPrompted = useRef(false);
 
   const router = useRouter();
-
-  // Auto-trigger the passkey prompt once when opening on a known passkey device.
-  // If the user dismisses it, the password form below is the fallback.
-  useEffect(() => {
-    if (!passkeyDevice || autoPrompted.current) return;
-    autoPrompted.current = true;
-    const t = setTimeout(() => { void handlePasskey(); }, 350);
-    return () => clearTimeout(t);
-    // handlePasskey is stable for this modal instance; we only want this once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [passkeyDevice]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -122,56 +101,6 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
       router.push("/dashboard");
     } catch {
       setError("Sign-in failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Map the raw WebAuthn/Supabase passkey errors (e.g. NotAllowedError —
-  // "The operation either timed out or was not allowed…") to friendly guidance.
-  // This fires when the device has no passkey for this account, or the prompt
-  // was dismissed — so point new users to set one up after a normal sign-in.
-  function passkeyErrorMessage(raw?: string) {
-    const m = (raw ?? "").toLowerCase();
-    if (!m
-      || m.includes("not allowed") || m.includes("timed out") || m.includes("timeout")
-      || m.includes("privacy-considerations") || m.includes("no credential")
-      || m.includes("no passkey") || m.includes("notallowederror") || m.includes("aborted")) {
-      return "No passkey found on this device — or the prompt was dismissed. New here? Sign in with your phone or email first, then add a passkey from your account settings.";
-    }
-    return raw || "Passkey sign-in failed. Please try again.";
-  }
-
-  async function handlePasskey() {
-    setError("");
-    setLoading(true);
-    try {
-      const supabase = createClient();
-      const { error: pkError } = await supabase.auth.signInWithPasskey();
-      if (pkError) {
-        setError(passkeyErrorMessage(pkError.message));
-        return;
-      }
-
-      const statusResponse = await fetch("/api/auth/account-status", { cache: "no-store" });
-      const accountStatus = statusResponse.ok
-        ? await statusResponse.json() as { suspended?: boolean }
-        : null;
-      if (accountStatus?.suspended) {
-        await supabase.auth.signOut();
-        onClose();
-        router.push("/suspended");
-        return;
-      }
-
-      // Remember this device prefers passkey for next time.
-      try { localStorage.setItem(PASSKEY_DEVICE_KEY, "1"); } catch { /* ignore */ }
-
-      onClose();
-      toast.success("Welcome back!", "Signed in with your passkey.");
-      router.push("/dashboard");
-    } catch (err) {
-      setError(passkeyErrorMessage(err instanceof Error ? err.message : undefined));
     } finally {
       setLoading(false);
     }
@@ -320,27 +249,6 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
         <div className="overflow-y-auto px-6 pb-8 sm:px-7 sm:pb-7" style={{ maxHeight: "85dvh" }}>
           {recoveryStep === "login" ? (
           <>
-          {/* Passkey lead — shown first on devices that have used a passkey */}
-          {passkeyDevice && (
-            <div className="mb-5">
-              <button
-                type="button"
-                onClick={handlePasskey}
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-2.5 rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#0a8bff] active:scale-[.98] disabled:opacity-60"
-              >
-                <Icon name="passkey" className="text-[18px]" />
-                {loading ? <LoadingDots label="Authenticating" /> : "Sign in with passkey"}
-              </button>
-              <p className="mt-2 text-center text-[11px] text-slate-600">Fingerprint, face, or device PIN</p>
-              <div className="mt-4 flex items-center gap-3">
-                <div className="flex-1 border-t border-white/[0.07]" />
-                <span className="text-xs text-slate-600">or use password</span>
-                <div className="flex-1 border-t border-white/[0.07]" />
-              </div>
-            </div>
-          )}
-
           {/* Tab switcher */}
           <div className="mb-5 grid grid-cols-2 gap-1.5 rounded-2xl bg-[#18191f] p-1">
             {(["phone", "email"] as const).map((t) => (
@@ -453,19 +361,6 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
               <span className="text-sm font-black text-white">Continue with Google</span>
             </button>
           </div>
-
-          {/* Passkey — secondary option for devices that haven't used one yet */}
-          {!passkeyDevice && (
-            <button
-              type="button"
-              onClick={handlePasskey}
-              disabled={loading}
-              className="mt-2.5 flex w-full items-center justify-center gap-2.5 rounded-xl bg-[#18191f] py-3 ring-1 ring-white/[0.07] transition hover:bg-[#22252e] active:scale-[.98] disabled:opacity-60"
-            >
-              <Icon name="passkey" className="text-[18px] text-[#5ea9ff]" />
-              <span className="text-sm font-black text-white">Sign in with passkey</span>
-            </button>
-          )}
 
           {/* Switch to register */}
           <p className="mt-6 text-center text-sm text-slate-500">

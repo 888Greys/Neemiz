@@ -365,7 +365,20 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
   async function confirmWithPasskey() {
     setStepUpBusy(true); setStepUpError("");
     try {
-      const { error } = await createClient().auth.signInWithPasskey();
+      const supabase = createClient();
+      // Passkeys are MFA WebAuthn factors here: find a verified one and run the
+      // authenticate ceremony as step-up (aal1 → aal2) before releasing money.
+      const { data: factors, error: listErr } = await supabase.auth.mfa.listFactors();
+      if (listErr) { setStepUpError("Could not check your passkeys. Use your password instead."); return; }
+      const passkey = (factors?.webauthn ?? []).find((f) => f.status === "verified");
+      if (!passkey) {
+        setStepUpError("No passkey on this account. Add one in Settings, or use your password.");
+        return;
+      }
+      const { error } = await supabase.auth.mfa.webauthn.authenticate({
+        factorId: passkey.id,
+        webauthn: { rpId: window.location.hostname, rpOrigins: [window.location.origin] },
+      });
       if (error) { setStepUpError("Passkey check failed or was dismissed. Try again or use your password."); return; }
       setStepUpOpen(false);
       await handleMpesaWithdraw();
