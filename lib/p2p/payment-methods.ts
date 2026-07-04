@@ -145,13 +145,77 @@ const UNIVERSAL_METHODS = new Set([
 /**
  * Whether a stored payment-method code makes sense for a given fiat. True for
  * the fiat's local rails and for the universal (country-agnostic) methods, so
- * e.g. M-Pesa is hidden on an NGN ad but Bank Transfer stays available. When the
- * fiat is unknown we don't filter (return true) to avoid hiding valid options.
+ * e.g. M-Pesa is hidden on an NGN ad but Bank Transfer stays available.
+ *
+ * - No fiat (null/undefined): no country context, so don't filter (return true).
+ * - A selected fiat we DON'T have local rails for (e.g. CAD, CNY, JPY): only the
+ *   universal rails apply — country-specific methods like M-Pesa must NOT show,
+ *   which is exactly the "why is M-Pesa showing when I picked CAD" bug.
+ * - A mapped fiat: its local rails + the universal ones.
  */
 export function methodAllowedForFiat(code: string, fiat: string | null | undefined): boolean {
-  if (!fiat || !PAYMENT_METHODS_BY_FIAT[fiat]) return true;
+  if (!fiat) return true;
   if (UNIVERSAL_METHODS.has(code)) return true;
-  return PAYMENT_METHODS_BY_FIAT[fiat].some((m) => m.value === code);
+  const local = PAYMENT_METHODS_BY_FIAT[fiat];
+  if (!local) return false; // selected but unmapped currency → universal rails only
+  return local.some((m) => m.value === code);
+}
+
+// ─── Per-method display helpers (field label + badge) ─────────────────────────
+
+// The account identifier a given rail actually uses, so the input label matches
+// the selected method (PayPal wants an email, UPI a VPA, banks an account no.).
+const EMAIL_METHODS   = new Set(["PAYPAL", "SKRILL", "NETELLER", "WISE", "PAYONEER"]);
+const HANDLE_METHODS: Record<string, string> = {
+  ZELLE: "Email or phone", CASHAPP: "$Cashtag", VENMO: "@username",
+  UPI: "UPI ID", REVOLUT: "@RevTag or phone", ALIPAY: "Alipay ID / phone",
+  WECHAT: "WeChat ID / phone",
+};
+const BANK_LIKE = new Set([
+  "BANK", "SEPA", "SWIFT", "IMPS", "PIX", "FNB", "CAPITEC", "SBERBANK",
+  "TINKOFF", "KUDA", "MONIEPOINT",
+]);
+
+/** Placeholder/label for the "account identifier" field of a payment method. */
+export function accountIdentifierLabel(code: string): string {
+  if (EMAIL_METHODS.has(code)) return "Email";
+  if (HANDLE_METHODS[code]) return HANDLE_METHODS[code];
+  if (BANK_LIKE.has(code)) return "Account number";
+  return "Phone / Paybill"; // mobile money & the rest
+}
+
+// Brand accent colours for the picker's monogram badges (recognisable at a
+// glance without shipping ~45 brand SVGs). Anything not listed gets a stable
+// hash colour from badgeColor().
+const BRAND_COLORS: Record<string, string> = {
+  MPESA: "#43b02a", AIRTEL: "#e40000", MTN_MOMO: "#ffcb05", VODAFONE_CASH: "#e60000",
+  TIGO_PESA: "#00a1e0", ORANGE_MONEY: "#ff7900", WAVE: "#1dc4ff", MPAMBA: "#e40000",
+  GCASH: "#0057ff", MAYA: "#28e07b", JAZZCASH: "#b01e2e", EASYPAISA: "#00b04f",
+  BKASH: "#e2136e", NAGAD: "#f6921e", OPAY: "#1dd05d", PALMPAY: "#6c2bd9",
+  KUDA: "#40196d", MONIEPOINT: "#0357ee", PAYPAL: "#0070ba", WISE: "#9fe870",
+  REVOLUT: "#0666eb", SKRILL: "#862165", NETELLER: "#83ba3b", PAYONEER: "#ff4800",
+  ZELLE: "#6d1ed4", CASHAPP: "#00d64f", VENMO: "#008cff", ALIPAY: "#1677ff",
+  WECHAT: "#07c160", PAYTM: "#00baf2", PHONEPE: "#5f259f", GRAB: "#00b14f",
+  BANK: "#64748b", SEPA: "#0b57d0", SWIFT: "#334155", UPI: "#097939",
+  IMPS: "#0b57d0", PIX: "#32bcad", FNB: "#00a2a4", CAPITEC: "#004b8d",
+  CASH_DEPOSIT: "#f59e0b", CASH_PERSON: "#f59e0b",
+};
+
+/** Accent colour for a method's badge (brand colour when known, else hashed). */
+export function badgeColor(code: string): string {
+  if (BRAND_COLORS[code]) return BRAND_COLORS[code];
+  let h = 0;
+  for (let i = 0; i < code.length; i++) h = (h * 31 + code.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return `hsl(${hue} 55% 45%)`;
+}
+
+/** Short 1–2 char monogram for a method's badge. */
+export function badgeMonogram(code: string): string {
+  const label = paymentMethodLabel(code).replace(/[^A-Za-z0-9 ]/g, "").trim();
+  const words = label.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) return (words[0][0] + words[1][0]).toUpperCase();
+  return label.slice(0, 2).toUpperCase();
 }
 
 // Flat code → label lookup for displaying a stored method code anywhere.
