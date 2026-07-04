@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AviatorBetPublic } from "@/lib/aviator/types";
+import { maskName } from "@/lib/aviator/types";
 import { useCurrency } from "@/lib/currency-context";
 
 interface MyHistoryBet {
@@ -146,11 +147,16 @@ function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
     <div className={`grid grid-cols-[minmax(0,1fr)_64px_42px_58px] items-center gap-0 px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3 ${isMe ? "bg-[#087cff]/5" : ""}`}>
       {/* User */}
       <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white ${avatarColor(bet.username)}`}>
-          {initials(bet.username)}
-        </div>
+        {bet.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bet.imageUrl} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
+        ) : (
+          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white ${avatarColor(bet.username)}`}>
+            {initials(bet.username)}
+          </div>
+        )}
         <span className={`truncate text-[11px] font-bold ${isMe ? "text-[#087cff]" : "text-white/70"}`}>
-          {bet.username ?? "anon"}
+          {isMe ? "You" : maskName(bet.username)}
           {bet.panelIndex === 1 && <span className="ml-1 text-[8px] text-white/25">②</span>}
         </span>
       </div>
