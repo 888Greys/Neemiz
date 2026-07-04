@@ -82,7 +82,7 @@ export default async function SportsPage({ searchParams }: Props) {
   })();
 
   return (
-    <AppShell rightPanel={<SportsBetSlip />} mainBg="bg-background">
+    <AppShell rightPanel={<SportsBetSlip />}>
       {/* ── Sub-tab bar ── */}
       <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-white/10 bg-[#111113] px-3 py-2.5">
         <div className="flex flex-1 gap-1 overflow-x-auto no-scrollbar">
