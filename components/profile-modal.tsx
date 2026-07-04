@@ -743,10 +743,17 @@ function SecurityView({ email }: { email: string | undefined }) {
     setPasskeyLoading(true);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.auth.passkey.list();
-      if (!error && data) setPasskeys(data);
+      // WebAuthn passkeys are modeled as MFA factors on the self-hosted Supabase
+      // Auth (GoTrue). List the verified webauthn factors.
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (!error && data) {
+        const wa = (data.webauthn ?? data.all?.filter((f) => f.factor_type === "webauthn") ?? [])
+          .filter((f) => f.status === "verified")
+          .map((f) => ({ id: f.id, friendly_name: f.friendly_name ?? undefined, created_at: f.created_at }));
+        setPasskeys(wa);
+      }
     } catch {
-      // experimental API may be unavailable — leave the list empty
+      // WebAuthn unavailable on this device/server — leave the list empty
     } finally {
       setPasskeyLoading(false);
     }
@@ -758,12 +765,18 @@ function SecurityView({ email }: { email: string | undefined }) {
     setPasskeyBusy(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.registerPasskey();
+      // register() runs the full enroll → challenge → verify ceremony against the
+      // MFA/factors endpoints. rpId/rpOrigins must match the server's
+      // GOTRUE_MFA_RP_ID / RP_ORIGINS, which are set to the live origin.
+      const { error } = await supabase.auth.mfa.webauthn.register({
+        friendlyName: `${navigator.platform || "Device"} · ${new Date().toLocaleDateString()}`,
+        webauthn: { rpId: window.location.hostname, rpOrigins: [window.location.origin] },
+      });
       if (error) { toast.error("Couldn't add passkey", error.message); return; }
-      toast.success("Passkey added", "You can now sign in with this device.");
+      toast.success("Passkey added", "Use it to confirm withdrawals and as your second factor.");
       await loadPasskeys();
     } catch {
-      toast.error("Couldn't add passkey", "Your device may not support passkeys.");
+      toast.error("Couldn't add passkey", "Your device may not support passkeys, or the prompt was dismissed.");
     } finally {
       setPasskeyBusy(false);
     }
@@ -773,7 +786,7 @@ function SecurityView({ email }: { email: string | undefined }) {
     setPasskeyBusy(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.passkey.delete({ passkeyId });
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: passkeyId });
       if (error) { toast.error("Couldn't remove passkey", error.message); return; }
       setPasskeys((prev) => prev.filter((p) => p.id !== passkeyId));
     } catch {
