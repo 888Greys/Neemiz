@@ -987,9 +987,26 @@ function SecurityView({ email }: { email: string | undefined }) {
               </div>
             </div>
 
-            <div className="rounded-xl bg-white/[0.04] px-3 py-2.5 text-center ring-1 ring-white/[0.07]">
-              <p className="text-[10px] font-bold text-slate-500 mb-1">Manual key</p>
-              <p className="font-mono text-[12px] font-black text-white tracking-wider break-all">{setupState.secret}</p>
+            <div className="rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.07]">
+              <p className="text-[10px] font-bold text-slate-500 mb-1 text-center">Manual key</p>
+              <div className="flex items-center gap-2">
+                <p className="min-w-0 flex-1 break-all text-center font-mono text-[12px] font-black tracking-wider text-white">{setupState.secret}</p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(setupState.secret);
+                      toast.success("Key copied", "Paste it into your authenticator app.");
+                    } catch {
+                      toast.error("Couldn't copy", "Copy the key manually.");
+                    }
+                  }}
+                  aria-label="Copy manual key"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-slate-300 transition hover:bg-[#087cff] hover:text-white"
+                >
+                  <Icon name="content_copy" className="text-[14px]" />
+                </button>
+              </div>
             </div>
 
             <div>
