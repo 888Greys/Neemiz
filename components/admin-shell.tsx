@@ -6,9 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 
 // Sidebar IA. Top-level stays compact: the six market deep-dives live inside one
-// collapsible "Markets" group instead of six permanent rows, so the rail never
-// gets squeezed. On mobile the rail is a horizontal scroller, so the group's
-// children render inline (the desktop toggle is hidden there).
+// collapsible "Markets" group instead of six permanent rows. On desktop it's a
+// fixed left rail; on mobile it's an off-canvas drawer opened from the top bar.
 type Leaf = { href: string; label: string; icon: string };
 type Node =
   | { type: "link"; href: string; label: string; icon: string }
@@ -60,7 +59,7 @@ function NavLink({ href, label, icon, active, indent, badge }: Leaf & { active: 
   return (
     <Link
       href={href}
-      className={`group flex shrink-0 items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors ${indent ? "lg:ml-3.5" : ""} ${
+      className={`group flex items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors ${indent ? "ml-3.5" : ""} ${
         active
           ? "bg-[#087cff]/14 text-white ring-1 ring-inset ring-[#087cff]/30"
           : "text-slate-500 hover:bg-white/[0.05] hover:text-slate-200"
@@ -69,8 +68,7 @@ function NavLink({ href, label, icon, active, indent, badge }: Leaf & { active: 
       <span className={`flex items-center justify-center rounded-md ${indent ? "h-7 w-7" : "h-8 w-8"} ${active ? "bg-[#087cff] text-white" : "bg-white/[0.04] text-slate-600 group-hover:text-slate-300"}`}>
         <Icon name={icon} size={indent ? 14 : 15} />
       </span>
-      <span className="hidden min-w-0 text-[11px] font-black lg:block">{label}</span>
-      <span className="text-[10px] font-bold lg:hidden">{label}</span>
+      <span className="min-w-0 flex-1 text-[12px] font-black">{label}</span>
       {badge != null && badge > 0 && (
         <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1.5 text-[9px] font-black text-white ring-1 ring-amber-500/30">
           {badge}
@@ -86,6 +84,10 @@ export function AdminShell({ children, adminEmail }: { children: React.ReactNode
   // Markets opens automatically when you're already on a market page.
   const [marketsOpen, setMarketsOpen] = useState(() => pathname.startsWith("/admin/markets"));
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   useEffect(() => {
     fetch("/api/admin/withdrawals")
@@ -103,7 +105,35 @@ export function AdminShell({ children, adminEmail }: { children: React.ReactNode
 
   return (
     <div className="admin-root min-h-screen text-white lg:flex">
-      <aside className="admin-sidebar border-b border-white/[0.08] lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:flex lg:w-64 lg:flex-col lg:border-b-0 lg:border-r">
+      {/* Mobile top bar */}
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-white/[0.08] bg-[#0b0d12]/95 px-4 backdrop-blur lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          aria-label="Open menu"
+          className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.05] text-slate-300 active:scale-95"
+        >
+          <Icon name="menu" size={20} />
+        </button>
+        <Link href="/admin" className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#087cff] text-white"><Icon name="shield" size={15} /></div>
+          <span className="text-[13px] font-black tracking-tight">Nezeem Admin</span>
+        </Link>
+        <span className="flex h-6 items-center gap-1 rounded-md border border-emerald-400/15 bg-emerald-400/[0.07] px-2 text-[9px] font-black text-emerald-300">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> LIVE
+        </span>
+      </header>
+
+      {/* Mobile drawer backdrop */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setMobileOpen(false)} aria-hidden />
+      )}
+
+      <aside
+        className={`admin-sidebar fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-white/[0.08] bg-[#0b0d12] transition-transform duration-200 ease-out lg:z-40 lg:w-64 lg:translate-x-0 lg:bg-transparent ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
         <div className="flex h-16 items-center justify-between border-b border-white/[0.08] px-4 lg:px-5">
           <Link href="/admin" className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#087cff] text-white shadow-[0_8px_24px_rgba(8,124,255,.32)]">
@@ -114,15 +144,21 @@ export function AdminShell({ children, adminEmail }: { children: React.ReactNode
               <span className="block text-[9px] font-bold text-slate-500">Operations console</span>
             </div>
           </Link>
-          <span className="flex h-7 items-center gap-1 rounded-md border border-emerald-400/15 bg-emerald-400/[0.07] px-2 text-[9px] font-black text-emerald-300">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" /> LIVE
-          </span>
+          {/* Close (mobile only) */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close menu"
+            className="flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.05] text-slate-400 lg:hidden"
+          >
+            <Icon name="close" size={18} />
+          </button>
         </div>
 
-        <nav className="flex gap-1 overflow-x-auto px-3 py-3 lg:flex-1 lg:flex-col lg:overflow-y-auto lg:px-3 lg:py-5">
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4">
           {SECTIONS.map((section, si) => (
-            <div key={section.name} className="contents lg:block">
-              <p className={`mb-2 hidden px-2 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600 lg:block ${si === 0 ? "" : "mt-5"}`}>{section.name}</p>
+            <div key={section.name}>
+              <p className={`mb-2 px-2 text-[9px] font-black uppercase tracking-[0.18em] text-slate-600 ${si === 0 ? "" : "mt-5"}`}>{section.name}</p>
               {section.nodes.map((node) => {
                 if (node.type === "link") {
                   return (
@@ -139,11 +175,11 @@ export function AdminShell({ children, adminEmail }: { children: React.ReactNode
                 // tree (Markets)
                 const parentActive = pathname.startsWith(node.base);
                 return (
-                  <div key={node.label} className="contents lg:block">
+                  <div key={node.label}>
                     <button
                       type="button"
                       onClick={() => setMarketsOpen((o) => !o)}
-                      className={`group hidden w-full items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors lg:flex ${
+                      className={`group flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors ${
                         parentActive && !marketsOpen ? "bg-[#087cff]/14 text-white ring-1 ring-inset ring-[#087cff]/30" : "text-slate-500 hover:bg-white/[0.05] hover:text-slate-200"
                       }`}
                       aria-expanded={marketsOpen}
@@ -151,13 +187,11 @@ export function AdminShell({ children, adminEmail }: { children: React.ReactNode
                       <span className={`flex h-8 w-8 items-center justify-center rounded-md ${parentActive && !marketsOpen ? "bg-[#087cff] text-white" : "bg-white/[0.04] text-slate-600 group-hover:text-slate-300"}`}>
                         <Icon name={node.icon} size={15} />
                       </span>
-                      <span className="min-w-0 flex-1 text-left text-[11px] font-black">{node.label}</span>
+                      <span className="min-w-0 flex-1 text-left text-[12px] font-black">{node.label}</span>
                       <Icon name="expand_more" size={16} className={`text-slate-600 transition-transform ${marketsOpen ? "rotate-180" : ""}`} />
                     </button>
-                    {node.children.map((c) => (
-                      <div key={c.href} className={`contents ${marketsOpen ? "" : "lg:hidden"}`}>
-                        <NavLink href={c.href} label={c.label} icon={c.icon} active={isActive(pathname, c.href)} indent />
-                      </div>
+                    {marketsOpen && node.children.map((c) => (
+                      <NavLink key={c.href} href={c.href} label={c.label} icon={c.icon} active={isActive(pathname, c.href)} indent />
                     ))}
                   </div>
                 );
@@ -166,7 +200,7 @@ export function AdminShell({ children, adminEmail }: { children: React.ReactNode
           ))}
         </nav>
 
-        <div className="hidden border-t border-white/[0.08] p-3 lg:block">
+        <div className="border-t border-white/[0.08] p-3">
           <div className="mb-3 rounded-lg border border-white/[0.07] bg-white/[0.025] p-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.07] text-[10px] font-black text-blue-300">OW</div>
