@@ -9,7 +9,8 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, methodAllowedForFiat, accountIdentifierLabel, badgeColor, badgeMonogram } from "@/lib/p2p/payment-methods";
+import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, methodAllowedForFiat, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
+import { PaymentLogo } from "@/components/p2p/payment-logo";
 import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
@@ -399,22 +400,10 @@ const PAY_RAILS = GLOBAL_PAYMENT_METHODS;                 // full world catalogu
 const PAY_RAILS_BY_CATEGORY = paymentMethodsByCategory(); // grouped for the picker
 const BANKISH = new Set(["BANK", "KUDA", "FNB", "CAPITEC"]);
 
-// Small brand badge — a coloured monogram chip standing in for the method's
-// logo, so the picker reads at a glance instead of a plain text list.
-function MethodBadge({ code, size = 22 }: { code: string; size?: number }) {
-  return (
-    <span
-      className="flex shrink-0 items-center justify-center rounded-md font-black text-white"
-      style={{ width: size, height: size, background: badgeColor(code), fontSize: size * 0.42 }}
-    >
-      {badgeMonogram(code)}
-    </span>
-  );
-}
-
 // Custom, searchable payment-method picker — replaces the native <select> whose
-// OS dropdown rendered as a bare radio list. Shows a brand badge per method,
-// grouped by category.
+// OS dropdown rendered as a bare radio list. Shows a real brand logo per method,
+// grouped by category. The open panel is in-flow (pushes content) so it can
+// never be clipped by an overflow-hidden ancestor and scrolls with the page.
 function MethodPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -437,12 +426,12 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
     <div ref={ref} className="relative col-span-2">
       <button type="button" onClick={() => setOpen((v) => !v)}
         className="flex h-9 w-full items-center gap-2 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] font-bold text-white outline-none">
-        <MethodBadge code={value} size={20} />
+        <PaymentLogo code={value} size={20} />
         <span className="truncate">{paymentMethodLabel(value)}</span>
         <Icon name="expand_more" className={`ml-auto shrink-0 text-lg text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-full overflow-hidden rounded-xl border border-white/10 bg-[#111118] shadow-2xl shadow-black/60">
+        <div className="mt-1.5 w-full overflow-hidden rounded-xl border border-white/10 bg-[#15151d] shadow-2xl shadow-black/60">
           <div className="border-b border-white/[0.06] p-2">
             <div className="flex h-9 items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
               <Icon name="search" className="text-[16px] text-slate-500" />
@@ -450,7 +439,7 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
                 className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-white outline-none placeholder:text-slate-600" />
             </div>
           </div>
-          <div className="max-h-64 overflow-y-auto p-1 [scrollbar-width:thin]">
+          <div className="max-h-56 overflow-y-auto p-1 [scrollbar-width:thin]">
             {groups.length === 0 && <p className="px-2.5 py-6 text-center text-xs font-bold text-slate-600">No methods found</p>}
             {groups.map(([cat, list]) => (
               <div key={cat}>
@@ -458,7 +447,7 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
                 {list.map((r) => (
                   <button key={r.value} type="button" onClick={() => { onChange(r.value); setOpen(false); }}
                     className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors ${r.value === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}>
-                    <MethodBadge code={r.value} />
+                    <PaymentLogo code={r.value} />
                     <span className="text-[13px] font-bold text-white">{r.label}</span>
                     {r.value === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
                   </button>
@@ -550,9 +539,12 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
         <div className="space-y-1.5 px-3 py-3">
           {methods.map((m) => (
             <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/[0.03] px-3 py-2 ring-1 ring-white/[0.06]">
-              <div className="min-w-0">
-                <p className="text-[12px] font-black text-white">{paymentMethodLabel(m.name)}{m.bankName ? ` · ${m.bankName}` : ""}</p>
-                <p className="text-[11px] text-slate-400 truncate">{m.accountName} · <span className="font-mono">{m.accountNo}</span></p>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <PaymentLogo code={m.name} size={26} />
+                <div className="min-w-0">
+                  <p className="text-[12px] font-black text-white">{paymentMethodLabel(m.name)}{m.bankName ? ` · ${m.bankName}` : ""}</p>
+                  <p className="text-[11px] text-slate-400 truncate">{m.accountName} · <span className="font-mono">{m.accountNo}</span></p>
+                </div>
               </div>
               <button type="button" onClick={() => del(m.id)} className="shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition" aria-label="Delete">
                 <Icon name="delete" className="text-[16px]" />
