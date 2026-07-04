@@ -9,7 +9,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel } from "@/lib/p2p/payment-methods";
+import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, methodAllowedForFiat } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
@@ -1330,6 +1330,20 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     setForm((p) => ({ ...p, paymentMethods: p.paymentMethods.includes(m) ? p.paymentMethods.filter((x) => x !== m) : [...p.paymentMethods, m] }));
   }
 
+  // Only offer saved methods that make sense for the selected fiat — a KES-only
+  // merchant picking NGN shouldn't see M-Pesa; universal rails (Bank, PayPal…)
+  // stay available for every currency.
+  const fiatSavedMethods = savedPaymentMethods.filter((m) => methodAllowedForFiat(m.name, form.fiat));
+
+  // When the fiat changes, drop any already-selected methods that no longer
+  // apply so an ad never ships with a currency-mismatched payment method.
+  useEffect(() => {
+    setForm((p) => {
+      const kept = p.paymentMethods.filter((code) => methodAllowedForFiat(code, p.fiat));
+      return kept.length === p.paymentMethods.length ? p : { ...p, paymentMethods: kept };
+    });
+  }, [form.fiat]);
+
   async function submit() {
     if (savedPaymentMethods.length === 0) {
       return toast.error("Add a payment method in Merchant Center before posting an ad");
@@ -1777,9 +1791,29 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                   Set up payment methods
                 </button>
               </div>
+            ) : fiatSavedMethods.length === 0 ? (
+              <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-3">
+                <p className="text-xs font-black text-amber-300">No {form.fiat} payment method</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                  None of your saved payment methods work for {form.fiat}. Add a method buyers can use to pay in {form.fiat}.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    window.setTimeout(() => {
+                      document.getElementById("merchant-payment-methods")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }, 100);
+                  }}
+                  className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-300 px-3 text-xs font-black text-black"
+                >
+                  <Icon name="payments" className="text-sm" />
+                  Add a {form.fiat} method
+                </button>
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {savedPaymentMethods.map((method) => {
+                {fiatSavedMethods.map((method) => {
                   const value = method.name;
                   return (
                     <button key={value} type="button" onClick={() => togglePm(value)}
