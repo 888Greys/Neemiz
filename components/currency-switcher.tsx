@@ -11,7 +11,7 @@ import { CurrencyFlag } from "@/components/currency-flag";
  * immediately (client-converted amounts re-render) and refreshes server
  * components so server-rendered money re-resolves on the new currency.
  */
-export function CurrencySwitcher({ className = "" }: { className?: string }) {
+export function CurrencySwitcher({ className = "", inline = false }: { className?: string; inline?: boolean }) {
   const { code, currency, setCurrency } = useCurrency();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -38,20 +38,20 @@ export function CurrencySwitcher({ className = "" }: { className?: string }) {
   }
 
   return (
-    <div ref={ref} className={`relative ${className}`}>
+    <div ref={ref} className={`relative ${inline ? "w-full" : ""} ${className}`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-on-surface-variant ring-1 ring-white/10 transition hover:ring-white/20"
+        className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-on-surface-variant ring-1 ring-white/10 transition hover:ring-white/20 ${inline ? "w-full justify-between" : ""}`}
         aria-label="Change display currency"
       >
         <CurrencyFlag currency={currency} size={14} />
-        <span>{code}</span>
+        <span className={inline ? "mr-auto ml-1.5" : ""}>{code}</span>
         <span className="text-[9px] opacity-60">▾</span>
       </button>
 
       {open && (
-        <div className="absolute right-0 z-50 mt-1 flex max-h-80 w-60 flex-col rounded-xl border border-white/10 bg-[#121419] shadow-2xl">
+        <div className={`${inline ? "relative mt-1.5 flex max-h-64 w-full flex-col" : "absolute right-0 z-50 mt-1 flex max-h-80 w-60 flex-col"} rounded-xl border border-white/10 bg-[#121419] shadow-2xl`}>
           <div className="sticky top-0 border-b border-white/[0.06] bg-[#121419] p-2">
             <input
               autoFocus
