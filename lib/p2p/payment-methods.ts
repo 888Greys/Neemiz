@@ -171,17 +171,29 @@ const HANDLE_METHODS: Record<string, string> = {
   UPI: "UPI ID", REVOLUT: "@RevTag or phone", ALIPAY: "Alipay ID / phone",
   WECHAT: "WeChat ID / phone",
 };
-const BANK_LIKE = new Set([
-  "BANK", "SEPA", "SWIFT", "IMPS", "PIX", "FNB", "CAPITEC", "SBERBANK",
-  "TINKOFF", "KUDA", "MONIEPOINT",
-]);
+// code → category, for label + fallback-glyph decisions.
+const CATEGORY_BY_CODE: Record<string, string> = (() => {
+  const m: Record<string, string> = {};
+  for (const pm of GLOBAL_PAYMENT_METHODS) m[pm.value] = pm.category ?? "Other";
+  return m;
+})();
 
-/** Placeholder/label for the "account identifier" field of a payment method. */
+export function paymentMethodCategory(code: string): string {
+  return CATEGORY_BY_CODE[code] ?? "Other";
+}
+
+/** Placeholder/label for the "account identifier" field, per method + category. */
 export function accountIdentifierLabel(code: string): string {
   if (EMAIL_METHODS.has(code)) return "Email";
   if (HANDLE_METHODS[code]) return HANDLE_METHODS[code];
-  if (BANK_LIKE.has(code)) return "Account number";
-  return "Phone / Paybill"; // mobile money & the rest
+  switch (paymentMethodCategory(code)) {
+    case "Bank":               return "Account number";
+    case "Mobile Money":       return "Phone number";
+    case "Wallets & Neobanks": return "Account or phone";
+    case "Online Wallets":     return "Email or phone";
+    case "Cash":               return "Location / details";
+    default:                   return "Phone / Paybill";
+  }
 }
 
 // Brand accent colours for the picker's monogram badges (recognisable at a
