@@ -33,6 +33,7 @@
     "ethers": "^6.13.5",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^1.16.0",
+    "neemiz-binary-engine": "^1.0.1",
     "next": "14.2.25",
     "prisma": "^6.8.2",
     "react": "18.3.1",
