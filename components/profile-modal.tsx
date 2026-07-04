@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { AvatarUploader } from "@/components/avatar-uploader";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export type ProfileView =
@@ -1196,11 +1197,13 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameError, setUsernameError] = useState("");
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
 
   const meta        = user?.user_metadata ?? {};
   const displayName = currentUsername ?? meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials    = displayName.charAt(0).toUpperCase();
-  const avatarUrl   = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
+  const metaAvatar  = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
+  const avatarUrl   = avatarOverride ?? metaAvatar;
   const email       = user?.email;
   const phone       = user?.phone ?? meta.phone_number ?? null;
   const isVerified  = user?.email_confirmed_at != null;
@@ -1313,18 +1316,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
             <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-2 lg:px-2 lg:pt-1">
             <div>{/* ── LEFT column (identity + balance) ── */}
               <div className="hidden flex-col items-center gap-1.5 px-5 pb-3 pt-1 text-center lg:flex">
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="h-12 w-12 rounded-full object-cover shadow-[0_0_30px_rgba(8,124,255,0.24)] ring-2 ring-white/[0.08]"
-                  />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#087cff] to-[#0556c8] text-xl font-black text-white shadow-[0_0_30px_rgba(8,124,255,0.4)]">
-                    {initials}
-                  </div>
-                )}
+                <AvatarUploader currentUrl={avatarUrl} initials={initials} onUploaded={setAvatarOverride} />
                 <div>
                   <p className="text-base font-black text-white">{displayName}</p>
                   <p className="font-mono text-[10px] text-slate-500">ID {memberId}</p>
