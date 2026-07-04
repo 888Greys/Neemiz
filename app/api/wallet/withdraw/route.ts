@@ -216,43 +216,32 @@ export async function POST(req: Request) {
         return Response.json({ error: ack.message ?? "Withdrawal was rejected. Please check your M-Pesa number and try again." }, { status: 502 });
       }
 
-      // Insufficient float / temporary provider issue: DON'T refund. Hold the
-      // funds, queue the payout, reassure the customer, and alert the owner to
-      // top up. The process-queued-withdrawals cron auto-sends it once funded.
-      await db.transaction.update({
-        where: { id: withdrawalId },
-        data:  {
-          status:   TransactionStatus.PENDING,
-          metadata: {
-            msisdn,
-            fee:          feeKes,
-            payout:       payoutKes,
-            requestedAt:  new Date().toISOString(),
-            queued:       true,
-            queuedReason: ack.message ?? "insufficient_float",
-            queuedAt:     new Date().toISOString(),
+      // Insufficient float / temporary provider issue: we no longer hold the
+      // funds and auto-retry. Refund the customer immediately, mark the
+      // withdrawal FAILED, and surface a maintenance message. The owner is still
+      // alerted to top up the float so the service can be restored.
+      await db.$transaction([
+        db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } }),
+        db.transaction.update({
+          where: { id: withdrawalId },
+          data:  {
+            status:   TransactionStatus.FAILED,
+            metadata: {
+              msisdn,
+              fee:          feeKes,
+              payout:       payoutKes,
+              requestedAt:  new Date().toISOString(),
+              failedReason: ack.message ?? "insufficient_float",
+              failedAt:     new Date().toISOString(),
+            },
           },
-        },
-      });
-      await db.notification.create({
-        data: {
-          userId: dbUserId,
-          type:   "withdrawal_processing",
-          title:  "Withdrawal is processing",
-          body:   `Your withdrawal of ${CURRENCY_SYMBOL} ${payoutKes.toLocaleString()} is being processed and will arrive shortly via M-Pesa.`,
-          link:   "/wallet",
-        },
-      }).catch(() => {});
+        }),
+      ]);
       await notifyAdminsLowFloat({ amountKes: payoutKes, msisdn }).catch((e) => console.error("[withdraw] low-float alert failed", e));
 
       return Response.json({
-        ok:           true,
-        withdrawalId,
-        queued:       true,
-        fee:          feeKes,
-        payout:       payoutKes,
-        message:      `Your withdrawal of ${CURRENCY_SYMBOL} ${payoutKes.toLocaleString()} is being processed and will be sent to +${msisdn} shortly. We'll notify you the moment it's on its way — your balance is safe.`,
-      });
+        error: "M-Pesa withdrawals are temporarily unavailable for maintenance. Your balance has not been deducted — please try again later.",
+      }, { status: 503 });
     }
 
     // Accepted (async). Lipa is now processing; the final paid/failed outcome
