@@ -52,20 +52,37 @@ export function PhonePromptModal({ onComplete }: PhonePromptModalProps) {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/account/mpesa", {
+      const supabase = createClient();
+
+      const submit = () => fetch("/api/account/mpesa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: normalized }),
       });
 
-      const data = await res.json();
+      let res = await submit();
+
+      // 401 = the server didn't see a valid session (stale/expired cookie). Try
+      // to refresh the session once and resubmit before giving up, so a simply
+      // expired token doesn't dead-end the user with "Unauthorized".
+      if (res.status === 401) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed?.session) {
+          res = await submit();
+        }
+      }
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || "Failed to update phone number.");
+        if (res.status === 401) {
+          setError("Your session has expired. Please sign in again to link your number.");
+        } else {
+          setError(data.error || "Failed to update phone number.");
+        }
         return;
       }
 
       // Sync updated phone number to client session metadata so it displays in settings immediately
-      const supabase = createClient();
       await supabase.auth.updateUser({
         data: { phone_number: normalized }
       });

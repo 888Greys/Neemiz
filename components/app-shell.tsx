@@ -107,13 +107,15 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
       setCheckingPhone(true);
       fetch("/api/account/mpesa")
-        .then((res) => res.json())
-        .then((data) => {
-          if (!data.phone) {
-            setMissingPhone(true);
-          } else {
-            setMissingPhone(false);
-          }
+        .then(async (res) => {
+          // A 401 here means the server doesn't see a valid session even though
+          // the client thinks it's signed in (stale/expired session cookie). That
+          // is NOT "missing phone" — don't pop the Link-Phone modal on it, or the
+          // user gets a spurious prompt that then fails with "Unauthorized".
+          if (res.status === 401) { setMissingPhone(false); return; }
+          if (!res.ok) return; // transient server error — leave state unchanged
+          const data = await res.json().catch(() => ({}));
+          setMissingPhone(!data.phone);
         })
         .catch(() => {})
         .finally(() => setCheckingPhone(false));
