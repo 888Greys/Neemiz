@@ -1213,8 +1213,6 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(0); // 0=Type & Price · 1=Amount & Method · 2=Conditions
   const [cryptoOpen, setCryptoOpen] = useState(false);
-  const [priceType, setPriceType] = useState<"Fixed" | "Floating">("Fixed");
-  const [priceTypeOpen, setPriceTypeOpen] = useState(false);
   const [fiatOpen, setFiatOpen] = useState(false);
   const [fiatQuery, setFiatQuery] = useState("");
   const [spotRate, setSpotRate] = useState<number | null>(null);
@@ -1277,15 +1275,6 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     });
   }
 
-  function setPriceManually(value: string) {
-    setForm((p) => {
-      const price = Number(value);
-      const nextMargin = spotRate && price > 0
-        ? (((price / spotRate) - 1) * 100).toFixed(2)
-        : p.profitMarginPct;
-      return { ...p, pricePerUnit: value, profitMarginPct: nextMargin };
-    });
-  }
 
   // Reference rate for the margin readout. Real cryptos use a live market rate;
   // KES Coin is pegged 1:1 to fiat (no market) so its reference is always 1.00,
@@ -1595,70 +1584,11 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </div>
 
           <div>
-            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price Type</label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setPriceTypeOpen((v) => !v)}
-                className="flex h-12 w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-bold text-white transition-colors hover:border-white/20"
-              >
-                <span>{priceType}</span>
-                <Icon name="arrow_drop_down" className={`ml-auto text-[22px] text-slate-500 transition-transform ${priceTypeOpen ? "rotate-180" : ""}`} />
-              </button>
-              {priceTypeOpen && (
-                <>
-                  <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setPriceTypeOpen(false)} />
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
-                    {([
-                      { key: "Fixed", desc: "Set a constant price, unaffected by market fluctuations." },
-                      { key: "Floating", desc: "Dynamic price = live market price × your margin." },
-                    ] as const).map((opt) => {
-                      const disabled = opt.key === "Floating" && !canUseMarginPricing;
-                      return (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          disabled={disabled}
-                          onClick={() => { setPriceType(opt.key); setPriceTypeOpen(false); }}
-                          className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${priceType === opt.key ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"} ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-black text-white">{opt.key}</p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-slate-500">{disabled ? "Market rate unavailable for this pair." : opt.desc}</p>
-                          </div>
-                          {priceType === opt.key && <Icon name="check" className="mt-0.5 shrink-0 text-[16px] text-[#55aaff]" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {priceType === "Fixed" && (
-          <div>
-            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Fixed price</label>
-            <div className="grid h-12 grid-cols-[48px_1fr_48px] items-center overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.04] focus-within:border-[#087cff]/40">
-              <button type="button" onClick={() => setPriceManually(priceNum > 0 ? formatPriceInput(priceNum * 0.99, form.fiat) : "")} className="flex h-full items-center justify-center text-slate-500 transition hover:text-white">
-                <Icon name="remove" className="text-[20px]" />
-              </button>
-              <input
-                type="number"
-                value={form.pricePerUnit}
-                onChange={(e) => setPriceManually(e.target.value)}
-                placeholder="0"
-                className="min-w-0 bg-transparent text-center text-[15px] font-black text-white placeholder:text-slate-600 outline-none"
-              />
-              <button type="button" onClick={() => setPriceManually(priceNum > 0 ? formatPriceInput(priceNum * 1.01, form.fiat) : "")} className="flex h-full items-center justify-center text-slate-500 transition hover:text-white">
-                <Icon name="add" className="text-[20px]" />
-              </button>
-            </div>
-            <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
-              Price range: {priceRangeMin && priceRangeMax ? `${formatPriceInput(priceRangeMin, form.fiat)} - ${formatPriceInput(priceRangeMax, form.fiat)}` : "--"}
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price</label>
+            <p className="text-[11px] font-semibold leading-4 text-slate-500">
+              Your price tracks the live market by the margin you set below — you pick your %.
             </p>
           </div>
-          )}
 
           <div className="space-y-3 rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
             <div className="flex items-center gap-3">
@@ -1684,10 +1614,9 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             ) : null}
           </div>
 
-          {priceType === "Floating" && (
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">
-              {isKesCoinForm ? "Spread margin (%)" : "Floating price margin (%)"}
+              {isKesCoinForm ? "Spread margin (%)" : "Your margin (%)"}
             </label>
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <input
@@ -1710,7 +1639,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
             {!canUseMarginPricing ? (
               <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
-                Percentage pricing is not available for {form.crypto}/{form.fiat}; switch to Fixed and enter the price directly.
+                Live market rate is temporarily unavailable for {form.crypto}/{form.fiat}. Please try again shortly.
               </p>
             ) : isKesCoinForm ? (
               <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
@@ -1722,7 +1651,6 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               </p>
             )}
           </div>
-          )}
           </div>
           )}
 
