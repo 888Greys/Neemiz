@@ -22,7 +22,7 @@ export default async function FixtureDetailPage({ params }: Props) {
   const { match: m, homeParticipantId, events, stats, homeLineup, awayLineup, homePeriodScores, awayPeriodScores, markets } = detail;
 
   return (
-    <AppShell rightPanel={<SportsBetSlip />} mainBg="bg-background">
+    <AppShell rightPanel={<SportsBetSlip />}>
       {/* ── Back bar ── */}
       <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-[#111113] px-3 py-2.5">
         <Link href="/sports" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.07] text-slate-300 transition hover:bg-white/[0.12]">
