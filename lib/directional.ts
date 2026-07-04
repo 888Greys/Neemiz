@@ -54,6 +54,14 @@ export function contractWinProb(params: {
   durationTicks: number;
 }): number {
   if (params.kind === "RISE_FALL") return 0.5;
+  // A barrier contract must have a real, positive barrier price. A missing or
+  // non-positive barrier (e.g. a large negative offset pushing entrySpot+offset
+  // below zero) is degenerate: settlement's `exitSpot > barrier` is trivially
+  // true. Treat it as certain-to-win (1) so the placement gate ALWAYS rejects it
+  // — never let it look like a priceable coin flip.
+  if (params.kind === "TOUCH_NO_TOUCH" || params.kind === "HIGHER_LOWER") {
+    if (!(Number(params.barrier) > 0)) return 1;
+  }
   if (params.kind === "TOUCH_NO_TOUCH") {
     const pt = touchProbability(params.entrySpot, params.barrier!, params.sigmaTick, params.durationTicks);
     return params.side === "TOUCH" ? pt : 1 - pt;
@@ -87,7 +95,12 @@ export function higherLowerWinProb(params: {
 }): number {
   const { entrySpot, barrier, side, sigmaTick, durationTicks } = params;
   const sigmaN = sigmaTick * Math.sqrt(Math.max(1, durationTicks));
-  if (!(sigmaN > 0) || !(entrySpot > 0) || !(barrier > 0)) return 0.5;
+  // House-safe fallback: a degenerate/invalid barrier (<=0, or no volatility) is
+  // treated as a CERTAIN win for the player, not a 0.5 coin flip. A 0.5 fallback
+  // was the exploit — a negative barrier priced as an even-money bet yet always
+  // settled true. Returning 1 forces the placement gate to reject it and keeps
+  // any pricing path at rate 0.95 (no positive EV).
+  if (!(sigmaN > 0) || !(entrySpot > 0) || !(barrier > 0)) return 1;
   const d = Math.log(barrier / entrySpot) / sigmaN;
   // P(exit > barrier) = 1 - Φ(d);  P(exit < barrier) = Φ(d)
   return side === "HIGHER" ? 1 - normalCdf(d) : normalCdf(d);
