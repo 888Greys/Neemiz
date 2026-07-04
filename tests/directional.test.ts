@@ -85,6 +85,23 @@ describe("directional placement — near-certain contracts are rejected", () => 
     expect(p).toBeGreaterThan(MAX_WIN_PROB); // bet route rejects these
   });
 
+  it("a NON-POSITIVE barrier is treated as certain-win and rejected (negative-offset exploit)", () => {
+    // The live exploit: a large negative barrierOffset pushed entrySpot+offset
+    // below zero (e.g. 9739 + (-9800) = -61). A negative barrier made settlement
+    // `exitSpot > barrier` always true, yet the old 0.5 fallback priced it as a
+    // coin flip and let it through the gate. Both a negative and a zero barrier
+    // must now flag as near-certain so the bet route rejects them.
+    for (const barrier of [-60.45, 0]) {
+      const p = contractWinProb({
+        kind: "HIGHER_LOWER", side: "HIGHER",
+        entrySpot: 9739.55, barrier, sigmaTick: 0.002, durationTicks: 1,
+      });
+      expect(p).toBeGreaterThan(MAX_WIN_PROB);
+    }
+    // The underlying prob helper is house-safe (certain win) on an invalid barrier.
+    expect(higherLowerWinProb({ entrySpot: 9739.55, barrier: -60.45, side: "HIGHER", sigmaTick: 0.002, durationTicks: 1 })).toBe(1);
+  });
+
   it("a balanced Rise/Fall stays a coin flip and is accepted", () => {
     const p = contractWinProb({
       kind: "RISE_FALL", side: "RISE",
