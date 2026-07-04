@@ -264,21 +264,13 @@ function draw(
   // the plane stays near the top rather than flying off-screen.
   const refElapsed  = Math.max(multToElapsed(15), curElapsed / 0.88);
 
-  // A travelling wave rides along the curve while the plane is airborne, in sync
-  // with the rotating sun (both driven by Date.now()). Amplitude grows with the
-  // climb and vanishes at the origin (frac→0) and once crashed, so takeoff and
-  // the crash freeze stay clean.
-  const wavePhase = Date.now() * 0.004;
-  const waveAmp   = isFlying ? (compact ? 5 : 8) : 0;
-
   const normX  = (t: number) => ORIGIN_X + (t / refElapsed) * (MAX_X - ORIGIN_X);
   const normYT = (t: number) => {
     const frac = Math.min(t / refElapsed, 1);
     // A smooth rising arc keeps the early flight visible while still bending
-    // clearly upward as the multiplier grows.
+    // clearly upward as the multiplier grows (Spribe-style clean curve).
     const eased = Math.pow(frac, 1.55);
-    const wave  = Math.sin(t * 3 + wavePhase) * waveAmp * frac;
-    return ORIGIN_Y + eased * (MAX_Y - ORIGIN_Y) + wave;
+    return ORIGIN_Y + eased * (MAX_Y - ORIGIN_Y);
   };
 
   const STEPS = 80;
