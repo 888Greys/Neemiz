@@ -99,6 +99,27 @@ export function resolveSelection(
   }
 }
 
+/**
+ * Whether a still-PENDING bet is safe to auto-void (stake refunded) this run.
+ * Two gates prevent refunding losers during an API outage:
+ *   1. feedHealthy — settlement resolved at least one fixture this run. A total
+ *      outage resolves nothing, so every bet would look "stuck"; skip entirely.
+ *   2. age — the bet is older than the results window (staleDays), so its game
+ *      is well over and will never re-appear in the ~3-day fixture feed.
+ * Bets that are settleable this run are never voided.
+ */
+export function isStaleUnsettleable(params: {
+  createdAtMs: number;
+  nowMs: number;
+  feedHealthy: boolean;
+  alreadySettleable: boolean;
+  staleDays?: number;
+}): boolean {
+  const staleDays = params.staleDays ?? 7;
+  if (!params.feedHealthy || params.alreadySettleable) return false;
+  return params.createdAtMs < params.nowMs - staleDays * 86_400_000;
+}
+
 export function determineBetOutcome(
   outcomes: SelectionOutcome[],
 ): "WON" | "LOST" | "VOID" {
