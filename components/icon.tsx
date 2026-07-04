@@ -170,6 +170,7 @@ const iconMap: Record<string, LucideIcon> = {
   currency_exchange: ArrowLeftRight,
 
   // D
+  dashboard: LayoutGrid,
   delete: Trash2,
   delete_outline: Trash2,
   desktop_windows: Monitor,
