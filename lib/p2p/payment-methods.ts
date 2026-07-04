@@ -81,6 +81,7 @@ export const PAYMENT_METHODS_BY_FIAT: Record<string, PaymentMethod[]> = {
     { value: "OPAY",          label: "Opay" },
     { value: "PALMPAY",       label: "PalmPay" },
     { value: "KUDA",          label: "Kuda Bank" },
+    { value: "MONIEPOINT",    label: "Moniepoint" },
     { value: "BANK",          label: "Bank Transfer" },
   ],
   GHS: [
@@ -132,6 +133,25 @@ const FALLBACK: PaymentMethod[] = [{ value: "BANK", label: "Bank Transfer" }];
 /** Local payment methods for a fiat (falls back to KES, then bank-only). */
 export function paymentMethodsForFiat(fiat: string | null | undefined): PaymentMethod[] {
   return (fiat && PAYMENT_METHODS_BY_FIAT[fiat]) || PAYMENT_METHODS_BY_FIAT.KES || FALLBACK;
+}
+
+// Global rails that aren't tied to one country, so they're valid to offer with
+// any fiat (a merchant can accept a bank wire or PayPal regardless of currency).
+const UNIVERSAL_METHODS = new Set([
+  "BANK", "SWIFT", "WISE", "PAYPAL", "REVOLUT", "SKRILL", "NETELLER",
+  "PAYONEER", "CASH_DEPOSIT", "CASH_PERSON",
+]);
+
+/**
+ * Whether a stored payment-method code makes sense for a given fiat. True for
+ * the fiat's local rails and for the universal (country-agnostic) methods, so
+ * e.g. M-Pesa is hidden on an NGN ad but Bank Transfer stays available. When the
+ * fiat is unknown we don't filter (return true) to avoid hiding valid options.
+ */
+export function methodAllowedForFiat(code: string, fiat: string | null | undefined): boolean {
+  if (!fiat || !PAYMENT_METHODS_BY_FIAT[fiat]) return true;
+  if (UNIVERSAL_METHODS.has(code)) return true;
+  return PAYMENT_METHODS_BY_FIAT[fiat].some((m) => m.value === code);
 }
 
 // Flat code → label lookup for displaying a stored method code anywhere.
