@@ -4,6 +4,41 @@ All notable changes to Neemiz are documented here. From v1.0.0 onward this file
 is maintained automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.5.0](https://github.com/888Greys/Neemiz/compare/v1.4.0...v1.5.0) (2026-07-04)
+
+
+### Features
+
+* **admin:** show email column in withdrawals history ([#145](https://github.com/888Greys/Neemiz/issues/145)) ([e76804e](https://github.com/888Greys/Neemiz/commit/e76804e6b5308a01bb4dee6cdb34a83c945a985b))
+* **aviator:** finish it — two MP3 sounds, masked players, avatar-ready rows ([#155](https://github.com/888Greys/Neemiz/issues/155)) ([132f02d](https://github.com/888Greys/Neemiz/commit/132f02d679d9c9f132319abc1a7bbc28adf1d23f))
+* **p2p:** collapse ad pricing to percentage-only (merchant picks their %) ([#156](https://github.com/888Greys/Neemiz/issues/156)) ([239754c](https://github.com/888Greys/Neemiz/commit/239754cde78b9474f0dab56ef56794ebfe68e3e8))
+* **p2p:** searchable full-catalogue payment filter on browse ([#163](https://github.com/888Greys/Neemiz/issues/163)) ([9fbf2c1](https://github.com/888Greys/Neemiz/commit/9fbf2c111130262b823e9ed82897a672386a5cf1))
+* **profile:** avatar upload via R2 (front-end) ([#161](https://github.com/888Greys/Neemiz/issues/161)) ([dde1756](https://github.com/888Greys/Neemiz/commit/dde17564c986b492063cd1dae1b0f9cd7845b1f4))
+* **ui:** design-system spine — token-driven accessible primitives ([#148](https://github.com/888Greys/Neemiz/issues/148)) ([c7e72f4](https://github.com/888Greys/Neemiz/commit/c7e72f40ef644c43ad2c799b9b0a794610716c4d))
+* **wallet:** cap transfers at KSh 50 and one M-Pesa payout per number ([#146](https://github.com/888Greys/Neemiz/issues/146)) ([0973785](https://github.com/888Greys/Neemiz/commit/09737851b79c4dde3ee1f172c0769e0098a78d54))
+
+
+### Bug Fixes
+
+* **aviator:** crash-only drruuu sound, faster anticlockwise sun, synced flight wave ([#157](https://github.com/888Greys/Neemiz/issues/157)) ([809769d](https://github.com/888Greys/Neemiz/commit/809769dba8c82e33e5e750ad0675b4d5feed8d26))
+* **aviator:** plane flies off the top on crash, full-canvas curve, visible spinning sun ([#166](https://github.com/888Greys/Neemiz/issues/166)) ([82b8343](https://github.com/888Greys/Neemiz/commit/82b83433000dec9c9ada9996c5651bbc9db7d0d2))
+* **aviator:** remove flight-curve wave, keep the clean Spribe-style arc ([#158](https://github.com/888Greys/Neemiz/issues/158)) ([9552ab1](https://github.com/888Greys/Neemiz/commit/9552ab1f02ff0b572a0d887804dbda7abfbd5518))
+* **aviator:** remove the flew-away crash sound, keep background music only ([#160](https://github.com/888Greys/Neemiz/issues/160)) ([0231b68](https://github.com/888Greys/Neemiz/commit/0231b68dcbf37cb2d78c727baa0f18e212f01e94))
+* **deploy:** add neemiz-binary-engine to package-lock.json ([#168](https://github.com/888Greys/Neemiz/issues/168)) ([7a9a49d](https://github.com/888Greys/Neemiz/commit/7a9a49d43b02cadc96a2404fcb9e94a63ccf2431))
+* **directional:** kill guaranteed-win exploit on deep in-the-money barriers ([#143](https://github.com/888Greys/Neemiz/issues/143)) ([3074eba](https://github.com/888Greys/Neemiz/commit/3074eba4e7b0bb0dc66405e960340d7441ab4473))
+* **directional:** reject non-positive barriers — closes negative-offset guaranteed-win exploit ([#151](https://github.com/888Greys/Neemiz/issues/151)) ([974c1d8](https://github.com/888Greys/Neemiz/commit/974c1d8d9820db82beb8a31844b0846a451245ec))
+* **p2p:** payment methods now follow the selected fiat, not just KES ([#162](https://github.com/888Greys/Neemiz/issues/162)) ([c1a7312](https://github.com/888Greys/Neemiz/commit/c1a731202aea0e0bff22132285893a16d0714a1e))
+* **settle:** safe time-boxed auto-void for dead PENDING sports bets ([#153](https://github.com/888Greys/Neemiz/issues/153)) ([91d581f](https://github.com/888Greys/Neemiz/commit/91d581fcb1324f2ef12b2be8aeca562b407f63ad))
+* **ui:** replace all placeholder ? icons + real admin mobile drawer ([#154](https://github.com/888Greys/Neemiz/issues/154)) ([4cc5cd4](https://github.com/888Greys/Neemiz/commit/4cc5cd411ddf33229b015866be888fcc06f28a4d))
+* **withdraw:** stop auto-crediting queued M-Pesa withdrawals; show maintenance instead ([#167](https://github.com/888Greys/Neemiz/issues/167)) ([8bb761d](https://github.com/888Greys/Neemiz/commit/8bb761d6b03ea18cce3a0ee9b4fab6ac90f0bc03))
+
+
+### Refactors
+
+* **binary:** extract digit/settlement/Deriv logic into neemiz-binary-engine ([#164](https://github.com/888Greys/Neemiz/issues/164)) ([c16f511](https://github.com/888Greys/Neemiz/commit/c16f511c4e5f5b8a6bb1c606a828fc0abdfa8b4e))
+* **dashboard:** dead-code removal + tokenize colors + focus rings ([#149](https://github.com/888Greys/Neemiz/issues/149)) ([701cc44](https://github.com/888Greys/Neemiz/commit/701cc444d9f6b95ac54f512add7c419aa414744d))
+* **wallet:** adopt Button primitive on live CTAs, delete dead modal ([#150](https://github.com/888Greys/Neemiz/issues/150)) ([85e25cd](https://github.com/888Greys/Neemiz/commit/85e25cd5e30e79d30ae11ee87220aad81e8a40d8))
+
 ## [1.4.0](https://github.com/888Greys/Neemiz/compare/v1.3.0...v1.4.0) (2026-07-01)
 
 
