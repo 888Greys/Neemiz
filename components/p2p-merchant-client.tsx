@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
@@ -9,7 +9,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, methodAllowedForFiat } from "@/lib/p2p/payment-methods";
+import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, methodAllowedForFiat, accountIdentifierLabel, badgeColor, badgeMonogram } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
@@ -399,7 +399,80 @@ const PAY_RAILS = GLOBAL_PAYMENT_METHODS;                 // full world catalogu
 const PAY_RAILS_BY_CATEGORY = paymentMethodsByCategory(); // grouped for the picker
 const BANKISH = new Set(["BANK", "KUDA", "FNB", "CAPITEC"]);
 
-function PaymentMethodsSection() {
+// Small brand badge — a coloured monogram chip standing in for the method's
+// logo, so the picker reads at a glance instead of a plain text list.
+function MethodBadge({ code, size = 22 }: { code: string; size?: number }) {
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-md font-black text-white"
+      style={{ width: size, height: size, background: badgeColor(code), fontSize: size * 0.42 }}
+    >
+      {badgeMonogram(code)}
+    </span>
+  );
+}
+
+// Custom, searchable payment-method picker — replaces the native <select> whose
+// OS dropdown rendered as a bare radio list. Shows a brand badge per method,
+// grouped by category.
+function MethodPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  useEffect(() => { if (!open) setQuery(""); }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const groups = Object.entries(PAY_RAILS_BY_CATEGORY)
+    .map(([cat, list]) => [cat, list.filter((r) => !q || r.label.toLowerCase().includes(q) || r.value.toLowerCase().includes(q))] as const)
+    .filter(([, list]) => list.length > 0);
+
+  return (
+    <div ref={ref} className="relative col-span-2">
+      <button type="button" onClick={() => setOpen((v) => !v)}
+        className="flex h-9 w-full items-center gap-2 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] font-bold text-white outline-none">
+        <MethodBadge code={value} size={20} />
+        <span className="truncate">{paymentMethodLabel(value)}</span>
+        <Icon name="expand_more" className={`ml-auto shrink-0 text-lg text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-full overflow-hidden rounded-xl border border-white/10 bg-[#111118] shadow-2xl shadow-black/60">
+          <div className="border-b border-white/[0.06] p-2">
+            <div className="flex h-9 items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
+              <Icon name="search" className="text-[16px] text-slate-500" />
+              <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search payment methods"
+                className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-white outline-none placeholder:text-slate-600" />
+            </div>
+          </div>
+          <div className="max-h-64 overflow-y-auto p-1 [scrollbar-width:thin]">
+            {groups.length === 0 && <p className="px-2.5 py-6 text-center text-xs font-bold text-slate-600">No methods found</p>}
+            {groups.map(([cat, list]) => (
+              <div key={cat}>
+                <p className="px-2.5 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-slate-600">{cat}</p>
+                {list.map((r) => (
+                  <button key={r.value} type="button" onClick={() => { onChange(r.value); setOpen(false); }}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors ${r.value === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}>
+                    <MethodBadge code={r.value} />
+                    <span className="text-[13px] font-bold text-white">{r.label}</span>
+                    {r.value === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
   const [methods, setMethods] = useState<PayMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -409,6 +482,16 @@ function PaymentMethodsSection() {
   const [bankName, setBankName]       = useState("");
   const [saving, setSaving]   = useState(false);
   const isBank = BANKISH.has(method);
+
+  // Jumped here from "Add a payment method" elsewhere → open the form + scroll.
+  useEffect(() => {
+    if (openSignal > 0) {
+      setFormOpen(true);
+      window.setTimeout(() => {
+        document.getElementById("merchant-payment-methods")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 60);
+    }
+  }, [openSignal]);
 
   const load = useCallback(async () => {
     try { const r = await fetch("/api/p2p/merchant/payment-methods"); if (r.ok) setMethods(await r.json()); }
@@ -482,17 +565,10 @@ function PaymentMethodsSection() {
       {/* Add form */}
       {showForm && (
         <div className="grid grid-cols-2 gap-2 border-t border-white/[0.05] px-3 py-3">
-          <select value={method} onChange={(e) => setMethod(e.target.value)}
-            className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] font-bold text-white outline-none">
-            {Object.entries(PAY_RAILS_BY_CATEGORY).map(([cat, list]) => (
-              <optgroup key={cat} label={cat}>
-                {list.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </optgroup>
-            ))}
-          </select>
+          <MethodPicker value={method} onChange={setMethod} />
           <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
             className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
-          <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={isBank ? "Account number" : "Phone / Paybill"}
+          <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={accountIdentifierLabel(method)}
             className={`${isBank ? "" : "col-span-2"} h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600`} />
           {isBank && (
             <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
@@ -1194,7 +1270,7 @@ function DepositSection() {
 
 // ─── Create Ad Modal ──────────────────────────────────────────────────────────
 
-function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: () => void; onCreated: () => void }) {
+function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | null; onClose: () => void; onCreated: () => void; onSetupPayments?: () => void }) {
   const isEditing = !!ad;
   const { balance: fiatBalance } = useWalletBalance();
   const [form, setForm] = useState({
@@ -1779,16 +1855,11 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    onClose();
-                    window.setTimeout(() => {
-                      document.getElementById("merchant-payment-methods")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }, 100);
-                  }}
+                  onClick={() => (onSetupPayments ?? onClose)()}
                   className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-300 px-3 text-xs font-black text-black"
                 >
-                  <Icon name="payments" className="text-sm" />
-                  Set up payment methods
+                  <Icon name="add" className="text-sm" />
+                  Add payment method
                 </button>
               </div>
             ) : fiatSavedMethods.length === 0 ? (
@@ -1799,15 +1870,10 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    onClose();
-                    window.setTimeout(() => {
-                      document.getElementById("merchant-payment-methods")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }, 100);
-                  }}
+                  onClick={() => (onSetupPayments ?? onClose)()}
                   className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-300 px-3 text-xs font-black text-black"
                 >
-                  <Icon name="payments" className="text-sm" />
+                  <Icon name="add" className="text-sm" />
                   Add a {form.fiat} method
                 </button>
               </div>
@@ -1895,6 +1961,15 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const [createOpen, setCreate] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [section, setSection] = useState<"overview" | "profile" | "wallet" | "payments" | "ads">("overview");
+  // Bumped to jump from an ad's "Add payment method" straight into the Payment
+  // Methods tab with the add form open.
+  const [payFormSignal, setPayFormSignal] = useState(0);
+  const goToAddPayment = useCallback(() => {
+    setCreate(false);
+    setEditingAd(null);
+    setSection("payments");
+    setPayFormSignal((n) => n + 1);
+  }, []);
   const [adFilter, setAdFilter] = useState<"ALL" | "ACTIVE" | "PAUSED" | "EXHAUSTED">("ALL");
   const [adPage, setAdPage] = useState(1);
   const [openAdMenu, setOpenAdMenu] = useState<string | null>(null);
@@ -2061,8 +2136,8 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4">
-      {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} />}
-      {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} />}
+      {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
+      {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
 
       {/* Merchant header */}
       <div className="mb-3 flex items-center justify-between">
@@ -2305,7 +2380,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       )}
 
       {section === "wallet" && <DepositSection />}
-      {section === "payments" && <PaymentMethodsSection />}
+      {section === "payments" && <PaymentMethodsSection openSignal={payFormSignal} />}
 
       {/* Ads list */}
       {section === "ads" && <div>
