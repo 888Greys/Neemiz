@@ -101,9 +101,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const liveBetsRef    = useRef<AviatorBetPublic[]>([]);
   const roundCountRef  = useRef(0);
   const bgMusicRef     = useRef<HTMLAudioElement | null>(null);
-  const crashSoundRef  = useRef<HTMLAudioElement | null>(null);
   const soundEnabledRef = useRef(soundEnabled);
-  const previousRoundStateRef = useRef<AviatorRoundState | null>(null);
   // tracks which panel index has a pending bet awaiting a bet_id response
   const pendingBetRef  = useRef<{ panelIndex: 0 | 1; amount: number } | null>(null);
   const supabase       = createClient();
@@ -112,20 +110,13 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   useEffect(() => { liveBetsRef.current = liveBets; }, [liveBets]);
   useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
 
-  // Exactly two sounds, both user-supplied MP3s: looping background music that
-  // plays for the whole session, and a one-shot "drruuu" crash sound that fires
-  // once when the plane flies away. No synth, and the crash sound never loops
-  // during flight.
+  // One sound only: looping background music that plays for the whole session.
+  // No synth, no crash sound.
   useEffect(() => {
     const music = new Audio("/aviator/music.mp3");
     music.loop = true;
     music.volume = 0.35;
     bgMusicRef.current = music;
-
-    const crash = new Audio("/aviator/flew-away.mp3");
-    crash.loop = false;
-    crash.volume = 0.7;
-    crashSoundRef.current = crash;
 
     const unlockAudio = () => {
       // Browsers block autoplay until a gesture — kick off music here if enabled.
@@ -135,9 +126,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     return () => {
       window.removeEventListener("pointerdown", unlockAudio);
       music.pause();
-      crash.pause();
       bgMusicRef.current = null;
-      crashSoundRef.current = null;
     };
   }, []);
 
@@ -145,23 +134,10 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     try { localStorage.setItem(SOUND_STORAGE_KEY, soundEnabled ? "1" : "0"); } catch { /* non-critical */ }
     if (!soundEnabled) {
       bgMusicRef.current?.pause();
-      crashSoundRef.current?.pause();
     } else {
       bgMusicRef.current?.play().catch(() => undefined);
     }
   }, [soundEnabled]);
-
-  // Fire the crash sound exactly once on the FLYING → CRASHED transition.
-  useEffect(() => {
-    const state = round?.state ?? "WAITING";
-    const prev  = previousRoundStateRef.current;
-    const crash = crashSoundRef.current;
-    if (crash && state === "CRASHED" && prev !== "CRASHED" && soundEnabledRef.current) {
-      crash.currentTime = 0;
-      crash.play().catch(() => undefined);
-    }
-    previousRoundStateRef.current = state;
-  }, [round?.state]);
 
   // ── Balance ────────────────────────────────────────────────────────────────
   const fetchBalance = useCallback(async () => {
