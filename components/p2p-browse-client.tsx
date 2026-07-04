@@ -9,7 +9,7 @@ import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { paymentMethodsForFiat, paymentMethodLabel, ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
+import { paymentMethodsForFiat, paymentMethodLabel, ALL_PAYMENT_CODES, GLOBAL_PAYMENT_METHODS } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1347,15 +1347,46 @@ function CryptoSelect({ value, onChange }: { value: string; onChange: (c: string
 
 function PaymentSelect({ value, fiat, onChange }: { value: string; fiat: string; onChange: (p: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-  const options = [{ value: "", label: "All payments" }, ...paymentMethodsForFiat(fiat)];
-  const current = options.find((o) => o.value === value) ?? options[0];
+
+  // Full catalogue, with the fiat's local rails surfaced first so the common
+  // choices are one tap away, then every other method — all searchable.
+  const local = paymentMethodsForFiat(fiat);
+  const localCodes = new Set(local.map((m) => m.value));
+  const rest = GLOBAL_PAYMENT_METHODS.filter((m) => !localCodes.has(m.value));
+
+  const q = query.trim().toLowerCase();
+  const match = (m: { value: string; label: string }) =>
+    !q || m.label.toLowerCase().includes(q) || m.value.toLowerCase().includes(q);
+  const localFiltered = local.filter(match);
+  const restFiltered = rest.filter(match);
+  const showAll = !q || "all payments".includes(q);
+
+  const currentLabel = value ? paymentMethodLabel(value) : "All payments";
+
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
+
+  // Reset the search each time the menu closes so it opens fresh next time.
+  useEffect(() => { if (!open) setQuery(""); }, [open]);
+
+  const pick = (v: string) => { onChange(v); setOpen(false); };
+  const Row = ({ v, label }: { v: string; label: string }) => (
+    <button
+      type="button"
+      onClick={() => pick(v)}
+      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${v === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
+    >
+      <span className="text-xs font-bold text-white">{label}</span>
+      {v === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
+    </button>
+  );
+
   return (
     <div ref={ref} className="relative min-w-0 shrink-0">
       <button
@@ -1365,22 +1396,37 @@ function PaymentSelect({ value, fiat, onChange }: { value: string; fiat: string;
         className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] px-2.5 text-xs font-bold text-white transition-colors hover:border-white/20"
       >
         <Icon name="account_balance_wallet" className="text-[14px] text-slate-400" />
-        <span className="max-w-[120px] truncate">{current.label}</span>
+        <span className="max-w-[120px] truncate">{currentLabel}</span>
         <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-72 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60 [scrollbar-width:thin]">
-          {options.map((o) => (
-            <button
-              key={o.value || "all"}
-              type="button"
-              onClick={() => { onChange(o.value); setOpen(false); }}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${o.value === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
-            >
-              <span className="text-xs font-bold text-white">{o.label}</span>
-              {o.value === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
-            </button>
-          ))}
+        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-60 overflow-hidden rounded-xl border border-white/10 bg-[#111118] shadow-2xl shadow-black/60">
+          <div className="border-b border-white/[0.06] p-2">
+            <div className="flex h-9 items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
+              <Icon name="search" className="text-[16px] text-slate-500" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search payment methods"
+                className="min-w-0 flex-1 bg-transparent text-xs font-bold text-white outline-none placeholder:text-slate-600"
+              />
+            </div>
+          </div>
+          <div className="max-h-64 overflow-y-auto p-1 [scrollbar-width:thin]">
+            {showAll && <Row v="" label="All payments" />}
+            {localFiltered.length > 0 && (
+              <p className="px-2.5 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-slate-600">Common for {fiat}</p>
+            )}
+            {localFiltered.map((o) => <Row key={o.value} v={o.value} label={o.label} />)}
+            {restFiltered.length > 0 && (
+              <p className="px-2.5 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-slate-600">All methods</p>
+            )}
+            {restFiltered.map((o) => <Row key={o.value} v={o.value} label={o.label} />)}
+            {!showAll && localFiltered.length === 0 && restFiltered.length === 0 && (
+              <p className="px-2.5 py-6 text-center text-xs font-bold text-slate-600">No methods found</p>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1786,8 +1832,9 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     setFiatState(f);
     // Remember the manual choice for 1 year so it overrides geo-detection next visit.
     document.cookie = `user_fiat=${f}; path=/; max-age=31536000; samesite=lax`;
-    // If the active payment filter isn't a rail for the new currency, clear it.
-    const stillValid = payment === "" || paymentMethodsForFiat(f).some((m) => m.value === payment);
+    // Keep the payment filter across currency switches — any real method code is
+    // valid to filter by regardless of fiat (browsing is not fiat-restricted).
+    const stillValid = payment === "" || ALL_PAYMENT_CODES.has(payment);
     const nextPayment = stillValid ? payment : "";
     if (nextPayment !== payment) setPaymentState(nextPayment);
     pushUrl(tab, crypto, nextPayment, f);
