@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { FINISHED_STATE_IDS, type MatchDetail } from "@/lib/theoddsapi";
 import { getCachedFixtures, persistFinishedDetail } from "@/lib/fixtures-cache";
 import { getThesportsdbResult, parseMatchName } from "@/lib/thesportsdb";
-import { resolveSelection, determineBetOutcome, calculateWinAmount } from "@/lib/settle-bet";
+import { resolveSelection, determineBetOutcome, calculateWinAmount, isStaleUnsettleable } from "@/lib/settle-bet";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
@@ -240,9 +240,22 @@ export async function POST(req: Request) {
   // exhaustion every fetch returns empty, so EVERY fixture looks "missing" — and
   // we'd wrongly refund bets that actually lost. Skip the void pass entirely
   // until the API is reachable again.
-  // Cache-only settlement cannot safely distinguish an expired fixture from a
-  // delayed refresh or missing cache row. Never auto-void from missing data.
-  const stuckBets: typeof pendingBets = [];
+  // Re-enabled with hard safety gates (see isStaleUnsettleable): only void a bet
+  // when the feed is healthy this run (we resolved at least one fixture, so this
+  // is not an outage) AND the bet is older than the results window, so its game
+  // is over and will never re-appear in the feed. This clears genuinely dead
+  // PENDING bets without ever refunding losers during a delayed/failed refresh.
+  const feedHealthy = fixtureMap.size > 0;
+  const nowMs = Date.now();
+  const settleableIds = new Set(settleableBets.map((b) => b.id));
+  const stuckBets: typeof pendingBets = pendingBets.filter((b) =>
+    isStaleUnsettleable({
+      createdAtMs: b.createdAt.getTime(),
+      nowMs,
+      feedHealthy,
+      alreadySettleable: settleableIds.has(b.id),
+    }),
+  );
 
   let voidedCount = 0;
   for (const bet of stuckBets) {
@@ -299,6 +312,6 @@ export async function POST(req: Request) {
     resolvedViaSportsdb: sdbResolved.size,
     betsSettled: settledCount,
     betsVoided: voidedCount,
-    warning: "Automatic stuck-bet voiding is disabled in cache-only settlement mode.",
+    feedHealthy,
   });
 }
