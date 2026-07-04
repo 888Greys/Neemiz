@@ -74,6 +74,13 @@ export async function POST(req: Request) {
 
   const barrier = kind === "RISE_FALL" ? null : Number((entrySpot + offset).toFixed(5));
 
+  // A barrier must be a real positive price. A large negative offset would push
+  // entrySpot+offset at or below zero; a non-positive barrier bypasses the
+  // win-prob guard below AND makes settlement (exitSpot > barrier) trivially true
+  // — a guaranteed-win money printer. Reject it outright before pricing.
+  if (kind !== "RISE_FALL" && !(barrier! > 0))
+    return Response.json({ error: "Invalid barrier" }, { status: 400 });
+
   // Reject contracts the player has made near-certain. A deep in-the-money
   // barrier (e.g. LOWER far above spot, or NO_TOUCH far away) wins ~100% of the
   // time; paying it out at a rate ≥ its true probability is a risk-free +EV
