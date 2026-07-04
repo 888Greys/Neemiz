@@ -112,6 +112,17 @@ import {
   Lightbulb,
   Share2,
   UserPlus,
+  KeyRound,
+  AtSign,
+  CheckCheck,
+  Download,
+  Award,
+  EllipsisVertical,
+  Percent,
+  MessageSquareText,
+  ListChecks,
+  Bot,
+  Image as ImageIcon,
 } from "lucide-react";
 
 // ─── Icon name → Lucide component map ────────────────────────────────────────
@@ -282,6 +293,24 @@ const iconMap: Record<string, LucideIcon> = {
 
   // W
   warning: AlertTriangle,
+
+  // Previously-missing names (rendered a "?" fallback before)
+  passkey: KeyRound,
+  alternate_email: AtSign,
+  arrow_drop_down: ChevronDown,
+  approval: CheckCheck,
+  apps: LayoutGrid,
+  download: Download,
+  image: ImageIcon,
+  loyalty: Award,
+  more_vert: EllipsisVertical,
+  percent: Percent,
+  policy: ShieldCheck,
+  rate_review: MessageSquareText,
+  rule: ListChecks,
+  smart_toy: Bot,
+  groups_2: Users,
+  stacked_bar_chart: BarChart3,
 };
 
 // ─── Icon component ───────────────────────────────────────────────────────────
