@@ -776,10 +776,24 @@ function SecurityView({ email }: { email: string | undefined }) {
 
       // register() runs the full enroll → challenge → verify ceremony. The
       // friendly name must be UNIQUE per account, so include a timestamp.
-      const { error } = await supabase.auth.mfa.webauthn.register({
-        friendlyName: `Passkey · ${new Date().toLocaleString()}`,
-        webauthn: { rpId: window.location.hostname, rpOrigins: [window.location.origin] },
-      });
+      // GoTrue's MFA WebAuthn defaults to a cross-platform (USB security key)
+      // authenticator, which is why phones only offered "USB / use another
+      // device". Override to a PLATFORM authenticator so the device's own
+      // passkey store (Face ID / fingerprint / Google Password Manager) is
+      // offered — i.e. "save a passkey on this device".
+      const { error } = await supabase.auth.mfa.webauthn.register(
+        {
+          friendlyName: `Passkey · ${new Date().toLocaleString()}`,
+          webauthn: { rpId: window.location.hostname, rpOrigins: [window.location.origin] },
+        },
+        {
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            residentKey: "preferred",
+            userVerification: "preferred",
+          },
+        },
+      );
       if (error) {
         const msg = /already exists/i.test(error.message)
           ? "You already have a passkey with that name. Remove it first, then add again."
