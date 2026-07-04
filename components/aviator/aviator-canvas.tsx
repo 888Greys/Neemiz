@@ -30,6 +30,7 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
   const starsRef     = useRef<Star[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const crashedRef   = useRef(false);
+  const crashStartRef = useRef<number | null>(null);
   const sunImgRef    = useRef<HTMLImageElement | null>(null);
   const planeImgRef  = useRef<HTMLImageElement | null>(null);
 
@@ -46,9 +47,13 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
   useEffect(() => {
     if (state === "WAITING" || state === "BETTING") {
       crashedRef.current   = false;
+      crashStartRef.current = null;
       particlesRef.current = [];
     }
-    if (state === "CRASHED" && !crashedRef.current) crashedRef.current = true;
+    if (state === "CRASHED" && !crashedRef.current) {
+      crashedRef.current = true;
+      crashStartRef.current = Date.now(); // stamp the moment the plane flies away
+    }
   }, [state]);
 
   // Preload the SVG art once
@@ -104,6 +109,7 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
         stars:         starsRef.current,
         particles:     particlesRef.current,
         crashed:       crashedRef.current,
+        crashStart:    crashStartRef.current,
         sunImg:        sunImgRef.current,
         planeImg:      planeImgRef.current,
       });
@@ -175,11 +181,11 @@ function draw(
   opts: {
     state: AviatorRoundState; multiplier: number; crashPoint?: number;
     bettingEndsAt?: string | null;
-    stars: Star[]; particles: Particle[]; crashed: boolean;
+    stars: Star[]; particles: Particle[]; crashed: boolean; crashStart?: number | null;
     sunImg?: HTMLImageElement | null; planeImg?: HTMLImageElement | null;
   },
 ) {
-  const { state, multiplier, crashPoint, bettingEndsAt, stars, particles, sunImg, planeImg } = opts;
+  const { state, multiplier, crashPoint, bettingEndsAt, stars, crashStart, sunImg, planeImg } = opts;
   const isCrashed = state === "CRASHED";
   const compact   = w < 520;
 
@@ -206,7 +212,11 @@ function draw(
   if (sunImg) {
     const size = Math.hypot(w, h) * 2.2; // large enough that rays always cover the canvas
     ctx.save();
-    ctx.globalAlpha = isCrashed ? 0.35 : isFlying ? 0.9 : 0.7;
+    // "lighten" so the rays only brighten the navy backdrop — the recolored
+    // light-periwinkle wedges read as visible sweeping light, making the spin
+    // obvious instead of the near-black wedges that were invisible before.
+    ctx.globalCompositeOperation = "lighten";
+    ctx.globalAlpha = isCrashed ? 0.16 : isFlying ? 0.38 : 0.28;
     ctx.translate(ox0, oy0);
     ctx.rotate(spin);
     ctx.drawImage(sunImg, -size / 2, -size / 2, size, size);
@@ -260,9 +270,12 @@ function draw(
   const displayMult = isCrashed ? (crashPoint ?? multiplier) : multiplier;
   const curElapsed  = Math.max(0.1, multToElapsed(displayMult));
 
-  // Fixed reference: 15x fills the canvas. Above 15x the canvas scales so
-  // the plane stays near the top rather than flying off-screen.
-  const refElapsed  = Math.max(multToElapsed(15), curElapsed / 0.88);
+  // Spribe-style dynamic scaling: the plane RIDES near the top-right corner at
+  // essentially every multiplier, so the curve always fills the canvas instead
+  // of hugging the bottom-left at low multipliers. There's a brief initial climb
+  // (frame pinned to ~2x) for the first ~1.7x, after which the frame tracks the
+  // current elapsed and the tip locks at ~86% across / near the top.
+  const refElapsed  = Math.max(multToElapsed(2), curElapsed / 0.86);
 
   const normX  = (t: number) => ORIGIN_X + (t / refElapsed) * (MAX_X - ORIGIN_X);
   const normYT = (t: number) => {
@@ -316,19 +329,32 @@ function draw(
   );
 
   if (isCrashed) {
-    if (particles.length === 0) {
-      for (let i = 0; i < 50; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const spd = Math.random() * 5 + 1.5;
-        particles.push({ x: tipX, y: tipY, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, alpha: 1, r: Math.random()*3+1, color: Math.random()>0.5?"#ff4444":"#ffaa00" });
+    // Plane "flies away": it launches from the crash tip on a steep up-and-right
+    // path and zooms off the TOP of the screen — regardless of how low the crash
+    // multiplier was (even 1.x). No downward crash, matching the Spribe feel.
+    const flyT = crashStart ? Math.max(0, Date.now() - crashStart) / 1000 : 0;
+    const FLY_ANGLE = -1.15; // steep up-and-right so the plane escapes the top
+    const dist = flyT * 720 + flyT * flyT * 1200; // accelerates as it leaves
+    const px = tipX + Math.cos(FLY_ANGLE) * dist;
+    const py = tipY + Math.sin(FLY_ANGLE) * dist;
+
+    if (py > -180 && px < w + 220) {
+      drawTrail(ctx, px, py, FLY_ANGLE);
+      if (planeImg) {
+        const pw = compact ? 66 : 90;
+        const ph = pw * (planeImg.height / planeImg.width);
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(FLY_ANGLE);
+        ctx.shadowColor = "#ff1838"; ctx.shadowBlur = 14;
+        ctx.drawImage(planeImg, -pw + pw * 0.12, -ph / 2, pw, ph);
+        ctx.restore();
+        ctx.shadowBlur = 0;
+      } else {
+        drawPlane(ctx, px, py, FLY_ANGLE, compact ? 0.82 : 1);
       }
     }
-    particles.forEach((p) => {
-      p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.alpha -= 0.012;
-      if (p.alpha <= 0) return;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-      ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color; ctx.fill(); ctx.globalAlpha = 1;
-    });
+
     const fs = Math.min(w * (compact ? 0.075 : 0.065), compact ? 30 : 40);
     ctx.font = `900 ${fs}px Inter,sans-serif`; ctx.textAlign = "center";
     ctx.fillStyle = "#ff3030"; ctx.shadowColor = "#ff3030"; ctx.shadowBlur = 22;
