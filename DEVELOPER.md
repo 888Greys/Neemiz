@@ -128,6 +128,8 @@ TRONGRID_API_KEY=<from trongrid.io>
 | `BNB_KES_RATE` | Fallback rate: BNB → KES |
 | `WITHDRAWALS_DISABLED` | `true` = master kill switch, blocks ALL cash-out (env-level; needs restart). Also flippable instantly via `POST /api/admin/kill-switch` (DB flag). |
 | `TRANSFERS_ENABLED` | User-to-user transfers (KES + crypto) are **disabled by default**. Set `true` (or DB flag `transfers_disabled=false`) to re-enable. |
+| `PHONE_VERIFICATION_ENABLED` | Twilio Verify SMS OTP at registration. **Disabled by default** — leave unset until the Twilio account is verified. Set `true` **and** provide the `TWILIO_*` vars below to turn it on; with it off, registration uses the existing (unverified) flow. |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_VERIFY_SERVICE_SID` | Twilio Verify credentials (server-only). All three required for phone OTP; feature stays dormant if any is missing. |
 | `WITHDRAWAL_NUMBER_ALERT_THRESHOLD` | Hold + alert when an M-Pesa number receives this many withdrawals in 24h (default `2`). |
 | `WITHDRAWAL_NUMBER_KILL_DISTINCT_USERS` | Auto-disable ALL withdrawals when one number is paid by this many distinct accounts in 24h (default `4`). |
 | `WITHDRAWAL_NUMBER_KILL_HOUR_COUNT` | Auto-disable ALL withdrawals when one number receives this many withdrawals in 1h (default `5`). |
