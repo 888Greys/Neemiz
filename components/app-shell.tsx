@@ -107,13 +107,15 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
       setCheckingPhone(true);
       fetch("/api/account/mpesa")
-        .then((res) => res.json())
-        .then((data) => {
-          if (!data.phone) {
-            setMissingPhone(true);
-          } else {
-            setMissingPhone(false);
-          }
+        .then(async (res) => {
+          // A 401 here means the server doesn't see a valid session even though
+          // the client thinks it's signed in (stale/expired session cookie). That
+          // is NOT "missing phone" — don't pop the Link-Phone modal on it, or the
+          // user gets a spurious prompt that then fails with "Unauthorized".
+          if (res.status === 401) { setMissingPhone(false); return; }
+          if (!res.ok) return; // transient server error — leave state unchanged
+          const data = await res.json().catch(() => ({}));
+          setMissingPhone(!data.phone);
         })
         .catch(() => {})
         .finally(() => setCheckingPhone(false));
@@ -795,9 +797,9 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
                 </span>
                 <span className="text-[14px] font-black text-white">{fmtBalance}</span>
               </button>
-              <div className="flex items-center justify-between border-t border-white/[0.06] px-3 py-2">
-                <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">Display currency</span>
-                <CurrencySwitcher />
+              <div className="border-t border-white/[0.06] px-3 py-2">
+                <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">Display currency</span>
+                <CurrencySwitcher inline />
               </div>
               <div className="flex gap-1.5 px-2 pb-2">
                 <button type="button" onClick={() => onOpenWallet()} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#05b957] py-2 text-[11px] font-black text-white transition active:scale-[0.98]">

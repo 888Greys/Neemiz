@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, Bookmark, ChevronDown, ChevronRight, Code2, Flame, Link2, MessageCircle, Search, Settings, Trophy, TrendingUp, Zap } from "lucide-react";
 import { formatEndDate, formatMarketMoney, formatMarketMoneyKes } from "./market-card";
@@ -1482,6 +1483,12 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   const [myBets,   setMyBets]   = useState<MyBet[]>([]);
   const [loading,  setLoading]  = useState(initialMarkets.length === 0);
   const [tab,      setTab]      = useState<"browse" | "my-bets">("browse");
+  // The mobile bottom-nav "My Bets" tab drives the in-page view via `?tab=`.
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  useEffect(() => {
+    if (urlTab === "my-bets" || urlTab === "browse") setTab(urlTab);
+  }, [urlTab]);
   const [tag,      setTag]      = useState("Trending");
   const [ticket,   setTicket]   = useState<{ market: PolymarketMarket; outcome?: string; amount?: number } | null>(null);
   const [balance,  setBalance]  = useState(initialBalance);

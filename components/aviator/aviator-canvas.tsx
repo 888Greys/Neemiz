@@ -30,6 +30,9 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
   const starsRef     = useRef<Star[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const crashedRef   = useRef(false);
+  const crashStartRef = useRef<number | null>(null);
+  const sunImgRef    = useRef<HTMLImageElement | null>(null);
+  const planeImgRef  = useRef<HTMLImageElement | null>(null);
 
   const stateRef           = useRef(state);
   const crashPointRef      = useRef(crashPoint);
@@ -44,10 +47,24 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
   useEffect(() => {
     if (state === "WAITING" || state === "BETTING") {
       crashedRef.current   = false;
+      crashStartRef.current = null;
       particlesRef.current = [];
     }
-    if (state === "CRASHED" && !crashedRef.current) crashedRef.current = true;
+    if (state === "CRASHED" && !crashedRef.current) {
+      crashedRef.current = true;
+      crashStartRef.current = Date.now(); // stamp the moment the plane flies away
+    }
   }, [state]);
+
+  // Preload the SVG art once
+  useEffect(() => {
+    const sun = new Image();
+    sun.src = "/aviator/sun.svg";
+    sun.onload = () => { sunImgRef.current = sun; };
+    const plane = new Image();
+    plane.src = "/aviator/plane-3.svg";
+    plane.onload = () => { planeImgRef.current = plane; };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -92,6 +109,9 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
         stars:         starsRef.current,
         particles:     particlesRef.current,
         crashed:       crashedRef.current,
+        crashStart:    crashStartRef.current,
+        sunImg:        sunImgRef.current,
+        planeImg:      planeImgRef.current,
       });
 
       id = requestAnimationFrame(loop);
@@ -102,6 +122,48 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
   }, []);
 
   return <canvas ref={canvasRef} className="h-full w-full" style={{ display: "block" }} />;
+}
+
+// Rotating radial sunburst emanating from the flight origin — alternating
+// light/dark wedges that slowly sweep, giving the "flying through space" feel.
+function drawSunburst(
+  ctx: CanvasRenderingContext2D,
+  w: number, h: number,
+  ox: number, oy: number,
+  rotation: number,
+  intensity: number,
+) {
+  const RAYS = 16;
+  const radius = Math.hypot(w, h) * 1.2;
+  const step = (Math.PI * 2) / RAYS;
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.rotate(rotation);
+  for (let i = 0; i < RAYS; i++) {
+    if (i % 2 === 0) continue; // draw every other wedge for the striped look
+    const a0 = i * step;
+    const a1 = a0 + step;
+    // Fade each ray out toward its far edge so the rotation reads clearly
+    // without a hard band at the rim.
+    const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+    grad.addColorStop(0,   `rgba(150,180,255,${0.16 * intensity})`);
+    grad.addColorStop(0.7, `rgba(120,150,230,${0.09 * intensity})`);
+    grad.addColorStop(1,   "rgba(120,150,230,0)");
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, radius, a0, a1);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Soft warm core glow at the origin so the rays read as light from a source.
+  const glow = ctx.createRadialGradient(ox, oy, 0, ox, oy, Math.min(w, h) * 0.5);
+  glow.addColorStop(0, `rgba(255,90,120,${0.10 * intensity})`);
+  glow.addColorStop(1, "rgba(255,90,120,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, w, h);
 }
 
 function genStars(w: number, h: number): Star[] {
@@ -119,23 +181,49 @@ function draw(
   opts: {
     state: AviatorRoundState; multiplier: number; crashPoint?: number;
     bettingEndsAt?: string | null;
-    stars: Star[]; particles: Particle[]; crashed: boolean;
+    stars: Star[]; particles: Particle[]; crashed: boolean; crashStart?: number | null;
+    sunImg?: HTMLImageElement | null; planeImg?: HTMLImageElement | null;
   },
 ) {
-  const { state, multiplier, crashPoint, bettingEndsAt, stars, particles } = opts;
+  const { state, multiplier, crashPoint, bettingEndsAt, stars, crashStart, sunImg, planeImg } = opts;
   const isCrashed = state === "CRASHED";
   const compact   = w < 520;
 
-  // Background
-  ctx.fillStyle = "#020617";
+  const isFlying = state === "FLYING";
+
+  // Background — deep navy radial glow (brighter toward the flight origin)
+  ctx.fillStyle = "#05070f";
   ctx.fillRect(0, 0, w, h);
 
-  const bg = ctx.createRadialGradient(w * 0.5, h * 0.35, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.9);
-  bg.addColorStop(0, "#111118");
-  bg.addColorStop(0.55, "#0a0a0d");
-  bg.addColorStop(1, "#020617");
+  const bg = ctx.createRadialGradient(w * 0.30, h * 0.62, 0, w * 0.30, h * 0.62, Math.max(w, h) * 1.05);
+  bg.addColorStop(0,    "#152449");
+  bg.addColorStop(0.45, "#0b1330");
+  bg.addColorStop(1,    "#04060e");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
+
+  // Rotating sunburst SVG — the signature radial rays sweeping from the origin.
+  // Spins steadily while idle/betting and faster while flying.
+  const ox0 = compact ? 8 : 6;
+  const oy0 = h - (compact ? 12 : 10);
+  // Negative angle = anticlockwise (canvas y-axis points down). Spin is clearly
+  // visible and speeds up while the plane is in the air.
+  const spin = -Date.now() * (isFlying ? 0.0006 : 0.0003);
+  if (sunImg) {
+    const size = Math.hypot(w, h) * 2.2; // large enough that rays always cover the canvas
+    ctx.save();
+    // "lighten" so the rays only brighten the navy backdrop — the recolored
+    // light-periwinkle wedges read as visible sweeping light, making the spin
+    // obvious instead of the near-black wedges that were invisible before.
+    ctx.globalCompositeOperation = "lighten";
+    ctx.globalAlpha = isCrashed ? 0.16 : isFlying ? 0.38 : 0.28;
+    ctx.translate(ox0, oy0);
+    ctx.rotate(spin);
+    ctx.drawImage(sunImg, -size / 2, -size / 2, size, size);
+    ctx.restore();
+  } else {
+    drawSunburst(ctx, w, h, ox0, oy0, spin, isCrashed ? 0.35 : isFlying ? 1 : 0.7);
+  }
 
   // Vignette
   const vig = ctx.createLinearGradient(0, 0, 0, h);
@@ -144,16 +232,6 @@ function draw(
   vig.addColorStop(1, "rgba(0,0,0,0.55)");
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, w, h);
-
-  // Grid
-  ctx.save();
-  ctx.globalAlpha = 0.045;
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 1;
-  const grid = compact ? 40 : 60;
-  for (let x = 0; x <= w; x += grid) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
-  for (let y = 0; y <= h; y += grid) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
-  ctx.restore();
 
   // Stars
   stars.forEach((s) => {
@@ -192,15 +270,18 @@ function draw(
   const displayMult = isCrashed ? (crashPoint ?? multiplier) : multiplier;
   const curElapsed  = Math.max(0.1, multToElapsed(displayMult));
 
-  // Fixed reference: 15x fills the canvas. Above 15x the canvas scales so
-  // the plane stays near the top rather than flying off-screen.
-  const refElapsed  = Math.max(multToElapsed(15), curElapsed / 0.88);
+  // Spribe-style dynamic scaling: the plane RIDES near the top-right corner at
+  // essentially every multiplier, so the curve always fills the canvas instead
+  // of hugging the bottom-left at low multipliers. There's a brief initial climb
+  // (frame pinned to ~2x) for the first ~1.7x, after which the frame tracks the
+  // current elapsed and the tip locks at ~86% across / near the top.
+  const refElapsed  = Math.max(multToElapsed(2), curElapsed / 0.86);
 
   const normX  = (t: number) => ORIGIN_X + (t / refElapsed) * (MAX_X - ORIGIN_X);
   const normYT = (t: number) => {
     const frac = Math.min(t / refElapsed, 1);
     // A smooth rising arc keeps the early flight visible while still bending
-    // clearly upward as the multiplier grows.
+    // clearly upward as the multiplier grows (Spribe-style clean curve).
     const eased = Math.pow(frac, 1.55);
     return ORIGIN_Y + eased * (MAX_Y - ORIGIN_Y);
   };
@@ -248,26 +329,53 @@ function draw(
   );
 
   if (isCrashed) {
-    if (particles.length === 0) {
-      for (let i = 0; i < 50; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const spd = Math.random() * 5 + 1.5;
-        particles.push({ x: tipX, y: tipY, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, alpha: 1, r: Math.random()*3+1, color: Math.random()>0.5?"#ff4444":"#ffaa00" });
+    // Plane "flies away": it launches from the crash tip on a steep up-and-right
+    // path and zooms off the TOP of the screen — regardless of how low the crash
+    // multiplier was (even 1.x). No downward crash, matching the Spribe feel.
+    const flyT = crashStart ? Math.max(0, Date.now() - crashStart) / 1000 : 0;
+    const FLY_ANGLE = -1.15; // steep up-and-right so the plane escapes the top
+    const dist = flyT * 720 + flyT * flyT * 1200; // accelerates as it leaves
+    const px = tipX + Math.cos(FLY_ANGLE) * dist;
+    const py = tipY + Math.sin(FLY_ANGLE) * dist;
+
+    if (py > -180 && px < w + 220) {
+      drawTrail(ctx, px, py, FLY_ANGLE);
+      if (planeImg) {
+        const pw = compact ? 66 : 90;
+        const ph = pw * (planeImg.height / planeImg.width);
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(FLY_ANGLE);
+        ctx.shadowColor = "#ff1838"; ctx.shadowBlur = 14;
+        ctx.drawImage(planeImg, -pw + pw * 0.12, -ph / 2, pw, ph);
+        ctx.restore();
+        ctx.shadowBlur = 0;
+      } else {
+        drawPlane(ctx, px, py, FLY_ANGLE, compact ? 0.82 : 1);
       }
     }
-    particles.forEach((p) => {
-      p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.alpha -= 0.012;
-      if (p.alpha <= 0) return;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-      ctx.globalAlpha = p.alpha; ctx.fillStyle = p.color; ctx.fill(); ctx.globalAlpha = 1;
-    });
+
     const fs = Math.min(w * (compact ? 0.075 : 0.065), compact ? 30 : 40);
     ctx.font = `900 ${fs}px Inter,sans-serif`; ctx.textAlign = "center";
     ctx.fillStyle = "#ff3030"; ctx.shadowColor = "#ff3030"; ctx.shadowBlur = 22;
     ctx.fillText("FLEW AWAY!", w/2, h*(compact?0.36:0.42)); ctx.shadowBlur = 0;
   } else {
     drawTrail(ctx, tipX, tipY, planeAngle);
-    drawPlane(ctx, tipX, tipY, planeAngle, compact ? 0.82 : 1);
+    if (planeImg) {
+      // plane-3.svg is 150×74 and faces right (nose at the right edge). Draw it
+      // rotated to the flight angle with the nose sitting on the curve tip.
+      const pw = (compact ? 66 : 90);
+      const ph = pw * (planeImg.height / planeImg.width);
+      ctx.save();
+      ctx.translate(tipX, tipY);
+      ctx.rotate(planeAngle);
+      ctx.shadowColor = "#ff1838"; ctx.shadowBlur = 14;
+      ctx.drawImage(planeImg, -pw + pw * 0.12, -ph / 2, pw, ph);
+      ctx.restore();
+      ctx.shadowBlur = 0;
+    } else {
+      drawPlane(ctx, tipX, tipY, planeAngle, compact ? 0.82 : 1);
+    }
   }
 
   // Multiplier
@@ -288,23 +396,77 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: n
   ctx.rotate(angle);
   ctx.scale(scale, scale);
 
-  ctx.shadowColor = "#ff1838"; ctx.shadowBlur = 20;
+  // Draw the plane a touch larger so the detail reads
+  ctx.scale(1.15, 1.15);
+  ctx.shadowColor = "#ff1838"; ctx.shadowBlur = 16;
 
-  ctx.fillStyle = "#ff1838";
+  const RED = "#e8112d";
+  const RED_DARK = "#b00c22";
+
+  // Far wing (behind fuselage) — swept back, drawn darker for depth
+  ctx.fillStyle = RED_DARK;
   ctx.beginPath();
-  ctx.moveTo(30,0); ctx.lineTo(-12,-7); ctx.lineTo(-18,0); ctx.lineTo(-12,7);
-  ctx.closePath(); ctx.fill();
+  ctx.moveTo(2, -2); ctx.lineTo(-20, -16); ctx.lineTo(-9, -2); ctx.closePath();
+  ctx.fill();
 
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath(); ctx.ellipse(11,-2,4.5,3.2,0,0,Math.PI*2); ctx.fill();
+  // Horizontal tail stabilizer (far)
+  ctx.beginPath();
+  ctx.moveTo(-20, -1); ctx.lineTo(-31, -8); ctx.lineTo(-24, -1); ctx.closePath();
+  ctx.fill();
 
-  ctx.fillStyle = "#ff4d63";
-  ctx.beginPath(); ctx.moveTo(4,0); ctx.lineTo(-7,-18); ctx.lineTo(-15,-2); ctx.closePath(); ctx.fill();
-  ctx.beginPath(); ctx.moveTo(-11,0); ctx.lineTo(-21,-10); ctx.lineTo(-15,0); ctx.closePath(); ctx.fill();
+  // Fuselage — sleek pointed body, nose at +x
+  ctx.fillStyle = RED;
+  ctx.beginPath();
+  ctx.moveTo(29, 0);                          // nose
+  ctx.quadraticCurveTo(16, -6, 4, -6);        // top forward
+  ctx.quadraticCurveTo(-12, -5, -25, -3);     // spine to tail
+  ctx.lineTo(-30, -11);                        // vertical fin tip
+  ctx.lineTo(-24, -2);                         // fin trailing edge
+  ctx.lineTo(-27, 4);                          // tail underside
+  ctx.quadraticCurveTo(-8, 8, 8, 6);           // belly
+  ctx.quadraticCurveTo(20, 4, 29, 0);          // back to nose
+  ctx.closePath();
+  ctx.fill();
 
-  ctx.shadowColor = "#ff1838"; ctx.shadowBlur = 14;
-  ctx.fillStyle = "#ffffff";
-  ctx.beginPath(); ctx.ellipse(-15,0,6,3,0,0,Math.PI*2); ctx.fill();
+  // Vertical tail fin (accent)
+  ctx.beginPath();
+  ctx.moveTo(-24, -3); ctx.lineTo(-30, -12); ctx.lineTo(-22, -3); ctx.closePath();
+  ctx.fill();
+
+  // Canopy / cockpit bubble
+  ctx.fillStyle = "#3a0710";
+  ctx.beginPath(); ctx.ellipse(9, -6, 5, 3.4, -0.12, 0, Math.PI * 2); ctx.fill();
+
+  // Near wing (in front of fuselage) — sweeps down toward the viewer
+  ctx.fillStyle = RED;
+  ctx.beginPath();
+  ctx.moveTo(6, 3); ctx.lineTo(-12, 20); ctx.lineTo(-20, 20); ctx.lineTo(-3, 3);
+  ctx.closePath();
+  ctx.fill();
+
+  // "X" fuselage marking
+  ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.4; ctx.lineCap = "round";
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.moveTo(-4, -1); ctx.lineTo(2, 4);
+  ctx.moveTo(2, -1); ctx.lineTo(-4, 4);
+  ctx.stroke();
+
+  // Spinning propeller at the nose — motion-blur disc + fast blades
+  const spin = Date.now() * 0.06;
+  ctx.save();
+  ctx.translate(30, 0);
+  ctx.beginPath(); ctx.ellipse(0, 0, 3, 13, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,180,190,0.12)"; ctx.fill();
+  ctx.rotate(spin);
+  ctx.strokeStyle = "#ffb3bd"; ctx.lineWidth = 2.2; ctx.lineCap = "round";
+  for (let b = 0; b < 3; b++) {           // 3-blade prop
+    ctx.rotate((Math.PI * 2) / 3);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -13); ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2);
+  ctx.fillStyle = "#5c0a15"; ctx.fill();
+  ctx.restore();
 
   ctx.shadowBlur = 0;
   ctx.restore();

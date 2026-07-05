@@ -13,9 +13,19 @@ const accountSid = process.env.TWILIO_ACCOUNT_SID;
 const authToken = process.env.TWILIO_AUTH_TOKEN;
 const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
 
-/** True when every piece of Twilio Verify config is present. */
+/**
+ * Explicit kill switch. Phone verification stays OFF until this is set to
+ * "true", even if Twilio credentials happen to be present. The Twilio account
+ * is not yet verified, so this ships disabled: registration falls through to
+ * the existing (unverified) flow. Flip to "true" only once Twilio Verify is
+ * live. Belt-and-suspenders on top of the credential check below — either the
+ * flag being off OR any credential missing keeps the feature dormant.
+ */
+const phoneVerifyEnabled = process.env.PHONE_VERIFICATION_ENABLED === "true";
+
+/** True only when phone verification is explicitly enabled AND fully configured. */
 export function isTwilioConfigured(): boolean {
-  return Boolean(accountSid && authToken && verifyServiceSid);
+  return phoneVerifyEnabled && Boolean(accountSid && authToken && verifyServiceSid);
 }
 
 let client: ReturnType<typeof twilio> | null = null;

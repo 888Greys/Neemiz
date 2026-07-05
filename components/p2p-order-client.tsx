@@ -456,7 +456,7 @@ function MobileP2POrderView({
   const [showReleaseConfirm, setShowReleaseConfirm] = useState(false);
   const [releaseChoice, setReleaseChoice] = useState<"none" | "received">("none");
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(true);
   const [followed, setFollowed] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1193,6 +1193,67 @@ function InfoRow({ label, value, copy = false, onCopy }: { label: string; value:
   );
 }
 
+function DesktopPaymentInstructions({ order, paymentName }: { order: OrderData; paymentName: string }) {
+  const payment = order.paymentRecipient.paymentMethod;
+  const copy = (value: string) => {
+    navigator.clipboard?.writeText(value).then(() => toast.success("Copied")).catch(() => {});
+  };
+  const accountNumberLabel = order.paymentMethod === "MPESA"
+    ? "Paybill / Phone No."
+    : payment?.bankName
+      ? `${payment.bankName} Account`
+      : "Account Number";
+
+  return (
+    <div className="space-y-6">
+      <section>
+        <div className="mb-3 flex items-center gap-2">
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-[#087cff]/20 text-xs font-black text-[#75b8ff]">1</span>
+          <h3 className="text-sm font-black text-white">Transfer via {paymentName}</h3>
+        </div>
+        <div className="ml-3 rounded-xl border border-white/[0.08] bg-white/[0.025] p-4">
+          <InfoRow
+            label="Fiat Amount"
+            value={formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })}
+            copy
+            onCopy={() => copy(formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 }))}
+          />
+          <InfoRow label="Recipient" value={order.paymentRecipient.displayName} />
+          <InfoRow
+            label="Account Name"
+            value={payment?.accountName ?? "Payment details unavailable"}
+            copy={!!payment?.accountName}
+            onCopy={payment?.accountName ? () => copy(payment.accountName) : undefined}
+          />
+          <InfoRow
+            label={accountNumberLabel}
+            value={payment?.accountNo ?? "Do not pay. Ask the trader to add a matching payment method."}
+            copy={!!payment?.accountNo}
+            onCopy={payment?.accountNo ? () => copy(payment.accountNo) : undefined}
+          />
+          {payment?.bankName && <InfoRow label="Bank" value={payment.bankName} />}
+          <InfoRow label="Order No." value={order.id.toUpperCase()} copy onCopy={() => copy(order.id.toUpperCase())} />
+          <p className="mt-4 border-t border-white/[0.07] pt-3 text-xs leading-5 text-slate-500">
+            Pay only the account shown above. If any detail is unclear or does not match the trader&apos;s payment method, do not proceed—use chat or cancel the order.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-start gap-2">
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#087cff]/20 text-xs font-black text-[#75b8ff]">2</span>
+          <h3 className="pt-0.5 text-sm font-black text-white">After sending money, click Payment Completed</h3>
+        </div>
+        <div className="ml-8 space-y-1.5 text-xs leading-5 text-slate-500">
+          <p>Use a payment account that matches your verified name.</p>
+          <p>Do not split the payment into multiple transactions unless the trader requests it.</p>
+          <p>The seller verifies the transfer before releasing the crypto from escrow.</p>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function StepDot({ n }: { n: number }) {
   return (
     <span className="relative z-10 grid h-[21px] w-[21px] shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-[#0b0b11]">
@@ -1623,10 +1684,9 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
           {!isClosed && (
             <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-5">
               <h2 className="text-white font-black mb-3">
-                {order.status === "PENDING" && order.isBuyer && merchantIsSelling && "How to complete your order"}
+                {order.status === "PENDING" && currentUserIsBuyingCrypto && "Make your payment"}
                 {order.status === "PENDING" && order.isBuyer && !merchantIsSelling && "Waiting for merchant payment"}
                 {order.status === "PENDING" && order.isSeller && merchantIsSelling && "Waiting for buyer to pay"}
-                {order.status === "PENDING" && order.isSeller && !merchantIsSelling && `Buy ${order.crypto} from ${otherPartyName}`}
                 {order.status === "PAID" && order.isBuyer && merchantIsSelling && "Payment sent — waiting for release"}
                 {order.status === "PAID" && order.isBuyer && !merchantIsSelling && "Verify payment and release crypto"}
                 {order.status === "PAID" && order.isSeller && merchantIsSelling && "Verify Payment"}
@@ -1648,21 +1708,8 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 </div>
               )}
 
-              {order.status === "PENDING" && order.isBuyer && merchantIsSelling && (
-                <ol className="space-y-3 text-sm text-slate-400">
-                  <li className="flex gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">1</span>
-                    <span>Send <span className="text-white font-bold">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</span> to the merchant via <span className="text-white font-bold">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank Transfer"}</span>.</span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
-                    <span>Enter your M-Pesa transaction code or reference below, then click <strong className="text-white">Payment Completed</strong>.</span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">3</span>
-                    <span>The merchant will verify and release your crypto within minutes.</span>
-                  </li>
-                </ol>
+              {order.status === "PENDING" && currentUserIsBuyingCrypto && (
+                <DesktopPaymentInstructions order={order} paymentName={paymentName} />
               )}
 
               {order.status === "PENDING" && order.isBuyer && !merchantIsSelling && (
@@ -1685,23 +1732,6 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 </p>
               )}
 
-              {order.status === "PENDING" && order.isSeller && !merchantIsSelling && (
-                <ol className="space-y-3 text-sm text-slate-400">
-                  <li className="flex gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">1</span>
-                    <span>Send <span className="text-white font-bold">{formatFiat(Number(order.fiatAmount), order.ad.fiat)}</span> to <span className="text-white font-bold">{order.paymentRecipient.displayName}</span> via <span className="text-white font-bold">{order.paymentMethod === "MPESA" ? "M-Pesa" : "Bank Transfer"}</span>.</span>
-                  </li>
-                  <li className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3 text-sm">
-                    <span className="block text-[10px] font-black uppercase tracking-wider text-slate-600">Payment account</span>
-                    <span className="mt-1 block font-bold text-white">{order.paymentRecipient.paymentMethod?.accountName ?? "Payment details unavailable"}</span>
-                    <span className="mt-0.5 block text-slate-400">{order.paymentRecipient.paymentMethod?.accountNo ?? "Do not pay. Ask the trader to add a matching payment method."}</span>
-                  </li>
-                  <li className="flex gap-3">
-                    <span className="w-6 h-6 rounded-full bg-[#087cff]/20 text-[#087cff] text-xs font-black flex items-center justify-center shrink-0">2</span>
-                    <span>After sending payment, click <strong className="text-white">Payment Completed</strong>. The seller will verify and release {order.crypto} from escrow.</span>
-                  </li>
-                </ol>
-              )}
 
               {order.status === "PAID" && order.isSeller && merchantIsSelling && (
                 <ol className="space-y-3 text-sm text-slate-400">

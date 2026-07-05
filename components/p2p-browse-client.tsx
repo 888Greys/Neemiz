@@ -9,7 +9,7 @@ import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { paymentMethodsForFiat, paymentMethodLabel, ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
+import { paymentMethodsForFiat, paymentMethodLabel, ALL_PAYMENT_CODES, GLOBAL_PAYMENT_METHODS } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -197,9 +197,9 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
 
   // Derived stats (real where the API provides them; "—" placeholders for the
   // 30d split / counterparties / deposit fields that arrive with the feedback work).
-  const completionRate = Number(profile?.completionRate ?? merchant.completionRate ?? 0);
   const completedTrades = Number(profile?.completedTrades ?? merchant.completedTrades ?? 0);
   const totalTrades = Number(profile?.totalTrades ?? merchant.totalTrades ?? completedTrades);
+  const completionRate = totalTrades > 0 ? (completedTrades / totalTrades) * 100 : 0;
   const avgRelease = profile?.avgReleaseTime ?? merchant.avgReleaseTime;
   const adsCount = profile?.activeAds ?? offers.length;
   const feedback = profile?.feedback ?? [];
@@ -464,20 +464,17 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
 
 function OfferDetailsModal({
   ad,
-  marketRef,
   onClose,
   onTrade,
   onMerchantClick,
 }: {
   ad: Ad;
-  marketRef: number;
   onClose: () => void;
   onTrade: (ad: Ad) => void;
   onMerchantClick: (merchant: AdMerchant) => void;
 }) {
   const isBuyingCrypto = ad.side === "SELL";
   const actionLabel = `${isBuyingCrypto ? "Buy" : "Sell"} ${ad.crypto}`;
-  const marginPct = marketRef > 0 ? ((ad.pricePerUnit / marketRef) - 1) * 100 : 0;
   const availableFiat = ad.availableAmount * ad.pricePerUnit;
 
   return (
@@ -603,14 +600,6 @@ function OfferDetailsModal({
                   <p className="text-3xl font-black tabular-nums">{formatFiat(ad.pricePerUnit, ad.fiat)}</p>
                   <span className="pb-1 text-xs font-bold text-slate-500">per {ad.crypto}</span>
                 </div>
-                {marketRef > 0 && (
-                  <div className="mt-3 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 text-xs">
-                    <span className="font-semibold text-slate-500">Market comparison</span>
-                    <span className={`font-black ${marginPct > 0 ? "text-amber-400" : "text-[#05b957]"}`}>
-                      {marginPct > 0 ? "+" : ""}{marginPct.toFixed(1)}%
-                    </span>
-                  </div>
-                )}
                 <button
                   type="button"
                   onClick={() => onTrade(ad)}
@@ -1347,15 +1336,46 @@ function CryptoSelect({ value, onChange }: { value: string; onChange: (c: string
 
 function PaymentSelect({ value, fiat, onChange }: { value: string; fiat: string; onChange: (p: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
-  const options = [{ value: "", label: "All payments" }, ...paymentMethodsForFiat(fiat)];
-  const current = options.find((o) => o.value === value) ?? options[0];
+
+  // Full catalogue, with the fiat's local rails surfaced first so the common
+  // choices are one tap away, then every other method — all searchable.
+  const local = paymentMethodsForFiat(fiat);
+  const localCodes = new Set(local.map((m) => m.value));
+  const rest = GLOBAL_PAYMENT_METHODS.filter((m) => !localCodes.has(m.value));
+
+  const q = query.trim().toLowerCase();
+  const match = (m: { value: string; label: string }) =>
+    !q || m.label.toLowerCase().includes(q) || m.value.toLowerCase().includes(q);
+  const localFiltered = local.filter(match);
+  const restFiltered = rest.filter(match);
+  const showAll = !q || "all payments".includes(q);
+
+  const currentLabel = value ? paymentMethodLabel(value) : "All payments";
+
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
+
+  // Reset the search each time the menu closes so it opens fresh next time.
+  useEffect(() => { if (!open) setQuery(""); }, [open]);
+
+  const pick = (v: string) => { onChange(v); setOpen(false); };
+  const Row = ({ v, label }: { v: string; label: string }) => (
+    <button
+      type="button"
+      onClick={() => pick(v)}
+      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${v === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
+    >
+      <span className="text-xs font-bold text-white">{label}</span>
+      {v === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
+    </button>
+  );
+
   return (
     <div ref={ref} className="relative min-w-0 shrink-0">
       <button
@@ -1365,22 +1385,37 @@ function PaymentSelect({ value, fiat, onChange }: { value: string; fiat: string;
         className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] px-2.5 text-xs font-bold text-white transition-colors hover:border-white/20"
       >
         <Icon name="account_balance_wallet" className="text-[14px] text-slate-400" />
-        <span className="max-w-[120px] truncate">{current.label}</span>
+        <span className="max-w-[120px] truncate">{currentLabel}</span>
         <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-50 max-h-72 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60 [scrollbar-width:thin]">
-          {options.map((o) => (
-            <button
-              key={o.value || "all"}
-              type="button"
-              onClick={() => { onChange(o.value); setOpen(false); }}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${o.value === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
-            >
-              <span className="text-xs font-bold text-white">{o.label}</span>
-              {o.value === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
-            </button>
-          ))}
+        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-60 overflow-hidden rounded-xl border border-white/10 bg-[#111118] shadow-2xl shadow-black/60">
+          <div className="border-b border-white/[0.06] p-2">
+            <div className="flex h-9 items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
+              <Icon name="search" className="text-[16px] text-slate-500" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search payment methods"
+                className="min-w-0 flex-1 bg-transparent text-xs font-bold text-white outline-none placeholder:text-slate-600"
+              />
+            </div>
+          </div>
+          <div className="max-h-64 overflow-y-auto p-1 [scrollbar-width:thin]">
+            {showAll && <Row v="" label="All payments" />}
+            {localFiltered.length > 0 && (
+              <p className="px-2.5 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-slate-600">Common for {fiat}</p>
+            )}
+            {localFiltered.map((o) => <Row key={o.value} v={o.value} label={o.label} />)}
+            {restFiltered.length > 0 && (
+              <p className="px-2.5 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-slate-600">All methods</p>
+            )}
+            {restFiltered.map((o) => <Row key={o.value} v={o.value} label={o.label} />)}
+            {!showAll && localFiltered.length === 0 && restFiltered.length === 0 && (
+              <p className="px-2.5 py-6 text-center text-xs font-bold text-slate-600">No methods found</p>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1404,17 +1439,16 @@ function AdCard({
   ad,
   onDetails,
   onMerchantClick,
-  marketRef,
 }: {
   ad: Ad;
   onDetails: (ad: Ad) => void;
   onMerchantClick: (merchant: AdMerchant) => void;
-  marketRef: number;
 }) {
   const isMerchantSelling = ad.side === "SELL";
   const color   = CRYPTO_COLOR[ad.crypto] ?? "#087cff";
   const actionLabel = isMerchantSelling ? "Buy" : "Sell";
-  const marginPct = marketRef > 0 ? ((ad.pricePerUnit / marketRef) - 1) * 100 : 0;
+  const totalTrades = ad.merchant.totalTrades ?? 0;
+  const completionRate = totalTrades > 0 ? (ad.merchant.completedTrades / totalTrades) * 100 : 0;
 
   return (
     <div
@@ -1457,11 +1491,13 @@ function AdCard({
             <VerifiedSeal className="h-[13px] w-[13px]" />
           </div>
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] font-semibold text-white/45">
-            <span className="flex items-center gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#05b957]" />
-              {ad.merchant.completionRate.toFixed(0)}%
-            </span>
-            <span>{ad.merchant.completedTrades} trades</span>
+            <span>{totalTrades} trade{totalTrades === 1 ? "" : "s"}</span>
+            {totalTrades > 0 ? (
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#05b957]" />
+                {completionRate.toFixed(0)}% completion
+              </span>
+            ) : <span>New merchant</span>}
             <span className="flex items-center gap-1">
               <span className={`h-1.5 w-1.5 rounded-full ${ad.merchant.isOnline ? "bg-[#05b957]" : "bg-slate-600"}`} />
               {ad.merchant.isOnline ? "Active" : "Offline"}
@@ -1470,7 +1506,7 @@ function AdCard({
         </div>
       </button>
 
-      {/* ── Price + margin + limits ── */}
+      {/* ── Price + limits ── */}
       <div className="mt-2 min-w-0 lg:mt-0">
         <p className="lg:hidden text-[9px] font-bold uppercase tracking-wide text-white/35">Price</p>
         <div className="flex flex-wrap items-center gap-1">
@@ -1481,14 +1517,6 @@ function AdCard({
             {formatFiat(ad.pricePerUnit, ad.fiat, { symbol: false, decimals: 2 })}
           </span>
           <span className="text-[11px] font-bold text-white/45">{ad.fiat}</span>
-          {Math.abs(marginPct) >= 0.1 && (
-            <span
-              title="Price vs live market rate"
-              className={`inline-flex items-center rounded-full px-1 text-[10px] font-bold leading-none ${marginPct > 0 ? "text-amber-400/90" : "text-[#05b957]"}`}
-            >
-              {marginPct > 0 ? "+" : ""}{marginPct.toFixed(1)}%
-            </span>
-          )}
         </div>
         <p className="mt-0.5 text-[10px] font-semibold text-white/40">
           Limits <span className="text-white/65">{formatFiat(ad.minLimit, ad.fiat, { symbol: false })} – {formatFiat(ad.maxLimit, ad.fiat, { symbol: false })}</span>
@@ -1505,6 +1533,10 @@ function AdCard({
               {fmtPm(m)}
             </span>
           ))}
+        </div>
+        <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-white/45">
+          <Icon name="schedule" className="text-[12px]" />
+          {ad.paymentWindow} min payment time
         </div>
       </div>
 
@@ -1558,11 +1590,10 @@ function DirectBuyBanner() {
 // ─── Offers table (one section: promoted or other) ─────────────────────────────
 
 function OffersTable({
-  title, ads, marketRefs, onDetails, onMerchantClick, promoted = false,
+  title, ads, onDetails, onMerchantClick, promoted = false,
 }: {
   title: string;
   ads: Ad[];
-  marketRefs: Record<string, number>;
   onDetails: (ad: Ad) => void;
   onMerchantClick: (merchant: AdMerchant) => void;
   promoted?: boolean;
@@ -1585,7 +1616,7 @@ function OffersTable({
         <span className="text-right">Trade</span>
       </div>
       {ads.map((ad) => (
-        <AdCard key={ad.id} ad={ad} onDetails={onDetails} onMerchantClick={onMerchantClick} marketRef={marketRefs[ad.crypto] ?? 0} />
+        <AdCard key={ad.id} ad={ad} onDetails={onDetails} onMerchantClick={onMerchantClick} />
       ))}
     </div>
   );
@@ -1786,8 +1817,9 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     setFiatState(f);
     // Remember the manual choice for 1 year so it overrides geo-detection next visit.
     document.cookie = `user_fiat=${f}; path=/; max-age=31536000; samesite=lax`;
-    // If the active payment filter isn't a rail for the new currency, clear it.
-    const stillValid = payment === "" || paymentMethodsForFiat(f).some((m) => m.value === payment);
+    // Keep the payment filter across currency switches — any real method code is
+    // valid to filter by regardless of fiat (browsing is not fiat-restricted).
+    const stillValid = payment === "" || ALL_PAYMENT_CODES.has(payment);
     const nextPayment = stillValid ? payment : "";
     if (nextPayment !== payment) setPaymentState(nextPayment);
     pushUrl(tab, crypto, nextPayment, f);
@@ -1890,19 +1922,11 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   };
 
-  // Each asset needs its own reference. A single median across KES, USDT, BTC,
-  // etc. makes percentages meaningless when the "All" filter is active.
-  const marketRefs = visibleAds.reduce<Record<string, number>>((refs, ad) => {
-    if (refs[ad.crypto] != null) return refs;
-    refs[ad.crypto] = median(
-      visibleAds.filter((candidate) => candidate.crypto === ad.crypto).map((candidate) => candidate.pricePerUnit),
-    );
-    return refs;
-  }, {});
-
-  if (crypto !== "ALL" && spotRate != null) marketRefs[crypto] = spotRate;
-
-  const marketRef = crypto === "ALL" ? 0 : (marketRefs[crypto] ?? 0);
+  // Keep a single headline reference price for the selected asset, but do not
+  // expose the margin of individual merchant offers to other users.
+  const marketRef = crypto === "ALL"
+    ? 0
+    : spotRate ?? median(visibleAds.filter((ad) => ad.crypto === crypto).map((ad) => ad.pricePerUnit));
   const rateIsLive = spotRate != null;
   const openOrder = (ad: Ad) => {
     if (!isSignedIn) {
@@ -2025,9 +2049,9 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
           ) : (
             <>
-              <OffersTable title="Promoted offers" ads={promoted} marketRefs={marketRefs} onDetails={openOrder} onMerchantClick={setSelectedMerchant} promoted />
+              <OffersTable title="Promoted offers" ads={promoted} onDetails={openOrder} onMerchantClick={setSelectedMerchant} promoted />
               <DirectBuyBanner />
-              <OffersTable title="Other offers" ads={otherAds} marketRefs={marketRefs} onDetails={openOrder} onMerchantClick={setSelectedMerchant} />
+              <OffersTable title="Other offers" ads={otherAds} onDetails={openOrder} onMerchantClick={setSelectedMerchant} />
             </>
           )}
 

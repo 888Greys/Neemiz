@@ -44,7 +44,9 @@ export function P2PSubNav() {
   const effectivePath = pathname.startsWith("/p2p/order/") ? "/p2p/orders" : pathname;
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 pt-2 sm:px-4 lg:px-3">
+    // Hidden on mobile/tablet — the section bottom-nav covers these tabs there;
+    // shown on desktop (lg+) where there is no bottom nav.
+    <div className="mx-auto hidden w-full max-w-6xl px-3 pt-2 sm:px-4 lg:block lg:px-3">
       <div className="flex w-full items-center justify-between rounded-lg border border-[#1e1e30] bg-[#111118] px-1.5 py-1">
         <div className="no-scrollbar flex items-center overflow-x-auto">
           {TABS.map((t) => {

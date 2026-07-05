@@ -25,29 +25,6 @@ async function sendEmail(to: string, toName: string, subject: string, htmlConten
 }
 
 /**
- * Alert the owner that a customer M-Pesa withdrawal could not be paid out
- * (likely insufficient float) and has been queued for auto-processing.
- */
-export async function sendLowFloatAlertEmail(amountKes: number, msisdn?: string) {
-  const subject = "⚠️ Nezeem: M-Pesa float low — customer withdrawal queued";
-  const html = `
-    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
-      <h2 style="margin:0 0 8px">Top up your M-Pesa float</h2>
-      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
-        A customer withdrawal of <strong>${CURRENCY_SYMBOL} ${amountKes.toLocaleString()}</strong>${msisdn ? ` to <strong>+${msisdn}</strong>` : ""}
-        could not be paid out — the payout provider reported insufficient float.
-      </p>
-      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
-        The customer's balance is still held and the withdrawal is <strong>queued</strong>. As soon as you top up the
-        float, it will be sent automatically — no action needed beyond funding.
-      </p>
-      <a href="${APP_URL}/admin/withdrawals" style="display:inline-block;background:#087cff;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Open admin console</a>
-      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated alert from Nezeem. You receive this because you're an owner/admin.</p>
-    </div>`;
-  await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
-}
-
-/**
  * Alert the owner that a single M-Pesa destination number is receiving an
  * unusual number of withdrawals (possible mule/collector). The latest
  * withdrawal has been auto-held for approval.
@@ -112,6 +89,57 @@ export async function sendReconMismatchEmail(
       </table>
       <a href="${APP_URL}/admin/withdrawals" style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Open admin console</a>
       <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated daily reconciliation. You receive this because you're an owner/admin.</p>
+    </div>`;
+  await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
+}
+
+/**
+ * Alert the owner that the signup-velocity tripwire detected likely bot account
+ * farming — an abnormal burst of new accounts, tight same-second clusters, or one
+ * device registering many accounts. Detection-only: no accounts are auto-frozen.
+ */
+export async function sendBotSignupAlertEmail(report: {
+  windowMinutes: number;
+  totalSignups: number;
+  burst: boolean;
+  burstThreshold: number;
+  clusters: Array<{ at: string; count: number }>;
+  devices: Array<{ deviceHash: string; users: number }>;
+  emailClusters: Array<{ email: string; count: number }>;
+}) {
+  const reasons: string[] = [];
+  if (report.burst) reasons.push(`${report.totalSignups} signups in ${report.windowMinutes} min (threshold ${report.burstThreshold})`);
+  if (report.clusters.length) reasons.push(`${report.clusters.length} tight time-cluster(s)`);
+  if (report.devices.length) reasons.push(`${report.devices.length} shared-device group(s)`);
+  if (report.emailClusters.length) reasons.push(`${report.emailClusters.length} email-alias group(s)`);
+  const subject = `🤖 Nezeem: possible bot signups — ${reasons.join(", ")}`;
+
+  const clusterRows = report.clusters.slice(0, 15).map((c) => `
+    <tr><td style="padding:6px 10px;border-bottom:1px solid #eef2f7">${c.at}</td>
+    <td style="padding:6px 10px;border-bottom:1px solid #eef2f7;text-align:right;color:#dc2626;font-weight:700">${c.count} accounts</td></tr>`).join("");
+  const deviceRows = report.devices.slice(0, 15).map((d) => `
+    <tr><td style="padding:6px 10px;border-bottom:1px solid #eef2f7;font-family:monospace">${d.deviceHash.slice(0, 12)}…</td>
+    <td style="padding:6px 10px;border-bottom:1px solid #eef2f7;text-align:right;color:#dc2626;font-weight:700">${d.users} accounts</td></tr>`).join("");
+  const emailRows = report.emailClusters.slice(0, 15).map((e) => `
+    <tr><td style="padding:6px 10px;border-bottom:1px solid #eef2f7">${e.email}</td>
+    <td style="padding:6px 10px;border-bottom:1px solid #eef2f7;text-align:right;color:#dc2626;font-weight:700">${e.count} accounts</td></tr>`).join("");
+
+  const html = `
+    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#0f172a">
+      <h2 style="margin:0 0 8px">Possible bot account farming</h2>
+      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
+        The signup-velocity tripwire flagged unusual account creation in the last
+        <strong>${report.windowMinutes} minutes</strong>: ${reasons.join("; ")}.
+        This is the pattern behind mule/bonus-abuse farms. No accounts have been frozen — review and act if needed.
+      </p>
+      ${report.clusters.length ? `<h3 style="margin:16px 0 4px;font-size:14px">Tight signup clusters (same-second batches)</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${clusterRows}</tbody></table>` : ""}
+      ${report.devices.length ? `<h3 style="margin:16px 0 4px;font-size:14px">One device, many accounts</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${deviceRows}</tbody></table>` : ""}
+      ${report.emailClusters.length ? `<h3 style="margin:16px 0 4px;font-size:14px">One inbox, many accounts (+alias / dotted-Gmail)</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${emailRows}</tbody></table>` : ""}
+      <a href="${APP_URL}/admin/players" style="display:inline-block;margin-top:16px;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Review new accounts</a>
+      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated signup-velocity tripwire. You receive this because you're an owner/admin.</p>
     </div>`;
   await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
 }
