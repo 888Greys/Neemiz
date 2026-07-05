@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
-import { notifyAdminsLowFloat, notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
+import { notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
 import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 import { withdrawalsDisabledResponse, setWithdrawalsDisabled } from "@/lib/withdrawal-guard";
@@ -218,8 +218,7 @@ export async function POST(req: Request) {
 
       // Insufficient float / temporary provider issue: we no longer hold the
       // funds and auto-retry. Refund the customer immediately, mark the
-      // withdrawal FAILED, and surface a maintenance message. The owner is still
-      // alerted to top up the float so the service can be restored.
+      // withdrawal FAILED, and surface a maintenance message.
       await db.$transaction([
         db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } }),
         db.transaction.update({
@@ -237,7 +236,6 @@ export async function POST(req: Request) {
           },
         }),
       ]);
-      await notifyAdminsLowFloat({ amountKes: payoutKes, msisdn }).catch((e) => console.error("[withdraw] low-float alert failed", e));
 
       return Response.json({
         error: "M-Pesa withdrawals are temporarily unavailable for maintenance. Your balance has not been deducted — please try again later.",

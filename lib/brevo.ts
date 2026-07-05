@@ -25,29 +25,6 @@ async function sendEmail(to: string, toName: string, subject: string, htmlConten
 }
 
 /**
- * Alert the owner that a customer M-Pesa withdrawal could not be paid out
- * (likely insufficient float) and has been queued for auto-processing.
- */
-export async function sendLowFloatAlertEmail(amountKes: number, msisdn?: string) {
-  const subject = "⚠️ Nezeem: M-Pesa float low — customer withdrawal queued";
-  const html = `
-    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
-      <h2 style="margin:0 0 8px">Top up your M-Pesa float</h2>
-      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
-        A customer withdrawal of <strong>${CURRENCY_SYMBOL} ${amountKes.toLocaleString()}</strong>${msisdn ? ` to <strong>+${msisdn}</strong>` : ""}
-        could not be paid out — the payout provider reported insufficient float.
-      </p>
-      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
-        The customer's balance is still held and the withdrawal is <strong>queued</strong>. As soon as you top up the
-        float, it will be sent automatically — no action needed beyond funding.
-      </p>
-      <a href="${APP_URL}/admin/withdrawals" style="display:inline-block;background:#087cff;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Open admin console</a>
-      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated alert from Nezeem. You receive this because you're an owner/admin.</p>
-    </div>`;
-  await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
-}
-
-/**
  * Alert the owner that a single M-Pesa destination number is receiving an
  * unusual number of withdrawals (possible mule/collector). The latest
  * withdrawal has been auto-held for approval.
