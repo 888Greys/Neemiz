@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
+import { enrollPasskey } from "@/lib/passkey-client";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
@@ -734,10 +735,62 @@ function SecurityView({ email }: { email: string | undefined }) {
   const [disableLoading, setDisableLoading] = useState(false);
   const [disabled2FA, setDisabled2FA] = useState(false);
 
-  // Passkeys (WebAuthn)
+  // Passkeys (WebAuthn) — withdrawal step-up (GoTrue MFA factors)
   const [passkeys, setPasskeys] = useState<Array<{ id: string; friendly_name?: string; created_at: string; last_used_at?: string }>>([]);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyBusy, setPasskeyBusy] = useState(false);
+
+  // Sign-in passkeys — passwordless primary login (self-managed WebAuthn)
+  const [signinPasskeys, setSigninPasskeys] = useState<Array<{ id: string; deviceName?: string | null; createdAt: string; lastUsedAt?: string | null }>>([]);
+  const [signinPasskeyLoading, setSigninPasskeyLoading] = useState(false);
+  const [signinPasskeyBusy, setSigninPasskeyBusy] = useState(false);
+
+  const loadSigninPasskeys = useCallback(async () => {
+    setSigninPasskeyLoading(true);
+    try {
+      const res = await fetch("/api/auth/passkey", { cache: "no-store" });
+      if (res.ok) {
+        const j = await res.json() as { passkeys?: Array<{ id: string; deviceName?: string | null; createdAt: string; lastUsedAt?: string | null }> };
+        setSigninPasskeys(j.passkeys ?? []);
+      }
+    } catch {
+      // leave empty
+    } finally {
+      setSigninPasskeyLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadSigninPasskeys(); }, [loadSigninPasskeys]);
+
+  async function addSigninPasskey() {
+    setSigninPasskeyBusy(true);
+    try {
+      const result = await enrollPasskey(`Passkey · ${new Date().toLocaleDateString()}`);
+      if (!result.ok) {
+        toast.error("Couldn't add sign-in passkey", result.error ?? "Please try again.");
+        return;
+      }
+      toast.success("Sign-in passkey added", "You can now log in with this passkey — no password needed.");
+      await loadSigninPasskeys();
+    } catch {
+      toast.error("Couldn't add sign-in passkey", "Your device may not support passkeys, or the prompt was dismissed.");
+    } finally {
+      setSigninPasskeyBusy(false);
+    }
+  }
+
+  async function removeSigninPasskey(id: string) {
+    setSigninPasskeyBusy(true);
+    try {
+      const res = await fetch(`/api/auth/passkey/${id}`, { method: "DELETE" });
+      if (!res.ok) { toast.error("Couldn't remove passkey", "Try again."); return; }
+      setSigninPasskeys((prev) => prev.filter((p) => p.id !== id));
+    } catch {
+      toast.error("Couldn't remove passkey", "Try again.");
+    } finally {
+      setSigninPasskeyBusy(false);
+    }
+  }
 
   const loadPasskeys = useCallback(async () => {
     setPasskeyLoading(true);
@@ -1071,15 +1124,53 @@ function SecurityView({ email }: { email: string | undefined }) {
         )}
       </div>
 
-      {/* ── Passkeys card ── */}
+      {/* ── Sign-in passkeys card (passwordless login) ── */}
+      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+        <div className="flex items-center gap-3 px-4 py-3.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
+            <Icon name="passkey" fill className="text-[16px] text-[#5ea9ff]" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[13px] font-black text-white">Sign-in passkeys</p>
+            <p className="text-[11px] text-slate-500">Log in with Face ID, fingerprint or a security key — no password</p>
+          </div>
+        </div>
+
+        {signinPasskeys.length > 0 && (
+          <div>
+            {signinPasskeys.map((pk) => (
+              <div key={pk.id} className="mx-4 flex items-center justify-between border-t border-white/[0.05] py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[12px] font-bold text-white">{pk.deviceName || "Passkey"}</p>
+                  <p className="text-[10px] text-slate-600">Added {new Date(pk.createdAt).toLocaleDateString()}</p>
+                </div>
+                <button type="button" onClick={() => removeSigninPasskey(pk.id)} disabled={signinPasskeyBusy}
+                  className="shrink-0 text-[11px] font-black text-red-400/80 transition hover:text-red-400 disabled:opacity-50">
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mx-4 h-px bg-white/[0.05]" />
+        <div className="px-4 py-3.5">
+          <button type="button" onClick={addSigninPasskey} disabled={signinPasskeyBusy || signinPasskeyLoading}
+            className="text-[12px] font-black text-[#5ea9ff] transition hover:text-white disabled:opacity-50">
+            {signinPasskeyBusy ? "Working…" : signinPasskeyLoading ? "Loading…" : "+ Add a sign-in passkey"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Withdrawal passkeys card (2FA step-up) ── */}
       <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="passkey" fill className="text-[16px] text-slate-400" />
           </div>
           <div className="flex-1">
-            <p className="text-[13px] font-black text-white">Passkeys</p>
-            <p className="text-[11px] text-slate-500">Sign in with Face ID, fingerprint or a security key</p>
+            <p className="text-[13px] font-black text-white">Withdrawal passkeys</p>
+            <p className="text-[11px] text-slate-500">Confirm withdrawals and use as your second factor</p>
           </div>
         </div>
 
