@@ -66,7 +66,32 @@ model User {
   // Leveraged (Multipliers, Turbos)
   leveragedTrades LeveragedTrade[]
 
+  // Passwordless sign-in passkeys (WebAuthn, self-managed — distinct from the
+  // GoTrue MFA passkeys used for withdrawal step-up)
+  passkeys Passkey[]
+
   @@map("users")
+}
+
+// A WebAuthn credential used for passwordless primary login. We store and
+// verify these ourselves (via @simplewebauthn) rather than through GoTrue,
+// because GoTrue only models passkeys as second-factor (MFA) credentials and
+// has no primary-login-from-scratch flow.
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  credentialId String    @unique @map("credential_id") // base64url
+  publicKey    Bytes     @map("public_key")            // COSE public key
+  counter      BigInt    @default(0)
+  transports   String[]  @default([])
+  deviceName   String?   @map("device_name")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastUsedAt   DateTime? @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("passkeys")
 }
 
 // A browser-specific opaque token is stored in an HttpOnly cookie. Only its
