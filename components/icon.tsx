@@ -45,6 +45,7 @@ import {
   FileEdit,
   FilePlus2,
   Flame,
+  FlaskConical,
   Gamepad,
   Gamepad2,
   QrCode,
@@ -296,6 +297,8 @@ const iconMap: Record<string, LucideIcon> = {
   warning: AlertTriangle,
 
   // Previously-missing names (rendered a "?" fallback before)
+  credit_card: CreditCard,
+  science: FlaskConical,
   passkey: KeyRound,
   alternate_email: AtSign,
   arrow_drop_down: ChevronDown,
