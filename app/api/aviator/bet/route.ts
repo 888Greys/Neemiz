@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 import {
   callAviatorService,
   type GoAviatorState,
@@ -16,6 +18,9 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const rl = rateLimit(`aviator-bet:${user.id}`, 30, 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
+
   let body: { betAmount: number; panelIndex: 0 | 1; autoCashout?: number };
   try {
     body = await req.json();
@@ -25,10 +30,10 @@ export async function POST(req: Request) {
 
   const { betAmount, panelIndex, autoCashout } = body;
   if (!Number.isFinite(betAmount) || betAmount < MIN_BET) {
-    return Response.json({ error: `Minimum bet is KSh ${MIN_BET}` }, { status: 400 });
+    return Response.json({ error: `Minimum bet is ${CURRENCY_SYMBOL} ${MIN_BET}` }, { status: 400 });
   }
   if (betAmount > MAX_BET) {
-    return Response.json({ error: `Maximum bet is KSh ${MAX_BET.toLocaleString()}` }, { status: 400 });
+    return Response.json({ error: `Maximum bet is ${CURRENCY_SYMBOL} ${MAX_BET.toLocaleString()}` }, { status: 400 });
   }
   if (panelIndex !== 0 && panelIndex !== 1) {
     return Response.json({ error: "panelIndex must be 0 or 1" }, { status: 400 });

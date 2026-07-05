@@ -8,6 +8,7 @@
 
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type DirectionalTrade } from "@prisma/client";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export type SettleResult = { outcome: "won" | "lost" | "already"; winAmount: number; exitSpot: number };
 
@@ -53,8 +54,8 @@ export async function finalizeDirectional(
         type: opts.won ? "DIRECTIONAL_WON" : "DIRECTIONAL_LOST",
         title: opts.won ? "Trade won" : "Trade settled",
         body: credit > 0
-          ? `KSh ${credit.toLocaleString("en-KE")} was credited to your wallet.`
-          : `Your KSh ${Number(trade.stake).toLocaleString("en-KE")} ${trade.side.toLowerCase()} trade did not win.`,
+          ? `${CURRENCY_SYMBOL} ${credit.toLocaleString(MONEY_LOCALE)} was credited to your wallet.`
+          : `Your ${CURRENCY_SYMBOL} ${Number(trade.stake).toLocaleString(MONEY_LOCALE)} ${trade.side.toLowerCase()} trade did not win.`,
         link: "/binary",
       },
     });
@@ -95,7 +96,7 @@ export async function voidDirectional(trade: DirectionalTrade, reason: string): 
         userId: trade.userId,
         type: "DIRECTIONAL_VOID",
         title: "Trade refunded",
-        body: `Your KSh ${stake.toLocaleString("en-KE")} stake was refunded — the trade couldn't be settled.`,
+        body: `Your ${CURRENCY_SYMBOL} ${stake.toLocaleString(MONEY_LOCALE)} stake was refunded — the trade couldn't be settled.`,
         link: "/binary",
       },
     });

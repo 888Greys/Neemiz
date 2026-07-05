@@ -1,0 +1,2 @@
+# Panic scripts must stay LF so they run straight from a Linux checkout.
+*.sh text eol=lf

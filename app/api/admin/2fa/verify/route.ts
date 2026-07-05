@@ -1,11 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyTotp, createAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
+import { isOwnerEmail } from "@/lib/admin-allowlist";
+import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  // Throttle TOTP guesses hard: a 6-digit code is only ~10^6 wide and the
+  // verify window accepts ±1 step, so unbounded attempts are brute-forceable.
+  const rl = rateLimit(`a2fa-verify:${clientIp(req)}`, 10, 5 * 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Defense-in-depth: admin access requires an allowlisted owner email, not
+  // just is_admin (which lives in the DB an attacker can write). See
+  // lib/admin-allowlist.ts.
+  if (!isOwnerEmail(user.email)) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const dbUser = await db.user.findUnique({
     where: { supabaseId: user.id },

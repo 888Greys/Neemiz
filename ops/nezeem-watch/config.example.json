@@ -1,0 +1,23 @@
+{
+  "telegram_token": "PUT_YOUR_BOT_TOKEN_HERE",
+  "telegram_chat_id": "PUT_YOUR_CHAT_ID_HERE",
+
+  "hot_drain_pct": 0.9,
+  "hot_min_meaningful": 0.0,
+
+  "auto_halt": true,
+  "signer_halt_file": "/var/lib/docker/volumes/neemiz-signer-data/_data/HALT",
+
+  "rpcs": {
+    "polygon": "https://polygon-bor-rpc.publicnode.com",
+    "bsc": "https://bsc-rpc.publicnode.com",
+    "ethereum": "https://ethereum-rpc.publicnode.com"
+  },
+
+  "watch": [
+    { "key": "hot-polygon",  "role": "hot", "chain": "polygon",  "address": "0xYOUR_CURRENT_HOT_WALLET", "label": "Hot wallet (new)" },
+    { "key": "hot-bsc",      "role": "hot", "chain": "bsc",      "address": "0xYOUR_CURRENT_HOT_WALLET", "label": "Hot wallet (new)" },
+    { "key": "hot-ethereum", "role": "hot", "chain": "ethereum", "address": "0xYOUR_CURRENT_HOT_WALLET", "label": "Hot wallet (new)" },
+    { "key": "hot-tron",     "role": "hot", "chain": "tron",     "address": "TYOUR_CURRENT_HOT_WALLET",  "label": "Hot wallet (new)" }
+  ]
+}

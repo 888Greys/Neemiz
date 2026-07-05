@@ -44,6 +44,26 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
     if (username && username.length < 4) { setError("Username must be at least 4 characters"); return; }
 
+    if (!phone) { setError("Phone number is required"); return; }
+    const rawPhone = phone.trim().replace(/\s+/g, "").replace("+", "");
+    let normalized = rawPhone;
+    if (country.code === "+254") {
+      if (normalized.startsWith("0")) {
+        normalized = "254" + normalized.slice(1);
+      } else if (!normalized.startsWith("254") && normalized.length === 9) {
+        normalized = "254" + normalized;
+      }
+      if (!/^254[17]\d{8}$/.test(normalized)) {
+        setError("Please enter a valid Safaricom number (e.g. 07XX or 01XX).");
+        return;
+      }
+    } else {
+      const cleanCode = country.code.replace("+", "");
+      if (!normalized.startsWith(cleanCode)) {
+        normalized = cleanCode + normalized;
+      }
+    }
+
     setLoading(true);
     setError("");
 
@@ -58,6 +78,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
             data: {
               username: username || null,
               first_name: null,
+              phone_number: normalized,
             },
             // OTP-style confirmation (set "Email OTP" in Supabase Auth settings)
           },
@@ -74,7 +95,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       } else {
         // Phone tab: register with phone number as email alias + password
         // Full phone auth (SMS OTP) requires Supabase SMS provider (Twilio/Vonage)
-        const phoneEmail = `${country.code}${phone}`.replace("+", "") + "@phone.nezeem.com";
+        const phoneEmail = normalized + "@phone.nezeem.com";
 
         const { error: authError } = await supabase.auth.signUp({
           email: phoneEmail,
@@ -82,7 +103,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
           options: {
             data: {
               username: username || null,
-              phone_number: `${country.code}${phone}`,
+              phone_number: normalized,
             },
           },
         });
@@ -313,19 +334,33 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-3">
-                {/* Email or Phone */}
+                {/* Email and Phone for Email tab, just Phone for Phone tab */}
                 {tab === "email" ? (
-                  <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
-                    <Icon name="mail" fill className="text-[18px] shrink-0 text-slate-500" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="your@email.com"
-                      required
-                      className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder-slate-600 outline-none"
-                    />
-                  </div>
+                  <>
+                    <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+                      <Icon name="mail" fill className="text-[18px] shrink-0 text-slate-500" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="your@email.com"
+                        required
+                        className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder-slate-600 outline-none"
+                      />
+                    </div>
+
+                    <div className="flex rounded-2xl bg-[#18191f] ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+                      <CountryPicker value={country} onChange={setCountry} />
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="700 000000 (M-Pesa number)"
+                        required
+                        className="flex-1 bg-transparent px-4 py-3.5 text-sm text-white placeholder-slate-600 outline-none"
+                      />
+                    </div>
+                  </>
                 ) : (
                   <div className="flex rounded-2xl bg-[#18191f] ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
                     <CountryPicker value={country} onChange={setCountry} />

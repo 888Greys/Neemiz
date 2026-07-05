@@ -12,6 +12,10 @@ RUN npm ci
 FROM base AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+# Build version (git sha) — baked into the CLIENT bundle so a loaded page knows
+# which build it came from and can detect when a newer one is deployed.
+ARG GIT_SHA=dev
+ENV NEXT_PUBLIC_BUILD_VERSION=${GIT_SHA}
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 # SENTRY_AUTH_TOKEN is passed as a BuildKit secret (never baked into the image)
@@ -28,6 +32,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 ENV WEB_CONCURRENCY=2
+# Same git sha at runtime so /api/version can report the server's build, which
+# clients compare against their baked NEXT_PUBLIC_BUILD_VERSION.
+ARG GIT_SHA=dev
+ENV BUILD_VERSION=${GIT_SHA}
 
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs

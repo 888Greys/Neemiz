@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
+import { useCurrency } from "@/lib/currency-context";
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
 type ContractSide = "Even" | "Odd" | "Matches" | "Differs" | "Over" | "Under";
@@ -55,13 +56,47 @@ export function DigitPanel({
   placing: boolean;
   openPositions: { id: string; side: ContractSide; settlesAt: number }[];
 }) {
+  // Stake is canonical KES; show/enter it in the active display currency.
+  const { convert, toKes, currency: cc } = useCurrency();
+  const stakeDisplay = Number(convert(stake).toFixed(cc.decimals));
+  const setStakeDisplay = (shown: number) => setStake(Math.max(minStake, Math.round(toKes(shown))));
   // Even/Odd is decided purely by the exit digit's parity — no barrier digit.
   const needsTarget = family !== "evenOdd";
   const targetVerb = family === "matchDiffer" ? "Target digit" : "Barrier digit";
   const compactStakeDuration = family === "overUnder";
 
+  // Mobile uses Deriv's single-CTA model: a side toggle + one Buy button. We
+  // track which side is armed locally; if the family (and thus `sides`) changes
+  // we fall back to the first side so the toggle never points at a stale value.
+  const [armedSide, setArmedSide] = useState<ContractSide>(sides[0]);
+  const selectedSide = sides.includes(armedSide) ? armedSide : sides[0];
+
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* ── Mobile: Deriv-style single-CTA surface (hidden on sm+, where the
+          desktop dual-button layout below takes over) ── */}
+      <MobileDerivDigits
+        currency={currency}
+        sides={sides}
+        selectedSide={selectedSide}
+        onArmSide={setArmedSide}
+        stake={stake} setStake={setStake}
+        duration={duration} setDuration={setDuration}
+        targetDigit={targetDigit} setTargetDigit={setTargetDigit}
+        lastDigit={lastDigit}
+        stakePresets={stakePresets}
+        minStake={minStake}
+        needsTarget={needsTarget}
+        targetVerb={targetVerb}
+        payoutFor={payoutFor}
+        format={format}
+        onTrade={onTrade}
+        placing={placing}
+        openPositions={openPositions}
+      />
+
+      {/* ── Desktop (sm+): existing dual-button layout, untouched ── */}
+      <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
       <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2">
         <div className={compactStakeDuration ? "grid grid-cols-2 gap-1.5 sm:block sm:space-y-1.5" : "flex flex-col gap-1.5"}>
           {/* Duration */}
@@ -92,16 +127,16 @@ export function DigitPanel({
             <div className={`${compactStakeDuration ? "mb-1 text-[10px]" : "mb-1.5 text-[11px]"} text-center font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]`}>Stake</div>
             <div className="flex gap-1.5">
               <div className={`flex-1 ${FIELD}`}>
-                <button type="button" onClick={() => setStake(Math.max(minStake, stake - 1))}
+                <button type="button" onClick={() => setStakeDisplay(stakeDisplay - 1)}
                   className="grid h-6 w-6 shrink-0 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                   <Icon name="remove" className="text-[13px] sm:text-[18px]" />
                 </button>
                 <input
-                  type="number" value={stake}
-                  onChange={(e) => setStake(Math.max(minStake, Number(e.target.value) || 0))}
+                  type="number" value={stakeDisplay}
+                  onChange={(e) => setStakeDisplay(Number(e.target.value) || 0)}
                   className="w-full min-w-0 bg-transparent text-center text-[13px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
-                <button type="button" onClick={() => setStake(stake + 1)}
+                <button type="button" onClick={() => setStakeDisplay(stakeDisplay + 1)}
                   className="grid h-6 w-6 shrink-0 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                   <Icon name="add" className="text-[13px] sm:text-[18px]" />
                 </button>
@@ -115,7 +150,7 @@ export function DigitPanel({
                     className={`rounded-md py-0.5 text-[10px] font-black transition sm:py-1.5 sm:text-[11px] ${
                       stake === amount ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
                     }`}>
-                    {amount}
+                    {convert(amount).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals })}
                   </button>
                 ))}
               </div>
@@ -187,6 +222,342 @@ export function DigitPanel({
             </button>
           );
         })}
+      </div>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style mobile trade surface: a side toggle (Even | Odd) over big,
+// thumb-friendly Duration / Stake steppers, and one full-width Buy button with
+// the live payout on it — mirroring Deriv's mobile app. Shown only below sm;
+// the desktop dual-button layout lives in DigitPanel's main return.
+function MobileDerivDigits({
+  currency, sides, selectedSide, onArmSide,
+  stake, setStake, duration, setDuration,
+  targetDigit, setTargetDigit, lastDigit,
+  stakePresets, minStake, needsTarget, targetVerb,
+  payoutFor, format, onTrade, placing, openPositions,
+}: {
+  currency: string;
+  sides: ContractSide[];
+  selectedSide: ContractSide;
+  onArmSide: (s: ContractSide) => void;
+  stake: number; setStake: (v: number) => void;
+  duration: number; setDuration: (v: number) => void;
+  targetDigit: number; setTargetDigit: (v: number) => void;
+  lastDigit: number;
+  stakePresets: number[];
+  minStake: number;
+  needsTarget: boolean;
+  targetVerb: string;
+  payoutFor: (side: ContractSide) => number;
+  format: (v: number) => string;
+  onTrade: (side: ContractSide) => void;
+  placing: boolean;
+  openPositions: { id: string; side: ContractSide; settlesAt: number }[];
+}) {
+  const armedRed = RED_SIDES.has(selectedSide);
+  const { convert, currency: cc } = useCurrency();
+  const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
+  // Which value the bottom-sheet picker is editing (Deriv-style); null = closed.
+  const [picker, setPicker] = useState<null | "duration" | "stake">(null);
+  // The barrier/target digit grid is collapsed by default to keep the chart big;
+  // the header shows the current pick and a chevron to expand it.
+  const [gridOpen, setGridOpen] = useState(false);
+  // Even/Odd has no target grid, so its grab handle instead expands the
+  // Duration/Stake cards from a 2-up row to a full-width stack (Deriv-style).
+  const [expanded, setExpanded] = useState(false);
+  const handleOpen = needsTarget ? gridOpen : expanded;
+
+  const fieldCard =
+    "flex flex-col items-start rounded-xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]";
+
+  return (
+    <div className="flex h-full min-h-0 flex-col sm:hidden">
+      {/* Spacer pushes the control cluster to the bottom, over the chart bg (Deriv) */}
+      <div className="min-h-0 flex-1" />
+
+      {/* Centered grab handle (Deriv-style) — for target types it toggles the
+          digit grid; for Even/Odd it expands the Duration/Stake cards. */}
+      <button
+        type="button"
+        onClick={() => (needsTarget ? setGridOpen((v) => !v) : setExpanded((v) => !v))}
+        aria-label={handleOpen ? "Collapse" : "Expand"}
+        className="flex w-full shrink-0 justify-center py-1.5 text-slate-400 active:text-white"
+      >
+        <Icon name={handleOpen ? "expand_more" : "expand_less"} className="text-[22px]" />
+      </button>
+
+      <div className="space-y-2.5 px-3 pb-1">
+        {/* Side toggle — text only (no icon), slim pills (Deriv-style) */}
+        <div className="grid grid-cols-2 gap-1 rounded-full bg-[#0f1319] p-1 ring-1 ring-white/[0.06]">
+          {sides.map((side) => {
+            const active = side === selectedSide;
+            const red = RED_SIDES.has(side);
+            return (
+              <button
+                key={side}
+                type="button"
+                onClick={() => onArmSide(side)}
+                className={`flex items-center justify-center rounded-full py-2 text-[13px] font-black transition active:scale-[0.98] ${
+                  active
+                    ? red
+                      ? "bg-[#e2474b] text-white"
+                      : "bg-[#16a085] text-white"
+                    : "text-slate-400"
+                }`}
+              >
+                {actionLabel(side)}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Expanded barrier/target grid — full-width above the fields (Deriv).
+            Collapsed by default; tap the compact field below to expand. */}
+        {needsTarget && gridOpen && (
+          <div className="rounded-2xl bg-[#181b22] p-3">
+            <div className="flex items-center justify-between px-0.5">
+              <span className="text-[12px] font-bold text-slate-200">{targetVerb}</span>
+              <span className="font-mono text-[14px] font-black text-white">{targetDigit}</span>
+            </div>
+            <div className="mt-2.5 grid grid-cols-5 gap-2">
+              {DIGITS.map((d) => {
+                const active = targetDigit === d;
+                const isLast = lastDigit === d;
+                return (
+                  <button key={d} type="button" onClick={() => setTargetDigit(d)}
+                    className={`relative rounded-2xl py-2.5 font-mono text-[16px] font-black transition active:scale-95 ${
+                      active ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
+                             : "bg-[#0f1319] text-slate-400"
+                    }`}>
+                    {d}
+                    {isLast && <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-400" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Fields row (Deriv): when a barrier digit applies and the grid is
+            collapsed, it sits inline as a 3rd card; otherwise just Duration|Stake. */}
+        <div className={`grid gap-2.5 ${
+          needsTarget ? (gridOpen ? "grid-cols-2" : "grid-cols-3") : (expanded ? "grid-cols-1" : "grid-cols-2")
+        }`}>
+          {needsTarget && !gridOpen && (
+            <button type="button" onClick={() => setGridOpen(true)} className={fieldCard}>
+              <span className="truncate text-[11px] font-bold text-slate-400">{targetVerb}</span>
+              <span className="mt-0.5 text-[16px] font-black text-white">{targetDigit}</span>
+            </button>
+          )}
+          <button type="button" onClick={() => setPicker("duration")} className={fieldCard}>
+            <span className="text-[11px] font-bold text-slate-400">Duration</span>
+            <span className="mt-0.5 text-[16px] font-black text-white">{duration} ticks</span>
+          </button>
+          <button type="button" onClick={() => setPicker("stake")} className={fieldCard}>
+            <span className="text-[11px] font-bold text-slate-400">Stake</span>
+            <span className="mt-0.5 text-[16px] font-black text-white">{stakeShown} {currency}</span>
+          </button>
+        </div>
+      </div>
+
+      {picker === "duration" && (
+        <ValuePickerSheet
+          title="Duration" unit="ticks" value={duration}
+          presets={[3, 5, 7, 10, 15, 30]} min={3} max={30} integer
+          onChange={setDuration} onClose={() => setPicker(null)}
+        />
+      )}
+      {picker === "stake" && (
+        <ValuePickerSheet
+          money
+          title="Stake" unit={currency} value={stake}
+          presets={stakePresets} min={minStake} max={1_000_000}
+          onChange={setStake} onClose={() => setPicker(null)}
+        />
+      )}
+
+      {openPositions.length > 0 && <ActivePositions positions={openPositions} format={format} />}
+
+      {/* One slim, pill-shaped Buy button (Deriv-style), flush above the nav */}
+      <div className="px-3 pb-2 pt-1">
+        <button
+          type="button"
+          onClick={() => onTrade(selectedSide)}
+          disabled={placing}
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${
+            armedRed ? "bg-[#e2474b] active:bg-[#ec5a5e]" : "bg-[#16a085] active:bg-[#1bb198]"
+          }`}
+        >
+          <span className="text-[15px] leading-tight">{placing ? <LoadingDots /> : `Buy ${actionLabel(selectedSide)}`}</span>
+          <span className="font-mono text-[11px] leading-tight text-white/85">Payout {format(payoutFor(selectedSide))}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style bottom-sheet value picker for Duration / Stake. Two modes: quick
+// preset chips (lightning) or a number keypad (keyboard) for a custom value.
+// Exported so other panels (Accumulators) reuse the same picker.
+export function ValuePickerSheet({
+  title, unit, value, presets, min, max, integer, onChange, onClose, footer, money,
+}: {
+  title: string;
+  unit: string;
+  value: number;
+  presets: number[];
+  min: number;
+  max: number;
+  integer?: boolean;
+  onChange: (v: number) => void;
+  onClose: () => void;
+  footer?: React.ReactNode;
+  // When true, `value`/`presets`/`min`/`max`/`onChange` are all canonical KES,
+  // but the sheet DISPLAYS them in the active currency and converts the user's
+  // typed/picked amount back to KES before calling onChange.
+  money?: boolean;
+}) {
+  const { convert, toKes, currency } = useCurrency();
+  const [mode, setMode] = useState<"presets" | "keypad">("presets");
+  // Draft holds the displayed (possibly converted) value the user is editing.
+  const disp = (kes: number) => (money ? Number(convert(kes).toFixed(currency.decimals)) : kes);
+  const [draft, setDraft] = useState(String(disp(value)));
+
+  const clamp = (v: number) => {
+    const c = Math.min(max, Math.max(min, v || min));
+    return integer ? Math.round(c) : c;
+  };
+  // Preset values stay KES; keypad drafts are in display units → back to KES.
+  const commit = (vKes: number) => { onChange(clamp(vKes)); onClose(); };
+  const commitDraft = (shown: number) => commit(money ? Math.round(toKes(shown)) : shown);
+  const fmtPreset = (kes: number) => (money ? convert(kes).toLocaleString(currency.locale, { maximumFractionDigits: currency.decimals }) : String(kes));
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5">
+          <span className="h-1 w-9 rounded-full bg-white/20" />
+        </div>
+        <div className="px-4 pb-1 pt-2 text-center text-[13px] font-black text-white">{title}</div>
+
+        {/* Mode toggle: presets (lightning) vs keypad (keyboard) */}
+        <div className="grid grid-cols-2 gap-2 px-4 pb-3 pt-1">
+          {([["presets", "bolt"], ["keypad", "keyboard"]] as const).map(([m, icon]) => (
+            <button key={m} type="button" onClick={() => setMode(m)}
+              className={`grid place-items-center rounded-xl py-2.5 transition ${mode === m ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400"}`}>
+              <Icon name={icon} className="text-[18px]" />
+            </button>
+          ))}
+        </div>
+
+        {mode === "presets" ? (
+          <div className="grid grid-cols-3 gap-2 px-4 pb-4">
+            {presets.map((p) => {
+              const active = p === value;
+              return (
+                <button key={p} type="button" onClick={() => commit(p)}
+                  className={`rounded-xl py-3.5 text-[14px] font-black transition active:scale-95 ${
+                    active ? "bg-white text-[#16181d]" : "bg-[#0f1319] text-slate-200"
+                  }`}>
+                  {fmtPreset(p)} {unit}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="px-4 pb-4">
+            <div className="flex items-center rounded-xl bg-[#0f1319] px-3 ring-1 ring-white/[0.06]">
+              <input
+                autoFocus
+                type="number"
+                inputMode={integer ? "numeric" : "decimal"}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                className="w-full bg-transparent py-3.5 text-center text-[18px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+              <span className="pl-2 text-[13px] font-black text-slate-500">{unit}</span>
+            </div>
+            <button type="button" onClick={() => commitDraft(Number(draft))}
+              className="mt-3 w-full rounded-full bg-[#16a085] py-3 text-[15px] font-black text-white transition active:scale-[0.98]">
+              Confirm
+            </button>
+          </div>
+        )}
+
+        {footer && <div className="border-t border-white/[0.06] px-4 pb-1 pt-3">{footer}</div>}
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style duration picker for the options contracts: Ticks and/or Seconds
+// tabs. Duration is canonical in ticks; seconds map to ticks via the market's
+// tick speed and stay within the server's 1–30 tick cap. `allowTicks={false}`
+// hides the Ticks tab (Call/Put, which Deriv offers in time units only).
+export function DurationPickerSheet({
+  ticks, secPerTick, unit, allowTicks = true, onChange, onClose,
+}: {
+  ticks: number;
+  secPerTick: number;
+  unit: "ticks" | "seconds";
+  allowTicks?: boolean;
+  onChange: (ticks: number, unit: "ticks" | "seconds") => void;
+  onClose: () => void;
+}) {
+  const [tab, setTab] = useState<"ticks" | "seconds">(allowTicks ? unit : "seconds");
+  const TICK_PRESETS = [1, 3, 5, 7, 10, 15];
+  // Seconds presets that resolve to a valid 1–30 tick duration for this market.
+  const secToTicks = (s: number) => Math.min(30, Math.max(1, Math.round(s / secPerTick)));
+  const SEC_PRESETS = [5, 10, 15, 20, 30, 60, 120].filter((s) => Math.round(s / secPerTick) <= 30);
+  const curSeconds = ticks * secPerTick;
+
+  const tabs: ["ticks" | "seconds", string][] = allowTicks
+    ? [["ticks", "Ticks"], ["seconds", "Seconds"]]
+    : [["seconds", "Seconds"]];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+
+        {/* Unit tabs (Deriv-style) */}
+        <div className="flex items-center gap-5 px-4 pt-2 text-[14px] font-black">
+          {tabs.map(([t, label]) => (
+            <button key={t} type="button" onClick={() => setTab(t)}
+              className={`-mb-px border-b-2 pb-2 pt-1 transition ${tab === t ? "border-[#e2474b] text-white" : "border-transparent text-slate-500"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="border-b border-white/[0.06]" />
+
+        {tab === "ticks" ? (
+          <div className="grid grid-cols-3 gap-2 px-4 pb-4 pt-3">
+            {TICK_PRESETS.map((p) => (
+              <button key={p} type="button" onClick={() => { onChange(p, "ticks"); onClose(); }}
+                className={`rounded-xl py-3.5 text-[14px] font-black transition active:scale-95 ${p === ticks ? "bg-white text-[#16181d]" : "bg-[#0f1319] text-slate-200"}`}>
+                {p} {p === 1 ? "tick" : "ticks"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2 px-4 pb-4 pt-3">
+            {SEC_PRESETS.map((s) => {
+              const active = unit === "seconds" && s === curSeconds;
+              return (
+                <button key={s} type="button" onClick={() => { onChange(secToTicks(s), "seconds"); onClose(); }}
+                  className={`rounded-xl py-3.5 text-[14px] font-black transition active:scale-95 ${active ? "bg-white text-[#16181d]" : "bg-[#0f1319] text-slate-200"}`}>
+                  {s} sec
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

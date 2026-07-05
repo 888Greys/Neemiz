@@ -1,9 +1,12 @@
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
 import { dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
 
 const recipientSelect = {
   id: true,
@@ -51,7 +54,14 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const rl = rateLimit(`wallet-transfer:${user.id}`, 10, 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
+
   const sender = await getOrCreateUser(user.id, { email: user.email, phone: user.phone });
+
+  const killed = await transfersDisabledResponse();
+  if (killed && !sender.isAdmin) return killed;
+
   let body: { recipientId?: string; amount?: number };
   try { body = await req.json(); } catch {
     return Response.json({ error: "Invalid request body" }, { status: 400 });
@@ -60,6 +70,15 @@ export async function POST(req: Request) {
   const amount = Number(body.amount);
   if (!body.recipientId || !Number.isFinite(amount) || amount <= 0) {
     return Response.json({ error: "Select a recipient and enter a valid amount" }, { status: 400 });
+  }
+
+  // Per-transfer cap: a user may send at most KSh 50 to another account in one
+  // transfer. This throttles the "seed an account then cash it out" fan-out
+  // pattern where balance is moved in bulk to accomplices who withdraw it.
+  // Admins are exempt (owner treasury operations).
+  const MAX_TRANSFER_KES = 50;
+  if (!sender.isAdmin && amount > MAX_TRANSFER_KES) {
+    return Response.json({ error: `You can send at most ${CURRENCY_SYMBOL} ${MAX_TRANSFER_KES} per transfer.` }, { status: 400 });
   }
 
   const recipient = await db.user.findFirst({
@@ -72,22 +91,27 @@ export async function POST(req: Request) {
   const reference = `wallet-transfer-${crypto.randomUUID()}`;
   try {
     const result = await db.$transaction(async (tx) => {
-      // Enforce the shared daily cash-out cap: outgoing transfers count against
-      // the same limit as M-Pesa withdrawals (see dailyCapWhere), so cash can't
-      // leave the platform faster than the cap by hopping through a transfer.
-      // Checked inside the transaction so concurrent sends can't both slip under.
-      const limit = dailyLimitKes();
-      const todaySum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });
-      const usedToday = Number(todaySum._sum?.amount ?? 0);
-      if (usedToday + amount > limit) {
-        throw new Error(`DAILY_LIMIT:${Math.max(0, limit - usedToday)}`);
-      }
-
+      // Race-safe debit FIRST: the conditional updateMany takes a row lock on
+      // the sender, serializing concurrent cash-outs so the cap aggregate below
+      // can't be raced (two sends both reading a stale "usedToday").
       const debited = await tx.user.updateMany({
         where: { id: sender.id, walletBalance: { gte: amount } },
         data: { walletBalance: { decrement: amount } },
       });
       if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+
+      // Shared rolling-24h cash-out cap: outgoing transfers count against the
+      // same limit as M-Pesa withdrawals (see dailyCapWhere), so cash can't leave
+      // the platform faster than the cap by hopping through a transfer. Evaluated
+      // after the debit (under the row lock); over-cap throws and rolls back.
+      if (!sender.isAdmin) {
+        const limit = dailyLimitKes();
+        const priorSum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });
+        const usedWindow = Number(priorSum._sum?.amount ?? 0);
+        if (usedWindow + amount > limit) {
+          throw new Error(`DAILY_LIMIT:${Math.max(0, limit - usedWindow)}`);
+        }
+      }
 
       await tx.user.update({ where: { id: recipient.id }, data: { walletBalance: { increment: amount } } });
       await tx.transaction.createMany({
@@ -110,14 +134,14 @@ export async function POST(req: Request) {
             userId: sender.id,
             type: "wallet_transfer_sent",
             title: "Money sent",
-            body: `You sent KSh ${amount.toLocaleString("en-KE")} to @${recipient.username}.`,
+            body: `You sent ${CURRENCY_SYMBOL} ${amount.toLocaleString(MONEY_LOCALE)} to @${recipient.username}.`,
             link: "/wallet",
           },
           {
             userId: recipient.id,
             type: "wallet_transfer_received",
             title: "Money received",
-            body: `@${sender.username} sent you KSh ${amount.toLocaleString("en-KE")}.`,
+            body: `@${sender.username} sent you ${CURRENCY_SYMBOL} ${amount.toLocaleString(MONEY_LOCALE)}.`,
             link: "/wallet",
           },
         ],
@@ -135,7 +159,7 @@ export async function POST(req: Request) {
       const remaining = Number(error.message.split(":")[1] ?? 0);
       return Response.json({
         error: remaining > 0
-          ? `Daily limit: you can send or withdraw KSh ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
+          ? `Daily limit: you can send or withdraw ${CURRENCY_SYMBOL} ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
           : "You've reached today's cash-out limit (sends + withdrawals). It resets at 2:00 AM.",
       }, { status: 400 });
     }

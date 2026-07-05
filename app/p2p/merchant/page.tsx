@@ -8,7 +8,7 @@ export const metadata = {
 
 export default function MerchantPage() {
   return (
-    <AppShell mainBg="bg-[#050505]" rightPanel={<P2PMarketPanel />} hideFooter>
+    <AppShell rightPanel={<P2PMarketPanel />} hideFooter>
       <P2PMerchantClient />
     </AppShell>
   );

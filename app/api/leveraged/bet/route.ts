@@ -1,15 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType, type LeveragedKind } from "@prisma/client";
 import { getServerTickHistory } from "@/lib/binary-price";
 import { applyProfitRetention } from "@/lib/house-retention";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 import {
   isValidMultiplier, multiplierStopOutPrice, clampTurboBarrier, turboPayoutPerPoint,
   LEVERAGED_MAX_MULT, type LeveragedDirection,
 } from "@/lib/leveraged";
 
-const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const MIN_STAKE = 10;
 const MAX_STAKE = 10_000;
 const LOOKBACK_SEC = 120; // pull recent ticks to grab a fresh entry spot
@@ -18,6 +20,9 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  const rl = rateLimit(`leveraged-bet:${user.id}`, 30, 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   let body: {
     market?: string; kind?: string; direction?: string; stake?: number;
@@ -34,7 +39,7 @@ export async function POST(req: Request) {
   if (direction !== "UP" && direction !== "DOWN")
     return Response.json({ error: "Invalid direction" }, { status: 400 });
   if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
-    return Response.json({ error: `Stake must be between KSh ${MIN_STAKE} and KSh ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
+    return Response.json({ error: `Stake must be between ${CURRENCY_SYMBOL} ${MIN_STAKE} and ${CURRENCY_SYMBOL} ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
   if (kind === "MULTIPLIER" && (!Number.isInteger(multiplier) || !isValidMultiplier(multiplier!)))
     return Response.json({ error: "Invalid multiplier" }, { status: 400 });
   if (kind === "TURBO" && !Number.isFinite(barrierOffset))
@@ -76,6 +81,12 @@ export async function POST(req: Request) {
     barrier = Number(multiplierStopOutPrice(entrySpot, multiplier!, dir).toFixed(5)); // stop-out price (display)
   } else {
     barrier = Number(clampTurboBarrier(entrySpot, entrySpot + barrierOffset!, dir).toFixed(5));
+    // Defense in depth (mirrors the directional negative-barrier fix): clampTurboBarrier
+    // already forces the barrier onto the correct side within [0.1%, 5%] of spot, so a
+    // negative/extreme offset can't produce a degenerate barrier. Assert the invariant
+    // anyway — a non-positive barrier must never reach settlement.
+    if (!(barrier > 0))
+      return Response.json({ error: "Invalid barrier" }, { status: 400 });
     payoutPerPoint = Number(turboPayoutPerPoint(stakeVal, entrySpot, barrier).toFixed(8));
   }
 

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import type { PolymarketMarket } from "@/lib/polymarket";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 interface Props {
   market:   PolymarketMarket;
@@ -23,10 +24,10 @@ const USD_KES_RATE = Number(process.env.NEXT_PUBLIC_USD_KES_RATE ?? 129.5);
 export function formatMarketMoneyKes(value: number) {
   const kes = value * USD_KES_RATE;
   if (!Number.isFinite(kes) || kes <= 0) return "KSh 0";
-  if (kes >= 1_000_000_000) return `KSh ${(kes / 1_000_000_000).toFixed(1)}B`;
-  if (kes >= 1_000_000) return `KSh ${(kes / 1_000_000).toFixed(1)}M`;
-  if (kes >= 1_000) return `KSh ${(kes / 1_000).toFixed(0)}K`;
-  return `KSh ${kes.toFixed(0)}`;
+  if (kes >= 1_000_000_000) return `${CURRENCY_SYMBOL} ${(kes / 1_000_000_000).toFixed(1)}B`;
+  if (kes >= 1_000_000) return `${CURRENCY_SYMBOL} ${(kes / 1_000_000).toFixed(1)}M`;
+  if (kes >= 1_000) return `${CURRENCY_SYMBOL} ${(kes / 1_000).toFixed(0)}K`;
+  return `${CURRENCY_SYMBOL} ${kes.toFixed(0)}`;
 }
 
 export function formatEndDate(value: string) {

@@ -6,6 +6,8 @@ import { getCached, cachedFetch } from "@/lib/client-cache";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
+import { MONEY_LOCALE } from "@/lib/currency";
+import { useMoney } from "@/lib/currency-context";
 
 type Selection = {
   matchName: string;
@@ -22,7 +24,7 @@ function formatKickoffEAT(iso: string | null): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (isNaN(d.getTime())) return null;
-  return d.toLocaleString("en-KE", {
+  return d.toLocaleString(MONEY_LOCALE, {
     timeZone: "Africa/Nairobi",
     weekday: "short", day: "numeric", month: "short",
     hour: "numeric", minute: "2-digit", hour12: true,
@@ -51,12 +53,9 @@ function statusColors(s: string) {
   return { badge: "bg-emerald-500/15 text-emerald-400", text: "text-emerald-400" };
 }
 
-function fmt(n: number) {
-  return `KSh ${n.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
 function BetCard({ bet }: { bet: Bet }) {
   const [open, setOpen] = useState(false);
+  const { format: fmt } = useMoney();
   const c = statusColors(bet.status);
 
   return (
@@ -157,6 +156,7 @@ export function MyBetsClient() {
   const { isSignedIn } = useSupabaseAuth();
   const { openLogin } = useAuthModal();
   const router = useRouter();
+  const { format: fmt } = useMoney();
   const [filter, setFilter] = useState<Filter>("ALL");
 
   const BETS_KEY = "/api/bets/mine?limit=50";
@@ -236,7 +236,7 @@ export function MyBetsClient() {
           { label: "Running", value: stats.pending, color: "text-emerald-400" },
           { label: "Won", value: stats.won, color: "text-emerald-400" },
           { label: "Lost", value: stats.lost, color: "text-red-400" },
-          { label: "Total staked", value: `KSh ${stats.totalStaked.toLocaleString()}`, color: "text-white", small: true },
+          { label: "Total staked", value: fmt(stats.totalStaked), color: "text-white", small: true },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl bg-white/[0.04] px-4 py-3 ring-1 ring-white/[0.06]">
             <p className="text-[11px] font-bold text-slate-500">{s.label}</p>

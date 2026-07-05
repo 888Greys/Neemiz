@@ -1,3 +1,4 @@
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 // Transactional email via Resend.
 const RESEND_API_KEY = process.env.RESEND_API_KEY!;
 const SENDER_EMAIL = process.env.MAIL_SENDER_EMAIL ?? process.env.BREVO_SENDER_EMAIL ?? "noreply@nezeem.com";
@@ -24,26 +25,159 @@ async function sendEmail(to: string, toName: string, subject: string, htmlConten
 }
 
 /**
- * Alert the owner that a customer M-Pesa withdrawal could not be paid out
- * (likely insufficient float) and has been queued for auto-processing.
+ * Alert the owner that a single M-Pesa destination number is receiving an
+ * unusual number of withdrawals (possible mule/collector). The latest
+ * withdrawal has been auto-held for approval.
  */
-export async function sendLowFloatAlertEmail(amountKes: number, msisdn?: string) {
-  const subject = "⚠️ Nezeem: M-Pesa float low — customer withdrawal queued";
+export async function sendSuspiciousNumberAlertEmail(info: { msisdn: string; count: number; amountKes: number; held: boolean; autoKilled?: boolean; distinctUsers?: number }) {
+  const subject = info.autoKilled
+    ? `🚨 Nezeem: withdrawals AUTO-DISABLED — +${info.msisdn}`
+    : `🚨 Nezeem: ${info.count} withdrawals to one number (+${info.msisdn})`;
+  const usersNote = info.distinctUsers ? ` across <strong>${info.distinctUsers}</strong> accounts` : "";
   const html = `
     <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
-      <h2 style="margin:0 0 8px">Top up your M-Pesa float</h2>
+      <h2 style="margin:0 0 8px">${info.autoKilled ? "Withdrawals automatically frozen" : "Possible withdrawal mule pattern"}</h2>
       <p style="margin:0 0 16px;color:#475569;line-height:1.6">
-        A customer withdrawal of <strong>KSh ${amountKes.toLocaleString()}</strong>${msisdn ? ` to <strong>+${msisdn}</strong>` : ""}
-        could not be paid out — the payout provider reported insufficient float.
+        The M-Pesa number <strong>+${info.msisdn}</strong> has received <strong>${info.count}</strong> withdrawals
+        in the last 24 hours${usersNote}. The latest is
+        <strong>${CURRENCY_SYMBOL} ${info.amountKes.toLocaleString()}</strong>.
       </p>
       <p style="margin:0 0 16px;color:#475569;line-height:1.6">
-        The customer's balance is still held and the withdrawal is <strong>queued</strong>. As soon as you top up the
-        float, it will be sent automatically — no action needed beyond funding.
+        ${info.autoKilled
+          ? "This crossed the auto-kill threshold, so <strong>ALL withdrawals have been automatically disabled</strong>. Review the activity and re-enable from the kill switch once it's safe."
+          : (info.held
+            ? "This withdrawal has been <strong>held for your approval</strong> — it will not pay out until you approve it."
+            : "This withdrawal was allowed to proceed.")}
+        ${info.autoKilled ? "" : "Review the recent activity and, if it looks like account draining, hit the withdrawal kill switch."}
       </p>
-      <a href="${APP_URL}/admin/withdrawals" style="display:inline-block;background:#087cff;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Open admin console</a>
+      <a href="${APP_URL}/admin/withdrawals" style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Review withdrawals</a>
       <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated alert from Nezeem. You receive this because you're an owner/admin.</p>
     </div>`;
   await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
+}
+
+/**
+ * Alert the owner that the daily ledger reconciliation found accounts holding
+ * balance with no transaction trail — the signature of money injected straight
+ * into wallet_balance (DB compromise / re-breach).
+ */
+export async function sendReconMismatchEmail(
+  findings: Array<{ username: string | null; balance: number; unexplained: number }>,
+  total: number,
+) {
+  const subject = `🚨 Nezeem: unexplained balances detected (${findings.length} account${findings.length === 1 ? "" : "s"})`;
+  const rows = findings.slice(0, 25).map((f) => `
+    <tr>
+      <td style="padding:6px 10px;border-bottom:1px solid #eef2f7">@${f.username ?? "?"}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eef2f7;text-align:right">${CURRENCY_SYMBOL} ${f.balance.toLocaleString()}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #eef2f7;text-align:right;color:#dc2626;font-weight:700">+${CURRENCY_SYMBOL} ${f.unexplained.toLocaleString()}</td>
+    </tr>`).join("");
+  const html = `
+    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#0f172a">
+      <h2 style="margin:0 0 8px">Unexplained balances — possible re-breach</h2>
+      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
+        The daily reconciliation found <strong>${findings.length}</strong> active account(s) holding
+        <strong>${CURRENCY_SYMBOL} ${total.toLocaleString()}</strong> of balance that the transactions
+        ledger cannot account for. Balance that appears with no ledger row is the signature of a direct
+        write to <code>wallet_balance</code> — i.e. database-level access. <strong>Treat keys as potentially leaked.</strong>
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;margin:0 0 16px">
+        <thead><tr style="text-align:left;color:#64748b">
+          <th style="padding:6px 10px">Account</th><th style="padding:6px 10px;text-align:right">Balance</th><th style="padding:6px 10px;text-align:right">Unexplained</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <a href="${APP_URL}/admin/withdrawals" style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Open admin console</a>
+      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated daily reconciliation. You receive this because you're an owner/admin.</p>
+    </div>`;
+  await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
+}
+
+/**
+ * Alert the owner that the signup-velocity tripwire detected likely bot account
+ * farming — an abnormal burst of new accounts, tight same-second clusters, or one
+ * device registering many accounts. Detection-only: no accounts are auto-frozen.
+ */
+export async function sendBotSignupAlertEmail(report: {
+  windowMinutes: number;
+  totalSignups: number;
+  burst: boolean;
+  burstThreshold: number;
+  clusters: Array<{ at: string; count: number }>;
+  devices: Array<{ deviceHash: string; users: number }>;
+  emailClusters: Array<{ email: string; count: number }>;
+}) {
+  const reasons: string[] = [];
+  if (report.burst) reasons.push(`${report.totalSignups} signups in ${report.windowMinutes} min (threshold ${report.burstThreshold})`);
+  if (report.clusters.length) reasons.push(`${report.clusters.length} tight time-cluster(s)`);
+  if (report.devices.length) reasons.push(`${report.devices.length} shared-device group(s)`);
+  if (report.emailClusters.length) reasons.push(`${report.emailClusters.length} email-alias group(s)`);
+  const subject = `🤖 Nezeem: possible bot signups — ${reasons.join(", ")}`;
+
+  const clusterRows = report.clusters.slice(0, 15).map((c) => `
+    <tr><td style="padding:6px 10px;border-bottom:1px solid #eef2f7">${c.at}</td>
+    <td style="padding:6px 10px;border-bottom:1px solid #eef2f7;text-align:right;color:#dc2626;font-weight:700">${c.count} accounts</td></tr>`).join("");
+  const deviceRows = report.devices.slice(0, 15).map((d) => `
+    <tr><td style="padding:6px 10px;border-bottom:1px solid #eef2f7;font-family:monospace">${d.deviceHash.slice(0, 12)}…</td>
+    <td style="padding:6px 10px;border-bottom:1px solid #eef2f7;text-align:right;color:#dc2626;font-weight:700">${d.users} accounts</td></tr>`).join("");
+  const emailRows = report.emailClusters.slice(0, 15).map((e) => `
+    <tr><td style="padding:6px 10px;border-bottom:1px solid #eef2f7">${e.email}</td>
+    <td style="padding:6px 10px;border-bottom:1px solid #eef2f7;text-align:right;color:#dc2626;font-weight:700">${e.count} accounts</td></tr>`).join("");
+
+  const html = `
+    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#0f172a">
+      <h2 style="margin:0 0 8px">Possible bot account farming</h2>
+      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
+        The signup-velocity tripwire flagged unusual account creation in the last
+        <strong>${report.windowMinutes} minutes</strong>: ${reasons.join("; ")}.
+        This is the pattern behind mule/bonus-abuse farms. No accounts have been frozen — review and act if needed.
+      </p>
+      ${report.clusters.length ? `<h3 style="margin:16px 0 4px;font-size:14px">Tight signup clusters (same-second batches)</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${clusterRows}</tbody></table>` : ""}
+      ${report.devices.length ? `<h3 style="margin:16px 0 4px;font-size:14px">One device, many accounts</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${deviceRows}</tbody></table>` : ""}
+      ${report.emailClusters.length ? `<h3 style="margin:16px 0 4px;font-size:14px">One inbox, many accounts (+alias / dotted-Gmail)</h3>
+      <table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>${emailRows}</tbody></table>` : ""}
+      <a href="${APP_URL}/admin/players" style="display:inline-block;margin-top:16px;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Review new accounts</a>
+      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated signup-velocity tripwire. You receive this because you're an owner/admin.</p>
+    </div>`;
+  await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
+}
+
+/**
+ * Consolidated owner alert when one or more business-health metrics breach their
+ * thresholds (deposit/payout/settlement). One email lists every firing metric.
+ */
+export async function sendBusinessMetricAlertEmail(
+  alerts: Array<{ title: string; detail: string; link: string; severity: "warn" | "critical" }>,
+) {
+  if (alerts.length === 0) return;
+  const hasCritical = alerts.some((a) => a.severity === "critical");
+  const subject = `${hasCritical ? "🔴" : "🟠"} Nezeem health alert — ${alerts.length} metric${alerts.length > 1 ? "s" : ""} need attention`;
+  const rows = alerts.map((a) => {
+    const accent = a.severity === "critical" ? "#e53e3e" : "#f59e0b";
+    return `
+      <div style="background:#fafbfc;border:1px solid #e8ebef;border-left:4px solid ${accent};border-radius:0 10px 10px 0;padding:14px 18px;margin-bottom:12px;">
+        <p style="margin:0 0 4px;font-size:11px;font-weight:800;color:${accent};text-transform:uppercase;letter-spacing:1px;">${a.severity === "critical" ? "Critical" : "Warning"}</p>
+        <p style="margin:0 0 6px;font-size:15px;font-weight:800;color:#17192a;">${escapeHtml(a.title)}</p>
+        <p style="margin:0;font-size:13px;color:#4a5568;line-height:1.6;">${escapeHtml(a.detail)}</p>
+      </div>`;
+  }).join("");
+
+  await sendEmail(
+    ADMIN_EMAIL,
+    "Nezeem Admin",
+    subject,
+    emailWrapper(`
+      <p style="margin:0 0 4px;font-size:12px;font-weight:700;color:${hasCritical ? "#e53e3e" : "#f59e0b"};text-transform:uppercase;letter-spacing:1px;">Platform Health</p>
+      <h2 style="margin:0 0 16px;font-size:22px;font-weight:800;color:#1a1a2e;">${alerts.length} metric${alerts.length > 1 ? "s" : ""} need attention</h2>
+      <p style="margin:0 0 20px;font-size:14px;color:#4a5568;line-height:1.7;">
+        Automated health check flagged the following on the money-movement spine. Open the admin console to investigate.
+      </p>
+      ${rows}
+      ${ctaButton(`${APP_URL}/admin`, "Open admin console →", hasCritical ? "#e53e3e" : "#087cff")}
+    `, "Automated health alert. You receive this because you're an owner/admin.", subject)
+  );
 }
 
 export async function waitForEmailDelivery(
@@ -182,7 +316,7 @@ export async function sendGameResultEmail(
   const color = won ? "#05c46b" : voided ? "#f5a524" : "#ff4d5e";
   const title = won ? "You won!" : voided ? "Bet refunded" : "Bet settled";
   const subject = won
-    ? `You won KSh ${Number(opts.payout ?? 0).toLocaleString("en-KE")} on Nezeem`
+    ? `You won ${CURRENCY_SYMBOL} ${Number(opts.payout ?? 0).toLocaleString(MONEY_LOCALE)} on Nezeem`
     : voided
       ? `${opts.game} bet refunded`
       : `${opts.game} bet result`;
@@ -202,8 +336,8 @@ export async function sendGameResultEmail(
         <tr><td style="padding:4px 20px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow("Result", `<strong style="color:${color};">${opts.outcome}</strong>`)}
-            ${detailRow("Stake", `KSh ${opts.stake.toLocaleString("en-KE")}`)}
-            ${opts.payout !== undefined ? detailRow(won ? "Credited" : "Returned", `KSh ${opts.payout.toLocaleString("en-KE")}`) : ""}
+            ${detailRow("Stake", `${CURRENCY_SYMBOL} ${opts.stake.toLocaleString(MONEY_LOCALE)}`)}
+            ${opts.payout !== undefined ? detailRow(won ? "Credited" : "Returned", `${CURRENCY_SYMBOL} ${opts.payout.toLocaleString(MONEY_LOCALE)}`) : ""}
             ${detailRow("Reference", opts.reference.slice(0, 18).toUpperCase(), true)}
           </table>
         </td></tr>
@@ -436,7 +570,7 @@ export async function sendTradeCompletedEmail(
         <tr><td style="padding:4px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow(isReceiver ? "You received" : "You released", `<strong style="color:#05b957;">${(isReceiver ? receivedCrypto : cryptoAmount).toFixed(6)} ${crypto}</strong>`)}
-            ${detailRow(isReceiver ? "You paid" : "You received", `${fiat} ${fiatAmount.toLocaleString("en-KE")}`)}
+            ${detailRow(isReceiver ? "You paid" : "You received", `${fiat} ${fiatAmount.toLocaleString(MONEY_LOCALE)}`)}
             ${detailRow("Order ID", orderId.slice(0, 16).toUpperCase(), true)}
           </table>
         </td></tr>
@@ -481,8 +615,8 @@ export async function sendAdCreatedEmail(
         <tr><td style="padding:4px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow(`Total ${crypto}`, `<strong>${totalAmount.toFixed(6)} ${crypto}</strong>`)}
-            ${detailRow(`Price per ${crypto}`, `<strong style="color:#087cff;">${pricePerUnit.toLocaleString("en-KE")} ${fiat}</strong>`)}
-            ${detailRow("Order Limit", `${fiat} ${minLimit.toLocaleString("en-KE")} – ${maxLimit.toLocaleString("en-KE")}`, true)}
+            ${detailRow(`Price per ${crypto}`, `<strong style="color:#087cff;">${pricePerUnit.toLocaleString(MONEY_LOCALE)} ${fiat}</strong>`)}
+            ${detailRow("Order Limit", `${fiat} ${minLimit.toLocaleString(MONEY_LOCALE)} – ${maxLimit.toLocaleString(MONEY_LOCALE)}`, true)}
           </table>
         </td></tr>
       </table>
@@ -529,7 +663,7 @@ export async function sendNewP2POrderEmail(
         <tr><td style="padding:4px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow("Crypto Amount", `<strong>${cryptoAmount.toFixed(6)} ${crypto}</strong>`)}
-            ${detailRow(fiatRowLabel, `<strong style="color:#05b957;">${fiat} ${fiatAmount.toLocaleString("en-KE")}</strong>`)}
+            ${detailRow(fiatRowLabel, `<strong style="color:#05b957;">${fiat} ${fiatAmount.toLocaleString(MONEY_LOCALE)}</strong>`)}
             ${detailRow("Payment Method", method)}
             ${detailRow("Order ID", orderId.slice(0, 16).toUpperCase(), true)}
           </table>
@@ -610,7 +744,7 @@ export async function sendP2POrderStatusEmail(
         <tr><td style="padding:4px 24px;">
           <table width="100%" cellpadding="0" cellspacing="0">
             ${detailRow("Crypto Amount", `<strong>${opts.cryptoAmount.toFixed(6)} ${escapeHtml(opts.crypto)}</strong>`)}
-            ${detailRow("Fiat Amount", `<strong>${escapeHtml(opts.fiat)} ${opts.fiatAmount.toLocaleString("en-KE")}</strong>`)}
+            ${detailRow("Fiat Amount", `<strong>${escapeHtml(opts.fiat)} ${opts.fiatAmount.toLocaleString(MONEY_LOCALE)}</strong>`)}
             ${detailRow("Order ID", opts.orderId.slice(0, 16).toUpperCase(), true)}
           </table>
         </td></tr>

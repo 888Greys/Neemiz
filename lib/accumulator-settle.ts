@@ -13,6 +13,7 @@
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type AccumulatorTrade } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export type FinalizeResult = {
   outcome: "closed" | "busted" | "already";
@@ -90,8 +91,8 @@ export async function finalizeAccumulator(
         type: won ? "ACCUMULATOR_WON" : "ACCUMULATOR_LOST",
         title: won ? "Accumulator closed in profit" : "Accumulator busted",
         body: won
-          ? `KSh ${creditedPayout.toLocaleString("en-KE")} was credited to your wallet (${opts.ticksSurvived} ticks).`
-          : `Your KSh ${stake.toLocaleString("en-KE")} accumulator hit the barrier and busted.`,
+          ? `${CURRENCY_SYMBOL} ${creditedPayout.toLocaleString(MONEY_LOCALE)} was credited to your wallet (${opts.ticksSurvived} ticks).`
+          : `Your ${CURRENCY_SYMBOL} ${stake.toLocaleString(MONEY_LOCALE)} accumulator hit the barrier and busted.`,
         link: "/binary",
       },
     });
@@ -135,7 +136,7 @@ export async function voidAccumulator(trade: AccumulatorTrade, reason: string): 
         userId: trade.userId,
         type: "ACCUMULATOR_VOID",
         title: "Accumulator refunded",
-        body: `Your KSh ${stake.toLocaleString("en-KE")} stake was refunded — the contract couldn't be settled.`,
+        body: `Your ${CURRENCY_SYMBOL} ${stake.toLocaleString(MONEY_LOCALE)} stake was refunded — the contract couldn't be settled.`,
         link: "/binary",
       },
     });

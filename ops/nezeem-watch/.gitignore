@@ -1,0 +1,6 @@
+# Never commit a real watcher config — it holds the Telegram bot token.
+config.json
+# Local state + python bytecode
+state.json
+__pycache__/
+*.pyc

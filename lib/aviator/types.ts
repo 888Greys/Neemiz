@@ -31,6 +31,18 @@ export interface AviatorBetPublic {
   winAmount:   number | null;
   status:      AviatorBetStatus;
   placedAt:    string;
+  imageUrl?:   string | null;   // hydrated from our users table (real avatar)
+}
+
+/**
+ * Mask another player's name for display: keep the first two characters, then
+ * "xxxx" — so the board shows real activity without exposing who is playing.
+ * (Your own row shows "You" instead — handled by the caller.)
+ */
+export function maskName(name: string | null | undefined): string {
+  const n = (name ?? "").trim();
+  if (n.length === 0) return "xxxx";
+  return n.slice(0, 2) + "xxxx";
 }
 
 /** Full game state returned by GET /api/aviator/state */

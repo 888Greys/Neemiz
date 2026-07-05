@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { AviatorBetPublic } from "@/lib/aviator/types";
+import { maskName } from "@/lib/aviator/types";
+import { useCurrency } from "@/lib/currency-context";
 
 interface MyHistoryBet {
   id:          string;
@@ -37,6 +39,7 @@ function MultChip({ v }: { v: number | null }) {
 
 export function AviatorLiveBets({ liveBets, prevBets = [], myHistory, myCurrentBets = [], userId }: Props) {
   const [tab, setTab] = useState<"live" | "prev" | "my" | "top">("live");
+  const { currency } = useCurrency();
 
   // top = highest cashout multiplier from live bets this round
   const topBets = [...liveBets]
@@ -75,7 +78,7 @@ export function AviatorLiveBets({ liveBets, prevBets = [], myHistory, myCurrentB
 
       {/* Column headers */}
       <div className="grid grid-cols-[minmax(0,1fr)_64px_42px_58px] gap-0 border-b border-white/[0.05] px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3">
-        {["User", "Bet (KSh)", "@", "Win (KSh)"].map((h) => (
+        {["User", `Bet (${currency.symbol})`, "@", `Win (${currency.symbol})`].map((h) => (
           <span key={h} className="text-[9px] font-black uppercase tracking-widest text-white/20 last:text-right [&:nth-child(2)]:text-right [&:nth-child(3)]:text-right">
             {h}
           </span>
@@ -139,22 +142,28 @@ function EmptyRow({ text }: { text: string }) {
 function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
   const cashed = bet.status === "CASHEDOUT";
   const lost   = bet.status === "LOST";
+  const { convert, currency } = useCurrency();
   return (
     <div className={`grid grid-cols-[minmax(0,1fr)_64px_42px_58px] items-center gap-0 px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3 ${isMe ? "bg-[#087cff]/5" : ""}`}>
       {/* User */}
       <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white ${avatarColor(bet.username)}`}>
-          {initials(bet.username)}
-        </div>
+        {bet.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bet.imageUrl} alt="" className="h-6 w-6 shrink-0 rounded-full object-cover" />
+        ) : (
+          <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white ${avatarColor(bet.username)}`}>
+            {initials(bet.username)}
+          </div>
+        )}
         <span className={`truncate text-[11px] font-bold ${isMe ? "text-[#087cff]" : "text-white/70"}`}>
-          {bet.username ?? "anon"}
+          {isMe ? "You" : maskName(bet.username)}
           {bet.panelIndex === 1 && <span className="ml-1 text-[8px] text-white/25">②</span>}
         </span>
       </div>
       {/* Bet */}
       <div className="text-right">
         <span className="text-[11px] font-black text-white/80">
-          {bet.betAmount.toLocaleString("en-KE")}
+          {convert(bet.betAmount).toLocaleString(currency.locale)}
         </span>
       </div>
       {/* @ multiplier */}
@@ -165,11 +174,11 @@ function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
       <div className="text-right">
         {cashed && bet.winAmount != null ? (
           <span className="text-[11px] font-black text-[#31c45d]">
-            {bet.winAmount.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+            {convert(bet.winAmount).toLocaleString(currency.locale, { maximumFractionDigits: 0 })}
           </span>
         ) : lost ? (
           <span className="text-[11px] font-black text-red-400/60">
-            -{bet.betAmount.toLocaleString("en-KE")}
+            -{convert(bet.betAmount).toLocaleString(currency.locale)}
           </span>
         ) : (
           <span className="text-white/15 text-[11px]">—</span>
@@ -181,6 +190,7 @@ function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
 
 function HistoryRow({ bet }: { bet: MyHistoryBet }) {
   const won = bet.status === "CASHEDOUT";
+  const { convert, currency } = useCurrency();
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_64px_42px_58px] items-center gap-0 px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3">
       {/* Round */}
@@ -192,7 +202,7 @@ function HistoryRow({ bet }: { bet: MyHistoryBet }) {
       </div>
       {/* Bet */}
       <div className="text-right text-[11px] font-black text-white/70">
-        {bet.betAmount.toLocaleString("en-KE")}
+        {convert(bet.betAmount).toLocaleString(currency.locale)}
       </div>
       {/* @ */}
       <div className="text-right text-[11px]">
@@ -202,11 +212,11 @@ function HistoryRow({ bet }: { bet: MyHistoryBet }) {
       <div className="text-right">
         {won && bet.winAmount != null ? (
           <span className="text-[11px] font-black text-[#31c45d]">
-            +{bet.winAmount.toLocaleString("en-KE", { maximumFractionDigits: 0 })}
+            +{convert(bet.winAmount).toLocaleString(currency.locale, { maximumFractionDigits: 0 })}
           </span>
         ) : (
           <span className="text-[11px] font-black text-red-400/60">
-            -{bet.betAmount.toLocaleString("en-KE")}
+            -{convert(bet.betAmount).toLocaleString(currency.locale)}
           </span>
         )}
       </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PolymarketMarket } from "@/lib/polymarket";
+import { useCurrency } from "@/lib/currency-context";
 
 interface Props {
   market:  PolymarketMarket;
@@ -14,16 +15,17 @@ interface Props {
 
 const QUICK = [50, 100, 250, 500, 1000];
 
-function formatKes(value: number, options?: Intl.NumberFormatOptions) {
-  return `KSh ${value.toLocaleString(undefined, options)}`;
-}
-
 function formatCents(price: number) {
   const cents = price * 100;
   return `${cents < 10 ? cents.toFixed(1) : cents.toFixed(0)}¢`;
 }
 
 export function BetModal({ market, initialOutcome, initialAmount, balance, onClose, onSuccess }: Props) {
+  // Stake is entered/shown in the display currency; server + balance are KES.
+  const { convert, toKes, format, currency } = useCurrency();
+  // Format a value that is ALREADY in display units (typed stake / derived win).
+  const dmoney = (disp: number, opts?: Intl.NumberFormatOptions) =>
+    `${currency.symbol} ${disp.toLocaleString(currency.locale, opts ?? { maximumFractionDigits: currency.decimals })}`;
   const [outcome,  setOutcome]  = useState<string>(initialOutcome && market.outcomes.includes(initialOutcome) ? initialOutcome : market.outcomes[0]);
   const [amount,   setAmount]   = useState(String(initialAmount ?? 100));
   const [loading,  setLoading]  = useState(false);
@@ -31,13 +33,14 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
 
   const outcomeIdx = market.outcomes.findIndex((o) => o === outcome);
   const price      = market.outcomePrices[outcomeIdx] ?? 0.5;
-  const stake      = parseFloat(amount) || 0;
-  const potentialWin = stake > 0 ? parseFloat((stake / price).toFixed(2)) : 0;
+  const stake      = parseFloat(amount) || 0;                 // display units
+  const stakeKes   = Math.round(toKes(stake));                // canonical KES
+  const potentialWin = stake > 0 ? parseFloat((stake / price).toFixed(2)) : 0; // display units
   const profit       = potentialWin - stake;
 
   async function handleBet() {
-    if (stake < 10)     { setError("Minimum bet is KSh 10"); return; }
-    if (stake > balance){ setError("Insufficient balance");  return; }
+    if (stakeKes < 10)     { setError(`Minimum bet is ${format(10)}`); return; }
+    if (stakeKes > balance){ setError("Insufficient balance");  return; }
     setError(null);
     setLoading(true);
     const controller = new AbortController();
@@ -46,7 +49,7 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
       const res = await fetch("/api/polymarket/bet", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ conditionId: market.conditionId, outcome, outcomeIndex: outcomeIdx, stake }),
+        body:    JSON.stringify({ conditionId: market.conditionId, outcome, outcomeIndex: outcomeIdx, stake: stakeKes }),
         signal:  controller.signal,
       });
       const data = await res.json();
@@ -100,33 +103,36 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
         {/* Amount */}
         <div className="mb-3">
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-white/50">
-            Stake (KSh)
+            Stake ({currency.symbol})
           </label>
           <div className="relative">
             <input
               type="number"
               value={amount}
-              min={10}
+              min={convert(10)}
               onChange={(e) => { setAmount(e.target.value); setError(null); }}
               className="w-full rounded-lg border border-white/10 bg-black/30 py-2.5 pl-3 pr-16 font-mono text-sm text-white outline-none focus:border-white/30"
             />
             <button
-              onClick={() => setAmount(String(Math.floor(balance)))}
+              onClick={() => setAmount(String(Math.floor(convert(balance))))}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-white/40 hover:text-white/70"
             >
               MAX
             </button>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {QUICK.map((q) => (
+            {QUICK.map((q) => {
+              const qd = Math.round(convert(q)); // KES preset → display units
+              return (
               <button
                 key={q}
-                onClick={() => setAmount(String(q))}
+                onClick={() => setAmount(String(qd))}
                 className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white/60 hover:border-white/20 hover:text-white"
               >
-                {q >= 1000 ? `${q/1000}K` : q}
+                {qd >= 1000 ? `${(qd/1000).toLocaleString(currency.locale, { maximumFractionDigits: 1 })}K` : qd.toLocaleString(currency.locale)}
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -135,7 +141,7 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
           <div className="mb-4 rounded-lg border border-white/5 bg-white/5 p-3 text-xs">
             <div className="flex justify-between text-white/50">
               <span>Stake</span>
-              <span className="font-mono text-white">{formatKes(stake)}</span>
+              <span className="font-mono text-white">{dmoney(stake)}</span>
             </div>
             <div className="mt-1 flex justify-between text-white/50">
               <span>Odds</span>
@@ -143,11 +149,11 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
             </div>
             <div className="mt-2 flex justify-between border-t border-white/10 pt-2 font-semibold">
               <span className="text-white/60">Potential win</span>
-              <span className="font-mono text-[#31c45d]">{formatKes(potentialWin, { minimumFractionDigits: 2 })}</span>
+              <span className="font-mono text-[#31c45d]">{dmoney(potentialWin, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-white/40">Profit</span>
-              <span className="font-mono text-[#31c45d]/70">+{formatKes(profit, { minimumFractionDigits: 2 })}</span>
+              <span className="font-mono text-[#31c45d]/70">+{dmoney(profit, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </div>
         )}
@@ -156,14 +162,14 @@ export function BetModal({ market, initialOutcome, initialAmount, balance, onClo
 
         <button
           onClick={handleBet}
-          disabled={loading || stake < 10}
+          disabled={loading || stakeKes < 10}
           className="w-full rounded-lg bg-[#087cff] py-3 text-sm font-black text-white transition hover:bg-[#0068d9] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {loading ? "Placing..." : `Bet ${outcome} · ${stake > 0 ? formatKes(stake) : "KSh -"}`}
+          {loading ? "Placing..." : `Bet ${outcome} · ${stake > 0 ? dmoney(stake) : `${currency.symbol} -`}`}
         </button>
 
         <p className="mt-2 text-center text-xs text-white/30">
-          Balance: {formatKes(balance, { minimumFractionDigits: 2 })}
+          Balance: {format(balance)}
         </p>
       </div>
     </div>

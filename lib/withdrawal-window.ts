@@ -1,27 +1,21 @@
 /**
- * Daily M-Pesa withdrawal window.
+ * Daily cash-out window.
  *
- * The KSh limit resets each day at 02:00 East Africa Time (UTC+3), not at the
- * server's midnight. We compute the most recent 02:00 EAT boundary as a real
- * UTC instant so it works regardless of the server timezone.
+ * Uses a ROLLING 24-hour window, NOT a fixed calendar-day reset. A fixed reset
+ * (e.g. 02:00 EAT) is gameable at the boundary: a user could withdraw the full
+ * limit at 01:59 and the full limit again at 02:01 — double the cap in minutes.
+ * (This was exploited: see the muuoeric91 2×500 incident, 2026-06-26.) With a
+ * rolling window the sum of the last 24h can never exceed the limit.
  */
 
 import { TransactionStatus, TransactionType } from "@prisma/client";
 
-const EAT_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC+3
-export const RESET_HOUR_EAT = 2;          // 02:00 EAT
+/** Length of the rolling cash-out window. */
+export const WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
-/** Start of the current withdrawal day — the most recent 02:00 EAT, as a UTC Date. */
-export function withdrawalDayStart(now: number = Date.now()): Date {
-  const eat = new Date(now + EAT_OFFSET_MS); // shift so UTC getters read EAT wall-clock
-  let boundary = Date.UTC(eat.getUTCFullYear(), eat.getUTCMonth(), eat.getUTCDate(), RESET_HOUR_EAT, 0, 0);
-  if (eat.getUTCHours() < RESET_HOUR_EAT) boundary -= 24 * 60 * 60 * 1000; // before 02:00 → previous day's window
-  return new Date(boundary - EAT_OFFSET_MS);
-}
-
-/** When the current window resets (next 02:00 EAT), as a UTC Date. */
-export function withdrawalDayReset(now: number = Date.now()): Date {
-  return new Date(withdrawalDayStart(now).getTime() + 24 * 60 * 60 * 1000);
+/** Start of the current rolling window — exactly 24h ago, as a UTC Date. */
+export function withdrawalWindowStart(now: number = Date.now()): Date {
+  return new Date(now - WINDOW_MS);
 }
 
 /** Configurable daily cap in KES (default 500). */
@@ -42,9 +36,9 @@ export function dailyLimitKes(): number {
 export const DAILY_CAP_PROVIDERS = ["lipaharaka", "wallet_transfer"] as const;
 
 /**
- * Prisma `where` for the rows that count against a user's daily cash-out cap,
- * scoped to the current withdrawal day. Shared by the withdraw + transfer routes
- * so they enforce one unified limit. FAILED/CANCELLED (i.e. refunded) excluded.
+ * Prisma `where` for the rows that count against a user's cash-out cap, scoped
+ * to the rolling 24h window. Shared by the withdraw + transfer routes so they
+ * enforce one unified limit. FAILED/CANCELLED (i.e. refunded) excluded.
  */
 export function dailyCapWhere(userId: string, now: number = Date.now()) {
   return {
@@ -52,6 +46,6 @@ export function dailyCapWhere(userId: string, now: number = Date.now()) {
     type:      TransactionType.WITHDRAWAL,
     provider:  { in: [...DAILY_CAP_PROVIDERS] },
     status:    { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
-    createdAt: { gte: withdrawalDayStart(now) },
+    createdAt: { gte: withdrawalWindowStart(now) },
   };
 }

@@ -76,6 +76,7 @@ export async function GET() {
     stakesToday,
     winsToday,
     recentTransactions,
+    p2pFeeColumn,
   ] = await Promise.all([
     db.user.count(),
     db.user.count({ where: { createdAt: { gte: startOfDay } } }),
@@ -128,6 +129,17 @@ export async function GET() {
         user: { select: { id: true, email: true, username: true } },
       },
     }),
+    // This is a lightweight deployment sanity check. The P2P maker-fee release
+    // requires this column; when it is absent, P2P ads will fail at runtime.
+    db.$queryRaw<Array<{ feeRateReady: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'p2p_ads'
+          AND column_name = 'fee_rate'
+      ) AS "feeRateReady"
+    `,
   ]);
 
   return Response.json({
@@ -166,6 +178,12 @@ export async function GET() {
       stakeCount: stakesToday._count,
       wins: Number(winsToday._sum.amount ?? 0),
       winCount: winsToday._count,
+    },
+    health: {
+      api: true,
+      database: true,
+      p2pFeeSchema: p2pFeeColumn[0]?.feeRateReady === true,
+      checkedAt: now.toISOString(),
     },
     recentTransactions: recentTransactions.map((transaction) => ({
       ...transaction,
