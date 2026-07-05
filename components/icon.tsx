@@ -208,6 +208,7 @@ const iconMap: Record<string, LucideIcon> = {
   // K
   keyboard: Keyboard,
   keyboard_arrow_down: ChevronDown,
+  keyboard_arrow_up: ChevronUp,
   keyboard_double_arrow_left: ChevronsLeft,
   keyboard_double_arrow_right: ChevronsRight,
 
