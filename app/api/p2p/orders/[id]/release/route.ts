@@ -119,7 +119,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       }
 
       if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
-      const newTotal     = merchant.totalTrades + 1;
+      const newTotal     = Math.max(merchant.totalTrades, 1);
       const newCompleted = merchant.completedTrades + 1;
       const newAvgRelease = Math.round(
         (merchant.avgReleaseTime * merchant.completedTrades + releaseTime) / newCompleted,
@@ -127,7 +127,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       await tx.merchantProfile.update({
         where: { id: merchant.id },
         data: {
-          totalTrades:     newTotal,
           completedTrades: newCompleted,
           completionRate:  (newCompleted / newTotal) * 100,
           avgReleaseTime:  newAvgRelease,
