@@ -85,6 +85,29 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
         return;
       }
 
+      // If this account has a verified passkey (WebAuthn MFA factor), challenge
+      // it now as a login step-up (aal1 → aal2). This is what makes the passkey
+      // actually used during sign-in, not just for withdrawals. If the device
+      // genuinely can't run WebAuthn we fall through to password-only; but a
+      // present passkey that fails or is dismissed blocks the login.
+      try {
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        const passkey = (factors?.webauthn ?? []).find((f) => f.status === "verified");
+        if (passkey) {
+          const { error: pkError } = await supabase.auth.mfa.webauthn.authenticate({
+            factorId: passkey.id,
+            webauthn: { rpId: window.location.hostname, rpOrigins: [window.location.origin] },
+          });
+          if (pkError) {
+            await supabase.auth.signOut();
+            setError("Passkey check failed or was dismissed. Please try again.");
+            return;
+          }
+        }
+      } catch {
+        // WebAuthn unsupported on this device — continue with password alone.
+      }
+
       const statusResponse = await fetch("/api/auth/account-status", { cache: "no-store" });
       const accountStatus = statusResponse.ok
         ? await statusResponse.json() as { suspended?: boolean }
