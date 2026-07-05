@@ -8,6 +8,7 @@ import { CountryPicker } from "@/components/country-picker";
 import { COUNTRIES, type Country } from "@/lib/countries";
 import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
+import { loginWithPasskey } from "@/lib/passkey-client";
 import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 
 function TgIcon() {
@@ -124,6 +125,47 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
       router.push("/dashboard");
     } catch {
       setError("Sign-in failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasskeyLogin() {
+    setError("");
+    setLoading(true);
+    try {
+      const result = await loginWithPasskey();
+      if (!result.ok || !result.tokenHash) {
+        setError(result.error ?? "Passkey sign-in failed. Please try again.");
+        return;
+      }
+
+      const supabase = createClient();
+      const { error: otpError } = await supabase.auth.verifyOtp({
+        type: "magiclink",
+        token_hash: result.tokenHash,
+      });
+      if (otpError) {
+        setError("Could not complete passkey sign-in. Please try again.");
+        return;
+      }
+
+      const statusResponse = await fetch("/api/auth/account-status", { cache: "no-store" });
+      const accountStatus = statusResponse.ok
+        ? await statusResponse.json() as { suspended?: boolean }
+        : null;
+      if (accountStatus?.suspended) {
+        await supabase.auth.signOut();
+        onClose();
+        router.push("/suspended");
+        return;
+      }
+
+      onClose();
+      toast.success("Welcome back!", "Signed in with your passkey.");
+      router.push("/dashboard");
+    } catch {
+      setError("Passkey sign-in failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -365,6 +407,19 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
             <span className="text-xs text-slate-600">or</span>
             <div className="flex-1 border-t border-white/[0.07]" />
           </div>
+
+          {/* Passkey */}
+          {!DEV_AUTH_PUBLIC && (
+            <button
+              type="button"
+              onClick={handlePasskeyLogin}
+              disabled={loading}
+              className="mb-2.5 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-[#18191f] py-3.5 text-sm font-black text-white ring-1 ring-white/[0.07] transition hover:bg-[#22252e] disabled:opacity-60"
+            >
+              <Icon name="passkey" fill className="text-[18px] text-[#087cff]" />
+              Sign in with a passkey
+            </button>
+          )}
 
           {/* Social */}
           <div className="flex justify-center gap-2.5">
