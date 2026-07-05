@@ -92,6 +92,10 @@ export async function GET() {
     if (!isFeedbackSchemaMissing(error)) throw error;
   }
 
+  const completionRate = merchant.totalTrades > 0
+    ? (merchant.completedTrades / merchant.totalTrades) * 100
+    : 0;
+
   return Response.json({
     isMerchant:      true,
     kycStatus:       merchant.kycStatus,
@@ -99,7 +103,7 @@ export async function GET() {
     displayName:     merchant.displayName,
     avatarUrl:       merchant.avatarUrl,
     completedTrades: merchant.completedTrades,
-    completionRate:  Number(merchant.completionRate),
+    completionRate,
     totalTrades:     merchant.totalTrades,
     avgReleaseTime:  merchant.avgReleaseTime,
     createdAt:       merchant.createdAt,

@@ -130,10 +130,14 @@ export async function POST(req: Request) {
           orderId: createdOrder.id,
           role: "giver",
         });
+        await tx.merchantProfile.update({
+          where: { id: match.merchantId },
+          data: { totalTrades: { increment: 1 } },
+        });
         return createdOrder;
       }
 
-      return tx.p2POrder.create({
+      const createdOrder = await tx.p2POrder.create({
         data: {
           adId:          match.id,
           buyerId:       dbUser.id,
@@ -146,6 +150,11 @@ export async function POST(req: Request) {
           expiresAt:     new Date(Date.now() + match.paymentWindow * 60 * 1000),
         },
       });
+      await tx.merchantProfile.update({
+        where: { id: match.merchantId },
+        data: { totalTrades: { increment: 1 } },
+      });
+      return createdOrder;
     }).catch((err: unknown) => {
       const msg = (err as Error).message;
       if (msg === "INSUFFICIENT_AD_LIQUIDITY") return null;
