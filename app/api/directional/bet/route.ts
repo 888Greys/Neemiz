@@ -7,6 +7,7 @@ import { applyProfitRetention } from "@/lib/house-retention";
 import { getServerTickHistory } from "@/lib/binary-price";
 import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
 import { payoutRate, vanillaPayoutPerPoint, contractWinProb, MAX_VANILLA_MULT, MAX_WIN_PROB, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
+import { isBetTypeDisabled } from "@/lib/game-guard";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
@@ -41,6 +42,8 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid market" }, { status: 400 });
   if (!kind || !VALID_KINDS.includes(kind))
     return Response.json({ error: "Invalid kind" }, { status: 400 });
+  if (await isBetTypeDisabled("directional", kind))
+    return Response.json({ error: "This contract type is temporarily unavailable while we complete maintenance." }, { status: 503 });
   if (!side || !SIDES_BY_KIND[kind].includes(side as DirectionalSide))
     return Response.json({ error: "Invalid side" }, { status: 400 });
   if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
