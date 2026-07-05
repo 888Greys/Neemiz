@@ -1,13 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { getServerTickHistory } from "@/lib/binary-price";
 import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
-import { payoutRate, vanillaPayoutPerPoint, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
+import { payoutRate, vanillaPayoutPerPoint, contractWinProb, MAX_VANILLA_MULT, MAX_WIN_PROB, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
+import { isBetTypeDisabled } from "@/lib/game-guard";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
-const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_KINDS = ["RISE_FALL", "HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"];
 const SIDES_BY_KIND: Record<string, DirectionalSide[]> = {
   RISE_FALL: ["RISE", "FALL"],
@@ -27,6 +30,9 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const rl = rateLimit(`directional-bet:${user.id}`, 30, 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
+
   let body: { market?: string; kind?: string; side?: string; stake?: number; durationTicks?: number; barrierOffset?: number };
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
 
@@ -36,10 +42,12 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid market" }, { status: 400 });
   if (!kind || !VALID_KINDS.includes(kind))
     return Response.json({ error: "Invalid kind" }, { status: 400 });
+  if (await isBetTypeDisabled("directional", kind))
+    return Response.json({ error: "This contract type is temporarily unavailable while we complete maintenance." }, { status: 503 });
   if (!side || !SIDES_BY_KIND[kind].includes(side as DirectionalSide))
     return Response.json({ error: "Invalid side" }, { status: 400 });
   if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
-    return Response.json({ error: `Stake must be between KSh ${MIN_STAKE} and KSh ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
+    return Response.json({ error: `Stake must be between ${CURRENCY_SYMBOL} ${MIN_STAKE} and ${CURRENCY_SYMBOL} ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
   if (!Number.isInteger(durationTicks) || durationTicks! < 1 || durationTicks! > 30)
     return Response.json({ error: "Duration must be 1–30 ticks" }, { status: 400 });
   const offset = barrierOffset == null ? 0 : Number(barrierOffset);
@@ -68,6 +76,24 @@ export async function POST(req: Request) {
   }
 
   const barrier = kind === "RISE_FALL" ? null : Number((entrySpot + offset).toFixed(5));
+
+  // A barrier must be a real positive price. A large negative offset would push
+  // entrySpot+offset at or below zero; a non-positive barrier bypasses the
+  // win-prob guard below AND makes settlement (exitSpot > barrier) trivially true
+  // — a guaranteed-win money printer. Reject it outright before pricing.
+  if (kind !== "RISE_FALL" && !(barrier! > 0))
+    return Response.json({ error: "Invalid barrier" }, { status: 400 });
+
+  // Reject contracts the player has made near-certain. A deep in-the-money
+  // barrier (e.g. LOWER far above spot, or NO_TOUCH far away) wins ~100% of the
+  // time; paying it out at a rate ≥ its true probability is a risk-free +EV
+  // money printer. VANILLA is priced continuously and is exempt.
+  if (kind === "HIGHER_LOWER" || kind === "TOUCH_NO_TOUCH") {
+    const winProb = contractWinProb({ kind, side: side as DirectionalSide, entrySpot, barrier, sigmaTick, durationTicks: ticks });
+    if (winProb > MAX_WIN_PROB)
+      return Response.json({ error: "Barrier too safe — choose a barrier closer to the current spot" }, { status: 400 });
+  }
+
   let payoutVal = 0;            // fixed net payout (non-vanilla)
   let payoutPerPoint: number | null = null;
   let grossPayout = 0;

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useMoney } from "@/lib/currency-context";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,10 +46,6 @@ function cpTextCls(cp: number) {
 function avatarCls(name: string | null) {
   const cs = ["bg-violet-600","bg-blue-600","bg-green-600","bg-orange-500","bg-pink-600","bg-teal-600","bg-rose-600","bg-indigo-600"];
   return cs[((name ?? "?").charCodeAt(0)) % cs.length];
-}
-
-function fmtKsh(n: number) {
-  return "KSh " + n.toLocaleString("en-KE", { maximumFractionDigits: 0 });
 }
 
 // ─── Live Status Card ─────────────────────────────────────────────────────────
@@ -159,6 +156,7 @@ function RecentWinnersCard({ wins }: { wins: RecentWin[] }) {
 }
 
 function WinRow({ win }: { win: RecentWin }) {
+  const { format } = useMoney();
   return (
     <div className="flex items-center gap-2.5 px-3 py-2.5">
       <div
@@ -175,7 +173,7 @@ function WinRow({ win }: { win: RecentWin }) {
         </p>
       </div>
       <span className="shrink-0 text-xs font-black text-[#31c45d]">
-        +{fmtKsh(win.winAmount)}
+        +{format(win.winAmount)}
       </span>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
@@ -9,7 +9,8 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { paymentMethodsForFiat, paymentMethodLabel } from "@/lib/p2p/payment-methods";
+import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, methodAllowedForFiat, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
+import { PaymentLogo } from "@/components/p2p/payment-logo";
 import { LoadingDots } from "@/components/loading-dots";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
@@ -178,7 +179,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success("Application submitted! We&apos;ll review within 24 hours.");
+      toast.success("Application submitted! Your account is usually verified within the hour.");
       onApplied();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -230,7 +231,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
       <div className="max-w-lg">
         <div className="rounded-lg border border-white/[0.07] bg-[#111118] p-4">
           <h2 className="mb-1 text-lg font-black text-white">Start your application</h2>
-          <p className="mb-4 text-sm text-slate-500">Takes less than a minute. Reviewed within 24 hours.</p>
+          <p className="mb-4 text-sm text-slate-500">Takes less than a minute. Verification usually completes within the hour.</p>
 
           <div className="space-y-4">
             <div>
@@ -395,10 +396,72 @@ interface PayMethod {
   id: string; type: string; name: string;
   accountName: string; accountNo: string; bankName: string | null;
 }
-const PAY_RAILS = paymentMethodsForFiat("KES"); // M-Pesa / Airtel / Bank
+const PAY_RAILS = GLOBAL_PAYMENT_METHODS;                 // full world catalogue
+const PAY_RAILS_BY_CATEGORY = paymentMethodsByCategory(); // grouped for the picker
 const BANKISH = new Set(["BANK", "KUDA", "FNB", "CAPITEC"]);
 
-function PaymentMethodsSection() {
+// Custom, searchable payment-method picker — replaces the native <select> whose
+// OS dropdown rendered as a bare radio list. Shows a real brand logo per method,
+// grouped by category. The open panel is in-flow (pushes content) so it can
+// never be clipped by an overflow-hidden ancestor and scrolls with the page.
+function MethodPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  useEffect(() => { if (!open) setQuery(""); }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const groups = Object.entries(PAY_RAILS_BY_CATEGORY)
+    .map(([cat, list]) => [cat, list.filter((r) => !q || r.label.toLowerCase().includes(q) || r.value.toLowerCase().includes(q))] as const)
+    .filter(([, list]) => list.length > 0);
+
+  return (
+    <div ref={ref} className="relative col-span-2">
+      <button type="button" onClick={() => setOpen((v) => !v)}
+        className="flex h-9 w-full items-center gap-2 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] font-bold text-white outline-none">
+        <PaymentLogo code={value} size={20} />
+        <span className="truncate">{paymentMethodLabel(value)}</span>
+        <Icon name="expand_more" className={`ml-auto shrink-0 text-lg text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="mt-1.5 w-full overflow-hidden rounded-xl border border-white/10 bg-[#15151d] shadow-2xl shadow-black/60">
+          <div className="border-b border-white/[0.06] p-2">
+            <div className="flex h-9 items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
+              <Icon name="search" className="text-[16px] text-slate-500" />
+              <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search payment methods"
+                className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-white outline-none placeholder:text-slate-600" />
+            </div>
+          </div>
+          <div className="max-h-56 overflow-y-auto p-1 [scrollbar-width:thin]">
+            {groups.length === 0 && <p className="px-2.5 py-6 text-center text-xs font-bold text-slate-600">No methods found</p>}
+            {groups.map(([cat, list]) => (
+              <div key={cat}>
+                <p className="px-2.5 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-slate-600">{cat}</p>
+                {list.map((r) => (
+                  <button key={r.value} type="button" onClick={() => { onChange(r.value); setOpen(false); }}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors ${r.value === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}>
+                    <PaymentLogo code={r.value} />
+                    <span className="text-[13px] font-bold text-white">{r.label}</span>
+                    {r.value === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
   const [methods, setMethods] = useState<PayMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
@@ -408,6 +471,16 @@ function PaymentMethodsSection() {
   const [bankName, setBankName]       = useState("");
   const [saving, setSaving]   = useState(false);
   const isBank = BANKISH.has(method);
+
+  // Jumped here from "Add a payment method" elsewhere → open the form + scroll.
+  useEffect(() => {
+    if (openSignal > 0) {
+      setFormOpen(true);
+      window.setTimeout(() => {
+        document.getElementById("merchant-payment-methods")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 60);
+    }
+  }, [openSignal]);
 
   const load = useCallback(async () => {
     try { const r = await fetch("/api/p2p/merchant/payment-methods"); if (r.ok) setMethods(await r.json()); }
@@ -466,9 +539,12 @@ function PaymentMethodsSection() {
         <div className="space-y-1.5 px-3 py-3">
           {methods.map((m) => (
             <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/[0.03] px-3 py-2 ring-1 ring-white/[0.06]">
-              <div className="min-w-0">
-                <p className="text-[12px] font-black text-white">{paymentMethodLabel(m.name)}{m.bankName ? ` · ${m.bankName}` : ""}</p>
-                <p className="text-[11px] text-slate-400 truncate">{m.accountName} · <span className="font-mono">{m.accountNo}</span></p>
+              <div className="flex min-w-0 items-center gap-2.5">
+                <PaymentLogo code={m.name} size={26} />
+                <div className="min-w-0">
+                  <p className="text-[12px] font-black text-white">{paymentMethodLabel(m.name)}{m.bankName ? ` · ${m.bankName}` : ""}</p>
+                  <p className="text-[11px] text-slate-400 truncate">{m.accountName} · <span className="font-mono">{m.accountNo}</span></p>
+                </div>
               </div>
               <button type="button" onClick={() => del(m.id)} className="shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition" aria-label="Delete">
                 <Icon name="delete" className="text-[16px]" />
@@ -481,13 +557,10 @@ function PaymentMethodsSection() {
       {/* Add form */}
       {showForm && (
         <div className="grid grid-cols-2 gap-2 border-t border-white/[0.05] px-3 py-3">
-          <select value={method} onChange={(e) => setMethod(e.target.value)}
-            className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] font-bold text-white outline-none">
-            {PAY_RAILS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-          </select>
+          <MethodPicker value={method} onChange={setMethod} />
           <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
             className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
-          <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={isBank ? "Account number" : "Phone / Paybill"}
+          <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={accountIdentifierLabel(method)}
             className={`${isBank ? "" : "col-span-2"} h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600`} />
           {isBank && (
             <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
@@ -1189,7 +1262,7 @@ function DepositSection() {
 
 // ─── Create Ad Modal ──────────────────────────────────────────────────────────
 
-function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: () => void; onCreated: () => void }) {
+function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | null; onClose: () => void; onCreated: () => void; onSetupPayments?: () => void }) {
   const isEditing = !!ad;
   const { balance: fiatBalance } = useWalletBalance();
   const [form, setForm] = useState({
@@ -1208,8 +1281,6 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(0); // 0=Type & Price · 1=Amount & Method · 2=Conditions
   const [cryptoOpen, setCryptoOpen] = useState(false);
-  const [priceType, setPriceType] = useState<"Fixed" | "Floating">("Fixed");
-  const [priceTypeOpen, setPriceTypeOpen] = useState(false);
   const [fiatOpen, setFiatOpen] = useState(false);
   const [fiatQuery, setFiatQuery] = useState("");
   const [spotRate, setSpotRate] = useState<number | null>(null);
@@ -1272,15 +1343,6 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
     });
   }
 
-  function setPriceManually(value: string) {
-    setForm((p) => {
-      const price = Number(value);
-      const nextMargin = spotRate && price > 0
-        ? (((price / spotRate) - 1) * 100).toFixed(2)
-        : p.profitMarginPct;
-      return { ...p, pricePerUnit: value, profitMarginPct: nextMargin };
-    });
-  }
 
   // Reference rate for the margin readout. Real cryptos use a live market rate;
   // KES Coin is pegged 1:1 to fiat (no market) so its reference is always 1.00,
@@ -1335,6 +1397,20 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
   function togglePm(m: string) {
     setForm((p) => ({ ...p, paymentMethods: p.paymentMethods.includes(m) ? p.paymentMethods.filter((x) => x !== m) : [...p.paymentMethods, m] }));
   }
+
+  // Only offer saved methods that make sense for the selected fiat — a KES-only
+  // merchant picking NGN shouldn't see M-Pesa; universal rails (Bank, PayPal…)
+  // stay available for every currency.
+  const fiatSavedMethods = savedPaymentMethods.filter((m) => methodAllowedForFiat(m.name, form.fiat));
+
+  // When the fiat changes, drop any already-selected methods that no longer
+  // apply so an ad never ships with a currency-mismatched payment method.
+  useEffect(() => {
+    setForm((p) => {
+      const kept = p.paymentMethods.filter((code) => methodAllowedForFiat(code, p.fiat));
+      return kept.length === p.paymentMethods.length ? p : { ...p, paymentMethods: kept };
+    });
+  }, [form.fiat]);
 
   async function submit() {
     if (savedPaymentMethods.length === 0) {
@@ -1557,7 +1633,11 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                             key={c.code}
                             type="button"
                             onClick={() => {
-                              const allowed = new Set(paymentMethodsForFiat(c.code).map((m) => m.value));
+                              // Keep selections that the merchant actually has
+                              // configured — payment methods are NOT restricted
+                              // by the ad's fiat (a merchant may accept PayPal,
+                              // Wise, etc. for any currency).
+                              const allowed = new Set(savedPaymentMethods.map((m) => m.name));
                               setForm((p) => ({
                                 ...p,
                                 fiat: c.code,
@@ -1586,70 +1666,11 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
           </div>
 
           <div>
-            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price Type</label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setPriceTypeOpen((v) => !v)}
-                className="flex h-12 w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-bold text-white transition-colors hover:border-white/20"
-              >
-                <span>{priceType}</span>
-                <Icon name="arrow_drop_down" className={`ml-auto text-[22px] text-slate-500 transition-transform ${priceTypeOpen ? "rotate-180" : ""}`} />
-              </button>
-              {priceTypeOpen && (
-                <>
-                  <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setPriceTypeOpen(false)} />
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
-                    {([
-                      { key: "Fixed", desc: "Set a constant price, unaffected by market fluctuations." },
-                      { key: "Floating", desc: "Dynamic price = live market price × your margin." },
-                    ] as const).map((opt) => {
-                      const disabled = opt.key === "Floating" && !canUseMarginPricing;
-                      return (
-                        <button
-                          key={opt.key}
-                          type="button"
-                          disabled={disabled}
-                          onClick={() => { setPriceType(opt.key); setPriceTypeOpen(false); }}
-                          className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${priceType === opt.key ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"} ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-black text-white">{opt.key}</p>
-                            <p className="mt-0.5 text-[11px] font-semibold leading-4 text-slate-500">{disabled ? "Market rate unavailable for this pair." : opt.desc}</p>
-                          </div>
-                          {priceType === opt.key && <Icon name="check" className="mt-0.5 shrink-0 text-[16px] text-[#55aaff]" />}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {priceType === "Fixed" && (
-          <div>
-            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Fixed price</label>
-            <div className="grid h-12 grid-cols-[48px_1fr_48px] items-center overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.04] focus-within:border-[#087cff]/40">
-              <button type="button" onClick={() => setPriceManually(priceNum > 0 ? formatPriceInput(priceNum * 0.99, form.fiat) : "")} className="flex h-full items-center justify-center text-slate-500 transition hover:text-white">
-                <Icon name="remove" className="text-[20px]" />
-              </button>
-              <input
-                type="number"
-                value={form.pricePerUnit}
-                onChange={(e) => setPriceManually(e.target.value)}
-                placeholder="0"
-                className="min-w-0 bg-transparent text-center text-[15px] font-black text-white placeholder:text-slate-600 outline-none"
-              />
-              <button type="button" onClick={() => setPriceManually(priceNum > 0 ? formatPriceInput(priceNum * 1.01, form.fiat) : "")} className="flex h-full items-center justify-center text-slate-500 transition hover:text-white">
-                <Icon name="add" className="text-[20px]" />
-              </button>
-            </div>
-            <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
-              Price range: {priceRangeMin && priceRangeMax ? `${formatPriceInput(priceRangeMin, form.fiat)} - ${formatPriceInput(priceRangeMax, form.fiat)}` : "--"}
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price</label>
+            <p className="text-[11px] font-semibold leading-4 text-slate-500">
+              Your price tracks the live market by the margin you set below — you pick your %.
             </p>
           </div>
-          )}
 
           <div className="space-y-3 rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
             <div className="flex items-center gap-3">
@@ -1675,10 +1696,9 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             ) : null}
           </div>
 
-          {priceType === "Floating" && (
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">
-              {isKesCoinForm ? "Spread margin (%)" : "Floating price margin (%)"}
+              {isKesCoinForm ? "Spread margin (%)" : "Your margin (%)"}
             </label>
             <div className="grid grid-cols-[1fr_auto] gap-2">
               <input
@@ -1701,7 +1721,7 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
             </div>
             {!canUseMarginPricing ? (
               <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
-                Percentage pricing is not available for {form.crypto}/{form.fiat}; switch to Fixed and enter the price directly.
+                Live market rate is temporarily unavailable for {form.crypto}/{form.fiat}. Please try again shortly.
               </p>
             ) : isKesCoinForm ? (
               <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
@@ -1713,7 +1733,6 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
               </p>
             )}
           </div>
-          )}
           </div>
           )}
 
@@ -1828,28 +1847,39 @@ function CreateAdModal({ ad, onClose, onCreated }: { ad?: Ad | null; onClose: ()
                 </p>
                 <button
                   type="button"
-                  onClick={() => {
-                    onClose();
-                    window.setTimeout(() => {
-                      document.getElementById("merchant-payment-methods")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }, 100);
-                  }}
+                  onClick={() => (onSetupPayments ?? onClose)()}
                   className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-300 px-3 text-xs font-black text-black"
                 >
-                  <Icon name="payments" className="text-sm" />
-                  Set up payment methods
+                  <Icon name="add" className="text-sm" />
+                  Add payment method
+                </button>
+              </div>
+            ) : fiatSavedMethods.length === 0 ? (
+              <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-3">
+                <p className="text-xs font-black text-amber-300">No {form.fiat} payment method</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">
+                  None of your saved payment methods work for {form.fiat}. Add a method buyers can use to pay in {form.fiat}.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => (onSetupPayments ?? onClose)()}
+                  className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-300 px-3 text-xs font-black text-black"
+                >
+                  <Icon name="add" className="text-sm" />
+                  Add a {form.fiat} method
                 </button>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">
-                {paymentMethodsForFiat(form.fiat)
-                  .filter(({ value }) => savedPaymentMethods.some((method) => method.name === value))
-                  .map(({ value, label }) => (
+                {fiatSavedMethods.map((method) => {
+                  const value = method.name;
+                  return (
                     <button key={value} type="button" onClick={() => togglePm(value)}
                       className={`rounded-xl border py-2 text-xs font-bold transition-all ${form.paymentMethods.includes(value) ? "bg-[#087cff]/20 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"}`}>
-                      {label}
+                      {paymentMethodLabel(value)}{method.bankName ? ` · ${method.bankName}` : ""}
                     </button>
-                  ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1923,6 +1953,15 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const [createOpen, setCreate] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
   const [section, setSection] = useState<"overview" | "profile" | "wallet" | "payments" | "ads">("overview");
+  // Bumped to jump from an ad's "Add payment method" straight into the Payment
+  // Methods tab with the add form open.
+  const [payFormSignal, setPayFormSignal] = useState(0);
+  const goToAddPayment = useCallback(() => {
+    setCreate(false);
+    setEditingAd(null);
+    setSection("payments");
+    setPayFormSignal((n) => n + 1);
+  }, []);
   const [adFilter, setAdFilter] = useState<"ALL" | "ACTIVE" | "PAUSED" | "EXHAUSTED">("ALL");
   const [adPage, setAdPage] = useState(1);
   const [openAdMenu, setOpenAdMenu] = useState<string | null>(null);
@@ -1962,14 +2001,14 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
     setAvatarUploading(true);
     try {
       const supabase = createClient();
-      const ext  = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, { upsert: true, contentType: file.type });
-      if (upErr) throw upErr;
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("kind", "avatar");
+      const upRes = await fetch("/api/upload", { method: "POST", body: fd });
+      const upJson = await upRes.json().catch(() => ({}));
+      if (!upRes.ok) throw new Error(upJson.error || "Upload failed");
+      const publicUrl: string = upJson.url;
 
-      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(path);
       const { error: updErr } = await supabase.auth.updateUser({ data: { avatar_url: publicUrl } });
       if (updErr) throw updErr;
 
@@ -2089,8 +2128,8 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4">
-      {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} />}
-      {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} />}
+      {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
+      {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
 
       {/* Merchant header */}
       <div className="mb-3 flex items-center justify-between">
@@ -2333,7 +2372,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       )}
 
       {section === "wallet" && <DepositSection />}
-      {section === "payments" && <PaymentMethodsSection />}
+      {section === "payments" && <PaymentMethodsSection openSignal={payFormSignal} />}
 
       {/* Ads list */}
       {section === "ads" && <div>
@@ -2527,6 +2566,14 @@ export function P2PMerchantClient() {
     if (isSignedIn) check();
     else setLoading(false);
   }, [isSignedIn, check]);
+
+  // While an application is pending, poll so the "Under Review" screen
+  // clears on its own once auto-verification kicks in (no manual refresh).
+  useEffect(() => {
+    if (!status?.applied || status.kycStatus !== "PENDING") return;
+    const interval = setInterval(check, 60_000);
+    return () => clearInterval(interval);
+  }, [status?.applied, status?.kycStatus, check]);
 
   return (
     <>

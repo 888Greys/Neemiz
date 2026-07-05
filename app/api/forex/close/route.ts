@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyForexProfitRetention } from "@/lib/house-retention";
 import { getServerForexPrice } from "@/lib/forex-price";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 // NOTE: closePrice from the client is ignored for settlement. The close price
 // is fetched server-side from the live Deriv feed.
@@ -66,8 +67,10 @@ export async function POST(req: Request) {
 
   try {
     await db.$transaction(async (tx) => {
-      await tx.forexTrade.update({
-        where: { id: tradeId },
+      // Claim-once: only the request that flips OPEN→CLOSED credits the wallet.
+      // Prevents a concurrent double-close from paying the return out twice.
+      const claimed = await tx.forexTrade.updateMany({
+        where: { id: tradeId, status: "OPEN" },
         data: {
           status: "CLOSED",
           closePrice,
@@ -75,6 +78,7 @@ export async function POST(req: Request) {
           closedAt: new Date(),
         },
       });
+      if (claimed.count === 0) throw new Error("ALREADY_CLOSED");
 
       if (returnAmount > 0) {
         await tx.user.update({
@@ -108,7 +112,7 @@ export async function POST(req: Request) {
           userId: dbUser.id,
           type: profitLoss >= 0 ? "FOREX_WON" : "FOREX_LOST",
           title: profitLoss >= 0 ? "Forex trade closed in profit" : "Forex trade closed",
-          body: `${trade.symbol} ${trade.direction}: ${profitLoss >= 0 ? "+" : ""}KSh ${profitLoss.toLocaleString("en-KE")}.`,
+          body: `${trade.symbol} ${trade.direction}: ${profitLoss >= 0 ? "+" : ""}${CURRENCY_SYMBOL} ${profitLoss.toLocaleString(MONEY_LOCALE)}.`,
           link: "/forex",
         },
       });
@@ -129,6 +133,8 @@ export async function POST(req: Request) {
       newBalance: Number(updatedUser?.walletBalance ?? 0),
     });
   } catch (err) {
+    if (err instanceof Error && err.message === "ALREADY_CLOSED")
+      return Response.json({ error: "Trade already closed" }, { status: 409 });
     console.error("POST /api/forex/close:", err instanceof Error ? err.message : err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }

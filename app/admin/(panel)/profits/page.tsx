@@ -1,16 +1,6 @@
-import { createClient } from "@/lib/supabase/server";
-import { AdminShell } from "@/components/admin-shell";
-import { AdminProfitsClient } from "@/components/admin-profits-client";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Profits · Admin · Nezeem" };
-
-export default async function AdminProfitsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const email = user?.email ?? "";
-  return (
-    <AdminShell adminEmail={email}>
-      <AdminProfitsClient />
-    </AdminShell>
-  );
+// The daily P&L statement now lives as a tab on the unified Money page.
+export default function AdminProfitsPage() {
+  redirect("/admin/money?tab=pnl");
 }

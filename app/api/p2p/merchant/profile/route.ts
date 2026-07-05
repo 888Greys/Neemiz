@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { autoApproveIfDue } from "@/lib/p2p/merchant-approval";
 
 function isFeedbackSchemaMissing(error: unknown) {
   return typeof error === "object"
@@ -26,6 +27,10 @@ export async function GET() {
   if (!merchant) {
     return Response.json({ isMerchant: false });
   }
+
+  const resolved = await autoApproveIfDue(merchant);
+  merchant.kycStatus = resolved.kycStatus;
+  merchant.isVerified = resolved.isVerified;
 
   let feedbackCount = 0;
   let feedbackAverage = 0;

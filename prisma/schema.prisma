@@ -17,6 +17,7 @@ model User {
   firstName         String?   @map("first_name")
   lastName          String?   @map("last_name")
   imageUrl          String?   @map("image_url")
+  displayCurrency   String?   @map("display_currency")
   walletBalance     Decimal   @default(0.00) @map("wallet_balance") @db.Decimal(18, 2)
   currency          String    @default("KES")
   isActive          Boolean   @default(true) @map("is_active")
@@ -30,15 +31,15 @@ model User {
   transactions Transaction[]
 
   // P2P
-  merchantProfile  MerchantProfile?
-  p2pBuyOrders     P2POrder[]             @relation("P2PBuyer")
-  p2pMessages      P2PMessage[]
-  p2pFeedbacksGiven    P2PFeedback[] @relation("P2PFeedbackGiven")
-  p2pFeedbacksReceived P2PFeedback[] @relation("P2PFeedbackReceived")
-  notifications    Notification[]
-  loginDevices     LoginDevice[]
-  cryptoBalances   UserCryptoBalance[]
-  depositAddresses CryptoDepositAddress[]
+  merchantProfile      MerchantProfile?
+  p2pBuyOrders         P2POrder[]             @relation("P2PBuyer")
+  p2pMessages          P2PMessage[]
+  p2pFeedbacksGiven    P2PFeedback[]          @relation("P2PFeedbackGiven")
+  p2pFeedbacksReceived P2PFeedback[]          @relation("P2PFeedbackReceived")
+  notifications        Notification[]
+  loginDevices         LoginDevice[]
+  cryptoBalances       UserCryptoBalance[]
+  depositAddresses     CryptoDepositAddress[]
 
   // Aviator
   aviatorBets AviatorBet[]
@@ -49,6 +50,9 @@ model User {
 
   // Binary
   binaryTrades BinaryTrade[]
+
+  // Binary auto-trader (server-driven strategy sessions)
+  autoTradeSessions AutoTradeSession[]
 
   // Forex
   forexTrades ForexTrade[]
@@ -62,7 +66,32 @@ model User {
   // Leveraged (Multipliers, Turbos)
   leveragedTrades LeveragedTrade[]
 
+  // Passwordless sign-in passkeys (WebAuthn, self-managed — distinct from the
+  // GoTrue MFA passkeys used for withdrawal step-up)
+  passkeys Passkey[]
+
   @@map("users")
+}
+
+// A WebAuthn credential used for passwordless primary login. We store and
+// verify these ourselves (via @simplewebauthn) rather than through GoTrue,
+// because GoTrue only models passkeys as second-factor (MFA) credentials and
+// has no primary-login-from-scratch flow.
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String    @map("user_id")
+  credentialId String    @unique @map("credential_id") // base64url
+  publicKey    Bytes     @map("public_key")            // COSE public key
+  counter      BigInt    @default(0)
+  transports   String[]  @default([])
+  deviceName   String?   @map("device_name")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  lastUsedAt   DateTime? @map("last_used_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("passkeys")
 }
 
 // A browser-specific opaque token is stored in an HttpOnly cookie. Only its
@@ -449,16 +478,16 @@ model Notification {
 // Surfaced to every user as a dismissible banner. Only `isActive` rows show.
 
 model Broadcast {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   title     String
   message   String
-  level     String   @default("info") // "info" | "warning" | "maintenance" | "success"
-  isActive  Boolean  @default(true) @map("is_active")
-  startsAt  DateTime @default(now()) @map("starts_at")
+  level     String    @default("info") // "info" | "warning" | "maintenance" | "success"
+  isActive  Boolean   @default(true) @map("is_active")
+  startsAt  DateTime  @default(now()) @map("starts_at")
   endsAt    DateTime? @map("ends_at") // optional auto-expiry
-  createdBy String?  @map("created_by") // admin user id
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by") // admin user id
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
 
   @@index([isActive, createdAt(sort: Desc)])
   @@map("broadcasts")
@@ -722,10 +751,79 @@ model BinaryTrade {
   status    BinaryTradeStatus @default(PENDING)
   settledAt DateTime?         @map("settled_at")
 
+  // Set when this trade was placed by an auto-trader session (lib/auto-trade).
+  // Plain reference (no FK) so the settle path stays untouched; the auto engine
+  // looks up a session's latest trade by this column.
+  autoSessionId String? @map("auto_session_id")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@index([autoSessionId, createdAt(sort: Desc)])
   @@map("binary_trades")
+}
+
+// ─── Binary Auto-Trader ───────────────────────────────────────────────────────
+// Server-driven "like Deriv" strategy runner. A session repeatedly places a
+// fixed-duration binary digit contract, sizing the next stake from a strategy
+// and the previous win/loss, until Take-Profit / Stop-Loss / max-runs is hit.
+// Stepping happens in /api/cron/auto-trade so it runs with the browser closed.
+
+enum AutoStrategy {
+  FIXED // always the base stake
+  MARTINGALE // multiply stake after a loss, reset to base after a win
+  DALEMBERT // +1 unit after a loss, -1 unit after a win
+  OSCARS // Oscar's Grind — raise only after a win, target +1 unit profit
+}
+
+enum AutoSessionStatus {
+  RUNNING
+  STOPPED // user-stopped
+  DONE_TP // take-profit reached
+  DONE_SL // stop-loss reached
+  DONE_RUNS // max-runs reached
+  ERROR // halted (e.g. insufficient balance to place next trade)
+}
+
+model AutoTradeSession {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
+
+  // Contract template (binary digit contracts: Even/Odd, Matches/Differs, Over/Under)
+  market        String
+  side          String
+  targetDigit   Int    @map("target_digit")
+  durationTicks Int    @map("duration_ticks")
+
+  // Strategy + sizing
+  strategy     AutoStrategy
+  baseStake    Decimal      @map("base_stake") @db.Decimal(18, 2)
+  currentStake Decimal      @map("current_stake") @db.Decimal(18, 2)
+  multiplier   Decimal      @default(2) @db.Decimal(6, 2) // Martingale factor / D'Alembert+Oscar's unit basis
+
+  // Limits (all in KSh of net P&L, except maxRuns)
+  takeProfit Decimal @map("take_profit") @db.Decimal(18, 2)
+  stopLoss   Decimal @map("stop_loss") @db.Decimal(18, 2) // positive number; halts at -stopLoss
+  maxRuns    Int     @map("max_runs")
+
+  // Live progress
+  runsDone    Int     @default(0) @map("runs_done")
+  wins        Int     @default(0)
+  losses      Int     @default(0)
+  totalPnl    Decimal @default(0) @map("total_pnl") @db.Decimal(18, 2)
+  cyclePnl    Decimal @default(0) @map("cycle_pnl") @db.Decimal(18, 2) // Oscar's Grind cycle P&L
+  lastTradeId String? @map("last_trade_id") // most recent BinaryTrade placed by this session
+
+  status     AutoSessionStatus @default(RUNNING)
+  stopReason String?           @map("stop_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("auto_trade_sessions")
 }
 
 // ─── Accumulator Trades ───────────────────────────────────────────────────────
@@ -734,7 +832,7 @@ enum AccumulatorStatus {
   OPEN
   CLOSED // cashed out / take-profit / max-ticks cap — settled with a payout
   BUSTED // barrier breached — payout 0
-  VOID   // stake refunded — could not be settled (feed outage / unreproducible)
+  VOID // stake refunded — could not be settled (feed outage / unreproducible)
 }
 
 model AccumulatorTrade {
@@ -743,18 +841,18 @@ model AccumulatorTrade {
   user   User   @relation(fields: [userId], references: [id])
 
   market     String // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
-  stake      Decimal  @db.Decimal(18, 2)
-  growthRate Int      @map("growth_rate") // percent per surviving tick: 1..5
+  stake      Decimal @db.Decimal(18, 2)
+  growthRate Int     @map("growth_rate") // percent per surviving tick: 1..5
 
   // Captured at buy time so settlement is fully reproducible from raw ticks.
-  entrySpot   Decimal  @map("entry_spot")   @db.Decimal(18, 5)
-  entryEpoch  Int      @map("entry_epoch")  // unix seconds of the entry tick
+  entrySpot   Decimal  @map("entry_spot") @db.Decimal(18, 5)
+  entryEpoch  Int      @map("entry_epoch") // unix seconds of the entry tick
   barrierFrac Decimal  @map("barrier_frac") @db.Decimal(12, 10) // δ: fractional half-width
-  maxTicks    Int      @map("max_ticks")    // hard cap (bounds house liability)
-  takeProfit  Decimal? @map("take_profit")  @db.Decimal(18, 2)  // optional, profit KSh
+  maxTicks    Int      @map("max_ticks") // hard cap (bounds house liability)
+  takeProfit  Decimal? @map("take_profit") @db.Decimal(18, 2) // optional, profit KSh
 
   // Settlement results.
-  exitSpot      Decimal? @map("exit_spot")      @db.Decimal(18, 5)
+  exitSpot      Decimal? @map("exit_spot") @db.Decimal(18, 5)
   ticksSurvived Int?     @map("ticks_survived")
   payout        Decimal? @db.Decimal(18, 2)
 
@@ -772,10 +870,10 @@ model AccumulatorTrade {
 // ─── Directional Trades (Rise/Fall, Higher/Lower) ─────────────────────────────
 
 enum DirectionalKind {
-  RISE_FALL      // exit vs entry spot
-  HIGHER_LOWER   // exit vs a chosen barrier
+  RISE_FALL // exit vs entry spot
+  HIGHER_LOWER // exit vs a chosen barrier
   TOUCH_NO_TOUCH // did the spot touch a barrier during the window (path-dependent)
-  VANILLA        // Call/Put — proportional payout via payoutPerPoint
+  VANILLA // Call/Put — proportional payout via payoutPerPoint
 }
 
 enum DirectionalStatus {
@@ -790,18 +888,18 @@ model DirectionalTrade {
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id])
 
-  market        String          // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
-  kind          DirectionalKind
-  side          String          // RISE|FALL | HIGHER|LOWER | TOUCH|NO_TOUCH | CALL|PUT
-  stake         Decimal         @db.Decimal(18, 2)
-  payout        Decimal         @db.Decimal(18, 2) // fixed net payout if won (RISE_FALL/HIGHER_LOWER/TOUCH); 0 for VANILLA
+  market String // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
+  kind   DirectionalKind
+  side   String // RISE|FALL | HIGHER|LOWER | TOUCH|NO_TOUCH | CALL|PUT
+  stake  Decimal         @db.Decimal(18, 2)
+  payout Decimal         @db.Decimal(18, 2) // fixed net payout if won (RISE_FALL/HIGHER_LOWER/TOUCH); 0 for VANILLA
 
-  entrySpot      Decimal  @map("entry_spot")  @db.Decimal(18, 5)
+  entrySpot      Decimal  @map("entry_spot") @db.Decimal(18, 5)
   entryEpoch     Int      @map("entry_epoch")
-  barrier        Decimal? @db.Decimal(18, 5)  // barrier (HIGHER_LOWER/TOUCH) or strike (VANILLA); null for RISE_FALL
+  barrier        Decimal? @db.Decimal(18, 5) // barrier (HIGHER_LOWER/TOUCH) or strike (VANILLA); null for RISE_FALL
   payoutPerPoint Decimal? @map("payout_per_point") @db.Decimal(24, 8) // VANILLA only: credit per in-the-money point
   durationTicks  Int      @map("duration_ticks")
-  settleBefore  DateTime @map("settle_before")
+  settleBefore   DateTime @map("settle_before")
 
   exitSpot  Decimal?          @map("exit_spot") @db.Decimal(18, 5)
   status    DirectionalStatus @default(PENDING)
@@ -824,15 +922,15 @@ model DirectionalTrade {
 
 enum LeveragedKind {
   MULTIPLIER // P&L = stake × multiplier × signed % move; stops out at equity 0
-  TURBO      // proportional payout to a knockout barrier (path-dependent)
+  TURBO // proportional payout to a knockout barrier (path-dependent)
 }
 
 enum LeveragedStatus {
   OPEN
-  CLOSED       // cash-out / take-profit / stop-loss / profit cap — payout credited
-  STOPPED      // multiplier equity hit 0 — total loss
-  KNOCKED_OUT  // turbo touched its barrier — total loss
-  VOID         // stake refunded — couldn't be settled (feed outage)
+  CLOSED // cash-out / take-profit / stop-loss / profit cap — payout credited
+  STOPPED // multiplier equity hit 0 — total loss
+  KNOCKED_OUT // turbo touched its barrier — total loss
+  VOID // stake refunded — couldn't be settled (feed outage)
 }
 
 model LeveragedTrade {
@@ -840,22 +938,22 @@ model LeveragedTrade {
   userId String @map("user_id")
   user   User   @relation(fields: [userId], references: [id])
 
-  market    String        // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
+  market    String // "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"
   kind      LeveragedKind
-  direction String        // "UP" | "DOWN"
+  direction String // "UP" | "DOWN"
   stake     Decimal       @db.Decimal(18, 2)
 
   // Captured at buy time so settlement is fully reproducible from raw ticks.
-  multiplier     Int?     // MULTIPLIER only (e.g. 30, 50, 100, 200, 400)
+  multiplier     Int? // MULTIPLIER only (e.g. 30, 50, 100, 200, 400)
   barrier        Decimal? @db.Decimal(18, 5) // TURBO knockout price; MULTIPLIER stop-out price (for display)
   payoutPerPoint Decimal? @map("payout_per_point") @db.Decimal(24, 8) // TURBO only: credit per point to barrier
 
-  entrySpot  Decimal @map("entry_spot")  @db.Decimal(18, 5)
+  entrySpot  Decimal @map("entry_spot") @db.Decimal(18, 5)
   entryEpoch Int     @map("entry_epoch")
 
   takeProfit Decimal? @map("take_profit") @db.Decimal(18, 2) // optional, profit KSh that auto-closes
-  stopLoss   Decimal? @map("stop_loss")   @db.Decimal(18, 2) // optional, loss KSh that auto-closes
-  maxPayout  Decimal  @map("max_payout")  @db.Decimal(18, 2) // hard liability cap (profit cap)
+  stopLoss   Decimal? @map("stop_loss") @db.Decimal(18, 2) // optional, loss KSh that auto-closes
+  maxPayout  Decimal  @map("max_payout") @db.Decimal(18, 2) // hard liability cap (profit cap)
 
   // Settlement results.
   exitSpot  Decimal?        @map("exit_spot") @db.Decimal(18, 5)
@@ -869,4 +967,29 @@ model LeveragedTrade {
   @@index([userId, createdAt(sort: Desc)])
   @@index([status])
   @@map("leveraged_trades")
+}
+
+// ─── System Settings ──────────────────────────────────────────────────────────
+/// Generic key/value flags flippable at runtime without a deploy — e.g. the
+/// instant withdrawal / transfer kill switches (see lib/withdrawal-guard.ts).
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_settings")
+}
+
+// ─── Admin Audit Logs ─────────────────────────────────────────────────────────
+/// Immutable audit logs tracking operations performed by admins on the platform.
+model AdminAuditLog {
+  id        String   @id @default(cuid())
+  adminId   String   @map("admin_id")
+  action    String
+  targetId  String?  @map("target_id")
+  metadata  Json?
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("admin_audit_logs")
 }

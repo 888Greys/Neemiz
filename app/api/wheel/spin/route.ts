@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { randomInt } from "crypto";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const MIN_SPIN_AMOUNT = 10;
 
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
 
   const { amount } = body;
   if (!Number.isFinite(amount) || amount < MIN_SPIN_AMOUNT) {
-    return Response.json({ error: `Minimum spin amount is KSh ${MIN_SPIN_AMOUNT}` }, { status: 400 });
+    return Response.json({ error: `Minimum spin amount is ${CURRENCY_SYMBOL} ${MIN_SPIN_AMOUNT}` }, { status: 400 });
   }
 
   const segIdx    = weightedRandom();

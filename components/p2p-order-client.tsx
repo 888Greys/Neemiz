@@ -285,17 +285,14 @@ function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; cur
 
     setUploading(true);
     try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Sign in again to upload");
-      const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const path = `${user.id}/${orderId}/${Date.now()}.${extension}`;
-      const { error } = await supabase.storage
-        .from("p2p-chat")
-        .upload(path, file, { contentType: file.type, upsert: false });
-      if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from("p2p-chat").getPublicUrl(path);
-      setPendingImage(publicUrl);
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("kind", "p2p-chat");
+      fd.append("orderId", orderId);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || "Image upload failed");
+      setPendingImage(json.url);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Image upload failed");
     } finally {
@@ -930,15 +927,6 @@ function MobileP2POrderView({
           >
             Contact Trader
           </button>
-        </div>
-      )}
-
-      {isKesCoinOrder(order) && (
-        <div className="mb-5 rounded-2xl border border-amber-400/20 bg-amber-400/5 px-4 py-3">
-          <p className="text-xs font-black text-amber-300">KES Coin fee and escrow</p>
-          <p className="mt-1 text-[11px] leading-5 text-slate-400">
-            Each party pays a 1% platform fee. The KES Coin principal stays locked in escrow until the receiver confirms payment and releases the trade.
-          </p>
         </div>
       )}
 

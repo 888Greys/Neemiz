@@ -4,7 +4,10 @@ import { Plus_Jakarta_Sans, JetBrains_Mono, Pacifico } from "next/font/google";
 import { PageTransition } from "./page-transition";
 import { NavigationFeedback } from "@/components/navigation-feedback";
 import { Toaster } from "@/lib/toast";
+import { VersionWatcher } from "@/components/version-watcher";
 import { SupabaseAuthProvider } from "@/lib/supabase/auth-context";
+import { CurrencyProvider } from "@/lib/currency-context";
+import { resolveDisplayCurrency } from "@/lib/currency-server";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -38,16 +41,25 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const { code: currencyCode, toKES } = await resolveDisplayCurrency();
   return (
     <html lang="en" className="dark">
       <body className={`${jakarta.variable} ${jetBrains.variable} ${pacifico.variable} bg-background text-on-background`}>
         <SupabaseAuthProvider>
-          <Suspense fallback={null}>
-            <NavigationFeedback />
-          </Suspense>
-          <PageTransition>{children}</PageTransition>
-          <Toaster />
+          <CurrencyProvider initialCode={currencyCode} toKES={toKES}>
+            <Suspense fallback={null}>
+              <NavigationFeedback />
+            </Suspense>
+            {/* Suspense boundary so client hooks that read the URL query
+                (useSearchParams in AppShell's section-aware bottom nav) don't
+                force a CSR bailout / build error on prerendered routes. */}
+            <Suspense fallback={null}>
+              <PageTransition>{children}</PageTransition>
+            </Suspense>
+            <Toaster />
+            <VersionWatcher />
+          </CurrencyProvider>
         </SupabaseAuthProvider>
       </body>
     </html>
