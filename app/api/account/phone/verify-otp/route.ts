@@ -44,6 +44,17 @@ export async function POST(req: Request) {
   }
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+  // Locked-for-life: once a number is verified it is bound to the account
+  // permanently. Re-verifying the SAME number is a harmless no-op; trying to
+  // move to a DIFFERENT number is refused (a SIM swap needs support/admin).
+  if (dbUser.phoneVerified && dbUser.phone && dbUser.phone !== phone) {
+    return Response.json(
+      { error: "Your account is already locked to another mobile number. Contact support to change it." },
+      { status: 409 },
+    );
+  }
+
   try {
     await db.user.update({ where: { id: dbUser.id }, data: { phone, phoneVerified: true } });
   } catch (err) {
