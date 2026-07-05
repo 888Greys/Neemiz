@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { creditUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
+import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
 // POST /api/p2p/merchant/escrow-to-wallet — move crypto from escrow back into normal wallet
@@ -10,6 +11,9 @@ export async function POST(req: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    const killed = await withdrawalsDisabledResponse();
+    if (killed) return killed;
 
     const dbUser   = await getOrCreateUser(user.id, { email: user.email });
     const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
