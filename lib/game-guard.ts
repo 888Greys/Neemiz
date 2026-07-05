@@ -17,6 +17,8 @@ const DEFAULT_DISABLED = new Set([
   // Directional: Touch/No-Touch far-barrier + Higher/Lower deep-ITM +
   // Rise/Fall are player-favorable. Vanilla stays live.
   "directional:TOUCH_NO_TOUCH", "directional:HIGHER_LOWER", "directional:RISE_FALL",
+  // Accumulator: whole game pays a +363% player edge — disable entirely.
+  "accumulator:ALL",
 ]);
 
 const CACHE_TTL_MS = 10_000;
