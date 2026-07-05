@@ -288,7 +288,8 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
   // lands on /wallet?pesapal_order_id=<txnId>, which the effect below picks up.
   async function handlePesapalDeposit() {
     if (!isSignedIn) { openLogin(); return; }
-    if (Number(amount) < 100) { setError("Minimum deposit is KSh 100."); return; }
+    if (Number(amount) < 10)  { setError("Minimum card deposit is KSh 10."); return; }
+    if (Number(amount) > 50)  { setError("Card payments are in test mode — maximum KSh 50 for now."); return; }
     setError(""); setLoading(true);
     try {
       const res  = await fetch("/api/wallet/pesapal/checkout", {
@@ -657,7 +658,10 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                         <Icon name="credit_card" fill className={`text-[18px] ${depositMethod === "pesapal" ? "text-[#05b957]" : "text-slate-500"}`} />
                       </div>
                       <div className="text-left">
-                        <p className={`text-[12px] font-black ${depositMethod === "pesapal" ? "text-white" : "text-slate-400"}`}>Card</p>
+                        <p className={`flex items-center gap-1 text-[12px] font-black ${depositMethod === "pesapal" ? "text-white" : "text-slate-400"}`}>
+                          Card
+                          <span className="rounded-full bg-amber-400/15 px-1.5 py-px text-[8px] font-black uppercase tracking-wide text-amber-400">Test</span>
+                        </p>
                         <p className="text-[10px] text-slate-600">Visa · Mastercard</p>
                       </div>
                     </button>
@@ -668,17 +672,24 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
 
                 {depositMethod === "pesapal" && (
                   <div className="space-y-5">
+                    <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3 ring-1 ring-amber-400/20">
+                      <Icon name="science" fill className="mt-0.5 shrink-0 text-[16px] text-amber-400" />
+                      <p className="text-xs font-bold text-amber-400">
+                        Card payments are in <span className="uppercase">test mode</span> — max <span className="font-black">KSh 50</span> for now while we finish setup.
+                      </p>
+                    </div>
                     <div>
                       <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount (KSh)</p>
                       <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#05b957]/50 transition">
                         <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                         <input
                           type="number"
-                          min="100"
+                          min="10"
+                          max="50"
                           step="1"
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
-                          placeholder="Enter amount"
+                          placeholder="10 – 50"
                           required
                           className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
                         />
@@ -688,7 +699,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                           </button>
                         )}
                       </div>
-                      <p className="mt-2 text-[11px] font-bold text-slate-600">Minimum deposit: KSh 100</p>
+                      <p className="mt-2 text-[11px] font-bold text-slate-600">Test mode · KSh 10–50</p>
                     </div>
 
                     {error && (

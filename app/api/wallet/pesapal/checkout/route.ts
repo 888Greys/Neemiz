@@ -17,8 +17,11 @@ export async function POST(req: Request) {
     if (!Number.isFinite(amountKes) || amountKes < 10) {
       return Response.json({ error: "Minimum deposit is KSh 10" }, { status: 400 });
     }
-    if (amountKes > 1_000_000) {
-      return Response.json({ error: "Maximum Pesapal deposit is KSh 1,000,000" }, { status: 400 });
+    // Card payments are in TEST MODE while the Pesapal account is still
+    // TestOnly (KYC pending). Cap at KSh 50 so real users can only make a small
+    // test payment in the meantime. Remove this cap once the account is live.
+    if (amountKes > 50) {
+      return Response.json({ error: "Card payments are in test mode — maximum KSh 50 for now." }, { status: 400 });
     }
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
