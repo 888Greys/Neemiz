@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { createClient } from "@/lib/supabase/client";
 import { DEV_FAST } from "@/lib/dev-fast";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 type Tab = "all" | "personal" | "general";
 
@@ -59,7 +60,7 @@ function timeAgo(dateStr: string): string {
 
 function txToNotification(tx: { id: string; type: string; amount: number; status: string; createdAt: string }): Notification {
   const meta = TX_META[tx.type] ?? { badge: tx.type, badgeColor: "bg-white/10 text-slate-400", icon: "swap_horiz", sign: "+" as const };
-  const amt  = `KSh ${Number(tx.amount).toLocaleString("en-KE", { minimumFractionDigits: 2 })}`;
+  const amt  = `${CURRENCY_SYMBOL} ${Number(tx.amount).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`;
 
   let title = "";
   let body  = "";

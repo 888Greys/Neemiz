@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { fetchMarket } from "@/lib/polymarket";
 import { isClobTradingEnabled, placePolymarketBuyOrder } from "@/lib/polymarket-clob";
 import { Prisma, TransactionType, TransactionStatus } from "@prisma/client";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const MIN_BET = 10;
 const MAX_BET = 100_000;
@@ -59,8 +60,8 @@ export async function POST(req: Request) {
   if (!conditionId || !outcome || !stake) {
     return Response.json({ error: "conditionId, outcome and stake are required" }, { status: 400 });
   }
-  if (stake < MIN_BET) return Response.json({ error: `Minimum bet is KSh ${MIN_BET}` }, { status: 400 });
-  if (stake > MAX_BET) return Response.json({ error: `Maximum bet is KSh ${MAX_BET.toLocaleString()}` }, { status: 400 });
+  if (stake < MIN_BET) return Response.json({ error: `Minimum bet is ${CURRENCY_SYMBOL} ${MIN_BET}` }, { status: 400 });
+  if (stake > MAX_BET) return Response.json({ error: `Maximum bet is ${CURRENCY_SYMBOL} ${MAX_BET.toLocaleString()}` }, { status: 400 });
 
   // Fetch live market to get current price
   const market = await fetchMarket(conditionId, { cache: "no-store" });

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { AdminShell } from "@/components/admin-shell";
-import { AdminDashboardClient } from "@/components/admin-dashboard-client";
+import { AdminCockpitClient } from "@/components/admin-cockpit-client";
 
 export const metadata = { title: "Admin · Nezeem" };
 
@@ -10,7 +10,7 @@ export default async function AdminPage() {
   const email = user?.email ?? "";
   return (
     <AdminShell adminEmail={email}>
-      <AdminDashboardClient adminEmail={email} />
+      <AdminCockpitClient adminEmail={email} />
     </AdminShell>
   );
 }

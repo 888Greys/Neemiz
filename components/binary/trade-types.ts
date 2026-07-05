@@ -2,7 +2,7 @@
 // picker popover and the per-type right-hand panel. UI metadata only — settlement
 // logic lives server-side per type as we wire each one up.
 
-export type TradeCategory = "all" | "multipliers" | "options" | "accumulators";
+export type TradeCategory = "all" | "digits" | "multipliers" | "options" | "accumulators";
 
 export type TradeTypeId =
   | "accumulators"
@@ -23,6 +23,7 @@ export interface TradeType {
   categories: TradeCategory[]; // which left-rail filters include it
   upIcon:    string;          // material icon for the bullish/up action
   downIcon:  string;          // material icon for the bearish/down action
+  hot?:      boolean;         // shows an animated 🔥 in the mobile quick bar
 }
 
 // Ordered as they appear in the picker's "All" list.
@@ -34,13 +35,14 @@ export const TRADE_TYPES: TradeType[] = [
   { id: "rise_fall",      label: "Rise/Fall",      group: "Ups & Downs",      categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down" },
   { id: "higher_lower",   label: "Higher/Lower",   group: "Ups & Downs",      categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down" },
   { id: "touch_no_touch", label: "Touch/No Touch", group: "Touch & No Touch", categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down" },
-  { id: "matches_differs",label: "Matches/Differs",group: "Digits",           categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down" },
-  { id: "even_odd",       label: "Even/Odd",       group: "Digits",           categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down" },
-  { id: "over_under",     label: "Over/Under",     group: "Digits",           categories: ["all", "options"],               upIcon: "trending_up",    downIcon: "trending_down" },
+  { id: "matches_differs",label: "Matches/Differs",group: "Digits",           categories: ["all", "options", "digits"],     upIcon: "trending_up",    downIcon: "trending_down" },
+  { id: "even_odd",       label: "Even/Odd",       group: "Digits",           categories: ["all", "options", "digits"],     upIcon: "trending_up",    downIcon: "trending_down", hot: true },
+  { id: "over_under",     label: "Over/Under",     group: "Digits",           categories: ["all", "options", "digits"],     upIcon: "trending_up",    downIcon: "trending_down", hot: true },
 ];
 
 export const TRADE_CATEGORIES: { id: TradeCategory; label: string; icon: string }[] = [
   { id: "all",          label: "All",          icon: "grid_view" },
+  { id: "digits",       label: "Digits",       icon: "analytics" },
   { id: "multipliers",  label: "Multipliers",  icon: "bolt" },
   { id: "options",      label: "Options",      icon: "swap_horiz" },
   { id: "accumulators", label: "Accumulators", icon: "show_chart" },

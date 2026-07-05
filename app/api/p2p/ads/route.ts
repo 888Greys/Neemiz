@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
+import { autoApproveIfDue } from "@/lib/p2p/merchant-approval";
 import { isKesCoin, p2pFeeRate, p2pMakerLock } from "@/lib/p2p/crypto-balance";
 import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
@@ -105,7 +106,8 @@ export async function POST(req: Request) {
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser   = await getOrCreateUser(user.id, { email: user.email });
-    const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
+    const found    = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
+    const merchant = found ? await autoApproveIfDue(found) : null;
     if (!merchant?.isVerified) return Response.json({ error: "Merchant account required" }, { status: 403 });
 
     let body: Record<string, unknown>;

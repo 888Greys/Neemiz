@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { ArrowLeft, ArrowRight, Bookmark, ChevronDown, ChevronRight, Code2, Flame, Link2, MessageCircle, Search, Settings, Trophy, TrendingUp, Zap } from "lucide-react";
 import { formatEndDate, formatMarketMoney, formatMarketMoneyKes } from "./market-card";
@@ -8,6 +9,7 @@ import { ProbabilityChart } from "./probability-chart";
 import { toast }      from "@/lib/toast";
 import type { PolymarketMarket } from "@/lib/polymarket";
 import { createClient } from "@/lib/supabase/client";
+import { useCurrency, useMoney } from "@/lib/currency-context";
 
 const TAGS = [
   "Trending", "Breaking", "New",
@@ -529,10 +531,6 @@ function formatCents(price: number) {
   return `${cents < 10 ? cents.toFixed(1) : cents.toFixed(0)}¢`;
 }
 
-function formatKes(value: number, options?: Intl.NumberFormatOptions) {
-  return `KSh ${value.toLocaleString(undefined, options)}`;
-}
-
 function DetailTradeTicket({
   market,
   selectedOutcome,
@@ -552,6 +550,10 @@ function DetailTradeTicket({
   onSelectTradeSide: (side: "yes" | "no") => void;
   compact?: boolean;
 }) {
+  // Stake entered/shown in the display currency; server + balance are KES.
+  const { convert, toKes, format, currency } = useCurrency();
+  const dmoney = (disp: number, opts?: Intl.NumberFormatOptions) =>
+    `${currency.symbol} ${disp.toLocaleString(currency.locale, opts ?? { maximumFractionDigits: currency.decimals })}`;
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [amount, setAmount] = useState(100);
   const [placing, setPlacing] = useState(false);
@@ -571,7 +573,8 @@ function DetailTradeTicket({
   const tradeOutcome = selectedTradeSide === "yes" ? selectedOutcome : market.outcomes[noTradeIndex] ?? selectedOutcome;
   const tradeOutcomeIndex = selectedTradeSide === "yes" ? selectedIndex : noTradeIndex;
   const isUnavailable = activePrice < 0.01;
-  const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0;
+  const amtKes = Math.round(toKes(amount)); // canonical KES for checks + submit
+  const potentialWin = amount > 0 && activePrice > 0 ? amount / activePrice : 0; // display units
   const amountOptions = compact ? [50, 100, 250] : [50, 100, 250, 500];
 
   useEffect(() => {
@@ -581,8 +584,8 @@ function DetailTradeTicket({
 
   async function placeTrade() {
     if (placing || isUnavailable) return;
-    if (amount < 10) { setTradeError("Minimum bet is KSh 10"); return; }
-    if (amount > balance) { setTradeError("Insufficient balance"); return; }
+    if (amtKes < 10) { setTradeError(`Minimum bet is ${format(10)}`); return; }
+    if (amtKes > balance) { setTradeError("Insufficient balance"); return; }
     if (!canExecuteNo) {
       setTradeError("No-side execution for multi-outcome markets is not connected yet. Use the Yes side for this outcome.");
       return;
@@ -596,16 +599,16 @@ function DetailTradeTicket({
       const res = await fetch("/api/polymarket/bet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conditionId: market.conditionId, outcome: tradeOutcome, outcomeIndex: tradeOutcomeIndex, stake: amount }),
+        body: JSON.stringify({ conditionId: market.conditionId, outcome: tradeOutcome, outcomeIndex: tradeOutcomeIndex, stake: amtKes }),
         signal: controller.signal,
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to place bet");
       setReceipt({
         outcome: String(data.outcome ?? tradeOutcome),
-        stake: Number(data.stake ?? amount),
+        stake: Number(data.stake ?? amtKes),
         price: Number(data.price ?? activePrice),
-        potentialWin: Number(data.potentialWin ?? potentialWin),
+        potentialWin: Number(data.potentialWin ?? toKes(potentialWin)),
       });
       onTradeSuccess();
     } catch (err: unknown) {
@@ -675,11 +678,11 @@ function DetailTradeTicket({
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-black/20 p-3 text-[12px]">
                 <div>
                   <p className="text-white/35">Stake</p>
-                  <p className="font-mono font-black text-white">{formatKes(receipt.stake)}</p>
+                  <p className="font-mono font-black text-white">{format(receipt.stake)}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-white/35">Potential win</p>
-                  <p className="font-mono font-black text-[#31c45d]">{formatKes(receipt.potentialWin, { maximumFractionDigits: 2 })}</p>
+                  <p className="font-mono font-black text-[#31c45d]">{format(receipt.potentialWin)}</p>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -719,22 +722,25 @@ function DetailTradeTicket({
 
           <div className="mb-3 flex items-end justify-between">
             <span className="text-sm font-black text-white/70">Amount</span>
-            <span className={`${compact ? "text-2xl" : "text-3xl"} font-black text-white/55`}>{formatKes(amount)}</span>
+            <span className={`${compact ? "text-2xl" : "text-3xl"} font-black text-white/55`}>{dmoney(amount)}</span>
           </div>
           <div className={`mb-4 grid gap-2 ${compact ? "grid-cols-3" : "grid-cols-4"}`}>
-            {amountOptions.map((v) => (
+            {amountOptions.map((v) => {
+              const vd = Math.round(convert(v)); // KES preset → display units
+              return (
               <button
                 key={v}
-                onClick={() => setAmount(v)}
-                className={`rounded-xl px-3 py-2 text-[12px] font-black ${amount === v ? "bg-[#087cff]/30 text-[#8bc3ff]" : "bg-white/[0.06] text-white/40"}`}
+                onClick={() => setAmount(vd)}
+                className={`rounded-xl px-3 py-2 text-[12px] font-black ${amount === vd ? "bg-[#087cff]/30 text-[#8bc3ff]" : "bg-white/[0.06] text-white/40"}`}
               >
-                {v >= 1000 ? `${v / 1000}K` : v}
+                {vd >= 1000 ? `${(vd / 1000).toLocaleString(currency.locale, { maximumFractionDigits: 1 })}K` : vd.toLocaleString(currency.locale)}
               </button>
-            ))}
+              );
+            })}
           </div>
           <div className="mb-4 rounded-xl border border-white/[0.06] bg-white/[0.04] p-3 text-[12px]">
             <div className="flex justify-between text-white/45"><span>Odds</span><span className="font-mono text-white">{(1 / activePrice).toFixed(2)}x</span></div>
-            <div className="mt-1 flex justify-between text-white/45"><span>Potential win</span><span className="font-mono text-[#31c45d]">{formatKes(potentialWin, { maximumFractionDigits: 2 })}</span></div>
+            <div className="mt-1 flex justify-between text-white/45"><span>Potential win</span><span className="font-mono text-[#31c45d]">{dmoney(potentialWin, { maximumFractionDigits: 2 })}</span></div>
           </div>
           {isUnavailable ? (
             <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-center">
@@ -753,7 +759,7 @@ function DetailTradeTicket({
           {tradeError && <p className="mt-3 rounded-lg bg-red-900/30 px-3 py-2 text-[11px] text-red-400">{tradeError}</p>}
           </>
           )}
-          <p className="mt-3 text-center text-[11px] text-white/30">Balance: {formatKes(Math.floor(balance))}</p>
+          <p className="mt-3 text-center text-[11px] text-white/30">Balance: {format(balance)}</p>
         </div>
       </div>
 
@@ -809,6 +815,7 @@ function scrollPolymarketTop() {
 }
 
 function PositionCard({ bet, onOpen }: { bet: MyBet; onOpen: (bet: MyBet) => void }) {
+  const { format } = useMoney();
   const pending = bet.status === "PENDING";
   const profit = bet.potentialWin - bet.stake;
   const sideColor = bet.outcome.toLowerCase() === "yes" ? "text-[#31c45d]" : "text-red-400";
@@ -838,17 +845,17 @@ function PositionCard({ bet, onOpen }: { bet: MyBet; onOpen: (bet: MyBet) => voi
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className="rounded-xl bg-black/20 p-3">
           <p className="text-[11px] font-bold text-white/35">Stake</p>
-          <p className="mt-1 font-mono text-sm font-black text-white">{formatKes(bet.stake)}</p>
+          <p className="mt-1 font-mono text-sm font-black text-white">{format(bet.stake)}</p>
         </div>
         <div className="rounded-xl bg-black/20 p-3">
           <p className="text-[11px] font-bold text-white/35">{pending ? "To win" : "Payout"}</p>
           <p className={`mt-1 font-mono text-sm font-black ${bet.status === "LOST" ? "text-red-400" : "text-[#31c45d]"}`}>
-            {formatKes((bet.status === "WON" && bet.winAmount) ? bet.winAmount : bet.potentialWin, { maximumFractionDigits: 2 })}
+            {format((bet.status === "WON" && bet.winAmount) ? bet.winAmount : bet.potentialWin)}
           </p>
         </div>
         <div className="rounded-xl bg-black/20 p-3">
           <p className="text-[11px] font-bold text-white/35">Max profit</p>
-          <p className="mt-1 font-mono text-sm font-black text-white">{formatKes(profit, { maximumFractionDigits: 2 })}</p>
+          <p className="mt-1 font-mono text-sm font-black text-white">{format(profit)}</p>
         </div>
         <div className="rounded-xl bg-black/20 p-3">
           <p className="text-[11px] font-bold text-white/35">Opened</p>
@@ -878,6 +885,7 @@ function PositionCard({ bet, onOpen }: { bet: MyBet; onOpen: (bet: MyBet) => voi
 }
 
 function DetailMyBets({ bets }: { bets: MyBet[] }) {
+  const { format } = useMoney();
   if (bets.length === 0) return null;
 
   const openCount = bets.filter((b) => b.status === "PENDING").length;
@@ -902,11 +910,11 @@ function DetailMyBets({ bets }: { bets: MyBet[] }) {
         <div className="grid grid-cols-2 gap-px border-b border-white/[0.06] bg-white/[0.06]">
           <div className="bg-[#1a1b22] px-4 py-2.5">
             <p className="text-[10px] font-black uppercase tracking-wide text-white/30">Staked</p>
-            <p className="mt-0.5 font-mono text-[13px] font-black text-white">{formatKes(totalStake)}</p>
+            <p className="mt-0.5 font-mono text-[13px] font-black text-white">{format(totalStake)}</p>
           </div>
           <div className="bg-[#1a1b22] px-4 py-2.5">
             <p className="text-[10px] font-black uppercase tracking-wide text-white/30">To win</p>
-            <p className="mt-0.5 font-mono text-[13px] font-black text-[#31c45d]">{formatKes(openToWin, { maximumFractionDigits: 2 })}</p>
+            <p className="mt-0.5 font-mono text-[13px] font-black text-[#31c45d]">{format(openToWin)}</p>
           </div>
         </div>
       )}
@@ -929,10 +937,10 @@ function DetailMyBets({ bets }: { bets: MyBet[] }) {
               </div>
               <div className="mt-2 flex items-center justify-between text-[11px]">
                 <span className="text-white/40">
-                  Stake <span className="font-mono font-black text-white">{formatKes(bet.stake)}</span>
+                  Stake <span className="font-mono font-black text-white">{format(bet.stake)}</span>
                 </span>
                 <span className={`font-mono font-black ${bet.status === "LOST" ? "text-red-400" : "text-[#31c45d]"}`}>
-                  {pending ? "→ " : ""}{formatKes(payout, { maximumFractionDigits: 2 })}
+                  {pending ? "→ " : ""}{format(payout)}
                 </span>
               </div>
               {bet.executionMode === "clob" && bet.clobStatus && (
@@ -1470,10 +1478,17 @@ function TradeSheet({
 
 /* ── Main component ─────────────────────────────────────────────────────── */
 export function PolymarketClient({ userId, balance: initialBalance, initialMarkets = [] }: Props) {
+  const { format } = useMoney();
   const [markets,  setMarkets]  = useState<PolymarketMarket[]>(initialMarkets);
   const [myBets,   setMyBets]   = useState<MyBet[]>([]);
   const [loading,  setLoading]  = useState(initialMarkets.length === 0);
   const [tab,      setTab]      = useState<"browse" | "my-bets">("browse");
+  // The mobile bottom-nav "My Bets" tab drives the in-page view via `?tab=`.
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  useEffect(() => {
+    if (urlTab === "my-bets" || urlTab === "browse") setTab(urlTab);
+  }, [urlTab]);
   const [tag,      setTag]      = useState("Trending");
   const [ticket,   setTicket]   = useState<{ market: PolymarketMarket; outcome?: string; amount?: number } | null>(null);
   const [balance,  setBalance]  = useState(initialBalance);
@@ -1732,7 +1747,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
         </div>
         <div className="hidden h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#1a1b22] px-4 sm:flex">
           <span className="text-[11px] font-black uppercase tracking-widest text-white/25">Balance</span>
-          <span className="font-black text-white">{formatKes(Math.floor(balance))}</span>
+          <span className="font-black text-white">{format(balance)}</span>
         </div>
         <button
           onClick={() => tab === "my-bets" ? goBackToMarkets() : viewMyBets()}
@@ -1898,11 +1913,11 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
                 </div>
                 <div className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4">
                   <p className="text-[11px] font-black uppercase tracking-wide text-white/35">Capital at risk</p>
-                  <p className="mt-2 text-2xl font-black text-white">{formatKes(openStake)}</p>
+                  <p className="mt-2 text-2xl font-black text-white">{format(openStake)}</p>
                 </div>
                 <div className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4">
                   <p className="text-[11px] font-black uppercase tracking-wide text-white/35">Open payout</p>
-                  <p className="mt-2 text-2xl font-black text-[#31c45d]">{formatKes(openToWin, { maximumFractionDigits: 2 })}</p>
+                  <p className="mt-2 text-2xl font-black text-[#31c45d]">{format(openToWin)}</p>
                 </div>
               </div>
 

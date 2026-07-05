@@ -15,6 +15,9 @@ import {
   Bell,
   BellOff,
   Bitcoin,
+  Briefcase,
+  Keyboard,
+  Star,
   BrainCircuit,
   Calendar,
   CalendarDays,
@@ -62,6 +65,8 @@ import {
   Lock,
   LogOut,
   Mail,
+  Maximize2,
+  Minimize2,
   Megaphone,
   Menu,
   MessageCircle,
@@ -69,6 +74,7 @@ import {
   MinusCircle,
   Monitor,
   LineChart,
+  PenTool,
   Phone,
   PlaneTakeoff,
   Plus,
@@ -106,6 +112,17 @@ import {
   Lightbulb,
   Share2,
   UserPlus,
+  KeyRound,
+  AtSign,
+  CheckCheck,
+  Download,
+  Award,
+  EllipsisVertical,
+  Percent,
+  MessageSquareText,
+  ListChecks,
+  Bot,
+  Image as ImageIcon,
 } from "lucide-react";
 
 // ─── Icon name → Lucide component map ────────────────────────────────────────
@@ -129,6 +146,8 @@ const iconMap: Record<string, LucideIcon> = {
   bar_chart: BarChart2,
   block: Ban,
   bolt: Zap,
+  briefcase: Briefcase,
+  work: Briefcase,
 
   // C
   calendar_month: Calendar,
@@ -151,10 +170,12 @@ const iconMap: Record<string, LucideIcon> = {
   currency_exchange: ArrowLeftRight,
 
   // D
+  dashboard: LayoutGrid,
   delete: Trash2,
   delete_outline: Trash2,
   desktop_windows: Monitor,
   devices: Laptop2,
+  draw: PenTool,
 
   // E
   edit: FileEdit,
@@ -184,6 +205,7 @@ const iconMap: Record<string, LucideIcon> = {
   info: Info,
 
   // K
+  keyboard: Keyboard,
   keyboard_arrow_down: ChevronDown,
   keyboard_double_arrow_left: ChevronsLeft,
   keyboard_double_arrow_right: ChevronsRight,
@@ -199,6 +221,8 @@ const iconMap: Record<string, LucideIcon> = {
   // M
   mail: Mail,
   manage_search: SearchCode,
+  fullscreen: Maximize2,
+  fullscreen_exit: Minimize2,
   menu: Menu,
   my_location: Crosshair,
 
@@ -241,6 +265,7 @@ const iconMap: Record<string, LucideIcon> = {
   settings: Settings,
   shield: Shield,
   south_america: Coins,
+  star: Star,
   sports_esports: Gamepad2,
   sports_soccer: CircleDot,
   storefront: Store,
@@ -269,6 +294,24 @@ const iconMap: Record<string, LucideIcon> = {
 
   // W
   warning: AlertTriangle,
+
+  // Previously-missing names (rendered a "?" fallback before)
+  passkey: KeyRound,
+  alternate_email: AtSign,
+  arrow_drop_down: ChevronDown,
+  approval: CheckCheck,
+  apps: LayoutGrid,
+  download: Download,
+  image: ImageIcon,
+  loyalty: Award,
+  more_vert: EllipsisVertical,
+  percent: Percent,
+  policy: ShieldCheck,
+  rate_review: MessageSquareText,
+  rule: ListChecks,
+  smart_toy: Bot,
+  groups_2: Users,
+  stacked_bar_chart: BarChart3,
 };
 
 // ─── Icon component ───────────────────────────────────────────────────────────

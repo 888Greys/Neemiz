@@ -2,17 +2,18 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { cookies } from "next/headers";
+import { logAdminAction } from "@/lib/admin-audit";
 
 async function requireAdmin() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  const dbUser = await db.user.findUnique({ where: { supabaseId: user.id }, select: { isAdmin: true } });
+  const dbUser = await db.user.findUnique({ where: { supabaseId: user.id }, select: { id: true, isAdmin: true } });
   if (!dbUser?.isAdmin) return null;
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token || !verifyAdminToken(token)) return null;
-  return true;
+  return dbUser;
 }
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
@@ -121,7 +122,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
 // PATCH /api/admin/users/[id]  { action: "suspend" | "unsuspend" }
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  if (!await requireAdmin()) return Response.json({ error: "Forbidden" }, { status: 403 });
+  const admin = await requireAdmin();
+  if (!admin) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = params;
   let body: { action: string };
@@ -129,9 +131,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const isActive = body.action === "unsuspend";
 
-  const target = await db.user.findUnique({ where: { id }, select: { isAdmin: true } });
+  const target = await db.user.findUnique({ where: { id }, select: { isAdmin: true, email: true, username: true } });
   if (!target) return Response.json({ error: "User not found" }, { status: 404 });
   if (target.isAdmin) return Response.json({ error: "Cannot suspend an admin account" }, { status: 403 });
+
+  await logAdminAction({
+    adminId: admin.id,
+    action: `USER_${body.action.toUpperCase()}`,
+    targetId: id,
+    metadata: { email: target.email, username: target.username },
+    ipAddress: req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for"),
+  });
 
   const updated = await db.user.update({
     where: { id },

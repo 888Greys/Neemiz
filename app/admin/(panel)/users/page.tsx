@@ -1,16 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
-import { AdminShell } from "@/components/admin-shell";
-import { AdminUsersClient } from "@/components/admin-users-client";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Users · Admin · Nezeem" };
-
-export default async function AdminUsersPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const email = user?.email ?? "";
-  return (
-    <AdminShell adminEmail={email}>
-      <AdminUsersClient />
-    </AdminShell>
-  );
+// The user directory now lives as a tab on the unified Players page. Keep this
+// path working for bookmarks/back-links by forwarding to that tab.
+export default function AdminUsersPage() {
+  redirect("/admin/players?tab=directory");
 }

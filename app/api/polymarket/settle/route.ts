@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { fetchResolutionDetail } from "@/lib/polymarket";
 import { TransactionType, TransactionStatus } from "@prisma/client";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export const runtime = "nodejs";
 
@@ -66,7 +67,7 @@ async function voidStalePolymarketBets(
           userId: bet.userId,
           type: "POLYMARKET_VOID",
           title: "Prediction refunded",
-          body: `Your KSh ${Number(bet.stake).toLocaleString("en-KE")} stake was refunded.`,
+          body: `Your ${CURRENCY_SYMBOL} ${Number(bet.stake).toLocaleString(MONEY_LOCALE)} stake was refunded.`,
           link: "/polymarket",
         },
       });
@@ -165,7 +166,7 @@ async function settlePolymarket(req: Request) {
             type: won ? "POLYMARKET_WON" : "POLYMARKET_LOST",
             title: won ? "Prediction won" : "Prediction settled",
             body: won
-              ? `KSh ${Number(bet.potentialWin).toLocaleString("en-KE")} was credited to your wallet.`
+              ? `${CURRENCY_SYMBOL} ${Number(bet.potentialWin).toLocaleString(MONEY_LOCALE)} was credited to your wallet.`
               : "Your market prediction did not win.",
             link: "/polymarket",
           },

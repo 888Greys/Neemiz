@@ -32,3 +32,14 @@ signer/.env
 
 # stray one-off build snapshot
 .next-preadmin-reset-*
+
+# local scratch / working files
+scratch/
+
+# Cloudflare Wrangler local state
+.wrangler/
+
+# stray root-level media & asset drops (real assets live in /public)
+*.mp3
+/plane-3.svg
+/sun.svg

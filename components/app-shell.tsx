@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useState, useRef, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
-import { mobileNav } from "@/lib/mock-data";
+import { getMobileNav } from "@/lib/mock-data";
 import { BrandLogo } from "@/components/brand-logo";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
@@ -15,6 +15,11 @@ import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import type { ProfileView } from "@/components/profile-modal";
+import { MONEY_LOCALE, CURRENCY_SYMBOL } from "@/lib/currency";
+import { useMoney } from "@/lib/currency-context";
+import { CurrencySwitcher } from "@/components/currency-switcher";
+import { NavBadgeContext } from "@/lib/nav-badge-context";
+import { PhonePromptModal } from "@/components/phone-prompt-modal";
 
 const LoginModal = dynamic(
   () => import("@/components/login-modal").then((mod) => mod.LoginModal),
@@ -50,6 +55,11 @@ type AppShellProps = {
 export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = true }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Bottom-nav tab set is section-aware (binary gets Markets/Trade/Positions);
+  // `currentPanel` drives active-state for same-route panel tabs.
+  const mobileNav = getMobileNav(pathname);
+  const currentPanel = searchParams.get("panel") ?? "";
   const isLogin = pathname === "/login";
   const isSportsPage = pathname.startsWith("/sports");
   const { isSignedIn, user } = useSupabaseAuth();
@@ -58,8 +68,13 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const initials = displayName.charAt(0).toUpperCase();
   const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
   const { balance, currency } = useWalletBalance();
+  const money = useMoney();
+  // KES is the canonical ledger balance — convert it to the user's chosen
+  // display currency. Non-KES (crypto) balances are shown in their own unit.
   const fmtBalance = isSignedIn
-    ? `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    ? (currency === "KES"
+        ? money.format(balance)
+        : `${currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
     : null;
   // Start collapsed on both server and first client render to avoid a hydration
   // mismatch, then sync the persisted preference from localStorage after mount.
@@ -78,6 +93,56 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   // Optimistic nav target: highlight the tapped tab instantly (before the route
   // actually arrives), then fall back to the real pathname once it lands.
   const [pendingPath, setPendingPath]         = useState<string | null>(null);
+  const [navBadges, setNavBadges]             = useState<Record<string, number>>({});
+  const [checkingPhone, setCheckingPhone]     = useState(false);
+  const [missingPhone, setMissingPhone]       = useState(false);
+
+  useEffect(() => {
+    if (isSignedIn && user) {
+      const hasPhoneInAuth = !!(user.phone || user.user_metadata?.phone_number || user.email?.endsWith("@phone.nezeem.com"));
+      if (hasPhoneInAuth) {
+        setMissingPhone(false);
+        return;
+      }
+
+      setCheckingPhone(true);
+      fetch("/api/account/mpesa")
+        .then(async (res) => {
+          // A 401 here means the server doesn't see a valid session even though
+          // the client thinks it's signed in (stale/expired session cookie). That
+          // is NOT "missing phone" — don't pop the Link-Phone modal on it, or the
+          // user gets a spurious prompt that then fails with "Unauthorized".
+          if (res.status === 401) { setMissingPhone(false); return; }
+          if (!res.ok) return; // transient server error — leave state unchanged
+          const data = await res.json().catch(() => ({}));
+          setMissingPhone(!data.phone);
+        })
+        .catch(() => {})
+        .finally(() => setCheckingPhone(false));
+    } else {
+      setMissingPhone(false);
+    }
+  }, [isSignedIn, user]);
+
+  const handlePhoneComplete = useCallback((phone: string) => {
+    setMissingPhone(false);
+    window.dispatchEvent(new CustomEvent("wallet-refresh"));
+  }, []);
+  const setNavBadge = useCallback((key: string, count: number) => {
+    setNavBadges((current) => {
+      const nextCount = Math.max(0, Math.floor(count));
+      if ((current[key] ?? 0) === nextCount) return current;
+      if (nextCount === 0) {
+        const { [key]: _, ...rest } = current;
+        return rest;
+      }
+      return { ...current, [key]: nextCount };
+    });
+  }, []);
+  const navBadgeContext = useMemo(
+    () => ({ badges: navBadges, setBadge: setNavBadge }),
+    [navBadges, setNavBadge],
+  );
 
   function openProfile(view?: ProfileView) {
     setProfileInitialView(view);
@@ -108,6 +173,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   return (
     <BetslipProvider>
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
+    <NavBadgeContext.Provider value={navBadgeContext}>
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
       <header className="fixed left-0 right-0 top-0 z-50 flex h-14 max-w-[100vw] items-center overflow-visible bg-[#111113] px-3 lg:h-20 lg:px-0">
         {!hideSidebar && (
@@ -188,6 +254,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
                   Deposit
                 </button>
               </div>
+              <CurrencySwitcher />
               <NotificationsBell />
               {/* Profile entry point — needed on desktop when the sidebar (which
                   used to hold the avatar) is hidden. */}
@@ -255,15 +322,20 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={(tab) => { setProfileOpen(false); openWallet(tab); }} initialView={profileInitialView} />}
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} initialTab={walletInitialTab} />}
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} onOpenWallet={(tab) => { setMobileMenuOpen(false); openWallet(tab); }} />}
+      {missingPhone && <PhonePromptModal onComplete={handlePhoneComplete} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
         {mobileNav.map((item) => {
-          const activePath = ("activePath" in item ? item.activePath : (item.href ?? "").split("?")[0].split("#")[0]) as string;
-          // Use the optimistic target while a tap is in flight so the tab lights
-          // up the instant it's pressed, not after the page finishes loading.
-          const active = activePath === (pendingPath ?? pathname);
-          const navigating = pendingPath === activePath && pathname !== activePath;
+          const activePath = item.activePath ?? (item.href ?? "").split("?")[0].split("#")[0];
+          // Panel tabs (binary's Markets/Trade/Positions) share one route and are
+          // distinguished by the `?panel=` value, so match on panel rather than
+          // path — otherwise every same-route tab would light up at once.
+          const isPanelTab = item.panel !== undefined;
+          const active = isPanelTab
+            ? pathname.startsWith(activePath) && currentPanel === item.panel
+            : activePath === (pendingPath ?? pathname);
+          const navigating = !isPanelTab && pendingPath === activePath && pathname !== activePath;
           if (item.label === "Menu") {
             return (
               <button key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset" onClick={() => setMobileMenuOpen(true)} type="button">
@@ -282,13 +354,21 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
               onClick={() => { if (activePath !== pathname) setPendingPath(activePath); }}
               className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${active ? "text-[#087cff]" : "text-on-surface-variant"}`}
             >
-              <Icon name={item.icon} fill={active} className={`text-[20px] ${navigating ? "animate-pulse" : ""}`} />
+              <span className="relative">
+                <Icon name={item.icon} fill={active} className={`text-[20px] ${navigating ? "animate-pulse" : ""}`} />
+                {(navBadges[item.panel ?? item.label] ?? 0) > 0 && (
+                  <span className="absolute -right-2 -top-2 grid min-w-4 h-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#111113]">
+                    {(navBadges[item.panel ?? item.label] ?? 0) > 99 ? "99+" : navBadges[item.panel ?? item.label]}
+                  </span>
+                )}
+              </span>
               <span className="mt-0.5 max-w-full truncate font-bold leading-none">{item.label}</span>
             </Link>
           );
         })}
       </nav>
     </div>
+    </NavBadgeContext.Provider>
     </AuthModalContext.Provider>
     </BetslipProvider>
   );
@@ -306,7 +386,7 @@ function TopNavLink({ href, icon, label, pathname }: { href: string; icon: strin
       onFocus={() => router.prefetch(href)}
       className={`flex items-center gap-1.5 rounded-xl px-4 py-2.5 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#18191d] ${
         active
-          ? "bg-[#087cff] text-white shadow-[0_4px_16px_rgba(8,124,255,.35)]"
+          ? "bg-gradient-to-b from-[#2b8bff] to-[#0a6ef0] text-white ring-1 ring-inset ring-white/15"
           : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
       }`}
     >
@@ -664,7 +744,10 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
   const router = useRouter();
   const pathname = usePathname();
   const { balance, currency } = useWalletBalance();
-  const fmtBalance = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const money = useMoney();
+  const fmtBalance = currency === "KES"
+    ? money.format(balance)
+    : `${currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const meta = user?.user_metadata ?? {};
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
@@ -714,6 +797,10 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
                 </span>
                 <span className="text-[14px] font-black text-white">{fmtBalance}</span>
               </button>
+              <div className="border-t border-white/[0.06] px-3 py-2">
+                <span className="mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400">Display currency</span>
+                <CurrencySwitcher inline />
+              </div>
               <div className="flex gap-1.5 px-2 pb-2">
                 <button type="button" onClick={() => onOpenWallet()} className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#05b957] py-2 text-[11px] font-black text-white transition active:scale-[0.98]">
                   <Icon name="add" className="text-[14px]" /> Deposit
