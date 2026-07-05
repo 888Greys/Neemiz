@@ -2,13 +2,17 @@
 """
 Nezeem on-chain wallet watcher.
 
-Polls PUBLIC balances of Nezeem's hot wallet + known-bad addresses across
+Polls the PUBLIC balance of Nezeem's CURRENT hot wallet across
 Polygon / BSC / Ethereum / Tron and sends a Telegram alert when:
 
-  - a KNOWN-BAD address (attacker, or old compromised) RECEIVES funds
-    (any balance increase)  -> CRITICAL: active theft or deposits mis-routing
   - the HOT WALLET is suddenly DRAINED
     (balance falls by >= drain_pct of a meaningful prior balance) -> CRITICAL
+
+We deliberately do NOT watch the old leaked wallet or the thief's address:
+the old wallet is dead (all deposit rows re-derived) and the attacker address
+is a SHARED drainer collector — its balance rises from other victims' losses,
+so watching it only produced false "active theft" alerts and needless signer
+halts. The hot-wallet drop is the only signal that means OUR money is moving.
 
 No private keys, no seed. Watches public chain data only — safe to run on a
 shared box. State is kept in state.json next to this script.
@@ -133,10 +137,15 @@ def main():
 
     for w in cfg["watch"]:
         key   = w["key"]                 # unique id, e.g. "hot-polygon"
-        role  = w["role"]                # hot | attacker | old_compromised
+        role  = w["role"]                # hot (only role acted on)
         chain = w["chain"]               # polygon | bsc | ethereum | tron
         addr  = w["address"]
         label = w.get("label", key)
+
+        # Only the current hot wallet is watched. Any stale attacker/
+        # old_compromised entries left in a config are ignored — see module docs.
+        if role != "hot":
+            continue
 
         time.sleep(0.4)  # be gentle on public/free endpoints (esp. TronGrid)
         if chain == "tron":
@@ -157,18 +166,7 @@ def main():
             continue  # baseline only
 
         delta = bal - prev
-        if role in ("attacker", "old_compromised") and delta > 1e-9:
-            alerts.append(
-                f"🚨 <b>{role.upper()} ADDRESS RECEIVED FUNDS</b>\n"
-                f"{label} ({chain})\n<code>{addr}</code>\n"
-                f"+{delta:.6f} {sym}  (now {bal:.6f})\n"
-                f"→ Active theft or deposits mis-routing. Investigate NOW."
-            )
-            # Funds reaching the ACTIVE attacker address ⇒ live theft ⇒ freeze.
-            # old_compromised is a dead address (stale dust) ⇒ alert only, no halt.
-            if role == "attacker":
-                halt_reasons.append(f"{role} address {label} received +{delta:.6f} {sym}")
-        elif role == "hot" and prev > hot_min and bal <= prev * (1 - drain_pct):
+        if prev > hot_min and bal <= prev * (1 - drain_pct):
             alerts.append(
                 f"🚨 <b>HOT WALLET DRAINED</b>\n"
                 f"{label} ({chain})\n<code>{addr}</code>\n"

@@ -4,9 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
+import { enrollPasskey } from "@/lib/passkey-client";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { AvatarUploader } from "@/components/avatar-uploader";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export type ProfileView =
@@ -733,19 +735,78 @@ function SecurityView({ email }: { email: string | undefined }) {
   const [disableLoading, setDisableLoading] = useState(false);
   const [disabled2FA, setDisabled2FA] = useState(false);
 
-  // Passkeys (WebAuthn)
+  // Passkeys (WebAuthn) — withdrawal step-up (GoTrue MFA factors)
   const [passkeys, setPasskeys] = useState<Array<{ id: string; friendly_name?: string; created_at: string; last_used_at?: string }>>([]);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [passkeyBusy, setPasskeyBusy] = useState(false);
+
+  // Sign-in passkeys — passwordless primary login (self-managed WebAuthn)
+  const [signinPasskeys, setSigninPasskeys] = useState<Array<{ id: string; deviceName?: string | null; createdAt: string; lastUsedAt?: string | null }>>([]);
+  const [signinPasskeyLoading, setSigninPasskeyLoading] = useState(false);
+  const [signinPasskeyBusy, setSigninPasskeyBusy] = useState(false);
+
+  const loadSigninPasskeys = useCallback(async () => {
+    setSigninPasskeyLoading(true);
+    try {
+      const res = await fetch("/api/auth/passkey", { cache: "no-store" });
+      if (res.ok) {
+        const j = await res.json() as { passkeys?: Array<{ id: string; deviceName?: string | null; createdAt: string; lastUsedAt?: string | null }> };
+        setSigninPasskeys(j.passkeys ?? []);
+      }
+    } catch {
+      // leave empty
+    } finally {
+      setSigninPasskeyLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadSigninPasskeys(); }, [loadSigninPasskeys]);
+
+  async function addSigninPasskey() {
+    setSigninPasskeyBusy(true);
+    try {
+      const result = await enrollPasskey(`Passkey · ${new Date().toLocaleDateString()}`);
+      if (!result.ok) {
+        toast.error("Couldn't add sign-in passkey", result.error ?? "Please try again.");
+        return;
+      }
+      toast.success("Sign-in passkey added", "You can now log in with this passkey — no password needed.");
+      await loadSigninPasskeys();
+    } catch {
+      toast.error("Couldn't add sign-in passkey", "Your device may not support passkeys, or the prompt was dismissed.");
+    } finally {
+      setSigninPasskeyBusy(false);
+    }
+  }
+
+  async function removeSigninPasskey(id: string) {
+    setSigninPasskeyBusy(true);
+    try {
+      const res = await fetch(`/api/auth/passkey/${id}`, { method: "DELETE" });
+      if (!res.ok) { toast.error("Couldn't remove passkey", "Try again."); return; }
+      setSigninPasskeys((prev) => prev.filter((p) => p.id !== id));
+    } catch {
+      toast.error("Couldn't remove passkey", "Try again.");
+    } finally {
+      setSigninPasskeyBusy(false);
+    }
+  }
 
   const loadPasskeys = useCallback(async () => {
     setPasskeyLoading(true);
     try {
       const supabase = createClient();
-      const { data, error } = await supabase.auth.passkey.list();
-      if (!error && data) setPasskeys(data);
+      // WebAuthn passkeys are modeled as MFA factors on the self-hosted Supabase
+      // Auth (GoTrue). List the verified webauthn factors.
+      const { data, error } = await supabase.auth.mfa.listFactors();
+      if (!error && data) {
+        const wa = (data.webauthn ?? data.all?.filter((f) => f.factor_type === "webauthn") ?? [])
+          .filter((f) => f.status === "verified")
+          .map((f) => ({ id: f.id, friendly_name: f.friendly_name ?? undefined, created_at: f.created_at }));
+        setPasskeys(wa);
+      }
     } catch {
-      // experimental API may be unavailable — leave the list empty
+      // WebAuthn unavailable on this device/server — leave the list empty
     } finally {
       setPasskeyLoading(false);
     }
@@ -757,12 +818,46 @@ function SecurityView({ email }: { email: string | undefined }) {
     setPasskeyBusy(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.registerPasskey();
-      if (error) { toast.error("Couldn't add passkey", error.message); return; }
-      toast.success("Passkey added", "You can now sign in with this device.");
+      // Clear out half-finished (unverified) webauthn factors from earlier
+      // attempts — GoTrue keeps them and they reserve the friendly name, which is
+      // what caused "a factor with the friendly name … already exists".
+      try {
+        const { data: fs } = await supabase.auth.mfa.listFactors();
+        const stale = (fs?.webauthn ?? []).filter((f) => f.status !== "verified");
+        for (const f of stale) await supabase.auth.mfa.unenroll({ factorId: f.id });
+      } catch { /* best-effort cleanup */ }
+
+      // register() runs the full enroll → challenge → verify ceremony. The
+      // friendly name must be UNIQUE per account, so include a timestamp.
+      // GoTrue's MFA WebAuthn defaults to a cross-platform (USB security key)
+      // authenticator, which is why phones only offered "USB / use another
+      // device". Override to a PLATFORM authenticator so the device's own
+      // passkey store (Face ID / fingerprint / Google Password Manager) is
+      // offered — i.e. "save a passkey on this device".
+      const { error } = await supabase.auth.mfa.webauthn.register(
+        {
+          friendlyName: `Passkey · ${new Date().toLocaleString()}`,
+          webauthn: { rpId: window.location.hostname, rpOrigins: [window.location.origin] },
+        },
+        {
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            residentKey: "preferred",
+            userVerification: "preferred",
+          },
+        },
+      );
+      if (error) {
+        const msg = /already exists/i.test(error.message)
+          ? "You already have a passkey with that name. Remove it first, then add again."
+          : error.message;
+        toast.error("Couldn't add passkey", msg);
+        return;
+      }
+      toast.success("Passkey added", "Use it to confirm withdrawals and as your second factor.");
       await loadPasskeys();
     } catch {
-      toast.error("Couldn't add passkey", "Your device may not support passkeys.");
+      toast.error("Couldn't add passkey", "Your device may not support passkeys, or the prompt was dismissed.");
     } finally {
       setPasskeyBusy(false);
     }
@@ -772,7 +867,7 @@ function SecurityView({ email }: { email: string | undefined }) {
     setPasskeyBusy(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.passkey.delete({ passkeyId });
+      const { error } = await supabase.auth.mfa.unenroll({ factorId: passkeyId });
       if (error) { toast.error("Couldn't remove passkey", error.message); return; }
       setPasskeys((prev) => prev.filter((p) => p.id !== passkeyId));
     } catch {
@@ -973,9 +1068,26 @@ function SecurityView({ email }: { email: string | undefined }) {
               </div>
             </div>
 
-            <div className="rounded-xl bg-white/[0.04] px-3 py-2.5 text-center ring-1 ring-white/[0.07]">
-              <p className="text-[10px] font-bold text-slate-500 mb-1">Manual key</p>
-              <p className="font-mono text-[12px] font-black text-white tracking-wider break-all">{setupState.secret}</p>
+            <div className="rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.07]">
+              <p className="text-[10px] font-bold text-slate-500 mb-1 text-center">Manual key</p>
+              <div className="flex items-center gap-2">
+                <p className="min-w-0 flex-1 break-all text-center font-mono text-[12px] font-black tracking-wider text-white">{setupState.secret}</p>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(setupState.secret);
+                      toast.success("Key copied", "Paste it into your authenticator app.");
+                    } catch {
+                      toast.error("Couldn't copy", "Copy the key manually.");
+                    }
+                  }}
+                  aria-label="Copy manual key"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-slate-300 transition hover:bg-[#087cff] hover:text-white"
+                >
+                  <Icon name="content_copy" className="text-[14px]" />
+                </button>
+              </div>
             </div>
 
             <div>
@@ -1012,15 +1124,53 @@ function SecurityView({ email }: { email: string | undefined }) {
         )}
       </div>
 
-      {/* ── Passkeys card ── */}
+      {/* ── Sign-in passkeys card (passwordless login) ── */}
+      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+        <div className="flex items-center gap-3 px-4 py-3.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
+            <Icon name="passkey" fill className="text-[16px] text-[#5ea9ff]" />
+          </div>
+          <div className="flex-1">
+            <p className="text-[13px] font-black text-white">Sign-in passkeys</p>
+            <p className="text-[11px] text-slate-500">Log in with Face ID, fingerprint or a security key — no password</p>
+          </div>
+        </div>
+
+        {signinPasskeys.length > 0 && (
+          <div>
+            {signinPasskeys.map((pk) => (
+              <div key={pk.id} className="mx-4 flex items-center justify-between border-t border-white/[0.05] py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[12px] font-bold text-white">{pk.deviceName || "Passkey"}</p>
+                  <p className="text-[10px] text-slate-600">Added {new Date(pk.createdAt).toLocaleDateString()}</p>
+                </div>
+                <button type="button" onClick={() => removeSigninPasskey(pk.id)} disabled={signinPasskeyBusy}
+                  className="shrink-0 text-[11px] font-black text-red-400/80 transition hover:text-red-400 disabled:opacity-50">
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mx-4 h-px bg-white/[0.05]" />
+        <div className="px-4 py-3.5">
+          <button type="button" onClick={addSigninPasskey} disabled={signinPasskeyBusy || signinPasskeyLoading}
+            className="text-[12px] font-black text-[#5ea9ff] transition hover:text-white disabled:opacity-50">
+            {signinPasskeyBusy ? "Working…" : signinPasskeyLoading ? "Loading…" : "+ Add a sign-in passkey"}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Withdrawal passkeys card (2FA step-up) ── */}
       <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="passkey" fill className="text-[16px] text-slate-400" />
           </div>
           <div className="flex-1">
-            <p className="text-[13px] font-black text-white">Passkeys</p>
-            <p className="text-[11px] text-slate-500">Sign in with Face ID, fingerprint or a security key</p>
+            <p className="text-[13px] font-black text-white">Withdrawal passkeys</p>
+            <p className="text-[11px] text-slate-500">Confirm withdrawals and use as your second factor</p>
           </div>
         </div>
 
@@ -1196,11 +1346,13 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameError, setUsernameError] = useState("");
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
 
   const meta        = user?.user_metadata ?? {};
   const displayName = currentUsername ?? meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials    = displayName.charAt(0).toUpperCase();
-  const avatarUrl   = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
+  const metaAvatar  = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
+  const avatarUrl   = avatarOverride ?? metaAvatar;
   const email       = user?.email;
   const phone       = user?.phone ?? meta.phone_number ?? null;
   const isVerified  = user?.email_confirmed_at != null;
@@ -1313,18 +1465,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
             <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-2 lg:px-2 lg:pt-1">
             <div>{/* ── LEFT column (identity + balance) ── */}
               <div className="hidden flex-col items-center gap-1.5 px-5 pb-3 pt-1 text-center lg:flex">
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt=""
-                    referrerPolicy="no-referrer"
-                    className="h-12 w-12 rounded-full object-cover shadow-[0_0_30px_rgba(8,124,255,0.24)] ring-2 ring-white/[0.08]"
-                  />
-                ) : (
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#087cff] to-[#0556c8] text-xl font-black text-white shadow-[0_0_30px_rgba(8,124,255,0.4)]">
-                    {initials}
-                  </div>
-                )}
+                <AvatarUploader currentUrl={avatarUrl} initials={initials} onUploaded={setAvatarOverride} />
                 <div>
                   <p className="text-base font-black text-white">{displayName}</p>
                   <p className="font-mono text-[10px] text-slate-500">ID {memberId}</p>

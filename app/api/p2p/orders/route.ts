@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
 import { defaultNetwork, lockUserCrypto, unlockUserCrypto, isKesCoin, lockKesCoinBalance, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
@@ -140,6 +141,9 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+    const killed = await withdrawalsDisabledResponse();
+    if (killed) return killed;
+
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
     const restriction = await assertCanCreateP2POrder(dbUser.id);
     if (restriction) return restriction;
@@ -232,12 +236,16 @@ export async function POST(req: Request) {
           orderId: createdOrder.id,
           role: "giver",
         });
+        await tx.merchantProfile.update({
+          where: { id: ad.merchantId },
+          data: { totalTrades: { increment: 1 } },
+        });
         return createdOrder;
       } else if (ad.side === "BUY") {
         await lockUserCrypto(tx, dbUser.id, ad.crypto, defaultNetwork(ad.crypto), cryptoAmountNum);
       }
 
-      return tx.p2POrder.create({
+      const createdOrder = await tx.p2POrder.create({
         data: {
           adId:         adId as string,
           buyerId:      dbUser.id,
@@ -250,6 +258,11 @@ export async function POST(req: Request) {
           expiresAt:    new Date(Date.now() + ad.paymentWindow * 60 * 1000),
         },
       });
+      await tx.merchantProfile.update({
+        where: { id: ad.merchantId },
+        data: { totalTrades: { increment: 1 } },
+      });
+      return createdOrder;
     }).catch((err: unknown) => {
       const msg = (err as Error).message;
       if (msg === "INSUFFICIENT_AD_LIQUIDITY") return null;

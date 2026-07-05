@@ -5,6 +5,7 @@ import { defaultNetwork, isKesCoin, releaseKesCoinBalance, kesLockAmount, kesPay
 import { convertToKES, getFxRatesToKES } from "@/lib/p2p/fx";
 import { sendTradeCompletedEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
+import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 
 // POST /api/p2p/orders/[id]/release — merchant confirms fiat received & releases crypto
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -13,6 +14,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    // P2P escrow release moves value between wallets — it's a cash-out path, so
+    // it must honor the global money-out kill switch (it previously bypassed it,
+    // which is how exploit balances were laundered into real cash).
+    const killed = await withdrawalsDisabledResponse();
+    if (killed) return killed;
 
     const dbUser   = await getOrCreateUser(user.id, { email: user.email });
 
@@ -112,7 +119,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       }
 
       if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
-      const newTotal     = merchant.totalTrades + 1;
+      const newTotal     = Math.max(merchant.totalTrades, 1);
       const newCompleted = merchant.completedTrades + 1;
       const newAvgRelease = Math.round(
         (merchant.avgReleaseTime * merchant.completedTrades + releaseTime) / newCompleted,
@@ -120,7 +127,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       await tx.merchantProfile.update({
         where: { id: merchant.id },
         data: {
-          totalTrades:     newTotal,
           completedTrades: newCompleted,
           completionRate:  (newCompleted / newTotal) * 100,
           avgReleaseTime:  newAvgRelease,

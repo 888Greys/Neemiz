@@ -1,5 +1,6 @@
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
@@ -53,6 +54,9 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
+  const rl = rateLimit(`wallet-transfer:${user.id}`, 10, 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
+
   const sender = await getOrCreateUser(user.id, { email: user.email, phone: user.phone });
 
   const killed = await transfersDisabledResponse();
@@ -66,6 +70,15 @@ export async function POST(req: Request) {
   const amount = Number(body.amount);
   if (!body.recipientId || !Number.isFinite(amount) || amount <= 0) {
     return Response.json({ error: "Select a recipient and enter a valid amount" }, { status: 400 });
+  }
+
+  // Per-transfer cap: a user may send at most KSh 50 to another account in one
+  // transfer. This throttles the "seed an account then cash it out" fan-out
+  // pattern where balance is moved in bulk to accomplices who withdraw it.
+  // Admins are exempt (owner treasury operations).
+  const MAX_TRANSFER_KES = 50;
+  if (!sender.isAdmin && amount > MAX_TRANSFER_KES) {
+    return Response.json({ error: `You can send at most ${CURRENCY_SYMBOL} ${MAX_TRANSFER_KES} per transfer.` }, { status: 400 });
   }
 
   const recipient = await db.user.findFirst({

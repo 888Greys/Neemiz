@@ -15,7 +15,7 @@ const config: Config = {
         "ease-out": "cubic-bezier(0, 0, 0.2, 1)",
       },
       colors: {
-        background: "#08080c",
+        background: "#050506",
         surface: "#0e0e14",
         "surface-dim": "#08080c",
         "surface-container-lowest": "#060609",

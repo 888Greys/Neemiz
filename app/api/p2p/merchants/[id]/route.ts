@@ -102,6 +102,10 @@ export async function GET(
       if (!isFeedbackSchemaMissing(error)) throw error;
     }
 
+    const completionRate = merchant.totalTrades > 0
+      ? (merchant.completedTrades / merchant.totalTrades) * 100
+      : 0;
+
     return Response.json({
       id: merchant.id,
       displayName: merchant.displayName,
@@ -111,7 +115,7 @@ export async function GET(
       isOnline: !!merchant.lastSeenAt && (Date.now() - new Date(merchant.lastSeenAt).getTime() < 3 * 60 * 1000),
       completedTrades: merchant.completedTrades,
       totalTrades: merchant.totalTrades,
-      completionRate: Number(merchant.completionRate),
+      completionRate,
       avgReleaseTime: merchant.avgReleaseTime,
       joinedAt: merchant.createdAt.toISOString(),
       activeAds: merchant.ads.length,

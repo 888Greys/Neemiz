@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
-import { notifyAdminsLowFloat, notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
+import { notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
 import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 import { withdrawalsDisabledResponse, setWithdrawalsDisabled } from "@/lib/withdrawal-guard";
@@ -106,20 +106,22 @@ export async function POST(req: Request) {
         }
       }
 
-      // Ensure that the destination phone number (msisdn) is associated with only ONE account.
-      // If any other user account has successfully withdrawn to this number, block it.
-      const existingOwner = await tx.transaction.findFirst({
+      // A destination number may receive cash only ONCE. If any prior
+      // (non-failed) M-Pesa withdrawal already went to this msisdn — whether by
+      // this user or any other account — block it. This stops a single number
+      // being used as a repeat cash-out endpoint for seeded/mule accounts.
+      // Admins are exempt (owner may re-pay their own number).
+      const priorToNumber = await tx.transaction.findFirst({
         where: {
           type:     TransactionType.WITHDRAWAL,
           provider: "lipaharaka",
           status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
           metadata: { path: ["msisdn"], equals: msisdn },
-          userId:   { not: dbUser.id },
         },
-        select: { userId: true },
+        select: { id: true },
       });
-      if (existingOwner && !dbUser.isAdmin) {
-        throw new Error("PHONE_NUMBER_LINKED");
+      if (priorToNumber && !dbUser.isAdmin) {
+        throw new Error("PHONE_NUMBER_USED");
       }
 
       const numberCount = 0;
@@ -214,43 +216,30 @@ export async function POST(req: Request) {
         return Response.json({ error: ack.message ?? "Withdrawal was rejected. Please check your M-Pesa number and try again." }, { status: 502 });
       }
 
-      // Insufficient float / temporary provider issue: DON'T refund. Hold the
-      // funds, queue the payout, reassure the customer, and alert the owner to
-      // top up. The process-queued-withdrawals cron auto-sends it once funded.
-      await db.transaction.update({
-        where: { id: withdrawalId },
-        data:  {
-          status:   TransactionStatus.PENDING,
-          metadata: {
-            msisdn,
-            fee:          feeKes,
-            payout:       payoutKes,
-            requestedAt:  new Date().toISOString(),
-            queued:       true,
-            queuedReason: ack.message ?? "insufficient_float",
-            queuedAt:     new Date().toISOString(),
+      // Insufficient float / temporary provider issue: we no longer hold the
+      // funds and auto-retry. Refund the customer immediately, mark the
+      // withdrawal FAILED, and surface a maintenance message.
+      await db.$transaction([
+        db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } }),
+        db.transaction.update({
+          where: { id: withdrawalId },
+          data:  {
+            status:   TransactionStatus.FAILED,
+            metadata: {
+              msisdn,
+              fee:          feeKes,
+              payout:       payoutKes,
+              requestedAt:  new Date().toISOString(),
+              failedReason: ack.message ?? "insufficient_float",
+              failedAt:     new Date().toISOString(),
+            },
           },
-        },
-      });
-      await db.notification.create({
-        data: {
-          userId: dbUserId,
-          type:   "withdrawal_processing",
-          title:  "Withdrawal is processing",
-          body:   `Your withdrawal of ${CURRENCY_SYMBOL} ${payoutKes.toLocaleString()} is being processed and will arrive shortly via M-Pesa.`,
-          link:   "/wallet",
-        },
-      }).catch(() => {});
-      await notifyAdminsLowFloat({ amountKes: payoutKes, msisdn }).catch((e) => console.error("[withdraw] low-float alert failed", e));
+        }),
+      ]);
 
       return Response.json({
-        ok:           true,
-        withdrawalId,
-        queued:       true,
-        fee:          feeKes,
-        payout:       payoutKes,
-        message:      `Your withdrawal of ${CURRENCY_SYMBOL} ${payoutKes.toLocaleString()} is being processed and will be sent to +${msisdn} shortly. We'll notify you the moment it's on its way — your balance is safe.`,
-      });
+        error: "M-Pesa withdrawals are temporarily unavailable for maintenance. Your balance has not been deducted — please try again later.",
+      }, { status: 503 });
     }
 
     // Accepted (async). Lipa is now processing; the final paid/failed outcome
@@ -293,8 +282,8 @@ export async function POST(req: Request) {
         { status: 403 },
       );
     }
-    if (err instanceof Error && err.message === "PHONE_NUMBER_LINKED") {
-      return Response.json({ error: "This phone number is already linked to another account. Each phone number can only be used by one account." }, { status: 400 });
+    if (err instanceof Error && err.message === "PHONE_NUMBER_USED") {
+      return Response.json({ error: "This M-Pesa number has already received a withdrawal. Each number can only be paid out once." }, { status: 400 });
     }
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
