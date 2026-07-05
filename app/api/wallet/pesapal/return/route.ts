@@ -21,6 +21,13 @@ export const runtime = "nodejs";
 export async function GET(req: Request) {
   const { searchParams, origin } = new URL(req.url);
 
+  // Behind nginx/Cloudflare the request's own origin is the container's internal
+  // bind address (e.g. http://0.0.0.0:3000), which is useless as a browser
+  // redirect target. Send the user back to the PUBLIC site instead — the same
+  // base we registered the callback with — falling back to the request origin
+  // only if it's not configured.
+  const publicBase = (process.env.NEXT_PUBLIC_BASE_URL ?? origin).replace(/\/$/, "");
+
   const orderTrackingId = searchParams.get("OrderTrackingId");
   // OrderMerchantReference is our txn id; fall back to the `ref` we appended.
   const txnId = searchParams.get("OrderMerchantReference") ?? searchParams.get("ref");
@@ -50,7 +57,7 @@ export async function GET(req: Request) {
   }
 
   const dest = txnId
-    ? `${origin}/wallet?pesapal_order_id=${encodeURIComponent(txnId)}`
-    : `${origin}/wallet`;
+    ? `${publicBase}/wallet?pesapal_order_id=${encodeURIComponent(txnId)}`
+    : `${publicBase}/wallet`;
   return Response.redirect(dest, 302);
 }
