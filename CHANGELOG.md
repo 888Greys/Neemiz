@@ -4,6 +4,13 @@ All notable changes to Neemiz are documented here. From v1.0.0 onward this file
 is maintained automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.7.0](https://github.com/888Greys/Neemiz/compare/v1.6.0...v1.7.0) (2026-07-05)
+
+
+### Features
+
+* **mobile:** section-native bottom navs for sports, p2p, polymarket, aviator ([#184](https://github.com/888Greys/Neemiz/issues/184)) ([6591009](https://github.com/888Greys/Neemiz/commit/659100995a38233bec9fcd552e68faeaa751c70f))
+
 ## [1.6.0](https://github.com/888Greys/Neemiz/compare/v1.5.0...v1.6.0) (2026-07-05)
 
 
