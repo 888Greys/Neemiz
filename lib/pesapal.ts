@@ -141,7 +141,12 @@ export async function getTransactionStatus(orderTrackingId: string): Promise<Pes
     confirmation_code: string;
   };
   return {
-    status:           d.payment_status_description as PesapalStatusResult["status"],
+    // Pesapal is inconsistent about casing here — it returns "Completed",
+    // "Failed", "INVALID", "Reversed" (mixed case) even though the values are
+    // otherwise our uppercase union. Normalize so the settle logic's
+    // `=== "COMPLETED"` comparison actually matches a paid order. Without this,
+    // a genuinely-paid deposit is read as PENDING forever and never credits.
+    status:           d.payment_status_description?.toUpperCase() as PesapalStatusResult["status"],
     paymentMethod:    d.payment_method,
     amount:           d.amount,
     createdDate:      d.created_date,
