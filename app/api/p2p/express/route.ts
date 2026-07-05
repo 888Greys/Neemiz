@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { isP2PAdTradable } from "@/lib/p2p/ad-guards";
 import { isKesCoin, lockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
@@ -26,6 +27,9 @@ export async function POST(req: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    const killed = await withdrawalsDisabledResponse();
+    if (killed) return killed;
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
     const restriction = await assertCanCreateP2POrder(dbUser.id);

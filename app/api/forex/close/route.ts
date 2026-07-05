@@ -67,8 +67,10 @@ export async function POST(req: Request) {
 
   try {
     await db.$transaction(async (tx) => {
-      await tx.forexTrade.update({
-        where: { id: tradeId },
+      // Claim-once: only the request that flips OPEN→CLOSED credits the wallet.
+      // Prevents a concurrent double-close from paying the return out twice.
+      const claimed = await tx.forexTrade.updateMany({
+        where: { id: tradeId, status: "OPEN" },
         data: {
           status: "CLOSED",
           closePrice,
@@ -76,6 +78,7 @@ export async function POST(req: Request) {
           closedAt: new Date(),
         },
       });
+      if (claimed.count === 0) throw new Error("ALREADY_CLOSED");
 
       if (returnAmount > 0) {
         await tx.user.update({
@@ -130,6 +133,8 @@ export async function POST(req: Request) {
       newBalance: Number(updatedUser?.walletBalance ?? 0),
     });
   } catch (err) {
+    if (err instanceof Error && err.message === "ALREADY_CLOSED")
+      return Response.json({ error: "Trade already closed" }, { status: 409 });
     console.error("POST /api/forex/close:", err instanceof Error ? err.message : err);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
