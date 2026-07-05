@@ -4,6 +4,30 @@ All notable changes to Neemiz are documented here. From v1.0.0 onward this file
 is maintained automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.6.0](https://github.com/888Greys/Neemiz/compare/v1.5.0...v1.6.0) (2026-07-05)
+
+
+### Features
+
+* **auth:** challenge passkey during login ([#179](https://github.com/888Greys/Neemiz/issues/179)) ([8a17cb8](https://github.com/888Greys/Neemiz/commit/8a17cb8b0a09cad19c534192f6f10f131c326b29))
+* **auth:** passwordless passkey login ([#180](https://github.com/888Greys/Neemiz/issues/180)) ([6104d2f](https://github.com/888Greys/Neemiz/commit/6104d2ff9cde1b82a1a7f30c820b0935e7584fe2))
+
+
+### Bug Fixes
+
+* **auth+ui:** passkey duplicate-name enroll + currency dropdown in mobile drawer ([#174](https://github.com/888Greys/Neemiz/issues/174)) ([3e94338](https://github.com/888Greys/Neemiz/commit/3e943387f907adecef72739353f941b96a006d26))
+* **auth:** don't show Link-Phone modal (or "Unauthorized") on a 401 session ([#171](https://github.com/888Greys/Neemiz/issues/171)) ([5fe5e7f](https://github.com/888Greys/Neemiz/commit/5fe5e7fce5496f323d1dfe715a9db55a2f6aeb23))
+* **auth:** make sign-out actually log the user out ([#176](https://github.com/888Greys/Neemiz/issues/176)) ([af66d64](https://github.com/888Greys/Neemiz/commit/af66d648c135ace1589fc92226d6bcae79957af1))
+* **auth:** make sign-out actually log the user out ([#178](https://github.com/888Greys/Neemiz/issues/178)) ([9b4cb49](https://github.com/888Greys/Neemiz/commit/9b4cb49e217a30476fd10d85f66a106648bd353b))
+* **auth:** passkey enroll offers on-device (platform) authenticator ([#175](https://github.com/888Greys/Neemiz/issues/175)) ([8e2561d](https://github.com/888Greys/Neemiz/commit/8e2561daa4a13c98e0a08b7827021ea197a6c046))
+* **auth:** passkeys via MFA WebAuthn API (self-hosted GoTrue has no /passkeys/*) ([#169](https://github.com/888Greys/Neemiz/issues/169)) ([cd63e6a](https://github.com/888Greys/Neemiz/commit/cd63e6ad8461c029d30c6a906dad2dec6fe17e92))
+* **build:** sync package-lock.json for [@simplewebauthn](https://github.com/simplewebauthn) ([#181](https://github.com/888Greys/Neemiz/issues/181)) ([e2e06e0](https://github.com/888Greys/Neemiz/commit/e2e06e03a4f1d5a1f459230d5dbde091b027704f))
+* **games:** disable exploitable bet types behind a per-type kill switch ([#182](https://github.com/888Greys/Neemiz/issues/182)) ([3dc7a0f](https://github.com/888Greys/Neemiz/commit/3dc7a0f4a6ec0ab43bee749cbfff81d81dbb1bd2))
+* **incident:** plug P2P cash-out kill-switch gap, disable accumulator, fix forex double-close ([#183](https://github.com/888Greys/Neemiz/issues/183)) ([e2a1773](https://github.com/888Greys/Neemiz/commit/e2a1773f15d2156e2e21788a0a58d3277d2f870b))
+* **p2p:** payment-method UX cleanup + 2FA manual-key copy button ([#172](https://github.com/888Greys/Neemiz/issues/172)) ([b466448](https://github.com/888Greys/Neemiz/commit/b466448f9bcdb50073f9bba3a0ad8f2096f5eb7c))
+* **p2p:** real brand logos + per-method field labels + un-clip method picker ([#173](https://github.com/888Greys/Neemiz/issues/173)) ([a5ed698](https://github.com/888Greys/Neemiz/commit/a5ed6984491de9c5bdc1e24ef488c6ca0b53bc70))
+* **withdraw:** remove low-float admin alert entirely ([#177](https://github.com/888Greys/Neemiz/issues/177)) ([e8e80c4](https://github.com/888Greys/Neemiz/commit/e8e80c4ae8d3c5eb4c82df2a58a1d1bc0a22249e))
+
 ## [1.5.0](https://github.com/888Greys/Neemiz/compare/v1.4.0...v1.5.0) (2026-07-04)
 
 
