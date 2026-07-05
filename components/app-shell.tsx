@@ -765,8 +765,8 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
   return (
     <div className="fixed inset-0 z-[60] bg-black/65 animate-fade-in lg:hidden">
       <aside className="animate-drawer-in relative flex h-full w-[72vw] max-w-[310px] min-w-[255px] flex-col bg-[#1b1c20] shadow-2xl">
-        <button className="absolute -right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[#3a3d45] text-white" onClick={onClose} type="button" aria-label="Close menu">
-          <Icon name="close" className="text-[18px]" />
+        <button className="absolute right-2 top-2 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-slate-300 transition hover:bg-white/20 hover:text-white" onClick={onClose} type="button" aria-label="Close menu">
+          <Icon name="close" className="text-[14px]" />
         </button>
 
         <div className="no-scrollbar flex-1 overflow-y-auto p-2">
@@ -879,11 +879,11 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
             </button>
           </div>
 
-          <button type="button" onClick={onOpenSupport} className="flex w-full items-center gap-2 rounded-xl transition hover:bg-white/[0.03]">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35]">
-              <Icon name="support_agent" fill className="text-[17px]" />
+          <button type="button" onClick={onOpenSupport} className="flex w-full items-center gap-2 rounded-xl px-1.5 py-1 transition hover:bg-white/[0.03]">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#2d2f35]">
+              <Icon name="support_agent" fill className="text-[15px]" />
             </span>
-            <span className="flex-1 text-left text-xs font-black">Support</span>
+            <span className="flex-1 text-left text-[12px] font-black">Support</span>
             <span className="rounded-full bg-[#087cff] px-2 py-0.5 text-[10px] font-black">24/7</span>
           </button>
 
