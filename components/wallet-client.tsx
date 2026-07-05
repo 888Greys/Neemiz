@@ -58,9 +58,14 @@ type CryptoBalance = { crypto: string; network: string; available: number; locke
 
 type DepositState =
   | { step: "idle" }
-  | { step: "pending"; txId: string; amount: number }
+  | { step: "pending"; txId: string; amount: number; via?: "mpesa" | "pesapal" }
   | { step: "confirmed"; amount: number; newBalance: number; receipt: string }
   | { step: "failed"; message: string };
+
+// Card / international deposits via Pesapal. Off by default — only rendered
+// where NEXT_PUBLIC_PESAPAL_ENABLED=true (and the server has PESAPAL_* creds),
+// so the option never shows a broken button in environments without Pesapal.
+const PESAPAL_ENABLED = process.env.NEXT_PUBLIC_PESAPAL_ENABLED === "true";
 
 type CryptoWithdrawState =
   | { step: "idle" }
@@ -105,7 +110,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
   // ── fiat deposit state ──
   const [tab, setTab]                     = useState<WalletTab>(initialTab);
   // Non-KES users default to the crypto rail — M-Pesa only serves Kenya/KES.
-  const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto">(displayCurrency === "KES" ? "mpesa" : "crypto");
+  const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto" | "pesapal">(displayCurrency === "KES" ? "mpesa" : "crypto");
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
   const [loading, setLoading]             = useState(false);
@@ -265,7 +270,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
           refreshBalance();
           setDeposit({
             step:       "confirmed",
-            amount:     deposit.amount,
+            amount:     (data.amount as number) ?? deposit.amount,
             newBalance: data.newBalance as number,
             receipt:    (data.receipt as string) ?? "",
           });
@@ -277,6 +282,44 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
     }, POLL_INTERVAL);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [deposit, refreshBalance]);
+
+  // Card / international deposit: create a Pesapal order, then hand off to the
+  // hosted checkout page. Payment happens on Pesapal; on return the callback
+  // lands on /wallet?pesapal_order_id=<txnId>, which the effect below picks up.
+  async function handlePesapalDeposit() {
+    if (!isSignedIn) { openLogin(); return; }
+    if (Number(amount) < 100) { setError("Minimum deposit is KSh 100."); return; }
+    setError(""); setLoading(true);
+    try {
+      const res  = await fetch("/api/wallet/pesapal/checkout", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ amountKes: Number(amount) }),
+      });
+      const data = await res.json().catch(() => ({} as { error?: string; redirectUrl?: string }));
+      if (!res.ok || !data.redirectUrl) {
+        throw new Error((data as { error?: string }).error ?? "Could not start card payment — please try again.");
+      }
+      window.location.href = data.redirectUrl as string;
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setLoading(false);
+    }
+  }
+
+  // Return from the Pesapal checkout page: verify + credit, then clean the URL.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params  = new URLSearchParams(window.location.search);
+    const orderId = params.get("pesapal_order_id");
+    if (!orderId) return;
+    setTab("deposit");
+    setDeposit({ step: "pending", txId: orderId, amount: 0, via: "pesapal" });
+    // Strip the query param so a refresh doesn't re-trigger this.
+    params.delete("pesapal_order_id");
+    const qs = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+  }, []);
 
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
@@ -542,21 +585,29 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                 <div className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center">
                   <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-[#087cff]/60" />
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#087cff]/12 ring-1 ring-[#087cff]/20">
-                    <Icon name="phone_iphone" fill className="text-[30px] text-[#087cff]" />
+                    <Icon name={deposit.via === "pesapal" ? "credit_card" : "phone_iphone"} fill className="text-[30px] text-[#087cff]" />
                   </div>
                 </div>
-                <h2 className="text-2xl font-black text-white">Check Your Phone</h2>
+                <h2 className="text-2xl font-black text-white">
+                  {deposit.via === "pesapal" ? "Verifying Payment" : "Check Your Phone"}
+                </h2>
                 <p className="mt-2 text-sm text-slate-400">
-                  An <span className="font-bold text-white">M-Pesa STK push</span> has been sent.<br />
-                  Enter your PIN to complete the payment.
+                  {deposit.via === "pesapal" ? (
+                    <>Confirming your payment with Pesapal.<br />This only takes a few seconds.</>
+                  ) : (
+                    <>An <span className="font-bold text-white">M-Pesa STK push</span> has been sent.<br />
+                    Enter your PIN to complete the payment.</>
+                  )}
                 </p>
-                <div className="my-5 rounded-2xl bg-white/[0.04] px-5 py-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Amount</p>
-                  <p className="mt-1 text-3xl font-black text-white">{CURRENCY_SYMBOL} {deposit.amount.toLocaleString()}</p>
-                </div>
-                <div className="flex items-center justify-center gap-2 rounded-xl bg-amber-400/8 px-4 py-2.5 text-xs font-bold text-amber-400">
+                {deposit.amount > 0 && (
+                  <div className="my-5 rounded-2xl bg-white/[0.04] px-5 py-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Amount</p>
+                    <p className="mt-1 text-3xl font-black text-white">{CURRENCY_SYMBOL} {deposit.amount.toLocaleString()}</p>
+                  </div>
+                )}
+                <div className={`flex items-center justify-center gap-2 rounded-xl bg-amber-400/8 px-4 py-2.5 text-xs font-bold text-amber-400 ${deposit.amount > 0 ? "" : "mt-5"}`}>
                   <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-amber-400" />
-                  Checking payment status…
+                  {deposit.via === "pesapal" ? "Checking with Pesapal…" : "Checking payment status…"}
                 </div>
                 <button
                   type="button"
@@ -569,7 +620,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
             ) : (
               <div className="space-y-5">
                 {/* ── Payment method selector ── */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className={`grid gap-2 ${PESAPAL_ENABLED ? "grid-cols-3" : "grid-cols-2"}`}>
                   <button
                     type="button"
                     onClick={() => setDepositMethod("mpesa")}
@@ -596,9 +647,74 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                       <p className="text-[10px] text-slate-600">USDT · BTC · ETH</p>
                     </div>
                   </button>
+                  {PESAPAL_ENABLED && (
+                    <button
+                      type="button"
+                      onClick={() => setDepositMethod("pesapal")}
+                      className={`flex items-center gap-2 rounded-full px-3 py-2 ring-1 transition ${depositMethod === "pesapal" ? "bg-[#05b957]/10 ring-[#05b957]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
+                    >
+                      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "pesapal" ? "bg-[#05b957]/20" : "bg-white/[0.06]"}`}>
+                        <Icon name="credit_card" fill className={`text-[18px] ${depositMethod === "pesapal" ? "text-[#05b957]" : "text-slate-500"}`} />
+                      </div>
+                      <div className="text-left">
+                        <p className={`text-[12px] font-black ${depositMethod === "pesapal" ? "text-white" : "text-slate-400"}`}>Card</p>
+                        <p className="text-[10px] text-slate-600">Visa · Mastercard</p>
+                      </div>
+                    </button>
+                  )}
                 </div>
 
                 {depositMethod === "crypto" && <CryptoDepositPanel />}
+
+                {depositMethod === "pesapal" && (
+                  <div className="space-y-5">
+                    <div>
+                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount (KSh)</p>
+                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#05b957]/50 transition">
+                        <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
+                        <input
+                          type="number"
+                          min="100"
+                          step="1"
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          placeholder="Enter amount"
+                          required
+                          className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
+                        />
+                        {amount && (
+                          <button type="button" onClick={() => setAmount("")} className="text-slate-600 hover:text-slate-400">
+                            <Icon name="close" className="text-[16px]" />
+                          </button>
+                        )}
+                      </div>
+                      <p className="mt-2 text-[11px] font-bold text-slate-600">Minimum deposit: KSh 100</p>
+                    </div>
+
+                    {error && (
+                      <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20">
+                        <Icon name="error" fill className="mt-0.5 shrink-0 text-[16px] text-red-400" />
+                        <p className="text-xs font-bold text-red-400">{error}</p>
+                      </div>
+                    )}
+
+                    <Button
+                      onClick={() => void handlePesapalDeposit()}
+                      disabled={loading || !amount}
+                      className="h-14 w-full rounded-2xl text-base shadow-lg shadow-emerald-500/20"
+                    >
+                      {loading ? (
+                        <LoadingDots label="Opening secure checkout" />
+                      ) : (
+                        `Pay ${CURRENCY_SYMBOL} ${Number(amount || 0).toLocaleString() || "—"} by Card`
+                      )}
+                    </Button>
+
+                    <p className="text-center text-[11px] text-slate-700">
+                      Secure checkout by Pesapal · Visa, Mastercard &amp; Amex accepted
+                    </p>
+                  </div>
+                )}
 
                 {depositMethod === "mpesa" && (<>
                 <div>

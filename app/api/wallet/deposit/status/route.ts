@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db }           from "@/lib/db";
 import { TransactionStatus } from "@prisma/client";
 import { checkAndSettleMegapay } from "@/lib/megapay-settle";
+import { settlePesapalTransaction } from "@/lib/pesapal";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -40,6 +41,30 @@ export async function POST(req: Request) {
   }
   if (txn.status === TransactionStatus.FAILED) {
     return Response.json({ status: "failed", message: "Payment was not completed. Please try again." });
+  }
+
+  // Still PENDING — actively query Pesapal (card / international deposits).
+  // The client polls this on return from the Pesapal checkout page, so we can't
+  // rely on the IPN webhook alone having arrived yet.
+  if (txn.provider === "pesapal" && txn.reference) {
+    const result = await settlePesapalTransaction(txn.id, txn.reference);
+    if (result === "confirmed") {
+      const fresh = await db.transaction.findUnique({
+        where:   { id: txn.id },
+        include: { user: { select: { walletBalance: true } } },
+      });
+      const meta = fresh?.metadata as Record<string, string> | null;
+      return Response.json({
+        status:     "confirmed",
+        newBalance: Number(fresh?.user.walletBalance ?? 0),
+        amount:     Number(txn.amount),
+        receipt:    meta?.confirmationCode ?? "",
+      });
+    }
+    if (result === "failed") {
+      return Response.json({ status: "failed", message: "Payment was not completed. Please try again." });
+    }
+    return Response.json({ status: "pending", message: "Verifying your payment…" });
   }
 
   // Still PENDING — actively query MegaPay for MegaPay transactions
