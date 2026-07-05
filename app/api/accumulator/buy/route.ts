@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { getServerTickHistory } from "@/lib/binary-price";
+import { isBetTypeDisabled } from "@/lib/game-guard";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 import {
   SIGMA_WINDOW, computeSigma, barrierFracFor, maxTicksFor, isValidGrowthRate, payoutAtTick,
@@ -21,6 +22,9 @@ export async function POST(req: Request) {
 
   const rl = rateLimit(`accumulator-buy:${user.id}`, 30, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
+
+  if (await isBetTypeDisabled("accumulator", "ALL"))
+    return Response.json({ error: "This game is temporarily unavailable while we complete maintenance." }, { status: 503 });
 
   let body: { market?: string; stake?: number; growthRate?: number; takeProfit?: number | null };
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
