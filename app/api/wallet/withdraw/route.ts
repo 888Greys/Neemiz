@@ -3,8 +3,11 @@ import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
-import { notifyAdminsLowFloat } from "@/lib/admin-alert";
-import { withdrawalDayReset, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
+import { notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
+import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
+import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
+import { withdrawalsDisabledResponse, setWithdrawalsDisabled } from "@/lib/withdrawal-guard";
+import { assertLedgerBacked, LedgerUnbackedError } from "@/lib/ledger-guard";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -16,13 +19,18 @@ function normalizeMsisdn(phone: string): string {
 
 export async function POST(req: Request) {
   try {
-    if (process.env.LIPAHARAKA_WITHDRAWALS_ENABLED !== "true") {
-      return Response.json({ error: "M-Pesa withdrawals are temporarily paused for reconciliation." }, { status: 503 });
-    }
-
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+    const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+    const killed = await withdrawalsDisabledResponse();
+    if (killed && !dbUser.isAdmin) return killed;
+
+    if (process.env.LIPAHARAKA_WITHDRAWALS_ENABLED !== "true" && !dbUser.isAdmin) {
+      return Response.json({ error: "M-Pesa withdrawals are temporarily paused for reconciliation." }, { status: 503 });
+    }
 
     let body: { amountKes: number; phoneNumber: string };
     try {
@@ -35,60 +43,94 @@ export async function POST(req: Request) {
     const msisdn = normalizeMsisdn(String(phoneNumber ?? ""));
 
     const lipaTestMode = process.env.LIPAHARAKA_TEST_MODE === "true";
-    const minimumWithdrawal = lipaTestMode ? 11 : 50;
+    const minimumWithdrawal = 100;
     // Daily cap: a user may withdraw at most this much across the day's M-Pesa
     // withdrawals. The window resets at 02:00 EAT (see lib/withdrawal-window).
     const limit = dailyLimitKes();
     if (!Number.isFinite(amountKes) || amountKes < minimumWithdrawal) {
-      return Response.json({ error: `Minimum withdrawal is KSh ${minimumWithdrawal}` }, { status: 400 });
+      return Response.json({ error: `Minimum withdrawal is ${CURRENCY_SYMBOL} ${minimumWithdrawal}` }, { status: 400 });
     }
-    if (amountKes > limit) {
-      return Response.json({ error: `Daily withdrawal limit is KSh ${limit.toLocaleString()}` }, { status: 400 });
+    if (!dbUser.isAdmin && amountKes > limit) {
+      return Response.json({ error: `Daily withdrawal limit is ${CURRENCY_SYMBOL} ${limit.toLocaleString()}` }, { status: 400 });
     }
-    if (amountKes > 150_000) {
+    if (!dbUser.isAdmin && amountKes > 150_000) {
       return Response.json({ error: "Maximum withdrawal is KSh 150,000" }, { status: 400 });
     }
     if (!/^254[17]\d{8}$/.test(msisdn)) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XX or 01XX format." }, { status: 400 });
     }
 
-    const WITHDRAWAL_FEE_RATE = lipaTestMode ? 0 : 0.05;
-    const feeKes    = parseFloat((amountKes * WITHDRAWAL_FEE_RATE).toFixed(2));
+    const feeRate   = lipaTestMode ? 0 : WITHDRAWAL_FEE_RATE;
+    const feeKes    = parseFloat((amountKes * feeRate).toFixed(2));
     const payoutKes = parseFloat((amountKes - feeKes).toFixed(2));
 
     // ── Step 1: deduct balance + create record atomically ──
     // Gate: amounts > 1,000,000 KES or > 10 withdrawals today require admin approval
-    const { withdrawalId, dbUserId, needsApproval } = await db.$transaction(async (tx) => {
-      const dbUser = await getOrCreateUser(user.id, { email: user.email });
-      const balance = Number(dbUser.walletBalance);
-
-      if (balance < amountKes) throw new Error("INSUFFICIENT_BALANCE");
-
-      // Daily cap is shared across cash-out vectors: M-Pesa withdrawals AND
-      // outgoing wallet transfers both count (see dailyCapWhere). This stops a
-      // user from dodging the cap by transferring to an accomplice who then
-      // withdraws. Window resets 02:00 EAT. P2P escrow / crypto are excluded.
-      const todayWhere = dailyCapWhere(dbUser.id);
-      const todayCount = await tx.transaction.count({ where: todayWhere });
-
-      // Enforce the daily cap atomically: sum of today's withdrawals (refunds
-      // excluded — FAILED/CANCELLED are filtered above) plus this one must not
-      // exceed the limit. Checked inside the transaction so two concurrent
-      // requests can't both slip under the cap.
-      const todaySum = await tx.transaction.aggregate({ where: todayWhere, _sum: { amount: true } });
-      const withdrawnToday = Number(todaySum._sum?.amount ?? 0);
-      if (withdrawnToday + amountKes > limit) {
-        const remaining = Math.max(0, limit - withdrawnToday);
-        throw new Error(`DAILY_LIMIT:${remaining}`);
-      }
-
-      const needsApproval = amountKes > 1_000_000 || todayCount >= 10;
-      const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
-
-      await tx.user.update({
-        where: { id: dbUser.id },
+    const { withdrawalId, dbUserId, needsApproval, numberTripped, numberCount, killTripped, distinctUsers } = await db.$transaction(async (tx) => {
+      // Race-safe debit FIRST. The conditional updateMany (walletBalance >=
+      // amountKes) takes a row lock on the user, which serializes ALL concurrent
+      // cash-outs for this user: a second request blocks here until the first
+      // commits. That single lock closes both the balance double-spend AND the
+      // daily-cap race — because the cap aggregate below runs only after we hold
+      // the lock, it always sees any concurrent withdrawal that committed first.
+      // The gte guard is also the DB-level non-negative floor; count === 0 means
+      // the balance was insufficient at commit time.
+      const debited = await tx.user.updateMany({
+        where: { id: dbUser.id, walletBalance: { gte: amountKes } },
         data:  { walletBalance: { decrement: amountKes } },
       });
+      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+
+      // Ledger-backed balance guard. The balance debit above only proves the
+      // wallet_balance column is high enough — but that column can be written
+      // directly in the DB with no transaction record (the 2026-06-29 injection
+      // incident). Refuse to pay out more than the transaction ledger can
+      // account for, so phantom/injected balance can never leave the platform
+      // even if DB credentials are compromised. Applies to everyone incl. admins
+      // (legit admin balances are backed by BONUS/manual ledger rows).
+      await assertLedgerBacked(tx, dbUser.id, amountKes);
+
+      // Rolling-24h cash-out cap, shared across vectors: M-Pesa withdrawals AND
+      // outgoing wallet transfers both count (see dailyCapWhere), so a user can't
+      // dodge it by routing through an accomplice. Evaluated AFTER the debit so
+      // the row lock above has serialized us; if over the cap we throw, rolling
+      // back the debit. P2P escrow / crypto are excluded.
+      let priorCount = 0;
+      if (!dbUser.isAdmin) {
+        const capWhere = dailyCapWhere(dbUser.id);
+        priorCount = await tx.transaction.count({ where: capWhere });
+        const priorSum = await tx.transaction.aggregate({ where: capWhere, _sum: { amount: true } });
+        const withdrawnWindow = Number(priorSum._sum?.amount ?? 0);
+        if (withdrawnWindow + amountKes > limit) {
+          throw new Error(`DAILY_LIMIT:${Math.max(0, limit - withdrawnWindow)}`);
+        }
+      }
+
+      // A destination number may receive cash only ONCE. If any prior
+      // (non-failed) M-Pesa withdrawal already went to this msisdn — whether by
+      // this user or any other account — block it. This stops a single number
+      // being used as a repeat cash-out endpoint for seeded/mule accounts.
+      // Admins are exempt (owner may re-pay their own number).
+      const priorToNumber = await tx.transaction.findFirst({
+        where: {
+          type:     TransactionType.WITHDRAWAL,
+          provider: "lipaharaka",
+          status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+          metadata: { path: ["msisdn"], equals: msisdn },
+        },
+        select: { id: true },
+      });
+      if (priorToNumber && !dbUser.isAdmin) {
+        throw new Error("PHONE_NUMBER_USED");
+      }
+
+      const numberCount = 0;
+      const numberTripped = false;
+      const distinctUsers = 0;
+      const killTripped = false;
+
+      const needsApproval = !dbUser.isAdmin && (amountKes > 1_000_000 || priorCount >= 10);
+      const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
       const withdrawal = await tx.transaction.create({
         data: {
@@ -107,18 +149,33 @@ export async function POST(req: Request) {
         },
       });
 
-      return { withdrawalId: withdrawal.id, dbUserId: dbUser.id, needsApproval };
+      return { withdrawalId: withdrawal.id, dbUserId: dbUser.id, needsApproval, numberTripped, numberCount, killTripped, distinctUsers };
     });
+
+    // ── Step 1b: strong trigger — auto-disable ALL withdrawals ──
+    // Flip the instant kill switch so no further payouts go out until the owner
+    // reviews. This withdrawal is already held (needsApproval) above.
+    if (killTripped) {
+      await setWithdrawalsDisabled(true).catch((e) => console.error("[withdraw] auto kill-switch failed", e));
+      notifyAdminsSuspiciousNumber({ msisdn, count: numberCount, amountKes, held: true, autoKilled: true, distinctUsers })
+        .catch((e) => console.error("[withdraw] auto-kill alert failed", e));
+    }
 
     // ── Step 2: if approval required, stop here ──
     if (needsApproval) {
+      // Alert the owner when a destination number tripped the velocity guard
+      // (skip if we already sent the stronger auto-kill alert above).
+      if (numberTripped && !killTripped) {
+        notifyAdminsSuspiciousNumber({ msisdn, count: numberCount, amountKes, held: true })
+          .catch((e) => console.error("[withdraw] suspicious-number alert failed", e));
+      }
       return Response.json({
         ok:           true,
         withdrawalId,
         pendingApproval: true,
         message: amountKes > 1_000_000
           ? "Withdrawals above KSh 1,000,000 require admin approval. Your balance has been held and will be processed within 24 hours."
-          : "You have reached the daily withdrawal limit. This withdrawal is pending admin approval and will be processed within 24 hours.",
+          : "This withdrawal is pending review and will be processed within 24 hours. Your balance is safe.",
       });
     }
 
@@ -159,43 +216,30 @@ export async function POST(req: Request) {
         return Response.json({ error: ack.message ?? "Withdrawal was rejected. Please check your M-Pesa number and try again." }, { status: 502 });
       }
 
-      // Insufficient float / temporary provider issue: DON'T refund. Hold the
-      // funds, queue the payout, reassure the customer, and alert the owner to
-      // top up. The process-queued-withdrawals cron auto-sends it once funded.
-      await db.transaction.update({
-        where: { id: withdrawalId },
-        data:  {
-          status:   TransactionStatus.PENDING,
-          metadata: {
-            msisdn,
-            fee:          feeKes,
-            payout:       payoutKes,
-            requestedAt:  new Date().toISOString(),
-            queued:       true,
-            queuedReason: ack.message ?? "insufficient_float",
-            queuedAt:     new Date().toISOString(),
+      // Insufficient float / temporary provider issue: we no longer hold the
+      // funds and auto-retry. Refund the customer immediately, mark the
+      // withdrawal FAILED, and surface a maintenance message.
+      await db.$transaction([
+        db.user.update({ where: { id: dbUserId }, data: { walletBalance: { increment: amountKes } } }),
+        db.transaction.update({
+          where: { id: withdrawalId },
+          data:  {
+            status:   TransactionStatus.FAILED,
+            metadata: {
+              msisdn,
+              fee:          feeKes,
+              payout:       payoutKes,
+              requestedAt:  new Date().toISOString(),
+              failedReason: ack.message ?? "insufficient_float",
+              failedAt:     new Date().toISOString(),
+            },
           },
-        },
-      });
-      await db.notification.create({
-        data: {
-          userId: dbUserId,
-          type:   "withdrawal_processing",
-          title:  "Withdrawal is processing",
-          body:   `Your withdrawal of KSh ${payoutKes.toLocaleString()} is being processed and will arrive shortly via M-Pesa.`,
-          link:   "/wallet",
-        },
-      }).catch(() => {});
-      await notifyAdminsLowFloat({ amountKes: payoutKes, msisdn }).catch((e) => console.error("[withdraw] low-float alert failed", e));
+        }),
+      ]);
 
       return Response.json({
-        ok:           true,
-        withdrawalId,
-        queued:       true,
-        fee:          feeKes,
-        payout:       payoutKes,
-        message:      `Your withdrawal of KSh ${payoutKes.toLocaleString()} is being processed and will be sent to +${msisdn} shortly. We'll notify you the moment it's on its way — your balance is safe.`,
-      });
+        error: "M-Pesa withdrawals are temporarily unavailable for maintenance. Your balance has not been deducted — please try again later.",
+      }, { status: 503 });
     }
 
     // Accepted (async). Lipa is now processing; the final paid/failed outcome
@@ -223,9 +267,24 @@ export async function POST(req: Request) {
       withdrawalId,
       fee:          feeKes,
       payout:       payoutKes,
-      message:      `KSh ${payoutKes.toLocaleString()} is being sent to +${msisdn} via M-Pesa. You'll be notified once it's confirmed.`,
+      message:      `${CURRENCY_SYMBOL} ${payoutKes.toLocaleString()} is being sent to +${msisdn} via M-Pesa. You'll be notified once it's confirmed.`,
     });
   } catch (err) {
+    if (err instanceof LedgerUnbackedError) {
+      // The requested amount exceeds the ledger-backed balance — i.e. part of
+      // this wallet_balance has no transaction history behind it. Refuse and
+      // alert; do NOT reveal the mechanism to the client.
+      console.error(
+        `[withdraw] LEDGER_UNBACKED blocked: backed=${err.backed} requested=${err.requested}`,
+      );
+      return Response.json(
+        { error: "This withdrawal could not be processed. Please contact support." },
+        { status: 403 },
+      );
+    }
+    if (err instanceof Error && err.message === "PHONE_NUMBER_USED") {
+      return Response.json({ error: "This M-Pesa number has already received a withdrawal. Each number can only be paid out once." }, { status: 400 });
+    }
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
     }
@@ -233,7 +292,7 @@ export async function POST(req: Request) {
       const remaining = Number(err.message.split(":")[1] ?? 0);
       return Response.json({
         error: remaining > 0
-          ? `Daily limit: you can withdraw KSh ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
+          ? `Daily limit: you can withdraw ${CURRENCY_SYMBOL} ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
           : "You've reached today's KSh 500 withdrawal limit. It resets at 2:00 AM.",
       }, { status: 400 });
     }
@@ -255,11 +314,27 @@ export async function GET() {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+  if (dbUser.isAdmin) {
+    return Response.json({
+      limit: 999999,
+      used: 0,
+      remaining: 999999,
+      resetsAt: null,
+    }, { headers: { "Cache-Control": "no-store" } });
+  }
+
   const limit = dailyLimitKes();
 
-  const sum = await db.transaction.aggregate({
-    where: dailyCapWhere(dbUser.id),
-    _sum: { amount: true },
+  const capWhere = dailyCapWhere(dbUser.id);
+  const sum = await db.transaction.aggregate({ where: capWhere, _sum: { amount: true } });
+  // Rolling window: capacity frees up gradually as each withdrawal ages past
+  // 24h. The soonest the user regains room is when their OLDEST in-window
+  // withdrawal exits, i.e. its createdAt + 24h.
+  const oldest = await db.transaction.findFirst({
+    where: capWhere,
+    orderBy: { createdAt: "asc" },
+    select: { createdAt: true },
   });
 
   const used = Number(sum._sum?.amount ?? 0);
@@ -267,6 +342,6 @@ export async function GET() {
     limit,
     used,
     remaining: Math.max(0, limit - used),
-    resetsAt:  withdrawalDayReset().toISOString(),
+    resetsAt:  oldest ? new Date(oldest.createdAt.getTime() + WINDOW_MS).toISOString() : null,
   }, { headers: { "Cache-Control": "no-store" } });
 }

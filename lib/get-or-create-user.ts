@@ -40,6 +40,10 @@ export async function getOrCreateUser(supabaseId: string, data?: UserData) {
   // Retry a few times, narrowing the data each pass, so this never 500s.
   let email = data?.email ?? null;
   let phone = data?.phone ?? null;
+  if (!phone && email && email.endsWith("@phone.nezeem.com")) {
+    phone = email.split("@")[0];
+  }
+
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {

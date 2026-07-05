@@ -3,10 +3,10 @@
   "configurations": [
     {
       "name": "Neemiz Dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:turbo"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["next", "dev", "-H", "0.0.0.0"],
       "port": 3000,
-      "autoPort": true
+      "autoPort": false
     }
   ]
 }

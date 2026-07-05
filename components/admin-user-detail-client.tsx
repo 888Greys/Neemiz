@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { StatusBadge } from "@/components/admin-status-badge";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 type MoneyCount = { count: number; amount: number };
 type Transaction = {
@@ -55,7 +56,7 @@ type Detail = {
 };
 
 const money = (value: number | string) =>
-  `KSh ${Number(value).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `${CURRENCY_SYMBOL} ${Number(value).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function Metric({ label, value, sub, tone }: { label: string; value: string; sub: string; tone: string }) {
   return (

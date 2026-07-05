@@ -1,11 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { generateTotpSecret, totpUri } from "@/lib/admin-2fa";
+import { isOwnerEmail } from "@/lib/admin-allowlist";
 
 export async function POST() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Defense-in-depth: only allowlisted owner emails, not just DB is_admin.
+  if (!isOwnerEmail(user.email)) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const dbUser = await db.user.findUnique({
     where: { supabaseId: user.id },

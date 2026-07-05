@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 interface Row {
   address: string;
@@ -24,7 +25,7 @@ interface Exposure {
 
 type Filter = "funds" | "depositors" | "all";
 
-const kes = (n: number) => `KSh ${n.toLocaleString("en-KE", { maximumFractionDigits: 0 })}`;
+const kes = (n: number) => `${CURRENCY_SYMBOL} ${n.toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 0 })}`;
 const coin = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 6 });
 const short = (a: string) => (a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a);
 

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useMoney } from "@/lib/currency-context";
 import {
   CandlestickSeries,
   ColorType,
@@ -12,6 +14,8 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
+import { ValuePickerSheet } from "@/components/binary/panels/digit-panel";
+import { useNavBadge } from "@/lib/nav-badge-context";
 
 type Direction = "buy" | "sell";
 type StreamStatus = "connecting" | "live" | "fallback";
@@ -60,7 +64,16 @@ type Candle = CandlestickData<Time> & {
 const DEFAULT_SYMBOL = "EUR/USD";
 const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
 const CANDLE_SECONDS = 60;
-const SIZES = [1000, 2000, 5000, 10000, 25000, 50000];
+const SIZES = [1000, 2000, 5000, 10000, 25000];
+
+// One-tap stop-loss / take-profit shapes. Labels read as risk:reward so the
+// trader picks an intent ("1:2") rather than typing raw pips.
+const RR_PRESETS: { label: string; sl: number; tp: number }[] = [
+  { label: "1:1", sl: 20, tp: 20 },
+  { label: "1:2", sl: 25, tp: 50 },
+  { label: "1:3", sl: 20, tp: 60 },
+  { label: "Scalp", sl: 10, tp: 15 },
+];
 
 const MARKETS: ForexMarket[] = [
   { symbol: "EUR/USD", derivSymbol: "frxEURUSD", name: "Euro / US Dollar", base: "EUR", quote: "USD", fallbackPrice: 1.16, precision: 5 },
@@ -84,6 +97,12 @@ function pipSize(market: Pick<ForexMarket, "precision">) {
   return market.precision === 3 ? 0.01 : 0.0001;
 }
 
+// Mirror of calcMargin in app/api/forex/open/route.ts so the ticket can show the
+// exact KES the server will reserve before the user commits.
+function calcMargin(size: number) {
+  return Math.max(10, Math.round(size / 100));
+}
+
 function getPips(entry: number, price: number, market: Pick<ForexMarket, "precision">) {
   return (price - entry) / pipSize(market);
 }
@@ -92,27 +111,17 @@ function bucketTime(epoch: number) {
   return (Math.floor(epoch / CANDLE_SECONDS) * CANDLE_SECONDS) as UTCTimestamp;
 }
 
-function upsertCandle(candles: Candle[], epoch: number, price: number) {
-  const time = bucketTime(epoch);
-  const last = candles[candles.length - 1];
-
-  if (last?.time === time) {
-    return [
-      ...candles.slice(0, -1),
-      {
-        ...last,
-        high: Math.max(last.high, price),
-        low: Math.min(last.low, price),
-        close: price,
-      },
-    ].slice(-180);
-  }
-
-  const open = last?.close ?? price;
-  return [
-    ...candles,
-    { time, open, high: Math.max(open, price), low: Math.min(open, price), close: price },
-  ].slice(-180);
+// lightweight-charts renders the time axis in UTC. Format axis ticks and the
+// crosshair in the viewer's local timezone so the clock matches their wall time
+// (and other trading sites) instead of running hours behind.
+function fmtClock(time: Time, withSeconds: boolean): string {
+  const epoch = typeof time === "number" ? time : 0;
+  return new Date(epoch * 1000).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(withSeconds ? { second: "2-digit" } : {}),
+    hour12: false,
+  });
 }
 
 function buildFallbackCandles(market: ForexMarket): Candle[] {
@@ -164,6 +173,7 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
         secondsVisible: false,
         rightOffset: 8,
         barSpacing: 16,
+        tickMarkFormatter: (time: Time) => fmtClock(time, false),
       },
       crosshair: {
         vertLine: { color: "rgba(56,189,248,0.5)", labelBackgroundColor: "#2563eb" },
@@ -171,6 +181,7 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
       },
       localization: {
         priceFormatter: (price: number) => formatPrice(market, price),
+        timeFormatter: (time: Time) => fmtClock(time, true),
       },
     });
 
@@ -271,6 +282,7 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
 }
 
 export function ForexClient() {
+  const { format } = useMoney(); // KES amounts → active display currency
   const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
   const [direction, setDirection] = useState<Direction>("buy");
   const [size, setSize] = useState(10000);
@@ -284,37 +296,82 @@ export function ForexClient() {
   const [openingTrade, setOpeningTrade] = useState(false);
   const [closingId, setClosingId] = useState<string | null>(null);
   const [forexHistory, setForexHistory] = useState<ClosedTrade[]>([]);
-  const [activityTab, setActivityTab] = useState<"open" | "history">("open");
+  const [activityTab, setActivityTab] = useState<"open" | "history" | "tx">("open");
   // Desktop activity rail is collapsed by default to give the chart room; it
   // pops open the moment a position is opened (mirrors the Binary rail).
   const [railOpen, setRailOpen] = useState(false);
   const autoClosingRef = useRef<Set<string>>(new Set());
 
+  // Mobile bottom-nav panels (Markets / Positions) are URL-driven via `?panel=`,
+  // mirroring binary. Trade is the base view (no param).
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const panel = searchParams.get("panel");
+  const marketsOpen = panel === "markets";
+  const positionsOpen = panel === "positions";
+  const closePanel = useCallback(() => { router.replace(pathname, { scroll: false }); }, [router, pathname]);
+
   const selectedMarket = MARKETS.find((item) => item.symbol === selectedSymbol) ?? MARKETS[0];
+
+  // Badge the Positions bottom-nav tab with the open-trade count (like binary).
+  const setNavBadge = useNavBadge()?.setBadge;
+  useEffect(() => {
+    setNavBadge?.("positions", trades.length);
+    return () => setNavBadge?.("positions", 0);
+  }, [setNavBadge, trades.length]);
 
   useEffect(() => {
     let active = true;
     let retryCount = 0;
     let retryTimer: number | undefined;
+    let dataTimer: number | undefined;
+    let gotData = false;
     let socket: WebSocket | undefined;
 
     setCandles([]);
     setStreamStatus("connecting");
     setStreamError(null);
 
+    // Watchdog: the socket can open but then stall (slow link / Deriv never
+    // sends history). Without this the chart sits on "Loading live candles"
+    // forever. After the grace period, drop to fallback candles so the user
+    // always sees a chart instead of a permanent spinner.
+    const WS_DATA_TIMEOUT = 6000;
+    function armWatchdog() {
+      if (dataTimer) window.clearTimeout(dataTimer);
+      dataTimer = window.setTimeout(() => {
+        if (!active || gotData) return;
+        setStreamStatus("fallback");
+        setStreamError("Live feed is slow to respond. Reconnecting…");
+        setCandles((current) => current.length ? current : buildFallbackCandles(selectedMarket));
+      }, WS_DATA_TIMEOUT);
+    }
+
     function connect() {
       if (!active) return;
       socket = new WebSocket(DERIV_WS_URL);
+      armWatchdog();
 
       socket.onopen = () => {
         if (!active || !socket) return;
         retryCount = 0;
+        // Two requests on the one socket:
+        //  1) ready-made OHLC candle history (reliable bars — fixes the old
+        //     "only 2 candles" bug from rebuilding history out of raw ticks).
+        //  2) a live tick subscription that drives the forming bar every tick,
+        //     so the chart actually moves second-to-second instead of only
+        //     jumping when a minute closes.
         socket.send(JSON.stringify({
           ticks_history: selectedMarket.derivSymbol,
           adjust_start_time: 1,
-          count: 5000,
+          count: 200,
           end: "latest",
-          style: "ticks",
+          style: "candles",
+          granularity: CANDLE_SECONDS,
+        }));
+        socket.send(JSON.stringify({
+          ticks: selectedMarket.derivSymbol,
           subscribe: 1,
         }));
       };
@@ -324,7 +381,7 @@ export function ForexClient() {
 
         let response: {
           error?: { message?: string };
-          history?: { prices?: number[]; times?: number[] };
+          candles?: { epoch: number; open: number; high: number; low: number; close: number }[];
           tick?: { epoch: number; quote: number };
         };
 
@@ -342,18 +399,39 @@ export function ForexClient() {
           return;
         }
 
-        if (response.history?.prices?.length && response.history.times?.length) {
-          const historyCandles = response.history.prices.reduce<Candle[]>((result, price, index) => {
-            const epoch = response.history?.times?.[index] ?? Math.floor(Date.now() / 1000);
-            return upsertCandle(result, epoch, price);
-          }, []);
+        // Initial OHLC snapshot — the full history of bars for this market.
+        if (response.candles?.length) {
+          gotData = true;
+          if (dataTimer) window.clearTimeout(dataTimer);
+          const historyCandles: Candle[] = response.candles
+            .map((c) => ({
+              time: bucketTime(c.epoch),
+              open: c.open, high: c.high, low: c.low, close: c.close,
+            }))
+            .slice(-180);
           setCandles(historyCandles);
           setStreamStatus("live");
           setStreamError(null);
         }
 
+        // Live tick — fold it into the forming bar (or start a new one at the
+        // top of the minute) so the candle grows in real time.
         if (response.tick) {
-          setCandles((current) => upsertCandle(current, response.tick!.epoch, response.tick!.quote));
+          gotData = true;
+          if (dataTimer) window.clearTimeout(dataTimer);
+          const { epoch, quote } = response.tick;
+          const time = bucketTime(epoch);
+          setCandles((current) => {
+            const last = current[current.length - 1];
+            if (last && last.time === time) {
+              return [
+                ...current.slice(0, -1),
+                { ...last, high: Math.max(last.high, quote), low: Math.min(last.low, quote), close: quote },
+              ];
+            }
+            const open = last?.close ?? quote;
+            return [...current, { time, open, high: Math.max(open, quote), low: Math.min(open, quote), close: quote }].slice(-180);
+          });
           setStreamStatus("live");
           setStreamError(null);
         }
@@ -381,6 +459,7 @@ export function ForexClient() {
     return () => {
       active = false;
       if (retryTimer) window.clearTimeout(retryTimer);
+      if (dataTimer) window.clearTimeout(dataTimer);
       if (socket) {
         socket.onopen = null;
         socket.onmessage = null;
@@ -411,6 +490,20 @@ export function ForexClient() {
   const lots = size / 100000;
   const openTrades = trades;
   const exposure = openTrades.reduce((total, trade) => total + trade.size, 0);
+
+  // Track the direction of the latest tick so the header price can flash
+  // green/red on every move — makes the live feed obviously "alive" even when
+  // forex only ticks a fraction of a pip at a time.
+  const prevPriceRef = useRef(price);
+  const [tickDir, setTickDir] = useState<"up" | "down" | "flat">("flat");
+  const [tickKey, setTickKey] = useState(0);
+  useEffect(() => {
+    const prev = prevPriceRef.current;
+    if (price > prev) setTickDir("up");
+    else if (price < prev) setTickDir("down");
+    if (price !== prev) setTickKey((k) => k + 1);
+    prevPriceRef.current = price;
+  }, [price]);
   const estimatedPnl = openTrades.reduce((total, trade) => {
     const pips = getPips(trade.entry, price, trade);
     return total + (trade.direction === "buy" ? pips : -pips) * (trade.size / 10000);
@@ -574,7 +667,7 @@ export function ForexClient() {
   }, [price, trades]);
 
   return (
-    <div className="min-h-full max-w-full overflow-x-hidden bg-[#050506] pb-36 text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+    <div className="flex h-full min-h-0 max-w-full flex-col overflow-hidden bg-[#050506] text-white sm:block sm:h-auto sm:min-h-full sm:overflow-x-hidden sm:pb-36 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       {streamStatus === "fallback" && (() => {
         const isClosed = /closed|presently closed|market.*open/i.test(streamError ?? "");
         return isClosed ? (
@@ -589,7 +682,7 @@ export function ForexClient() {
         );
       })()}
 
-      <div data-forex-grid="true" className={`grid max-w-full min-w-0 gap-1 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
+      <div data-forex-grid="true" className={`flex min-h-0 flex-1 flex-col max-w-full min-w-0 gap-1 overflow-hidden px-0 py-0 sm:grid sm:overflow-visible sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         <aside className="order-2 hidden min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:flex xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
           {railOpen ? (
             <ForexActivityPanel
@@ -603,17 +696,17 @@ export function ForexClient() {
           )}
         </aside>
 
-        <main className="order-1 flex min-h-[300px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
+        <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:flex-none sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
-            <div className="shrink-0 flex flex-col gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2">
+            <div className="hidden shrink-0 flex-col gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <PairDropdown markets={MARKETS} selected={selectedMarket} price={price} streamStatus={streamStatus} onSelect={setSelectedSymbol} />
                   <span className={`rounded px-2 py-1 text-[10px] font-black ${changePct >= 0 ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
                     {changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%
                   </span>
+                  <LiveTicker price={formatPrice(selectedMarket, price)} dir={tickDir} flashKey={tickKey} live={streamStatus === "live"} />
                 </div>
-                <div className="mt-0.5 hidden text-xs font-bold text-slate-500 sm:block">{selectedMarket.name}</div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="hidden text-right sm:block">
@@ -629,6 +722,33 @@ export function ForexClient() {
               </div>
             </div>
             <div className="relative min-h-0 flex-1">
+              {/* Mobile market header — floats over the chart and fades into it.
+                  Tap to open the pair picker (Markets tab). */}
+              <button
+                type="button"
+                onClick={() => router.replace(`${pathname}?panel=markets`, { scroll: false })}
+                className="absolute inset-x-0 top-0 z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#070b10] via-[#070b10]/85 to-transparent px-3 pb-6 pt-2 text-left sm:hidden"
+              >
+                <PairFlags base={selectedMarket.base} quote={selectedMarket.quote} />
+                <span className="min-w-0">
+                  <span className="flex items-center gap-0.5">
+                    <span className="truncate text-[13px] font-black text-white">{selectedMarket.symbol}</span>
+                    <Icon name="expand_more" className="text-[18px] text-slate-400" />
+                  </span>
+                  <span className="mt-0.5 flex items-baseline gap-2 font-mono text-[11px] font-black">
+                    <span className="text-[#ff6171]">{formatPrice(selectedMarket, bid)}</span>
+                    <span className="text-slate-600">/</span>
+                    <span className="text-[#33d49b]">{formatPrice(selectedMarket, ask)}</span>
+                    <span className={changePct >= 0 ? "text-emerald-300" : "text-red-300"}>{changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%</span>
+                  </span>
+                  {/* Session High / Avg / Low — tucked under the header (option 2) */}
+                  <span className="mt-0.5 flex items-baseline gap-2.5 font-mono text-[9px] font-black text-slate-500">
+                    <span>H <span className="text-emerald-300/80">{formatPrice(selectedMarket, levels.high)}</span></span>
+                    <span>A <span className="text-slate-300">{formatPrice(selectedMarket, levels.average)}</span></span>
+                    <span>L <span className="text-red-300/80">{formatPrice(selectedMarket, levels.low)}</span></span>
+                  </span>
+                </span>
+              </button>
               <TradingViewCandles candles={chartCandles} market={selectedMarket} />
               {chartCandles.length === 0 && (
                 <div className="absolute inset-0 grid place-items-center bg-[#070b10]/80">
@@ -642,7 +762,7 @@ export function ForexClient() {
             </div>
           </section>
 
-          <section className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.08] bg-[#0f1218] px-3 py-1.5 text-[11px] sm:px-4">
+          <section className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.08] bg-[#0f1218] px-3 py-1.5 text-[11px] sm:flex sm:px-4">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">Session</span>
             <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">High</span><span className="font-mono font-black text-emerald-300">{formatPrice(selectedMarket, levels.high)}</span></span>
             <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">Avg</span><span className="font-mono font-black text-white">{formatPrice(selectedMarket, levels.average)}</span></span>
@@ -650,8 +770,21 @@ export function ForexClient() {
           </section>
         </main>
 
-        <aside className="order-2 min-w-0 overflow-hidden rounded-none border-y border-white/[0.08] bg-[#0f1218] sm:rounded sm:border xl:order-none xl:block xl:min-h-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
-          <section className="flex flex-col xl:h-full xl:min-h-0">
+        <aside className="order-2 shrink-0 min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f1218] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 sm:rounded sm:border xl:order-none xl:block xl:min-h-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+          <section className="flex h-full min-h-0 flex-col xl:h-full xl:min-h-0">
+            {/* Mobile Deriv-style ticket (sm:hidden); desktop/tablet ticket below */}
+            <MobileForexTicket
+              symbol={selectedMarket.symbol}
+              direction={direction} setDirection={setDirection}
+              bidLabel={formatPrice(selectedMarket, bid)} askLabel={formatPrice(selectedMarket, ask)}
+              size={size} setSize={setSize} lots={lots} sizePresets={SIZES}
+              riskPips={riskPips} setRiskPips={setRiskPips}
+              targetPips={targetPips} setTargetPips={setTargetPips}
+              rrPresets={RR_PRESETS}
+              riskKes={riskKes} rewardKes={rewardKes} rrRatio={rrRatio}
+              onOpen={() => openTrade()} opening={openingTrade} live={streamStatus === "live"}
+            />
+            <div className="hidden sm:flex sm:flex-col xl:h-full xl:min-h-0">
             <div className="shrink-0 border-b border-white/[0.07] px-3 py-2 sm:px-4 sm:py-3">
               <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Order ticket</div>
               <div className="mt-1 text-base font-black text-white sm:text-lg">{selectedMarket.symbol} {direction.toUpperCase()}</div>
@@ -685,7 +818,7 @@ export function ForexClient() {
                   step={1000}
                   value={size}
                   onChange={(event) => setSize(Math.max(1000, Number(event.target.value) || 1000))}
-                  className="h-12 w-full rounded border border-white/[0.08] bg-black/25 px-4 font-mono text-lg font-black text-white outline-none transition focus:border-[#087cff]/70"
+                  className="h-10 w-full rounded border border-white/[0.08] bg-black/25 px-4 font-mono text-base font-black text-white outline-none transition focus:border-[#087cff]/70"
                 />
                 <div className="mt-2 grid grid-cols-5 gap-1 sm:gap-2">
                   {SIZES.map((item) => (
@@ -706,25 +839,38 @@ export function ForexClient() {
                 <NumberField id="target-pips" label="Take profit" suffix="pips" value={targetPips} onChange={setTargetPips} />
               </div>
 
-              {/* Risk / Reward — turns the pip inputs into real money so the trader
-                  sees what they're risking to make, plus the R:R ratio. */}
-              <div className="overflow-hidden rounded-lg border border-white/[0.07] bg-black/20">
-                <div className="grid grid-cols-2 divide-x divide-white/[0.06]">
-                  <div className="p-3">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Risk</div>
-                    <div className="mt-0.5 font-mono text-base font-black text-[#ff6171]">−KSh {riskKes.toFixed(2)}</div>
-                  </div>
-                  <div className="p-3 text-right">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">Reward</div>
-                    <div className="mt-0.5 font-mono text-base font-black text-[#33d49b]">+KSh {rewardKes.toFixed(2)}</div>
-                  </div>
+              {/* Quick R:R presets — one tap sets both SL and TP to a common
+                  risk/reward shape, so beginners don't have to type pips. */}
+              <div className="grid grid-cols-4 gap-1.5">
+                {RR_PRESETS.map((preset) => {
+                  const active = riskPips === preset.sl && targetPips === preset.tp;
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => { setRiskPips(preset.sl); setTargetPips(preset.tp); }}
+                      className={`rounded px-1 py-1.5 text-[10px] font-black transition ${active ? "bg-[#087cff] text-white" : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.1] hover:text-white"}`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Risk / Reward — pip inputs as real money plus the R:R ratio,
+                  packed into one compact row to keep the Open button in view. */}
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Risk</span>
+                  <span className="font-mono text-[11px] font-black text-[#ff6171]">−{format(riskKes)}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-white/[0.06] bg-black/30 px-3 py-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Risk : Reward</span>
-                  <span className={`rounded px-2 py-0.5 font-mono text-[11px] font-black ${rrRatio >= 1 ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>
-                    1 : {rrRatio.toFixed(2)}
-                  </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Reward</span>
+                  <span className="font-mono text-[11px] font-black text-[#33d49b]">+{format(rewardKes)}</span>
                 </div>
+                <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-black ${rrRatio >= 1 ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>
+                  1:{rrRatio.toFixed(2)}
+                </span>
               </div>
 
               {/* Entry / SL / TP price chips */}
@@ -732,6 +878,12 @@ export function ForexClient() {
                 <PriceChip label="Entry" value={formatPrice(selectedMarket, price)} />
                 <PriceChip label="Stop" value={formatPrice(selectedMarket, stopLoss)} tone="sell" />
                 <PriceChip label="Target" value={formatPrice(selectedMarket, takeProfit)} tone="buy" />
+              </div>
+
+              {/* Margin the server will reserve for this position. */}
+              <div className="flex items-center justify-between rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Margin required</span>
+                <span className="font-mono text-sm font-black text-white">{format(calcMargin(size))}</span>
               </div>
 
               {tradeError && (
@@ -745,10 +897,10 @@ export function ForexClient() {
                 type="button"
                 onClick={() => openTrade()}
                 disabled={streamStatus !== "live" || openingTrade}
-                className={`hidden w-full rounded-lg py-4 text-sm font-black text-white shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none xl:block ${
+                className={`hidden w-full rounded-lg py-4 text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 xl:block ${
                   direction === "buy"
-                    ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68] shadow-emerald-500/20 hover:from-[#1ac98a] hover:to-[#13ae73]"
-                    : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b] shadow-red-500/20 hover:from-[#f25a69] hover:to-[#e24755]"
+                    ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68] hover:from-[#1ac98a] hover:to-[#13ae73]"
+                    : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b] hover:from-[#f25a69] hover:to-[#e24755]"
                 }`}
               >
                 {openingTrade ? "Opening…" : streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
@@ -760,28 +912,46 @@ export function ForexClient() {
                 Positions &amp; history live in the panel on the left.
               </p>
             </div>
+            </div>
           </section>
         </aside>
       </div>
 
-      {/* Mobile-only: positions / history — hidden on desktop where the left rail shows it */}
-      <MobileForexActivity
-        tab={activityTab} setTab={setActivityTab}
-        openTrades={trades} forexHistory={forexHistory}
-        price={price} closingId={closingId} closeTrade={closeTrade}
-      />
+      {/* Mobile Positions screen (Deriv-style) — opened by the Positions tab
+          (?panel=positions); full surface between app header and bottom nav. */}
+      {positionsOpen && (
+        <div className="fixed inset-x-0 bottom-14 top-14 z-40 flex flex-col bg-[#0b0d12] lg:hidden">
+          <ForexActivityPanel
+            tab={activityTab} setTab={setActivityTab}
+            openTrades={trades} forexHistory={forexHistory}
+            price={price} closingId={closingId} closeTrade={closeTrade}
+            onCollapse={closePanel}
+          />
+        </div>
+      )}
+
+      {/* Mobile pair picker — opened by the Markets tab (?panel=markets). */}
+      {marketsOpen && (
+        <ForexPairSheet
+          markets={MARKETS}
+          current={selectedMarket.symbol}
+          onSelect={(sym) => { setSelectedSymbol(sym); closePanel(); }}
+          onClose={closePanel}
+        />
+      )}
 
       {/* Sticky mobile CTA — a single Open button that follows the Buy/Sell
-          toggle above, so there's one clear action (no duplicate buttons). */}
-      <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur lg:bottom-0 xl:hidden">
+          toggle above, so there's one clear action (no duplicate buttons).
+          Hidden while a nav panel sheet (Markets/Positions) is open. */}
+      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 hidden border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur sm:block lg:bottom-0 xl:hidden ${positionsOpen || marketsOpen ? "sm:hidden" : ""}`}>
         <button
           type="button"
           onClick={() => openTrade()}
           disabled={streamStatus !== "live" || openingTrade}
-          className={`flex min-h-14 w-full items-center justify-between rounded-lg px-4 text-white shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
+          className={`flex min-h-14 w-full items-center justify-between rounded-lg px-4 text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
             direction === "buy"
-              ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68] shadow-emerald-500/20"
-              : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b] shadow-red-500/20"
+              ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68]"
+              : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b]"
           }`}
         >
           <span className="text-sm font-black">
@@ -830,7 +1000,7 @@ function PairDropdown({ markets, onSelect, price, selected, streamStatus }: {
       </button>
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-64 overflow-hidden rounded-lg border border-white/[0.1] bg-[#0f1218] shadow-2xl shadow-black/50">
-          <div className="max-h-[60vh] overflow-y-auto [scrollbar-width:thin]">
+          <div className="max-h-[60vh] overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {markets.map((market) => {
               const isSelected = market.symbol === selected.symbol;
               const isLive = isSelected && streamStatus === "live";
@@ -859,9 +1029,11 @@ function PairDropdown({ markets, onSelect, price, selected, streamStatus }: {
   );
 }
 
+type ActivityTab = "open" | "history" | "tx";
+
 interface ForexActivityProps {
-  tab: "open" | "history";
-  setTab: (t: "open" | "history") => void;
+  tab: ActivityTab;
+  setTab: (t: ActivityTab) => void;
   openTrades: Trade[];
   forexHistory: ClosedTrade[];
   price: number;
@@ -870,20 +1042,56 @@ interface ForexActivityProps {
   onCollapse?: () => void;
 }
 
+// A single line in the Transactions tab, derived client-side from the trades we
+// already hold — open positions become "reserved margin" rows, closed trades
+// become win/loss settlement rows. Mirrors Binary's Tx tab without a new route.
+type ForexTx = {
+  id: string;
+  kind: "stake" | "win" | "loss";
+  symbol: string;
+  amount: number; // signed KES: negative = out of wallet, positive = credited
+  at: number;
+};
+
+function buildForexTransactions(openTrades: Trade[], history: ClosedTrade[]): ForexTx[] {
+  const stakes: ForexTx[] = openTrades.map((t) => ({
+    id: `stake-${t.id}`,
+    kind: "stake",
+    symbol: t.symbol,
+    amount: -(t.margin ?? calcMargin(t.size)),
+    at: t.openedAt,
+  }));
+  const settlements: ForexTx[] = history.map((t) => {
+    const pl = t.profitLoss ?? 0;
+    return {
+      id: `settle-${t.id}`,
+      kind: pl >= 0 ? "win" : "loss",
+      symbol: t.symbol,
+      amount: pl,
+      at: t.closedAt ?? t.openedAt,
+    };
+  });
+  return [...stakes, ...settlements].sort((a, b) => b.at - a.at).slice(0, 40);
+}
+
 // Shared Positions / History tabs — used by the desktop left rail and the
 // mobile collapsible, so both surfaces show identical detail (mirrors Binary).
 function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, closingId, closeTrade, onCollapse }: ForexActivityProps) {
+  const transactions = useMemo(() => buildForexTransactions(openTrades, forexHistory), [openTrades, forexHistory]);
+
   return (
     <>
+      <ForexSessionStats openTrades={openTrades} forexHistory={forexHistory} price={price} />
+
       <div className="flex shrink-0 items-stretch border-b border-white/[0.07] bg-[#0f1218] text-xs font-black">
-        {(["open", "history"] as const).map((t) => (
+        {(["open", "history", "tx"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
             className={`flex-1 py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
           >
-            {t === "open" ? `Positions (${openTrades.length})` : `History (${forexHistory.length})`}
+            {t === "open" ? `Positions (${openTrades.length})` : t === "history" ? `History (${forexHistory.length})` : "Tx"}
           </button>
         ))}
         {onCollapse && (
@@ -920,8 +1128,73 @@ function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, clos
             )}
           </div>
         )}
+        {tab === "tx" && (
+          <div className="space-y-1.5 p-3">
+            {transactions.length === 0 ? (
+              <div className="rounded border border-dashed border-white/[0.08] py-6 text-center text-xs font-bold text-slate-600">No transactions yet</div>
+            ) : (
+              transactions.map((tx) => <TransactionRow key={tx.id} tx={tx} />)
+            )}
+          </div>
+        )}
       </div>
     </>
+  );
+}
+
+// Session summary — realized result from this session's closed trades plus the
+// live unrealized P/L across open positions. Mirrors Binary's rail stats.
+function ForexSessionStats({ openTrades, forexHistory, price }: { openTrades: Trade[]; forexHistory: ClosedTrade[]; price: number }) {
+  const { format } = useMoney();
+  const wins = forexHistory.filter((t) => (t.profitLoss ?? 0) >= 0).length;
+  const losses = forexHistory.length - wins;
+  const realized = forexHistory.reduce((sum, t) => sum + (t.profitLoss ?? 0), 0);
+  const unrealized = openTrades.reduce((sum, t) => {
+    const pips = getPips(t.entry, price, t);
+    return sum + (t.direction === "buy" ? pips : -pips) * (t.size / 10000);
+  }, 0);
+
+  return (
+    <div className="grid shrink-0 grid-cols-3 divide-x divide-white/[0.06] border-b border-white/[0.07] bg-[#0b0f15]">
+      <div className="px-3 py-2">
+        <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">W / L</div>
+        <div className="mt-0.5 font-mono text-sm font-black text-white">
+          <span className="text-[#33d49b]">{wins}</span>
+          <span className="text-slate-600"> / </span>
+          <span className="text-[#ff6171]">{losses}</span>
+        </div>
+      </div>
+      <div className="px-3 py-2">
+        <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Realized</div>
+        <div className={`mt-0.5 font-mono text-sm font-black ${realized > 0 ? "text-[#33d49b]" : realized < 0 ? "text-[#ff6171]" : "text-white"}`}>
+          {realized >= 0 ? "+" : "−"}{format(Math.abs(realized))}
+        </div>
+      </div>
+      <div className="px-3 py-2">
+        <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Open P/L</div>
+        <div className={`mt-0.5 font-mono text-sm font-black ${unrealized > 0 ? "text-[#33d49b]" : unrealized < 0 ? "text-[#ff6171]" : "text-white"}`}>
+          {unrealized >= 0 ? "+" : "−"}{format(Math.abs(unrealized))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TransactionRow({ tx }: { tx: ForexTx }) {
+  const { format } = useMoney();
+  const label = tx.kind === "stake" ? "Margin reserved" : tx.kind === "win" ? "Trade closed · profit" : "Trade closed · loss";
+  const positive = tx.amount >= 0;
+  const time = new Intl.DateTimeFormat("en-KE", { dateStyle: "short", timeStyle: "short" }).format(new Date(tx.at));
+  return (
+    <div className="flex items-center justify-between gap-3 rounded bg-black/25 px-3 py-2">
+      <div className="min-w-0">
+        <div className="truncate text-xs font-black text-slate-200">{tx.symbol} · {label}</div>
+        <div className="text-[10px] font-bold text-slate-600">{time}</div>
+      </div>
+      <div className={`shrink-0 font-mono text-xs font-black ${positive ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
+        {positive ? "+" : "−"}{format(Math.abs(tx.amount))}
+      </div>
+    </div>
   );
 }
 
@@ -951,32 +1224,279 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
   );
 }
 
-// Mobile-only collapsible wrapper around the activity panel. Hidden on xl where
-// the left rail shows it.
-function MobileForexActivity(props: ForexActivityProps) {
-  const [open, setOpen] = useState(true);
-  const activeCount = props.openTrades.length;
+// Currency → ISO country code for flag images (flagcdn.com, public-domain).
+const CURRENCY_ISO: Record<string, string> = {
+  EUR: "eu", USD: "us", GBP: "gb", JPY: "jp", CHF: "ch", AUD: "au", CAD: "ca", NZD: "nz",
+};
+const flagUrl = (cur: string) => `https://flagcdn.com/w40/${CURRENCY_ISO[cur] ?? "un"}.png`;
+
+// Overlapped base/quote flags for a forex pair (Deriv-style). Rendered as
+// background images (real flags that display on Android, unlike emoji flags).
+function PairFlags({ base, quote, className = "" }: { base: string; quote: string; className?: string }) {
   return (
-    <div className="mx-2 mb-4 mt-1 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f1218] xl:hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-3 text-[12px] font-black text-white/70 transition-colors hover:text-white active:scale-[0.99]"
-      >
-        <span className="flex items-center gap-2 uppercase tracking-wider">
-          My Positions
-          {activeCount > 0 && (
-            <span className="rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-300">{activeCount} open</span>
-          )}
-        </span>
-        <Icon name={open ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[18px] text-slate-500" />
-      </button>
-      {open && (
-        <div className="flex max-h-[60vh] flex-col overflow-hidden border-t border-white/[0.07]">
-          <ForexActivityPanel {...props} />
+    <span className={`relative inline-block h-9 w-9 shrink-0 ${className}`} aria-hidden>
+      <span className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-[#1b2433] bg-cover bg-center ring-2 ring-[#0d0e11]" style={{ backgroundImage: `url(${flagUrl(quote)})` }} />
+      <span className="absolute left-0 top-0 h-6 w-6 rounded-full bg-[#1b2433] bg-cover bg-center ring-2 ring-[#0d0e11]" style={{ backgroundImage: `url(${flagUrl(base)})` }} />
+    </span>
+  );
+}
+
+// Deriv-style mobile order ticket: Buy/Sell toggle (with fill price), Size /
+// Stop loss / Take profit tappable cards (picker sheets), R:R presets, a
+// risk/reward line, and one big Open pill. Shown only below sm.
+function MobileForexTicket({
+  symbol, direction, setDirection, bidLabel, askLabel,
+  size, setSize, lots, sizePresets,
+  riskPips, setRiskPips, targetPips, setTargetPips, rrPresets,
+  riskKes, rewardKes, rrRatio, onOpen, opening, live,
+}: {
+  symbol: string;
+  direction: Direction; setDirection: (d: Direction) => void;
+  bidLabel: string; askLabel: string;
+  size: number; setSize: (v: number) => void; lots: number; sizePresets: number[];
+  riskPips: number; setRiskPips: (v: number) => void;
+  targetPips: number; setTargetPips: (v: number) => void;
+  rrPresets: { label: string; sl: number; tp: number }[];
+  riskKes: number; rewardKes: number; rrRatio: number;
+  onOpen: () => void; opening: boolean; live: boolean;
+}) {
+  const { format } = useMoney();
+  const [sheet, setSheet] = useState<null | "size" | "sl" | "tp" | "rr">(null);
+  const buy = direction === "buy";
+  const fieldCard = "flex flex-col items-start rounded-2xl bg-[#181b22] px-3 py-2.5 text-left transition active:scale-[0.99]";
+
+  return (
+    <div className="flex h-full min-h-0 flex-col sm:hidden">
+      <div className="min-h-0 flex-1" />
+
+      <div className="space-y-2.5 px-3 pb-1">
+        {/* Buy / Sell toggle — armed side glows, fill price beneath */}
+        <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-[#0f1319] p-1.5 ring-1 ring-white/[0.06]">
+          <button type="button" onClick={() => setDirection("buy")}
+            className={`flex flex-col items-center rounded-xl py-2 transition active:scale-[0.98] ${buy ? "bg-[#16a085] text-white" : "text-slate-400"}`}>
+            <span className="text-[13px] font-black">BUY</span>
+            <span className="font-mono text-[10px] leading-none opacity-85">{askLabel}</span>
+          </button>
+          <button type="button" onClick={() => setDirection("sell")}
+            className={`flex flex-col items-center rounded-xl py-2 transition active:scale-[0.98] ${!buy ? "bg-[#e2474b] text-white" : "text-slate-400"}`}>
+            <span className="text-[13px] font-black">SELL</span>
+            <span className="font-mono text-[10px] leading-none opacity-85">{bidLabel}</span>
+          </button>
         </div>
+
+        {/* Size | Stop loss | Take profit */}
+        <div className="grid grid-cols-3 gap-2.5">
+          <button type="button" onClick={() => setSheet("size")} className={fieldCard}>
+            <span className="truncate text-[11px] font-bold text-slate-400">Size</span>
+            <span className="mt-0.5 text-[15px] font-black text-white">{lots.toFixed(2)} lot</span>
+          </button>
+          <button type="button" onClick={() => setSheet("sl")} className={fieldCard}>
+            <span className="truncate text-[11px] font-bold text-slate-400">Stop loss</span>
+            <span className="mt-0.5 text-[15px] font-black text-white">{riskPips} <span className="text-[11px] text-slate-500">pips</span></span>
+          </button>
+          <button type="button" onClick={() => setSheet("tp")} className={fieldCard}>
+            <span className="truncate text-[11px] font-bold text-slate-400">Take profit</span>
+            <span className="mt-0.5 text-[15px] font-black text-white">{targetPips} <span className="text-[11px] text-slate-500">pips</span></span>
+          </button>
+        </div>
+
+        {/* Risk : Reward — one tappable card (opens the presets sheet) */}
+        <button type="button" onClick={() => setSheet("rr")}
+          className="flex w-full items-center justify-between rounded-2xl bg-[#181b22] px-3.5 py-2.5 text-left transition active:scale-[0.99]">
+          <span className="flex flex-col items-start">
+            <span className="text-[11px] font-bold text-slate-400">Risk : Reward</span>
+            <span className="mt-0.5 text-[15px] font-black text-white">1:{rrRatio.toFixed(2)}</span>
+          </span>
+          <span className="flex items-center gap-2.5 font-mono text-[11px] font-black">
+            <span className="text-[#ff6171]">−{format(riskKes)}</span>
+            <span className="text-[#33d49b]">+{format(rewardKes)}</span>
+            <Icon name="expand_more" className="text-[18px] text-slate-400" />
+          </span>
+        </button>
+      </div>
+
+      {/* Open pill */}
+      <div className="px-3 pb-2 pt-1">
+        <button type="button" onClick={onOpen} disabled={opening || !live}
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${buy ? "bg-[#16a085] active:bg-[#1bb198]" : "bg-[#e2474b] active:bg-[#ec5a5e]"}`}>
+          <span className="text-[15px] leading-tight">{opening ? "Opening…" : !live ? "Awaiting feed…" : `Open ${buy ? "BUY" : "SELL"} ${symbol}`}</span>
+          <span className="font-mono text-[11px] leading-tight text-white/85">{buy ? askLabel : bidLabel}</span>
+        </button>
+      </div>
+
+      {sheet === "size" && (
+        <ValuePickerSheet title="Position size" unit="units" value={size}
+          presets={[...sizePresets]} min={1000} max={10_000_000} integer
+          onChange={setSize} onClose={() => setSheet(null)} />
+      )}
+      {sheet === "sl" && (
+        <ValuePickerSheet title="Stop loss" unit="pips" value={riskPips}
+          presets={[10, 15, 20, 25, 40, 60]} min={1} max={500} integer
+          onChange={setRiskPips} onClose={() => setSheet(null)} />
+      )}
+      {sheet === "rr" && (
+        <RrSheet presets={rrPresets} riskPips={riskPips} targetPips={targetPips}
+          riskKes={riskKes} rewardKes={rewardKes}
+          onSelect={(sl, tp) => { setRiskPips(sl); setTargetPips(tp); }} onClose={() => setSheet(null)} />
+      )}
+      {sheet === "tp" && (
+        <ValuePickerSheet title="Take profit" unit="pips" value={targetPips}
+          presets={[15, 20, 30, 45, 60, 100]} min={1} max={1000} integer
+          onChange={setTargetPips} onClose={() => setSheet(null)} />
       )}
     </div>
+  );
+}
+
+// Risk:Reward preset picker sheet — replaces the bare 1:1/1:2/1:3/Scalp buttons
+// with a neat popup (matches the Size/SL/TP picker pattern).
+function RrSheet({
+  presets, riskPips, targetPips, riskKes, rewardKes, onSelect, onClose,
+}: {
+  presets: { label: string; sl: number; tp: number }[];
+  riskPips: number; targetPips: number; riskKes: number; rewardKes: number;
+  onSelect: (sl: number, tp: number) => void; onClose: () => void;
+}) {
+  const { format } = useMoney();
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+        <div className="px-4 pb-1 pt-2 text-center text-[13px] font-black text-white">Risk : Reward</div>
+        <div className="flex items-center justify-center gap-3 pb-2 font-mono text-[11px] font-black">
+          <span className="text-[#ff6171]">−{format(riskKes)}</span>
+          <span className="text-[#33d49b]">+{format(rewardKes)}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 px-4 pb-4 pt-1">
+          {presets.map((p) => {
+            const active = riskPips === p.sl && targetPips === p.tp;
+            return (
+              <button key={p.label} type="button" onClick={() => { onSelect(p.sl, p.tp); onClose(); }}
+                className={`flex flex-col items-start rounded-2xl px-4 py-3 transition active:scale-[0.98] ${active ? "bg-white text-[#16181d]" : "bg-[#0f1319] text-white"}`}>
+                <span className="text-[15px] font-black">{p.label}</span>
+                <span className={`text-[11px] font-bold ${active ? "text-slate-600" : "text-slate-500"}`}>SL {p.sl} · TP {p.tp} pips</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Deriv-style mobile pair picker (opened by the Markets tab). Search + favourites
+// (persisted) + the current pair highlighted white. Mirrors binary's MarketsSheet.
+function ForexPairSheet({
+  markets, current, onSelect, onClose,
+}: {
+  markets: ForexMarket[];
+  current: string;
+  onSelect: (symbol: string) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const [tab, setTab] = useState<"favourites" | "all">("all");
+  const [favs, setFavs] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("forex-fav-pairs") ?? "[]");
+      if (Array.isArray(saved)) setFavs(new Set(saved));
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("forex-fav-pairs", JSON.stringify([...favs])); } catch { /* ignore */ }
+  }, [favs]);
+  const toggleFav = (sym: string) =>
+    setFavs((s) => { const n = new Set(s); n.has(sym) ? n.delete(sym) : n.add(sym); return n; });
+
+  const term = q.trim().toLowerCase();
+  const base = tab === "favourites" ? markets.filter((m) => favs.has(m.symbol)) : markets;
+  const filtered = base.filter(
+    (m) => term === "" || m.symbol.toLowerCase().includes(term) || m.name.toLowerCase().includes(term),
+  );
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#0d0e11] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+        <div className="flex items-center gap-2 px-4 pb-3 pt-2.5">
+          <div className="flex flex-1 items-center gap-2 rounded-xl bg-white/[0.05] px-3 ring-1 ring-white/[0.07] focus-within:ring-sky-500/50">
+            <Icon name="search" className="text-[18px] text-slate-500" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search pairs"
+              className="h-9 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-slate-600" />
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-400 active:scale-95">
+            <Icon name="close" className="text-[13px]" />
+          </button>
+        </div>
+
+        {/* Favourites / All tabs */}
+        <div className="flex items-stretch gap-5 border-b border-white/[0.07] px-4 text-[13px] font-black">
+          {(["favourites", "all"] as const).map((t) => (
+            <button key={t} type="button" onClick={() => setTab(t)}
+              className={`-mb-px border-b-2 py-2.5 capitalize transition ${tab === t ? "border-white text-white" : "border-transparent text-slate-500"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1">
+          {tab === "favourites" && filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
+              <Icon name="star" className="text-[56px] text-slate-700" />
+              <div className="mt-3 text-[14px] font-black text-slate-400">No favourites</div>
+              <div className="mt-1 text-[12px] font-bold text-slate-600">Tap the star on a pair to add it here.</div>
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="py-10 text-center text-[12px] font-bold text-slate-600">No pairs match “{q}”.</p>
+          ) : (<>
+          <p className="px-3 pb-1 pt-1 text-[11px] font-black uppercase tracking-wide text-slate-500">Forex pairs</p>
+          {filtered.map((m) => {
+            const active = m.symbol === current;
+            const starred = favs.has(m.symbol);
+            return (
+              <button key={m.symbol} type="button" onClick={() => onSelect(m.symbol)}
+                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition active:scale-[0.99] ${active ? "bg-white" : "hover:bg-white/[0.04]"}`}>
+                <PairFlags base={m.base} quote={m.quote} />
+                <span className="min-w-0 flex-1">
+                  <span className={`block truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>{m.symbol}</span>
+                  <span className={`block truncate text-[11px] font-bold ${active ? "text-slate-600" : "text-slate-500"}`}>{m.name}</span>
+                </span>
+                <span role="button" tabIndex={-1} onClick={(e) => { e.stopPropagation(); toggleFav(m.symbol); }} className="shrink-0">
+                  <Icon name="star" className={`text-[20px] ${starred ? "fill-current text-amber-400" : active ? "text-slate-500" : "text-slate-600"}`} />
+                </span>
+              </button>
+            );
+          })}
+          </>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Live mid-price pill that flashes green on an up-tick and red on a down-tick.
+// The inner value remounts on `flashKey` so the flash animation replays every
+// tick — makes the feed read as alive even on sub-pip forex moves.
+function LiveTicker({ price, dir, flashKey, live }: { price: string; dir: "up" | "down" | "flat"; flashKey: number; live: boolean }) {
+  const color = dir === "up" ? "#33d49b" : dir === "down" ? "#ff6171" : "#94a3b8";
+  return (
+    <span className="hidden items-center gap-1.5 rounded px-2 py-1 sm:inline-flex" style={{ background: "rgba(255,255,255,0.04)" }}>
+      <style>{`@keyframes fxflash{0%{transform:scale(1.12);opacity:.55}100%{transform:scale(1);opacity:1}}`}</style>
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${live ? "animate-pulse" : ""}`}
+        style={{ background: live ? color : "#64748b" }}
+      />
+      <span
+        key={flashKey}
+        className="font-mono text-[11px] font-black tabular-nums"
+        style={{ color, animation: "fxflash .4s ease-out" }}
+      >
+        {dir === "up" ? "▲" : dir === "down" ? "▼" : "•"} {price}
+      </span>
+    </span>
   );
 }
 
@@ -995,11 +1515,11 @@ function QuoteToggle({ active, label, onClick, price, tone }: { active: boolean;
     <button
       type="button"
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-lg border px-4 py-2.5 text-left transition active:scale-[0.98] ${
+      className={`group relative overflow-hidden rounded-lg border px-3 py-1.5 text-left transition active:scale-[0.98] ${
         active
           ? tone === "buy"
-            ? "border-[#33d49b]/60 bg-[#0f9f68]/15 shadow-[0_0_24px_-6px_rgba(51,212,155,0.5)]"
-            : "border-[#ff6171]/60 bg-[#d33d4b]/15 shadow-[0_0_24px_-6px_rgba(255,97,113,0.5)]"
+            ? "border-[#33d49b]/60 bg-[#0f9f68]/15"
+            : "border-[#ff6171]/60 bg-[#d33d4b]/15"
           : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
       }`}
     >
@@ -1043,9 +1563,20 @@ function NumberField({ id, label, onChange, suffix, value }: { id: string; label
 }
 
 function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: boolean; currentPrice: number; onClose: () => void; trade: Trade }) {
+  const { format } = useMoney();
   const rawPips = getPips(trade.entry, currentPrice, trade);
   const pips = trade.direction === "buy" ? rawPips : -rawPips;
   const plKes = parseFloat((pips * (trade.size / 10000)).toFixed(2));
+
+  // Where the live price sits between stop loss (0) and take profit (1). The
+  // formula holds for both directions: 0 = at SL (worst), 1 = at TP (best).
+  const span = trade.takeProfit - trade.stopLoss;
+  const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
+  const progress = span !== 0 ? clamp01((currentPrice - trade.stopLoss) / span) : 0.5;
+  const entryMark = span !== 0 ? clamp01((trade.entry - trade.stopLoss) / span) : 0.5;
+  const inProfit = plKes >= 0;
+  // Pulse the bar when price is closing in on either barrier.
+  const nearBarrier = progress <= 0.12 || progress >= 0.88;
 
   return (
     <div className="rounded border border-white/[0.07] bg-black/20 p-3">
@@ -1056,18 +1587,41 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
             {trade.direction.toUpperCase()} {trade.size.toLocaleString("en-US")} @ {formatPrice(trade, trade.entry)}
           </div>
           {trade.margin && (
-            <div className="text-[10px] text-slate-600">Margin: KSh {trade.margin}</div>
+            <div className="text-[10px] text-slate-600">Margin: {format(Number(trade.margin))}</div>
           )}
         </div>
         <div className="text-right">
-          <div className={`font-mono text-sm font-black ${pips >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
+          <div className={`font-mono text-sm font-black tabular-nums ${pips >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
             {pips >= 0 ? "+" : ""}{pips.toFixed(1)} pips
           </div>
-          <div className={`font-mono text-[11px] font-bold ${plKes >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
-            {plKes >= 0 ? "+" : ""}KSh {plKes.toFixed(2)}
+          <div className={`font-mono text-[11px] font-bold tabular-nums ${plKes >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
+            {plKes >= 0 ? "+" : ""}{format(plKes)}
           </div>
         </div>
       </div>
+
+      {/* SL ←→ TP track. Fill grows from the SL end; an entry tick and a live
+          price marker show how close the position is to either barrier. */}
+      <div className="mt-3">
+        <div className="relative h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+          <div
+            className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 ease-out ${inProfit ? "bg-[#33d49b]" : "bg-[#ff6171]"} ${nearBarrier ? "animate-pulse" : ""}`}
+            style={{ width: `${progress * 100}%` }}
+          />
+          {/* entry reference tick */}
+          <div className="absolute inset-y-0 w-px bg-white/40" style={{ left: `${entryMark * 100}%` }} />
+          {/* live price marker */}
+          <div
+            className={`absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/40 shadow ${inProfit ? "bg-[#33d49b]" : "bg-[#ff6171]"} ${nearBarrier ? "animate-pulse" : ""}`}
+            style={{ left: `${progress * 100}%` }}
+          />
+        </div>
+        <div className="mt-1 flex justify-between text-[9px] font-black uppercase tracking-wider">
+          <span className="text-[#ff6171]/80">SL {formatPrice(trade, trade.stopLoss)}</span>
+          <span className="text-[#33d49b]/80">TP {formatPrice(trade, trade.takeProfit)}</span>
+        </div>
+      </div>
+
       <button
         type="button"
         onClick={onClose}
@@ -1081,6 +1635,7 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
 }
 
 function HistoryRow({ trade }: { trade: ClosedTrade }) {
+  const { format } = useMoney();
   const pl = trade.profitLoss ?? 0;
   const won = pl >= 0;
   const closedDate = trade.closedAt ? new Intl.DateTimeFormat("en-KE", { dateStyle: "short", timeStyle: "short" }).format(new Date(trade.closedAt)) : "—";
@@ -1102,7 +1657,7 @@ function HistoryRow({ trade }: { trade: ClosedTrade }) {
         </div>
         <div className="text-right">
           <div className={`font-mono text-sm font-black ${won ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
-            {won ? "+" : ""}KSh {pl.toFixed(2)}
+            {won ? "+" : ""}{format(pl)}
           </div>
           <div className={`rounded px-2 py-0.5 text-[9px] font-black ${won ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
             {won ? "WIN" : "LOSS"}

@@ -2,8 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { debitUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
-import { broadcastWithdrawal, getHotWalletAddresses } from "@/lib/crypto/broadcaster";
+import { signWithdrawal } from "@/lib/crypto/signer-client";
+import { getHotWalletAddresses } from "@/lib/crypto/xpub";
 import { TransactionType, TransactionStatus } from "@prisma/client";
+import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
+import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -44,6 +47,17 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+  // Global money-out kill switch. Admins are exempt (matching the fiat path in
+  // app/api/wallet/withdraw) so the owner can still cash out / manage float
+  // while withdrawals are disabled platform-wide during an incident.
+  const killed = await withdrawalsDisabledResponse();
+  if (killed && !dbUser.isAdmin) return killed;
+
+  // Cap payout attempts per user (covers brute-forcing balance edges / spamming
+  // the signer). Keyed by account, not IP, so it can't be sidestepped via proxies.
+  const rl = rateLimit(`crypto-withdraw:${dbUser.id}`, 5, 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   let body: { crypto: string; network?: string; amount: number; address: string };
   try   { body = await req.json(); }
@@ -106,9 +120,20 @@ export async function POST(req: Request) {
     return Response.json({ error: "No deposit address found for this coin — deposit first to register your address" }, { status: 400 });
   }
 
-  // ── Broadcast on-chain (signs from user's own deposit address) ─────────
+  // ── Sign + broadcast via the off-box signer (WireGuard-only on soi) ─────
+  // The web app holds no seed; it hands the signer the HD index + addresses and
+  // the signer re-derives the key, enforces its own caps, and broadcasts. The
+  // tx record id is the idempotency key so a retry can't double-send.
   try {
-    const result = await broadcastWithdrawal(depositAddr.address, address, crypto, network, payoutAmount);
+    const result = await signWithdrawal({
+      hdIndex:        depositAddr.hdIndex,
+      fromAddress:    depositAddr.address,
+      to:             address,
+      crypto,
+      network,
+      amount:         payoutAmount,
+      idempotencyKey: txRecord.id,
+    });
 
     // Mark completed
     await db.transaction.update({

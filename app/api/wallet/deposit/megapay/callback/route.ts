@@ -1,5 +1,13 @@
 import { db } from "@/lib/db";
 import { TransactionStatus } from "@prisma/client";
+import { timingSafeEqual } from "node:crypto";
+
+/** Constant-time string compare (avoids leaking the token via response timing). */
+function safeTokenEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
 
 /**
  * MegaPay webhook — fired after each STK push completes or fails.
@@ -38,7 +46,7 @@ export async function POST(req: Request) {
     req.headers.get("x-callback-token") ||
     req.headers.get("x-megapay-token") ||
     "";
-  if (supplied !== callbackToken) {
+  if (!safeTokenEqual(supplied, callbackToken)) {
     return new Response("Unauthorized", { status: 401 });
   }
 

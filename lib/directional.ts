@@ -10,10 +10,13 @@ import { applyProfitRetention } from "@/lib/house-retention";
 
 export const DIRECTIONAL_GROSS_EDGE = 0.05;      // 5% gross edge baked into the rate
 const RISE_FALL_RATE = 1.90;                     // ~50/50, mirrors Even/Odd
-const MIN_RATE = 1.01;
+const MIN_RATE = 0.05;                            // deep in-the-money contracts price BELOW 1x
 const MAX_RATE = 50;
-const MIN_WIN_PROB = 0.05;                        // clamp extreme barriers
-const MAX_WIN_PROB = 0.95;
+const MIN_WIN_PROB = 0.05;                        // clamp extreme long-shots (bounds MAX_RATE)
+// Hard cap on how likely a contract may be at placement. A bet the player can
+// make near-certain is the exploit vector: even priced correctly it is dull, and
+// mis-priced it mints guaranteed profit. Reject anything above this at bet time.
+export const MAX_WIN_PROB = 0.90;
 
 /** Standard normal CDF Φ (Abramowitz & Stegun 7.1.26 erf approximation). */
 export function normalCdf(x: number): number {
@@ -25,9 +28,54 @@ export function normalCdf(x: number): number {
 }
 
 function rateFromProb(p: number): number {
-  const clamped = Math.min(MAX_WIN_PROB, Math.max(MIN_WIN_PROB, p));
-  const raw = (1 - DIRECTIONAL_GROSS_EDGE) / clamped; // 0.95 / p
+  // Price on the TRUE win probability. We only clamp the LOW tail (long-shots),
+  // which bounds the rate at MAX_RATE for house liability. We must NOT clamp the
+  // HIGH tail up to 0.95 — doing so paid a ~100%-certain bet as if it won only
+  // 95% of the time, and combined with a 1.01 rate floor it guaranteed the player
+  // a positive-EV, risk-free win on any deep-in-the-money barrier. With the true
+  // p, raw = 0.95/p is < 1 for p > 0.95, so E[payout] = p·(0.95/p) = 0.95 — the
+  // house keeps its 5% edge at every probability. Floor rounds down (house-safe).
+  const safeP = Math.min(1, Math.max(MIN_WIN_PROB, p));
+  const raw = (1 - DIRECTIONAL_GROSS_EDGE) / safeP; // 0.95 / p
   return Math.min(MAX_RATE, Math.max(MIN_RATE, Math.floor(raw * 100) / 100));
+}
+
+/**
+ * Win probability the contract will pay out, from the player's side. Used at
+ * placement to reject contracts the player has made near-certain (the exploit).
+ * RISE_FALL is ~50/50 by construction.
+ */
+export function contractWinProb(params: {
+  kind: DirectionalKind;
+  side: DirectionalSide;
+  entrySpot: number;
+  barrier?: number | null;
+  sigmaTick: number;
+  durationTicks: number;
+}): number {
+  if (params.kind === "RISE_FALL") return 0.5;
+  // A barrier contract must have a real, positive barrier price. A missing or
+  // non-positive barrier (e.g. a large negative offset pushing entrySpot+offset
+  // below zero) is degenerate: settlement's `exitSpot > barrier` is trivially
+  // true. Treat it as certain-to-win (1) so the placement gate ALWAYS rejects it
+  // — never let it look like a priceable coin flip.
+  if (params.kind === "TOUCH_NO_TOUCH" || params.kind === "HIGHER_LOWER") {
+    if (!(Number(params.barrier) > 0)) return 1;
+  }
+  if (params.kind === "TOUCH_NO_TOUCH") {
+    const pt = touchProbability(params.entrySpot, params.barrier!, params.sigmaTick, params.durationTicks);
+    return params.side === "TOUCH" ? pt : 1 - pt;
+  }
+  if (params.kind === "HIGHER_LOWER") {
+    return higherLowerWinProb({
+      entrySpot: params.entrySpot,
+      barrier: params.barrier!,
+      side: params.side as "HIGHER" | "LOWER",
+      sigmaTick: params.sigmaTick,
+      durationTicks: params.durationTicks,
+    });
+  }
+  return 0.5; // VANILLA is priced continuously (Black–Scholes); no fixed win/lose barrier cap
 }
 
 export type DirectionalSide = "RISE" | "FALL" | "HIGHER" | "LOWER" | "TOUCH" | "NO_TOUCH" | "CALL" | "PUT";
@@ -47,7 +95,12 @@ export function higherLowerWinProb(params: {
 }): number {
   const { entrySpot, barrier, side, sigmaTick, durationTicks } = params;
   const sigmaN = sigmaTick * Math.sqrt(Math.max(1, durationTicks));
-  if (!(sigmaN > 0) || !(entrySpot > 0) || !(barrier > 0)) return 0.5;
+  // House-safe fallback: a degenerate/invalid barrier (<=0, or no volatility) is
+  // treated as a CERTAIN win for the player, not a 0.5 coin flip. A 0.5 fallback
+  // was the exploit — a negative barrier priced as an even-money bet yet always
+  // settled true. Returning 1 forces the placement gate to reject it and keeps
+  // any pricing path at rate 0.95 (no positive EV).
+  if (!(sigmaN > 0) || !(entrySpot > 0) || !(barrier > 0)) return 1;
   const d = Math.log(barrier / entrySpot) / sigmaN;
   // P(exit > barrier) = 1 - Φ(d);  P(exit < barrier) = Φ(d)
   return side === "HIGHER" ? 1 - normalCdf(d) : normalCdf(d);

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 interface UserRow {
   id: string;
@@ -33,7 +34,7 @@ interface Summary {
 
 const compact = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K` : `${n}`;
-const compactMoney = (n: number) => `KSh ${compact(n)}`;
+const compactMoney = (n: number) => `${CURRENCY_SYMBOL} ${compact(n)}`;
 
 function SummaryCard({ icon, label, value, sub, accent }: { icon: string; label: string; value: string; sub?: string; accent: string }) {
   return (
@@ -76,7 +77,7 @@ function UsersSummary() {
 }
 
 const money = (value: string) =>
-  `KSh ${Number(value).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  `${CURRENCY_SYMBOL} ${Number(value).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 type SortMode = "recent" | "balance";
 

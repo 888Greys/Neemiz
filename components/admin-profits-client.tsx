@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { Icon } from "@/components/icon";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 interface DayData {
   date: string;
@@ -51,10 +52,10 @@ const RANGE_OPTIONS = [
 
 const fmt = (n: number) =>
   n >= 1_000_000
-    ? `KSh ${(n / 1_000_000).toFixed(2)}M`
+    ? `${CURRENCY_SYMBOL} ${(n / 1_000_000).toFixed(2)}M`
     : n >= 1_000
-    ? `KSh ${(n / 1_000).toFixed(1)}K`
-    : `KSh ${n.toLocaleString()}`;
+    ? `${CURRENCY_SYMBOL} ${(n / 1_000).toFixed(1)}K`
+    : `${CURRENCY_SYMBOL} ${n.toLocaleString()}`;
 
 export function AdminProfitsClient() {
   const [data, setData]       = useState<ProfitsResponse | null>(null);
@@ -140,7 +141,7 @@ export function AdminProfitsClient() {
                 <Tooltip
                   contentStyle={{ background: "#0f1623", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, fontSize: 12 }}
                   labelStyle={{ color: "#94a3b8" }}
-                  formatter={(v) => [`KSh ${Number(v ?? 0).toLocaleString()}`, "Gross Profit"]}
+                  formatter={(v) => [`${CURRENCY_SYMBOL} ${Number(v ?? 0).toLocaleString()}`, "Gross Profit"]}
                 />
                 <Area type="monotone" dataKey="grossProfit" stroke="#087cff" strokeWidth={2} fill="url(#profitGrad)" dot={false} />
               </AreaChart>
@@ -172,7 +173,7 @@ export function AdminProfitsClient() {
                 <Tooltip
                   contentStyle={{ background: "#0f1623", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, fontSize: 12 }}
                   labelStyle={{ color: "#94a3b8" }}
-                  formatter={(v, name) => [`KSh ${Number(v ?? 0).toLocaleString()}`, name === "deposits" ? "Real Cash In" : "Real Cash Out"]}
+                  formatter={(v, name) => [`${CURRENCY_SYMBOL} ${Number(v ?? 0).toLocaleString()}`, name === "deposits" ? "Real Cash In" : "Real Cash Out"]}
                 />
                 <Area type="monotone" dataKey="deposits"    stroke="#10b981" strokeWidth={1.5} fill="url(#depGrad)" dot={false} />
                 <Area type="monotone" dataKey="withdrawals" stroke="#f97316" strokeWidth={1.5} fill="url(#wdGrad)"  dot={false} />
@@ -199,19 +200,19 @@ export function AdminProfitsClient() {
                   <tr key={d.date} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
                     <td className="px-4 py-2.5 text-slate-400 text-[12px]">{d.date}</td>
                     <td className="px-4 py-2.5 text-sky-400 font-bold">
-                      {d.deposits > 0 ? `KSh ${d.deposits.toLocaleString()}` : "—"}
+                      {d.deposits > 0 ? `${CURRENCY_SYMBOL} ${d.deposits.toLocaleString()}` : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-orange-400 font-bold">
-                      {d.withdrawals > 0 ? `KSh ${d.withdrawals.toLocaleString()}` : "—"}
+                      {d.withdrawals > 0 ? `${CURRENCY_SYMBOL} ${d.withdrawals.toLocaleString()}` : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-violet-400 font-bold">
-                      {d.betStakes > 0 ? `KSh ${d.betStakes.toLocaleString()}` : "—"}
+                      {d.betStakes > 0 ? `${CURRENCY_SYMBOL} ${d.betStakes.toLocaleString()}` : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-rose-400 font-bold">
-                      {d.betWins > 0 ? `KSh ${d.betWins.toLocaleString()}` : "—"}
+                      {d.betWins > 0 ? `${CURRENCY_SYMBOL} ${d.betWins.toLocaleString()}` : "—"}
                     </td>
                     <td className={`px-4 py-2.5 font-black ${d.grossProfit >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                      {d.grossProfit !== 0 ? `KSh ${d.grossProfit.toLocaleString()}` : "—"}
+                      {d.grossProfit !== 0 ? `${CURRENCY_SYMBOL} ${d.grossProfit.toLocaleString()}` : "—"}
                     </td>
                   </tr>
                 ))}
