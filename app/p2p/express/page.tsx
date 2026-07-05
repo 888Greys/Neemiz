@@ -20,7 +20,7 @@ export default function P2PExpressPage() {
     : detectFiatFromHeaders((name) => headerList.get(name));
 
   return (
-    <AppShell mainBg="bg-[#050505]" rightPanel={<P2PMarketPanel />} hideFooter>
+    <AppShell rightPanel={<P2PMarketPanel />} hideFooter>
       <div>
         <Suspense>
           <P2PExpressClient defaultFiat={defaultFiat} />

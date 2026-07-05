@@ -60,7 +60,15 @@
       "Bash(Get-ChildItem app/api -Recurse -Filter \"route.ts\")",
       "Bash(Select-Object -ExpandProperty FullName)",
       "Bash(Sort-Object)",
-      "Bash(xargs grep -l \"p2p/ads\\\\|p2p/orders\")"
+      "Bash(xargs grep -l \"p2p/ads\\\\|p2p/orders\")",
+      "Bash(grep -E \"package.json$\")",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)",
+      "Bash(ssh nez *)",
+      "mcp__visualize__read_me"
     ]
   }
 }

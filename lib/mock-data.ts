@@ -12,13 +12,96 @@ export const navItems = [
   { href: "/", label: "Promotions", icon: "campaign" },
 ];
 
-export const mobileNav = [
+export type MobileNavItem = {
+  label: string;
+  icon: string;
+  href?: string;
+  // Section-native tabs (e.g. binary) that all live on one route but open
+  // different in-page panels via a `?panel=` query param. `panel: ""` is the
+  // base view (no param). When set, the active state keys off the panel value
+  // instead of the path, so sibling tabs on the same route don't all light up.
+  panel?: string;
+  // Path used for active-state matching when it differs from `href` (e.g. a tab
+  // whose href carries a query string). Defaults to href's pathname.
+  activePath?: string;
+};
+
+// Default cross-product switcher — shown on the dashboard and any section that
+// doesn't define its own native nav. `Menu` opens the full platform drawer.
+export const mobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
   { href: "/sports", label: "Sports", icon: "sports_soccer" },
   { href: "/aviator", label: "Aviator", icon: "rocket_launch" },
   { href: "/p2p", label: "P2P", icon: "swap_horiz" },
   { href: "/binary", label: "Binary", icon: "candlestick_chart" },
 ];
+
+// Binary is a destination in itself (Deriv-style): users who come only for
+// digits get a self-contained Markets / Trade / Positions surface, with Menu as
+// the constant escape hatch back to the rest of the platform. The first three
+// stay on /binary and toggle in-page panels via `?panel=`.
+export const binaryMobileNav: MobileNavItem[] = [
+  { label: "Menu", icon: "menu" },
+  { href: "/binary?panel=markets",   label: "Markets",   icon: "candlestick_chart", panel: "markets",   activePath: "/binary" },
+  { href: "/binary",                 label: "Trade",     icon: "show_chart",        panel: "",          activePath: "/binary" },
+  { href: "/binary?panel=positions", label: "Positions", icon: "schedule",          panel: "positions", activePath: "/binary" },
+];
+
+// Forex is its own destination too — same self-contained shape as binary
+// (Markets pair-picker / Trade / Positions), Menu as the constant escape hatch.
+export const forexMobileNav: MobileNavItem[] = [
+  { label: "Menu", icon: "menu" },
+  { href: "/forex?panel=markets",   label: "Markets",   icon: "candlestick_chart", panel: "markets",   activePath: "/forex" },
+  { href: "/forex",                 label: "Trade",     icon: "show_chart",        panel: "",          activePath: "/forex" },
+  { href: "/forex?panel=positions", label: "Positions", icon: "schedule",          panel: "positions", activePath: "/forex" },
+];
+
+// Sports is its own destination: Top / Live event streams plus a My Bets escape,
+// with Menu as the constant hatch back to the rest of the platform. Tabs carry a
+// `?tab=` the sports client already reads, so `activePath` keys off the pathname.
+export const sportsMobileNav: MobileNavItem[] = [
+  { label: "Menu", icon: "menu" },
+  { href: "/sports?tab=Top",  label: "Top",     icon: "local_fire_department", activePath: "/sports" },
+  { href: "/sports?tab=Live", label: "Live",    icon: "sensors",               activePath: "/sports" },
+  { href: "/my-bets",         label: "My Bets", icon: "receipt_long" },
+];
+
+// P2P is a self-contained marketplace: Browse ads / Merchant center / My orders,
+// with Menu as the escape hatch. Each tab is a real route under /p2p.
+export const p2pMobileNav: MobileNavItem[] = [
+  { label: "Menu", icon: "menu" },
+  { href: "/p2p",          label: "Browse",   icon: "storefront" },
+  { href: "/p2p/merchant", label: "Merchant", icon: "verified_user" },
+  { href: "/p2p/orders",   label: "Orders",   icon: "receipt_long" },
+];
+
+// Polymarket predictions: Markets browser / My Bets portfolio, with Menu as the
+// escape hatch. The client reads `?tab=` to switch its in-page view.
+export const predictionsMobileNav: MobileNavItem[] = [
+  { label: "Menu", icon: "menu" },
+  { href: "/polymarket",             label: "Markets", icon: "online_prediction", activePath: "/polymarket" },
+  { href: "/polymarket?tab=my-bets", label: "My Bets", icon: "receipt_long",      activePath: "/polymarket" },
+];
+
+// Aviator is a single fullscreen game, so its nav is a lightweight escape hatch
+// (Menu) plus a quick jump to the player's aviator bet history.
+export const aviatorMobileNav: MobileNavItem[] = [
+  { label: "Menu", icon: "menu" },
+  { href: "/aviator",  label: "Aviator", icon: "rocket_launch" },
+  { href: "/my-bets",  label: "My Bets", icon: "receipt_long" },
+];
+
+// Resolve the bottom-nav tab set for the current route. Section-native navs win
+// by path prefix; everything else falls back to the cross-product switcher.
+export function getMobileNav(pathname: string): MobileNavItem[] {
+  if (pathname.startsWith("/binary")) return binaryMobileNav;
+  if (pathname.startsWith("/forex")) return forexMobileNav;
+  if (pathname.startsWith("/sports")) return sportsMobileNav;
+  if (pathname.startsWith("/p2p")) return p2pMobileNav;
+  if (pathname.startsWith("/polymarket") || pathname.startsWith("/predictions")) return predictionsMobileNav;
+  if (pathname.startsWith("/aviator")) return aviatorMobileNav;
+  return mobileNav;
+}
 
 export const productCards = [
   { href: "/sports", label: "Sports", icon: "sports_soccer" },

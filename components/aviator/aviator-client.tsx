@@ -7,12 +7,14 @@ import { AviatorBetPanel } from "./aviator-bet-panel";
 import { AviatorHistory, VerifyModal } from "./aviator-history";
 import { toast } from "@/lib/toast";
 import { Icon } from "@/components/icon";
+import { useMoney } from "@/lib/currency-context";
 import type {
   AviatorRoundState,
   AviatorRound,
   AviatorBetPublic,
   MyBets,
 } from "@/lib/aviator/types";
+import { maskName } from "@/lib/aviator/types";
 
 const WS_URL = process.env.NEXT_PUBLIC_AVIATOR_WS_URL ?? "wss://aviator.nezeem.com/ws";
 const HISTORY_STORAGE_KEY = "nezeem_aviator_rounds";
@@ -79,6 +81,7 @@ function mapStatus(s: string): AviatorRoundState {
 }
 
 export function AviatorClient({ userId, username, balance: initialBalance }: Props) {
+  const { format } = useMoney();
   const [round,      setRound]      = useState<AviatorRound | null>(null);
   const [liveBets,   setLiveBets]   = useState<AviatorBetPublic[]>([]);
   const [myBets,     setMyBets]     = useState<MyBets>({});
@@ -97,10 +100,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const roundRef       = useRef<AviatorRound | null>(null);
   const liveBetsRef    = useRef<AviatorBetPublic[]>([]);
   const roundCountRef  = useRef(0);
-  const audioCtxRef    = useRef<AudioContext | null>(null);
-  const engineNodesRef = useRef<{ osc: OscillatorNode; gain: GainNode } | null>(null);
+  const bgMusicRef     = useRef<HTMLAudioElement | null>(null);
   const soundEnabledRef = useRef(soundEnabled);
-  const previousRoundStateRef = useRef<AviatorRoundState | null>(null);
   // tracks which panel index has a pending bet awaiting a bet_id response
   const pendingBetRef  = useRef<{ panelIndex: 0 | 1; amount: number } | null>(null);
   const supabase       = createClient();
@@ -109,123 +110,34 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   useEffect(() => { liveBetsRef.current = liveBets; }, [liveBets]);
   useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
 
-  const getAudioContext = useCallback(() => {
-    if (typeof window === "undefined") return null;
-    const AudioCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtor) return null;
-    if (!audioCtxRef.current) audioCtxRef.current = new AudioCtor();
-    const ctx = audioCtxRef.current;
-    if (ctx.state === "suspended") ctx.resume().catch(() => undefined);
-    return ctx;
-  }, []);
-
-  const stopEngineSound = useCallback(() => {
-    const ctx = audioCtxRef.current;
-    const nodes = engineNodesRef.current;
-    if (!ctx || !nodes) return;
-    const now = ctx.currentTime;
-    nodes.gain.gain.cancelScheduledValues(now);
-    nodes.gain.gain.setTargetAtTime(0.0001, now, 0.08);
-    window.setTimeout(() => {
-      try { nodes.osc.stop(); } catch { /* already stopped */ }
-      nodes.osc.disconnect();
-      nodes.gain.disconnect();
-      if (engineNodesRef.current === nodes) engineNodesRef.current = null;
-    }, 180);
-  }, []);
-
-  const playTone = useCallback((
-    frequency: number,
-    duration = 0.16,
-    type: OscillatorType = "sine",
-    volume = 0.08,
-    delay = 0,
-  ) => {
-    if (!soundEnabledRef.current) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const start = ctx.currentTime + delay;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(frequency, start);
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(volume, start + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(start);
-    osc.stop(start + duration + 0.03);
-  }, [getAudioContext]);
-
-  const playCrashSound = useCallback(() => {
-    if (!soundEnabledRef.current) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const noiseBuffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * 0.38), ctx.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
-    const noise = ctx.createBufferSource();
-    const filter = ctx.createBiquadFilter();
-    const gain = ctx.createGain();
-    noise.buffer = noiseBuffer;
-    filter.type = "lowpass";
-    filter.frequency.setValueAtTime(900, now);
-    filter.frequency.exponentialRampToValueAtTime(120, now + 0.35);
-    gain.gain.setValueAtTime(0.22, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
-    noise.connect(filter).connect(gain).connect(ctx.destination);
-    noise.start(now);
-    noise.stop(now + 0.42);
-    playTone(92, 0.28, "sawtooth", 0.12);
-  }, [getAudioContext, playTone]);
-
-  const startEngineSound = useCallback(() => {
-    if (!soundEnabledRef.current || engineNodesRef.current) return;
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(58, ctx.currentTime);
-    osc.frequency.linearRampToValueAtTime(82, ctx.currentTime + 1.2);
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.035, ctx.currentTime + 0.2);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start();
-    engineNodesRef.current = { osc, gain };
-  }, [getAudioContext]);
-
+  // One sound only: looping background music that plays for the whole session.
+  // No synth, no crash sound.
   useEffect(() => {
-    const unlockAudio = () => { getAudioContext(); };
+    const music = new Audio("/aviator/music.mp3");
+    music.loop = true;
+    music.volume = 0.35;
+    bgMusicRef.current = music;
+
+    const unlockAudio = () => {
+      // Browsers block autoplay until a gesture — kick off music here if enabled.
+      if (soundEnabledRef.current) music.play().catch(() => undefined);
+    };
     window.addEventListener("pointerdown", unlockAudio, { once: true });
     return () => {
       window.removeEventListener("pointerdown", unlockAudio);
-      stopEngineSound();
-      audioCtxRef.current?.close().catch(() => undefined);
-      audioCtxRef.current = null;
+      music.pause();
+      bgMusicRef.current = null;
     };
-  }, [getAudioContext, stopEngineSound]);
+  }, []);
 
   useEffect(() => {
     try { localStorage.setItem(SOUND_STORAGE_KEY, soundEnabled ? "1" : "0"); } catch { /* non-critical */ }
-    if (!soundEnabled) stopEngineSound();
-  }, [soundEnabled, stopEngineSound]);
-
-  useEffect(() => {
-    const state = round?.state ?? "WAITING";
-    const previousState = previousRoundStateRef.current;
-
-    if (state === "FLYING") {
-      startEngineSound();
+    if (!soundEnabled) {
+      bgMusicRef.current?.pause();
     } else {
-      stopEngineSound();
+      bgMusicRef.current?.play().catch(() => undefined);
     }
-
-    if (state === "CRASHED" && previousState !== "CRASHED") playCrashSound();
-
-    previousRoundStateRef.current = state;
-  }, [round?.state, playCrashSound, startEngineSound, stopEngineSound]);
+  }, [soundEnabled]);
 
   // ── Balance ────────────────────────────────────────────────────────────────
   const fetchBalance = useCallback(async () => {
@@ -502,8 +414,6 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
     setMyBets((prev) => ({ ...prev, [panelIndex]: tempBet }));
     setBalance((b) => b - amount);
-    playTone(660, 0.09, "triangle", 0.06);
-    playTone(880, 0.12, "triangle", 0.05, 0.08);
 
     const res = await fetch("/api/aviator/bet", {
       method: "POST",
@@ -529,7 +439,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     }));
     await fetchBalance();
     window.dispatchEvent(new Event("wallet-refresh"));
-  }, [userId, username, fetchBalance, playTone]);
+  }, [userId, username, fetchBalance]);
 
   const handleCashout = useCallback(async (panelIndex: 0 | 1) => {
     const bet = myBets[panelIndex];
@@ -561,11 +471,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       if (serverWin !== pendingWin) setBalance((b) => b - pendingWin + serverWin);
       toast.cashout(
         `Cashed out at ${serverMult.toFixed(2)}×`,
-        `+KSh ${serverWin.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        `+${format(serverWin)}`,
       );
-      playTone(720, 0.1, "sine", 0.08);
-      playTone(960, 0.13, "sine", 0.07, 0.08);
-      playTone(1280, 0.16, "sine", 0.06, 0.18);
       window.dispatchEvent(new Event("wallet-refresh"));
     } catch (err) {
       // Server rejected — revert balance
@@ -583,7 +490,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         toast.error("Cashout failed", "Round ended before cashout was processed");
       }
     }
-  }, [multiplier, myBets, playTone]);
+  }, [multiplier, myBets]);
 
   const displayMult = round?.state === "CRASHED" ? (round.crashPoint ?? multiplier) : multiplier;
 
@@ -722,7 +629,7 @@ function AviatorTicker({ liveBets }: { liveBets: AviatorBetPublic[] }) {
         ) : (
           winners.slice(-4).map((bet) => (
             <span key={bet.id} className="shrink-0 rounded-full bg-[#242526] px-2 py-1 text-[9px] font-bold text-white/60">
-              {bet.username ?? "Player"} won {(bet.winAmount ?? 0).toFixed(2)} KES{" "}
+              {maskName(bet.username)} won {(bet.winAmount ?? 0).toFixed(2)} KES{" "}
               <span className="text-[#28a909]">at {(bet.cashoutAt ?? 1).toFixed(2)}×</span>
             </span>
           ))
@@ -830,7 +737,7 @@ function BetRow({ bet, isMe }: { bet: AviatorBetPublic; isMe?: boolean }) {
   return (
     <div className={`grid grid-cols-3 rounded px-2 py-1.5 text-[11px] font-bold ${isMe ? "bg-[#3b5bdb]/15 text-white" : "bg-white/[0.035] text-white/55"}`}>
       <span className="truncate">
-        {isMe ? "You" : (bet.username ?? `User_${bet.userId.slice(-4)}`)}
+        {isMe ? "You" : maskName(bet.username)}
       </span>
       <span className="text-center">{bet.betAmount.toFixed(2)}</span>
       <span className="text-right">

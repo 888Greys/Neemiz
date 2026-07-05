@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCurrency } from "@/lib/currency-context";
+import type { DisplayCurrency } from "@/lib/currency-config";
+import { useNavBadge } from "@/lib/nav-badge-context";
 import {
   AreaSeries,
   ColorType,
@@ -28,7 +32,9 @@ import { DigitPanel } from "./panels/digit-panel";
 import { DirectionalPanel } from "./panels/directional-panel";
 import { VanillaPanel } from "./panels/vanilla-panel";
 import { LeveragedPanel } from "./panels/leveraged-panel";
-import { tradeTypeById, type TradeTypeId } from "./trade-types";
+import { AutoPanel } from "./panels/auto-panel";
+import { tradeTypeById, TRADE_TYPES, type TradeTypeId } from "./trade-types";
+import { MarketIcon } from "./market-icon";
 import { payoutRate as dirPayoutRate, vanillaPayoutPerPoint, resolveContract, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
 import {
   resolveLeveraged, leveragedValueAt, multiplierStopOutPrice, clampTurboBarrier, turboPayoutPerPoint,
@@ -162,12 +168,26 @@ type LevPosition = {
 };
 
 const MARKETS: BinaryMarket[] = [
-  { symbol: "Vol 10 (1s)", derivSymbol: "R_10", name: "Deriv synthetic index", price: 9447.34, volatility: 0.65, speedMs: 900 },
-  { symbol: "Vol 25 (1s)", derivSymbol: "R_25", name: "Deriv synthetic index", price: 3821.8, volatility: 0.95, speedMs: 850 },
-  { symbol: "Vol 50 (1s)", derivSymbol: "R_50", name: "Deriv synthetic index", price: 602.91, volatility: 1.35, speedMs: 780 },
-  { symbol: "Vol 75 (1s)", derivSymbol: "R_75", name: "Deriv synthetic index", price: 12843.2, volatility: 1.75, speedMs: 720 },
-  { symbol: "Vol 100 (1s)", derivSymbol: "R_100", name: "Deriv synthetic index", price: 1762.48, volatility: 2.2, speedMs: 680 },
-  { symbol: "Jump 10", derivSymbol: "JD10", name: "Deriv jump index", price: 119.56, volatility: 1.1, speedMs: 1050 },
+  // 1-second volatility indices (tick each second — the "(1s)" feeds, 1HZ*V).
+  { symbol: "Vol 10 (1s)",  derivSymbol: "1HZ10V",  name: "Deriv synthetic index", price: 9447.34, volatility: 0.65, speedMs: 1000 },
+  { symbol: "Vol 25 (1s)",  derivSymbol: "1HZ25V",  name: "Deriv synthetic index", price: 3821.8,  volatility: 0.95, speedMs: 1000 },
+  { symbol: "Vol 50 (1s)",  derivSymbol: "1HZ50V",  name: "Deriv synthetic index", price: 602.91,  volatility: 1.35, speedMs: 1000 },
+  { symbol: "Vol 75 (1s)",  derivSymbol: "1HZ75V",  name: "Deriv synthetic index", price: 12843.2, volatility: 1.75, speedMs: 1000 },
+  { symbol: "Vol 100 (1s)", derivSymbol: "1HZ100V", name: "Deriv synthetic index", price: 1762.48, volatility: 2.2,  speedMs: 1000 },
+  // Standard volatility indices (tick ~every 2s — the R_* feeds).
+  { symbol: "Vol 10",  derivSymbol: "R_10",  name: "Deriv synthetic index", price: 9447.34, volatility: 0.65, speedMs: 2000 },
+  { symbol: "Vol 25",  derivSymbol: "R_25",  name: "Deriv synthetic index", price: 3821.8,  volatility: 0.95, speedMs: 2000 },
+  { symbol: "Vol 50",  derivSymbol: "R_50",  name: "Deriv synthetic index", price: 602.91,  volatility: 1.35, speedMs: 2000 },
+  { symbol: "Vol 75",  derivSymbol: "R_75",  name: "Deriv synthetic index", price: 12843.2, volatility: 1.75, speedMs: 2000 },
+  { symbol: "Vol 100", derivSymbol: "R_100", name: "Deriv synthetic index", price: 1762.48, volatility: 2.2,  speedMs: 2000 },
+];
+
+// Default mobile quick-bar order — digits first (most-played), then the rest.
+// User navigation reorders this (most-recent first), persisted to localStorage.
+const DEFAULT_TYPE_ORDER: TradeTypeId[] = [
+  "even_odd", "over_under", "matches_differs",
+  "accumulators", "vanillas", "turbos", "multipliers",
+  "rise_fall", "higher_lower", "touch_no_touch",
 ];
 
 const STAKE_PRESETS_LIVE = [10, 50, 100, 500, 1000, 5000];
@@ -212,13 +232,33 @@ function toTick(epoch: number, quote: number): Tick {
   };
 }
 
-function formatMoney(value: number, _isLive = false) {
-  const fmt = value.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `KSh ${fmt}`; // all binary amounts are KSh (demo + live)
+// All binary amounts are canonical KES (demo + live). `fmtMoney` converts a KES
+// amount into the active display currency for showing only — stakes posted to
+// the server stay KES (converted back via context.toKes at the input boundary).
+function fmtMoney(
+  kes: number,
+  currency: DisplayCurrency,
+  convert: (k: number) => number,
+  opts: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+) {
+  return `${currency.symbol} ${convert(kes).toLocaleString(currency.locale, opts)}`;
 }
 
 function formatQuote(value: number) {
   return value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// lightweight-charts renders the time axis in UTC. Format axis ticks and the
+// crosshair in the viewer's local timezone so the clock matches their wall time
+// (and other trading sites) instead of running hours behind.
+function fmtClock(time: Time, withSeconds: boolean): string {
+  const epoch = typeof time === "number" ? time : 0;
+  return new Date(epoch * 1000).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(withSeconds ? { second: "2-digit" } : {}),
+    hour12: false,
+  });
 }
 
 function payoutRate(side: ContractSide, targetDigit: number) {
@@ -313,6 +353,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
         rightOffset: RIGHT_GAP_BARS,        // whitespace on the right (Deriv-style gap)
         barSpacing: 16,
         shiftVisibleRangeOnNewBar: false,   // we drive the scroll ourselves in the rAF loop
+        tickMarkFormatter: (time: Time) => fmtClock(time, true),
       },
       crosshair: {
         vertLine: { color: "rgba(56,189,248,0.5)", labelBackgroundColor: "#2563eb" },
@@ -320,6 +361,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
       },
       localization: {
         priceFormatter: (price: number) => formatQuote(price),
+        timeFormatter: (time: Time) => fmtClock(time, true),
       },
     });
 
@@ -535,7 +577,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
 
       {/* Deriv-style zoom / recenter controls — lifted above the TradingView
           attribution logo and given enough contrast to read on the dark chart */}
-      <div className="absolute bottom-12 left-3 z-10 flex flex-col gap-1">
+      <div className="absolute bottom-14 left-3 z-10 flex flex-col gap-1 sm:bottom-12">
         <button type="button" onClick={() => zoom(1.3)} title="Zoom in" aria-label="Zoom in"
           className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42] sm:h-8 sm:w-8">
           <Icon name="add" className="text-[15px] sm:text-[18px]" />
@@ -563,12 +605,19 @@ interface BinaryClientProps {
 
 export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClientProps) {
   const isLive = !!userId;
+  const setNavBadge = useNavBadge()?.setBadge;
+  // Display currency: convert KES amounts for display, and convert typed stakes
+  // back to KES (toKes) before they hit the KES-only server.
+  const { convert, toKes, currency } = useCurrency();
+  const money = (kes: number, opts?: Intl.NumberFormatOptions) => fmtMoney(kes, currency, convert, opts);
 
   const [marketSymbol, setMarketSymbol] = useState(MARKETS[0].symbol);
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
   const [ticks, setTicks] = useState(() => seedTicks(market));
   const [family, setFamily] = useState<ContractFamily>("evenOdd");
   const [tradeType, setTradeType] = useState<TradeTypeId>("even_odd");
+  // Manual vs. server-driven auto-trader (lib/auto-trade). Self-contained panel.
+  const [autoMode, setAutoMode] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [growthRate, setGrowthRate] = useState(3);
   const [takeProfitOn, setTakeProfitOn] = useState(false);
@@ -579,6 +628,9 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [stopLoss, setStopLoss] = useState(5);
 
   const isDigitType = tradeType in DIGIT_TYPE_TO_FAMILY;
+  // Mobile quick bar uses a fixed order (digits first, most-played) so tapping a
+  // type never reshuffles the bar under the user's finger.
+  const recentTypes = DEFAULT_TYPE_ORDER;
   const selectTradeType = useCallback((id: TradeTypeId) => {
     setTradeType(id);
     const fam = DIGIT_TYPE_TO_FAMILY[id];
@@ -587,6 +639,10 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [stake, setStake] = useState(10);
   const [targetDigit, setTargetDigit] = useState(5);
   const [duration, setDuration] = useState(5);
+  // Duration is canonical in ticks; for options contracts the user may pick in
+  // seconds instead (Deriv-style). We keep the unit only for display/picker — the
+  // contract is still placed in ticks (seconds → ticks via the market's tick speed).
+  const [durationUnit, setDurationUnit] = useState<"ticks" | "seconds">("ticks");
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
   const [streamError, setStreamError] = useState<string | null>(null);
   const [liveBalance, setLiveBalance] = useState(initialBalance);
@@ -600,6 +656,27 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   // Desktop activity rail is collapsed by default to give the chart room; it
   // pops open automatically the moment a position is opened.
   const [railOpen, setRailOpen] = useState(false);
+
+  // Mobile bottom-nav panels (Markets / Positions) are URL-driven via `?panel=`,
+  // so the section-native tabs in AppShell can open in-page surfaces without a
+  // shared context. Trade is the base view (no param).
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const panel = searchParams.get("panel");
+  const [mobileActivityOpen, setMobileActivityOpen] = useState(false);
+  const [marketsOpen, setMarketsOpen] = useState(false);
+  // Mobile chart tools (Deriv-style): "1t" chart-types + drawing tools. UI shell
+  // only for now — the sheets show "coming soon".
+  const [chartSheet, setChartSheet] = useState<null | "types" | "drawing">(null);
+  useEffect(() => {
+    setMobileActivityOpen(panel === "positions");
+    setMarketsOpen(panel === "markets");
+  }, [panel]);
+  // Clear the panel param (back to Trade) when a sheet is dismissed.
+  const closePanel = useCallback(() => {
+    router.replace(pathname, { scroll: false });
+  }, [router, pathname]);
 
   const balance = isLive ? liveBalance : demoBalance;
 
@@ -855,7 +932,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     }
     if (levPos && market.derivSymbol === levPos.derivSymbol) {
       const out: ChartLine[] = [{ id: "lev-entry", price: levPos.entrySpot, color: ENTRY_COLOR, title: "Entry", dashed: true }];
-      if (levPos.barrier != null) out.push({ id: "lev-danger", price: levPos.barrier, color: DANGER_COLOR, title: levPos.kind === "TURBO" ? "Knockout" : "Stop out" });
+      if (levPos.barrier != null) out.push({ id: "lev-danger", price: levPos.barrier, color: DANGER_COLOR, title: levPos.kind === "TURBO" ? "Barrier" : "Stop out" });
       return out;
     }
     const out: ChartLine[] = [];
@@ -869,7 +946,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     if (isDirectionalType && dirKind && dirKind !== "RISE_FALL") {
       out.push({ id: "cfg-barrier", price: latest.quote + barrierOffset, color: BARRIER_COLOR, title: dirKind === "VANILLA" ? "Strike" : "Barrier", dashed: true });
     } else if (isLeveragedType && !levPos) {
-      out.push({ id: "cfg-danger", price: levConfigDanger, color: DANGER_COLOR, title: levKind === "TURBO" ? "Knockout" : "Stop out", dashed: true });
+      out.push({ id: "cfg-danger", price: levConfigDanger, color: DANGER_COLOR, title: levKind === "TURBO" ? "Barrier" : "Stop out", dashed: true });
     }
     return out;
   })();
@@ -912,6 +989,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       subtitle: levPos.market, stake: levPos.stake, value: levRunning.netPayout, isReal: levPos.isReal,
     }] : []),
   ];
+
+  // The mobile bottom nav lives in AppShell, outside this trader. Publish the
+  // complete cross-contract count so Positions retains the red badge until the
+  // last digit, directional, accumulator, or leveraged contract settles.
+  useEffect(() => {
+    setNavBadge?.("positions", openPositions.length);
+    return () => setNavBadge?.("positions", 0);
+  }, [setNavBadge, openPositions.length]);
 
   const digitStats = useMemo(() => {
     const recent = ticks.slice(-80);
@@ -959,7 +1044,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         window.dispatchEvent(new Event("wallet-refresh"));
       }
       if (won) {
-        toast.cashout(`+KSh${(data.winAmount ?? trade.payout).toFixed(2)} — Trade won!`, `${trade.side} · Exit digit: ${exitDigit}`);
+        toast.cashout(`+${money(data.winAmount ?? trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${exitDigit}`);
       } else {
         toast.error("Trade lost", `${trade.side} · Exit digit: ${exitDigit}`);
       }
@@ -1009,7 +1094,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         const won = evaluateTrade(trade.side, digit, trade.targetDigit);
         setDemoBalance((b) => won ? b + trade.payout : b);
         if (won) {
-          toast.cashout(`+KSh ${trade.payout.toFixed(2)} — Trade won!`, `${trade.side} · Exit digit: ${digit}`);
+          toast.cashout(`+${money(trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${digit}`);
         } else {
           toast.error("Trade lost", `${trade.side} · Exit digit: ${digit}`);
         }
@@ -1049,7 +1134,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         if (!busted && payout > 0) {
           setLiveBalance((b) => b + payout);
           window.dispatchEvent(new Event("wallet-refresh"));
-          toast.cashout(`+KSh${payout.toFixed(2)} — Accumulator closed!`, `${data.ticksSurvived ?? pos.ticksSurvived} ticks · ${pos.market}`);
+          toast.cashout(`+${money(payout)} — Accumulator closed!`, `${data.ticksSurvived ?? pos.ticksSurvived} ticks · ${pos.market}`);
         } else {
           toast.error("Accumulator busted", `Hit the barrier after ${data.ticksSurvived ?? pos.ticksSurvived} ticks.`);
         }
@@ -1060,7 +1145,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         setAccaPos(null);
         if (!busted) {
           setDemoBalance((b) => b + payout);
-          toast.cashout(`+KSh ${payout.toFixed(2)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
+          toast.cashout(`+${money(payout)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
         } else {
           toast.error("Accumulator busted", `Hit the barrier after ${pos.ticksSurvived} ticks.`);
         }
@@ -1125,7 +1210,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         });
         setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
-        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${money(stake)}`);
       } finally {
         setAccaPlacing(false);
       }
@@ -1142,7 +1227,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           barrierFrac, maxTicks: maxTicksFor(growthRate), takeProfit: tp,
           isReal: false, ticksSurvived: 0, lastEpoch: entry.time as number, prevSpot: entry.quote, status: "open",
         });
-        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${money(stake)}`);
       } catch {
         toast.error("Not enough market data", "Wait for a few more ticks and try again.");
       }
@@ -1173,7 +1258,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         if (payout > 0) {
           setLiveBalance((b) => b + payout);
           window.dispatchEvent(new Event("wallet-refresh"));
-          toast.cashout(`+KSh${payout.toFixed(2)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
+          toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
         } else {
           toast.error(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
@@ -1190,7 +1275,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         setLevPos(null);
         if (payout > 0) {
           setDemoBalance((b) => b + payout);
-          toast.cashout(`+KSh ${payout.toFixed(2)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
+          toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
         } else {
           toast.error(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
@@ -1251,7 +1336,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         });
         setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
-        toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+        toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${money(stake)}`);
       } finally {
         setLevPlacing(false);
       }
@@ -1268,7 +1353,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         barrier, payoutPerPoint, entrySpot: entry.quote, entryEpoch: entry.time as number, takeProfit: tp, stopLoss: sl,
         isReal: false, lastEpoch: entry.time as number, status: "open",
       });
-      toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+      toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${money(stake)}`);
     }
   }, [levPlacing, levPos, stake, balance, isLive, levKind, multiplier, barrierOffset, takeProfit, takeProfitOn, stopLoss, stopLossOn, market, ticks]);
 
@@ -1291,7 +1376,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       if (won && data.winAmount) {
         setLiveBalance((b) => b + data.winAmount!);
         window.dispatchEvent(new Event("wallet-refresh"));
-        toast.cashout(`+KSh${data.winAmount.toFixed(2)} — ${t.side} won!`, t.market);
+        toast.cashout(`+${money(data.winAmount)} — ${t.side} won!`, t.market);
       } else {
         toast.error(`${t.side} lost`, t.market);
       }
@@ -1325,7 +1410,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           if (!res.ready) continue; // outcome not determined yet
           dirSettled.current.add(t.id);
           setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
-          if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+KSh ${res.credit.toFixed(2)} — ${t.side} won!`, t.market); }
+          if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${money(res.credit)} — ${t.side} won!`, t.market); }
           else { toast.error(`${t.side} lost`, t.market); }
         }
       }
@@ -1365,7 +1450,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           entrySpot: data.entrySpot!, entryEpoch: data.entryEpoch!,
           barrier: data.barrier ?? null, durationTicks: duration, isReal: true, settlesAt, status: "open" as const,
         }, ...cur].slice(0, 12));
-        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
       } finally {
         setDirPlacing(false);
       }
@@ -1388,7 +1473,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         stake, payout, payoutPerPoint, entrySpot: entry.quote, entryEpoch: entry.time as number,
         barrier, durationTicks: duration, isReal: false, settlesAt, status: "open" as const,
       }, ...cur].slice(0, 12));
-      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
     }
   }, [dirPlacing, stake, balance, isLive, dirKind, barrierOffset, duration, market, ticks, clientSigma]);
 
@@ -1435,11 +1520,11 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
         setOpenTrades((current) => [trade, ...current].slice(0, 12));
-        setTransactions((current) => [`${side} ${market.symbol} KSh ${stake}`, ...current].slice(0, 12));
+        setTransactions((current) => [`${side} ${market.symbol} ${money(stake)}`, ...current].slice(0, 12));
         // Surface the live position immediately — jump to the Open tab so the
         // countdown is visible, and confirm with a toast so the click registers.
         setTab("open");
-        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, true)}`);
+        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
       } finally {
         setPlacing(false);
       }
@@ -1459,15 +1544,15 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
       };
       setDemoBalance((b) => b - stake);
       setOpenTrades((current) => [trade, ...current].slice(0, 12));
-      setTransactions((current) => [`${side} ${market.symbol} KSh ${stake}`, ...current].slice(0, 12));
+      setTransactions((current) => [`${side} ${market.symbol} ${money(stake)}`, ...current].slice(0, 12));
       setTab("open");
-      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${formatMoney(stake, false)}`);
+      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
     }
   }
 
   return (
-    <div className="min-h-full overflow-visible bg-[#050506] pb-16 text-white xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
-      <div data-binary-grid="true" className={`relative grid min-w-0 gap-0 overflow-visible px-0 py-0 sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#050506] text-white sm:block sm:h-auto sm:min-h-full sm:overflow-visible sm:pb-16 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+      <div data-binary-grid="true" className={`relative flex min-h-0 flex-1 flex-col min-w-0 gap-0 overflow-hidden px-0 py-0 sm:grid sm:flex-none sm:overflow-visible sm:px-2 sm:py-2 xl:grid xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         {pickerOpen && (
           <TradeTypePicker value={tradeType} onSelect={selectTradeType} onClose={() => setPickerOpen(false)} />
         )}
@@ -1484,16 +1569,18 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           )}
         </aside>
 
-        <main className="order-1 flex h-[37svh] min-h-[245px] max-h-[320px] min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:h-[52svh] sm:min-h-[520px] sm:max-h-none sm:rounded sm:border xl:order-none xl:h-auto xl:min-h-0 xl:rounded-none xl:border-0">
+        <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:h-[52svh] sm:min-h-[520px] sm:max-h-none sm:flex-none sm:rounded sm:border xl:order-none xl:h-auto xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
-            <div className="shrink-0 flex flex-wrap items-center justify-between gap-1.5 border-b border-white/[0.07] px-2 py-1 sm:px-4 sm:py-2">
+            {/* Desktop header (market select + price). Mobile uses the Deriv-style
+                market row placed below the trade-type pills instead. */}
+            <div className="hidden shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-white/[0.07] px-2 py-1 sm:flex sm:px-4 sm:py-2">
               <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
                 <select
                   value={market.symbol}
                   onChange={(event) => setMarketSymbol(event.target.value)}
                   disabled={!!accaPos || !!levPos}
                   title={accaPos || levPos ? "Finish your open contract before switching markets" : undefined}
-                  className="h-7 max-w-[104px] rounded border border-white/[0.08] bg-[#151a22] px-1.5 text-[10px] font-black text-white outline-none disabled:opacity-50 sm:h-10 sm:max-w-none sm:px-3 sm:text-sm"
+                  className="hidden h-10 max-w-none rounded border border-white/[0.08] bg-[#151a22] px-3 text-sm font-black text-white outline-none disabled:opacity-50 sm:block"
                 >
                   {MARKETS.map((item) => (
                     <option key={item.symbol} value={item.symbol}>{item.symbol}</option>
@@ -1514,26 +1601,83 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 </div>
               </div>
             </div>
+
             <div className="relative min-h-0 flex-1">
+              {/* Mobile trade-type quick bar (Deriv-style) — floats over the chart's
+                  faded top (no solid bar) so it reads as part of the graph. The
+                  active type is outlined; "View all" opens the full picker. */}
+              <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 overflow-x-auto bg-gradient-to-b from-[#070b10] via-[#070b10]/70 to-transparent px-2 pb-5 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
+                {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => selectTradeType(t.id)}
+                    className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black transition ${
+                      tradeType === t.id ? "bg-white/[0.06] text-white ring-1 ring-white/70" : "bg-white/[0.05] text-slate-400"
+                    }`}
+                  >
+                    {t.label}
+                    {t.hot && <span className="animate-flame text-[12px] leading-none">🔥</span>}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black text-sky-400 underline underline-offset-2"
+                >
+                  View all
+                </button>
+              </div>
+
+              {/* Mobile market header — floats over the chart and fades into it
+                  (Deriv-style): a top-down gradient from the chart bg to clear,
+                  no hard bar/border. Tap to open the markets picker. */}
+              <button
+                type="button"
+                onClick={() => setMarketsOpen(true)}
+                disabled={!!accaPos || !!levPos}
+                className="absolute inset-x-0 top-[44px] z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#070b10] via-[#070b10]/85 to-transparent px-3 pb-6 pt-1 text-left disabled:opacity-50 sm:hidden"
+              >
+                <MarketIcon symbol={market.symbol} size={32} />
+                <span className="min-w-0">
+                  <span className="flex items-center gap-0.5">
+                    <span className="truncate text-[13px] font-black text-white">{market.symbol}</span>
+                    <Icon name="expand_more" className="text-[18px] text-slate-400" />
+                  </span>
+                  <span className="mt-0.5 flex items-baseline gap-1.5">
+                    <span className="font-mono text-[12px] font-black text-white">{formatQuote(latest.quote)}</span>
+                    <span className={`font-mono text-[10px] font-black ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                      {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                    </span>
+                  </span>
+                </span>
+              </button>
+
               <TradingViewBinaryChart ticks={ticks} lines={chartLines} markers={chartMarkers} />
+
+              {/* Mobile chart tools (Deriv-style) — "1t" chart types + drawing */}
+              <div className="absolute bottom-3 left-3 z-10 flex gap-2 sm:hidden">
+                <button type="button" onClick={() => setChartSheet("types")} aria-label="Chart types"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-[#1b2332]/90 text-[11px] font-black text-slate-100 ring-1 ring-white/10 backdrop-blur active:scale-95">
+                  1t
+                </button>
+                <button type="button" onClick={() => setChartSheet("drawing")} aria-label="Drawing tools"
+                  className="grid h-9 w-9 place-items-center rounded-full bg-[#1b2332]/90 text-slate-100 ring-1 ring-white/10 backdrop-blur active:scale-95">
+                  <Icon name="draw" className="text-[16px]" />
+                </button>
+              </div>
             </div>
 
             {/* Digit-frequency strip — last-100-tick distribution. Click a digit
                 to set it as the Matches/Differs/Over/Under target. Digit types only. */}
             {isDigitType && (
-              <section className="grid h-[48px] shrink-0 grid-cols-10 border-y border-white/[0.08] bg-[#0b0d12] sm:mb-2.5 sm:h-[78px]">
+              <section className="grid h-[48px] shrink-0 grid-cols-10 bg-[#0b0d12] sm:mb-2.5 sm:h-[78px]">
                 {digitStats.map((stat) => (
                   <button
                     key={stat.digit}
                     type="button"
                     onClick={() => setTargetDigit(stat.digit)}
-                    className={`relative flex h-full flex-col items-center justify-center border-r border-white/[0.07] transition-colors last:border-r-0 ${
-                      targetDigit === stat.digit
-                        ? "bg-sky-400/10 ring-1 ring-inset ring-sky-400/40"
-                        : latest.digit === stat.digit
-                        ? "bg-amber-400/5 hover:bg-white/[0.04]"
-                        : "bg-[#0b0d12] hover:bg-white/[0.04]"
-                    }`}
+                    className="relative flex h-full flex-col items-center justify-center transition-transform active:scale-95"
                   >
                     <DigitRing stat={stat} isActive={latest.digit === stat.digit} />
                     {latest.digit === stat.digit && (
@@ -1546,13 +1690,13 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
           </section>
         </main>
 
-        <aside className="order-2 flex min-h-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:max-h-[calc(100svh-8rem)] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+        <aside className="order-2 flex min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 sm:flex-none sm:max-h-[calc(100svh-8rem)] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
           <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
-            {/* Trade-type selector */}
+            {/* Trade-type selector — desktop only; mobile uses the top quick bar */}
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className="flex shrink-0 items-center gap-2 border-b border-white/[0.07] px-3 py-1.5 text-left transition hover:bg-white/[0.03] sm:py-2.5"
+              className="hidden shrink-0 items-center gap-2 border-b border-white/[0.07] px-3 py-1.5 text-left transition hover:bg-white/[0.03] sm:flex sm:py-2.5"
             >
               <Icon name="chevron_left" className="text-[18px] text-slate-400" />
               <span className="flex items-center gap-0.5">
@@ -1562,9 +1706,26 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               <span className="text-[13px] font-black text-white">{tradeTypeById(tradeType).label}</span>
             </button>
 
-            {tradeType === "accumulators" ? (
+            {/* Manual vs Auto toggle — desktop only; mobile keeps the Deriv-style
+                minimal surface (Even/Odd · Duration · Stake · Buy). */}
+            <div className="hidden shrink-0 gap-1 border-b border-white/[0.07] px-3 py-1.5 sm:flex">
+              {([["Manual", false], ["Auto", true]] as const).map(([label, val]) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setAutoMode(val)}
+                  className={`flex-1 rounded-lg py-1.5 text-[11px] font-black transition ${autoMode === val ? "bg-[#087cff] text-white" : "bg-white/[0.04] text-slate-400 hover:bg-white/[0.07]"}`}
+                >
+                  {label === "Auto" ? "⚡ Auto" : label}
+                </button>
+              ))}
+            </div>
+
+            {autoMode ? (
+              <AutoPanel currency={currency.symbol} />
+            ) : tradeType === "accumulators" ? (
               <AccumulatorsPanel
-                currency={"KSh"}
+                currency={currency.symbol}
                 stake={stake} setStake={setStake}
                 growthRate={growthRate} setGrowthRate={setGrowthRate}
                 takeProfitOn={takeProfitOn} setTakeProfitOn={setTakeProfitOn}
@@ -1580,11 +1741,12 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 } : null}
                 onCashOut={() => closeAccumulator()}
                 closing={accaClosing}
-                format={(v) => formatMoney(v, isLive)}
+                format={money}
+                sigma={clientSigma}
               />
             ) : isDigitType ? (
               <DigitPanel
-                currency={"KSh"}
+                currency={currency.symbol}
                 family={family}
                 sides={selectedSides}
                 stake={stake} setStake={setStake}
@@ -1594,24 +1756,25 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
                 minStake={isLive ? 10 : 1}
                 payoutFor={(side) => displayedPayout(stake, side, targetDigit)}
-                format={(v) => formatMoney(v, isLive)}
+                format={money}
                 onTrade={placeTrade}
                 placing={placing}
                 openPositions={openTrades.map((t) => ({ id: t.id, side: t.side, settlesAt: t.settlesAt }))}
               />
             ) : isVanillaType && dirKind ? (
               <VanillaPanel
-                currency={"KSh"}
+                currency={currency.symbol}
                 sides={dirSides}
                 stake={stake} setStake={setStake}
                 duration={duration} setDuration={setDuration}
+                secPerTick={Math.max(1, Math.round(market.speedMs / 1000))}
                 strikeOffset={barrierOffset} setStrikeOffset={setBarrierOffset}
                 latestSpot={latest.quote}
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
                 minStake={isLive ? 10 : 1}
                 payoutPerPointFor={dirPayoutPerPoint}
                 maxPayout={dirMaxPayout}
-                format={(v) => formatMoney(v, isLive)}
+                format={money}
                 formatSpot={formatQuote}
                 onTrade={placeDirectional}
                 placing={dirPlacing}
@@ -1619,17 +1782,19 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               />
             ) : isDirectionalType && dirKind ? (
               <DirectionalPanel
-                currency={"KSh"}
+                currency={currency.symbol}
                 kind={dirKind}
                 sides={dirSides}
                 stake={stake} setStake={setStake}
                 duration={duration} setDuration={setDuration}
+                durationUnit={durationUnit} setDurationUnit={setDurationUnit}
+                secPerTick={Math.max(1, Math.round(market.speedMs / 1000))}
                 barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
                 latestSpot={latest.quote}
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
                 minStake={isLive ? 10 : 1}
                 payoutFor={dirPayoutFor}
-                format={(v) => formatMoney(v, isLive)}
+                format={money}
                 formatSpot={formatQuote}
                 onTrade={placeDirectional}
                 placing={dirPlacing}
@@ -1637,7 +1802,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
               />
             ) : isLeveragedType && levKind ? (
               <LeveragedPanel
-                currency={"KSh"}
+                currency={currency.symbol}
                 kind={levKind}
                 stake={stake} setStake={setStake}
                 multiplier={multiplier} setMultiplier={setMultiplier}
@@ -1652,7 +1817,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
                 maxPayout={levMaxPayout}
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
                 minStake={isLive ? 10 : 1}
-                format={(v) => formatMoney(v, isLive)}
+                format={money}
                 formatSpot={formatQuote}
                 onTrade={placeLeveraged}
                 placing={levPlacing}
@@ -1675,14 +1840,281 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
         </aside>
       </div>
 
-      {/* Mobile-only: positions / history / session — hidden on desktop where the left rail shows it */}
-      <MobileBinaryActivity
-        tab={tab} setTab={setTab}
-        openPositions={openPositions} allClosedTrades={allClosedTrades} transactions={transactions}
-        wins={wins} losses={losses} sessionPnl={sessionPnl} isLive={isLive}
-      />
+      {/* Mobile-only Positions screen (Deriv-style) — full surface between the
+          app header and bottom nav, opened by the Positions tab (?panel=positions). */}
+      {mobileActivityOpen && (
+        <MobilePositions
+          tab={tab === "tx" ? "open" : tab} setTab={setTab}
+          openPositions={openPositions} allClosedTrades={allClosedTrades}
+          onClose={closePanel}
+        />
+      )}
+
+      {/* Mobile-only: market picker sheet — opened by the bottom-nav Markets tab
+          (?panel=markets). Switching is blocked while a cash-out contract runs. */}
+      {marketsOpen && (
+        <MarketsSheet
+          markets={MARKETS}
+          current={market.symbol}
+          locked={!!accaPos || !!levPos}
+          onSelect={(sym) => { setMarketSymbol(sym); setMarketsOpen(false); if (panel === "markets") closePanel(); }}
+          onClose={() => { setMarketsOpen(false); if (panel === "markets") closePanel(); }}
+        />
+      )}
+
+      {chartSheet === "types" && <ChartTypesSheet onClose={() => setChartSheet(null)} />}
+      {chartSheet === "drawing" && <DrawingToolsSheet onClose={() => setChartSheet(null)} />}
 
     </div>
+  );
+}
+
+// Mobile market-picker bottom sheet (Deriv-style). Lists every synthetic index
+// with its live-ish label; tapping one switches the chart feed. Disabled while a
+// live cash-out contract is open so the user can't strand a running position.
+// Deriv-style markets picker: a tall bottom sheet with a search field and the
+// indices grouped under headings, each row showing a badge (+ "1s" speed dot),
+// a favourite star, and the current market highlighted white.
+function MarketsSheet({
+  markets, current, locked, onSelect, onClose,
+}: {
+  markets: BinaryMarket[];
+  current: string;
+  locked: boolean;
+  onSelect: (symbol: string) => void;
+  onClose: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const [tab, setTab] = useState<"favourites" | "all">("all");
+  const [favs, setFavs] = useState<Set<string>>(new Set());
+  // Persist favourites across reloads.
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("binary-fav-markets") ?? "[]");
+      if (Array.isArray(saved)) setFavs(new Set(saved));
+    } catch { /* ignore */ }
+  }, []);
+  useEffect(() => {
+    try { localStorage.setItem("binary-fav-markets", JSON.stringify([...favs])); } catch { /* ignore */ }
+  }, [favs]);
+  const term = q.trim().toLowerCase();
+
+  const base = tab === "favourites" ? markets.filter((m) => favs.has(m.symbol)) : markets;
+  const filtered = base.filter(
+    (m) => term === "" || m.symbol.toLowerCase().includes(term) || m.name.toLowerCase().includes(term),
+  );
+  // Group by index family for Deriv-style section headings.
+  const groups: { heading: string; items: BinaryMarket[] }[] = [];
+  for (const m of filtered) {
+    const heading = m.symbol.startsWith("Jump") ? "Jump indices" : "Volatility indices";
+    const g = groups.find((x) => x.heading === heading);
+    if (g) g.items.push(m); else groups.push({ heading, items: [m] });
+  }
+  const toggleFav = (symbol: string) =>
+    setFavs((s) => { const n = new Set(s); n.has(symbol) ? n.delete(symbol) : n.add(symbol); return n; });
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#0d0e11] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+
+        {/* Search */}
+        <div className="flex items-center gap-2 px-4 pb-3 pt-2.5">
+          <div className="flex flex-1 items-center gap-2 rounded-xl bg-white/[0.05] px-3 ring-1 ring-white/[0.07] focus-within:ring-sky-500/50">
+            <Icon name="search" className="text-[18px] text-slate-500" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search markets"
+              className="h-9 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-slate-600"
+            />
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-400 active:scale-95">
+            <Icon name="close" className="text-[13px]" />
+          </button>
+        </div>
+
+        {/* Favourites / All tabs */}
+        <div className="flex items-stretch gap-5 border-b border-white/[0.07] px-4 text-[13px] font-black">
+          {(["favourites", "all"] as const).map((t) => (
+            <button key={t} type="button" onClick={() => setTab(t)}
+              className={`-mb-px border-b-2 py-2.5 capitalize transition ${tab === t ? "border-white text-white" : "border-transparent text-slate-500"}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {locked && (
+          <div className="mx-4 mb-2 mt-2 rounded-lg bg-amber-400/10 px-3 py-2 text-[11px] font-bold text-amber-300">
+            Finish your open contract before switching markets.
+          </div>
+        )}
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1">
+          {tab === "favourites" && filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
+              <Icon name="star" className="text-[56px] text-slate-700" />
+              <div className="mt-3 text-[14px] font-black text-slate-400">No favourites</div>
+              <div className="mt-1 text-[12px] font-bold text-slate-600">Tap the star on a market to add it here.</div>
+            </div>
+          ) : groups.length === 0 ? (
+            <p className="py-10 text-center text-[12px] font-bold text-slate-600">No markets match “{q}”.</p>
+          ) : (
+            groups.map(({ heading, items }) => (
+              <div key={heading} className="mb-2">
+                <p className="px-3 pb-1 pt-2 text-[11px] font-black uppercase tracking-wide text-slate-500">{heading}</p>
+                {items.map((m) => {
+                  const active = m.symbol === current;
+                  const starred = favs.has(m.symbol);
+                  return (
+                    <button
+                      key={m.symbol}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => onSelect(m.symbol)}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition active:scale-[0.99] disabled:opacity-40 ${
+                        active ? "bg-white" : "hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      <MarketIcon symbol={m.symbol} size={36} />
+                      <span className={`min-w-0 flex-1 truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>{m.symbol}</span>
+                      <span
+                        role="button"
+                        tabIndex={-1}
+                        onClick={(e) => { e.stopPropagation(); toggleFav(m.symbol); }}
+                        className="shrink-0"
+                      >
+                        <Icon name="star" className={`text-[20px] ${starred ? "fill-current text-amber-400" : active ? "text-slate-500" : "text-slate-600"}`} />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Shared chrome for the mobile chart-tool bottom sheets (Deriv-style header +
+// rounded sheet + close button).
+function ChartToolSheet({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div className="animate-sheet-in relative flex max-h-[80dvh] flex-col rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+        <div className="flex items-center justify-between px-4 pb-2 pt-4">
+          <span className="text-[15px] font-black text-white">{title}</span>
+          <button type="button" onClick={onClose} aria-label="Close" className="grid h-6 w-6 place-items-center rounded-full bg-white/[0.05] text-slate-400 active:scale-95">
+            <Icon name="close" className="text-[13px]" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// Small "Coming soon" badge used inside the chart-tool sheets.
+function ComingSoon() {
+  return <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300">Soon</span>;
+}
+
+// "1t" → Chart types + time interval (Deriv layout). UI shell; Area + tick are
+// the only live options, the rest are disabled with a "coming soon" note.
+function ChartTypesSheet({ onClose }: { onClose: () => void }) {
+  const types: { label: string; icon: string; active?: boolean }[] = [
+    { label: "Area", icon: "show_chart", active: true },
+    { label: "Candle", icon: "candlestick_chart" },
+    { label: "Hollow", icon: "candlestick_chart" },
+    { label: "OHLC", icon: "bar_chart" },
+  ];
+  const intervals = ["1 tick", "1 min", "2 min", "3 min", "5 min", "10 min", "15 min", "30 min", "1 hour"];
+  return (
+    <ChartToolSheet title="Chart types" onClose={onClose}>
+      <div className="grid grid-cols-4 gap-2 pt-1">
+        {types.map((t) => (
+          <button key={t.label} type="button" disabled={!t.active}
+            className={`flex flex-col items-center gap-1 rounded-xl py-3 transition disabled:opacity-40 ${
+              t.active ? "bg-[#0f1319] ring-1 ring-sky-400/50 text-white" : "bg-[#0f1319] text-slate-400"
+            }`}>
+            <Icon name={t.icon} className="text-[20px]" />
+            <span className="text-[11px] font-black">{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-2 mt-4 flex items-center gap-2">
+        <span className="text-[13px] font-black text-white">Time interval</span>
+        <ComingSoon />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {intervals.map((iv, i) => (
+          <button key={iv} type="button" disabled={i !== 0}
+            className={`rounded-xl py-2.5 text-[12px] font-black transition disabled:opacity-40 ${
+              i === 0 ? "bg-[#0f1319] ring-1 ring-sky-400/50 text-white" : "bg-[#0f1319] text-slate-400"
+            }`}>
+            {iv}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 flex items-center justify-between rounded-xl bg-[#0f1319] px-3 py-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2"><span className="text-[13px] font-black text-white">Smooth chart movement</span><ComingSoon /></div>
+          <div className="mt-0.5 text-[11px] font-bold text-slate-500">Performance may vary by device.</div>
+        </div>
+        <span className="ml-3 inline-flex h-6 w-11 shrink-0 items-center rounded-full bg-emerald-500/40 p-0.5">
+          <span className="h-5 w-5 translate-x-5 rounded-full bg-white/70" />
+        </span>
+      </div>
+    </ChartToolSheet>
+  );
+}
+
+// Drawing icon → Drawing tools (Deriv layout): Active / All drawings tabs. UI
+// shell only — placing drawings is "coming soon".
+function DrawingToolsSheet({ onClose }: { onClose: () => void }) {
+  const [tab, setTab] = useState<"active" | "all">("all");
+  const tools = [
+    { label: "Horizontal line", icon: "remove" },
+    { label: "Trend line", icon: "show_chart" },
+    { label: "Vertical line", icon: "candlestick_chart" },
+  ];
+  return (
+    <ChartToolSheet title="Drawing tools" onClose={onClose}>
+      <div className="mb-3 flex items-stretch border-b border-white/[0.07] text-[13px] font-black">
+        {(["active", "all"] as const).map((t) => (
+          <button key={t} type="button" onClick={() => setTab(t)}
+            className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 transition ${tab === t ? "border-b-2 border-red-500 text-white" : "text-slate-500"}`}>
+            <Icon name={t === "active" ? "bolt" : "edit"} className="text-[16px]" />
+            {t === "active" ? "Active" : "All drawings"}
+          </button>
+        ))}
+      </div>
+      {tab === "active" ? (
+        <div className="flex flex-col items-center justify-center px-8 py-12 text-center">
+          <Icon name="edit" className="text-[48px] text-slate-700" />
+          <div className="mt-3 text-[13px] font-bold text-slate-500">You have no active drawings yet.</div>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {tools.map((t) => (
+            <button key={t.label} type="button" disabled
+              className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left opacity-60">
+              <span className="flex items-center gap-3">
+                <Icon name={t.icon} className="text-[20px] text-slate-300" />
+                <span className="text-[14px] font-bold text-white">{t.label}</span>
+              </span>
+              <ComingSoon />
+            </button>
+          ))}
+        </div>
+      )}
+    </ChartToolSheet>
   );
 }
 
@@ -1805,31 +2237,72 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
   );
 }
 
-// Mobile-only collapsible wrapper around the activity panel (matches the
-// Aviator "Live Players" collapsible). Hidden on xl where the rail shows it.
-function MobileBinaryActivity(props: ActivityPanelProps) {
-  const [open, setOpen] = useState(false);
-  const activeCount = props.openPositions.length;
+// Mobile-only full-screen Positions surface (Deriv-style). Sits between the app
+// header and the bottom nav (both stay visible/tappable), with Open / Closed
+// tabs. Opened by the bottom-nav Positions tab (?panel=positions); hidden on lg+
+// where the desktop rail shows positions instead.
+function MobilePositions({
+  tab, setTab, openPositions, allClosedTrades, onClose,
+}: {
+  tab: "open" | "closed";
+  setTab: (t: "open" | "closed" | "tx") => void;
+  openPositions: OpenPositionView[];
+  allClosedTrades: BinaryTrade[];
+  onClose: () => void;
+}) {
   return (
-    <div className="mx-2 mb-4 mt-1 overflow-hidden rounded-xl border border-white/[0.08] bg-[#0f1218] sm:mx-2 xl:hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-3 text-[12px] font-black text-white/70 transition-colors hover:text-white active:scale-[0.99]"
-      >
-        <span className="flex items-center gap-2 uppercase tracking-wider">
-          My Activity
-          {activeCount > 0 && (
-            <span className="rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-black text-sky-300">{activeCount} open</span>
-          )}
-        </span>
-        <Icon name={open ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[18px] text-slate-500" />
-      </button>
-      {open && (
-        <div className="flex max-h-[60vh] flex-col overflow-hidden border-t border-white/[0.07]">
-          <BinaryActivityPanel {...props} />
-        </div>
-      )}
+    <div className="fixed inset-x-0 bottom-14 top-14 z-40 flex flex-col bg-[#0b0d12] lg:hidden">
+      {/* Open / Closed tabs */}
+      <div className="flex shrink-0 items-stretch border-b border-white/[0.07] text-[13px] font-black">
+        {(["open", "closed"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`flex-1 py-3.5 transition ${tab === t ? "border-b-2 border-white text-white" : "text-slate-500"}`}
+          >
+            {t === "open" ? `Open${openPositions.length ? ` (${openPositions.length})` : ""}` : "Closed"}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Back to trade"
+          className="grid w-12 shrink-0 place-items-center border-l border-white/[0.07] text-slate-500 active:text-white"
+        >
+          <Icon name="close" className="text-[20px]" />
+        </button>
+      </div>
+
+      {/* Tab content */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {tab === "open" ? (
+          openPositions.length === 0 ? (
+            <PositionsEmpty icon="work" title="No open positions" subtitle="Your open positions will appear here." />
+          ) : (
+            <div className="space-y-2 p-3">
+              {openPositions.map((pos) => <PositionRow key={pos.id} pos={pos} />)}
+            </div>
+          )
+        ) : allClosedTrades.length === 0 ? (
+          <PositionsEmpty icon="history" title="No closed positions" subtitle="Settled contracts will appear here." />
+        ) : (
+          <div className="space-y-2 p-3">
+            {allClosedTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Centered empty state for the mobile Positions screen (Deriv-style).
+function PositionsEmpty({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
+      <Icon name={icon} className="text-[64px] text-slate-700" />
+      <div className="mt-4 text-[15px] font-black text-slate-400">{title}</div>
+      <div className="mt-1 text-[12px] font-bold text-slate-600">{subtitle}</div>
     </div>
   );
 }
@@ -1847,7 +2320,7 @@ function DigitRing({ isActive, stat }: { isActive: boolean; stat: { digit: numbe
       {isHot && (
         <span className="absolute -top-0.5 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-red-400" />
       )}
-      <div className="relative">
+      <div className={`relative ${isActive ? "animate-digit-pop" : ""}`}>
         <svg width="34" height="34" viewBox="0 0 34 34" className="sm:hidden">
           <circle cx="17" cy="17" r={rm} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="2.5" />
           <circle
@@ -1896,7 +2369,8 @@ function EmptyState({ subtitle, title }: { subtitle: string; title: string }) {
 function TradeRow({ trade }: { trade: BinaryTrade }) {
   const isOpen = trade.status === "open";
   const isWon = trade.status === "won";
-  const isReal = trade.isReal ?? false;
+  const { convert, currency } = useCurrency();
+  const money = (kes: number) => fmtMoney(kes, currency, convert);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -1919,8 +2393,8 @@ function TradeRow({ trade }: { trade: BinaryTrade }) {
         </span>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs font-black">
-        <span className="text-slate-500">Stake {formatMoney(trade.stake, isReal)}</span>
-        <span className={isOpen || isWon ? "text-emerald-300" : "text-red-300"}>{isOpen ? formatMoney(trade.payout, isReal) : isWon ? `+${formatMoney(trade.payout - trade.stake, isReal)}` : `-${formatMoney(trade.stake, isReal)}`}</span>
+        <span className="text-slate-500">Stake {money(trade.stake)}</span>
+        <span className={isOpen || isWon ? "text-emerald-300" : "text-red-300"}>{isOpen ? money(trade.payout) : isWon ? `+${money(trade.payout - trade.stake)}` : `-${money(trade.stake)}`}</span>
       </div>
     </div>
   );
@@ -1931,6 +2405,8 @@ function TradeRow({ trade }: { trade: BinaryTrade }) {
 // types (accumulator / leveraged) show "LIVE" and a value that moves each tick.
 function PositionRow({ pos }: { pos: OpenPositionView }) {
   const hasCountdown = pos.settlesAt != null;
+  const { convert, currency } = useCurrency();
+  const money = (kes: number) => fmtMoney(kes, currency, convert);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     if (!hasCountdown) return;
@@ -1952,8 +2428,8 @@ function PositionRow({ pos }: { pos: OpenPositionView }) {
         </span>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs font-black">
-        <span className="text-slate-500">Stake {formatMoney(pos.stake, pos.isReal)}</span>
-        <span className={profit >= 0 ? "text-emerald-300" : "text-red-300"}>{formatMoney(pos.value, pos.isReal)}</span>
+        <span className="text-slate-500">Stake {money(pos.stake)}</span>
+        <span className={profit >= 0 ? "text-emerald-300" : "text-red-300"}>{money(pos.value)}</span>
       </div>
     </div>
   );

@@ -1,0 +1,52 @@
+name: Weekly release reminder
+
+# Pings Telegram when there is a release-please PR waiting to be cut, so the
+# weekly "merge the release PR" step doesn't get forgotten. Deploys stay
+# continuous (every merge to main); this only nudges the tagged release.
+# Silent when nothing is pending — no noise on quiet weeks.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC (09:00 EAT / Nairobi)
+  workflow_dispatch: {} # allow a manual test run from the Actions tab
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify if a release is pending
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -euo pipefail
+
+          pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open \
+                 --label "autorelease: pending" \
+                 --json number,title,url,createdAt --limit 1)
+
+          if [ "$(echo "$pr" | jq 'length')" -eq 0 ]; then
+            echo "No pending release PR — nothing to remind about."
+            exit 0
+          fi
+
+          num=$(echo "$pr" | jq -r '.[0].number')
+          title=$(echo "$pr" | jq -r '.[0].title')
+          url=$(echo "$pr" | jq -r '.[0].url')
+          created=$(echo "$pr" | jq -r '.[0].createdAt' | cut -dT -f1)
+          commits=$(gh pr view "$num" --repo "$GITHUB_REPOSITORY" --json commits -q '.commits | length')
+
+          text=$(printf '🏷️ Weekly release reminder\n\n%s is ready to cut — %s change(s) since the last release, open since %s.\n\nMerge to tag + publish the release:\n%s\n\nOr from a terminal:\ngh pr merge %s --squash --admin' \
+                 "$title" "$commits" "$created" "$url" "$num")
+
+          curl -sS --fail -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TG_CHAT}" \
+            --data-urlencode "text=${text}" \
+            --data-urlencode "disable_web_page_preview=true" > /dev/null
+
+          echo "Reminder sent for: $title (#$num, $commits commits)"

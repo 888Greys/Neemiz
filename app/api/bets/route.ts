@@ -5,6 +5,7 @@ import { BetType, TransactionType, TransactionStatus } from "@prisma/client";
 import { getFixtureDetail } from "@/lib/theoddsapi";
 import { readFixtureDetail } from "@/lib/fixtures-cache";
 import { applyProfitRetention } from "@/lib/house-retention";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const MIN_STAKE = 10;
 
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
 
   const { type, stake, selections } = body;
 
-  if (!Number.isFinite(stake) || stake < MIN_STAKE) return Response.json({ error: `Minimum bet is KSh ${MIN_STAKE}` }, { status: 400 });
+  if (!Number.isFinite(stake) || stake < MIN_STAKE) return Response.json({ error: `Minimum bet is ${CURRENCY_SYMBOL} ${MIN_STAKE}` }, { status: 400 });
   if (!selections?.length) return Response.json({ error: "No selections" }, { status: 400 });
   if (type === "SINGLE" && selections.length !== 1) return Response.json({ error: "Single bets require one selection" }, { status: 400 });
   if (selections.length > 20) return Response.json({ error: "Too many selections" }, { status: 400 });
