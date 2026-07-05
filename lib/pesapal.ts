@@ -91,7 +91,11 @@ export async function submitOrder(input: PesapalOrderInput): Promise<PesapalOrde
       currency:            "KES",
       amount:              input.amount,
       description:         input.description,
-      callback_url:        `${baseUrl}/wallet?pesapal_order_id=${input.id}`,
+      // Route the return through a server endpoint (not the client page) so the
+      // wallet is credited server-side, keyed to the transaction id, before the
+      // browser lands. This is independent of the user's session — if they come
+      // back logged out, the money still credits. See pesapal/return/route.ts.
+      callback_url:        `${baseUrl}/api/wallet/pesapal/return?ref=${input.id}`,
       notification_id:     ipnId,
       billing_address: {
         email_address: input.email ?? "",
