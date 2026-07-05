@@ -836,6 +836,9 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
           {/* Aviator */}
           <MobileDrawerLink color="#ff1979" href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" active={isActive("/aviator")} onClick={onClose} />
 
+          {/* Polymarket */}
+          <MobileDrawerLink color="#8b5cf6" href="/predictions" icon="online_prediction" label="Polymarket" active={isActive("/predictions")} onClick={onClose} />
+
           {/* Binary */}
           <MobileDrawerLink color="#f59e0b" href="/binary" icon="candlestick_chart" label="Binary" active={isActive("/binary")} onClick={onClose} />
 
