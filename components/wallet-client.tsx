@@ -10,6 +10,7 @@ import { Icon } from "@/components/icon";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/lib/toast";
 import { LoadingDots } from "@/components/loading-dots";
+import { PhoneVerifyModal } from "@/components/phone-verify-modal";
 import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown";
 import { cachedFetch, getCached } from "@/lib/client-cache";
 import { CURRENCY_SYMBOL, MONEY_LOCALE, WITHDRAWAL_FEE_RATE, WITHDRAWAL_FEE_PCT } from "@/lib/currency";
@@ -142,14 +143,29 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
   const [stepUpBusy, setStepUpBusy]   = useState(false);
   const [stepUpShowPw, setStepUpShowPw] = useState(false);
 
-  // ── Withdrawal allowance (rolling 24h window) ──
-  const [wdLimit, setWdLimit] = useState<{ limit: number; used: number; remaining: number; resetsAt: string | null } | null>(null);
+  // ── Withdrawal allowance (rolling 24h window) + phone-verification state ──
+  const [wdLimit, setWdLimit] = useState<{
+    limit: number; used: number; remaining: number; resetsAt: string | null;
+    phoneVerifyRequired?: boolean; phoneVerified?: boolean; boundPhone?: string | null;
+  } | null>(null);
   const loadWdLimit = useCallback(() => {
     fetch("/api/wallet/withdraw", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d && typeof d.remaining === "number") setWdLimit(d); })
+      .then((d) => {
+        if (!d || typeof d.remaining !== "number") return;
+        setWdLimit(d);
+        // Once verified, the number is bound for life — prefill it and the field
+        // renders read-only (see the withdraw form). Overwrites any local prefill.
+        if (d.phoneVerified && d.boundPhone) {
+          setWdPhone(d.boundPhone.startsWith("254") ? `0${d.boundPhone.slice(3)}` : d.boundPhone);
+        }
+      })
       .catch(() => {});
   }, []);
+
+  // ── First-withdrawal SMS verification modal ──
+  const [phoneVerifyOpen, setPhoneVerifyOpen] = useState(false);
+  const phoneLocked = Boolean(wdLimit?.phoneVerified && wdLimit?.boundPhone);
 
   // ── "Notify me when M-Pesa withdrawals reopen" opt-in (while paused) ──
   const [notifyState, setNotifyState] = useState<"idle" | "loading" | "subscribed">("idle");
@@ -251,11 +267,25 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
     }
     const txId = deposit.txId;
     pollCount.current = 0;
+    // Returning from Pesapal's hosted page can land with a momentarily stale
+    // session cookie (the balance is already credited server-side by
+    // /api/wallet/pesapal/return, so this only affects what THIS tab can read).
+    // If the status poll 401s, refresh the session once before giving up.
+    let refreshTriedOn401 = false;
     pollRef.current = setInterval(async () => {
       pollCount.current += 1;
       if (pollCount.current > MAX_POLLS) {
         clearInterval(pollRef.current!);
-        setDeposit({ step: "failed", message: "Payment timed out. If you paid, it will be credited shortly." });
+        // Pesapal deposits are credited server-side on return, so a slow poll is
+        // not a failure — reassure rather than alarm. M-Pesa timeouts usually
+        // mean the STK prompt was never completed.
+        refreshBalance();
+        setDeposit({
+          step:    "failed",
+          message: deposit.via === "pesapal"
+            ? "Payment received — your balance will update shortly."
+            : "Payment timed out. If you paid, it will be credited shortly.",
+        });
         return;
       }
       try {
@@ -264,6 +294,11 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({ transactionRequestId: txId }),
         });
+        if (res.status === 401 && !refreshTriedOn401) {
+          refreshTriedOn401 = true;
+          await createClient().auth.refreshSession().catch(() => {});
+          return; // retry on the next tick with the refreshed session
+        }
         const data = await res.json();
         if (data.status === "confirmed") {
           clearInterval(pollRef.current!);
@@ -444,7 +479,13 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ amountKes: amt, phoneNumber: wdPhone }),
       });
-      const data = await res.json().catch(() => ({})) as { ok?: boolean; payout?: number; fee?: number; queued?: boolean; pendingApproval?: boolean; message?: string; error?: string };
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; payout?: number; fee?: number; queued?: boolean; pendingApproval?: boolean; message?: string; error?: string; needsPhoneVerification?: boolean };
+      // First-withdrawal SMS gate: open the verification modal and stop here. The
+      // withdrawal resumes automatically once the number is verified (onVerified).
+      if (res.status === 409 && data.needsPhoneVerification) {
+        setPhoneVerifyOpen(true);
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Withdrawal failed");
       saveMpesaNumber(wdPhone); // remember this number for next time
       setWdDone({ payout: data.payout ?? amt, fee: data.fee ?? 0, queued: data.queued || data.pendingApproval, message: data.message });
@@ -1176,17 +1217,27 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                     </div>
 
                     <div>
-                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">M-Pesa Number</p>
-                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/40 transition">
+                      <p className="mb-2 flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
+                        M-Pesa Number
+                        {phoneLocked && <Icon name="lock" fill className="text-[12px] text-[#05b957]" />}
+                      </p>
+                      <div className={`flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] transition ${phoneLocked ? "opacity-90" : "focus-within:ring-[#087cff]/40"}`}>
                         <span className="shrink-0 text-base">🇰🇪</span>
                         <input
                           type="tel"
                           value={wdPhone}
                           onChange={(e) => { setWdPhone(e.target.value); setWdError(""); }}
                           placeholder="07XXXXXXXX"
-                          className="flex-1 bg-transparent py-4 text-sm font-bold text-white outline-none placeholder:text-slate-700"
+                          readOnly={phoneLocked}
+                          className="flex-1 bg-transparent py-4 text-sm font-bold text-white outline-none placeholder:text-slate-700 read-only:cursor-not-allowed"
                         />
+                        {phoneLocked && <Icon name="verified" fill className="shrink-0 text-[16px] text-[#05b957]" />}
                       </div>
+                      {phoneLocked && (
+                        <p className="mt-1.5 text-[11px] text-slate-600">
+                          Verified &amp; locked to your account. Contact support to change it.
+                        </p>
+                      )}
                     </div>
 
                     {wdError && (
@@ -1281,6 +1332,22 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
             </button>
           </div>
         </div>
+      )}
+
+      {/* ── First-withdrawal SMS verification ── */}
+      {phoneVerifyOpen && (
+        <PhoneVerifyModal
+          initialPhone={wdPhone || wdLimit?.boundPhone || savedMpesa || undefined}
+          onClose={() => setPhoneVerifyOpen(false)}
+          onVerified={(verifiedPhone) => {
+            setPhoneVerifyOpen(false);
+            // Lock the field to the just-verified number and resume the payout.
+            setWdPhone(verifiedPhone.startsWith("254") ? `0${verifiedPhone.slice(3)}` : verifiedPhone);
+            toast.success("Number verified", "Your account is now secured to this number.");
+            loadWdLimit();
+            void handleMpesaWithdraw();
+          }}
+        />
       )}
     </div>
   );

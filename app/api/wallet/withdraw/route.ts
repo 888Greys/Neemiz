@@ -8,6 +8,7 @@ import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window
 import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 import { withdrawalsDisabledResponse, setWithdrawalsDisabled } from "@/lib/withdrawal-guard";
 import { assertLedgerBacked, LedgerUnbackedError } from "@/lib/ledger-guard";
+import { isTwilioConfigured } from "@/lib/twilio";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -27,6 +28,18 @@ export async function POST(req: Request) {
 
     const killed = await withdrawalsDisabledResponse();
     if (killed && !dbUser.isAdmin) return killed;
+
+    // Phone-verification gate. A user must verify a mobile number by SMS (Twilio
+    // Verify) before their FIRST withdrawal; that number is then bound to the
+    // account for life (see the msisdn-match check below and verify-otp). The
+    // gate only bites when Twilio is actually configured — a Twilio outage or
+    // missing env must never lock everyone out of their money. Admins exempt.
+    if (isTwilioConfigured() && !dbUser.isAdmin && !dbUser.phoneVerified) {
+      return Response.json(
+        { needsPhoneVerification: true, error: "Verify your phone number to withdraw." },
+        { status: 409 },
+      );
+    }
 
     if (process.env.LIPAHARAKA_WITHDRAWALS_ENABLED !== "true" && !dbUser.isAdmin) {
       return Response.json({ error: "M-Pesa withdrawals are temporarily paused for reconciliation." }, { status: 503 });
@@ -58,6 +71,16 @@ export async function POST(req: Request) {
     }
     if (!/^254[17]\d{8}$/.test(msisdn)) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XX or 01XX format." }, { status: 400 });
+    }
+
+    // Bound-number enforcement. Once a user has verified a number, cash-outs may
+    // only go to THAT number — it is locked to the account for life. Blocks
+    // routing a payout to an unverified/third-party line. Admins exempt.
+    if (isTwilioConfigured() && !dbUser.isAdmin && dbUser.phoneVerified && dbUser.phone && msisdn !== dbUser.phone) {
+      return Response.json(
+        { error: `Withdrawals can only be sent to your verified number +${dbUser.phone}.` },
+        { status: 400 },
+      );
     }
 
     const feeRate   = lipaTestMode ? 0 : WITHDRAWAL_FEE_RATE;
@@ -315,12 +338,22 @@ export async function GET() {
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
+  // Phone-verification state for the withdraw UI: whether the SMS gate applies,
+  // whether this user has passed it, and the number they're locked to (prefilled
+  // and read-only in the form).
+  const phoneVerifyRequired = isTwilioConfigured();
+  const phoneVerified = Boolean(dbUser.phoneVerified);
+  const boundPhone = dbUser.phone ?? null;
+
   if (dbUser.isAdmin) {
     return Response.json({
       limit: 999999,
       used: 0,
       remaining: 999999,
       resetsAt: null,
+      phoneVerifyRequired,
+      phoneVerified,
+      boundPhone,
     }, { headers: { "Cache-Control": "no-store" } });
   }
 
@@ -343,5 +376,8 @@ export async function GET() {
     used,
     remaining: Math.max(0, limit - used),
     resetsAt:  oldest ? new Date(oldest.createdAt.getTime() + WINDOW_MS).toISOString() : null,
+    phoneVerifyRequired,
+    phoneVerified,
+    boundPhone,
   }, { headers: { "Cache-Control": "no-store" } });
 }

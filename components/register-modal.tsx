@@ -118,24 +118,9 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         }
 
         // Phone-alias accounts are auto-confirmed by Supabase, so a session
-        // exists now — send an SMS OTP (Twilio Verify) to confirm the number.
-        // If verification can't run (Twilio not configured, or a transient
-        // failure), don't block account creation: let them in unverified.
-        try {
-          const res = await fetch("/api/account/phone/send-otp", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phone: normalized }),
-          });
-          if (res.ok) {
-            setVerifyChannel("phone");
-            setVerifyPhone(normalized);
-            setPendingVerify(true);
-            startResendCooldown();
-            return;
-          }
-        } catch { /* fall through to unverified entry */ }
-
+        // exists now — no SMS OTP at signup. Phone verification is deferred to
+        // the first withdrawal, where the number is verified once and then bound
+        // to the account for life (see wallet-client / phone-verify-modal).
         onClose();
         toast.success("Account created!", "Welcome to Nezeem 🎉");
         router.push("/dashboard");

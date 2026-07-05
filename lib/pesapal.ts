@@ -91,7 +91,11 @@ export async function submitOrder(input: PesapalOrderInput): Promise<PesapalOrde
       currency:            "KES",
       amount:              input.amount,
       description:         input.description,
-      callback_url:        `${baseUrl}/wallet?pesapal_order_id=${input.id}`,
+      // Route the return through a server endpoint (not the client page) so the
+      // wallet is credited server-side, keyed to the transaction id, before the
+      // browser lands. This is independent of the user's session — if they come
+      // back logged out, the money still credits. See pesapal/return/route.ts.
+      callback_url:        `${baseUrl}/api/wallet/pesapal/return?ref=${input.id}`,
       notification_id:     ipnId,
       billing_address: {
         email_address: input.email ?? "",
@@ -137,7 +141,12 @@ export async function getTransactionStatus(orderTrackingId: string): Promise<Pes
     confirmation_code: string;
   };
   return {
-    status:           d.payment_status_description as PesapalStatusResult["status"],
+    // Pesapal is inconsistent about casing here — it returns "Completed",
+    // "Failed", "INVALID", "Reversed" (mixed case) even though the values are
+    // otherwise our uppercase union. Normalize so the settle logic's
+    // `=== "COMPLETED"` comparison actually matches a paid order. Without this,
+    // a genuinely-paid deposit is read as PENDING forever and never credits.
+    status:           d.payment_status_description?.toUpperCase() as PesapalStatusResult["status"],
     paymentMethod:    d.payment_method,
     amount:           d.amount,
     createdDate:      d.created_date,
