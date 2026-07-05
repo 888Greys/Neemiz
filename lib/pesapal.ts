@@ -10,6 +10,9 @@
  * Production:   https://pay.pesapal.com/v3
  */
 
+import { db } from "@/lib/db";
+import { TransactionStatus } from "@prisma/client";
+
 const BASE_URL = process.env.PESAPAL_ENV === "production"
   ? "https://pay.pesapal.com/v3"
   : "https://cybqa.pesapal.com/pesapalv3";
@@ -140,4 +143,62 @@ export async function getTransactionStatus(orderTrackingId: string): Promise<Pes
     createdDate:      d.created_date,
     confirmationCode: d.confirmation_code,
   };
+}
+
+// ─── Settle a deposit (shared by the IPN webhook + the status poll) ───────────
+
+export type PesapalSettleResult = "confirmed" | "failed" | "pending";
+
+/**
+ * Idempotently settle a pending Pesapal deposit against Pesapal's authoritative
+ * status. Credits the wallet exactly once: the conditional update on PENDING is
+ * the guard, so if the IPN webhook and the client status-poll race, only the
+ * first one to flip PENDING→COMPLETED credits the balance.
+ */
+export async function settlePesapalTransaction(
+  txnId: string,
+  orderTrackingId: string,
+): Promise<PesapalSettleResult> {
+  const status = await getTransactionStatus(orderTrackingId);
+
+  if (status.status === "COMPLETED") {
+    await db.$transaction(async (tx) => {
+      const claimed = await tx.transaction.updateMany({
+        where: { id: txnId, status: TransactionStatus.PENDING },
+        data:  {
+          status:    TransactionStatus.COMPLETED,
+          reference: orderTrackingId,
+          metadata:  {
+            orderTrackingId,
+            confirmationCode: status.confirmationCode,
+            paymentMethod:    status.paymentMethod,
+            settledAt:        new Date().toISOString(),
+          },
+        },
+      });
+      if (claimed.count === 1) {
+        const txn = await tx.transaction.findUnique({
+          where:  { id: txnId },
+          select: { userId: true, amount: true },
+        });
+        if (txn) {
+          await tx.user.update({
+            where: { id: txn.userId },
+            data:  { walletBalance: { increment: txn.amount } },
+          });
+        }
+      }
+    });
+    return "confirmed";
+  }
+
+  if (status.status === "FAILED" || status.status === "INVALID" || status.status === "REVERSED") {
+    await db.transaction.updateMany({
+      where: { id: txnId, status: TransactionStatus.PENDING },
+      data:  { status: TransactionStatus.FAILED, reference: orderTrackingId },
+    });
+    return "failed";
+  }
+
+  return "pending";
 }
