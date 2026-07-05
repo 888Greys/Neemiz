@@ -130,6 +130,11 @@ TRONGRID_API_KEY=<from trongrid.io>
 | `TRANSFERS_ENABLED` | User-to-user transfers (KES + crypto) are **disabled by default**. Set `true` (or DB flag `transfers_disabled=false`) to re-enable. |
 | `PHONE_VERIFICATION_ENABLED` | Twilio Verify SMS OTP at registration. **Disabled by default** — leave unset until the Twilio account is verified. Set `true` **and** provide the `TWILIO_*` vars below to turn it on; with it off, registration uses the existing (unverified) flow. |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_VERIFY_SERVICE_SID` | Twilio Verify credentials (server-only). All three required for phone OTP; feature stays dormant if any is missing. |
+| `PESAPAL_CONSUMER_KEY` / `PESAPAL_CONSUMER_SECRET` | Pesapal v3 API credentials (server-only) — card / international deposits (Visa, Mastercard, Amex, mobile money) via hosted checkout. |
+| `PESAPAL_ENV` | `production` = live Pesapal (`pay.pesapal.com`); anything else = sandbox (`cybqa.pesapal.com`). |
+| `PESAPAL_IPN_ID` | Registered IPN notification ID (from `GET /api/admin/pesapal-setup` or `RegisterIPN`). Required by `SubmitOrder`. Prod: `06d9d84b-97fb-43bc-8c04-da2e773c3887` (URL `https://nezeem.com/api/wallet/pesapal/ipn`). |
+| `NEXT_PUBLIC_BASE_URL` | e.g. `https://nezeem.com` — used for the Pesapal callback + IPN URLs. |
+| `NEXT_PUBLIC_PESAPAL_ENABLED` | **Build-time** flag (set as a GH secret; inlined into the client bundle). `true` shows the "Card" deposit option in the wallet. **Off by default** — keep unset until the Pesapal account is off `TestOnly` (KYC verified). |
 | `WITHDRAWAL_NUMBER_ALERT_THRESHOLD` | Hold + alert when an M-Pesa number receives this many withdrawals in 24h (default `2`). |
 | `WITHDRAWAL_NUMBER_KILL_DISTINCT_USERS` | Auto-disable ALL withdrawals when one number is paid by this many distinct accounts in 24h (default `4`). |
 | `WITHDRAWAL_NUMBER_KILL_HOUR_COUNT` | Auto-disable ALL withdrawals when one number receives this many withdrawals in 1h (default `5`). |
