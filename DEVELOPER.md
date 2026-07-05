@@ -126,8 +126,17 @@ TRONGRID_API_KEY=<from trongrid.io>
 | `BTC_KES_RATE` | Fallback rate: BTC → KES |
 | `ETH_KES_RATE` | Fallback rate: ETH → KES |
 | `BNB_KES_RATE` | Fallback rate: BNB → KES |
+| `WITHDRAWALS_DISABLED` | `true` = master kill switch, blocks ALL cash-out (env-level; needs restart). Also flippable instantly via `POST /api/admin/kill-switch` (DB flag). |
+| `TRANSFERS_ENABLED` | User-to-user transfers (KES + crypto) are **disabled by default**. Set `true` (or DB flag `transfers_disabled=false`) to re-enable. |
+| `WITHDRAWAL_NUMBER_ALERT_THRESHOLD` | Hold + alert when an M-Pesa number receives this many withdrawals in 24h (default `2`). |
+| `WITHDRAWAL_NUMBER_KILL_DISTINCT_USERS` | Auto-disable ALL withdrawals when one number is paid by this many distinct accounts in 24h (default `4`). |
+| `WITHDRAWAL_NUMBER_KILL_HOUR_COUNT` | Auto-disable ALL withdrawals when one number receives this many withdrawals in 1h (default `5`). |
+| `RECON_ALERT_THRESHOLD` | Daily reconciliation flags active accounts whose balance exceeds the ledger by more than this KES (default `100`). |
+| `RECON_EXCLUDE_USERNAMES` | Extra comma-separated usernames the reconciliation should ignore (owner/test accounts already excluded by default). |
 
 > **Critical:** `MASTER_WALLET_MNEMONIC` must be identical on VPS and Vercel. It controls ALL deposit addresses and the hot wallet.
+
+> **Money-out kill switches:** `GET /api/admin/kill-switch` shows state; `POST` with `{ switch: "withdrawals"|"transfers", disabled: bool }` flips it instantly with no restart (admin only). Propagates within ~10s across workers.
 
 ---
 
@@ -597,6 +606,20 @@ File: `/var/lib/cron/crontabs/root` or `crontab -e`
   https://www.nezeem.com/api/cron/check-deposits \
   >> /var/log/neemiz-deposits.log 2>&1 && \
   echo "" >> /var/log/neemiz-deposits.log
+
+# Merchant auto-approval sweep (every 5 min) — verifies applications past
+# their 30–40 min review window so the approval email fires while offline.
+*/5 * * * * source /opt/neemiz/settle.env && \
+  curl -sL -X POST -H "Authorization: Bearer $CRON_SECRET" \
+  https://www.nezeem.com/api/cron/approve-merchants \
+  >> /var/log/neemiz-merchants.log 2>&1
+
+# Ledger reconciliation tripwire (daily 06:00) — alerts admins if any active
+# account holds balance the transactions ledger can't explain (re-breach signal).
+0 6 * * * source /opt/neemiz/settle.env && \
+  curl -sL -X POST -H "Authorization: Bearer $CRON_SECRET" \
+  https://www.nezeem.com/api/cron/reconcile-balances \
+  >> /var/log/neemiz-reconcile.log 2>&1
 ```
 
 ### Viewing Cron Logs

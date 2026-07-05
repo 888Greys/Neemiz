@@ -87,7 +87,7 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("crypto/address POST:", msg);
-    // Surface the real error so the client can show it (e.g. "MASTER_WALLET_MNEMONIC is not set")
+    // Surface the real error so the client can show it (e.g. "MASTER_XPUB_EVM is not set")
     return Response.json({ error: msg ?? "Failed to generate address" }, { status: 500 });
   }
 }

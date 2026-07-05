@@ -1,8 +1,9 @@
 {
   "name": "neemiz",
-  "version": "0.1.0",
+  "version": "1.7.0",
   "private": true,
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "next dev --turbo",
     "dev:turbo": "next dev --turbo",
     "dev:fast": "set NEXT_PUBLIC_DEV_FAST=1&& next dev --turbo",
@@ -22,21 +23,26 @@
     "seed:local": "bunx tsx --env-file=.env scripts/seed-local.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1077.0",
     "@getbrevo/brevo": "^2.2.0",
     "@polymarket/clob-client-v2": "^1.0.6",
     "@prisma/client": "^6.8.2",
     "@sentry/nextjs": "^10.56.0",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@simplewebauthn/server": "^13.3.2",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.0",
     "ethers": "^6.13.5",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^1.16.0",
+    "neemiz-binary-engine": "^1.0.1",
     "next": "14.2.25",
     "prisma": "^6.8.2",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "recharts": "^3.8.1",
     "sharp": "^0.35.1",
+    "simple-icons": "^16.24.1",
     "sonner": "^2.0.7",
     "viem": "^2.50.4"
   },

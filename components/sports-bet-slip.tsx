@@ -8,6 +8,9 @@ import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
+import { MONEY_LOCALE } from "@/lib/currency";
+import { useCurrency } from "@/lib/currency-context";
+import { formatInCurrency } from "@/lib/currency-config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,7 +90,7 @@ function kickoffEAT(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const date = new Date(iso);
   if (isNaN(date.getTime())) return null;
-  return date.toLocaleString("en-KE", {
+  return date.toLocaleString(MONEY_LOCALE, {
     timeZone: "Africa/Nairobi",
     weekday: "short",
     day: "numeric",
@@ -122,8 +125,12 @@ function WheelOfFortune({
   const [error, setError]         = useState<string | null>(null);
   const [amount, setAmount]       = useState("50");
 
-  const amt            = parseFloat(amount || "0");
-  const notEnoughFunds = isSignedIn && amt > 0 && amt > balance;
+  // `amount` is what the user typed, in the active DISPLAY currency; the server
+  // and balance are canonical KES, so convert at the edge.
+  const { convert, toKes, format, currency } = useCurrency();
+  const amt            = parseFloat(amount || "0");           // display units
+  const amtKes         = Math.round(toKes(amt));              // → canonical KES
+  const notEnoughFunds = isSignedIn && amt > 0 && amtKes > balance;
 
   async function spin() {
     if (!isSignedIn) { openLogin(); return; }
@@ -138,7 +145,7 @@ function WheelOfFortune({
       const res = await fetch("/api/wheel/spin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: amt }),
+        body: JSON.stringify({ amount: amtKes }),
       });
       const json = await res.json();
       if (!res.ok) { setError(json.error ?? "Spin failed"); setLoading(false); return; }
@@ -246,10 +253,10 @@ function WheelOfFortune({
             result.netChange < 0 ? "text-red-400" : result.multiplier >= 5 ? "text-amber-400" : "text-emerald-400"
           }`}>
             {result.multiplier === 0
-              ? `KSh ${result.stake.toFixed(2)} lost`
+              ? `${format(result.stake)} lost`
               : result.netChange < 0
-              ? `KSh ${result.winAmount.toFixed(2)} returned`
-              : `+KSh ${result.netChange.toFixed(2)} profit`}
+              ? `${format(result.winAmount)} returned`
+              : `+${format(result.netChange)} profit`}
           </p>
         </div>
       )}
@@ -261,7 +268,7 @@ function WheelOfFortune({
           <span className={`font-black tabular-nums ${
             result ? result.netChange < 0 ? "text-red-400" : "text-emerald-400" : "text-slate-300"
           }`}>
-            KSh {result ? result.winAmount.toFixed(2) : "—"}
+            {result ? format(result.winAmount) : "—"}
           </span>
         </div>
       </div>
@@ -271,9 +278,9 @@ function WheelOfFortune({
         <div className={`flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2.5 ring-1 transition-shadow ${
           notEnoughFunds ? "ring-red-500/40" : "ring-white/[0.07] focus-within:ring-[#087cff]/40"
         }`}>
-          <span className="shrink-0 text-[11px] font-black text-slate-500">KSh</span>
+          <span className="shrink-0 text-[11px] font-black text-slate-500">{currency.symbol}</span>
           <input
-            type="number" min={MIN_PLAY_AMOUNT} placeholder="Bet amount"
+            type="number" min={convert(MIN_PLAY_AMOUNT)} placeholder="Bet amount"
             value={amount}
             onChange={(e) => { setAmount(e.target.value); setError(null); }}
             className="min-w-0 flex-1 bg-transparent text-[13px] font-black text-white outline-none placeholder:text-slate-600"
@@ -281,14 +288,14 @@ function WheelOfFortune({
         </div>
         {notEnoughFunds && (
           <p className="mt-1 text-[10px] text-red-400 font-bold">
-            Insufficient balance — KSh {balance.toFixed(2)} available
+            Insufficient balance — {format(balance)} available
           </p>
         )}
       </div>
 
       {/* Range hint */}
       <p className="mb-2.5 text-[10px] text-slate-600 self-start">
-        from KSh {MIN_PLAY_AMOUNT} to KSh {balance > 0 ? balance.toLocaleString("en-KE", { maximumFractionDigits: 2 }) : "—"}
+        from {format(MIN_PLAY_AMOUNT)} to {balance > 0 ? format(balance) : "—"}
       </p>
 
       {/* Multiplier quick-pick */}
@@ -316,7 +323,7 @@ function WheelOfFortune({
         </Link>
       ) : (
         <button type="button" onClick={spin}
-          disabled={spinning || loading || !amt || amt < MIN_PLAY_AMOUNT}
+          disabled={spinning || loading || !amt || amtKes < MIN_PLAY_AMOUNT}
           className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-[0_4px_20px_rgba(8,124,255,.35)] hover:bg-[#0570e8] active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
           {(spinning || loading) ? (
             <LoadingDots label={loading ? "Placing" : "Spinning"} />
@@ -421,7 +428,9 @@ export function SportsBetSlip() {
   const { isSignedIn } = useSupabaseAuth();
   const { openLogin }  = useAuthModal();
   const { bets, removeBet, clearBets } = useBetslip();
-  const { balance, currency, refresh: refreshBalance } = useWalletBalance();
+  const { balance, refresh: refreshBalance } = useWalletBalance();
+  // Stakes are entered/shown in the active display currency; server stays KES.
+  const { convert, toKes, format, currency: dispCur } = useCurrency();
 
   const [amounts,    setAmounts]    = useState<Record<string, string>>({});
   const [tab,        setTab]        = useState<"single" | "multi" | "mybets">("single");
@@ -434,7 +443,12 @@ export function SportsBetSlip() {
   const [showShare,  setShowShare]  = useState(false);
 
   const totalOdds  = bets.reduce((acc, b) => acc * parseFloat(b.value || "1"), 1);
-  const multiStake = parseFloat(amounts["__multi__"] || "0");
+  // `amounts` values are display-currency strings; *_Kes are the canonical
+  // amounts sent to / compared against the KES server + wallet balance.
+  const multiStake = parseFloat(amounts["__multi__"] || "0");        // display
+  const multiStakeKes = Math.round(toKes(multiStake));               // KES
+  // Payout preview is computed from the display stake, so it's already in the
+  // display currency — render it directly (do NOT re-convert).
   const multiPayout= multiStake > 0 ? retainedPayout(multiStake, multiStake * totalOdds).toFixed(2) : null;
 
   const fetchMyBets = useCallback(async () => {
@@ -466,8 +480,8 @@ export function SportsBetSlip() {
     setPlacedMsg(null);
     try {
       if (tab === "multi") {
-        if (!multiStake || multiStake < MIN_PLAY_AMOUNT) {
-          setPlacedMsg({ ok: false, text: `Minimum stake is KSh ${MIN_PLAY_AMOUNT}` });
+        if (!multiStake || multiStakeKes < MIN_PLAY_AMOUNT) {
+          setPlacedMsg({ ok: false, text: `Minimum stake is ${format(MIN_PLAY_AMOUNT)}` });
           return;
         }
         const res = await fetch("/api/bets", {
@@ -475,7 +489,7 @@ export function SportsBetSlip() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type: "MULTI",
-            stake: multiStake,
+            stake: multiStakeKes,
             selections: bets.map((b) => ({
               fixtureId: b.id.split("-")[0],
               matchName: b.matchName,
@@ -492,13 +506,14 @@ export function SportsBetSlip() {
       } else {
         const results = await Promise.all(
           bets.map(async (bet) => {
-            const stake = parseFloat(amounts[bet.id] || "0");
-            if (!stake || stake < MIN_PLAY_AMOUNT) return { ok: false, error: `Minimum stake is KSh ${MIN_PLAY_AMOUNT}` };
+            const stake = parseFloat(amounts[bet.id] || "0");           // display
+            const stakeKes = Math.round(toKes(stake));                  // KES
+            if (!stake || stakeKes < MIN_PLAY_AMOUNT) return { ok: false, error: `Minimum stake is ${format(MIN_PLAY_AMOUNT)}` };
             const res = await fetch("/api/bets", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                type: "SINGLE", stake,
+                type: "SINGLE", stake: stakeKes,
                 selections: [{
                   fixtureId: bet.id.split("-")[0],
                   matchName: bet.matchName,
@@ -527,12 +542,12 @@ export function SportsBetSlip() {
     }
   }
 
-  const fmtBalance = `${currency === "KES" ? "KSh" : currency} ${balance.toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmtBalance = format(balance);
 
   const stakeTotal = tab === "multi"
     ? multiStake
     : bets.reduce((sum, b) => sum + parseFloat(amounts[b.id] || "0"), 0);
-  const notEnoughFunds = isSignedIn && stakeTotal > 0 && stakeTotal > balance;
+  const notEnoughFunds = isSignedIn && stakeTotal > 0 && toKes(stakeTotal) > balance;
 
   return (
     <>
@@ -649,7 +664,7 @@ export function SportsBetSlip() {
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className="text-[10px] text-slate-600">
-                            {new Date(bet.createdAt).toLocaleString("en-KE", { timeZone: "Africa/Nairobi", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            {new Date(bet.createdAt).toLocaleString(MONEY_LOCALE, { timeZone: "Africa/Nairobi", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                           </span>
                           <Icon name="expand_more" className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                         </div>
@@ -686,13 +701,13 @@ export function SportsBetSlip() {
                       )}
                     </button>
                     <div className="mt-2 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 text-[11px]">
-                      <span className="text-slate-500">Stake <span className="font-black text-white">KSh {bet.stake.toFixed(2)}</span></span>
+                      <span className="text-slate-500">Stake <span className="font-black text-white">{format(bet.stake)}</span></span>
                       {bet.status === "WON" && bet.winAmount ? (
-                        <span className="font-black text-emerald-400">+KSh {bet.winAmount.toFixed(2)}</span>
+                        <span className="font-black text-emerald-400">+{format(bet.winAmount)}</span>
                       ) : bet.status === "LOST" ? (
-                        <span className="text-red-400 font-black">-KSh {bet.stake.toFixed(2)}</span>
+                        <span className="text-red-400 font-black">-{format(bet.stake)}</span>
                       ) : (
-                        <span className="text-slate-500">To win <span className="font-black text-amber-400">KSh {bet.potentialWin.toFixed(2)}</span></span>
+                        <span className="text-slate-500">To win <span className="font-black text-amber-400">{format(bet.potentialWin)}</span></span>
                       )}
                     </div>
                     {isOpen && (
@@ -703,12 +718,12 @@ export function SportsBetSlip() {
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Potential win</span>
-                          <span className="font-black text-amber-400">KSh {bet.potentialWin.toFixed(2)}</span>
+                          <span className="font-black text-amber-400">{format(bet.potentialWin)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Placed</span>
                           <span className="font-bold text-slate-300">
-                            {new Date(bet.createdAt).toLocaleString("en-KE", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                            {new Date(bet.createdAt).toLocaleString(MONEY_LOCALE, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -767,7 +782,7 @@ export function SportsBetSlip() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/40">
-                      <span className="shrink-0 text-[11px] font-black text-slate-500">KSh</span>
+                      <span className="shrink-0 text-[11px] font-black text-slate-500">{dispCur.symbol}</span>
                       <input
                         type="number" min="0" placeholder="0"
                         value={amounts[bet.id] ?? ""}
@@ -776,23 +791,26 @@ export function SportsBetSlip() {
                       />
                       <button type="button"
                         className="shrink-0 text-[11px] font-black text-[#087cff] transition hover:text-[#4fa8ff]"
-                        onClick={() => setAmounts((a) => ({ ...a, [bet.id]: String(Math.floor(balance)) }))}>
+                        onClick={() => setAmounts((a) => ({ ...a, [bet.id]: String(Math.floor(convert(balance))) }))}>
                         Max
                       </button>
                     </div>
                     <div className="mt-1.5 flex gap-1.5">
-                      {[50, 100, 200, 500].map((q) => (
+                      {[50, 100, 200, 500].map((q) => {
+                        const qd = Math.round(convert(q)); // KES preset → display units
+                        return (
                         <button key={q} type="button"
-                          onClick={() => setAmounts((a) => ({ ...a, [bet.id]: String(parseFloat(a[bet.id] || "0") + q) }))}
+                          onClick={() => setAmounts((a) => ({ ...a, [bet.id]: String(parseFloat(a[bet.id] || "0") + qd) }))}
                           className="flex-1 rounded-lg bg-white/[0.05] py-1 text-[10px] font-black text-slate-400 transition hover:bg-[#087cff]/20 hover:text-[#75b8ff]">
-                          +{q}
+                          +{qd.toLocaleString(dispCur.locale)}
                         </button>
-                      ))}
+                        );
+                      })}
                     </div>
                     <div className="mt-2 flex items-center justify-between text-[11px]">
                       <span className="text-slate-500">Possible win</span>
                       <span className={`font-black ${payout ? "text-emerald-400" : "text-slate-600"}`}>
-                        KSh {payout ?? "0.00"}
+                        {formatInCurrency(payout ? Number(payout) : 0, dispCur.code)}
                       </span>
                     </div>
                   </div>
@@ -831,14 +849,14 @@ export function SportsBetSlip() {
                     className="min-w-0 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-slate-600"
                   />
                   <button type="button" className="shrink-0 text-[11px] font-black text-[#087cff]"
-                    onClick={() => setAmounts((a) => ({ ...a, __multi__: String(Math.floor(balance)) }))}>
+                    onClick={() => setAmounts((a) => ({ ...a, __multi__: String(Math.floor(convert(balance))) }))}>
                     All in
                   </button>
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Possible win</span>
                   <span className={`font-black ${multiPayout ? "text-emerald-400" : "text-slate-600"}`}>
-                    KSh {multiPayout ?? "0.00"}
+                    {formatInCurrency(multiPayout ? Number(multiPayout) : 0, dispCur.code)}
                   </span>
                 </div>
               </div>
@@ -898,12 +916,15 @@ export function SportsBetSlip() {
                   <span className="text-[11px] text-slate-500">Possible win</span>
                   <div className="flex items-center gap-2">
                     <span className="text-[13px] font-black text-emerald-400 tabular-nums">
-                      KSh {tab === "multi"
-                        ? (multiPayout ?? "0.00")
-                        : bets.reduce((s, b) => {
-                            const stake = parseFloat(amounts[b.id] || "0");
-                            return s + (stake > 0 ? retainedPayout(stake, stake * parseFloat(b.value)) : 0);
-                          }, 0).toFixed(2)}
+                      {formatInCurrency(
+                        tab === "multi"
+                          ? (multiPayout ? Number(multiPayout) : 0)
+                          : bets.reduce((s, b) => {
+                              const stake = parseFloat(amounts[b.id] || "0");
+                              return s + (stake > 0 ? retainedPayout(stake, stake * parseFloat(b.value)) : 0);
+                            }, 0),
+                        dispCur.code
+                      )}
                     </span>
                     {/* Share button */}
                     <button

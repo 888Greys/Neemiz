@@ -4,22 +4,25 @@ import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { cookies } from "next/headers";
 import { TransactionStatus } from "@prisma/client";
 import { relworxSend } from "@/lib/relworx";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
+import { logAdminAction } from "@/lib/admin-audit";
 
 async function requireAdmin() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
-  const dbUser = await db.user.findUnique({ where: { supabaseId: user.id }, select: { isAdmin: true } });
+  const dbUser = await db.user.findUnique({ where: { supabaseId: user.id }, select: { id: true, isAdmin: true } });
   if (!dbUser?.isAdmin) return null;
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token || !verifyAdminToken(token)) return null;
-  return true;
+  return dbUser;
 }
 
 // PATCH /api/admin/withdrawals/[id]  { action: "approve" | "reject" }
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  if (!await requireAdmin()) return Response.json({ error: "Forbidden" }, { status: 403 });
+  const admin = await requireAdmin();
+  if (!admin) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = params;
   let body: { action: string; txHash?: string };
@@ -34,6 +37,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if ((txn.status as string) !== "PENDING_APPROVAL") {
     return Response.json({ error: "Withdrawal is not pending approval" }, { status: 409 });
   }
+
+  await logAdminAction({
+    adminId: admin.id,
+    action: `WITHDRAWAL_${body.action.toUpperCase()}`,
+    targetId: id,
+    metadata: { amount: Number(txn.amount), provider: txn.provider },
+    ipAddress: req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for"),
+  });
 
   if (body.action === "reject") {
     // Refund the held balance and mark cancelled
@@ -62,7 +73,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           userId: txn.userId,
           type:   "crypto_sell",
           title:  `${(meta?.crypto as string) ?? "Crypto"} sent`,
-          body:   `≈ ${(meta?.cryptoAmount as number) ?? ""} ${(meta?.crypto as string) ?? ""} sent for your KSh ${Number(txn.amount).toLocaleString()} sale.`,
+          body:   `≈ ${(meta?.cryptoAmount as number) ?? ""} ${(meta?.crypto as string) ?? ""} sent for your ${CURRENCY_SYMBOL} ${Number(txn.amount).toLocaleString()} sale.`,
           link:   "/wallet",
         },
       });

@@ -26,19 +26,27 @@ export async function GET(req: Request) {
   const staleMinutes = Math.max(30, Number(process.env.LIPAHARAKA_RECONCILE_STALE_MINUTES ?? "360"));
   const cutoff = new Date(Date.now() - staleMinutes * 60_000);
 
-  const stale = await db.transaction.findMany({
+  const staleRows = await db.transaction.findMany({
     where: {
       provider:  "lipaharaka",
       type:      TransactionType.WITHDRAWAL,
       status:    TransactionStatus.PENDING,
       createdAt: { lt: cutoff },
-      // Queued-for-low-float withdrawals are managed by process-queued-withdrawals
-      // (which has its own, longer timeout) — never refund them here.
-      NOT: { metadata: { path: ["queued"], equals: true } },
     },
     orderBy: { createdAt: "asc" },
     take: 100,
   });
+
+  // Exclude queued-for-low-float withdrawals (managed by process-queued-withdrawals
+  // with its own longer timeout). This MUST be done in JS, not as a Prisma
+  // `NOT: { metadata: { path: ["queued"], equals: true } }` filter: on Postgres
+  // jsonb that compiles to `NOT (metadata->'queued' = true)`, which is NULL — not
+  // TRUE — for rows where the key is absent, so WHERE drops them. That silently
+  // skipped every normal withdrawal (no `queued` key), leaving genuinely stuck
+  // payouts un-refunded forever. Here, absent/≠true counts as eligible.
+  const stale = staleRows.filter(
+    (w) => (w.metadata as { queued?: unknown } | null)?.queued !== true,
+  );
 
   let refunded = 0;
   const details: Array<{ id: string; amount: number }> = [];

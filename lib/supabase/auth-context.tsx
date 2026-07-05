@@ -12,6 +12,22 @@ import { createClient } from "@/lib/supabase/client";
 import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 import { toast } from "@/lib/toast";
 
+// Belt-and-suspenders: expire any lingering Supabase auth cookies (sb-*, incl.
+// the chunked .0/.1/... pieces) across the host and its parent domain, so a
+// failed server logout can't leave a session behind.
+function clearSupabaseCookies() {
+  if (typeof document === "undefined") return;
+  const host = window.location.hostname;
+  const domains = ["", host, `.${host}`, `.${host.split(".").slice(-2).join(".")}`];
+  for (const c of document.cookie.split(";")) {
+    const name = c.split("=")[0]?.trim();
+    if (!name || !name.startsWith("sb-")) continue;
+    for (const d of domains) {
+      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT${d ? `; domain=${d}` : ""}`;
+    }
+  }
+}
+
 // Money app: sign the user out after this much inactivity so an unlocked,
 // unattended device can't be used to move funds.
 const IDLE_LIMIT_MS = 60 * 60 * 1000; // 1 hour
@@ -78,11 +94,32 @@ export function SupabaseAuthProvider({
     }
 
     // Prime from existing session immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoaded(true);
       void enforceAccountStatus(session);
+
+      // getSession() only decodes the local cookie — it does NOT verify the
+      // token against the auth server. A cookie issued by a previous Supabase
+      // project (e.g. after an auth-backend migration) still decodes fine, so
+      // the UI thinks it's signed in while every server call returns 401. Verify
+      // the primed session against the auth server and, if the token is rejected,
+      // clear it so the user is cleanly logged out instead of hitting
+      // "Unauthorized" on the phone prompt, deposits, withdrawals, etc.
+      if (session) {
+        try {
+          const { data: { user: verified }, error } = await supabase.auth.getUser();
+          const rejected = (error && (error.status === 401 || error.status === 403)) || (!error && !verified);
+          if (rejected) {
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+          }
+        } catch {
+          // Network/transient error — keep the session; protected APIs still gate.
+        }
+      }
     });
 
     // Fire a "new login detected" alert once per actual sign-in. Deduped on
@@ -164,6 +201,7 @@ export function SupabaseAuthProvider({
     async function logoutIdle() {
       try { localStorage.setItem(IDLE_FLAG_KEY, "1"); } catch { /* ignore */ }
       try { await createClient().auth.signOut(); } catch { /* ignore */ }
+      clearSupabaseCookies();
       window.location.replace("/");
     }
 
@@ -193,7 +231,20 @@ export function SupabaseAuthProvider({
       return;
     }
     const supabase = createClient();
-    await supabase.auth.signOut();
+    // supabase-js sends the server logout FIRST and only then clears the local
+    // session — so if the server call errors (it did while the aal2 cookie was
+    // oversized), cookies survive and the middleware refreshes them right back,
+    // leaving the user "logged in". Make sign-out resilient: always clear the
+    // local session, then hard-nuke any lingering sb-* auth cookies.
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      try { await supabase.auth.signOut({ scope: "local" }); } catch { /* ignore */ }
+    }
+    clearSupabaseCookies();
+    // Hard navigation (not router.push) so the middleware re-evaluates against
+    // the now-cleared cookies and no stale in-memory session survives.
+    window.location.assign("/");
   }, []);
 
   return (

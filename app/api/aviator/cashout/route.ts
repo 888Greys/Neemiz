@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { callAviatorService, type GoCashoutResponse } from "@/lib/aviator/service";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
+import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -87,7 +88,7 @@ export async function POST(req: Request) {
           userId: dbUser.id,
           type: "AVIATOR_WON",
           title: `Aviator cashout at ${cashoutAt.toFixed(2)}x`,
-          body: `KSh ${winAmount.toLocaleString("en-KE")} was credited to your wallet.`,
+          body: `${CURRENCY_SYMBOL} ${winAmount.toLocaleString(MONEY_LOCALE)} was credited to your wallet.`,
           link: "/aviator",
         },
       });

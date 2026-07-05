@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
@@ -8,8 +9,10 @@ import { applyProfitRetention } from "@/lib/house-retention";
 // House edge ~5% on all contract types; Over/Under scales with win probability
 // so no barrier digit gives the player +EV.
 import { payoutRate } from "@/lib/binary-settle";
+import { isBetTypeDisabled } from "@/lib/game-guard";
+import { CURRENCY_SYMBOL } from "@/lib/currency";
 
-const VALID_MARKETS = ["R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
+const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_SIDES   = ["Even", "Odd", "Matches", "Differs", "Over", "Under"];
 const MIN_STAKE     = 10;
 const MAX_STAKE     = 10_000;
@@ -18,6 +21,10 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Throttle bet placement per user — defense-in-depth against settlement/stake spam.
+  const rl = rateLimit(`binary-bet:${user.id}`, 30, 60_000);
+  if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   let body: { market?: string; side?: string; stake?: number; targetDigit?: number; entryDigit?: number; durationTicks?: number };
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
@@ -28,8 +35,10 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid market" }, { status: 400 });
   if (!side || !VALID_SIDES.includes(side))
     return Response.json({ error: "Invalid side" }, { status: 400 });
+  if (await isBetTypeDisabled("binary", side))
+    return Response.json({ error: "This bet type is temporarily unavailable while we complete maintenance." }, { status: 503 });
   if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
-    return Response.json({ error: `Stake must be between KSh ${MIN_STAKE} and KSh ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
+    return Response.json({ error: `Stake must be between ${CURRENCY_SYMBOL} ${MIN_STAKE} and ${CURRENCY_SYMBOL} ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
   if (!Number.isInteger(entryDigit) || entryDigit! < 0 || entryDigit! > 9)
     return Response.json({ error: "Invalid entry digit" }, { status: 400 });
   if (!Number.isInteger(targetDigit) || targetDigit! < 0 || targetDigit! > 9)

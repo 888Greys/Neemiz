@@ -12,6 +12,23 @@ const nextConfig = {
     staleTimes: { dynamic: 30, static: 180 },
   },
   async headers() {
+    // In dev the server is plain http (incl. LAN access from a phone), so
+    // `upgrade-insecure-requests` + HSTS would force asset requests to https
+    // and break every stylesheet/script. Only harden these in production.
+    const isProd = process.env.NODE_ENV === "production";
+    const cspDirectives = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data:",
+      "connect-src 'self' https: wss:" + (isProd ? "" : " http: ws:"),
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "object-src 'none'",
+      ...(isProd ? ["upgrade-insecure-requests"] : []),
+    ];
     return [
       {
         source: "/(.*)",
@@ -21,9 +38,20 @@ const nextConfig = {
           { key: "Referrer-Policy",         value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy",      value: "camera=(), microphone=(), geolocation=()" },
           {
-            key:   "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains; preload",
+            // Pragmatic CSP: hardens the high-value directives (clickjacking,
+            // base-tag hijack, plugin/object injection, mixed content) without
+            // breaking Next.js' inline hydration scripts or Sentry. script/style
+            // stay 'unsafe-inline' because the App Router inlines them; the win
+            // here is frame-ancestors/base-uri/object-src, not script locking.
+            key: "Content-Security-Policy",
+            value: cspDirectives.join("; "),
           },
+          ...(isProd
+            ? [{
+                key:   "Strict-Transport-Security",
+                value: "max-age=63072000; includeSubDomains; preload",
+              }]
+            : []),
         ],
       },
     ];

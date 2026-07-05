@@ -535,6 +535,16 @@ Production always uses `www.nezeem.com`. Bare `nezeem.com` → 307 redirect to `
 
 - `MASTER_WALLET_MNEMONIC` controls all deposit funds — rotate if exposed, sweep first
 - `CRON_SECRET` authenticates VPS → Vercel cron calls — rotate if logged/exposed
-- Admin access requires `isAdmin = true` in the database — no UI to self-promote
+- Admin access requires **both** `isAdmin = true` in the DB **and** an owner email on the
+  env-config allowlist (`OWNER_EMAILS`, see `lib/admin-allowlist.ts`) **and** a valid 2FA
+  cookie. The DB flag alone is not sufficient — a flipped `is_admin` cannot reach the panel.
+  All admin routes go through `requireOwnerAdmin()` (`lib/admin-guard.ts`).
 - All money-moving API routes require Supabase session auth
 - P2P escrow: crypto is locked in `P2PCryptoBalance.locked` until released/refunded atomically
+- **Rate limiting** (`lib/rate-limit.ts`): admin 2FA verify (anti-TOTP-brute-force) and crypto
+  withdraw are throttled. In-process limiter; per-worker under clustering
+- **Inbound webhooks** verify HMAC signatures with constant-time compare before crediting
+  (NOWPayments IPN: `lib/nowpayments.ts`)
+- **HTTP headers** (`next.config.mjs`): HSTS, `X-Frame-Options: DENY`, `nosniff`, and a CSP
+  with `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`
+- **Server** (`nez`): UFW default-deny inbound (only 22/80/443/WireGuard open), fail2ban on SSH
