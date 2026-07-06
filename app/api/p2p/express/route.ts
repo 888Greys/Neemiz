@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { isP2PAdTradable } from "@/lib/p2p/ad-guards";
 import { isKesCoin, lockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
@@ -32,7 +33,9 @@ export async function POST(req: Request) {
     if (killed) return killed;
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
-    const restriction = await assertCanCreateP2POrder(dbUser.id);
+
+    const p2pDenied = await p2pBlockedResponse(dbUser.email);
+    if (p2pDenied) return p2pDenied;    const restriction = await assertCanCreateP2POrder(dbUser.id);
     if (restriction) return restriction;
     await deactivateUnbackedKesSellAds();
 
