@@ -1,3 +1,4 @@
+import { requireOwnerAdmin } from "@/lib/admin-guard";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
@@ -13,6 +14,7 @@ export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireOwnerAdmin())) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const dbUser = await db.user.findUnique({
     where: { supabaseId: user.id },

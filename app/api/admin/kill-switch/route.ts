@@ -1,21 +1,18 @@
-import { createClient } from "@/lib/supabase/server";
-import { getOrCreateUser } from "@/lib/get-or-create-user";
 import {
   withdrawalsDisabled,
   transfersDisabled,
   setWithdrawalsDisabled,
   setTransfersDisabled,
 } from "@/lib/withdrawal-guard";
+import { requireOwnerAdmin } from "@/lib/admin-guard";
 
 export const dynamic = "force-dynamic";
 
+// Full owner gate: auth + owner allowlist + is_admin + admin 2FA cookie.
 async function requireAdmin() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: Response.json({ error: "Unauthorized" }, { status: 401 }) };
-  const dbUser = await getOrCreateUser(user.id, { email: user.email });
-  if (!dbUser.isAdmin) return { error: Response.json({ error: "Forbidden" }, { status: 403 }) };
-  return { dbUser };
+  const uid = await requireOwnerAdmin();
+  if (!uid) return { error: Response.json({ error: "Forbidden" }, { status: 403 }) };
+  return { dbUser: { id: uid } };
 }
 
 // GET /api/admin/kill-switch — current state of the money-out switches.

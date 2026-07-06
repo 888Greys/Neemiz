@@ -1,3 +1,4 @@
+import { requireOwnerAdmin } from "@/lib/admin-guard";
 /**
  * GET /api/admin/crypto/wallets
  *
@@ -34,6 +35,7 @@ export async function GET(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireOwnerAdmin())) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const token = req.headers.get("cookie")
     ?.split(";")
