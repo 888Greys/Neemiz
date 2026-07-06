@@ -7,7 +7,7 @@ import { applyProfitRetention } from "@/lib/house-retention";
 import { getServerTickHistory } from "@/lib/binary-price";
 import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
 import { payoutRate, vanillaPayoutPerPoint, contractWinProb, MAX_VANILLA_MULT, MAX_WIN_PROB, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
-import { isBetTypeDisabled } from "@/lib/game-guard";
+import { isBetTypeDisabled, isBinaryOptionsInMaintenance, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
@@ -29,6 +29,9 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (await isBinaryOptionsInMaintenance())
+    return Response.json({ error: BINARY_MAINTENANCE_MESSAGE }, { status: 503 });
 
   const rl = rateLimit(`directional-bet:${user.id}`, 30, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
