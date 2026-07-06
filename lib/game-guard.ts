@@ -47,6 +47,26 @@ export async function isBetTypeDisabled(game: string, type: string): Promise<boo
 }
 
 /**
+ * Auto-halt lever: add `${game}:${type}` to the live disabled set and persist it.
+ * Merges with the currently-effective set (so the baseline defaults aren't lost)
+ * and clears the cache so the block takes effect immediately. Used by the
+ * runtime RTP guard to pull an exploitable contract kind offline without a deploy.
+ */
+export async function disableBetType(game: string, type: string): Promise<void> {
+  const token = `${game}:${type}`;
+  const current = await disabledBetTypes();
+  if (current.has(token)) return;
+  current.add(token);
+  const value = Array.from(current).join(",");
+  await db.systemSetting.upsert({
+    where: { key: "disabled_bet_types" },
+    update: { value },
+    create: { key: "disabled_bet_types", value },
+  });
+  cache = null; // force re-read on next check
+}
+
+/**
  * Whole-suite maintenance switch for the binary-options product (the /binary
  * page and every contract it sells: digits, directional, accumulators,
  * multipliers/turbos, vanillas, auto-trader). Used while the pricing spine is
