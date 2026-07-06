@@ -1,3 +1,4 @@
+import { isOwnerEmail } from "@/lib/admin-allowlist";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
@@ -12,6 +13,7 @@ async function requireAdmin() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
+  if (!isOwnerEmail(user.email)) return false;
   const dbUser = await db.user.findUnique({ where: { supabaseId: user.id }, select: { isAdmin: true } });
   if (!dbUser?.isAdmin) return false;
   const token = (await cookies()).get(COOKIE_NAME)?.value;

@@ -1,3 +1,4 @@
+import { requireOwnerAdmin } from "@/lib/admin-guard";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { sendTestingNoticeEmail } from "@/lib/brevo";
@@ -8,6 +9,7 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  if (!(await requireOwnerAdmin())) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
   if (!dbUser.isAdmin) return Response.json({ error: "Forbidden" }, { status: 403 });
