@@ -81,3 +81,45 @@ export async function isBinaryOptionsInMaintenance(): Promise<boolean> {
   maintCache = { on, expires: Date.now() + CACHE_TTL_MS };
   return on;
 }
+
+/**
+ * Per-family re-enable allowlist for the binary-options rebuild. While the
+ * suite is in maintenance, specific families that have been rebuilt on the
+ * engine-priced path can be brought back one at a time WITHOUT lifting the whole
+ * maintenance switch. Tokens are `${game}:${type}`, e.g. "directional:RISE_FALL".
+ *
+ * Source: `system_settings.binary_live_families` (comma-separated). Defaults to
+ * EMPTY — nothing is live until an owner explicitly adds a token, so the product
+ * stays fully offline by default even as the wiring lands.
+ */
+let liveCache: { set: Set<string>; expires: number } | null = null;
+
+export async function binaryLiveFamilies(): Promise<Set<string>> {
+  if (liveCache && liveCache.expires > Date.now()) return liveCache.set;
+  let set = new Set<string>();
+  try {
+    const row = await db.systemSetting.findUnique({
+      where: { key: "binary_live_families" },
+      select: { value: true },
+    });
+    if (row?.value) set = new Set(row.value.split(",").map((s) => s.trim()).filter(Boolean));
+  } catch {
+    // Table/flag missing — nothing live.
+  }
+  liveCache = { set, expires: Date.now() + CACHE_TTL_MS };
+  return set;
+}
+
+export async function isBinaryFamilyLive(game: string, type: string): Promise<boolean> {
+  return (await binaryLiveFamilies()).has(`${game}:${type}`);
+}
+
+/**
+ * Should a specific binary contract be served? True when the suite is not in
+ * maintenance, OR the specific family has been explicitly re-enabled. Callers
+ * that get `false` return the maintenance 503.
+ */
+export async function isBinaryContractServable(game: string, type: string): Promise<boolean> {
+  if (!(await isBinaryOptionsInMaintenance())) return true;
+  return isBinaryFamilyLive(game, type);
+}
