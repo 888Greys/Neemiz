@@ -1,11 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyTotp, COOKIE_NAME } from "@/lib/admin-2fa";
+import { isOwnerEmail } from "@/lib/admin-allowlist";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Owner allowlist gate (survives a DB is_admin flip); TOTP code below is the 2nd factor.
+  if (!isOwnerEmail(user.email)) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const dbUser = await db.user.findUnique({
     where: { supabaseId: user.id },

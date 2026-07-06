@@ -1,3 +1,4 @@
+import { requireOwnerAdmin } from "@/lib/admin-guard";
 /**
  * GET /api/admin/pesapal-setup
  * One-shot helper: fetches the IPN list from Pesapal and returns IPN IDs.
@@ -27,11 +28,9 @@ async function getToken(): Promise<string> {
 }
 
 export async function GET() {
-  // Admin auth check
-  const jar   = await cookies();
-  const token = jar.get("admin_token")?.value ?? "";
-  if (!verifyAdminToken(token)) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  // Full owner gate: auth + owner allowlist + is_admin + admin 2FA cookie.
+  if (!(await requireOwnerAdmin())) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   try {
