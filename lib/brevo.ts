@@ -57,6 +57,48 @@ export async function sendSuspiciousNumberAlertEmail(info: { msisdn: string; cou
 }
 
 /**
+ * Alert the owner that an `is_admin` flag changed on the users table. A flip to
+ * TRUE on a non-allowlisted email is the josemuthama-class signature (someone
+ * with DB/service-role access granting themselves admin) and is flagged CRITICAL.
+ */
+export async function sendAdminChangeAlertEmail(changes: {
+  email: string; username: string | null; from: string; to: string;
+  app: string | null; ip: string | null; at: string; allowlisted: boolean;
+}[]) {
+  const critical = changes.some((c) => c.to === "true" && !c.allowlisted);
+  const subject = critical
+    ? "🚨 Nezeem: is_admin granted to a NON-allowlisted account"
+    : `Nezeem: admin flag changed (${changes.length})`;
+  const rows = changes.map((c) => {
+    const danger = c.to === "true" && !c.allowlisted;
+    return `<tr style="border-top:1px solid #e2e8f0">
+      <td style="padding:8px 6px;font-weight:700">${c.email}${c.username ? ` (${c.username})` : ""}</td>
+      <td style="padding:8px 6px">${c.from} → <strong>${c.to}</strong></td>
+      <td style="padding:8px 6px">${danger ? "<span style='color:#dc2626;font-weight:700'>NOT allowlisted ⚠️</span>" : "allowlisted"}</td>
+      <td style="padding:8px 6px;color:#64748b">${c.app ?? "?"} / ${c.ip ?? "?"}</td>
+      <td style="padding:8px 6px;color:#64748b">${c.at}</td>
+    </tr>`;
+  }).join("");
+  const html = `
+    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#0f172a">
+      <h2 style="margin:0 0 8px">${critical ? "Admin flag granted to a non-allowlisted account" : "Admin flag change detected"}</h2>
+      <p style="margin:0 0 16px;color:#475569;line-height:1.6">
+        The <code>is_admin</code> column changed on the users table. ${critical
+          ? "One change granted admin to an email that is NOT on the owner allowlist — the panel is still gated by the allowlist (requireOwnerAdmin), but this write should be investigated."
+          : "All changes are on allowlisted accounts."}
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead><tr style="text-align:left;color:#64748b">
+          <th style="padding:6px">Account</th><th style="padding:6px">Change</th><th style="padding:6px">Allowlist</th><th style="padding:6px">Source</th><th style="padding:6px">When (UTC)</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated alert from Nezeem. You receive this because you're an owner/admin.</p>
+    </div>`;
+  await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
+}
+
+/**
  * Alert the owner that the daily ledger reconciliation found accounts holding
  * balance with no transaction trail — the signature of money injected straight
  * into wallet_balance (DB compromise / re-breach).
