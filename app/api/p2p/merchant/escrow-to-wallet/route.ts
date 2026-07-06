@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { creditUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { TransactionType, TransactionStatus } from "@prisma/client";
@@ -16,7 +17,9 @@ export async function POST(req: Request) {
     if (killed) return killed;
 
     const dbUser   = await getOrCreateUser(user.id, { email: user.email });
-    const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
+
+    const p2pDenied = await p2pBlockedResponse(dbUser.email);
+    if (p2pDenied) return p2pDenied;    const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
     if (!merchant) return Response.json({ error: "Merchant account required" }, { status: 403 });
 
     let body: Record<string, unknown>;
