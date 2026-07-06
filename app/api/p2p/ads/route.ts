@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
+import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
 import { autoApproveIfDue } from "@/lib/p2p/merchant-approval";
 import { isKesCoin, p2pFeeRate, p2pMakerLock } from "@/lib/p2p/crypto-balance";
@@ -106,7 +107,9 @@ export async function POST(req: Request) {
     if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
     const dbUser   = await getOrCreateUser(user.id, { email: user.email });
-    const found    = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
+
+    const p2pDenied = await p2pBlockedResponse(dbUser.email);
+    if (p2pDenied) return p2pDenied;    const found    = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
     const merchant = found ? await autoApproveIfDue(found) : null;
     if (!merchant?.isVerified) return Response.json({ error: "Merchant account required" }, { status: 403 });
 

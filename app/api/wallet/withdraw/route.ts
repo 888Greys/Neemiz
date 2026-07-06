@@ -129,11 +129,11 @@ export async function POST(req: Request) {
         }
       }
 
-      // A destination number may receive cash only ONCE. If any prior
+      // A destination number may receive cash only ONCE, EVER. If any prior
       // (non-failed) M-Pesa withdrawal already went to this msisdn — whether by
       // this user or any other account — block it. This stops a single number
       // being used as a repeat cash-out endpoint for seeded/mule accounts.
-      // Admins are exempt (owner may re-pay their own number).
+      // Applies to everyone, admins included (owner request 2026-07-06).
       const priorToNumber = await tx.transaction.findFirst({
         where: {
           type:     TransactionType.WITHDRAWAL,
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
         },
         select: { id: true },
       });
-      if (priorToNumber && !dbUser.isAdmin) {
+      if (priorToNumber) {
         throw new Error("PHONE_NUMBER_USED");
       }
 
