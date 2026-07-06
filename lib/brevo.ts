@@ -99,6 +99,32 @@ export async function sendAdminChangeAlertEmail(changes: {
 }
 
 /**
+ * Alert the owner that the runtime RTP guard auto-halted a binary contract kind
+ * (realized house loss over volume) and/or flagged high-RTP players.
+ */
+export async function sendRtpGuardAlertEmail(r: {
+  halted: { kind: string; rtp: number }[];
+  userFlags: { userId: string; rtp: number; count: number }[];
+  windowH: number;
+}) {
+  const subject = r.halted.length
+    ? `🚨 Nezeem: binary ${r.halted.map((h) => h.kind).join(", ")} AUTO-HALTED (RTP breach)`
+    : `Nezeem: ${r.userFlags.length} high-RTP player(s) flagged`;
+  const haltList = r.halted.map((h) => `<li><strong>${h.kind}</strong> — realized RTP ${(h.rtp * 100).toFixed(0)}% (auto-disabled)</li>`).join("");
+  const userList = r.userFlags.map((u) => `<li>${u.userId.slice(0, 10)}… — ${(u.rtp * 100).toFixed(0)}% RTP over ${u.count} trades</li>`).join("");
+  const html = `
+    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
+      <h2 style="margin:0 0 8px">${r.halted.length ? "Binary contract auto-halted" : "High-RTP players flagged"}</h2>
+      <p style="margin:0 0 16px;color:#475569;line-height:1.6">Realized over the last ${r.windowH}h (admin/test accounts excluded).</p>
+      ${r.halted.length ? `<p style="margin:0 0 6px;font-weight:700">Auto-halted (now disabled):</p><ul style="margin:0 0 16px;color:#475569">${haltList}</ul>` : ""}
+      ${r.userFlags.length ? `<p style="margin:0 0 6px;font-weight:700">Players to review:</p><ul style="margin:0 0 16px;color:#475569">${userList}</ul>` : ""}
+      <a href="${APP_URL}/admin/risk" style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:10px">Open risk panel</a>
+      <p style="margin:20px 0 0;color:#94a3b8;font-size:12px">Automated alert from Nezeem.</p>
+    </div>`;
+  await sendEmail(ADMIN_EMAIL, "Nezeem Admin", subject, html);
+}
+
+/**
  * Alert the owner that the daily ledger reconciliation found accounts holding
  * balance with no transaction trail — the signature of money injected straight
  * into wallet_balance (DB compromise / re-breach).
