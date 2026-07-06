@@ -601,9 +601,10 @@ interface BinaryClientProps {
   userId?:   string;
   username?: string;
   balance?:  number;
+  liveTypes: TradeTypeId[];
 }
 
-export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClientProps) {
+export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }: BinaryClientProps) {
   const isLive = !!userId;
   const setNavBadge = useNavBadge()?.setBadge;
   // Display currency: convert KES amounts for display, and convert typed stakes
@@ -614,8 +615,11 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const [marketSymbol, setMarketSymbol] = useState(MARKETS[0].symbol);
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
   const [ticks, setTicks] = useState(() => seedTicks(market));
-  const [family, setFamily] = useState<ContractFamily>("evenOdd");
-  const [tradeType, setTradeType] = useState<TradeTypeId>("even_odd");
+  const [family, setFamily] = useState<ContractFamily>(() => {
+    const defaultType = liveTypes[0] ?? "even_odd";
+    return DIGIT_TYPE_TO_FAMILY[defaultType] ?? "evenOdd";
+  });
+  const [tradeType, setTradeType] = useState<TradeTypeId>(() => liveTypes[0] ?? "even_odd");
   // Manual vs. server-driven auto-trader (lib/auto-trade). Self-contained panel.
   const [autoMode, setAutoMode] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -630,12 +634,13 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
   const isDigitType = tradeType in DIGIT_TYPE_TO_FAMILY;
   // Mobile quick bar uses a fixed order (digits first, most-played) so tapping a
   // type never reshuffles the bar under the user's finger.
-  const recentTypes = DEFAULT_TYPE_ORDER;
+  const recentTypes = DEFAULT_TYPE_ORDER.filter((t) => liveTypes.includes(t));
   const selectTradeType = useCallback((id: TradeTypeId) => {
+    if (!liveTypes.includes(id)) return;
     setTradeType(id);
     const fam = DIGIT_TYPE_TO_FAMILY[id];
     if (fam) setFamily(fam);
-  }, []);
+  }, [liveTypes]);
   const [stake, setStake] = useState(10);
   const [targetDigit, setTargetDigit] = useState(5);
   const [duration, setDuration] = useState(5);
@@ -1554,7 +1559,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0 }: BinaryClie
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#050506] text-white sm:block sm:h-auto sm:min-h-full sm:overflow-visible sm:pb-16 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       <div data-binary-grid="true" className={`relative flex min-h-0 flex-1 flex-col min-w-0 gap-0 overflow-hidden px-0 py-0 sm:grid sm:flex-none sm:overflow-visible sm:px-2 sm:py-2 xl:grid xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         {pickerOpen && (
-          <TradeTypePicker value={tradeType} onSelect={selectTradeType} onClose={() => setPickerOpen(false)} />
+          <TradeTypePicker value={tradeType} onSelect={selectTradeType} onClose={() => setPickerOpen(false)} allowed={new Set(liveTypes)} />
         )}
         <aside className="order-2 hidden min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:flex xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
           {railOpen ? (

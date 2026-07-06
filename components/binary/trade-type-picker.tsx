@@ -13,12 +13,25 @@ export function TradeTypePicker({
   value,
   onSelect,
   onClose,
+  allowed,
 }: {
   value: TradeTypeId;
   onSelect: (id: TradeTypeId) => void;
   onClose: () => void;
+  allowed: Set<TradeTypeId>;
 }) {
-  const [cat, setCat] = useState<TradeCategory>("digits");
+  const allowedTypes = useMemo(() => TRADE_TYPES.filter((t) => allowed.has(t.id)), [allowed]);
+
+  const visibleCategories = useMemo(() => {
+    return TRADE_CATEGORIES.filter((c) =>
+      allowedTypes.some((t) => t.categories.includes(c.id))
+    );
+  }, [allowedTypes]);
+
+  const [cat, setCat] = useState<TradeCategory>(() => {
+    const hasOptions = allowedTypes.some((t) => t.categories.includes("options"));
+    return hasOptions ? "options" : "all";
+  });
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   // Auto-focus the search only on desktop. On mobile, focusing pops the
@@ -30,12 +43,12 @@ export function TradeTypePicker({
   const term = q.trim().toLowerCase();
   const filtered = useMemo(
     () =>
-      TRADE_TYPES.filter(
+      allowedTypes.filter(
         (t) =>
           t.categories.includes(cat) &&
           (term === "" || t.label.toLowerCase().includes(term)),
       ),
-    [cat, term],
+    [allowedTypes, cat, term],
   );
 
   // Group the filtered list by section heading, preserving catalogue order.
@@ -65,7 +78,7 @@ export function TradeTypePicker({
       {/* Left rail — categories */}
       <div className="w-[106px] shrink-0 border-r border-white/[0.07] py-2 sm:w-[150px] sm:py-3">
         <p className="px-2 pb-2 text-[11px] font-black text-white sm:px-4 sm:text-[13px]">Trade types</p>
-        {TRADE_CATEGORIES.map((c) => (
+        {visibleCategories.map((c) => (
           <button
             key={c.id}
             type="button"
