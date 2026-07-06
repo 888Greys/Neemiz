@@ -9,7 +9,7 @@ import { applyProfitRetention } from "@/lib/house-retention";
 // House edge ~5% on all contract types; Over/Under scales with win probability
 // so no barrier digit gives the player +EV.
 import { payoutRate } from "@/lib/binary-settle";
-import { isBetTypeDisabled } from "@/lib/game-guard";
+import { isBetTypeDisabled, isBinaryOptionsInMaintenance, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
@@ -21,6 +21,9 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  if (await isBinaryOptionsInMaintenance())
+    return Response.json({ error: BINARY_MAINTENANCE_MESSAGE }, { status: 503 });
 
   // Throttle bet placement per user — defense-in-depth against settlement/stake spam.
   const rl = rateLimit(`binary-bet:${user.id}`, 30, 60_000);

@@ -45,3 +45,39 @@ export async function disabledBetTypes(): Promise<Set<string>> {
 export async function isBetTypeDisabled(game: string, type: string): Promise<boolean> {
   return (await disabledBetTypes()).has(`${game}:${type}`);
 }
+
+/**
+ * Whole-suite maintenance switch for the binary-options product (the /binary
+ * page and every contract it sells: digits, directional, accumulators,
+ * multipliers/turbos, vanillas, auto-trader). Used while the pricing spine is
+ * rebuilt so the entire product is offline behind one professional maintenance
+ * screen — not a half-working game.
+ *
+ * Defaults to ON (offline) so a deploy alone takes it down. Re-enable WITHOUT a
+ * deploy by inserting/updating the `system_settings` row
+ * `binary_options_maintenance` to `off` (also accepts `0`/`false`/`disabled`).
+ * Any other value — or the row being absent — keeps it in maintenance.
+ */
+const BINARY_MAINTENANCE_DEFAULT = true;
+const MAINTENANCE_OFF = new Set(["off", "0", "false", "no", "disabled"]);
+
+export const BINARY_MAINTENANCE_MESSAGE =
+  "Binary is temporarily offline for scheduled maintenance while we upgrade the platform. Your balance is safe and every other market stays open.";
+
+let maintCache: { on: boolean; expires: number } | null = null;
+
+export async function isBinaryOptionsInMaintenance(): Promise<boolean> {
+  if (maintCache && maintCache.expires > Date.now()) return maintCache.on;
+  let on = BINARY_MAINTENANCE_DEFAULT;
+  try {
+    const row = await db.systemSetting.findUnique({
+      where: { key: "binary_options_maintenance" },
+      select: { value: true },
+    });
+    if (row?.value != null) on = !MAINTENANCE_OFF.has(row.value.trim().toLowerCase());
+  } catch {
+    // Table/flag missing — fall back to the default (offline).
+  }
+  maintCache = { on, expires: Date.now() + CACHE_TTL_MS };
+  return on;
+}
