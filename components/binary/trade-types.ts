@@ -52,6 +52,23 @@ export function tradeTypeById(id: TradeTypeId): TradeType {
   return TRADE_TYPES.find((t) => t.id === id) ?? TRADE_TYPES[0];
 }
 
+export const TRADE_TYPE_LIVE_TOKEN: Record<TradeTypeId, string> = {
+  accumulators: "accumulator:ALL",
+  vanillas: "directional:VANILLA",
+  turbos: "leveraged:TURBO",
+  multipliers: "leveraged:MULTIPLIER",
+  rise_fall: "directional:RISE_FALL",
+  higher_lower: "directional:HIGHER_LOWER",
+  touch_no_touch: "directional:TOUCH_NO_TOUCH",
+  matches_differs: "binary:Matches",
+  even_odd: "binary:Even",
+  over_under: "binary:Over",
+};
+
+export function liveTradeTypes(liveFamilies: Set<string>): TradeTypeId[] {
+  return TRADE_TYPES.map((t) => t.id).filter((id) => liveFamilies.has(TRADE_TYPE_LIVE_TOKEN[id]));
+}
+
 // Which trade types are fully wired vs. still UI-only (shows a "coming soon"
 // stub in the panel). Update as each type's settlement lands.
 export const IMPLEMENTED_TYPES: Set<TradeTypeId> = new Set([

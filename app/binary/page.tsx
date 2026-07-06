@@ -3,12 +3,17 @@ import { BinaryClient } from "@/components/binary/binary-client";
 import { BinaryMaintenance } from "@/components/binary/binary-maintenance";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { isBinaryOptionsInMaintenance } from "@/lib/game-guard";
+import { isBinaryOptionsInMaintenance, binaryLiveFamilies } from "@/lib/game-guard";
+import { TRADE_TYPES, liveTradeTypes } from "@/components/binary/trade-types";
 
 export const dynamic = "force-dynamic";
 
 export default async function BinaryPage() {
-  if (await isBinaryOptionsInMaintenance()) {
+  const maint = await isBinaryOptionsInMaintenance();
+  const allTypes = TRADE_TYPES.map((t) => t.id);
+  const liveTypes = maint ? liveTradeTypes(await binaryLiveFamilies()) : allTypes;
+
+  if (liveTypes.length === 0) {
     return (
       <AppShell hideFooter fullHeight hideSidebar>
         <BinaryMaintenance />
@@ -32,7 +37,7 @@ export default async function BinaryPage() {
 
   return (
     <AppShell hideFooter fullHeight hideSidebar>
-      <BinaryClient userId={userId} username={username} balance={balance} />
+      <BinaryClient userId={userId} username={username} balance={balance} liveTypes={liveTypes} />
     </AppShell>
   );
 }
