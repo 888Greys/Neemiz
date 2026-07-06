@@ -93,18 +93,37 @@ every `assume / clamp / fallback` in the old code with **measure or refuse**.
   continuously; auto-halt + alert on threshold breach, wired to `game-guard`.
   Keep the P2P cash-out gate so a successful exploit still can't launder out.
 
+## Pricing method (step 3) — why NOT classic options math
+
+Black–Scholes and the reflection principle are what *broke* the product: they
+assume a continuous, constant-volatility, no-jump market, and Deriv's synthetics
+are discrete, fat-tailed and (JD10) jumpy. So pricing is **nonparametric**:
+
+1. **Bootstrap real windows.** Draw many contiguous `duration`-tick windows from
+   the recent real feed (contiguous, so volatility clustering / autocorrelation /
+   jumps survive — not iid resampling).
+2. **Run the kernel** over each window → the player's win frequency, measured by
+   the same code that settles. No σ to under-measure, real digit distribution,
+   real discrete touch behaviour. The Touch and digit gaps vanish by construction.
+3. **Price off the Wilson UPPER bound** of that win frequency (house-conservative:
+   sampling error can only cost the house margin) with a hard **edge floor**,
+   payout **rounded down**, **liability caps**, and a **near-certainty reject**
+   (the deep-ITM class). Insufficient/thin data ⇒ refuse to quote.
+
+Implemented in `lib/binary/pricing.ts`; proven house-safe out-of-sample in
+`tests/pricing.test.ts` and on **live Deriv data** in `scripts/pricing-proof.ts`
+(`npm run pricing:proof`) — the worst legacy contract (NO_TOUCH @0.5σ) went from
+104–118% RTP (player +EV) to ≤ 99% on every symbol. The edge floor (9%) is set
+to absorb the regime drift low-vol indices show between calibration and
+settlement; symbols too unstable to price safely should be failed-closed.
+
 ## Build order
 1. ✅ **Extract the settlement kernel** — `lib/binary/kernel.ts` (behavior-preserving).
 2. ✅ **Fairness harness + CI gate** — `lib/binary/fairness.ts`, `tests/fairness.test.ts`, `scripts/fairness-sim.ts`.
-3. ⏳ **`estimateWinProb` pricing** — replace every closed-form price with a
-   Monte-Carlo of the kernel; prove each family crosses to RTP ≤ 1. *(encodes the
-   options math — do the research first.)*
-4. ⏳ **Calibration cron + `market_params`** — measure per-symbol; fail closed on stale.
-5. ⏳ **Signed quotes + commit-reveal** provably-fair.
+3. ✅ **Nonparametric pricing engine** — `lib/binary/pricing.ts`, `tests/pricing.test.ts`, `scripts/pricing-proof.ts`. Proven RTP ≤ 1 out-of-sample on live data.
+4. ⏳ **Calibration cron + `market_params`** — persist the rolling per-symbol tick buffer; fail closed on stale.
+5. ⏳ **Wire routes to the engine** — bet routes call the engine for the price; signed quotes + commit-reveal provably-fair; then re-enable behind the maintenance switch, one family at a time (Rise/Fall first).
 6. ⏳ **Runtime RTP guard.**
-
-Start each family end-to-end with **Rise/Fall** (simplest kernel) to prove the
-pipeline, then port the rest.
 
 ## Regression pin
 `tests/fairness.test.ts` also pins the root defect: the closed-form Touch model
