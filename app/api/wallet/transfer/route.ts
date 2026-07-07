@@ -122,10 +122,10 @@ export async function POST(req: Request) {
               { metadata: { path: ["recipientId"], equals: recipient.id } },
             ],
           },
-          select: { id: true },
+          select: { amount: true },
         });
         if (priorTransfer) {
-          throw new Error("ADMIN_ONCE_PER_DAY");
+          throw new Error(`ADMIN_ONCE_PER_DAY:${Number(priorTransfer.amount)}`);
         }
       }
 
@@ -179,8 +179,11 @@ export async function POST(req: Request) {
           : "You've reached today's cash-out limit (sends + withdrawals). It resets at 2:00 AM.",
       }, { status: 400 });
     }
-    if (error instanceof Error && error.message === "ADMIN_ONCE_PER_DAY") {
-      return Response.json({ error: "Admins can only send to another account once per day." }, { status: 400 });
+    if (error instanceof Error && error.message.startsWith("ADMIN_ONCE_PER_DAY:")) {
+      const sentAmount = Number(error.message.split(":")[1] ?? 0);
+      return Response.json({
+        error: `${CURRENCY_SYMBOL} ${sentAmount.toLocaleString(MONEY_LOCALE)} has been sent to ${recipient.username} today.`,
+      }, { status: 400 });
     }
     console.error("POST /api/wallet/transfer:", error);
     return Response.json({ error: "Transfer failed" }, { status: 500 });
