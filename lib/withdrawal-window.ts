@@ -49,3 +49,19 @@ export function dailyCapWhere(userId: string, now: number = Date.now()) {
     createdAt: { gte: withdrawalWindowStart(now) },
   };
 }
+
+/**
+ * Prisma `where` for outgoing WALLET TRANSFERS only, in the rolling window.
+ * Admins are exempt from the withdrawal cap (owner treasury) but STILL capped on
+ * transfers, so a compromised admin account can only send the daily limit — not
+ * drain the treasury via user-to-user sends.
+ */
+export function transferCapWhere(userId: string, now: number = Date.now()) {
+  return {
+    userId,
+    type:      TransactionType.WITHDRAWAL,
+    provider:  "wallet_transfer",
+    status:    { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+    createdAt: { gte: withdrawalWindowStart(now) },
+  };
+}
