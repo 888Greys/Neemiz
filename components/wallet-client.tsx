@@ -294,6 +294,13 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
     fetchCryptoBalances();
   }, [isSignedIn]);
 
+  // Warm the deposit address(es) as soon as Deposit opens, so the address + QR
+  // are already resolved by the time the user reaches the crypto detail view.
+  useEffect(() => {
+    if (!isSignedIn || tab !== "deposit") return;
+    for (const a of CRYPTO_DEPOSIT_ASSETS) if (a.enabled) prefetchDepositAddress(a.code, a.network);
+  }, [isSignedIn, tab]);
+
   // Load whether the user already opted in to the withdrawal-reopen alert.
   useEffect(() => {
     if (MPESA_WITHDRAWALS_ENABLED || !isSignedIn) return;
@@ -2075,32 +2082,58 @@ type CryptoAddrPhase =
   | { phase: "form"; error?: string }
   | { phase: "ready"; address: string };
 
+// Deposit addresses are deterministic per (coin, network) and never change, so
+// cache them for the session. Prefetching on deposit-open means the address + QR
+// are already resolved by the time the user views them — Binance-style, no spinner.
+const depositAddrCache = new Map<string, string>();
+const addrKey = (code: string, net: string) => `${code}:${net}`;
+
+async function resolveDepositAddress(code: string, net: string): Promise<string> {
+  const key = addrKey(code, net);
+  const hit = depositAddrCache.get(key);
+  if (hit) return hit;
+  try {
+    const res  = await fetch(`/api/crypto/address?crypto=${code}&network=${net}`);
+    const data = await res.json();
+    if (data?.address) { depositAddrCache.set(key, data.address as string); return data.address as string; }
+  } catch { /* fall through to generate */ }
+  const res  = await fetch("/api/crypto/address", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ crypto: code, network: net }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to generate address");
+  depositAddrCache.set(key, data.address as string);
+  return data.address as string;
+}
+
+/** Fire-and-forget warm-up so the address is cached before the user views it. */
+function prefetchDepositAddress(code: string, net: string) {
+  resolveDepositAddress(code, net).catch(() => { /* surfaced later on view */ });
+}
+
 function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
   const assets = useMemo(() => CRYPTO_DEPOSIT_ASSETS.filter((a) => groupMatches(group, a.code)), [group]);
   const codes  = useMemo(() => Array.from(new Set(assets.map((a) => a.code))), [assets]);
   const [sel, setSel]       = useState(0);
-  const [addr, setAddr]     = useState<CryptoAddrPhase>({ phase: "checking" });
+  // Seed instantly from the session cache (warmed by the deposit-open prefetch)
+  // so the address + QR render with no spinner on the common path.
+  const [addr, setAddr]     = useState<CryptoAddrPhase>(() => {
+    const first  = assets[0];
+    const cached = first && depositAddrCache.get(addrKey(first.code, first.network));
+    return cached ? { phase: "ready", address: cached } : { phase: "checking" };
+  });
   const [copied, setCopied] = useState(false);
   useEffect(() => { setSel(0); }, [group]);       // reset when the chosen coin group changes
   const asset    = assets[sel] ?? assets[0];
   const networks = assets.filter((a) => a.code === asset.code);
 
   const load = useCallback(async (code: string, net: string) => {
+    const cached = depositAddrCache.get(addrKey(code, net));
+    if (cached) { setAddr({ phase: "ready", address: cached }); return; }
     setAddr({ phase: "checking" });
     try {
-      const res  = await fetch(`/api/crypto/address?crypto=${code}&network=${net}`);
-      const data = await res.json();
-      if (data?.address) { setAddr({ phase: "ready", address: data.address as string }); return; }
-    } catch { /* fall through to generate */ }
-    setAddr({ phase: "generating" });
-    try {
-      const res  = await fetch("/api/crypto/address", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ crypto: code, network: net }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Failed to generate address");
-      setAddr({ phase: "ready", address: data.address as string });
+      setAddr({ phase: "ready", address: await resolveDepositAddress(code, net) });
     } catch (e: unknown) {
       setAddr({ phase: "form", error: e instanceof Error ? e.message : "Failed to generate address" });
     }
