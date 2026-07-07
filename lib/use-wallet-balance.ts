@@ -13,6 +13,7 @@ export type CryptoBalance = {
 
 type WalletState = {
   balance:        number;
+  forexBalance:   number;
   currency:       string;
   cryptoBalances: CryptoBalance[];
   loading:        boolean;
@@ -21,6 +22,7 @@ type WalletState = {
 const CACHE_TTL_MS = 15_000;
 const EMPTY_STATE: WalletState = {
   balance: 0,
+  forexBalance: 0,
   currency: "KES",
   cryptoBalances: [],
   loading: false,
@@ -51,6 +53,7 @@ async function fetchWalletState(force = false) {
       const data = await res.json();
       const state: WalletState = {
         balance: data.balance,
+        forexBalance: data.forexBalance ?? 0,
         currency: data.currency,
         cryptoBalances: data.cryptoBalances ?? [],
         loading: false,

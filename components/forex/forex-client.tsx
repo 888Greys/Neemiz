@@ -16,9 +16,11 @@ import {
 import { Icon } from "@/components/icon";
 import { ValuePickerSheet } from "@/components/binary/panels/digit-panel";
 import { useNavBadge } from "@/lib/nav-badge-context";
+import { useWalletBalance } from "@/lib/use-wallet-balance";
 
 type Direction = "buy" | "sell";
 type StreamStatus = "connecting" | "live" | "fallback";
+type ForexSection = "funding" | "trade" | "discover";
 
 type ForexMarket = {
   symbol: string;
@@ -283,6 +285,7 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
 
 export function ForexClient() {
   const { format } = useMoney(); // KES amounts → active display currency
+  const wallet = useWalletBalance();
   const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
   const [direction, setDirection] = useState<Direction>("buy");
   const [size, setSize] = useState(10000);
@@ -308,6 +311,7 @@ export function ForexClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const panel = searchParams.get("panel");
+  const section: ForexSection = panel === "funding" ? "funding" : panel === "discover" ? "discover" : "trade";
   const marketsOpen = panel === "markets";
   const positionsOpen = panel === "positions";
   const closePanel = useCallback(() => { router.replace(pathname, { scroll: false }); }, [router, pathname]);
@@ -682,6 +686,16 @@ export function ForexClient() {
         );
       })()}
 
+      {section === "funding" ? (
+        <ForexFundingPanel
+          mainBalance={wallet.balance}
+          forexBalance={wallet.forexBalance}
+          format={format}
+          onFunded={() => wallet.refresh(true)}
+        />
+      ) : section === "discover" ? (
+        <ForexDiscoverComingSoon />
+      ) : (
       <div data-forex-grid="true" className={`flex min-h-0 flex-1 flex-col max-w-full min-w-0 gap-1 overflow-hidden px-0 py-0 sm:grid sm:overflow-visible sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         <aside className="order-2 hidden min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:flex xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
           {railOpen ? (
@@ -916,6 +930,7 @@ export function ForexClient() {
           </section>
         </aside>
       </div>
+      )}
 
       {/* Mobile Positions screen (Deriv-style) — opened by the Positions tab
           (?panel=positions); full surface between app header and bottom nav. */}
@@ -943,7 +958,7 @@ export function ForexClient() {
       {/* Sticky mobile CTA — a single Open button that follows the Buy/Sell
           toggle above, so there's one clear action (no duplicate buttons).
           Hidden while a nav panel sheet (Markets/Positions) is open. */}
-      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 hidden border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur sm:block lg:bottom-0 xl:hidden ${positionsOpen || marketsOpen ? "sm:hidden" : ""}`}>
+      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 hidden border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur sm:block lg:bottom-0 xl:hidden ${positionsOpen || marketsOpen || section !== "trade" ? "sm:hidden" : ""}`}>
         <button
           type="button"
           onClick={() => openTrade()}
@@ -963,6 +978,163 @@ export function ForexClient() {
         </button>
       </div>
     </div>
+  );
+}
+
+function ForexFundingPanel({
+  forexBalance,
+  format,
+  mainBalance,
+  onFunded,
+}: {
+  forexBalance: number;
+  format: (value: number) => string;
+  mainBalance: number;
+  onFunded: () => void | Promise<void>;
+}) {
+  const [amount, setAmount] = useState(100);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const presets = [50, 100, 250, 500];
+  const canSubmit = Number.isFinite(amount) && amount > 0 && !busy;
+
+  async function fund() {
+    if (!canSubmit) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/forex/funding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error ?? "Funding failed");
+        return;
+      }
+      setMessage(`Moved ${format(amount)} to forex wallet`);
+      window.dispatchEvent(new Event("wallet-refresh"));
+      await onFunded();
+    } catch {
+      setMessage("Network error - please try again");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="min-h-0 flex-1 overflow-y-auto bg-[#151518] px-4 pb-24 pt-5 text-white sm:px-6 sm:pb-10">
+      <div className="mx-auto flex max-w-md flex-col gap-4">
+        <section className="rounded-2xl bg-[#222327] p-4 shadow-[0_18px_45px_rgba(0,0,0,.28)] ring-1 ring-white/[0.06]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[12px] font-black uppercase tracking-wide text-slate-400">Forex wallet</p>
+              <p className="mt-1 font-mono text-3xl font-black tabular-nums text-white">{format(forexBalance)}</p>
+            </div>
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#19b38f]/15 text-[#2ce1b5]">
+              <Icon name="account_balance_wallet" className="text-[24px]" />
+            </span>
+          </div>
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-black/22 px-3 py-2">
+            <span className="text-[12px] font-bold text-slate-400">Main wallet</span>
+            <span className="font-mono text-sm font-black text-slate-100">{format(mainBalance)}</span>
+          </div>
+        </section>
+
+        <section className="rounded-2xl bg-[#1f2024] p-4 ring-1 ring-white/[0.06]">
+          <label className="text-[12px] font-black uppercase tracking-wide text-slate-400" htmlFor="forex-fund-amount">
+            Amount to move
+          </label>
+          <div className="mt-2 flex h-14 items-center rounded-xl bg-[#111216] px-3 ring-1 ring-white/[0.07] focus-within:ring-[#19b38f]/70">
+            <span className="pr-2 text-[12px] font-black text-slate-500">KES</span>
+            <input
+              id="forex-fund-amount"
+              type="number"
+              min={1}
+              value={amount}
+              onChange={(event) => setAmount(Math.max(0, Number(event.target.value) || 0))}
+              className="min-w-0 flex-1 bg-transparent font-mono text-2xl font-black text-white outline-none"
+            />
+          </div>
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            {presets.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setAmount(preset)}
+                className={`h-10 rounded-xl text-[12px] font-black transition active:scale-[0.98] ${amount === preset ? "bg-white text-[#17181c]" : "bg-white/[0.07] text-slate-300"}`}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+          {message && (
+            <p className={`mt-3 rounded-xl px-3 py-2 text-[12px] font-bold ${message.includes("Moved") ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
+              {message}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={fund}
+            disabled={!canSubmit}
+            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#19a98c] px-4 py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-45"
+          >
+            <Icon name="arrow_forward" className="text-[18px]" />
+            {busy ? "Moving funds..." : "Move to forex wallet"}
+          </button>
+        </section>
+      </div>
+    </main>
+  );
+}
+
+function ForexDiscoverComingSoon() {
+  const previews: Array<{ icon: string; title: string; body: string }> = [
+    { icon: "calendar_month", title: "Economic calendar", body: "High-impact events and releases as they land." },
+    { icon: "newspaper",      title: "Market news",        body: "Live headlines that move the markets you trade." },
+    { icon: "lightbulb",      title: "Trading ideas",      body: "Curated setups and insights, tailored to you." },
+  ];
+
+  return (
+    <main className="min-h-0 flex-1 overflow-y-auto bg-[#151518] px-4 pb-24 pt-5 text-white sm:px-6 sm:pb-10">
+      <div className="mx-auto flex min-h-[70vh] max-w-md flex-col">
+        <div className="mb-6 flex items-center gap-2">
+          <Icon name="explore" className="text-[22px] text-slate-400" />
+          <h1 className="text-lg font-black">Discover</h1>
+        </div>
+
+        {/* Hero */}
+        <div className="flex flex-col items-center rounded-3xl bg-[#232326] px-6 py-10 text-center shadow-[0_18px_45px_rgba(0,0,0,.28)] ring-1 ring-white/[0.06]">
+          <span className="grid h-16 w-16 place-items-center rounded-2xl bg-[#087cff]/15 text-[#62a9ff]">
+            <Icon name="explore" className="text-[32px]" />
+          </span>
+          <h2 className="mt-5 text-2xl font-black text-white">Coming soon</h2>
+          <p className="mt-2 max-w-[18rem] text-[13px] font-bold leading-relaxed text-slate-400">
+            We&apos;re building a smarter Discover — market news, an economic calendar, and trading ideas, all in one place.
+          </p>
+          <span className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-[#087cff]/12 px-3 py-1.5 text-[11px] font-black text-[#62a9ff]">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#62a9ff]" />
+            In the works
+          </span>
+        </div>
+
+        {/* What's coming */}
+        <div className="mt-4 space-y-2.5">
+          {previews.map((p) => (
+            <div key={p.title} className="flex items-center gap-3 rounded-2xl bg-[#232326] p-3.5 ring-1 ring-white/[0.06]">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-slate-300">
+                <Icon name={p.icon} className="text-[20px]" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-black text-white">{p.title}</span>
+                <span className="block text-[12px] font-bold text-slate-500">{p.body}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </main>
   );
 }
 
