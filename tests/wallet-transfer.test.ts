@@ -129,11 +129,11 @@ describe("Wallet Transfer Rules", () => {
     // Mock successful debit
     mockTx.user.updateMany.mockResolvedValue({ count: 1 });
     // Mock prior transfers to this recipient: found a prior transaction
-    mockTx.transaction.findFirst.mockResolvedValue({ id: "tx_999" } as any);
+    mockTx.transaction.findFirst.mockResolvedValue({ id: "tx_999", amount: 50 } as any);
 
     const res = await POST(makeRequest({ recipientId: "rec_456", amount: 10 }));
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("Admins can only send to another account once per day");
+    expect(data.error).toContain("has been sent to");
   });
 });

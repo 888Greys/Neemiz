@@ -1588,7 +1588,16 @@ function WalletTransferPanel({
         </div>
       )}
 
-      {error && <p className="text-xs font-bold text-red-400">{error}</p>}
+      {error && (
+        error.includes("has been sent to") ? (
+          <div className="flex items-center gap-2.5 rounded-2xl bg-emerald-500/10 p-4 ring-1 ring-emerald-500/20 text-left">
+            <Icon name="info" className="text-emerald-400 shrink-0" fill />
+            <p className="text-xs font-bold text-emerald-400">{error}</p>
+          </div>
+        ) : (
+          <p className="text-xs font-bold text-red-400">{error}</p>
+        )
+      )}
       <Button
         onClick={sendMoney}
         disabled={sending || !recipient || !amount || Number(amount) <= 0}
