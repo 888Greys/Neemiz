@@ -24,7 +24,9 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { resolveContract, type ResolveParams, type DirectionalKind, type DirectionalSide } from "@/lib/binary/kernel";
 
-const SECRET = process.env.PROVABLY_FAIR_SECRET || process.env.ADMIN_2FA_SECRET || "";
+const SECRET = process.env.PROVABLY_FAIR_SECRET
+  || (process.env.NODE_ENV === "production" ? "" : process.env.ADMIN_2FA_SECRET)
+  || "";
 
 export function sha256(s: string): string {
   return createHash("sha256").update(s).digest("hex");

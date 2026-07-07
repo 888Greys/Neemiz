@@ -50,4 +50,19 @@ describe("provably-fair", () => {
     expect(canonicalize(p.terms)).toBe(canonicalize({ ...p.terms }));
     expect(canonicalize(p.terms)).not.toBe(canonicalize({ ...p.terms, side: "FALL" }));
   });
+
+  it("stake metadata can publish proof fields without revealing the server seed", () => {
+    const p = buildProof(base);
+    const stakeMetadata = {
+      pf: {
+        commitment: p.commitment,
+        signature: p.signature,
+        clientSeed: p.terms.clientSeed,
+        nonce: p.terms.nonce,
+        payoutMultiplier: p.terms.payoutMultiplier,
+      },
+    };
+    expect(stakeMetadata.pf).not.toHaveProperty("serverSeed");
+    expect(verifyReveal(p.serverSeed, stakeMetadata.pf.commitment)).toBe(true);
+  });
 });

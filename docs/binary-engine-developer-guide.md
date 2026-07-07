@@ -37,8 +37,8 @@ refuse to quote.
 2. **Market data** — `getCalibrationTicks(market)` (cached window + per-symbol `edge`) **and** `getLiveEntrySpot(market)` (fresh entry spot/epoch — never cached, closes the stale-entry timing edge).
 3. **Price** — `priceDirectionalServer({ …, ticks: window, edgeFloor: calib.edge })`. Rejects near-certain / thin data (fail-closed).
 4. **Prove** — `buildProof(...)` commits `SHA256(serverSeed)`, HMAC-signs the terms incl. `entryEpoch` + `payoutMultiplier`.
-5. **Persist** — atomic debit → `directionalTrade` (PENDING) + `BET_STAKE` transaction; proof stored in the stake tx `metadata.pf`. Return `provablyFair { commitment, signature, clientSeed, nonce }`.
-6. **Settle** (`/api/cron/settle-directional` + poll) — pull real ticks from `entryEpoch`, run the **same kernel** (`resolveContract`), `finalizeDirectional` flips PENDING→WON/LOST with an atomic claim, credits on win. Feed outage → VOID/refund.
+5. **Persist** — atomic debit → `directionalTrade` (PENDING) + `BET_STAKE` transaction. The stake tx stores public proof fields only (`commitment`, `signature`, `clientSeed`, `nonce`, multiplier); the private `serverSeed` lives on the trade row and is not returned until terminal status. Return `provablyFair { commitment, signature, clientSeed, nonce }`.
+6. **Settle** (`/api/cron/settle-directional` + poll) — pull real ticks from `entryEpoch`, run the **same kernel** (`resolveContract`), `finalizeDirectional` flips PENDING→WON/LOST with an atomic claim, credits on win. Feed outage → VOID/refund. Win/refund transactions include `metadata.pfReveal`; losses reveal through the verifier endpoint because no payout transaction is created.
 
 Settlement and pricing share `resolveContract`, so they cannot disagree.
 
@@ -52,9 +52,9 @@ Settlement and pricing share `resolveContract`, so they cannot disagree.
 
 Directional outcomes replay from public Deriv ticks, so the core proof needs no
 server RNG:
-- **Commitment** `SHA256(serverSeed)` published at bet time (bound to `clientSeed` + `nonce`); revealed at/after settlement (`verifyReveal`). serverSeed does **not** affect the outcome — its job is pre-commitment/anti-backdating.
-- **Signed quote** — HMAC over canonical terms incl. `entryEpoch`; `verifyQuoteSignature`. Tamper-evident. Secret: `PROVABLY_FAIR_SECRET` (falls back to `ADMIN_2FA_SECRET`).
-- **Outcome** — `verifyOutcome(terms, forwardTicks, stake)` replays the kernel; anyone can re-fetch the public ticks and confirm. Verifier: `bunx tsx scripts/verify-trade.ts <tradeId>`.
+- **Commitment** `SHA256(serverSeed)` published at bet time (bound to `clientSeed` + `nonce`); revealed only after settlement (`verifyReveal`). serverSeed does **not** affect the outcome — its job is pre-commitment/anti-backdating.
+- **Signed quote** — HMAC over canonical terms incl. `entryEpoch`; `verifyQuoteSignature`. Tamper-evident. Secret: `PROVABLY_FAIR_SECRET`. In production there is no fallback to admin/2FA secrets.
+- **Outcome** — `verifyOutcome(terms, forwardTicks, stake)` replays the kernel; anyone can re-fetch the public ticks and confirm. Verifiers: authenticated `GET /api/directional/verify?tradeId=...` for users/support, or `bunx tsx scripts/verify-trade.ts <tradeId>` server-side.
 
 ## Guards & operations (all DB-flag, no deploy)
 
