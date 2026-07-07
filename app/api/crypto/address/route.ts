@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { getOrCreateDepositAddress } from "@/lib/crypto/hd-wallet";
+import { VALID_CRYPTO_DEPOSIT_NETWORKS } from "@/lib/wallet-deposit-options";
 
 export const dynamic = "force-dynamic";
 
@@ -12,19 +13,7 @@ const DEPOSITS_ENABLED = process.env.CRYPTO_DEPOSITS_ENABLED === "true";
 const DEPOSITS_DISABLED_MSG =
   "Crypto deposits are temporarily disabled for security maintenance. Please check back soon.";
 
-const VALID: Record<string, string[]> = {
-  BTC:   ["BITCOIN"],
-  USDT:  ["TRC20", "ERC20", "BEP20"],
-  USDC:  ["ERC20", "POLYGON"],
-  ETH:   ["ERC20"],
-  BNB:   ["BEP20"],
-  MATIC: ["POLYGON"],
-  TRX:   ["TRC20"],
-  DAI:   ["ERC20"],
-  BUSD:  ["BEP20"],
-  WBTC:  ["ERC20"],
-  LINK:  ["ERC20"],
-};
+const VALID = VALID_CRYPTO_DEPOSIT_NETWORKS;
 
 function defaultNetwork(crypto: string): string {
   return VALID[crypto]?.[0] ?? "TRC20";
