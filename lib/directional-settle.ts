@@ -12,6 +12,21 @@ import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export type SettleResult = { outcome: "won" | "lost" | "already"; winAmount: number; exitSpot: number };
 
+function pfRevealMetadata(trade: DirectionalTrade) {
+  if (!trade.pfCommitment || !trade.pfSignature || !trade.pfServerSeed) return {};
+  return {
+    pfReveal: {
+      commitment: trade.pfCommitment,
+      signature: trade.pfSignature,
+      serverSeed: trade.pfServerSeed,
+      clientSeed: trade.pfClientSeed,
+      nonce: trade.pfNonce,
+      payoutMultiplier: trade.pfPayoutMultiplier == null ? null : Number(trade.pfPayoutMultiplier),
+      revealedAt: new Date().toISOString(),
+    },
+  };
+}
+
 /**
  * Atomically finalize a PENDING directional trade given a resolved outcome
  * (won + credit + exit spot computed by resolveContract). `credit` is the KSh
@@ -44,7 +59,11 @@ export async function finalizeDirectional(
           status: TransactionStatus.COMPLETED,
           reference: `directional-win-${trade.userId}-${trade.id}`,
           provider: "directional",
-          metadata: { game: "directional", tradeId: trade.id, market: trade.market, kind: trade.kind, side: trade.side, entrySpot: Number(trade.entrySpot), exitSpot: exit, barrier: trade.barrier == null ? null : Number(trade.barrier) },
+          metadata: {
+            game: "directional", tradeId: trade.id, market: trade.market, kind: trade.kind, side: trade.side,
+            entrySpot: Number(trade.entrySpot), exitSpot: exit, barrier: trade.barrier == null ? null : Number(trade.barrier),
+            ...pfRevealMetadata(trade),
+          },
         },
       });
     }
@@ -88,7 +107,7 @@ export async function voidDirectional(trade: DirectionalTrade, reason: string): 
         status: TransactionStatus.COMPLETED,
         reference: `directional-void-${trade.userId}-${trade.id}`,
         provider: "directional",
-        metadata: { game: "directional", tradeId: trade.id, market: trade.market, kind: trade.kind, side: trade.side, reason },
+        metadata: { game: "directional", tradeId: trade.id, market: trade.market, kind: trade.kind, side: trade.side, reason, ...pfRevealMetadata(trade) },
       },
     });
     await tx.notification.create({
