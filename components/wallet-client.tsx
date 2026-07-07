@@ -15,6 +15,12 @@ import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown
 import { cachedFetch, getCached } from "@/lib/client-cache";
 import { CURRENCY_SYMBOL, MONEY_LOCALE, WITHDRAWAL_FEE_RATE, WITHDRAWAL_FEE_PCT } from "@/lib/currency";
 import { useCurrency } from "@/lib/currency-context";
+import {
+  CRYPTO_DEPOSIT_ASSETS,
+  DEPOSIT_METHOD_ROWS,
+  type CryptoAssetGroup,
+  type DepositSelection,
+} from "@/lib/wallet-deposit-options";
 
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
@@ -118,14 +124,6 @@ const CRYPTO_WITHDRAW_ASSETS = [
 
 type CryptoWithdrawAsset = (typeof CRYPTO_WITHDRAW_ASSETS)[number];
 type CryptoBalance = { crypto: string; network: string; available: number; locked: number };
-
-// Crypto deposit groups shown as top-level methods; each maps to one or more
-// real deposit assets/networks the backend can actually generate addresses for.
-type CryptoAssetGroup = "USDT" | "BTC" | "ETH" | "OTHER";
-type DepositSelection =
-  | { kind: "mpesa" }
-  | { kind: "pesapal" }
-  | { kind: "crypto"; assetGroup: CryptoAssetGroup };
 
 type DepositState =
   | { step: "idle" }
@@ -1460,14 +1458,6 @@ function WalletPageFrame({ children, onBack, title }: { children: ReactNode; onB
   );
 }
 
-type DepositMethodRow = {
-  id: string;
-  label: string;
-  badges: string[];
-  enabled: boolean;
-  selection?: DepositSelection;
-};
-
 // Single-select payment-method picker. Highlights one row at a time (a radio),
 // shows real brand logos, and only advances when Continue is pressed — so the
 // choice is deliberate and the details view opens with a clean slate.
@@ -1478,18 +1468,9 @@ function DepositMethodStep({
   pesapalEnabled: boolean;
   onContinue: (selection: DepositSelection) => void;
 }) {
-  const rows: DepositMethodRow[] = [
-    { id: "card",     label: "Credit/Debit Card", badges: ["VISA", "MC"],      enabled: pesapalEnabled, selection: { kind: "pesapal" } },
-    { id: "mpesa",    label: "Mobile money",      badges: ["AIRTEL", "MPESA"], enabled: true,           selection: { kind: "mpesa" } },
-    { id: "binance",  label: "Binance Pay",       badges: ["BINANCE"],         enabled: false },
-    { id: "usdt",     label: "USDT",              badges: ["USDT"],            enabled: true,           selection: { kind: "crypto", assetGroup: "USDT" } },
-    { id: "btc",      label: "Bitcoin",           badges: ["BTC"],             enabled: true,           selection: { kind: "crypto", assetGroup: "BTC" } },
-    { id: "eth",      label: "Ethereum",          badges: ["ETH"],             enabled: true,           selection: { kind: "crypto", assetGroup: "ETH" } },
-    { id: "other",    label: "Other Crypto",      badges: ["USDC", "BINANCE"], enabled: true,           selection: { kind: "crypto", assetGroup: "OTHER" } },
-    { id: "skrill",   label: "Skrill",            badges: ["SKRILL"],          enabled: false },
-    { id: "neteller", label: "Neteller",          badges: ["NETELLER"],        enabled: false },
-    { id: "bank",     label: "Bank Transfer",     badges: ["BANK"],            enabled: false },
-  ];
+  const rows = DEPOSIT_METHOD_ROWS.map((row) =>
+    row.id === "card" ? { ...row, enabled: pesapalEnabled } : row,
+  );
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = rows.find((r) => r.id === selectedId && r.enabled && r.selection);
@@ -1519,7 +1500,7 @@ function DepositMethodStep({
                   {active && <span className="h-2.5 w-2.5 rounded-full bg-[#087cff]" />}
                 </span>
                 <span className="min-w-0 flex-1 text-[15px] font-black text-slate-200">{row.label}</span>
-                {!row.enabled && (
+                {!row.enabled && row.soon && (
                   <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
                     Soon
                   </span>
@@ -2102,17 +2083,6 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
 
 // ─── Crypto deposit panel (wallet page) ───────────────────────────────────────
 
-const CRYPTO_DEPOSIT_ASSETS = [
-  { name: "Tether USD", code: "USDT",  network: "TRC20",   displayNet: "TRC-20 (Tron)", min: 10 },
-  { name: "Tether USD", code: "USDT",  network: "ERC20",   displayNet: "ERC-20 (ETH)",  min: 10 },
-  { name: "Tether USD", code: "USDT",  network: "BEP20",   displayNet: "BEP-20 (BSC)",  min: 10 },
-  { name: "USD Coin",   code: "USDC",  network: "POLYGON", displayNet: "Polygon",       min: 10 },
-  { name: "USD Coin",   code: "USDC",  network: "ERC20",   displayNet: "ERC-20 (ETH)",  min: 10 },
-  { name: "Bitcoin",    code: "BTC",   network: "BITCOIN", displayNet: "Bitcoin",       min: 0.0001 },
-  { name: "Ethereum",   code: "ETH",   network: "ERC20",   displayNet: "ERC-20 (ETH)",  min: 0.001 },
-  { name: "BNB",        code: "BNB",   network: "BEP20",   displayNet: "BEP-20 (BSC)",  min: 0.005 },
-] as const;
-
 // USDT/BTC/ETH map to their own coin; OTHER holds everything else (USDC, BNB).
 function groupMatches(group: CryptoAssetGroup, code: string): boolean {
   return group === "OTHER" ? code !== "USDT" && code !== "BTC" && code !== "ETH" : code === group;
@@ -2212,16 +2182,28 @@ function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
               <button
                 key={n.network}
                 type="button"
-                onClick={() => setSel(i)}
+                disabled={!n.enabled}
+                onClick={() => { if (n.enabled) setSel(i); }}
                 className={`flex items-center gap-2.5 rounded-xl px-3 py-3 text-left transition ring-1 ${
-                  active ? "bg-[#087cff]/12 ring-[#087cff]/60" : "bg-[#0f1319] ring-white/[0.07]"
+                  !n.enabled
+                    ? "cursor-not-allowed bg-[#0f1319] opacity-45 ring-white/[0.07]"
+                    : active
+                      ? "bg-[#087cff]/12 ring-[#087cff]/60"
+                      : "bg-[#0f1319] ring-white/[0.07]"
                 }`}
               >
                 <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${active ? "border-[#087cff]" : "border-slate-600"}`}>
                   {active && <span className="h-2.5 w-2.5 rounded-full bg-[#087cff]" />}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[13px] font-black text-white">{n.network}</span>
+                  <span className="flex items-center gap-2 text-[13px] font-black text-white">
+                    {n.network}
+                    {n.soon && (
+                      <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-slate-500">
+                        Soon
+                      </span>
+                    )}
+                  </span>
                   <span className="block truncate text-[10px] font-bold text-slate-500">{n.displayNet}</span>
                 </span>
               </button>
