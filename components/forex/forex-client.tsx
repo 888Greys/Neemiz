@@ -1090,50 +1090,49 @@ function ForexFundingPanel({
 }
 
 function ForexDiscoverComingSoon() {
-  const events = [
-    ["03:42", "Medium impact", "ADP Employment Change Weekly"],
-    ["18:46", "High impact", "Balance of Trade"],
-    ["18:46", "Medium impact", "Exports"],
+  const previews: Array<{ icon: string; title: string; body: string }> = [
+    { icon: "calendar_month", title: "Economic calendar", body: "High-impact events and releases as they land." },
+    { icon: "newspaper",      title: "Market news",        body: "Live headlines that move the markets you trade." },
+    { icon: "lightbulb",      title: "Trading ideas",      body: "Curated setups and insights, tailored to you." },
   ];
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-[#151518] px-4 pb-24 pt-5 text-white sm:px-6 sm:pb-10">
-      <div className="mx-auto max-w-md">
-        <div className="mb-4 flex items-center gap-2">
+      <div className="mx-auto flex min-h-[70vh] max-w-md flex-col">
+        <div className="mb-6 flex items-center gap-2">
           <Icon name="explore" className="text-[22px] text-slate-400" />
           <h1 className="text-lg font-black">Discover</h1>
         </div>
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[18px] font-black">Economic events</h2>
-            <span className="text-[12px] font-black text-slate-400">Coming soon</span>
-          </div>
-          <div className="space-y-3">
-            {events.map(([time, impact, title]) => (
-              <div key={`${time}-${title}`} className="rounded-2xl bg-[#232326] p-3 shadow-[0_12px_30px_rgba(0,0,0,.22)]">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className="rounded bg-blue-500/80 px-1.5 py-0.5 font-mono text-[11px] font-black text-white">{time}</span>
-                  <span className={`rounded px-1.5 py-0.5 text-[11px] font-black ${impact === "High impact" ? "bg-red-500/15 text-red-300" : "bg-amber-500/15 text-amber-300"}`}>{impact}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="grid h-6 w-6 place-items-center rounded-full bg-blue-500/20 text-[11px] font-black text-blue-200">US</span>
-                  <p className="text-[14px] font-black text-slate-100">{title}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-        <section className="mt-8">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[18px] font-black">Market news</h2>
-            <span className="text-[12px] font-black text-slate-400">Coming soon</span>
-          </div>
-          <div className="rounded-2xl bg-[#232326] p-5 text-center ring-1 ring-white/[0.06]">
-            <Icon name="newspaper" className="mx-auto text-[34px] text-slate-500" />
-            <p className="mt-3 text-sm font-black text-white">Coming soon</p>
-            <p className="mt-1 text-[12px] font-bold text-slate-500">News, calendar, and trading ideas will land here.</p>
-          </div>
-        </section>
+
+        {/* Hero */}
+        <div className="flex flex-col items-center rounded-3xl bg-[#232326] px-6 py-10 text-center shadow-[0_18px_45px_rgba(0,0,0,.28)] ring-1 ring-white/[0.06]">
+          <span className="grid h-16 w-16 place-items-center rounded-2xl bg-[#087cff]/15 text-[#62a9ff]">
+            <Icon name="explore" className="text-[32px]" />
+          </span>
+          <h2 className="mt-5 text-2xl font-black text-white">Coming soon</h2>
+          <p className="mt-2 max-w-[18rem] text-[13px] font-bold leading-relaxed text-slate-400">
+            We&apos;re building a smarter Discover — market news, an economic calendar, and trading ideas, all in one place.
+          </p>
+          <span className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-[#087cff]/12 px-3 py-1.5 text-[11px] font-black text-[#62a9ff]">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#62a9ff]" />
+            In the works
+          </span>
+        </div>
+
+        {/* What's coming */}
+        <div className="mt-4 space-y-2.5">
+          {previews.map((p) => (
+            <div key={p.title} className="flex items-center gap-3 rounded-2xl bg-[#232326] p-3.5 ring-1 ring-white/[0.06]">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-slate-300">
+                <Icon name={p.icon} className="text-[20px]" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-black text-white">{p.title}</span>
+                <span className="block text-[12px] font-bold text-slate-500">{p.body}</span>
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </main>
   );
