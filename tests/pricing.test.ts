@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { makeRng, simulatePath } from "@/lib/binary/fairness";
 import {
   priceDigitContract, priceDirectionalContract, sampleWindows, wilsonUpper,
-  DEFAULT_CONFIG, type Window,
+  measureSymbolEdge, DEFAULT_EDGE, DEFAULT_CONFIG, type Window,
 } from "@/lib/binary/pricing";
 import { resolveContract, digitWonFromQuote, type ResolveParams, type DirectionalKind, type DirectionalSide } from "@/lib/binary/kernel";
 
@@ -75,6 +75,19 @@ describe("pricing engine: accepted contracts are house-safe out-of-sample (RTP â
       expect(rtp).toBeLessThanOrEqual(1.0);
     }
   }, 30_000);
+});
+
+describe("measureSymbolEdge (per-symbol edge)", () => {
+  it("returns a tight edge for a stable series and stays within bounds", () => {
+    const edge = measureSymbolEdge(TRAIN); // TRAIN is a clean synthetic GBM
+    expect(edge).toBeGreaterThanOrEqual(DEFAULT_EDGE.min);
+    expect(edge).toBeLessThanOrEqual(DEFAULT_EDGE.max);
+    expect(edge).toBeLessThan(0.10); // stable â‡’ near the base, not maxed out
+  });
+
+  it("returns the most conservative (max) edge on thin data", () => {
+    expect(measureSymbolEdge(TEST.slice(0, 30))).toBe(DEFAULT_EDGE.max);
+  });
 });
 
 describe("pricing engine: the safety gates fire", () => {
