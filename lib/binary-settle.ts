@@ -35,8 +35,8 @@ export async function settleTradeWithDigit(trade: BinaryTrade, exitDigit: number
   const won         = evaluateTrade(trade.side, exitDigit, trade.targetDigit);
   const stake       = Number(trade.stake);
   const winAmount   = won ? Number(trade.payout) : 0;
-  const grossPayout = Number((stake * payoutRate(trade.side, trade.targetDigit)).toFixed(2));
-  const retainedAmount = won ? retainedProfit(stake, grossPayout) : 0;
+  const grossPayout = Number(trade.payout);
+  const retainedAmount = 0;
   const now = new Date();
 
   return db.$transaction(async (tx) => {
