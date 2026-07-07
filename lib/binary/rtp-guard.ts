@@ -35,7 +35,7 @@ export async function runRtpGuard() {
   const kindMin   = num(process.env.RTP_HALT_MIN_SAMPLE, 200);
   const haltRtp   = num(process.env.RTP_HALT_THRESHOLD, 1.10);
   const userMin   = num(process.env.RTP_USER_MIN_SAMPLE, 50);
-  const userRtp   = num(process.env.RTP_USER_ALERT_THRESHOLD, 1.30);
+  const userRtp   = num(process.env.RTP_USER_ALERT_THRESHOLD, 1.15);
   const cooldownH = num(process.env.RTP_ALERT_COOLDOWN_HOURS, 6);
   const since = new Date(Date.now() - windowH * 60 * 60_000);
   const cooldownSince = new Date(Date.now() - cooldownH * 60 * 60_000);
