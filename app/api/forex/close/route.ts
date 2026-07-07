@@ -83,7 +83,7 @@ export async function POST(req: Request) {
       if (returnAmount > 0) {
         await tx.user.update({
           where: { id: dbUser.id },
-          data: { walletBalance: { increment: returnAmount } },
+          data: { forexWalletBalance: { increment: returnAmount } },
         });
         await tx.transaction.create({
           data: {
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
 
     const updatedUser = await db.user.findUnique({
       where: { id: dbUser.id },
-      select: { walletBalance: true },
+      select: { forexWalletBalance: true },
     });
 
     return Response.json({
@@ -130,7 +130,7 @@ export async function POST(req: Request) {
       returnAmount,
       grossReturnAmount,
       retainedAmount,
-      newBalance: Number(updatedUser?.walletBalance ?? 0),
+      newBalance: Number(updatedUser?.forexWalletBalance ?? 0),
     });
   } catch (err) {
     if (err instanceof Error && err.message === "ALREADY_CLOSED")

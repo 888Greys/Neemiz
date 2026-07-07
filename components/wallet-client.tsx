@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
@@ -37,6 +37,59 @@ const COIN_ICON_URL: Record<string, string> = {
   LINK:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/link.svg",
 };
 
+// Real brand + coin logos for the payment-method list. Coins reuse the
+// cryptocurrency-icons set; card/wallet brands come from Simple Icons. Every
+// entry is optional at render time — <PaymentIcon> falls back to a clean
+// monogram chip if a logo is missing or fails to load, so nothing ever breaks.
+const BRAND_ICON_URL: Record<string, string> = {
+  ...COIN_ICON_URL,
+  VISA:     "https://cdn.simpleicons.org/visa/1434CB",
+  MC:       "https://cdn.simpleicons.org/mastercard/EB001B",
+  AIRTEL:   "https://cdn.simpleicons.org/airtel/E40000",
+  MPESA:    "https://cdn.simpleicons.org/mpesa/4CAF50",
+  SKRILL:   "https://cdn.simpleicons.org/skrill/862165",
+  NETELLER: "https://cdn.simpleicons.org/neteller/83BA3B",
+  BINANCE:  "https://cdn.simpleicons.org/binance/F0B90B",
+};
+
+const BRAND_LABEL: Record<string, string> = {
+  VISA: "VISA", MC: "MC", AIRTEL: "Airtel", MPESA: "M-Pesa",
+  SKRILL: "Skrill", NETELLER: "Neteller", BINANCE: "BNB", BANK: "Bank",
+};
+
+/** A payment-brand / coin logo with a graceful fallback. Renders the real logo
+ *  when available; on a missing or broken URL it shows a tidy monogram chip so
+ *  the row still looks intentional. Bank has no logo → a wallet glyph. */
+function PaymentIcon({ badge }: { badge: string }) {
+  const [failed, setFailed] = useState(false);
+  const url = BRAND_ICON_URL[badge];
+  if (badge === "BANK") {
+    return (
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.08] text-slate-200">
+        <Icon name="account_balance" className="text-[17px]" />
+      </span>
+    );
+  }
+  if (url && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt={BRAND_LABEL[badge] ?? badge}
+        width={22}
+        height={22}
+        onError={() => setFailed(true)}
+        className="h-8 w-8 shrink-0 rounded-lg bg-white/[0.06] object-contain p-1"
+      />
+    );
+  }
+  return (
+    <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-white/[0.10] px-1.5 text-[10px] font-black text-slate-100">
+      {BRAND_LABEL[badge] ?? badge}
+    </span>
+  );
+}
+
 const CRYPTO_WITHDRAW_ASSETS = [
   { name: "Tether USD",       code: "USDT",  network: "TRC20",   displayNet: "TRC-20",  min: 1       },
   { name: "Tether USD",       code: "USDT",  network: "ERC20",   displayNet: "ERC-20",  min: 1       },
@@ -56,6 +109,14 @@ const CRYPTO_WITHDRAW_ASSETS = [
 
 type CryptoWithdrawAsset = (typeof CRYPTO_WITHDRAW_ASSETS)[number];
 type CryptoBalance = { crypto: string; network: string; available: number; locked: number };
+
+// Crypto deposit groups shown as top-level methods; each maps to one or more
+// real deposit assets/networks the backend can actually generate addresses for.
+type CryptoAssetGroup = "USDT" | "BTC" | "ETH" | "OTHER";
+type DepositSelection =
+  | { kind: "mpesa" }
+  | { kind: "pesapal" }
+  | { kind: "crypto"; assetGroup: CryptoAssetGroup };
 
 type DepositState =
   | { step: "idle" }
@@ -98,9 +159,9 @@ const TXN_META: Record<string, { label: string; icon: string; color: string; sig
 // form is re-enabled. The backend also requires LIPAHARAKA_WITHDRAWALS_ENABLED=true.
 const MPESA_WITHDRAWALS_ENABLED = true;
 
-type WalletTab = "deposit" | "send" | "withdraw" | "history";
+type WalletTab = "home" | "deposit" | "send" | "withdraw" | "history";
 
-export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: boolean; initialTab?: WalletTab } = {}) {
+export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boolean; initialTab?: WalletTab } = {}) {
   const { isSignedIn, user } = useSupabaseAuth();
   const { openLogin }        = useAuthModal();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
@@ -112,6 +173,9 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
   const [tab, setTab]                     = useState<WalletTab>(initialTab);
   // Non-KES users default to the crypto rail — M-Pesa only serves Kenya/KES.
   const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto" | "pesapal">(displayCurrency === "KES" ? "mpesa" : "crypto");
+  // Deposit is a two-step flow: pick a method, press Continue, then fill details.
+  const [depositStep, setDepositStep]     = useState<"method" | "detail">("method");
+  const [depositAssetGroup, setDepositAssetGroup] = useState<CryptoAssetGroup>("USDT");
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
   const [loading, setLoading]             = useState(false);
@@ -515,70 +579,28 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
   const formatCryptoAmount = (b: CryptoBalance) =>
     b.available.toFixed(b.crypto === "KES" ? 2 : b.crypto === "BTC" || b.crypto === "ETH" ? 8 : 4);
 
+  const activeTitle = tab.charAt(0).toUpperCase() + tab.slice(1);
+
   return (
-    <div className={`w-full ${wide ? "lg:grid lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start" : ""}`}>
-
-      {/* ── Balance hero ── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#051b35] via-[#091522] to-[#0d0e11] px-6 pb-5 pt-7 sm:pb-8 sm:pt-10">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#087cff]/15 blur-3xl" />
-        <div className="pointer-events-none absolute -left-12 bottom-0 h-44 w-44 rounded-full bg-[#087cff]/8 blur-2xl" />
-
-        <div className="relative mx-auto max-w-2xl text-center">
-          <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:text-[11px]">
-            Available Balance
-          </p>
-          <p className="text-3xl font-black tracking-tight text-white sm:text-5xl">
-            {isSignedIn ? fmtBalance : "—"}
-          </p>
-
-          {!isSignedIn && (
-            <button
-              type="button"
-              onClick={openLogin}
-              className="mt-5 rounded-2xl bg-[#087cff] px-6 py-2.5 text-sm font-black text-white shadow-lg shadow-blue-500/25 transition hover:bg-[#2a90ff]"
-            >
-              Log in to see balance
-            </button>
-          )}
-
-        </div>
-      </div>
-
-      <div className="min-w-0">{/* ── right column when wide: tabs + active panel ── */}
-      {/* ── Tabs ── */}
-      <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#0d0e11]">
-        <div className="mx-auto grid max-w-2xl grid-cols-4 gap-0">
-          {(["deposit", "send", "withdraw", "history"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2.5 text-[10px] font-black transition sm:flex-row sm:gap-1.5 sm:py-3.5 sm:text-[12px] sm:uppercase sm:tracking-wider ${
-                tab === t
-                  ? "border-b-2 border-[#087cff] text-[#087cff]"
-                  : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              <Icon
-                name={
-                  t === "deposit"
-                    ? "add_circle"
-                    : t === "send"
-                      ? "send"
-                    : t === "withdraw"
-                      ? "remove_circle"
-                      : "history"
-                }
-                fill={tab === t}
-                className="text-[18px] sm:text-[15px]"
-              />
-              <span className="truncate leading-none">{t.charAt(0).toUpperCase() + t.slice(1)}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-2xl px-4 py-5">
+    <div className={`w-full bg-[#151518] text-white ${wide ? "lg:min-h-[560px]" : "min-h-[calc(100dvh-8rem)]"}`}>
+      {tab === "home" ? (
+        <WalletHome
+          balance={isSignedIn ? fmtBalance : "—"}
+          cryptoBalances={nonZeroBalances}
+          formatCryptoAmount={formatCryptoAmount}
+          isSignedIn={!!isSignedIn}
+          onLogin={openLogin}
+          onOpen={(t) => { if (t === "deposit") setDepositStep("method"); setTab(t); }}
+        />
+      ) : (
+        <WalletPageFrame
+          title={activeTitle}
+          onBack={() => {
+            // Within Deposit, Back steps from the details view to the method list first.
+            if (tab === "deposit" && depositStep === "detail") setDepositStep("method");
+            else setTab("home");
+          }}
+        >
 
         {/* ── DEPOSIT TAB ── */}
         {tab === "deposit" && (
@@ -660,57 +682,21 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                   Cancel
                 </button>
               </div>
+            ) : depositStep === "method" ? (
+              /* ── Step 1: choose a payment method, then Continue ── */
+              <DepositMethodStep
+                pesapalEnabled={PESAPAL_ENABLED}
+                onContinue={(sel) => {
+                  if (sel.kind === "crypto") { setDepositMethod("crypto"); setDepositAssetGroup(sel.assetGroup); }
+                  else setDepositMethod(sel.kind);
+                  setError("");
+                  setDepositStep("detail");
+                }}
+              />
             ) : (
               <div className="space-y-5">
-                {/* ── Payment method selector ── */}
-                <div className={`grid gap-2 ${PESAPAL_ENABLED ? "grid-cols-3" : "grid-cols-2"}`}>
-                  <button
-                    type="button"
-                    onClick={() => setDepositMethod("mpesa")}
-                    className={`flex items-center gap-2 rounded-full px-3 py-2 ring-1 transition ${depositMethod === "mpesa" ? "bg-[#087cff]/10 ring-[#087cff]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
-                  >
-                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "mpesa" ? "bg-[#087cff]/20" : "bg-white/[0.06]"}`}>
-                      <Icon name="phone_iphone" fill className={`text-[18px] ${depositMethod === "mpesa" ? "text-[#087cff]" : "text-slate-500"}`} />
-                    </div>
-                    <div className="text-left">
-                      <p className={`text-[12px] font-black ${depositMethod === "mpesa" ? "text-white" : "text-slate-400"}`}>M-Pesa</p>
-                      <p className="text-[10px] text-slate-600">STK Push</p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDepositMethod("crypto")}
-                    className={`flex items-center gap-2 rounded-full px-3 py-2 ring-1 transition ${depositMethod === "crypto" ? "bg-[#f59e0b]/10 ring-[#f59e0b]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
-                  >
-                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "crypto" ? "bg-[#f59e0b]/20" : "bg-white/[0.06]"}`}>
-                      <Icon name="currency_bitcoin" fill className={`text-[18px] ${depositMethod === "crypto" ? "text-[#f59e0b]" : "text-slate-500"}`} />
-                    </div>
-                    <div className="text-left">
-                      <p className={`text-[12px] font-black ${depositMethod === "crypto" ? "text-white" : "text-slate-400"}`}>Crypto</p>
-                      <p className="text-[10px] text-slate-600">USDT · BTC · ETH</p>
-                    </div>
-                  </button>
-                  {PESAPAL_ENABLED && (
-                    <button
-                      type="button"
-                      onClick={() => setDepositMethod("pesapal")}
-                      className={`flex items-center gap-2 rounded-full px-3 py-2 ring-1 transition ${depositMethod === "pesapal" ? "bg-[#05b957]/10 ring-[#05b957]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
-                    >
-                      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "pesapal" ? "bg-[#05b957]/20" : "bg-white/[0.06]"}`}>
-                        <Icon name="credit_card" fill className={`text-[18px] ${depositMethod === "pesapal" ? "text-[#05b957]" : "text-slate-500"}`} />
-                      </div>
-                      <div className="text-left">
-                        <p className={`flex items-center gap-1 text-[12px] font-black ${depositMethod === "pesapal" ? "text-white" : "text-slate-400"}`}>
-                          Card
-                          <span className="rounded-full bg-amber-400/15 px-1.5 py-px text-[8px] font-black uppercase tracking-wide text-amber-400">Test</span>
-                        </p>
-                        <p className="text-[10px] text-slate-600">Visa · Mastercard</p>
-                      </div>
-                    </button>
-                  )}
-                </div>
-
-                {depositMethod === "crypto" && <CryptoDepositPanel />}
+                {/* ── Step 2: method-specific details ── */}
+                {depositMethod === "crypto" && <CryptoDepositPanel group={depositAssetGroup} />}
 
                 {depositMethod === "pesapal" && (
                   <div className="space-y-5">
@@ -1271,8 +1257,8 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
 
         {/* ── HISTORY TAB ── */}
         {tab === "history" && <TransactionHistory isSignedIn={!!isSignedIn} />}
-      </div>
-      </div>{/* ── end right column ── */}
+        </WalletPageFrame>
+      )}
 
       {/* ── Withdrawal step-up auth ── */}
       {stepUpOpen && (
@@ -1355,6 +1341,201 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
 }
 
 /* ────────────────────────────────────────────────────────── */
+
+function WalletHome({
+  balance,
+  cryptoBalances,
+  formatCryptoAmount,
+  isSignedIn,
+  onLogin,
+  onOpen,
+}: {
+  balance: string;
+  cryptoBalances: CryptoBalance[];
+  formatCryptoAmount: (balance: CryptoBalance) => string;
+  isSignedIn: boolean;
+  onLogin: () => void;
+  onOpen: (tab: WalletTab) => void;
+}) {
+  const actions: Array<{ tab: WalletTab; label: string; icon: string; tone: string }> = [
+    { tab: "deposit", label: "Deposit", icon: "add", tone: "bg-emerald-500/15 text-emerald-300" },
+    { tab: "send", label: "Send", icon: "send", tone: "bg-blue-500/15 text-blue-300" },
+    { tab: "withdraw", label: "Withdraw", icon: "arrow_upward", tone: "bg-amber-500/15 text-amber-300" },
+    { tab: "history", label: "History", icon: "receipt_long", tone: "bg-slate-500/15 text-slate-300" },
+  ];
+
+  return (
+    <main className="mx-auto max-w-md px-4 pb-24 pt-5 sm:max-w-2xl sm:pb-10">
+      <section className="rounded-[1.35rem] bg-[#222327] p-5 shadow-[0_18px_45px_rgba(0,0,0,.28)] ring-1 ring-white/[0.06]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[12px] font-black uppercase tracking-wide text-slate-400">Main wallet</p>
+            <p className="mt-1 text-3xl font-black tracking-tight text-white">{balance}</p>
+          </div>
+          <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#087cff]/15 text-[#62a9ff]">
+            <Icon name="account_balance_wallet" className="text-[24px]" />
+          </span>
+        </div>
+        {!isSignedIn && (
+          <button
+            type="button"
+            onClick={onLogin}
+            className="mt-5 h-11 w-full rounded-full bg-[#087cff] text-sm font-black text-white"
+          >
+            Log in to see wallet
+          </button>
+        )}
+      </section>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        {actions.map((action) => (
+          <button
+            key={action.tab}
+            type="button"
+            onClick={() => onOpen(action.tab)}
+            className="flex min-h-24 flex-col items-start justify-between rounded-[1.1rem] bg-[#202126] p-4 text-left ring-1 ring-white/[0.06] transition active:scale-[0.98]"
+          >
+            <span className={`grid h-10 w-10 place-items-center rounded-xl ${action.tone}`}>
+              <Icon name={action.icon} className="text-[21px]" />
+            </span>
+            <span className="text-[15px] font-black text-white">{action.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <section className="mt-4 rounded-[1.1rem] bg-[#202126] p-4 ring-1 ring-white/[0.06]">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-black text-white">Crypto wallet</h2>
+          <span className="text-[11px] font-bold text-slate-500">{cryptoBalances.length ? `${cryptoBalances.length} assets` : "No assets"}</span>
+        </div>
+        {cryptoBalances.length ? (
+          <div className="mt-3 space-y-2">
+            {cryptoBalances.slice(0, 4).map((item) => (
+              <div key={`${item.crypto}-${item.network}`} className="flex items-center justify-between rounded-xl bg-black/20 px-3 py-2">
+                <span className="flex items-center gap-2">
+                  {COIN_ICON_URL[item.crypto] ? (
+                    <img src={COIN_ICON_URL[item.crypto]} alt={item.crypto} width={24} height={24} className="h-6 w-6 rounded-full" />
+                  ) : (
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-white/[0.08] text-[10px] font-black">{item.crypto.slice(0, 2)}</span>
+                  )}
+                  <span className="text-xs font-black text-slate-200">{item.crypto}</span>
+                </span>
+                <span className="font-mono text-xs font-black text-white">{formatCryptoAmount(item)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-[12px] font-bold text-slate-500">Deposit crypto to see balances here.</p>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function WalletPageFrame({ children, onBack, title }: { children: ReactNode; onBack: () => void; title: string }) {
+  return (
+    <main className="mx-auto max-w-md px-4 pb-24 pt-4 sm:max-w-2xl sm:pb-10">
+      <div className="mb-4 grid grid-cols-[2.75rem_1fr_2.75rem] items-center">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back to wallet"
+          className="grid h-10 w-10 place-items-center rounded-full bg-white/[0.06] text-slate-300 active:scale-95"
+        >
+          <Icon name="arrow_back" className="text-[20px]" />
+        </button>
+        <h1 className="text-center text-base font-black text-white">{title}</h1>
+      </div>
+      {children}
+    </main>
+  );
+}
+
+type DepositMethodRow = {
+  id: string;
+  label: string;
+  badges: string[];
+  enabled: boolean;
+  selection?: DepositSelection;
+};
+
+// Single-select payment-method picker. Highlights one row at a time (a radio),
+// shows real brand logos, and only advances when Continue is pressed — so the
+// choice is deliberate and the details view opens with a clean slate.
+function DepositMethodStep({
+  pesapalEnabled,
+  onContinue,
+}: {
+  pesapalEnabled: boolean;
+  onContinue: (selection: DepositSelection) => void;
+}) {
+  const rows: DepositMethodRow[] = [
+    { id: "card",     label: "Credit/Debit Card", badges: ["VISA", "MC"],      enabled: pesapalEnabled, selection: { kind: "pesapal" } },
+    { id: "mpesa",    label: "Mobile money",      badges: ["AIRTEL", "MPESA"], enabled: true,           selection: { kind: "mpesa" } },
+    { id: "binance",  label: "Binance Pay",       badges: ["BINANCE"],         enabled: false },
+    { id: "usdt",     label: "USDT",              badges: ["USDT"],            enabled: true,           selection: { kind: "crypto", assetGroup: "USDT" } },
+    { id: "btc",      label: "Bitcoin",           badges: ["BTC"],             enabled: true,           selection: { kind: "crypto", assetGroup: "BTC" } },
+    { id: "eth",      label: "Ethereum",          badges: ["ETH"],             enabled: true,           selection: { kind: "crypto", assetGroup: "ETH" } },
+    { id: "other",    label: "Other Crypto",      badges: ["USDC", "BINANCE"], enabled: true,           selection: { kind: "crypto", assetGroup: "OTHER" } },
+    { id: "skrill",   label: "Skrill",            badges: ["SKRILL"],          enabled: false },
+    { id: "neteller", label: "Neteller",          badges: ["NETELLER"],        enabled: false },
+    { id: "bank",     label: "Bank Transfer",     badges: ["BANK"],            enabled: false },
+  ];
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = rows.find((r) => r.id === selectedId && r.enabled && r.selection);
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-[1.15rem] bg-[#1f2024] px-3 pb-1 pt-4 ring-1 ring-white/[0.06]">
+        <h2 className="mb-2 text-center text-base font-black text-white">Choose Payment Method</h2>
+        <div className="space-y-0">
+          {rows.map((row) => {
+            const active = row.id === selectedId;
+            return (
+              <button
+                key={row.id}
+                type="button"
+                disabled={!row.enabled}
+                onClick={() => setSelectedId(row.id)}
+                className={`flex w-full items-center gap-3 border-b border-white/[0.08] py-3 text-left last:border-0 transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  active ? "opacity-100" : "hover:opacity-90"
+                }`}
+              >
+                <span
+                  className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
+                    active ? "border-[#087cff]" : "border-slate-600"
+                  }`}
+                >
+                  {active && <span className="h-2.5 w-2.5 rounded-full bg-[#087cff]" />}
+                </span>
+                <span className="min-w-0 flex-1 text-[15px] font-black text-slate-200">{row.label}</span>
+                {!row.enabled && (
+                  <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
+                    Soon
+                  </span>
+                )}
+                <span className="flex max-w-[7rem] flex-wrap items-center justify-end gap-1">
+                  {row.badges.map((badge) => (
+                    <PaymentIcon key={badge} badge={badge} />
+                  ))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <Button
+        onClick={() => selected?.selection && onContinue(selected.selection)}
+        disabled={!selected}
+        className="h-14 w-full rounded-full text-base shadow-lg shadow-blue-500/20"
+      >
+        Continue
+      </Button>
+    </section>
+  );
+}
 
 type TransferRecipient = {
   id: string;
@@ -1923,18 +2104,26 @@ const CRYPTO_DEPOSIT_ASSETS = [
   { name: "BNB",        code: "BNB",   network: "BEP20",   displayNet: "BEP-20 (BSC)",  min: 0.005 },
 ] as const;
 
+// USDT/BTC/ETH map to their own coin; OTHER holds everything else (USDC, BNB).
+function groupMatches(group: CryptoAssetGroup, code: string): boolean {
+  return group === "OTHER" ? code !== "USDT" && code !== "BTC" && code !== "ETH" : code === group;
+}
+
 type CryptoAddrPhase =
   | { phase: "checking" }
   | { phase: "generating" }
   | { phase: "form"; error?: string }
   | { phase: "ready"; address: string };
 
-function CryptoDepositPanel() {
-  const [idx, setIdx]       = useState(0);
-  const [assetOpen, setAssetOpen] = useState(false);
+function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
+  const assets = useMemo(() => CRYPTO_DEPOSIT_ASSETS.filter((a) => groupMatches(group, a.code)), [group]);
+  const codes  = useMemo(() => Array.from(new Set(assets.map((a) => a.code))), [assets]);
+  const [sel, setSel]       = useState(0);
   const [addr, setAddr]     = useState<CryptoAddrPhase>({ phase: "checking" });
   const [copied, setCopied] = useState(false);
-  const asset = CRYPTO_DEPOSIT_ASSETS[idx];
+  useEffect(() => { setSel(0); }, [group]);       // reset when the chosen coin group changes
+  const asset    = assets[sel] ?? assets[0];
+  const networks = assets.filter((a) => a.code === asset.code);
 
   const load = useCallback(async (code: string, net: string) => {
     setAddr({ phase: "checking" });
@@ -1970,64 +2159,69 @@ function CryptoDepositPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Asset selector */}
-      <div>
-        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Select asset & network</p>
-        <div className="relative">
-          {/* Trigger */}
-          <button
-            type="button"
-            onClick={() => setAssetOpen((o) => !o)}
-            className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] transition hover:bg-white/[0.06]"
-          >
-            <span className="flex items-center gap-3">
-              {COIN_ICON_URL[asset.code] && (
-                <img src={COIN_ICON_URL[asset.code]} alt={asset.code} width={28} height={28} className="h-7 w-7 rounded-full" />
-              )}
-              <span className="block text-sm font-black text-white">
-                {asset.code}
-                <span className="ml-2 text-[11px] font-bold text-slate-500">{asset.displayNet}</span>
-              </span>
-            </span>
-            <Icon name={assetOpen ? "expand_less" : "expand_more"} className="text-[22px] text-slate-500" />
-          </button>
+      {/* Selected coin header */}
+      <div className="flex items-center justify-center gap-2">
+        <PaymentIcon badge={asset.code} />
+        <span className="text-lg font-black text-white">{asset.name}</span>
+        <span className="text-sm font-black text-slate-500">{asset.code}</span>
+      </div>
 
-          {/* Dropdown */}
-          {assetOpen && (
-            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-72 overflow-y-auto rounded-2xl bg-[#121824] shadow-2xl shadow-black/40 ring-1 ring-white/[0.09]">
-              {CRYPTO_DEPOSIT_ASSETS.map((a, i) => (
-                <button
-                  key={`${a.code}-${a.network}`}
-                  type="button"
-                  onClick={() => { setIdx(i); setAssetOpen(false); }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.06]"
-                >
-                  {COIN_ICON_URL[a.code] && (
-                    <img src={COIN_ICON_URL[a.code]} alt={a.code} width={28} height={28} className="h-7 w-7 rounded-full" />
-                  )}
-                  <span className="flex-1">
-                    <span className="block text-sm font-black text-white">
-                      {a.code}
-                      <span className="ml-2 text-[11px] font-bold text-slate-500">{a.displayNet}</span>
-                    </span>
-                    <span className="text-[10px] text-slate-600">min {a.min} {a.code}</span>
-                  </span>
-                  {asset.code === a.code && asset.network === a.network && (
-                    <Icon name="check_circle" fill className="text-[18px] text-[#f59e0b]" />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+      {/* Coin sub-picker — only when the group holds more than one coin (Other Crypto) */}
+      {codes.length > 1 && (
+        <div className="grid grid-cols-2 gap-2">
+          {codes.map((code) => {
+            const first  = assets.findIndex((a) => a.code === code);
+            const active = asset.code === code;
+            return (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setSel(first)}
+                className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-black transition ring-1 ${
+                  active ? "bg-[#087cff]/15 text-white ring-[#087cff]/50" : "bg-[#16171d] text-slate-300 ring-white/[0.07]"
+                }`}
+              >
+                <PaymentIcon badge={code} />
+                {code}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Deposit network — single-select radio cards */}
+      <div className="rounded-2xl bg-[#16171d] p-3 ring-1 ring-white/[0.07]">
+        <p className="text-center text-[13px] font-black text-white">Deposit Network</p>
+        <p className="mx-auto mb-3 mt-0.5 max-w-[16rem] text-center text-[11px] font-bold leading-snug text-slate-500">
+          Choose the correct network, otherwise you will lose your deposit.
+        </p>
+        <div className={`grid gap-2 ${networks.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {networks.map((n) => {
+            const i      = assets.indexOf(n);
+            const active = asset.network === n.network;
+            return (
+              <button
+                key={n.network}
+                type="button"
+                onClick={() => setSel(i)}
+                className={`flex items-center gap-2.5 rounded-xl px-3 py-3 text-left transition ring-1 ${
+                  active ? "bg-[#087cff]/12 ring-[#087cff]/60" : "bg-[#0f1319] ring-white/[0.07]"
+                }`}
+              >
+                <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${active ? "border-[#087cff]" : "border-slate-600"}`}>
+                  {active && <span className="h-2.5 w-2.5 rounded-full bg-[#087cff]" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-black text-white">{n.network}</span>
+                  <span className="block truncate text-[10px] font-bold text-slate-500">{n.displayNet}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Network badge + min */}
-      <div className="flex h-11 w-full items-center justify-between rounded-xl bg-white/[0.06] px-4 ring-1 ring-white/[0.08]">
-        <span className="text-sm font-black text-white">{asset.displayNet}</span>
-        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-400">{asset.network}</span>
-      </div>
-      <p className="-mt-2 text-xs font-bold text-slate-500">
+      <p className="text-xs font-bold text-slate-500">
         Minimum deposit: <span className="text-white">{asset.min} {asset.code}</span>
         <span className="ml-1 text-slate-600">· amounts below will not be credited</span>
       </p>

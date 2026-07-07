@@ -91,14 +91,14 @@ export async function POST(req: Request) {
   try {
     const result = await db.$transaction(async (tx) => {
       const debited = await tx.user.updateMany({
-        where: { id: dbUser.id, walletBalance: { gte: margin } },
-        data: { walletBalance: { decrement: margin } },
+        where: { id: dbUser.id, forexWalletBalance: { gte: margin } },
+        data: { forexWalletBalance: { decrement: margin } },
       });
       if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
       const updated = await tx.user.findUniqueOrThrow({
         where: { id: dbUser.id },
-        select: { walletBalance: true },
+        select: { forexWalletBalance: true },
       });
 
       await tx.transaction.create({
@@ -127,7 +127,7 @@ export async function POST(req: Request) {
         },
       });
 
-      return { trade, newBalance: Number(updated.walletBalance) };
+      return { trade, newBalance: Number(updated.forexWalletBalance) };
     });
 
     return Response.json({
@@ -145,7 +145,7 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     if ((err as Error).message === "INSUFFICIENT_BALANCE") {
-      return Response.json({ error: "Insufficient balance" }, { status: 400 });
+      return Response.json({ error: "Insufficient forex wallet balance" }, { status: 400 });
     }
     console.error("POST /api/forex/open:", err instanceof Error ? err.message : err);
     return Response.json({ error: "Internal server error" }, { status: 500 });

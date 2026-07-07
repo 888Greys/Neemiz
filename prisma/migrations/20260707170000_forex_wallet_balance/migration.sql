@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "forex_wallet_balance" DECIMAL(18,2) NOT NULL DEFAULT 0.00;
