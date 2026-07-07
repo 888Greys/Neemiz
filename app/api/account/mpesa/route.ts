@@ -32,6 +32,17 @@ export async function POST(req: Request) {
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
   if (dbUser.phone === phone) return Response.json({ phone });
 
+  // Locked-for-life: once a withdrawal number is set it is bound to the account
+  // permanently. Changing it to a DIFFERENT number is refused (SIM swap / mule
+  // rerouting needs support/admin). This mirrors the phone/verify-otp lock and
+  // closes the bypass where this route could overwrite an already-bound number.
+  if (dbUser.phone) {
+    return Response.json(
+      { error: "Your withdrawal number is locked and can't be changed. Contact support to update it." },
+      { status: 409 },
+    );
+  }
+
   try {
     await db.user.update({ where: { id: dbUser.id }, data: { phone } });
   } catch (err) {

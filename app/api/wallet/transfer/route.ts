@@ -80,7 +80,6 @@ export async function POST(req: Request) {
   if (amount > MAX_TRANSFER_KES) {
     return Response.json({ error: `You can send at most ${CURRENCY_SYMBOL} ${MAX_TRANSFER_KES} per transfer.` }, { status: 400 });
   }
-
   const recipient = await db.user.findFirst({
     where: { id: body.recipientId, isActive: true },
     select: { id: true, username: true },
@@ -100,10 +99,6 @@ export async function POST(req: Request) {
       });
       if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
-      // Shared rolling-24h cash-out cap: outgoing transfers count against the
-      // same limit as M-Pesa withdrawals (see dailyCapWhere), so cash can't leave
-      // the platform faster than the cap by hopping through a transfer. Evaluated
-      // after the debit (under the row lock); over-cap throws and rolls back.
       if (!sender.isAdmin) {
         const limit = dailyLimitKes();
         const priorSum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });

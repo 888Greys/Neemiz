@@ -1,9 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
-import { TransactionType, TransactionStatus } from "@prisma/client";
+import { TransactionType, TransactionStatus, Prisma } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
+import { isMuleFlagged, notifyAdminsMuleHold } from "@/lib/mule-guard";
 import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 import { withdrawalsDisabledResponse, setWithdrawalsDisabled } from "@/lib/withdrawal-guard";
@@ -73,19 +74,41 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XX or 01XX format." }, { status: 400 });
     }
 
-    // Bound-number enforcement. Once a user has verified a number, cash-outs may
-    // only go to THAT number — it is locked to the account for life. Blocks
-    // routing a payout to an unverified/third-party line. Admins exempt.
-    if (isTwilioConfigured() && !dbUser.isAdmin && dbUser.phoneVerified && dbUser.phone && msisdn !== dbUser.phone) {
-      return Response.json(
-        { error: `Withdrawals can only be sent to your verified number +${dbUser.phone}.` },
-        { status: 400 },
-      );
+    // Bound-number enforcement — TWILIO-INDEPENDENT. Each account is locked to a
+    // single M-Pesa withdrawal number for life, whether or not SMS verification
+    // is available:
+    //   • if a number is already bound (via first withdrawal, the mpesa route, or
+    //     SMS verify), cash-outs may ONLY go to it — no editing/rerouting;
+    //   • otherwise the FIRST withdrawal binds this number to the account.
+    // The number is also unique per account (User.phone @unique), so it can't be
+    // shared across accounts. Admins are exempt (they test to arbitrary numbers).
+    if (!dbUser.isAdmin) {
+      if (dbUser.phone) {
+        if (msisdn !== dbUser.phone) {
+          return Response.json(
+            { error: `Withdrawals can only be sent to your registered number +${dbUser.phone}. Contact support to change it.` },
+            { status: 400 },
+          );
+        }
+      } else {
+        try {
+          await db.user.update({ where: { id: dbUser.id }, data: { phone: msisdn } });
+        } catch (bindErr) {
+          if (bindErr instanceof Prisma.PrismaClientKnownRequestError && bindErr.code === "P2002") {
+            return Response.json({ error: "This M-Pesa number is already registered to another account." }, { status: 409 });
+          }
+          throw bindErr;
+        }
+      }
     }
 
     const feeRate   = lipaTestMode ? 0 : WITHDRAWAL_FEE_RATE;
     const feeKes    = parseFloat((amountKes * feeRate).toFixed(2));
     const payoutKes = parseFloat((amountKes - feeKes).toFixed(2));
+
+    // Suspected-mule watchlist: don't block — HOLD the withdrawal for admin
+    // review and page the owner (approve a real win, reject laundering).
+    const isMule = !dbUser.isAdmin && (await isMuleFlagged(dbUser.email));
 
     // ── Step 1: deduct balance + create record atomically ──
     // Gate: amounts > 1,000,000 KES or > 10 withdrawals today require admin approval
@@ -129,30 +152,18 @@ export async function POST(req: Request) {
         }
       }
 
-      // A destination number may receive cash only ONCE, EVER. If any prior
-      // (non-failed) M-Pesa withdrawal already went to this msisdn — whether by
-      // this user or any other account — block it. This stops a single number
-      // being used as a repeat cash-out endpoint for seeded/mule accounts.
-      // Applies to everyone, admins included (owner request 2026-07-06).
-      const priorToNumber = await tx.transaction.findFirst({
-        where: {
-          type:     TransactionType.WITHDRAWAL,
-          provider: "lipaharaka",
-          status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
-          metadata: { path: ["msisdn"], equals: msisdn },
-        },
-        select: { id: true },
-      });
-      if (priorToNumber) {
-        throw new Error("PHONE_NUMBER_USED");
-      }
+      // (Removed the "a number may receive cash only once, ever" rule — the
+      // per-account daily limit plus the locked, unique withdrawal number
+      // already bound each account to one number and cap its cash-out, so the
+      // once-per-number block only blocked legitimate repeat withdrawals to a
+      // user's own line.)
 
       const numberCount = 0;
       const numberTripped = false;
       const distinctUsers = 0;
       const killTripped = false;
 
-      const needsApproval = !dbUser.isAdmin && (amountKes > 1_000_000 || priorCount >= 10);
+      const needsApproval = isMule || (!dbUser.isAdmin && (amountKes > 1_000_000 || priorCount >= 10));
       const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
       const withdrawal = await tx.transaction.create({
@@ -191,6 +202,11 @@ export async function POST(req: Request) {
       if (numberTripped && !killTripped) {
         notifyAdminsSuspiciousNumber({ msisdn, count: numberCount, amountKes, held: true })
           .catch((e) => console.error("[withdraw] suspicious-number alert failed", e));
+      }
+      // Page admins that a flagged (suspected-mule) account's withdrawal is held.
+      if (isMule) {
+        notifyAdminsMuleHold({ username: dbUser.username ?? dbUser.id.slice(0, 8), amountKes, msisdn })
+          .catch((e) => console.error("[withdraw] mule-hold alert failed", e));
       }
       return Response.json({
         ok:           true,
@@ -304,9 +320,6 @@ export async function POST(req: Request) {
         { error: "This withdrawal could not be processed. Please contact support." },
         { status: 403 },
       );
-    }
-    if (err instanceof Error && err.message === "PHONE_NUMBER_USED") {
-      return Response.json({ error: "This M-Pesa number has already received a withdrawal. Each number can only be paid out once." }, { status: 400 });
     }
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
