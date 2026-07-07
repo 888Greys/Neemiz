@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
@@ -37,6 +37,59 @@ const COIN_ICON_URL: Record<string, string> = {
   LINK:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/link.svg",
 };
 
+// Real brand + coin logos for the payment-method list. Coins reuse the
+// cryptocurrency-icons set; card/wallet brands come from Simple Icons. Every
+// entry is optional at render time — <PaymentIcon> falls back to a clean
+// monogram chip if a logo is missing or fails to load, so nothing ever breaks.
+const BRAND_ICON_URL: Record<string, string> = {
+  ...COIN_ICON_URL,
+  VISA:     "https://cdn.simpleicons.org/visa/1434CB",
+  MC:       "https://cdn.simpleicons.org/mastercard/EB001B",
+  AIRTEL:   "https://cdn.simpleicons.org/airtel/E40000",
+  MPESA:    "https://cdn.simpleicons.org/mpesa/4CAF50",
+  SKRILL:   "https://cdn.simpleicons.org/skrill/862165",
+  NETELLER: "https://cdn.simpleicons.org/neteller/83BA3B",
+  BINANCE:  "https://cdn.simpleicons.org/binance/F0B90B",
+};
+
+const BRAND_LABEL: Record<string, string> = {
+  VISA: "VISA", MC: "MC", AIRTEL: "Airtel", MPESA: "M-Pesa",
+  SKRILL: "Skrill", NETELLER: "Neteller", BINANCE: "BNB", BANK: "Bank",
+};
+
+/** A payment-brand / coin logo with a graceful fallback. Renders the real logo
+ *  when available; on a missing or broken URL it shows a tidy monogram chip so
+ *  the row still looks intentional. Bank has no logo → a wallet glyph. */
+function PaymentIcon({ badge }: { badge: string }) {
+  const [failed, setFailed] = useState(false);
+  const url = BRAND_ICON_URL[badge];
+  if (badge === "BANK") {
+    return (
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.08] text-slate-200">
+        <Icon name="account_balance" className="text-[17px]" />
+      </span>
+    );
+  }
+  if (url && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={url}
+        alt={BRAND_LABEL[badge] ?? badge}
+        width={22}
+        height={22}
+        onError={() => setFailed(true)}
+        className="h-8 w-8 shrink-0 rounded-lg bg-white/[0.06] object-contain p-1"
+      />
+    );
+  }
+  return (
+    <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-white/[0.10] px-1.5 text-[10px] font-black text-slate-100">
+      {BRAND_LABEL[badge] ?? badge}
+    </span>
+  );
+}
+
 const CRYPTO_WITHDRAW_ASSETS = [
   { name: "Tether USD",       code: "USDT",  network: "TRC20",   displayNet: "TRC-20",  min: 1       },
   { name: "Tether USD",       code: "USDT",  network: "ERC20",   displayNet: "ERC-20",  min: 1       },
@@ -56,6 +109,14 @@ const CRYPTO_WITHDRAW_ASSETS = [
 
 type CryptoWithdrawAsset = (typeof CRYPTO_WITHDRAW_ASSETS)[number];
 type CryptoBalance = { crypto: string; network: string; available: number; locked: number };
+
+// Crypto deposit groups shown as top-level methods; each maps to one or more
+// real deposit assets/networks the backend can actually generate addresses for.
+type CryptoAssetGroup = "USDT" | "BTC" | "ETH" | "OTHER";
+type DepositSelection =
+  | { kind: "mpesa" }
+  | { kind: "pesapal" }
+  | { kind: "crypto"; assetGroup: CryptoAssetGroup };
 
 type DepositState =
   | { step: "idle" }
@@ -112,6 +173,9 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   const [tab, setTab]                     = useState<WalletTab>(initialTab);
   // Non-KES users default to the crypto rail — M-Pesa only serves Kenya/KES.
   const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto" | "pesapal">(displayCurrency === "KES" ? "mpesa" : "crypto");
+  // Deposit is a two-step flow: pick a method, press Continue, then fill details.
+  const [depositStep, setDepositStep]     = useState<"method" | "detail">("method");
+  const [depositAssetGroup, setDepositAssetGroup] = useState<CryptoAssetGroup>("USDT");
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
   const [loading, setLoading]             = useState(false);
@@ -526,10 +590,17 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
           formatCryptoAmount={formatCryptoAmount}
           isSignedIn={!!isSignedIn}
           onLogin={openLogin}
-          onOpen={setTab}
+          onOpen={(t) => { if (t === "deposit") setDepositStep("method"); setTab(t); }}
         />
       ) : (
-        <WalletPageFrame title={activeTitle} onBack={() => setTab("home")}>
+        <WalletPageFrame
+          title={activeTitle}
+          onBack={() => {
+            // Within Deposit, Back steps from the details view to the method list first.
+            if (tab === "deposit" && depositStep === "detail") setDepositStep("method");
+            else setTab("home");
+          }}
+        >
 
         {/* ── DEPOSIT TAB ── */}
         {tab === "deposit" && (
@@ -611,16 +682,21 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                   Cancel
                 </button>
               </div>
+            ) : depositStep === "method" ? (
+              /* ── Step 1: choose a payment method, then Continue ── */
+              <DepositMethodStep
+                pesapalEnabled={PESAPAL_ENABLED}
+                onContinue={(sel) => {
+                  if (sel.kind === "crypto") { setDepositMethod("crypto"); setDepositAssetGroup(sel.assetGroup); }
+                  else setDepositMethod(sel.kind);
+                  setError("");
+                  setDepositStep("detail");
+                }}
+              />
             ) : (
               <div className="space-y-5">
-                {/* ── Payment method selector ── */}
-                <DepositPaymentMethodList
-                  active={depositMethod}
-                  pesapalEnabled={PESAPAL_ENABLED}
-                  onChange={setDepositMethod}
-                />
-
-                {depositMethod === "crypto" && <CryptoDepositPanel />}
+                {/* ── Step 2: method-specific details ── */}
+                {depositMethod === "crypto" && <CryptoDepositPanel group={depositAssetGroup} />}
 
                 {depositMethod === "pesapal" && (
                   <div className="space-y-5">
@@ -1375,62 +1451,88 @@ function WalletPageFrame({ children, onBack, title }: { children: ReactNode; onB
   );
 }
 
-function DepositPaymentMethodList({
-  active,
-  onChange,
+type DepositMethodRow = {
+  id: string;
+  label: string;
+  badges: string[];
+  enabled: boolean;
+  selection?: DepositSelection;
+};
+
+// Single-select payment-method picker. Highlights one row at a time (a radio),
+// shows real brand logos, and only advances when Continue is pressed — so the
+// choice is deliberate and the details view opens with a clean slate.
+function DepositMethodStep({
   pesapalEnabled,
+  onContinue,
 }: {
-  active: "mpesa" | "crypto" | "pesapal";
-  onChange: (method: "mpesa" | "crypto" | "pesapal") => void;
   pesapalEnabled: boolean;
+  onContinue: (selection: DepositSelection) => void;
 }) {
-  const methods: Array<{
-    label: string;
-    value?: "mpesa" | "crypto" | "pesapal";
-    badges: string[];
-    enabled: boolean;
-  }> = [
-    { label: "Credit/Debit Card", value: "pesapal", badges: ["VISA", "MC"], enabled: pesapalEnabled },
-    { label: "Mobile money", value: "mpesa", badges: ["Airtel", "M-Pesa"], enabled: true },
-    { label: "Binance Pay", badges: ["BNB"], enabled: false },
-    { label: "USDT", value: "crypto", badges: ["USDT"], enabled: true },
-    { label: "Bitcoin", value: "crypto", badges: ["BTC"], enabled: true },
-    { label: "Ethereum", value: "crypto", badges: ["ETH"], enabled: true },
-    { label: "Other Crypto", value: "crypto", badges: ["LTC", "USDC", "XRP"], enabled: true },
-    { label: "Skrill", badges: ["S"], enabled: false },
-    { label: "Neteller", badges: ["N"], enabled: false },
-    { label: "Bank Transfer", badges: ["BANK"], enabled: false },
+  const rows: DepositMethodRow[] = [
+    { id: "card",     label: "Credit/Debit Card", badges: ["VISA", "MC"],      enabled: pesapalEnabled, selection: { kind: "pesapal" } },
+    { id: "mpesa",    label: "Mobile money",      badges: ["AIRTEL", "MPESA"], enabled: true,           selection: { kind: "mpesa" } },
+    { id: "binance",  label: "Binance Pay",       badges: ["BINANCE"],         enabled: false },
+    { id: "usdt",     label: "USDT",              badges: ["USDT"],            enabled: true,           selection: { kind: "crypto", assetGroup: "USDT" } },
+    { id: "btc",      label: "Bitcoin",           badges: ["BTC"],             enabled: true,           selection: { kind: "crypto", assetGroup: "BTC" } },
+    { id: "eth",      label: "Ethereum",          badges: ["ETH"],             enabled: true,           selection: { kind: "crypto", assetGroup: "ETH" } },
+    { id: "other",    label: "Other Crypto",      badges: ["USDC", "BINANCE"], enabled: true,           selection: { kind: "crypto", assetGroup: "OTHER" } },
+    { id: "skrill",   label: "Skrill",            badges: ["SKRILL"],          enabled: false },
+    { id: "neteller", label: "Neteller",          badges: ["NETELLER"],        enabled: false },
+    { id: "bank",     label: "Bank Transfer",     badges: ["BANK"],            enabled: false },
   ];
 
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = rows.find((r) => r.id === selectedId && r.enabled && r.selection);
+
   return (
-    <section className="rounded-[1.15rem] bg-[#1f2024] px-3 pb-3 pt-4 ring-1 ring-white/[0.06]">
-      <h2 className="mb-3 text-center text-base font-black text-white">Choose Payment Method</h2>
-      <div className="space-y-0">
-        {methods.map((method) => {
-          const checked = Boolean(method.value && active === method.value);
-          return (
-            <button
-              key={method.label}
-              type="button"
-              disabled={!method.enabled}
-              onClick={() => method.value && onChange(method.value)}
-              className="flex w-full items-center gap-3 border-b border-white/[0.10] py-3.5 text-left last:border-0 disabled:opacity-45"
-            >
-              <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 ${checked ? "border-[#22c55e] bg-[#22c55e] text-white" : "border-slate-500 text-transparent"}`}>
-                <Icon name="check" className="text-[15px]" />
-              </span>
-              <span className="min-w-0 flex-1 text-[15px] font-black text-slate-200">{method.label}</span>
-              <span className="flex max-w-[6.5rem] flex-wrap justify-end gap-1">
-                {method.badges.map((badge) => (
-                  <span key={badge} className="grid min-h-8 min-w-8 place-items-center rounded-lg bg-white/[0.10] px-1.5 text-[10px] font-black text-slate-100">
-                    {badge}
+    <section className="space-y-4">
+      <div className="rounded-[1.15rem] bg-[#1f2024] px-3 pb-1 pt-4 ring-1 ring-white/[0.06]">
+        <h2 className="mb-2 text-center text-base font-black text-white">Choose Payment Method</h2>
+        <div className="space-y-0">
+          {rows.map((row) => {
+            const active = row.id === selectedId;
+            return (
+              <button
+                key={row.id}
+                type="button"
+                disabled={!row.enabled}
+                onClick={() => setSelectedId(row.id)}
+                className={`flex w-full items-center gap-3 border-b border-white/[0.08] py-3 text-left last:border-0 transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  active ? "opacity-100" : "hover:opacity-90"
+                }`}
+              >
+                <span
+                  className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
+                    active ? "border-[#087cff]" : "border-slate-600"
+                  }`}
+                >
+                  {active && <span className="h-2.5 w-2.5 rounded-full bg-[#087cff]" />}
+                </span>
+                <span className="min-w-0 flex-1 text-[15px] font-black text-slate-200">{row.label}</span>
+                {!row.enabled && (
+                  <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
+                    Soon
                   </span>
-                ))}
-              </span>
-            </button>
-          );
-        })}
+                )}
+                <span className="flex max-w-[7rem] flex-wrap items-center justify-end gap-1">
+                  {row.badges.map((badge) => (
+                    <PaymentIcon key={badge} badge={badge} />
+                  ))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      <Button
+        onClick={() => selected?.selection && onContinue(selected.selection)}
+        disabled={!selected}
+        className="h-14 w-full rounded-full text-base shadow-lg shadow-blue-500/20"
+      >
+        Continue
+      </Button>
     </section>
   );
 }
@@ -2002,18 +2104,26 @@ const CRYPTO_DEPOSIT_ASSETS = [
   { name: "BNB",        code: "BNB",   network: "BEP20",   displayNet: "BEP-20 (BSC)",  min: 0.005 },
 ] as const;
 
+// USDT/BTC/ETH map to their own coin; OTHER holds everything else (USDC, BNB).
+function groupMatches(group: CryptoAssetGroup, code: string): boolean {
+  return group === "OTHER" ? code !== "USDT" && code !== "BTC" && code !== "ETH" : code === group;
+}
+
 type CryptoAddrPhase =
   | { phase: "checking" }
   | { phase: "generating" }
   | { phase: "form"; error?: string }
   | { phase: "ready"; address: string };
 
-function CryptoDepositPanel() {
-  const [idx, setIdx]       = useState(0);
-  const [assetOpen, setAssetOpen] = useState(false);
+function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
+  const assets = useMemo(() => CRYPTO_DEPOSIT_ASSETS.filter((a) => groupMatches(group, a.code)), [group]);
+  const codes  = useMemo(() => Array.from(new Set(assets.map((a) => a.code))), [assets]);
+  const [sel, setSel]       = useState(0);
   const [addr, setAddr]     = useState<CryptoAddrPhase>({ phase: "checking" });
   const [copied, setCopied] = useState(false);
-  const asset = CRYPTO_DEPOSIT_ASSETS[idx];
+  useEffect(() => { setSel(0); }, [group]);       // reset when the chosen coin group changes
+  const asset    = assets[sel] ?? assets[0];
+  const networks = assets.filter((a) => a.code === asset.code);
 
   const load = useCallback(async (code: string, net: string) => {
     setAddr({ phase: "checking" });
@@ -2049,64 +2159,69 @@ function CryptoDepositPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Asset selector */}
-      <div>
-        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Select asset & network</p>
-        <div className="relative">
-          {/* Trigger */}
-          <button
-            type="button"
-            onClick={() => setAssetOpen((o) => !o)}
-            className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] transition hover:bg-white/[0.06]"
-          >
-            <span className="flex items-center gap-3">
-              {COIN_ICON_URL[asset.code] && (
-                <img src={COIN_ICON_URL[asset.code]} alt={asset.code} width={28} height={28} className="h-7 w-7 rounded-full" />
-              )}
-              <span className="block text-sm font-black text-white">
-                {asset.code}
-                <span className="ml-2 text-[11px] font-bold text-slate-500">{asset.displayNet}</span>
-              </span>
-            </span>
-            <Icon name={assetOpen ? "expand_less" : "expand_more"} className="text-[22px] text-slate-500" />
-          </button>
+      {/* Selected coin header */}
+      <div className="flex items-center justify-center gap-2">
+        <PaymentIcon badge={asset.code} />
+        <span className="text-lg font-black text-white">{asset.name}</span>
+        <span className="text-sm font-black text-slate-500">{asset.code}</span>
+      </div>
 
-          {/* Dropdown */}
-          {assetOpen && (
-            <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 max-h-72 overflow-y-auto rounded-2xl bg-[#121824] shadow-2xl shadow-black/40 ring-1 ring-white/[0.09]">
-              {CRYPTO_DEPOSIT_ASSETS.map((a, i) => (
-                <button
-                  key={`${a.code}-${a.network}`}
-                  type="button"
-                  onClick={() => { setIdx(i); setAssetOpen(false); }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.06]"
-                >
-                  {COIN_ICON_URL[a.code] && (
-                    <img src={COIN_ICON_URL[a.code]} alt={a.code} width={28} height={28} className="h-7 w-7 rounded-full" />
-                  )}
-                  <span className="flex-1">
-                    <span className="block text-sm font-black text-white">
-                      {a.code}
-                      <span className="ml-2 text-[11px] font-bold text-slate-500">{a.displayNet}</span>
-                    </span>
-                    <span className="text-[10px] text-slate-600">min {a.min} {a.code}</span>
-                  </span>
-                  {asset.code === a.code && asset.network === a.network && (
-                    <Icon name="check_circle" fill className="text-[18px] text-[#f59e0b]" />
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+      {/* Coin sub-picker — only when the group holds more than one coin (Other Crypto) */}
+      {codes.length > 1 && (
+        <div className="grid grid-cols-2 gap-2">
+          {codes.map((code) => {
+            const first  = assets.findIndex((a) => a.code === code);
+            const active = asset.code === code;
+            return (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setSel(first)}
+                className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-black transition ring-1 ${
+                  active ? "bg-[#087cff]/15 text-white ring-[#087cff]/50" : "bg-[#16171d] text-slate-300 ring-white/[0.07]"
+                }`}
+              >
+                <PaymentIcon badge={code} />
+                {code}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Deposit network — single-select radio cards */}
+      <div className="rounded-2xl bg-[#16171d] p-3 ring-1 ring-white/[0.07]">
+        <p className="text-center text-[13px] font-black text-white">Deposit Network</p>
+        <p className="mx-auto mb-3 mt-0.5 max-w-[16rem] text-center text-[11px] font-bold leading-snug text-slate-500">
+          Choose the correct network, otherwise you will lose your deposit.
+        </p>
+        <div className={`grid gap-2 ${networks.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+          {networks.map((n) => {
+            const i      = assets.indexOf(n);
+            const active = asset.network === n.network;
+            return (
+              <button
+                key={n.network}
+                type="button"
+                onClick={() => setSel(i)}
+                className={`flex items-center gap-2.5 rounded-xl px-3 py-3 text-left transition ring-1 ${
+                  active ? "bg-[#087cff]/12 ring-[#087cff]/60" : "bg-[#0f1319] ring-white/[0.07]"
+                }`}
+              >
+                <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${active ? "border-[#087cff]" : "border-slate-600"}`}>
+                  {active && <span className="h-2.5 w-2.5 rounded-full bg-[#087cff]" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[13px] font-black text-white">{n.network}</span>
+                  <span className="block truncate text-[10px] font-bold text-slate-500">{n.displayNet}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Network badge + min */}
-      <div className="flex h-11 w-full items-center justify-between rounded-xl bg-white/[0.06] px-4 ring-1 ring-white/[0.08]">
-        <span className="text-sm font-black text-white">{asset.displayNet}</span>
-        <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-400">{asset.network}</span>
-      </div>
-      <p className="-mt-2 text-xs font-bold text-slate-500">
+      <p className="text-xs font-bold text-slate-500">
         Minimum deposit: <span className="text-white">{asset.min} {asset.code}</span>
         <span className="ml-1 text-slate-600">· amounts below will not be credited</span>
       </p>
