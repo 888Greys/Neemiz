@@ -51,6 +51,20 @@ export type DigitPrice =
   | { accepted: false; reason: string }
   | { accepted: true; payout: number; multiplier: number };
 
+export function resolveDigitEdgeFloor(side: DigitSide, targetDigit: number, edgeFloor?: number): number {
+  let productFloor = 0.10;
+  if (side === "Matches") {
+    productFloor = 0.15;
+  } else if (side === "Differs") {
+    productFloor = 0.025; // 2.5% edge floor for Differs (90% win prob)
+  } else if (side === "Over" && targetDigit === 0) {
+    productFloor = 0.03;  // 3% edge floor for Over 0 (90% win prob)
+  } else if (side === "Under" && targetDigit === 9) {
+    productFloor = 0.03;  // 3% edge floor for Under 9 (90% win prob)
+  }
+  return Math.max(edgeFloor ?? productFloor, productFloor);
+}
+
 /**
  * Price a digit contract off a real tick window. Returns the total net payout on a win.
  * Incorporates a stability gate for Matches and tailored edge floors.
@@ -81,14 +95,21 @@ export function priceDigitServer(params: {
     }
   }
 
-  // 2. Select appropriate edgeFloor
-  // Baseline is 10% for Digits, but 15% for Matches to absorb tail-risk drift
-  let resolvedEdgeFloor = params.edgeFloor;
-  if (resolvedEdgeFloor == null) {
-    resolvedEdgeFloor = side === "Matches" ? 0.15 : 0.10;
+  // Baseline is 10% for Digits, but 15% for Matches to absorb tail-risk drift,
+  // and 2.5% - 3.0% for high-probability contracts (Differs, Under 9, Over 0).
+  const resolvedEdgeFloor = resolveDigitEdgeFloor(side, targetDigit, params.edgeFloor);
+
+  // Raise the max win probability cap for high-probability contracts (90% base)
+  let resolvedMaxWinProb = DEFAULT_CONFIG.maxWinProb;
+  if (side === "Differs" || (side === "Over" && targetDigit === 0) || (side === "Under" && targetDigit === 9)) {
+    resolvedMaxWinProb = 0.98;
   }
 
-  const cfg: PricingConfig = params.cfg ?? { ...DEFAULT_CONFIG, edgeFloor: resolvedEdgeFloor };
+  const cfg: PricingConfig = params.cfg ?? {
+    ...DEFAULT_CONFIG,
+    edgeFloor: resolvedEdgeFloor,
+    maxWinProb: resolvedMaxWinProb,
+  };
 
   const q = priceDigitContract(side, targetDigit, durationTicks, ticks, cfg);
   if (!q.accepted) return { accepted: false, reason: q.reason };
