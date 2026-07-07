@@ -65,12 +65,13 @@ export async function POST(req: Request) {
   // Server-authoritative entry spot + a real tick window from the live feed.
   // The engine bootstraps this window to measure the win probability, so the
   // price it produces is proven house-safe (see lib/binary/pricing.ts).
-  let entrySpot: number, entryEpoch: number, marketPrices: number[];
+  let entrySpot: number, entryEpoch: number, marketPrices: number[], symbolEdge = 0.09;
   try {
     // Pricing bootstraps from the cached recent window; the ENTRY spot must be a
     // FRESH live tick (never the cached one) to close the stale-entry timing edge.
     const [calib, entry] = await Promise.all([getCalibrationTicks(market), getLiveEntrySpot(market)]);
     marketPrices = calib.prices;
+    symbolEdge = calib.edge;
     entrySpot = entry.spot;
     entryEpoch = entry.epoch;
   } catch (err) {
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
     // so the deep-ITM "guaranteed win" class can't be sold.
     const priced = priceDirectionalServer({
       kind: kind as FixedKind, side: side as DirectionalSide, entrySpot, barrier,
-      durationTicks: ticks, stake: stakeVal, ticks: marketPrices,
+      durationTicks: ticks, stake: stakeVal, ticks: marketPrices, edgeFloor: symbolEdge,
     });
     if (!priced.accepted)
       return Response.json({ error: `This contract isn't available right now (${priced.reason}). Try a barrier closer to the spot, or a different duration.` }, { status: 400 });

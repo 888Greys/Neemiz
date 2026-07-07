@@ -134,3 +134,53 @@ export function priceDirectionalContract(
   };
   return quoteFromWinFrequency(windows.reduce((a, w) => a + (settle(w) ? 1 : 0), 0), windows.length, cfg);
 }
+
+// ─── Per-symbol edge (measure, don't assume) ─────────────────────────────────
+
+export type EdgeConfig = { base: number; min: number; max: number; dur: number; samples: number };
+export const DEFAULT_EDGE: EdgeConfig = { base: 0.06, min: 0.06, max: 0.15, dur: 8, samples: 3000 };
+
+/**
+ * Data-driven house edge for a symbol. A flat edge is wasteful: stable indices
+ * (e.g. R_100) barely drift between calibration and settlement and can run a
+ * tight, competitive edge, while low-vol / jumpy ones (1HZ10V, JD10) drift more
+ * and need a wider cushion. We measure that drift directly: price Rise & Fall on
+ * the first half of the window, measure the realized win-rate on the held-out
+ * second half, and size the edge to cover the worst upward drift. Thin data →
+ * the most conservative (max) edge.
+ */
+export function measureSymbolEdge(ticks: number[], cfg: EdgeConfig = DEFAULT_EDGE): number {
+  const { base, min, max, dur, samples } = cfg;
+  if (ticks.length < 2 * (dur + 2) + 200) return max;
+  const mid = ticks.length >> 1;
+  const train = ticks.slice(0, mid);
+  const test = ticks.slice(mid);
+
+  const winRate = (arr: number[], side: DirectionalSide, seed: number): { p: number; n: number } => {
+    const w = sampleWindows(arr, dur, samples, makeRng(seed));
+    if (w.length === 0) return { p: 0, n: 0 };
+    let wins = 0;
+    for (const win of w) {
+      const p: ResolveParams = { kind: "RISE_FALL", side, entrySpot: win.entry, barrier: null, durationTicks: dur, stake: 1, payout: 1, payoutPerPoint: null };
+      const r = resolveContract(p, toPath(win.forward));
+      if (r.ready && r.won) wins++;
+    }
+    return { p: wins / w.length, n: w.length };
+  };
+
+  // Worst upward drift across both directions: how much MORE often the contract
+  // won out-of-sample than the price assumed. Subtract the sampling-noise band
+  // (block-bootstrap windows overlap, so inflate the SE by 1.5×) so only GENUINE
+  // drift raises the edge — otherwise pure noise would tax every symbol.
+  let drift = 0;
+  for (const side of ["RISE", "FALL"] as DirectionalSide[]) {
+    const tr = winRate(train, side, 11);
+    const te = winRate(test, side, 22);
+    if (tr.p <= 0 || tr.n === 0 || te.n === 0) continue;
+    const se = Math.sqrt(tr.p * (1 - tr.p) / tr.n + te.p * (1 - te.p) / te.n);
+    const excess = (te.p - tr.p) - 1.5 * se;
+    if (excess > 0) drift = Math.max(drift, excess / tr.p);
+  }
+  const edge = base + 1.5 * drift;
+  return Math.min(max, Math.max(min, Math.round(edge * 1000) / 1000));
+}

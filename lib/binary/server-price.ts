@@ -7,7 +7,7 @@
 // priced elsewhere; this covers the fixed-payout kinds.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { priceDirectionalContract, type PricingConfig } from "@/lib/binary/pricing";
+import { priceDirectionalContract, DEFAULT_CONFIG, type PricingConfig } from "@/lib/binary/pricing";
 import type { DirectionalSide } from "@/lib/binary/kernel";
 
 export type FixedKind = "RISE_FALL" | "HIGHER_LOWER" | "TOUCH_NO_TOUCH";
@@ -31,13 +31,17 @@ export function priceDirectionalServer(params: {
   durationTicks: number;
   stake: number;
   ticks: number[];
+  edgeFloor?: number;       // per-symbol edge (see measureSymbolEdge); overrides the default
   cfg?: PricingConfig;
 }): DirectionalPrice {
   const { kind, side, entrySpot, barrier, durationTicks, stake, ticks } = params;
+  const cfg: PricingConfig = params.cfg ?? (params.edgeFloor != null
+    ? { ...DEFAULT_CONFIG, edgeFloor: params.edgeFloor }
+    : DEFAULT_CONFIG);
   // The engine prices a RELATIVE barrier (fraction of entry); the trade's
   // absolute barrier is entrySpot·(1+frac), so frac = barrier/entrySpot − 1.
   const barrierFrac = kind === "RISE_FALL" || barrier == null ? null : barrier / entrySpot - 1;
-  const q = priceDirectionalContract(kind, side, barrierFrac, durationTicks, ticks, params.cfg);
+  const q = priceDirectionalContract(kind, side, barrierFrac, durationTicks, ticks, cfg);
   if (!q.accepted) return { accepted: false, reason: q.reason };
   const payout = Number((stake * q.payoutMultiplier).toFixed(2));
   return { accepted: true, payout, multiplier: q.payoutMultiplier };
