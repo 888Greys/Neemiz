@@ -21,6 +21,10 @@ import {
   type CryptoAssetGroup,
   type DepositSelection,
 } from "@/lib/wallet-deposit-options";
+import {
+  CRYPTO_WITHDRAW_ASSETS,
+  type CryptoWithdrawAsset,
+} from "@/lib/wallet-withdraw-options";
 
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
@@ -105,24 +109,6 @@ function PaymentIcon({ badge }: { badge: string }) {
   );
 }
 
-const CRYPTO_WITHDRAW_ASSETS = [
-  { name: "Tether USD",       code: "USDT",  network: "TRC20",   displayNet: "TRC-20",  min: 1       },
-  { name: "Tether USD",       code: "USDT",  network: "ERC20",   displayNet: "ERC-20",  min: 1       },
-  { name: "Tether USD",       code: "USDT",  network: "BEP20",   displayNet: "BEP-20",  min: 1       },
-  { name: "USD Coin",         code: "USDC",  network: "ERC20",   displayNet: "ERC-20",  min: 10      },
-  { name: "USD Coin",         code: "USDC",  network: "POLYGON", displayNet: "Polygon", min: 1       },
-  { name: "Bitcoin",          code: "BTC",   network: "BTC",     displayNet: "Bitcoin", min: 0.0001  },
-  { name: "Ethereum",         code: "ETH",   network: "ERC20",   displayNet: "ERC-20",  min: 0.005   },
-  { name: "BNB",              code: "BNB",   network: "BEP20",   displayNet: "BEP-20",  min: 0.01    },
-  { name: "Polygon",          code: "MATIC", network: "POLYGON", displayNet: "Polygon", min: 1       },
-  { name: "TRON",             code: "TRX",   network: "TRC20",   displayNet: "TRC-20",  min: 10      },
-  { name: "Dai",              code: "DAI",   network: "ERC20",   displayNet: "ERC-20",  min: 10      },
-  { name: "Binance USD",      code: "BUSD",  network: "BEP20",   displayNet: "BEP-20",  min: 10      },
-  { name: "Wrapped Bitcoin",  code: "WBTC",  network: "ERC20",   displayNet: "ERC-20",  min: 0.0001  },
-  { name: "Chainlink",        code: "LINK",  network: "ERC20",   displayNet: "ERC-20",  min: 0.5     },
-] as const;
-
-type CryptoWithdrawAsset = (typeof CRYPTO_WITHDRAW_ASSETS)[number];
 type CryptoBalance = { crypto: string; network: string; available: number; locked: number };
 
 type DepositState =
@@ -983,16 +969,10 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                           <span
                             className="cursor-pointer font-black text-white transition hover:text-[#75b8ff]"
                             onClick={() =>
-                              setCwAmount(
-                                cwBalance.available.toFixed(
-                                  cwAsset.code === "ETH" || cwAsset.code === "WBTC" ? 8 : 6,
-                                ),
-                              )
+                              setCwAmount(cwBalance.available.toFixed(6))
                             }
                           >
-                            {cwBalance.available.toFixed(
-                              cwAsset.code === "ETH" || cwAsset.code === "WBTC" ? 8 : 6,
-                            )}{" "}
+                            {cwBalance.available.toFixed(6)}{" "}
                             {cwAsset.code}
                           </span>
                           <span className="ml-1 text-slate-700">(tap to fill)</span>
