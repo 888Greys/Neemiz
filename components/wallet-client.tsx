@@ -154,9 +154,10 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
       .then((d) => {
         if (!d || typeof d.remaining !== "number") return;
         setWdLimit(d);
-        // Once verified, the number is bound for life — prefill it and the field
-        // renders read-only (see the withdraw form). Overwrites any local prefill.
-        if (d.phoneVerified && d.boundPhone) {
+        // Once a number is bound (first withdrawal / mpesa / SMS verify), it is
+        // locked for life — prefill it and render the field read-only. Does NOT
+        // depend on Twilio/phoneVerified, so the lock holds even without SMS.
+        if (d.boundPhone) {
           setWdPhone(d.boundPhone.startsWith("254") ? `0${d.boundPhone.slice(3)}` : d.boundPhone);
         }
       })
@@ -165,7 +166,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
 
   // ── First-withdrawal SMS verification modal ──
   const [phoneVerifyOpen, setPhoneVerifyOpen] = useState(false);
-  const phoneLocked = Boolean(wdLimit?.phoneVerified && wdLimit?.boundPhone);
+  const phoneLocked = Boolean(wdLimit?.boundPhone);
 
   // ── "Notify me when M-Pesa withdrawals reopen" opt-in (while paused) ──
   const [notifyState, setNotifyState] = useState<"idle" | "loading" | "subscribed">("idle");
@@ -1235,7 +1236,7 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
                       </div>
                       {phoneLocked && (
                         <p className="mt-1.5 text-[11px] text-slate-600">
-                          Verified &amp; locked to your account. Contact support to change it.
+                          Locked to your account. Contact support to change it.
                         </p>
                       )}
                     </div>
