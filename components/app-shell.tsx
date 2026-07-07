@@ -89,7 +89,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const [profileOpen, setProfileOpen]         = useState(false);
   const [profileInitialView, setProfileInitialView] = useState<ProfileView | undefined>(undefined);
   const [walletOpen, setWalletOpen]           = useState(false);
-  const [walletInitialTab, setWalletInitialTab] = useState<"deposit" | "send" | "withdraw" | "history">("deposit");
+  const [walletInitialTab, setWalletInitialTab] = useState<"home" | "deposit" | "send" | "withdraw" | "history">("home");
   // Optimistic nav target: highlight the tapped tab instantly (before the route
   // actually arrives), then fall back to the real pathname once it lands.
   const [pendingPath, setPendingPath]         = useState<string | null>(null);
@@ -149,7 +149,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     setProfileOpen(true);
   }
 
-  function openWallet(tab: "deposit" | "send" | "withdraw" | "history" = "deposit") {
+  function openWallet(tab: "home" | "deposit" | "send" | "withdraw" | "history" = "home") {
     setWalletInitialTab(tab);
     setWalletOpen(true);
   }
