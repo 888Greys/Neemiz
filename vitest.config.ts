@@ -15,6 +15,7 @@ export default defineConfig({
     // doesn't fail. Unit tests here exercise pure logic and never connect.
     env: {
       DATABASE_URL: "postgresql://test:test@localhost:5432/neemiz_test",
+      PROVABLY_FAIR_SECRET: "test-provably-fair-secret",
     },
   },
 });
