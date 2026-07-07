@@ -1,7 +1,11 @@
 import { Prisma, TransactionStatus, TransactionType } from "@prisma/client";
 import { db } from "@/lib/db";
-import { sendCryptoDepositEmail } from "@/lib/brevo";
+import { sendCryptoDepositEmail, sendCryptoDepositPendingEmail } from "@/lib/brevo";
 import { creditUserCrypto } from "@/lib/p2p/crypto-balance";
+
+const PENDING_NOTIFICATION_TYPE = "wallet_deposit_pending";
+// Deterministic per-tx link that doubles as the dedup key for the pending notice.
+export const pendingDepositLink = (txHash: string) => `/wallet?deposit=${normalizeReferencePart(txHash)}`;
 
 interface DepositCreditUser {
   id: string;
@@ -130,4 +134,64 @@ export async function creditOnChainDeposit(input: OnChainDepositCreditInput): Pr
   }
 
   return { credited: true, skipped: false, reference };
+}
+
+export interface PendingDepositNotifyResult {
+  notified: boolean;
+  reason?: string;
+}
+
+/**
+ * Stage-1 "deposit detected" notification: fired when a deposit transaction is
+ * seen on-chain but not yet confirmed/credited. In-app notification + email,
+ * exactly once per transaction. This NEVER touches the credit/dedup path (it
+ * writes no Transaction/ledger row), so it cannot affect crediting or cause a
+ * double-credit — the worst failure mode is a missing or duplicate heads-up.
+ *
+ * Dedup is intentionally cheap: a matching notification `link` (per-tx) means we
+ * already told this user, and an existing credited Transaction means the deposit
+ * already landed, so there's no point announcing it as pending.
+ */
+export async function notifyPendingDeposit(input: {
+  user: DepositCreditUser;
+  depositAddress: string;
+  crypto: string;
+  network: string;
+  amount: number;
+  txHash: string;
+  logIndex?: string | null;
+}): Promise<PendingDepositNotifyResult> {
+  const amount = Number(input.amount);
+  if (!Number.isFinite(amount) || amount <= 0) return { notified: false, reason: "invalid_amount" };
+
+  const reference = buildDepositReference(input);
+  const link = pendingDepositLink(input.txHash);
+
+  const [alreadyCredited, alreadyNotified] = await Promise.all([
+    db.transaction.findFirst({ where: { OR: [{ reference }, { reference: `crypto-${input.txHash}` }] }, select: { id: true } }),
+    db.notification.findFirst({ where: { userId: input.user.id, type: PENDING_NOTIFICATION_TYPE, link }, select: { id: true } }),
+  ]);
+  if (alreadyCredited) return { notified: false, reason: "already_credited" };
+  if (alreadyNotified) return { notified: false, reason: "already_notified" };
+
+  await db.notification.create({
+    data: {
+      userId: input.user.id,
+      type:   PENDING_NOTIFICATION_TYPE,
+      title:  "Deposit detected",
+      body:   `${amount.toFixed(8)} ${input.crypto} (${input.network}) spotted on-chain — awaiting confirmation. We'll credit it automatically.`,
+      link,
+    },
+  });
+
+  if (input.user.email) {
+    sendCryptoDepositPendingEmail(input.user.email, input.user.username ?? input.user.email, {
+      crypto:       input.crypto,
+      network:      input.network,
+      cryptoAmount: amount,
+      txHash:       input.txHash,
+    }).catch((e) => console.warn("[crypto-deposit] pending email failed:", e));
+  }
+
+  return { notified: true };
 }

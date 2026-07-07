@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { creditOnChainDeposit } from "@/lib/crypto/deposit-credit";
+import { creditOnChainDeposit, notifyPendingDeposit } from "@/lib/crypto/deposit-credit";
 import { verifyMoralisSignature } from "@/lib/crypto/moralis";
 import { findEvmTokenByContract, findNativeEvmToken } from "@/lib/crypto/token-registry";
 
@@ -68,7 +68,10 @@ function isMoralisTestWebhook(payload: MoralisWebhookPayload): boolean {
     (payload.nftTransfers?.length ?? 0) === 0;
 }
 
-async function creditToDepositAddress(input: {
+// mode "credit" = the tx is confirmed → credit + "received" notification/email.
+// mode "pending" = seen on-chain but not yet confirmed → fire the one-time
+// "detected, awaiting confirmation" heads-up only (no crediting).
+async function processDepositTransfer(mode: "credit" | "pending", input: {
   chainId: number;
   crypto: string;
   network: string;
@@ -91,6 +94,19 @@ async function creditToDepositAddress(input: {
   });
 
   if (!depositAddress) return { credited: false, skipped: true, reason: "unknown_deposit_address" };
+
+  if (mode === "pending") {
+    const r = await notifyPendingDeposit({
+      user:           depositAddress.user,
+      depositAddress: depositAddress.address,
+      crypto:         input.crypto,
+      network:        input.network,
+      amount:         input.amount,
+      txHash:         input.txHash,
+      logIndex:       input.logIndex,
+    });
+    return { credited: false, skipped: !r.notified, reason: r.reason };
+  }
 
   return creditOnChainDeposit({
     user:           depositAddress.user,
@@ -128,9 +144,10 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid signature" }, { status: 401 });
   }
 
-  if (!payload.confirmed) {
-    return Response.json({ ok: true, ignored: "unconfirmed" });
-  }
+  // Moralis fires this webhook twice: confirmed:false when the tx is first seen
+  // in a block, then confirmed:true after the stream's confirmation depth. We
+  // send a "detected" heads-up on the first and credit on the second.
+  const mode: "credit" | "pending" = payload.confirmed ? "credit" : "pending";
 
   const chainId = parseChainId(payload.chainId);
   if (!chainId) return Response.json({ ok: true, ignored: "missing_chain" });
@@ -150,7 +167,7 @@ export async function POST(req: Request) {
         : formatRawUnits(transfer.value ?? "0", Number(transfer.tokenDecimals ?? token.decimals));
       if (!Number.isFinite(amount) || amount <= 0) { skipped++; continue; }
 
-      const result = await creditToDepositAddress({
+      const result = await processDepositTransfer(mode, {
         chainId,
         crypto:     token.crypto,
         network:    token.network,
@@ -186,7 +203,7 @@ export async function POST(req: Request) {
         const amount = tx.value ? formatRawUnits(tx.value, nativeToken.decimals) : 0;
         if (!txHash || amount <= 0) { skipped++; continue; }
 
-        const result = await creditToDepositAddress({
+        const result = await processDepositTransfer(mode, {
           chainId,
           crypto:     nativeToken.crypto,
           network:    nativeToken.network,
@@ -215,8 +232,8 @@ export async function POST(req: Request) {
   }
 
   if (errors.length) {
-    return Response.json({ ok: false, credited, skipped, errors }, { status: 500 });
+    return Response.json({ ok: false, mode, credited, skipped, errors }, { status: 500 });
   }
 
-  return Response.json({ ok: true, credited, skipped });
+  return Response.json({ ok: true, mode, credited, skipped });
 }

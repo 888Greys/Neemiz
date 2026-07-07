@@ -880,6 +880,65 @@ export async function sendCryptoDepositEmail(
   ));
 }
 
+// Stage 1: the deposit has been SEEN on-chain but is still awaiting the
+// confirmations required before we credit it. Sent once per transaction; the
+// "credited" email (above) follows once it confirms.
+export async function sendCryptoDepositPendingEmail(
+  to: string,
+  displayName: string,
+  opts: {
+    crypto:       string;
+    network:      string;
+    cryptoAmount: number;
+    txHash:       string;
+  }
+) {
+  const { crypto, network, cryptoAmount, txHash } = opts;
+  const netLabel: Record<string, string> = {
+    TRC20: "TRC-20 (Tron)", ERC20: "ERC-20 (Ethereum)", BEP20: "BEP-20 (BSC)",
+    POLYGON: "Polygon", BITCOIN: "Bitcoin",
+  };
+  const explorerLink = network === "TRC20"
+    ? `https://tronscan.org/#/transaction/${txHash}`
+    : network === "BITCOIN"
+    ? `https://blockstream.info/tx/${txHash}`
+    : `https://polygonscan.com/tx/${txHash}`;
+
+  await sendEmail(
+    to,
+    displayName,
+    `${cryptoAmount.toFixed(6)} ${crypto} deposit detected — confirming`,
+    emailWrapper(`
+      <div style="text-align:center;padding-bottom:28px;border-bottom:1px solid #f0f2f5;margin-bottom:28px;">
+        <div style="display:inline-block;width:56px;height:56px;background:#eff6ff;border-radius:50%;line-height:56px;text-align:center;font-size:28px;margin-bottom:16px;">⏳</div>
+        <h2 style="margin:0 0 10px;font-size:24px;font-weight:800;color:#1a1a2e;">Deposit Detected</h2>
+        <p style="margin:0;font-size:15px;color:#4a5568;line-height:1.7;">
+          We've spotted your <strong style="color:#087cff;">${cryptoAmount.toFixed(6)} ${crypto}</strong> on the blockchain. It will be credited automatically once the network confirms it.
+        </p>
+      </div>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f9fc;border-radius:12px;margin-bottom:28px;">
+        <tr><td style="padding:4px 24px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            ${detailRow("Coin", `<strong>${crypto}</strong>`)}
+            ${detailRow("Network", netLabel[network] ?? network)}
+            ${detailRow("Amount", `<strong style="color:#087cff;">${cryptoAmount.toFixed(6)} ${crypto}</strong>`)}
+            ${detailRow("Status", `<strong style="color:#f59e0b;">Awaiting confirmation</strong>`)}
+            ${detailRow("Tx Hash", `<a href="${explorerLink}" style="color:#087cff;text-decoration:none;font-size:11px;">${txHash.slice(0, 20)}…</a>`, true)}
+          </table>
+        </td></tr>
+      </table>
+
+      <p style="margin:0 0 28px;font-size:14px;color:#8a94a6;line-height:1.6;">
+        No action needed — we'll email you again the moment your ${crypto} is credited to your wallet (usually within a few minutes).
+      </p>
+
+      ${ctaButton(`${APP_URL}/wallet`, "View Wallet →", "#087cff")}
+    `,
+    "You received this email because a crypto deposit was detected on your Nezeem account."
+  ));
+}
+
 // ─── Testing Notice ───────────────────────────────────────────────────────────
 
 export async function sendTestingNoticeEmail(to: string, firstName?: string) {
