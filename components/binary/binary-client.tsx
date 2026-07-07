@@ -31,6 +31,7 @@ import {
   toLeveragedClosedPosition,
   type ClosedPosition,
 } from "@/lib/binary/history";
+import { previewDigitPayout } from "@/lib/binary/server-price";
 import {
   SIGMA_WINDOW, computeSigma, barrierFracFor, maxTicksFor, payoutAtTick,
 } from "@/lib/accumulator";
@@ -269,24 +270,13 @@ function fmtClock(time: Time, withSeconds: boolean): string {
   });
 }
 
-function payoutRate(side: ContractSide, targetDigit: number) {
-  if (side === "Matches") return 9.15;
-  if (side === "Differs") return 1.05;
-  if (side === "Even" || side === "Odd") return 1.90;
-  if (side === "Over") {
-    const wins = 9 - targetDigit;
-    return wins > 0 ? Math.floor((9.5 / wins) * 100) / 100 : 0;
-  }
-  return targetDigit > 0 ? Math.floor((9.5 / targetDigit) * 100) / 100 : 0;
-}
-
 function retainedPayout(stake: number, grossPayout: number) {
   if (grossPayout <= stake) return grossPayout;
   return stake + (grossPayout - stake) * 0.70;
 }
 
 function displayedPayout(stake: number, side: ContractSide, targetDigit: number) {
-  return retainedPayout(stake, stake * payoutRate(side, targetDigit));
+  return previewDigitPayout(stake, side, targetDigit);
 }
 
 function familySides(family: ContractFamily): ContractSide[] {
@@ -651,6 +641,17 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
   }, [liveTypes]);
   const [stake, setStake] = useState(10);
   const [targetDigit, setTargetDigit] = useState(5);
+  const setDigitTarget = useCallback((digit: number) => {
+    const next = Math.round(digit);
+    setTargetDigit(family === "overUnder"
+      ? Math.min(8, Math.max(1, next))
+      : Math.min(9, Math.max(0, next)));
+  }, [family]);
+  useEffect(() => {
+    if (family === "overUnder" && (targetDigit < 1 || targetDigit > 8)) {
+      setTargetDigit(Math.min(8, Math.max(1, targetDigit)));
+    }
+  }, [family, targetDigit]);
   const [duration, setDuration] = useState(5);
   // Duration is canonical in ticks; for options contracts the user may pick in
   // seconds instead (Deriv-style). We keep the unit only for display/picker — the
@@ -1742,7 +1743,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                   <button
                     key={stat.digit}
                     type="button"
-                    onClick={() => setTargetDigit(stat.digit)}
+                    onClick={() => setDigitTarget(stat.digit)}
                     className="relative flex h-full flex-col items-center justify-center transition-transform active:scale-95"
                   >
                     <DigitRing stat={stat} isActive={latest.digit === stat.digit} />
@@ -1817,7 +1818,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                 sides={selectedSides}
                 stake={stake} setStake={setStake}
                 duration={duration} setDuration={setDuration}
-                targetDigit={targetDigit} setTargetDigit={setTargetDigit}
+                targetDigit={targetDigit} setTargetDigit={setDigitTarget}
                 lastDigit={latest.digit}
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
                 minStake={isLive ? 10 : 1}
