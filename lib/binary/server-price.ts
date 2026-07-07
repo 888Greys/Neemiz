@@ -7,8 +7,8 @@
 // priced elsewhere; this covers the fixed-payout kinds.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { priceDirectionalContract, DEFAULT_CONFIG, type PricingConfig } from "@/lib/binary/pricing";
-import type { DirectionalSide } from "@/lib/binary/kernel";
+import { priceDirectionalContract, priceDigitContract, DEFAULT_CONFIG, type PricingConfig } from "@/lib/binary/pricing";
+import { exitDigitFromQuote, type DirectionalSide, type DigitSide } from "@/lib/binary/kernel";
 
 export type FixedKind = "RISE_FALL" | "HIGHER_LOWER" | "TOUCH_NO_TOUCH";
 
@@ -42,6 +42,55 @@ export function priceDirectionalServer(params: {
   // absolute barrier is entrySpot·(1+frac), so frac = barrier/entrySpot − 1.
   const barrierFrac = kind === "RISE_FALL" || barrier == null ? null : barrier / entrySpot - 1;
   const q = priceDirectionalContract(kind, side, barrierFrac, durationTicks, ticks, cfg);
+  if (!q.accepted) return { accepted: false, reason: q.reason };
+  const payout = Number((stake * q.payoutMultiplier).toFixed(2));
+  return { accepted: true, payout, multiplier: q.payoutMultiplier };
+}
+
+export type DigitPrice =
+  | { accepted: false; reason: string }
+  | { accepted: true; payout: number; multiplier: number };
+
+/**
+ * Price a digit contract off a real tick window. Returns the total net payout on a win.
+ * Incorporates a stability gate for Matches and tailored edge floors.
+ */
+export function priceDigitServer(params: {
+  side: DigitSide;
+  targetDigit: number;
+  durationTicks: number;
+  stake: number;
+  ticks: number[];
+  edgeFloor?: number;
+  cfg?: PricingConfig;
+}): DigitPrice {
+  const { side, targetDigit, durationTicks, stake, ticks } = params;
+
+  // 1. Stability Gate (Matches only): check if the target digit distribution
+  // in the calibration ticks is skewed (expected ~10%, reject if <7% or >13%)
+  if (side === "Matches") {
+    let targetCount = 0;
+    for (const tick of ticks) {
+      if (exitDigitFromQuote(tick) === targetDigit) {
+        targetCount++;
+      }
+    }
+    const freq = targetCount / ticks.length;
+    if (freq < 0.07 || freq > 0.13) {
+      return { accepted: false, reason: `digit distribution unstable (freq ${(freq * 100).toFixed(1)}%)` };
+    }
+  }
+
+  // 2. Select appropriate edgeFloor
+  // Baseline is 10% for Digits, but 15% for Matches to absorb tail-risk drift
+  let resolvedEdgeFloor = params.edgeFloor;
+  if (resolvedEdgeFloor == null) {
+    resolvedEdgeFloor = side === "Matches" ? 0.15 : 0.10;
+  }
+
+  const cfg: PricingConfig = params.cfg ?? { ...DEFAULT_CONFIG, edgeFloor: resolvedEdgeFloor };
+
+  const q = priceDigitContract(side, targetDigit, durationTicks, ticks, cfg);
   if (!q.accepted) return { accepted: false, reason: q.reason };
   const payout = Number((stake * q.payoutMultiplier).toFixed(2));
   return { accepted: true, payout, multiplier: q.payoutMultiplier };
