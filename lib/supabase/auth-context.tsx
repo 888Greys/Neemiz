@@ -185,6 +185,7 @@ export function SupabaseAuthProvider({
   // counts, and the check survives backgrounded tabs / phone lock) and signs out
   // once the user has been inactive for IDLE_LIMIT_MS.
   useEffect(() => {
+    return; // Disable idle auto-logout
     if (DEV_AUTH_PUBLIC) return;          // dev local auth — skip
     if (!user) return;                    // only while signed in
 
