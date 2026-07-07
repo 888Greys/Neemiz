@@ -1090,24 +1090,25 @@ function ForexFundingPanel({
 }
 
 function ForexDiscoverComingSoon() {
+  // Use only icon names the Icon map actually resolves (unmapped names render as
+  // a "?" — which is exactly what we're fixing here).
   const previews: Array<{ icon: string; title: string; body: string }> = [
-    { icon: "calendar_month", title: "Economic calendar", body: "High-impact events and releases as they land." },
-    { icon: "newspaper",      title: "Market news",        body: "Live headlines that move the markets you trade." },
-    { icon: "lightbulb",      title: "Trading ideas",      body: "Curated setups and insights, tailored to you." },
+    { icon: "calendar_month",   title: "Economic calendar", body: "High-impact events and releases as they land." },
+    { icon: "campaign",         title: "Market news",        body: "Live headlines that move the markets you trade." },
+    { icon: "tips_and_updates", title: "Trading ideas",      body: "Curated setups and insights, tailored to you." },
   ];
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-[#151518] px-4 pb-24 pt-5 text-white sm:px-6 sm:pb-10">
       <div className="mx-auto flex min-h-[70vh] max-w-md flex-col">
-        <div className="mb-6 flex items-center gap-2">
-          <Icon name="explore" className="text-[22px] text-slate-400" />
+        <div className="mb-6">
           <h1 className="text-lg font-black">Discover</h1>
         </div>
 
         {/* Hero */}
         <div className="flex flex-col items-center rounded-3xl bg-[#232326] px-6 py-10 text-center shadow-[0_18px_45px_rgba(0,0,0,.28)] ring-1 ring-white/[0.06]">
           <span className="grid h-16 w-16 place-items-center rounded-2xl bg-[#087cff]/15 text-[#62a9ff]">
-            <Icon name="explore" className="text-[32px]" />
+            <Icon name="rocket_launch" className="text-[32px]" />
           </span>
           <h2 className="mt-5 text-2xl font-black text-white">Coming soon</h2>
           <p className="mt-2 max-w-[18rem] text-[13px] font-bold leading-relaxed text-slate-400">
