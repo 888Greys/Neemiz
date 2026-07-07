@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { makeRng, simulatePath } from "@/lib/binary/fairness";
-import { priceDirectionalServer, priceDigitServer } from "@/lib/binary/server-price";
+import { priceDirectionalServer, priceDigitServer, previewDigitPayout, resolveDigitEdgeFloor } from "@/lib/binary/server-price";
 
 // The request-path pricing helper: turns a contract + real tick window into a
 // stored payout via the engine. Ticks are injected, so no feed is needed.
@@ -40,6 +40,13 @@ describe("priceDirectionalServer", () => {
 });
 
 describe("priceDigitServer", () => {
+  it("never lets per-symbol calibration lower the digit edge floors", () => {
+    expect(resolveDigitEdgeFloor("Even", 0, 0.06)).toBe(0.10);
+    expect(resolveDigitEdgeFloor("Matches", 5, 0.06)).toBe(0.15);
+    expect(resolveDigitEdgeFloor("Odd", 0, 0.12)).toBe(0.12);
+    expect(resolveDigitEdgeFloor("Matches", 5, 0.18)).toBe(0.18);
+  });
+
   it("prices Even/Odd/Matches/Differs contracts with sane payouts", () => {
     // 1. Even
     const rEven = priceDigitServer({ side: "Even", targetDigit: 0, durationTicks: 5, stake: 100, ticks });
@@ -50,6 +57,31 @@ describe("priceDigitServer", () => {
     const rMatches = priceDigitServer({ side: "Matches", targetDigit: 5, durationTicks: 5, stake: 100, ticks });
     expect(rMatches.accepted).toBe(true);
     if (rMatches.accepted) expect(rMatches.multiplier).toBeGreaterThan(6.0);
+
+    // 3. Differs: high-probability contracts must stay offerable instead of
+    // being rejected as priced <= 1x when a symbol calibration edge is supplied.
+    const differsEdge = resolveDigitEdgeFloor("Differs", 5, 0.09);
+    const rDiffers = priceDigitServer({ side: "Differs", targetDigit: 5, durationTicks: 5, stake: 100, ticks, edgeFloor: differsEdge });
+    expect(rDiffers.accepted).toBe(true);
+    if (rDiffers.accepted) expect(rDiffers.multiplier).toBeGreaterThan(1);
+  });
+
+  it("keeps every digit action button offerable at the default target digit", () => {
+    const sides = ["Even", "Odd", "Matches", "Differs", "Over", "Under"] as const;
+
+    for (const side of sides) {
+      const edge = resolveDigitEdgeFloor(side, 5, 0.09);
+      const result = priceDigitServer({ side, targetDigit: 5, durationTicks: 5, stake: 100, ticks, edgeFloor: edge });
+      expect(result, side).toMatchObject({ accepted: true });
+    }
+  });
+
+  it("previews digit payouts with the same floor-based math as request pricing", () => {
+    expect(previewDigitPayout(1000, "Even", 0)).toBe(1800);
+    expect(previewDigitPayout(1000, "Matches", 5)).toBe(8500);
+    expect(previewDigitPayout(1000, "Differs", 5)).toBe(1080);
+    expect(previewDigitPayout(1000, "Over", 5)).toBe(2250);
+    expect(previewDigitPayout(1000, "Under", 5)).toBe(1800);
   });
 
   it("rejects Matches when the digit distribution is highly skewed (stability gate)", () => {
