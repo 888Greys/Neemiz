@@ -25,9 +25,9 @@ export const DEPOSIT_METHOD_ROWS: DepositMethodRow[] = [
 ];
 
 export const CRYPTO_DEPOSIT_ASSETS = [
-  { name: "Tether USD", code: "USDT", network: "POLYGON", displayNet: "Polygon", min: 10, enabled: true, soon: false },
-  { name: "Tether USD", code: "USDT", network: "BEP20", displayNet: "BEP-20 (BSC)", min: 10, enabled: false, soon: true },
-  { name: "USD Coin", code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 10, enabled: true, soon: false },
+  { name: "Tether USD", code: "USDT", network: "POLYGON", displayNet: "Polygon", min: 1, enabled: true, soon: false },
+  { name: "Tether USD", code: "USDT", network: "BEP20", displayNet: "BEP-20 (BSC)", min: 1, enabled: false, soon: true },
+  { name: "USD Coin", code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 1, enabled: true, soon: false },
 ] as const;
 
 export const VALID_CRYPTO_DEPOSIT_NETWORKS: Record<string, string[]> = {
