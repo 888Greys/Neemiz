@@ -33,9 +33,9 @@ describe("wallet deposit options", () => {
     });
 
     expect(CRYPTO_DEPOSIT_ASSETS).toEqual([
-      expect.objectContaining({ code: "USDT", network: "POLYGON", enabled: true, soon: false }),
-      expect.objectContaining({ code: "USDT", network: "BEP20", enabled: false, soon: true }),
-      expect.objectContaining({ code: "USDC", network: "POLYGON", enabled: true, soon: false }),
+      expect.objectContaining({ code: "USDT", network: "POLYGON", min: 1, enabled: true, soon: false }),
+      expect.objectContaining({ code: "USDT", network: "BEP20", min: 1, enabled: false, soon: true }),
+      expect.objectContaining({ code: "USDC", network: "POLYGON", min: 1, enabled: true, soon: false }),
     ]);
   });
 

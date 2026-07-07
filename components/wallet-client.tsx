@@ -1031,14 +1031,6 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       </p>
                     </div>
 
-                    <div className="flex items-start gap-2.5 rounded-xl bg-emerald-500/8 px-4 py-3 ring-1 ring-emerald-500/15">
-                      <Icon name="verified" fill className="mt-0.5 shrink-0 text-[15px] text-emerald-400" />
-                      <p className="text-[11px] font-bold text-emerald-300/80">
-                        No Nezeem withdrawal fee during testing. You receive the full{" "}
-                        <strong>{cwAmount || "requested"} {cwAsset.code}</strong>; Nezeem pays the network gas separately.
-                      </p>
-                    </div>
-
                     {cwState.step === "error" && (
                       <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20">
                         <Icon name="error" fill className="mt-0.5 shrink-0 text-[16px] text-red-400" />
