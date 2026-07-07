@@ -4,7 +4,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
-import { dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
+import { dailyLimitKes, dailyCapWhere, transferCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
 
@@ -72,15 +72,6 @@ export async function POST(req: Request) {
     return Response.json({ error: "Select a recipient and enter a valid amount" }, { status: 400 });
   }
 
-  // Per-transfer cap: a user may send at most KSh 50 to another account in one
-  // transfer. This throttles the "seed an account then cash it out" fan-out
-  // pattern where balance is moved in bulk to accomplices who withdraw it.
-  // Admins are exempt (owner treasury operations).
-  const MAX_TRANSFER_KES = 50;
-  if (!sender.isAdmin && amount > MAX_TRANSFER_KES) {
-    return Response.json({ error: `You can send at most ${CURRENCY_SYMBOL} ${MAX_TRANSFER_KES} per transfer.` }, { status: 400 });
-  }
-
   const recipient = await db.user.findFirst({
     where: { id: body.recipientId, isActive: true },
     select: { id: true, username: true },
@@ -104,9 +95,14 @@ export async function POST(req: Request) {
       // same limit as M-Pesa withdrawals (see dailyCapWhere), so cash can't leave
       // the platform faster than the cap by hopping through a transfer. Evaluated
       // after the debit (under the row lock); over-cap throws and rolls back.
-      if (!sender.isAdmin) {
+      // Cash-out cap. Non-admins: the shared withdraw+transfer daily limit.
+      // Admins: exempt from the WITHDRAWAL limit (treasury) but still capped on
+      // TRANSFERS — a compromised admin account can only send the daily limit,
+      // not drain the treasury via user-to-user sends.
+      {
         const limit = dailyLimitKes();
-        const priorSum = await tx.transaction.aggregate({ where: dailyCapWhere(sender.id), _sum: { amount: true } });
+        const where = sender.isAdmin ? transferCapWhere(sender.id) : dailyCapWhere(sender.id);
+        const priorSum = await tx.transaction.aggregate({ where, _sum: { amount: true } });
         const usedWindow = Number(priorSum._sum?.amount ?? 0);
         if (usedWindow + amount > limit) {
           throw new Error(`DAILY_LIMIT:${Math.max(0, limit - usedWindow)}`);
