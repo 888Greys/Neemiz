@@ -103,6 +103,22 @@ describe("pricing engine: the safety gates fire", () => {
     expect(q.accepted).toBe(false);
   });
 
+  it("rejects a deep-OTM barrier whose fair price exceeds the cap (no rigged 50× lottery ticket)", () => {
+    // A HIGHER barrier far ABOVE entry ⇒ exit almost never above it ⇒ win chance
+    // tiny ⇒ fair multiplier ≫ maxMultiplier. Must be refused, not clamped+sold.
+    const q = priceDirectionalContract("HIGHER_LOWER", "HIGHER", barFrac(6), DUR, TRAIN);
+    expect(q.accepted).toBe(false);
+    if (!q.accepted) expect(q.reason).toMatch(/exceed the .*cap|win chance/i);
+  });
+
+  it("clamp-and-sells the same barrier when rejectAboveCap is disabled (legacy behaviour)", () => {
+    const cfg = { ...DEFAULT_CONFIG, rejectAboveCap: false };
+    const q = priceDirectionalContract("HIGHER_LOWER", "HIGHER", barFrac(6), DUR, TRAIN, cfg);
+    // It must NOT be rejected for exceeding the cap; if sold, payout is ≤ the cap.
+    if (!q.accepted) expect(q.reason).not.toMatch(/exceed the .*cap/i);
+    else expect(q.payoutMultiplier).toBeLessThanOrEqual(DEFAULT_CONFIG.maxMultiplier);
+  });
+
   it("wilsonUpper is a real upper bound and ordered", () => {
     expect(wilsonUpper(50, 100, 2.33)).toBeGreaterThan(0.5);
     expect(wilsonUpper(50, 100, 2.33)).toBeGreaterThan(wilsonUpper(50, 100000, 2.33));

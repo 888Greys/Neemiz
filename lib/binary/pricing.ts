@@ -33,6 +33,7 @@ export type PricingConfig = {
   maxWinProb: number;     // reject contracts the player can make this likely
   maxMultiplier: number;  // liability cap on the net payout multiple
   minTicks: number;       // refuse to quote on fewer real ticks than this
+  rejectAboveCap?: boolean; // reject (vs clamp+sell) when the fair payout exceeds the cap. Default: reject.
 };
 
 export const DEFAULT_CONFIG: PricingConfig = {
@@ -104,6 +105,14 @@ function quoteFromWinFrequency(wins: number, n: number, cfg: PricingConfig): Quo
   if (!(upper > 0)) return { accepted: false, reason: "contract cannot win" };
   // payout ≤ (1 − edge) / p_upper, rounded DOWN → house keeps ≥ edge at the true p.
   const raw = (1 - cfg.edgeFloor) / upper;
+  // Fairness: a fair price above the liability cap means the win chance is so low
+  // that we'd have to CLAMP the payout — i.e. sell a barrier so far out it almost
+  // never wins, at a capped (player-unfair) price. Reject it instead of selling a
+  // rigged-looking lottery ticket. The player is nudged to pick a closer barrier.
+  // (rejectAboveCap defaults on; digit/RF contracts never price this high anyway.)
+  if (cfg.rejectAboveCap !== false && raw > cfg.maxMultiplier) {
+    return { accepted: false, reason: `win chance ${(upper * 100).toFixed(1)}% too low — a fair payout would exceed the ${cfg.maxMultiplier}× cap (pick a closer barrier)` };
+  }
   const payoutMultiplier = Math.floor(Math.min(cfg.maxMultiplier, raw) * 100) / 100;
   if (payoutMultiplier <= 1.0) return { accepted: false, reason: "priced ≤ 1× (too likely to be worth offering)" };
   return { accepted: true, winProb, winProbUpper: upper, payoutMultiplier };
