@@ -906,6 +906,15 @@ model DirectionalTrade {
   status    DirectionalStatus @default(PENDING)
   settledAt DateTime?         @map("settled_at")
 
+  // Provably-fair directional proof. The seed is stored privately on the trade
+  // and only revealed by verifier/settlement surfaces after terminal status.
+  pfServerSeed       String?  @map("pf_server_seed")
+  pfCommitment       String?  @map("pf_commitment")
+  pfSignature        String?  @map("pf_signature")
+  pfClientSeed       String?  @map("pf_client_seed")
+  pfNonce            String?  @map("pf_nonce")
+  pfPayoutMultiplier Decimal? @map("pf_payout_multiplier") @db.Decimal(10, 4)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

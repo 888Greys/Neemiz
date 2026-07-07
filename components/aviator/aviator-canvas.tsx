@@ -59,11 +59,11 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
   // Preload the SVG art once
   useEffect(() => {
     const sun = new Image();
-    sun.src = "/aviator/sun.svg";
     sun.onload = () => { sunImgRef.current = sun; };
+    sun.src = "/aviator/sun.svg";
     const plane = new Image();
-    plane.src = "/aviator/plane-3.svg";
     plane.onload = () => { planeImgRef.current = plane; };
+    plane.src = "/aviator/plane-3.svg";
   }, []);
 
   useEffect(() => {
@@ -83,12 +83,22 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
 
   // Single permanent RAF loop — empty deps, zero restarts = no shake
   useEffect(() => {
+    console.log("[aviator-canvas] Mount effect running. canvasRef.current:", canvasRef.current);
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      console.warn("[aviator-canvas] Mount failed: canvas is null");
+      return;
+    }
+    console.log("[aviator-canvas] Loop starting successfully.");
     const ctx = canvas.getContext("2d")!;
     let id: number;
+    let frameCount = 0;
 
     const loop = () => {
+      frameCount++;
+      if (frameCount <= 5) {
+        console.log(`[aviator-canvas] frame ${frameCount} rendering. state: ${stateRef.current}`);
+      }
       const currentState = stateRef.current;
       const isFlying     = currentState === "FLYING";
       const isCrashed    = currentState === "CRASHED";
@@ -186,6 +196,7 @@ function draw(
   },
 ) {
   const { state, multiplier, crashPoint, bettingEndsAt, stars, crashStart, sunImg, planeImg } = opts;
+  const timeSec = (Date.now() % 3600000) / 1000;
   const isCrashed = state === "CRASHED";
   const compact   = w < 520;
 
@@ -206,9 +217,17 @@ function draw(
   // Spins steadily while idle/betting and faster while flying.
   const ox0 = compact ? 8 : 6;
   const oy0 = h - (compact ? 12 : 10);
-  // Negative angle = anticlockwise (canvas y-axis points down). Spin is clearly
+  // Positive angle = clockwise. Spin is clearly
   // visible and speeds up while the plane is in the air.
-  const spin = -Date.now() * (isFlying ? 0.0006 : 0.0003);
+  const spin = timeSec * (isFlying ? 0.4 : 0.18);
+
+  // Diagnostic logger to verify rotation calculations inside the browser console
+  if (typeof window !== "undefined" && (window as any).debugAviator) {
+    if (Math.random() < 0.01) {
+      console.log(`[aviator-canvas] state: ${state}, spin: ${spin.toFixed(3)}, timeSec: ${timeSec.toFixed(2)}, sunLoaded: ${!!sunImg}`);
+    }
+  }
+
   if (sunImg) {
     const size = Math.hypot(w, h) * 2.2; // large enough that rays always cover the canvas
     ctx.save();
@@ -235,7 +254,7 @@ function draw(
 
   // Stars
   stars.forEach((s) => {
-    s.alpha += Math.sin(Date.now() * s.speed * 0.001) * 0.005;
+    s.alpha += Math.sin(timeSec * s.speed) * 0.005;
     s.alpha  = Math.max(0.06, Math.min(0.6, s.alpha));
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
@@ -360,21 +379,26 @@ function draw(
     ctx.fillStyle = "#ff3030"; ctx.shadowColor = "#ff3030"; ctx.shadowBlur = 22;
     ctx.fillText("FLEW AWAY!", w/2, h*(compact?0.36:0.42)); ctx.shadowBlur = 0;
   } else {
-    drawTrail(ctx, tipX, tipY, planeAngle);
+    const bobY = Math.sin(timeSec * 7) * 4; // Spribe-style vertical bobbing
+    const bobAngle = Math.cos(timeSec * 7) * 0.05; // slight nose pitch up/down matching the bobbing
+    const planeY = tipY + bobY;
+    const dynamicAngle = planeAngle + bobAngle;
+
+    drawTrail(ctx, tipX, planeY, dynamicAngle);
     if (planeImg) {
       // plane-3.svg is 150×74 and faces right (nose at the right edge). Draw it
       // rotated to the flight angle with the nose sitting on the curve tip.
       const pw = (compact ? 66 : 90);
       const ph = pw * (planeImg.height / planeImg.width);
       ctx.save();
-      ctx.translate(tipX, tipY);
-      ctx.rotate(planeAngle);
+      ctx.translate(tipX, planeY);
+      ctx.rotate(dynamicAngle);
       ctx.shadowColor = "#ff1838"; ctx.shadowBlur = 14;
       ctx.drawImage(planeImg, -pw + pw * 0.12, -ph / 2, pw, ph);
       ctx.restore();
       ctx.shadowBlur = 0;
     } else {
-      drawPlane(ctx, tipX, tipY, planeAngle, compact ? 0.82 : 1);
+      drawPlane(ctx, tipX, planeY, dynamicAngle, compact ? 0.82 : 1);
     }
   }
 
@@ -453,7 +477,8 @@ function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: n
   ctx.stroke();
 
   // Spinning propeller at the nose — motion-blur disc + fast blades
-  const spin = Date.now() * 0.06;
+  const timeSecProp = (Date.now() % 3600000) / 1000;
+  const spin = timeSecProp * 60;
   ctx.save();
   ctx.translate(30, 0);
   ctx.beginPath(); ctx.ellipse(0, 0, 3, 13, 0, 0, Math.PI * 2);
@@ -494,6 +519,7 @@ function drawIdleState(
 ) {
   const cx = w/2, cy = h/2;
   const compact = w < 520;
+  const timeSecIdle = (Date.now() % 3600000) / 1000;
 
   if (state === "BETTING") {
     const labelFs = Math.min(w*0.038, 20);
@@ -529,11 +555,11 @@ function drawIdleState(
     }
 
     // Bobbing plane near origin (bottom-left), faces upper-right to match flight direction
-    const bob = Math.sin(Date.now() * 0.002) * 3;
+    const bob = Math.sin(timeSecIdle * 2) * 3;
     drawPlane(ctx, ox+24, oy-20+bob, -Math.PI/6, compact?0.75:0.9);
   } else {
     // WAITING: orbiting plane
-    const spin = Date.now() * 0.0015;
+    const spin = timeSecIdle * 1.5;
     const planeR = Math.min(w*0.07, 48);
 
     ctx.save();
