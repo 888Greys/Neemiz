@@ -8,6 +8,7 @@ import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
 import { vanillaPayoutPerPoint, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
 import { isBetTypeDisabled, isBinaryContractServable, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
 import { getCalibrationTicks } from "@/lib/binary/calibration";
+import { getLiveEntrySpot } from "@/lib/binary-price";
 import { priceDirectionalServer, type FixedKind } from "@/lib/binary/server-price";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
@@ -66,10 +67,12 @@ export async function POST(req: Request) {
   // price it produces is proven house-safe (see lib/binary/pricing.ts).
   let entrySpot: number, entryEpoch: number, marketPrices: number[];
   try {
-    const calib = await getCalibrationTicks(market);
+    // Pricing bootstraps from the cached recent window; the ENTRY spot must be a
+    // FRESH live tick (never the cached one) to close the stale-entry timing edge.
+    const [calib, entry] = await Promise.all([getCalibrationTicks(market), getLiveEntrySpot(market)]);
     marketPrices = calib.prices;
-    entrySpot = calib.entrySpot;
-    entryEpoch = calib.entryEpoch;
+    entrySpot = entry.spot;
+    entryEpoch = entry.epoch;
   } catch (err) {
     console.error("directional/bet market data:", err instanceof Error ? err.message : err);
     return Response.json({ error: "Live feed unavailable, try again" }, { status: 503 });

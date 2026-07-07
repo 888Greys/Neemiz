@@ -64,3 +64,21 @@ export async function getServerTickHistory(
   if (!VALID_SYMBOLS.has(symbol)) throw new Error(`Unsupported binary symbol: ${symbol}`);
   return derivClient.fetchTickHistory(symbol, startEpoch, Math.min(Math.max(count, 1), 5000));
 }
+
+/**
+ * Fetch the CURRENT live entry tick for a contract, server-side and UNCACHED.
+ *
+ * The entry spot a directional trade is priced/settled against must be the tick
+ * at placement time — never a cached one. A stale entry (e.g. from the 3s
+ * calibration cache) lets a player watch the live feed and bet in the direction
+ * the price already moved, getting a lagging entry that nudges their win
+ * probability above 50%. This always hits Deriv fresh so there is no such gap.
+ */
+export async function getLiveEntrySpot(symbol: string): Promise<{ spot: number; epoch: number }> {
+  if (!VALID_SYMBOLS.has(symbol)) throw new Error(`Unsupported binary symbol: ${symbol}`);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const hist = await derivClient.fetchTickHistory(symbol, nowSec - 30, 5);
+  const last = hist[hist.length - 1];
+  if (!last || !Number.isFinite(last.price) || last.price <= 0) throw new Error(`No live entry tick for ${symbol}`);
+  return { spot: last.price, epoch: last.epoch };
+}
