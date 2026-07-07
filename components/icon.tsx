@@ -36,6 +36,7 @@ import {
   CircleHelp,
   Clock,
   Coins,
+  Compass,
   Crosshair,
   CreditCard,
   Dices,
@@ -184,6 +185,7 @@ const iconMap: Record<string, LucideIcon> = {
   egg: Egg,
   emoji_events: Trophy,
   error: AlertCircle,
+  explore: Compass,
   expand_less: ChevronUp,
   expand_more: ChevronDown,
 
