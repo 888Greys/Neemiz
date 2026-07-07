@@ -129,23 +129,11 @@ export async function POST(req: Request) {
         }
       }
 
-      // A destination number may receive cash only ONCE, EVER. If any prior
-      // (non-failed) M-Pesa withdrawal already went to this msisdn — whether by
-      // this user or any other account — block it. This stops a single number
-      // being used as a repeat cash-out endpoint for seeded/mule accounts.
-      // Applies to everyone, admins included (owner request 2026-07-06).
-      const priorToNumber = await tx.transaction.findFirst({
-        where: {
-          type:     TransactionType.WITHDRAWAL,
-          provider: "lipaharaka",
-          status:   { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
-          metadata: { path: ["msisdn"], equals: msisdn },
-        },
-        select: { id: true },
-      });
-      if (priorToNumber) {
-        throw new Error("PHONE_NUMBER_USED");
-      }
+      // (Removed the "a number may receive cash only once, ever" rule — the
+      // per-account daily limit plus the locked, unique withdrawal number
+      // already bound each account to one number and cap its cash-out, so the
+      // once-per-number block only blocked legitimate repeat withdrawals to a
+      // user's own line.)
 
       const numberCount = 0;
       const numberTripped = false;
@@ -304,9 +292,6 @@ export async function POST(req: Request) {
         { error: "This withdrawal could not be processed. Please contact support." },
         { status: 403 },
       );
-    }
-    if (err instanceof Error && err.message === "PHONE_NUMBER_USED") {
-      return Response.json({ error: "This M-Pesa number has already received a withdrawal. Each number can only be paid out once." }, { status: 400 });
     }
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
