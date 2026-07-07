@@ -6,7 +6,7 @@ import { TransactionStatus, TransactionType } from "@prisma/client";
 import { isBetTypeDisabled, isBinaryContractServable, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
 import { getCalibrationTicks } from "@/lib/binary/calibration";
 import { getLiveEntrySpot } from "@/lib/binary-price";
-import { priceDigitServer } from "@/lib/binary/server-price";
+import { priceDigitServer, resolveDigitEdgeFloor } from "@/lib/binary/server-price";
 import { exitDigitFromQuote, type DigitSide } from "@/lib/binary/kernel";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
@@ -69,13 +69,14 @@ export async function POST(req: Request) {
   const entryDigit = exitDigitFromQuote(entrySpot);
 
   // Price the digit contract
+  const digitEdgeFloor = resolveDigitEdgeFloor(side as DigitSide, targetDigit!, symbolEdge);
   const priced = priceDigitServer({
     side: side as DigitSide,
     targetDigit: targetDigit!,
     durationTicks: ticks,
     stake: stakeVal,
     ticks: marketPrices,
-    edgeFloor: symbolEdge,
+    edgeFloor: digitEdgeFloor,
   });
 
   if (!priced.accepted) {
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
           status:    TransactionStatus.COMPLETED,
           reference: `binary-stake-${dbUser.id}-${trade.id}`,
           provider:  "binary",
-          metadata:  { game: "binary", tradeId: trade.id, market, side, targetDigit, durationTicks: ticks, grossPayout: payoutVal },
+          metadata:  { game: "binary", tradeId: trade.id, market, side, targetDigit, durationTicks: ticks, grossPayout: payoutVal, edgeFloor: digitEdgeFloor },
         },
       });
 
