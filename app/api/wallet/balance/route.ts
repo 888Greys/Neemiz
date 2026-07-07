@@ -37,6 +37,7 @@ export async function GET() {
 
     return Response.json({
       balance:        Number(dbUser.walletBalance),
+      forexBalance:   Number(dbUser.forexWalletBalance ?? 0),
       currency:       dbUser.currency,
       cryptoBalances,
     }, {
