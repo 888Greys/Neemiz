@@ -64,6 +64,7 @@ export function DigitPanel({
   const needsTarget = family !== "evenOdd";
   const targetVerb = family === "matchDiffer" ? "Target digit" : "Barrier digit";
   const compactStakeDuration = family === "overUnder";
+  const targetDigits = family === "overUnder" ? DIGITS.slice(1, 9) : DIGITS;
 
   // Mobile uses Deriv's single-CTA model: a side toggle + one Buy button. We
   // track which side is armed locally; if the family (and thus `sides`) changes
@@ -88,6 +89,7 @@ export function DigitPanel({
         minStake={minStake}
         needsTarget={needsTarget}
         targetVerb={targetVerb}
+        targetDigits={targetDigits}
         payoutFor={payoutFor}
         format={format}
         onTrade={onTrade}
@@ -163,7 +165,7 @@ export function DigitPanel({
           <div className={CARD}>
             <div className="mb-2 text-center text-[12px] font-bold text-slate-200 sm:mb-2.5 sm:text-[13px]">{targetVerb}</div>
             <div className="grid grid-cols-5 gap-1.5">
-              {DIGITS.map((d) => {
+              {targetDigits.map((d) => {
                 const active = targetDigit === d;
                 const isLast = lastDigit === d;
                 return (
@@ -236,7 +238,7 @@ function MobileDerivDigits({
   currency, sides, selectedSide, onArmSide,
   stake, setStake, duration, setDuration,
   targetDigit, setTargetDigit, lastDigit,
-  stakePresets, minStake, needsTarget, targetVerb,
+  stakePresets, minStake, needsTarget, targetVerb, targetDigits,
   payoutFor, format, onTrade, placing, openPositions,
 }: {
   currency: string;
@@ -251,6 +253,7 @@ function MobileDerivDigits({
   minStake: number;
   needsTarget: boolean;
   targetVerb: string;
+  targetDigits: number[];
   payoutFor: (side: ContractSide) => number;
   format: (v: number) => string;
   onTrade: (side: ContractSide) => void;
@@ -323,7 +326,7 @@ function MobileDerivDigits({
               <span className="font-mono text-[14px] font-black text-white">{targetDigit}</span>
             </div>
             <div className="mt-2.5 grid grid-cols-5 gap-2">
-              {DIGITS.map((d) => {
+              {targetDigits.map((d) => {
                 const active = targetDigit === d;
                 const isLast = lastDigit === d;
                 return (

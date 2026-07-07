@@ -62,7 +62,23 @@ export function resolveDigitEdgeFloor(side: DigitSide, targetDigit: number, edge
   } else if (side === "Under" && targetDigit === 9) {
     productFloor = 0.03;  // 3% edge floor for Under 9 (90% win prob)
   }
+  if (side === "Differs" || (side === "Over" && targetDigit === 0) || (side === "Under" && targetDigit === 9)) {
+    return productFloor;
+  }
   return Math.max(edgeFloor ?? productFloor, productFloor);
+}
+
+export function previewDigitPayout(stake: number, side: DigitSide, targetDigit: number): number {
+  let winProb = 0.5;
+  if (side === "Matches") winProb = 0.1;
+  else if (side === "Differs") winProb = 0.9;
+  else if (side === "Over") winProb = Math.max(0, 9 - targetDigit) / 10;
+  else if (side === "Under") winProb = Math.max(0, targetDigit) / 10;
+
+  if (!(winProb > 0)) return 0;
+  const edgeFloor = resolveDigitEdgeFloor(side, targetDigit);
+  const multiplier = Math.floor(((1 - edgeFloor) / winProb) * 100) / 100;
+  return Number((stake * multiplier).toFixed(2));
 }
 
 /**
