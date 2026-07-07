@@ -459,8 +459,17 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
           address: cwAddress.trim(),
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error((data as { error?: string }).error ?? "Withdrawal failed");
+      // Parse defensively: on a gateway/CDN hiccup the body can be an HTML error
+      // page, not JSON — surface a clear message instead of a raw "Unexpected
+      // token '<'" parse error.
+      const data = await res.json().catch(() => null) as
+        { txId?: string; payoutId?: string; error?: string; ok?: boolean } | null;
+      if (!data) {
+        throw new Error("Withdrawal is taking longer than expected — check your transaction history before retrying.");
+      }
+      if (!res.ok || data.error || data.ok === false) {
+        throw new Error(data.error ?? "Withdrawal failed");
+      }
       setCwState({ step: "success", txId: data.txId as string, payoutId: data.payoutId as string });
       fetchCryptoBalances();
     } catch (err: unknown) {

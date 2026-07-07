@@ -184,9 +184,14 @@ export async function POST(req: Request) {
     });
     const msg = err instanceof Error ? err.message : "Broadcast failed";
     console.error("[crypto/withdraw] broadcast error:", msg);
+    // Return the handled failure as 200 (not 5xx): the balance is already
+    // refunded, and a 5xx status lets the CDN/proxy (Cloudflare) swap our JSON
+    // for an HTML error page, which the client then fails to parse as JSON.
     return Response.json({
+      ok: false,
+      refunded: true,
       error: `Withdrawal could not be sent. Your ${amount} ${crypto} was returned to your balance. Please retry shortly.`,
-    }, { status: 502 });
+    }, { status: 200 });
   }
 }
 
