@@ -41,20 +41,28 @@ const COIN_ICON_URL: Record<string, string> = {
 // cryptocurrency-icons set; card/wallet brands come from Simple Icons. Every
 // entry is optional at render time — <PaymentIcon> falls back to a clean
 // monogram chip if a logo is missing or fails to load, so nothing ever breaks.
+// Real brand logos we've confirmed resolve on Simple Icons. M-Pesa / Skrill /
+// Neteller aren't in the set, so they intentionally fall through to an on-brand
+// coloured chip below (see BRAND_FALLBACK) instead of a broken image request.
 const BRAND_ICON_URL: Record<string, string> = {
   ...COIN_ICON_URL,
   VISA:     "https://cdn.simpleicons.org/visa/1434CB",
   MC:       "https://cdn.simpleicons.org/mastercard/EB001B",
   AIRTEL:   "https://cdn.simpleicons.org/airtel/E40000",
-  MPESA:    "https://cdn.simpleicons.org/mpesa/4CAF50",
-  SKRILL:   "https://cdn.simpleicons.org/skrill/862165",
-  NETELLER: "https://cdn.simpleicons.org/neteller/83BA3B",
   BINANCE:  "https://cdn.simpleicons.org/binance/F0B90B",
 };
 
 const BRAND_LABEL: Record<string, string> = {
   VISA: "VISA", MC: "MC", AIRTEL: "Airtel", MPESA: "M-Pesa",
   SKRILL: "Skrill", NETELLER: "Neteller", BINANCE: "BNB", BANK: "Bank",
+};
+
+// On-brand fallback chip colours for brands with no CDN logo — a coloured badge
+// reads as intentional, not broken. Anything not listed uses a neutral chip.
+const BRAND_FALLBACK: Record<string, { bg: string; fg: string }> = {
+  MPESA:    { bg: "bg-[#43a047]", fg: "text-white" },
+  SKRILL:   { bg: "bg-[#7b2c6f]", fg: "text-white" },
+  NETELLER: { bg: "bg-[#83ba3b]", fg: "text-white" },
 };
 
 /** A payment-brand / coin logo with a graceful fallback. Renders the real logo
@@ -83,8 +91,9 @@ function PaymentIcon({ badge }: { badge: string }) {
       />
     );
   }
+  const fb = BRAND_FALLBACK[badge];
   return (
-    <span className="grid h-8 min-w-8 shrink-0 place-items-center rounded-lg bg-white/[0.10] px-1.5 text-[10px] font-black text-slate-100">
+    <span className={`grid h-8 min-w-8 shrink-0 place-items-center rounded-lg px-1.5 text-[10px] font-black ${fb ? `${fb.bg} ${fb.fg}` : "bg-white/[0.10] text-slate-100"}`}>
       {BRAND_LABEL[badge] ?? badge}
     </span>
   );
