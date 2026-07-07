@@ -4,7 +4,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
-import { dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
+import { dailyLimitKes, dailyCapWhere, withdrawalWindowStart } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
 
@@ -75,9 +75,9 @@ export async function POST(req: Request) {
   // Per-transfer cap: a user may send at most KSh 50 to another account in one
   // transfer. This throttles the "seed an account then cash it out" fan-out
   // pattern where balance is moved in bulk to accomplices who withdraw it.
-  // Admins are exempt (owner treasury operations).
+  // Admins are also subject to the KSh 50 per-transfer limit.
   const MAX_TRANSFER_KES = 50;
-  if (!sender.isAdmin && amount > MAX_TRANSFER_KES) {
+  if (amount > MAX_TRANSFER_KES) {
     return Response.json({ error: `You can send at most ${CURRENCY_SYMBOL} ${MAX_TRANSFER_KES} per transfer.` }, { status: 400 });
   }
 
@@ -113,18 +113,39 @@ export async function POST(req: Request) {
         }
       }
 
+      // Admins can send to any given account only once per rolling 24-hour window.
+      if (sender.isAdmin) {
+        const priorTransfer = await tx.transaction.findFirst({
+          where: {
+            userId: sender.id,
+            type: TransactionType.WITHDRAWAL,
+            provider: "wallet_transfer",
+            status: { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
+            createdAt: { gte: withdrawalWindowStart() },
+            OR: [
+              ...(recipient.username ? [{ metadata: { path: ["to"], equals: recipient.username } }] : []),
+              { metadata: { path: ["recipientId"], equals: recipient.id } },
+            ],
+          },
+          select: { id: true },
+        });
+        if (priorTransfer) {
+          throw new Error("ADMIN_ONCE_PER_DAY");
+        }
+      }
+
       await tx.user.update({ where: { id: recipient.id }, data: { walletBalance: { increment: amount } } });
       await tx.transaction.createMany({
         data: [
           {
             userId: sender.id, type: TransactionType.WITHDRAWAL, amount, currency: "KES",
             status: TransactionStatus.COMPLETED, reference: `${reference}-out`, provider: "wallet_transfer",
-            metadata: { action: "wallet_send", to: recipient.username },
+            metadata: { action: "wallet_send", to: recipient.username, recipientId: recipient.id },
           },
           {
             userId: recipient.id, type: TransactionType.DEPOSIT, amount, currency: "KES",
             status: TransactionStatus.COMPLETED, reference: `${reference}-in`, provider: "wallet_transfer",
-            metadata: { action: "wallet_receive", from: sender.username },
+            metadata: { action: "wallet_receive", from: sender.username, senderId: sender.id },
           },
         ],
       });
@@ -162,6 +183,9 @@ export async function POST(req: Request) {
           ? `Daily limit: you can send or withdraw ${CURRENCY_SYMBOL} ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
           : "You've reached today's cash-out limit (sends + withdrawals). It resets at 2:00 AM.",
       }, { status: 400 });
+    }
+    if (error instanceof Error && error.message === "ADMIN_ONCE_PER_DAY") {
+      return Response.json({ error: "Admins can only send to another account once per day." }, { status: 400 });
     }
     console.error("POST /api/wallet/transfer:", error);
     return Response.json({ error: "Transfer failed" }, { status: 500 });
