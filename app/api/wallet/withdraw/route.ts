@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
-import { TransactionType, TransactionStatus } from "@prisma/client";
+import { TransactionType, TransactionStatus, Prisma } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
 import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
@@ -73,14 +73,32 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XX or 01XX format." }, { status: 400 });
     }
 
-    // Bound-number enforcement. Once a user has verified a number, cash-outs may
-    // only go to THAT number — it is locked to the account for life. Blocks
-    // routing a payout to an unverified/third-party line. Admins exempt.
-    if (isTwilioConfigured() && !dbUser.isAdmin && dbUser.phoneVerified && dbUser.phone && msisdn !== dbUser.phone) {
-      return Response.json(
-        { error: `Withdrawals can only be sent to your verified number +${dbUser.phone}.` },
-        { status: 400 },
-      );
+    // Bound-number enforcement — TWILIO-INDEPENDENT. Each account is locked to a
+    // single M-Pesa withdrawal number for life, whether or not SMS verification
+    // is available:
+    //   • if a number is already bound (via first withdrawal, the mpesa route, or
+    //     SMS verify), cash-outs may ONLY go to it — no editing/rerouting;
+    //   • otherwise the FIRST withdrawal binds this number to the account.
+    // The number is also unique per account (User.phone @unique), so it can't be
+    // shared across accounts. Admins are exempt (they test to arbitrary numbers).
+    if (!dbUser.isAdmin) {
+      if (dbUser.phone) {
+        if (msisdn !== dbUser.phone) {
+          return Response.json(
+            { error: `Withdrawals can only be sent to your registered number +${dbUser.phone}. Contact support to change it.` },
+            { status: 400 },
+          );
+        }
+      } else {
+        try {
+          await db.user.update({ where: { id: dbUser.id }, data: { phone: msisdn } });
+        } catch (bindErr) {
+          if (bindErr instanceof Prisma.PrismaClientKnownRequestError && bindErr.code === "P2002") {
+            return Response.json({ error: "This M-Pesa number is already registered to another account." }, { status: 409 });
+          }
+          throw bindErr;
+        }
+      }
     }
 
     const feeRate   = lipaTestMode ? 0 : WITHDRAWAL_FEE_RATE;
