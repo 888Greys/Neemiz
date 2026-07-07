@@ -4,6 +4,7 @@ import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user
 import { TransactionType, TransactionStatus, Prisma } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
+import { isMuleFlagged, notifyAdminsMuleHold } from "@/lib/mule-guard";
 import { WINDOW_MS, dailyLimitKes, dailyCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 import { withdrawalsDisabledResponse, setWithdrawalsDisabled } from "@/lib/withdrawal-guard";
@@ -105,6 +106,10 @@ export async function POST(req: Request) {
     const feeKes    = parseFloat((amountKes * feeRate).toFixed(2));
     const payoutKes = parseFloat((amountKes - feeKes).toFixed(2));
 
+    // Suspected-mule watchlist: don't block — HOLD the withdrawal for admin
+    // review and page the owner (approve a real win, reject laundering).
+    const isMule = !dbUser.isAdmin && (await isMuleFlagged(dbUser.email));
+
     // ── Step 1: deduct balance + create record atomically ──
     // Gate: amounts > 1,000,000 KES or > 10 withdrawals today require admin approval
     const { withdrawalId, dbUserId, needsApproval, numberTripped, numberCount, killTripped, distinctUsers } = await db.$transaction(async (tx) => {
@@ -158,7 +163,7 @@ export async function POST(req: Request) {
       const distinctUsers = 0;
       const killTripped = false;
 
-      const needsApproval = !dbUser.isAdmin && (amountKes > 1_000_000 || priorCount >= 10);
+      const needsApproval = isMule || (!dbUser.isAdmin && (amountKes > 1_000_000 || priorCount >= 10));
       const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
       const withdrawal = await tx.transaction.create({
@@ -197,6 +202,11 @@ export async function POST(req: Request) {
       if (numberTripped && !killTripped) {
         notifyAdminsSuspiciousNumber({ msisdn, count: numberCount, amountKes, held: true })
           .catch((e) => console.error("[withdraw] suspicious-number alert failed", e));
+      }
+      // Page admins that a flagged (suspected-mule) account's withdrawal is held.
+      if (isMule) {
+        notifyAdminsMuleHold({ username: dbUser.username ?? dbUser.id.slice(0, 8), amountKes, msisdn })
+          .catch((e) => console.error("[withdraw] mule-hold alert failed", e));
       }
       return Response.json({
         ok:           true,
