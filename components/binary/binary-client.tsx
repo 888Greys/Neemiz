@@ -24,6 +24,14 @@ import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { quoteToDigit } from "@/lib/binary-digit";
 import {
+  mergeClosedPositions,
+  toAccumulatorClosedPosition,
+  toBinaryClosedPosition,
+  toDirectionalClosedPosition,
+  toLeveragedClosedPosition,
+  type ClosedPosition,
+} from "@/lib/binary/history";
+import {
   SIGMA_WINDOW, computeSigma, barrierFracFor, maxTicksFor, payoutAtTick,
 } from "@/lib/accumulator";
 import { TradeTypePicker } from "./trade-type-picker";
@@ -655,7 +663,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
   const [placing, setPlacing] = useState(false);
   const [openTrades, setOpenTrades] = useState<BinaryTrade[]>([]);
   const [closedTrades, setClosedTrades] = useState<BinaryTrade[]>([]);
-  const [persistedTrades, setPersistedTrades] = useState<BinaryTrade[]>([]);
+  const [closedPositions, setClosedPositions] = useState<ClosedPosition[]>([]);
+  const [persistedPositions, setPersistedPositions] = useState<ClosedPosition[]>([]);
   const [transactions, setTransactions] = useState<string[]>([]);
   const [tab, setTab] = useState<"open" | "closed" | "tx">("open");
   // Desktop activity rail is collapsed by default to give the chart room; it
@@ -716,41 +725,44 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     if (hasOpenPositions) setRailOpen(true);
   }, [hasOpenPositions]);
 
-  // Load persisted closed trades from DB on mount (live users only)
+  // Load persisted closed trades from DB on mount (live users only). History is
+  // cross-family: digit, directional, accumulator and leveraged contracts all
+  // feed the same Closed tab, sorted by settlement time.
   useEffect(() => {
     if (!isLive) return;
-    fetch("/api/binary/history")
-      .then((r) => r.ok ? r.json() : [])
-      .then((data: Array<{
-        id: string; market: string; side: string; stake: number; payout: number;
-        targetDigit: number; entryDigit: number; exitDigit?: number; status: string; createdAt: string;
-      }>) => {
-        const mapped: BinaryTrade[] = data
-          .filter((t) => t.status !== "PENDING")
-          .map((t) => ({
-            id: t.id,
-            market: t.market,
-            side: t.side as ContractSide,
-            stake: t.stake,
-            payout: t.payout,
-            entryDigit: t.entryDigit,
-            targetDigit: t.targetDigit,
-            exitDigit: t.exitDigit,
-            openedAt: new Date(t.createdAt).getTime(),
-            settlesAt: 0,
-            status: (t.status === "WON" ? "won" : "lost") as TradeStatus,
-            isReal: true,
-          }));
-        setPersistedTrades(mapped);
+    Promise.all([
+      fetch("/api/binary/history").then((r) => r.ok ? r.json() : []),
+      fetch("/api/directional/history").then((r) => r.ok ? r.json() : []),
+      fetch("/api/accumulator/history").then((r) => r.ok ? r.json() : []),
+      fetch("/api/leveraged/history").then((r) => r.ok ? r.json() : []),
+    ])
+      .then(([digits, directional, accumulators, leveraged]: [
+        Array<{ id: string; market: string; side: string; stake: number; payout: number; targetDigit: number; entryDigit: number; exitDigit?: number | null; status: string; settledAt?: string | null; createdAt: string }>,
+        Array<{ id: string; market: string; kind: string; side: string; stake: number; payout?: number | null; durationTicks?: number | null; status: string; settledAt?: string | null; createdAt: string }>,
+        Array<{ id: string; market: string; growthRate: number; stake: number; payout?: number | null; ticksSurvived?: number | null; status: string; settledAt?: string | null; createdAt: string }>,
+        Array<{ id: string; market: string; kind: string; direction: string; stake: number; payout?: number | null; status: string; settledAt?: string | null; createdAt: string }>,
+      ]) => {
+        setPersistedPositions(mergeClosedPositions(
+          digits.filter((t) => t.status !== "PENDING").map((t) => toBinaryClosedPosition({ ...t, isReal: true })),
+          directional.filter((t) => t.status !== "PENDING").map((t) => toDirectionalClosedPosition({ ...t, isReal: true })),
+          accumulators.filter((t) => t.status !== "OPEN").map((t) => toAccumulatorClosedPosition({ ...t, isReal: true })),
+          leveraged.filter((t) => t.status !== "OPEN").map((t) => toLeveragedClosedPosition({ ...t, isReal: true })),
+        ));
       })
       .catch(() => {});
   }, [isLive]);
 
-  // Merge session trades with persisted DB trades (dedup by id)
-  const allClosedTrades = useMemo(() => {
-    const sessionIds = new Set(closedTrades.map((t) => t.id));
-    return [...closedTrades, ...persistedTrades.filter((t) => !sessionIds.has(t.id))];
-  }, [closedTrades, persistedTrades]);
+  // Merge session trades with persisted DB trades (dedup by id) and always sort
+  // newest first so the last played/settled contract appears at the top.
+  const allClosedPositions = useMemo(() => mergeClosedPositions(
+    closedTrades.map((t) => toBinaryClosedPosition({
+      ...t,
+      status: t.status === "won" ? "WON" : "LOST",
+      settledAt: new Date(t.openedAt + Math.max(0, t.settlesAt - t.openedAt)),
+    })),
+    closedPositions,
+    persistedPositions,
+  ), [closedTrades, closedPositions, persistedPositions]);
 
   useEffect(() => {
     setTicks(seedTicks(market));
@@ -1136,6 +1148,15 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         const busted = !!data.busted;
         const payout = data.payout ?? 0;
         setAccaPos(null);
+        setClosedPositions((cur) => mergeClosedPositions([
+          toAccumulatorClosedPosition({
+            ...pos,
+            payout,
+            status: payout > 0 ? "CLOSED" : "BUSTED",
+            settledAt: new Date(),
+            ticksSurvived: data.ticksSurvived ?? pos.ticksSurvived,
+          }),
+        ], cur).slice(0, 40));
         if (!busted && payout > 0) {
           setLiveBalance((b) => b + payout);
           window.dispatchEvent(new Event("wallet-refresh"));
@@ -1148,6 +1169,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         const gross  = busted ? 0 : payoutAtTick(pos.stake, pos.growthRate, pos.ticksSurvived);
         const payout = busted ? 0 : retainedPayout(pos.stake, gross);
         setAccaPos(null);
+        setClosedPositions((cur) => mergeClosedPositions([
+          toAccumulatorClosedPosition({
+            ...pos,
+            payout,
+            status: busted ? "BUSTED" : "CLOSED",
+            settledAt: new Date(),
+          }),
+        ], cur).slice(0, 40));
         if (!busted) {
           setDemoBalance((b) => b + payout);
           toast.cashout(`+${money(payout)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
@@ -1260,6 +1289,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         }
         const payout = data.payout ?? 0;
         setLevPos(null);
+        setClosedPositions((cur) => mergeClosedPositions([
+          toLeveragedClosedPosition({
+            ...pos,
+            payout,
+            status: "CLOSED",
+            settledAt: new Date(),
+          }),
+        ], cur).slice(0, 40));
         if (payout > 0) {
           setLiveBalance((b) => b + payout);
           window.dispatchEvent(new Event("wallet-refresh"));
@@ -1278,6 +1315,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         }, path);
         const payout = outcome.grossPayout > 0 ? retainedPayout(pos.stake, outcome.grossPayout) : 0;
         setLevPos(null);
+        setClosedPositions((cur) => mergeClosedPositions([
+          toLeveragedClosedPosition({
+            ...pos,
+            payout,
+            status: "CLOSED",
+            settledAt: new Date(),
+          }),
+        ], cur).slice(0, 40));
         if (payout > 0) {
           setDemoBalance((b) => b + payout);
           toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
@@ -1378,6 +1423,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       }
       const won = !!data.won;
       setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
+      setClosedPositions((cur) => mergeClosedPositions([
+        toDirectionalClosedPosition({
+          ...t,
+          payout: won ? data.winAmount ?? t.payout : 0,
+          status: won ? "WON" : "LOST",
+          settledAt: new Date(),
+        }),
+      ], cur).slice(0, 40));
       if (won && data.winAmount) {
         setLiveBalance((b) => b + data.winAmount!);
         window.dispatchEvent(new Event("wallet-refresh"));
@@ -1415,6 +1468,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           if (!res.ready) continue; // outcome not determined yet
           dirSettled.current.add(t.id);
           setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
+          setClosedPositions((cur) => mergeClosedPositions([
+            toDirectionalClosedPosition({
+              ...t,
+              payout: res.won ? res.credit : 0,
+              status: res.won ? "WON" : "LOST",
+              settledAt: new Date(),
+            }),
+          ], cur).slice(0, 40));
           if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${money(res.credit)} — ${t.side} won!`, t.market); }
           else { toast.error(`${t.side} lost`, t.market); }
         }
@@ -1565,7 +1626,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           {railOpen ? (
             <BinaryActivityPanel
               tab={tab} setTab={setTab}
-              openPositions={openPositions} allClosedTrades={allClosedTrades} transactions={transactions}
+              openPositions={openPositions} allClosedPositions={allClosedPositions} transactions={transactions}
               wins={wins} losses={losses} sessionPnl={sessionPnl} isLive={isLive}
               onCollapse={() => setRailOpen(false)}
             />
@@ -1850,7 +1911,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       {mobileActivityOpen && (
         <MobilePositions
           tab={tab === "tx" ? "open" : tab} setTab={setTab}
-          openPositions={openPositions} allClosedTrades={allClosedTrades}
+          openPositions={openPositions} allClosedPositions={allClosedPositions}
           onClose={closePanel}
         />
       )}
@@ -2139,7 +2200,7 @@ interface ActivityPanelProps {
   tab: "open" | "closed" | "tx";
   setTab: (t: "open" | "closed" | "tx") => void;
   openPositions: OpenPositionView[];
-  allClosedTrades: BinaryTrade[];
+  allClosedPositions: ClosedPosition[];
   transactions: string[];
   wins: number;
   losses: number;
@@ -2151,7 +2212,7 @@ interface ActivityPanelProps {
 // Shared Open / Closed / Tx tabs + session stats — used by the desktop rail
 // and the mobile collapsible so both views show identical detail.
 function BinaryActivityPanel({
-  tab, setTab, openPositions, allClosedTrades, transactions, onCollapse,
+  tab, setTab, openPositions, allClosedPositions, transactions, onCollapse,
 }: ActivityPanelProps) {
   return (
     <>
@@ -2164,7 +2225,7 @@ function BinaryActivityPanel({
             onClick={() => setTab(t)}
             className={`flex-1 py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
           >
-            {t === "open" ? `Open (${openPositions.length})` : t === "closed" ? `Closed (${allClosedTrades.length})` : "Tx"}
+            {t === "open" ? `Open (${openPositions.length})` : t === "closed" ? `Closed (${allClosedPositions.length})` : "Tx"}
           </button>
         ))}
         {onCollapse && (
@@ -2193,10 +2254,10 @@ function BinaryActivityPanel({
         )}
         {tab === "closed" && (
           <div className="space-y-1.5 p-3">
-            {allClosedTrades.length === 0 ? (
+            {allClosedPositions.length === 0 ? (
               <EmptyState title="No closed trades" subtitle="Settled contracts will show here" />
             ) : (
-              allClosedTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)
+              allClosedPositions.map((position) => <ClosedPositionRow key={position.id} position={position} />)
             )}
           </div>
         )}
@@ -2247,12 +2308,12 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
 // tabs. Opened by the bottom-nav Positions tab (?panel=positions); hidden on lg+
 // where the desktop rail shows positions instead.
 function MobilePositions({
-  tab, setTab, openPositions, allClosedTrades, onClose,
+  tab, setTab, openPositions, allClosedPositions, onClose,
 }: {
   tab: "open" | "closed";
   setTab: (t: "open" | "closed" | "tx") => void;
   openPositions: OpenPositionView[];
-  allClosedTrades: BinaryTrade[];
+  allClosedPositions: ClosedPosition[];
   onClose: () => void;
 }) {
   return (
@@ -2289,11 +2350,11 @@ function MobilePositions({
               {openPositions.map((pos) => <PositionRow key={pos.id} pos={pos} />)}
             </div>
           )
-        ) : allClosedTrades.length === 0 ? (
+        ) : allClosedPositions.length === 0 ? (
           <PositionsEmpty icon="history" title="No closed positions" subtitle="Settled contracts will appear here." />
         ) : (
           <div className="space-y-2 p-3">
-            {allClosedTrades.map((trade) => <TradeRow key={trade.id} trade={trade} />)}
+            {allClosedPositions.map((position) => <ClosedPositionRow key={position.id} position={position} />)}
           </div>
         )}
       </div>
@@ -2371,35 +2432,25 @@ function EmptyState({ subtitle, title }: { subtitle: string; title: string }) {
   );
 }
 
-function TradeRow({ trade }: { trade: BinaryTrade }) {
-  const isOpen = trade.status === "open";
-  const isWon = trade.status === "won";
+function ClosedPositionRow({ position }: { position: ClosedPosition }) {
+  const isWon = position.status === "won";
   const { convert, currency } = useCurrency();
   const money = (kes: number) => fmtMoney(kes, currency, convert);
-  const [now, setNow] = useState(Date.now());
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const id = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(id);
-  }, [isOpen]);
-
-  const secondsLeft = Math.max(0, Math.ceil((trade.settlesAt - now) / 1000));
 
   return (
     <div className="border border-white/[0.07] bg-black/25 p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-black text-white">{trade.side}</div>
-          <div className="text-[11px] font-bold text-slate-500">{trade.market} · digit {trade.entryDigit}</div>
+          <div className="text-sm font-black text-white">{position.title}</div>
+          <div className="text-[11px] font-bold text-slate-500">{position.subtitle}</div>
         </div>
-        <span className={`rounded px-2 py-1 text-[10px] font-black ${isOpen ? "bg-sky-400/10 text-sky-300" : isWon ? "bg-emerald-400/10 text-emerald-300" : "bg-red-400/10 text-red-300"}`}>
-          {isOpen ? `${secondsLeft}s` : trade.status.toUpperCase()}
+        <span className={`rounded px-2 py-1 text-[10px] font-black ${isWon ? "bg-emerald-400/10 text-emerald-300" : "bg-red-400/10 text-red-300"}`}>
+          {position.status.toUpperCase()}
         </span>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs font-black">
-        <span className="text-slate-500">Stake {money(trade.stake)}</span>
-        <span className={isOpen || isWon ? "text-emerald-300" : "text-red-300"}>{isOpen ? money(trade.payout) : isWon ? `+${money(trade.payout - trade.stake)}` : `-${money(trade.stake)}`}</span>
+        <span className="text-slate-500">Stake {money(position.stake)}</span>
+        <span className={isWon ? "text-emerald-300" : "text-red-300"}>{isWon ? `+${money(position.payout - position.stake)}` : `-${money(position.stake)}`}</span>
       </div>
     </div>
   );
