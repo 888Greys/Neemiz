@@ -135,6 +135,12 @@ export async function POST(req: Request) {
           userId: dbUser.id, market, kind: kind as DirectionalKind, side,
           stake: stakeVal, payout: payoutVal, payoutPerPoint,
           entrySpot, entryEpoch, barrier, durationTicks: ticks, settleBefore,
+          pfServerSeed: proof?.serverSeed,
+          pfCommitment: proof?.commitment,
+          pfSignature: proof?.signature,
+          pfClientSeed: proof ? clientSeed : undefined,
+          pfNonce: proof ? String(proof.terms.nonce) : undefined,
+          pfPayoutMultiplier: proof ? payoutMultiplier : undefined,
           status: "PENDING",
         },
       });
@@ -149,7 +155,7 @@ export async function POST(req: Request) {
           provider: "directional",
           metadata: {
             game: "directional", tradeId: created.id, market, kind, side, barrier, payoutPerPoint, durationTicks: ticks, grossPayout,
-            ...(proof ? { pf: { commitment: proof.commitment, signature: proof.signature, serverSeed: proof.serverSeed, clientSeed, nonce: proof.terms.nonce, payoutMultiplier } } : {}),
+            ...(proof ? { pf: { commitment: proof.commitment, signature: proof.signature, clientSeed, nonce: proof.terms.nonce, payoutMultiplier } } : {}),
           },
         },
       });
