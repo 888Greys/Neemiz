@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
@@ -98,9 +98,9 @@ const TXN_META: Record<string, { label: string; icon: string; color: string; sig
 // form is re-enabled. The backend also requires LIPAHARAKA_WITHDRAWALS_ENABLED=true.
 const MPESA_WITHDRAWALS_ENABLED = true;
 
-type WalletTab = "deposit" | "send" | "withdraw" | "history";
+type WalletTab = "home" | "deposit" | "send" | "withdraw" | "history";
 
-export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: boolean; initialTab?: WalletTab } = {}) {
+export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boolean; initialTab?: WalletTab } = {}) {
   const { isSignedIn, user } = useSupabaseAuth();
   const { openLogin }        = useAuthModal();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
@@ -515,70 +515,21 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
   const formatCryptoAmount = (b: CryptoBalance) =>
     b.available.toFixed(b.crypto === "KES" ? 2 : b.crypto === "BTC" || b.crypto === "ETH" ? 8 : 4);
 
+  const activeTitle = tab.charAt(0).toUpperCase() + tab.slice(1);
+
   return (
-    <div className={`w-full ${wide ? "lg:grid lg:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)] lg:items-start" : ""}`}>
-
-      {/* ── Balance hero ── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#051b35] via-[#091522] to-[#0d0e11] px-6 pb-5 pt-7 sm:pb-8 sm:pt-10">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[#087cff]/15 blur-3xl" />
-        <div className="pointer-events-none absolute -left-12 bottom-0 h-44 w-44 rounded-full bg-[#087cff]/8 blur-2xl" />
-
-        <div className="relative mx-auto max-w-2xl text-center">
-          <p className="mb-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 sm:text-[11px]">
-            Available Balance
-          </p>
-          <p className="text-3xl font-black tracking-tight text-white sm:text-5xl">
-            {isSignedIn ? fmtBalance : "—"}
-          </p>
-
-          {!isSignedIn && (
-            <button
-              type="button"
-              onClick={openLogin}
-              className="mt-5 rounded-2xl bg-[#087cff] px-6 py-2.5 text-sm font-black text-white shadow-lg shadow-blue-500/25 transition hover:bg-[#2a90ff]"
-            >
-              Log in to see balance
-            </button>
-          )}
-
-        </div>
-      </div>
-
-      <div className="min-w-0">{/* ── right column when wide: tabs + active panel ── */}
-      {/* ── Tabs ── */}
-      <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#0d0e11]">
-        <div className="mx-auto grid max-w-2xl grid-cols-4 gap-0">
-          {(["deposit", "send", "withdraw", "history"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2.5 text-[10px] font-black transition sm:flex-row sm:gap-1.5 sm:py-3.5 sm:text-[12px] sm:uppercase sm:tracking-wider ${
-                tab === t
-                  ? "border-b-2 border-[#087cff] text-[#087cff]"
-                  : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              <Icon
-                name={
-                  t === "deposit"
-                    ? "add_circle"
-                    : t === "send"
-                      ? "send"
-                    : t === "withdraw"
-                      ? "remove_circle"
-                      : "history"
-                }
-                fill={tab === t}
-                className="text-[18px] sm:text-[15px]"
-              />
-              <span className="truncate leading-none">{t.charAt(0).toUpperCase() + t.slice(1)}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-2xl px-4 py-5">
+    <div className={`w-full bg-[#151518] text-white ${wide ? "lg:min-h-[560px]" : "min-h-[calc(100dvh-8rem)]"}`}>
+      {tab === "home" ? (
+        <WalletHome
+          balance={isSignedIn ? fmtBalance : "—"}
+          cryptoBalances={nonZeroBalances}
+          formatCryptoAmount={formatCryptoAmount}
+          isSignedIn={!!isSignedIn}
+          onLogin={openLogin}
+          onOpen={setTab}
+        />
+      ) : (
+        <WalletPageFrame title={activeTitle} onBack={() => setTab("home")}>
 
         {/* ── DEPOSIT TAB ── */}
         {tab === "deposit" && (
@@ -663,52 +614,11 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
             ) : (
               <div className="space-y-5">
                 {/* ── Payment method selector ── */}
-                <div className={`grid gap-2 ${PESAPAL_ENABLED ? "grid-cols-3" : "grid-cols-2"}`}>
-                  <button
-                    type="button"
-                    onClick={() => setDepositMethod("mpesa")}
-                    className={`flex items-center gap-2 rounded-full px-3 py-2 ring-1 transition ${depositMethod === "mpesa" ? "bg-[#087cff]/10 ring-[#087cff]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
-                  >
-                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "mpesa" ? "bg-[#087cff]/20" : "bg-white/[0.06]"}`}>
-                      <Icon name="phone_iphone" fill className={`text-[18px] ${depositMethod === "mpesa" ? "text-[#087cff]" : "text-slate-500"}`} />
-                    </div>
-                    <div className="text-left">
-                      <p className={`text-[12px] font-black ${depositMethod === "mpesa" ? "text-white" : "text-slate-400"}`}>M-Pesa</p>
-                      <p className="text-[10px] text-slate-600">STK Push</p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDepositMethod("crypto")}
-                    className={`flex items-center gap-2 rounded-full px-3 py-2 ring-1 transition ${depositMethod === "crypto" ? "bg-[#f59e0b]/10 ring-[#f59e0b]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
-                  >
-                    <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "crypto" ? "bg-[#f59e0b]/20" : "bg-white/[0.06]"}`}>
-                      <Icon name="currency_bitcoin" fill className={`text-[18px] ${depositMethod === "crypto" ? "text-[#f59e0b]" : "text-slate-500"}`} />
-                    </div>
-                    <div className="text-left">
-                      <p className={`text-[12px] font-black ${depositMethod === "crypto" ? "text-white" : "text-slate-400"}`}>Crypto</p>
-                      <p className="text-[10px] text-slate-600">USDT · BTC · ETH</p>
-                    </div>
-                  </button>
-                  {PESAPAL_ENABLED && (
-                    <button
-                      type="button"
-                      onClick={() => setDepositMethod("pesapal")}
-                      className={`flex items-center gap-2 rounded-full px-3 py-2 ring-1 transition ${depositMethod === "pesapal" ? "bg-[#05b957]/10 ring-[#05b957]/40" : "bg-[#16171d] ring-white/[0.07] hover:bg-white/[0.04]"}`}
-                    >
-                      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${depositMethod === "pesapal" ? "bg-[#05b957]/20" : "bg-white/[0.06]"}`}>
-                        <Icon name="credit_card" fill className={`text-[18px] ${depositMethod === "pesapal" ? "text-[#05b957]" : "text-slate-500"}`} />
-                      </div>
-                      <div className="text-left">
-                        <p className={`flex items-center gap-1 text-[12px] font-black ${depositMethod === "pesapal" ? "text-white" : "text-slate-400"}`}>
-                          Card
-                          <span className="rounded-full bg-amber-400/15 px-1.5 py-px text-[8px] font-black uppercase tracking-wide text-amber-400">Test</span>
-                        </p>
-                        <p className="text-[10px] text-slate-600">Visa · Mastercard</p>
-                      </div>
-                    </button>
-                  )}
-                </div>
+                <DepositPaymentMethodList
+                  active={depositMethod}
+                  pesapalEnabled={PESAPAL_ENABLED}
+                  onChange={setDepositMethod}
+                />
 
                 {depositMethod === "crypto" && <CryptoDepositPanel />}
 
@@ -1271,8 +1181,8 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
 
         {/* ── HISTORY TAB ── */}
         {tab === "history" && <TransactionHistory isSignedIn={!!isSignedIn} />}
-      </div>
-      </div>{/* ── end right column ── */}
+        </WalletPageFrame>
+      )}
 
       {/* ── Withdrawal step-up auth ── */}
       {stepUpOpen && (
@@ -1355,6 +1265,175 @@ export function WalletClient({ wide = false, initialTab = "deposit" }: { wide?: 
 }
 
 /* ────────────────────────────────────────────────────────── */
+
+function WalletHome({
+  balance,
+  cryptoBalances,
+  formatCryptoAmount,
+  isSignedIn,
+  onLogin,
+  onOpen,
+}: {
+  balance: string;
+  cryptoBalances: CryptoBalance[];
+  formatCryptoAmount: (balance: CryptoBalance) => string;
+  isSignedIn: boolean;
+  onLogin: () => void;
+  onOpen: (tab: WalletTab) => void;
+}) {
+  const actions: Array<{ tab: WalletTab; label: string; icon: string; tone: string }> = [
+    { tab: "deposit", label: "Deposit", icon: "add", tone: "bg-emerald-500/15 text-emerald-300" },
+    { tab: "send", label: "Send", icon: "send", tone: "bg-blue-500/15 text-blue-300" },
+    { tab: "withdraw", label: "Withdraw", icon: "arrow_upward", tone: "bg-amber-500/15 text-amber-300" },
+    { tab: "history", label: "History", icon: "receipt_long", tone: "bg-slate-500/15 text-slate-300" },
+  ];
+
+  return (
+    <main className="mx-auto max-w-md px-4 pb-24 pt-5 sm:max-w-2xl sm:pb-10">
+      <section className="rounded-[1.35rem] bg-[#222327] p-5 shadow-[0_18px_45px_rgba(0,0,0,.28)] ring-1 ring-white/[0.06]">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[12px] font-black uppercase tracking-wide text-slate-400">Main wallet</p>
+            <p className="mt-1 text-3xl font-black tracking-tight text-white">{balance}</p>
+          </div>
+          <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#087cff]/15 text-[#62a9ff]">
+            <Icon name="account_balance_wallet" className="text-[24px]" />
+          </span>
+        </div>
+        {!isSignedIn && (
+          <button
+            type="button"
+            onClick={onLogin}
+            className="mt-5 h-11 w-full rounded-full bg-[#087cff] text-sm font-black text-white"
+          >
+            Log in to see wallet
+          </button>
+        )}
+      </section>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        {actions.map((action) => (
+          <button
+            key={action.tab}
+            type="button"
+            onClick={() => onOpen(action.tab)}
+            className="flex min-h-24 flex-col items-start justify-between rounded-[1.1rem] bg-[#202126] p-4 text-left ring-1 ring-white/[0.06] transition active:scale-[0.98]"
+          >
+            <span className={`grid h-10 w-10 place-items-center rounded-xl ${action.tone}`}>
+              <Icon name={action.icon} className="text-[21px]" />
+            </span>
+            <span className="text-[15px] font-black text-white">{action.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <section className="mt-4 rounded-[1.1rem] bg-[#202126] p-4 ring-1 ring-white/[0.06]">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-black text-white">Crypto wallet</h2>
+          <span className="text-[11px] font-bold text-slate-500">{cryptoBalances.length ? `${cryptoBalances.length} assets` : "No assets"}</span>
+        </div>
+        {cryptoBalances.length ? (
+          <div className="mt-3 space-y-2">
+            {cryptoBalances.slice(0, 4).map((item) => (
+              <div key={`${item.crypto}-${item.network}`} className="flex items-center justify-between rounded-xl bg-black/20 px-3 py-2">
+                <span className="flex items-center gap-2">
+                  {COIN_ICON_URL[item.crypto] ? (
+                    <img src={COIN_ICON_URL[item.crypto]} alt={item.crypto} width={24} height={24} className="h-6 w-6 rounded-full" />
+                  ) : (
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-white/[0.08] text-[10px] font-black">{item.crypto.slice(0, 2)}</span>
+                  )}
+                  <span className="text-xs font-black text-slate-200">{item.crypto}</span>
+                </span>
+                <span className="font-mono text-xs font-black text-white">{formatCryptoAmount(item)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-[12px] font-bold text-slate-500">Deposit crypto to see balances here.</p>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function WalletPageFrame({ children, onBack, title }: { children: ReactNode; onBack: () => void; title: string }) {
+  return (
+    <main className="mx-auto max-w-md px-4 pb-24 pt-4 sm:max-w-2xl sm:pb-10">
+      <div className="mb-4 grid grid-cols-[2.75rem_1fr_2.75rem] items-center">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back to wallet"
+          className="grid h-10 w-10 place-items-center rounded-full bg-white/[0.06] text-slate-300 active:scale-95"
+        >
+          <Icon name="arrow_back" className="text-[20px]" />
+        </button>
+        <h1 className="text-center text-base font-black text-white">{title}</h1>
+      </div>
+      {children}
+    </main>
+  );
+}
+
+function DepositPaymentMethodList({
+  active,
+  onChange,
+  pesapalEnabled,
+}: {
+  active: "mpesa" | "crypto" | "pesapal";
+  onChange: (method: "mpesa" | "crypto" | "pesapal") => void;
+  pesapalEnabled: boolean;
+}) {
+  const methods: Array<{
+    label: string;
+    value?: "mpesa" | "crypto" | "pesapal";
+    badges: string[];
+    enabled: boolean;
+  }> = [
+    { label: "Credit/Debit Card", value: "pesapal", badges: ["VISA", "MC"], enabled: pesapalEnabled },
+    { label: "Mobile money", value: "mpesa", badges: ["Airtel", "M-Pesa"], enabled: true },
+    { label: "Binance Pay", badges: ["BNB"], enabled: false },
+    { label: "USDT", value: "crypto", badges: ["USDT"], enabled: true },
+    { label: "Bitcoin", value: "crypto", badges: ["BTC"], enabled: true },
+    { label: "Ethereum", value: "crypto", badges: ["ETH"], enabled: true },
+    { label: "Other Crypto", value: "crypto", badges: ["LTC", "USDC", "XRP"], enabled: true },
+    { label: "Skrill", badges: ["S"], enabled: false },
+    { label: "Neteller", badges: ["N"], enabled: false },
+    { label: "Bank Transfer", badges: ["BANK"], enabled: false },
+  ];
+
+  return (
+    <section className="rounded-[1.15rem] bg-[#1f2024] px-3 pb-3 pt-4 ring-1 ring-white/[0.06]">
+      <h2 className="mb-3 text-center text-base font-black text-white">Choose Payment Method</h2>
+      <div className="space-y-0">
+        {methods.map((method) => {
+          const checked = Boolean(method.value && active === method.value);
+          return (
+            <button
+              key={method.label}
+              type="button"
+              disabled={!method.enabled}
+              onClick={() => method.value && onChange(method.value)}
+              className="flex w-full items-center gap-3 border-b border-white/[0.10] py-3.5 text-left last:border-0 disabled:opacity-45"
+            >
+              <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 ${checked ? "border-[#22c55e] bg-[#22c55e] text-white" : "border-slate-500 text-transparent"}`}>
+                <Icon name="check" className="text-[15px]" />
+              </span>
+              <span className="min-w-0 flex-1 text-[15px] font-black text-slate-200">{method.label}</span>
+              <span className="flex max-w-[6.5rem] flex-wrap justify-end gap-1">
+                {method.badges.map((badge) => (
+                  <span key={badge} className="grid min-h-8 min-w-8 place-items-center rounded-lg bg-white/[0.10] px-1.5 text-[10px] font-black text-slate-100">
+                    {badge}
+                  </span>
+                ))}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 type TransferRecipient = {
   id: string;

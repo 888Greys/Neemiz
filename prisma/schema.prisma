@@ -20,6 +20,7 @@ model User {
   imageUrl          String?   @map("image_url")
   displayCurrency   String?   @map("display_currency")
   walletBalance     Decimal   @default(0.00) @map("wallet_balance") @db.Decimal(18, 2)
+  forexWalletBalance Decimal  @default(0.00) @map("forex_wallet_balance") @db.Decimal(18, 2)
   currency          String    @default("KES")
   isActive          Boolean   @default(true) @map("is_active")
   isAdmin           Boolean   @default(false) @map("is_admin")
