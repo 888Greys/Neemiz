@@ -49,6 +49,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/scripts/cluster-server.mjs ./clus
 # Prisma client + query engine — NFT tracing misses the engine binary, so copy it
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
+# Migration SQL (schema + migrations/) so the deploy script can apply pending
+# migrations before the traffic swap (see /opt/neemiz/deploy.sh). SQL files only.
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 # Sharp's JS package is traced, but its optional libvips package is not.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@img/sharp-libvips-linux-x64 ./node_modules/@img/sharp-libvips-linux-x64
 
