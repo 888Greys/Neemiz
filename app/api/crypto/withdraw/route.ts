@@ -1,30 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { debitUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
+import { debitUserCrypto } from "@/lib/p2p/crypto-balance";
 import { signWithdrawal } from "@/lib/crypto/signer-client";
 import { getHotWalletAddresses } from "@/lib/crypto/xpub";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
+import {
+  defaultCryptoWithdrawNetwork,
+  VALID_CRYPTO_WITHDRAW_NETWORKS,
+} from "@/lib/wallet-withdraw-options";
 
 export const runtime = "nodejs";
 
-// Minimum withdrawal amounts per crypto
-// Gas costs are tiny (< $0.01 on Polygon/Tron), so minimums are low.
-// ETH mainnet is expensive — keep higher there.
+// Minimum withdrawal amounts for currently enabled crypto rails.
 const MIN_WITHDRAWAL: Record<string, number> = {
-  USDT:  1,
-  USDC:  1,
-  DAI:   1,
-  BUSD:  1,
-  BTC:   0.00001,
-  WBTC:  0.00001,
-  ETH:   0.001,
-  BNB:   0.005,
-  MATIC: 0.5,
-  TRX:   5,
-  LINK:  0.1,
+  USDT: 1,
+  USDC: 1,
 };
 
 // Keep the platform fee configurable. It is disabled while withdrawals are
@@ -64,13 +57,17 @@ export async function POST(req: Request) {
   catch { return Response.json({ error: "Invalid request body" }, { status: 400 }); }
 
   const crypto  = (body.crypto  ?? "USDT").toUpperCase();
-  const network = (body.network ?? defaultNetwork(crypto)).toUpperCase();
+  const network = (body.network ?? defaultCryptoWithdrawNetwork(crypto)).toUpperCase();
   const amount  = Number(body.amount);
   const address = body.address?.trim();
 
   // ── Validation ──────────────────────────────────────────────────────────────
   if (!address) {
     return Response.json({ error: "Destination address is required" }, { status: 400 });
+  }
+  if (!VALID_CRYPTO_WITHDRAW_NETWORKS[crypto]?.includes(network)) {
+    const supported = Object.entries(VALID_CRYPTO_WITHDRAW_NETWORKS).map(([c, nets]) => `${c}(${nets.join("/")})`).join(", ");
+    return Response.json({ error: `Unsupported withdrawal network. Supported: ${supported}` }, { status: 400 });
   }
   const minAmt = MIN_WITHDRAWAL[crypto] ?? 1;
   if (!amount || amount < minAmt) {
