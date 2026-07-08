@@ -9,7 +9,8 @@
 
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type AutoTradeSession } from "@prisma/client";
-import { getServerBinaryDigit } from "@/lib/binary-price";
+import { getLiveEntrySpot } from "@/lib/binary-price";
+import { exitDigitFromQuote } from "@/lib/binary/kernel";
 import { payoutRate } from "@/lib/binary-settle";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { nextStake, stopStatus, type AutoStrategy } from "@/lib/auto-trade";
@@ -23,7 +24,11 @@ const n = (d: unknown) => Number(d);
  */
 async function placeNext(session: AutoTradeSession): Promise<string> {
   const stake = n(session.currentStake);
-  const { digit: entryDigit } = await getServerBinaryDigit(session.market);
+  // Fresh, uncached entry tick — we need its epoch so the trade settles on the
+  // deterministic exit tick (entryEpoch + durationTicks), not the latest live
+  // digit at settle time.
+  const entry = await getLiveEntrySpot(session.market);
+  const entryDigit = exitDigitFromQuote(entry.spot);
 
   const grossPayout = Number((stake * payoutRate(session.side, session.targetDigit)).toFixed(2));
   const payout      = applyProfitRetention(stake, grossPayout);
@@ -45,6 +50,7 @@ async function placeNext(session: AutoTradeSession): Promise<string> {
         payout,
         targetDigit:   session.targetDigit,
         entryDigit,
+        entryEpoch:    entry.epoch,
         durationTicks: session.durationTicks,
         settleBefore,
         status:        "PENDING",

@@ -29,7 +29,11 @@ export function evaluateKind(a: Agg, minSample: number, haltRtp: number): { rtp:
   return { rtp, breach: a.count >= minSample && rtp > haltRtp };
 }
 
+// Directional contract kinds live in `directionalTrade.kind`; digit contract
+// sides live in `binaryTrade.side`. Both are exploitable and both auto-halt via
+// their own game-guard namespace ("directional:<kind>" / "binary:<side>").
 const KINDS = ["RISE_FALL", "HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"] as const;
+const DIGIT_SIDES = ["Even", "Odd", "Matches", "Differs", "Over", "Under"] as const;
 
 export async function runRtpGuard() {
   const windowH   = num(process.env.RTP_WINDOW_HOURS, 12);
@@ -42,21 +46,35 @@ export async function runRtpGuard() {
   const cooldownSince = new Date(Date.now() - cooldownH * 60 * 60_000);
 
   const excluded = new Set(await getExcludedUserIds());
-  const trades = await db.directionalTrade.findMany({
-    where: { status: { in: ["WON", "LOST"] }, settledAt: { gte: since } },
-    select: { kind: true, side: true, stake: true, payout: true, status: true, userId: true },
-  });
+  const [directional, digits] = await Promise.all([
+    db.directionalTrade.findMany({
+      where: { status: { in: ["WON", "LOST"] }, settledAt: { gte: since } },
+      select: { kind: true, stake: true, payout: true, status: true, userId: true },
+    }),
+    db.binaryTrade.findMany({
+      where: { status: { in: ["WON", "LOST"] }, settledAt: { gte: since } },
+      select: { side: true, stake: true, payout: true, status: true, userId: true },
+    }),
+  ]);
 
-  const byKind = new Map<string, Agg>();
+  // Per-contract aggregates are namespaced by game so a directional kind and a
+  // digit side can never collide. Per-user aggregates span BOTH products, so a
+  // user farming Over/Under is flagged just like a directional exploiter.
+  const byKind = new Map<string, Agg>();   // key: "directional:<kind>" | "binary:<side>"
   const byUser = new Map<string, Agg>();
-  for (const t of trades) {
-    if (excluded.has(t.userId)) continue;
-    const stake = Number(t.stake);
-    const paid = t.status === "WON" ? Number(t.payout) : 0;
-    const k = byKind.get(t.kind) ?? { count: 0, staked: 0, paid: 0 };
-    k.count++; k.staked += stake; k.paid += paid; byKind.set(t.kind, k);
-    const u = byUser.get(t.userId) ?? { count: 0, staked: 0, paid: 0 };
-    u.count++; u.staked += stake; u.paid += paid; byUser.set(t.userId, u);
+  const accumulate = (game: string, key: string, userId: string, stake: number, paid: number) => {
+    if (excluded.has(userId)) return;
+    const token = `${game}:${key}`;
+    const k = byKind.get(token) ?? { count: 0, staked: 0, paid: 0 };
+    k.count++; k.staked += stake; k.paid += paid; byKind.set(token, k);
+    const u = byUser.get(userId) ?? { count: 0, staked: 0, paid: 0 };
+    u.count++; u.staked += stake; u.paid += paid; byUser.set(userId, u);
+  };
+  for (const t of directional) {
+    accumulate("directional", t.kind, t.userId, Number(t.stake), t.status === "WON" ? Number(t.payout) : 0);
+  }
+  for (const t of digits) {
+    accumulate("binary", t.side, t.userId, Number(t.stake), t.status === "WON" ? Number(t.payout) : 0);
   }
 
   const admins = await db.user.findMany({ where: { isAdmin: true }, select: { id: true } });
@@ -73,18 +91,23 @@ export async function runRtpGuard() {
   const userFlags: { userId: string; rtp: number; count: number }[] = [];
   let sentAlert = false;   // did any notification clear the cooldown this run?
 
-  // Per-kind: auto-halt on breach.
-  for (const kind of KINDS) {
-    const agg = byKind.get(kind);
+  // Per-contract: auto-halt on breach, across BOTH directional kinds and digit sides.
+  const contracts: { game: string; key: string }[] = [
+    ...KINDS.map((k) => ({ game: "directional", key: k as string })),
+    ...DIGIT_SIDES.map((s) => ({ game: "binary", key: s as string })),
+  ];
+  for (const { game, key } of contracts) {
+    const agg = byKind.get(`${game}:${key}`);
     if (!agg) continue;
     const { rtp, breach } = evaluateKind(agg, kindMin, haltRtp);
     if (!breach) continue;
-    await disableBetType("directional", kind);           // pull it offline now
-    halted.push({ kind, rtp });
+    await disableBetType(game, key);                     // pull it offline now
+    const label = game === "binary" ? `Digit ${key}` : key;
+    halted.push({ kind: label, rtp });
     sentAlert = (await notify(
-      `rtp_halt:${kind}`,
-      `🚨 Binary ${kind} auto-halted — RTP ${(rtp * 100).toFixed(0)}%`,
-      `${kind} paid out ${(rtp * 100).toFixed(0)}% of stake over ${agg.count} trades (>${(haltRtp * 100).toFixed(0)}%). It has been disabled automatically. Investigate before re-enabling.`,
+      `rtp_halt:${game}:${key}`,
+      `🚨 Binary ${label} auto-halted — RTP ${(rtp * 100).toFixed(0)}%`,
+      `${label} paid out ${(rtp * 100).toFixed(0)}% of stake over ${agg.count} trades (>${(haltRtp * 100).toFixed(0)}%). It has been disabled automatically. Investigate before re-enabling.`,
       "/admin/risk",
     )) || sentAlert;
   }
