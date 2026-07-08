@@ -5,6 +5,7 @@ import { TransactionStatus, TransactionType } from "@prisma/client";
 import { callAviatorService, type GoCashoutResponse } from "@/lib/aviator/service";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { creditWinnings } from "@/lib/balance";
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -58,10 +59,7 @@ export async function POST(req: Request) {
 
   try {
     await db.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: dbUser.id },
-        data: { walletBalance: { increment: winAmount } },
-      });
+      await creditWinnings(tx, dbUser.id, winAmount);
 
       await tx.transaction.create({
         data: {

@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type AccumulatorTrade } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { creditWinnings } from "@/lib/balance";
 
 export type FinalizeResult = {
   outcome: "closed" | "busted" | "already";
@@ -63,10 +64,7 @@ export async function finalizeAccumulator(
     }
 
     if (won && creditedPayout > 0) {
-      await tx.user.update({
-        where: { id: trade.userId },
-        data: { walletBalance: { increment: creditedPayout } },
-      });
+      await creditWinnings(tx, trade.userId, creditedPayout);
       await tx.transaction.create({
         data: {
           userId: trade.userId,
@@ -115,10 +113,7 @@ export async function voidAccumulator(trade: AccumulatorTrade, reason: string): 
     });
     if (claimed.count === 0) return { outcome: "already" };
 
-    await tx.user.update({
-      where: { id: trade.userId },
-      data: { walletBalance: { increment: stake } },
-    });
+    await creditWinnings(tx, trade.userId, stake);
     await tx.transaction.create({
       data: {
         userId: trade.userId,
