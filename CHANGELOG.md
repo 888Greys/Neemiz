@@ -4,6 +4,83 @@ All notable changes to Neemiz are documented here. From v1.0.0 onward this file
 is maintained automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.8.0](https://github.com/888Greys/Neemiz/compare/v1.7.0...v1.8.0) (2026-07-08)
+
+
+### Features
+
+* **admin:** add new console preview ([#231](https://github.com/888Greys/Neemiz/issues/231)) ([b2713ab](https://github.com/888Greys/Neemiz/commit/b2713abd5d519f403366e5e0744b4054e3d8658a))
+* **admin:** prioritize today's operations overview ([#82](https://github.com/888Greys/Neemiz/issues/82)) ([60a253b](https://github.com/888Greys/Neemiz/commit/60a253bf9658171af66f012266a3d1528ca295aa))
+* **auth:** disable 1-hour idle auto-logout ([487d8e0](https://github.com/888Greys/Neemiz/commit/487d8e0b8ea31e7924c98dbfaae199a3cbf92467))
+* **auth:** phone OTP verification at registration via Twilio Verify ([#136](https://github.com/888Greys/Neemiz/issues/136)) ([dfd8e75](https://github.com/888Greys/Neemiz/commit/dfd8e75ff98ba4e95dc69e64d40d23ae36347b99))
+* **binary:** constrain barrier contracts to a fair band (no rigged 50x lottery tickets) ([#214](https://github.com/888Greys/Neemiz/issues/214)) ([9b9458d](https://github.com/888Greys/Neemiz/commit/9b9458d5b6e1a4628e50d9b269b1052352dcbd8b))
+* **binary:** data-driven per-symbol house edge ([e2329ed](https://github.com/888Greys/Neemiz/commit/e2329ede4824027616737a9091418fe571b23f00))
+* **binary:** data-driven per-symbol house edge for directional ([db9982c](https://github.com/888Greys/Neemiz/commit/db9982c49d72ddcc41c44edb30f03f3fa2d2fe38))
+* **binary:** exploit-proof pricing engine (nonparametric, proven RTP ≤ 1) ([1e39f0a](https://github.com/888Greys/Neemiz/commit/1e39f0af511ca8114d29eacedc4cc1532e1ac451))
+* **binary:** expose directional fairness verification ([b7301a2](https://github.com/888Greys/Neemiz/commit/b7301a2b881b31f4cd527fe18f82eef12b06b6fd))
+* **binary:** expose directional fairness verification ([b95df4b](https://github.com/888Greys/Neemiz/commit/b95df4b1deb70bbbe56eb245bb84a51c2ded1892))
+* **binary:** foundation for exploit-proof pricing (settlement kernel + fairness gate) ([f904fb2](https://github.com/888Greys/Neemiz/commit/f904fb2081ff9b28fda5e00e9f8201da26a74d82))
+* **binary:** provably-fair directional (commit-reveal + signed quotes) + verifier + dev doc ([4889159](https://github.com/888Greys/Neemiz/commit/4889159eec7acfa88c2d7e651c0a5ba1248324af))
+* **binary:** provably-fair directional + verifier + developer doc ([e520574](https://github.com/888Greys/Neemiz/commit/e520574dc160f15170984d73403e694dc1c8719f))
+* **binary:** rebuild Digits category on Monte Carlo pricing engine ([8290936](https://github.com/888Greys/Neemiz/commit/82909366eb4cda584b7bab979d4ed6745f265206))
+* **binary:** rebuild Digits category on Monte Carlo pricing engine ([0ef0ec4](https://github.com/888Greys/Neemiz/commit/0ef0ec41c5829ebfcdde3cc1ce50c274a77388c0))
+* **binary:** runtime RTP guard — auto-halt a contract kind that bleeds ([e5db271](https://github.com/888Greys/Neemiz/commit/e5db271bbe46e29ba685256c5b686727b195f636))
+* **binary:** take binary-options suite offline for pricing rebuild ([28ad6be](https://github.com/888Greys/Neemiz/commit/28ad6becde8eb7bcccebfdeeb6b27b9c089cc697))
+* **binary:** take entire binary-options suite offline for pricing rebuild ([adc4214](https://github.com/888Greys/Neemiz/commit/adc42146bce210b3f0ca08fdb66bf47d09da7575))
+* **binary:** wire directional route to engine pricing (steps 4–5, off by default) ([27ce01c](https://github.com/888Greys/Neemiz/commit/27ce01cffade8762fb772ffb7a57d30a8acd6d1a))
+* **deposit:** pre-generate crypto deposit address + QR (Binance-style, no spinner) ([#224](https://github.com/888Greys/Neemiz/issues/224)) ([67d271b](https://github.com/888Greys/Neemiz/commit/67d271b17f3fd9051a65a8b660be9f843f5cdcac))
+* **deposits:** two-stage crypto deposit notifications (detected + credited) ([#221](https://github.com/888Greys/Neemiz/issues/221)) ([dfdd787](https://github.com/888Greys/Neemiz/commit/dfdd78737a4e0421a63117703226a7ce20338e82))
+* **p2p:** disable P2P for goodhope + one-payout-per-number applies to admins ([87f4795](https://github.com/888Greys/Neemiz/commit/87f47953b303390a71026e4ee096b35c6f2c02e1))
+* **p2p:** emphasize trade trust over margins ([#81](https://github.com/888Greys/Neemiz/issues/81)) ([8a434b5](https://github.com/888Greys/Neemiz/commit/8a434b5e4a2a36025a1d6bdb4575a58a38e2754f))
+* **p2p:** per-user P2P block + apply one-payout-per-number rule to admins ([65f7bc6](https://github.com/888Greys/Neemiz/commit/65f7bc6cc6e670905b2b5f2c6356a78133f826b8))
+* **passkey:** use one passkey for both sign-in and withdrawals ([#229](https://github.com/888Greys/Neemiz/issues/229)) ([be1d741](https://github.com/888Greys/Neemiz/commit/be1d741cb58622ca137bb77f1a227df08d153265))
+* **risk:** mule hold-for-review + admin transfer cap ([c2d2bf5](https://github.com/888Greys/Neemiz/commit/c2d2bf53ddf8fd7bcd13e42782ab46813cbef3b6))
+* **risk:** mule-flag hold-for-review + admin transfer cap; simplify transfer limits ([fa39f6a](https://github.com/888Greys/Neemiz/commit/fa39f6a9baf5a5bab33611868fb10a339c7d26e5))
+* **risk:** Telegram alerts for RTP guard breach + periodic health digest ([#213](https://github.com/888Greys/Neemiz/issues/213)) ([e171f34](https://github.com/888Greys/Neemiz/commit/e171f349fc7c0603d6aea5f88b873792c8af1e7d))
+* **transfer:** admin can send to a recipient only ONCE, ever ([#228](https://github.com/888Greys/Neemiz/issues/228)) ([6697423](https://github.com/888Greys/Neemiz/commit/66974230de718c5d666c8ea8ec9bf18acdd63d8f))
+* **wallet+forex:** funding wallet, real-icon single-select deposit flow, Discover coming-soon ([#215](https://github.com/888Greys/Neemiz/issues/215)) ([6435fae](https://github.com/888Greys/Neemiz/commit/6435fae4bb570cffd6f4ab4653f3692f4de0796c))
+* **wallet:** bonus balance + admin daily transfer cap ([#225](https://github.com/888Greys/Neemiz/issues/225)) ([ad3f106](https://github.com/888Greys/Neemiz/commit/ad3f106ff6a295068b3a8036209d47850a4b0822))
+* **wallet:** cap Pesapal card deposits at KSh 50 (test mode) ([#188](https://github.com/888Greys/Neemiz/issues/188)) ([20d58e1](https://github.com/888Greys/Neemiz/commit/20d58e155d290a228c1924971dd5e979d08d5768))
+* **wallet:** card & international deposits via Pesapal ([#187](https://github.com/888Greys/Neemiz/issues/187)) ([fbbab8d](https://github.com/888Greys/Neemiz/commit/fbbab8dabade549430f097468632ef6fe6451472))
+* **wallet:** crypto deposit minimums to 1; remove testing withdrawal-fee note ([#220](https://github.com/888Greys/Neemiz/issues/220)) ([1a13a71](https://github.com/888Greys/Neemiz/commit/1a13a715c0e672ff576e29a72fbc5153b291c236))
+* **wallet:** enforce max KSh 50 per transfer and once-per-day limit for admins ([18a4e3e](https://github.com/888Greys/Neemiz/commit/18a4e3eb422ff9c481994c85a6ae13f34026c27a))
+* **wallet:** enforce max KSh 50 per transfer and once-per-day limit for admins ([25f0f83](https://github.com/888Greys/Neemiz/commit/25f0f8344c384d80b6e901611524c7b937978ac4))
+* **wallet:** format once-per-day admin limit error as a beautiful info alert ([cbf8339](https://github.com/888Greys/Neemiz/commit/cbf8339044f2ad55aeba0d650040a162eee7d2f5))
+* **wallet:** SMS-gated withdrawals bound to one number + reliable Pesapal crediting ([#190](https://github.com/888Greys/Neemiz/issues/190)) ([e01e22a](https://github.com/888Greys/Neemiz/commit/e01e22ae2594de60d118abd6b494d59e8a2d5bb5))
+* wire live families UI gating to allowlist for directional binary rebuild ([355e42e](https://github.com/888Greys/Neemiz/commit/355e42ed6d123d04632514fb1947cdee0b1248f1))
+* **withdraw:** bind & lock the M-Pesa number WITHOUT requiring Twilio ([1a38798](https://github.com/888Greys/Neemiz/commit/1a38798a8f93ca516d10be0e164b187538c63bdd))
+* **withdraw:** bind & lock the withdrawal number without Twilio ([c9ff34a](https://github.com/888Greys/Neemiz/commit/c9ff34a006d267b4f587078d2ab92502de818c39))
+* **withdraw:** lock the withdrawal M-Pesa number once set ([3cc8b77](https://github.com/888Greys/Neemiz/commit/3cc8b775aed98ad74a7debd789c4041d35472d4d))
+* **withdraw:** lock the withdrawal number once set ([f2ec0fa](https://github.com/888Greys/Neemiz/commit/f2ec0fa20f9b3c5f37b0d4d8da18dcd2c9573a38))
+* **withdraw:** remove once-per-number rule (daily limit + locked number cover it) ([5cb13a9](https://github.com/888Greys/Neemiz/commit/5cb13a9c776122e6cc5fba2cc2f15b77654bd263))
+* **withdraw:** remove the once-per-number rule (daily limit + locked number cover it) ([b3974ad](https://github.com/888Greys/Neemiz/commit/b3974ad6858ffc55e291819fcf1cb3b7da8a7524))
+* **withdraw:** server-side step-up + whole-KES payout fix ([#230](https://github.com/888Greys/Neemiz/issues/230)) ([a5d1ac8](https://github.com/888Greys/Neemiz/commit/a5d1ac8040ea9500aea4f04920a12b5ac39b1b6b))
+
+
+### Bug Fixes
+
+* **auth:** stop oversized/stale cookies breaking GoTrue calls ([#227](https://github.com/888Greys/Neemiz/issues/227)) ([79f0be1](https://github.com/888Greys/Neemiz/commit/79f0be12b8fec60a0cbe42c216be4ceb31c5c6fb))
+* **binary:** adjust edge floors and max win prob caps for high-probability digits contracts (Differs, Under 9, Over 0) ([15978dd](https://github.com/888Greys/Neemiz/commit/15978dd138685e13a4b02fea2e1876e8f5b97ad3))
+* **binary:** fresh live entry spot + lower RTP alert threshold ([9ba64c9](https://github.com/888Greys/Neemiz/commit/9ba64c9f449cccd3f43bb83821b0220f936dea54))
+* **binary:** fresh live entry spot for directional + lower RTP alert threshold ([350d799](https://github.com/888Greys/Neemiz/commit/350d799a5fd6f15c0c93b135a1850ff95fb00f4b))
+* **binary:** stabilize digit button pricing and bounds ([1083ba2](https://github.com/888Greys/Neemiz/commit/1083ba25484ad53411c345c25e7123ffd563a51a))
+* **crypto-withdraw:** clean JSON error instead of "Unexpected token '&lt;'" ([#222](https://github.com/888Greys/Neemiz/issues/222)) ([3fbcdb8](https://github.com/888Greys/Neemiz/commit/3fbcdb843b958a0e8582664c335f035b777d4ea1))
+* **icons:** map credit_card + science (Card deposit showed a "?") ([#189](https://github.com/888Greys/Neemiz/issues/189)) ([d1e9d98](https://github.com/888Greys/Neemiz/commit/d1e9d98af894989f9c7d52223203a36294f1cff3))
+* **icons:** replace question-mark icons on Discover (unmapped Material names) ([#217](https://github.com/888Greys/Neemiz/issues/217)) ([9c9a7fd](https://github.com/888Greys/Neemiz/commit/9c9a7fdb8a2a01e7ca464d77e2a8cb0c0e8ce841))
+* **mobile-nav:** map keyboard_arrow_up, shrink close X & Support tile ([#193](https://github.com/888Greys/Neemiz/issues/193)) ([5326f6c](https://github.com/888Greys/Neemiz/commit/5326f6cd97fa8a8026b016ce985b678061167fb5))
+* **nav:** add Polymarket to the mobile drawer menu ([#192](https://github.com/888Greys/Neemiz/issues/192)) ([bf6c850](https://github.com/888Greys/Neemiz/commit/bf6c850f7e59794a2d0f5ed06adef2906fef37aa))
+* **pesapal:** redirect return to public base URL, not internal host ([#191](https://github.com/888Greys/Neemiz/issues/191)) ([2d7d8c6](https://github.com/888Greys/Neemiz/commit/2d7d8c60be2afec5e2a63200002ff4969c6f3780))
+* **suspend:** reassuring under-review copy instead of harsh 'suspended' ([#194](https://github.com/888Greys/Neemiz/issues/194)) ([eb40dd2](https://github.com/888Greys/Neemiz/commit/eb40dd21fb67b396947fb9ba812378c6b8ef71a9))
+* **wallet:** lock the withdraw number field in the UI once bound (no Twilio needed) ([5896c4f](https://github.com/888Greys/Neemiz/commit/5896c4f7fa3edfc23574960c9309afacac420780))
+* **wallet:** lock withdraw number field in UI once bound (no Twilio) ([5f991be](https://github.com/888Greys/Neemiz/commit/5f991beeb7e71af67b7583326d38328acff09fee))
+* **wallet:** open the wallet overview (home), not Deposit, from the wallet icon ([#223](https://github.com/888Greys/Neemiz/issues/223)) ([3e0d38e](https://github.com/888Greys/Neemiz/commit/3e0d38ec35b587b3571138439681aa0884688ca6))
+
+
+### Security
+
+* **admin:** alert the owner the moment an is_admin flag flips ([8529d8a](https://github.com/888Greys/Neemiz/commit/8529d8af4e281265a599e937035b90536bcd5d37))
+* **admin:** enforce owner allowlist on every admin route (requireOwnerAdmin) ([f43b7bf](https://github.com/888Greys/Neemiz/commit/f43b7bf912924b5ab43d5f071a107df6803aa1e9))
+
 ## [1.7.0](https://github.com/888Greys/Neemiz/compare/v1.6.0...v1.7.0) (2026-07-05)
 
 

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
+import { spendForPlay } from "@/lib/balance";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { applyProfitRetention } from "@/lib/house-retention";
@@ -124,11 +125,9 @@ export async function POST(req: Request) {
 
   try {
     const trade = await db.$transaction(async (tx) => {
-      const debited = await tx.user.updateMany({
-        where: { id: dbUser.id, walletBalance: { gte: stakeVal } },
-        data:  { walletBalance: { decrement: stakeVal } },
-      });
-      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+      // Bonus-first stake (falls back to real balance; identical to prior
+      // behaviour for users with no bonus).
+      await spendForPlay(tx, dbUser.id, stakeVal);
 
       const created = await tx.directionalTrade.create({
         data: {

@@ -33,6 +33,11 @@ export async function evaluateBusinessMetrics(): Promise<MetricAlert[]> {
   const depInitErrThreshold = num(process.env.METRIC_DEPOSIT_INIT_ERRORS, 5);
   const depMinSample        = num(process.env.METRIC_DEPOSIT_MIN_SAMPLE, 10);
   const depMinSuccessRate   = num(process.env.METRIC_DEPOSIT_MIN_SUCCESS_RATE, 0.2);
+  // A genuine provider/integration outage hits MANY customers; a couple of users
+  // hammering the deposit button (bad PIN, insufficient funds) is not an outage.
+  // Require this many DISTINCT affected users before the deposit alerts fire, so
+  // retry-spam by 2–3 people can't trip a "provider is down" page.
+  const depMinUsers         = num(process.env.METRIC_DEPOSIT_MIN_USERS, 4);
   const wdStuckMinutes      = num(process.env.METRIC_WITHDRAWAL_STUCK_MINUTES, 25);
   const wdStuckThreshold    = num(process.env.METRIC_WITHDRAWAL_STUCK_COUNT, 1);
   const approvalAgeMinutes  = num(process.env.METRIC_APPROVAL_AGE_MINUTES, 60);
@@ -45,16 +50,16 @@ export async function evaluateBusinessMetrics(): Promise<MetricAlert[]> {
 
   const [depAgg, depInitErrRows, wdStuck, wdApproval, settlementBacklog] = await Promise.all([
     // Deposit completion vs failure within the window (terminal states only).
-    db.$queryRaw<Array<{ status: string; n: bigint }>>`
-      SELECT status::text AS status, count(*) AS n
+    db.$queryRaw<Array<{ status: string; n: bigint; users: bigint }>>`
+      SELECT status::text AS status, count(*) AS n, count(DISTINCT user_id) AS users
       FROM transactions
       WHERE provider = 'lipaharaka' AND type = 'DEPOSIT'
         AND status IN ('COMPLETED','FAILED') AND created_at >= ${since}
       GROUP BY status`,
     // STK-initiation failures: FAILED with no provider callback and not expired by
     // the reconcile sweep — i.e. Lipa rejected our STK request synchronously.
-    db.$queryRaw<Array<{ n: bigint }>>`
-      SELECT count(*) AS n
+    db.$queryRaw<Array<{ n: bigint; users: bigint }>>`
+      SELECT count(*) AS n, count(DISTINCT user_id) AS users
       FROM transactions
       WHERE provider = 'lipaharaka' AND type = 'DEPOSIT' AND status = 'FAILED'
         AND created_at >= ${since}
@@ -73,28 +78,33 @@ export async function evaluateBusinessMetrics(): Promise<MetricAlert[]> {
 
   const completed = Number(depAgg.find((r) => r.status === "COMPLETED")?.n ?? 0);
   const failed = Number(depAgg.find((r) => r.status === "FAILED")?.n ?? 0);
+  const failedUsers = Number(depAgg.find((r) => r.status === "FAILED")?.users ?? 0);
   const terminal = completed + failed;
   const successRate = terminal > 0 ? completed / terminal : 1;
   const initErrors = Number(depInitErrRows[0]?.n ?? 0);
+  const initErrorUsers = Number(depInitErrRows[0]?.users ?? 0);
 
   const alerts: MetricAlert[] = [];
 
-  if (initErrors >= depInitErrThreshold) {
+  // Both deposit alerts require the failures to span multiple distinct customers
+  // (depMinUsers) — otherwise a couple of people retrying a bad payment looks
+  // like a provider outage. A real outage fails many users at once.
+  if (initErrors >= depInitErrThreshold && initErrorUsers >= depMinUsers) {
     alerts.push({
       key: "deposit_init_errors",
       severity: "critical",
-      title: `Deposits being rejected at STK push (${initErrors} in ${windowMin}m)`,
-      detail: `${initErrors} deposit prompts failed to even reach the customer's phone in the last ${windowMin} minutes — the payment provider is rejecting our STK requests. This is a provider/integration outage, not customers abandoning prompts.`,
+      title: `Deposits being rejected at STK push (${initErrors} across ${initErrorUsers} users in ${windowMin}m)`,
+      detail: `${initErrors} deposit prompts across ${initErrorUsers} different customers failed to even reach the phone in the last ${windowMin} minutes — the payment provider is rejecting our STK requests. This is a provider/integration outage, not customers abandoning prompts.`,
       link: "/admin/money",
     });
   }
 
-  if (terminal >= depMinSample && successRate < depMinSuccessRate) {
+  if (terminal >= depMinSample && failedUsers >= depMinUsers && successRate < depMinSuccessRate) {
     alerts.push({
       key: "deposit_success_rate",
       severity: "critical",
       title: `Deposit success rate collapsed to ${(successRate * 100).toFixed(0)}%`,
-      detail: `Only ${completed} of ${terminal} completed deposits in the last ${windowMin} minutes (${(successRate * 100).toFixed(0)}% success, threshold ${(depMinSuccessRate * 100).toFixed(0)}%). Normal abandonment runs higher than this — investigate the provider.`,
+      detail: `Only ${completed} of ${terminal} completed deposits in the last ${windowMin} minutes (${(successRate * 100).toFixed(0)}% success, threshold ${(depMinSuccessRate * 100).toFixed(0)}%), across ${failedUsers} different customers. Normal abandonment runs higher than this — investigate the provider.`,
       link: "/admin/money",
     });
   }

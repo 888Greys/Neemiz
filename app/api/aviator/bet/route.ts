@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
+import { spendForPlay, creditForPlay, type PlaySource } from "@/lib/balance";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
@@ -50,13 +51,12 @@ export async function POST(req: Request) {
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
   const stakeReference = `aviator-stake-${dbUser.id}-${state.round_id}-${panelIndex}-${Date.now()}`;
 
+  let stakeSource: PlaySource = "real";
   try {
     await db.$transaction(async (tx) => {
-      const debited = await tx.user.updateMany({
-        where: { id: dbUser.id, walletBalance: { gte: betAmount } },
-        data: { walletBalance: { decrement: betAmount } },
-      });
-      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+      // Bonus-first stake (falls back to real balance; identical to prior
+      // behaviour for users with no bonus).
+      ({ source: stakeSource } = await spendForPlay(tx, dbUser.id, betAmount));
 
       await tx.transaction.create({
         data: {
@@ -115,10 +115,8 @@ export async function POST(req: Request) {
     }, { status: 201 });
   } catch (err) {
     await db.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: dbUser.id },
-        data: { walletBalance: { increment: betAmount } },
-      });
+      // Service rejected the bet: put the stake back where it came from.
+      await creditForPlay(tx, dbUser.id, betAmount, stakeSource);
       await tx.transaction.create({
         data: {
           userId: dbUser.id,

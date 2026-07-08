@@ -28,6 +28,7 @@ app.get("/health", (_req, res) => res.json({ ok: true, halted: isHalted() }));
 
 function explorerFor(network: string, txHash: string): string {
   return network === "TRC20"   ? `https://tronscan.org/#/transaction/${txHash}`
+       : network === "BITCOIN" ? `https://mempool.space/tx/${txHash}`
        : network === "BEP20"   ? `https://bscscan.com/tx/${txHash}`
        : network === "POLYGON" ? `https://polygonscan.com/tx/${txHash}`
        :                         `https://etherscan.io/tx/${txHash}`;

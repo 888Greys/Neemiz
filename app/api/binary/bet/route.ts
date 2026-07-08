@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
+import { spendForPlay } from "@/lib/balance";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { isBetTypeDisabled, isBinaryContractServable, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
@@ -90,11 +91,10 @@ export async function POST(req: Request) {
 
   try {
     const result = await db.$transaction(async (tx) => {
-      const debited = await tx.user.updateMany({
-        where: { id: dbUser.id, walletBalance: { gte: stakeVal } },
-        data:  { walletBalance: { decrement: stakeVal } },
-      });
-      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+      // Stake spends promo bonus first, then real balance. For users with no
+      // bonus (everyone but granted accounts) this is identical to debiting
+      // walletBalance directly. Throws INSUFFICIENT_BALANCE if neither covers it.
+      await spendForPlay(tx, dbUser.id, stakeVal);
 
       const trade = await tx.binaryTrade.create({
         data: {

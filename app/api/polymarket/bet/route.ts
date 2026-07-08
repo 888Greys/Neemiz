@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
+import { spendForPlay } from "@/lib/balance";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { fetchMarket } from "@/lib/polymarket";
 import { isClobTradingEnabled, placePolymarketBuyOrder } from "@/lib/polymarket-clob";
@@ -119,11 +120,9 @@ export async function POST(req: Request) {
         throw new Error("INSUFFICIENT_BALANCE");
       }
 
-      const debited = await tx.user.updateMany({
-        where: { id: dbUser.id, walletBalance: { gte: stake } },
-        data:  { walletBalance: { decrement: stake } },
-      });
-      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+      // Bonus-first stake (falls back to real balance; identical to prior
+      // behaviour for users with no bonus).
+      await spendForPlay(tx, dbUser.id, stake);
 
       await tx.transaction.create({
         data: {

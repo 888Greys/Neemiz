@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     return Response.json({ redirectUrl: result.redirectUrl, transactionId: txn.id });
   } catch (err) {
     if (err instanceof SuspendedAccountError) {
-      return Response.json({ error: "Your account has been suspended. Contact support." }, { status: 403 });
+      return Response.json({ error: "Your account is temporarily under review. Your balance is safe — we're verifying recent activity and will restore access shortly." }, { status: 403 });
     }
     console.error("Pesapal checkout error:", err);
     return Response.json({ error: err instanceof Error ? err.message : "Internal server error" }, { status: 500 });

@@ -736,9 +736,6 @@ function SecurityView({ email }: { email: string | undefined }) {
   const [disabled2FA, setDisabled2FA] = useState(false);
 
   // Passkeys (WebAuthn) — withdrawal step-up (GoTrue MFA factors)
-  const [passkeys, setPasskeys] = useState<Array<{ id: string; friendly_name?: string; created_at: string; last_used_at?: string }>>([]);
-  const [passkeyLoading, setPasskeyLoading] = useState(false);
-  const [passkeyBusy, setPasskeyBusy] = useState(false);
 
   // Sign-in passkeys — passwordless primary login (self-managed WebAuthn)
   const [signinPasskeys, setSigninPasskeys] = useState<Array<{ id: string; deviceName?: string | null; createdAt: string; lastUsedAt?: string | null }>>([]);
@@ -789,91 +786,6 @@ function SecurityView({ email }: { email: string | undefined }) {
       toast.error("Couldn't remove passkey", "Try again.");
     } finally {
       setSigninPasskeyBusy(false);
-    }
-  }
-
-  const loadPasskeys = useCallback(async () => {
-    setPasskeyLoading(true);
-    try {
-      const supabase = createClient();
-      // WebAuthn passkeys are modeled as MFA factors on the self-hosted Supabase
-      // Auth (GoTrue). List the verified webauthn factors.
-      const { data, error } = await supabase.auth.mfa.listFactors();
-      if (!error && data) {
-        const wa = (data.webauthn ?? data.all?.filter((f) => f.factor_type === "webauthn") ?? [])
-          .filter((f) => f.status === "verified")
-          .map((f) => ({ id: f.id, friendly_name: f.friendly_name ?? undefined, created_at: f.created_at }));
-        setPasskeys(wa);
-      }
-    } catch {
-      // WebAuthn unavailable on this device/server — leave the list empty
-    } finally {
-      setPasskeyLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void loadPasskeys(); }, [loadPasskeys]);
-
-  async function addPasskey() {
-    setPasskeyBusy(true);
-    try {
-      const supabase = createClient();
-      // Clear out half-finished (unverified) webauthn factors from earlier
-      // attempts — GoTrue keeps them and they reserve the friendly name, which is
-      // what caused "a factor with the friendly name … already exists".
-      try {
-        const { data: fs } = await supabase.auth.mfa.listFactors();
-        const stale = (fs?.webauthn ?? []).filter((f) => f.status !== "verified");
-        for (const f of stale) await supabase.auth.mfa.unenroll({ factorId: f.id });
-      } catch { /* best-effort cleanup */ }
-
-      // register() runs the full enroll → challenge → verify ceremony. The
-      // friendly name must be UNIQUE per account, so include a timestamp.
-      // GoTrue's MFA WebAuthn defaults to a cross-platform (USB security key)
-      // authenticator, which is why phones only offered "USB / use another
-      // device". Override to a PLATFORM authenticator so the device's own
-      // passkey store (Face ID / fingerprint / Google Password Manager) is
-      // offered — i.e. "save a passkey on this device".
-      const { error } = await supabase.auth.mfa.webauthn.register(
-        {
-          friendlyName: `Passkey · ${new Date().toLocaleString()}`,
-          webauthn: { rpId: window.location.hostname, rpOrigins: [window.location.origin] },
-        },
-        {
-          authenticatorSelection: {
-            authenticatorAttachment: "platform",
-            residentKey: "preferred",
-            userVerification: "preferred",
-          },
-        },
-      );
-      if (error) {
-        const msg = /already exists/i.test(error.message)
-          ? "You already have a passkey with that name. Remove it first, then add again."
-          : error.message;
-        toast.error("Couldn't add passkey", msg);
-        return;
-      }
-      toast.success("Passkey added", "Use it to confirm withdrawals and as your second factor.");
-      await loadPasskeys();
-    } catch {
-      toast.error("Couldn't add passkey", "Your device may not support passkeys, or the prompt was dismissed.");
-    } finally {
-      setPasskeyBusy(false);
-    }
-  }
-
-  async function removePasskey(passkeyId: string) {
-    setPasskeyBusy(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.mfa.unenroll({ factorId: passkeyId });
-      if (error) { toast.error("Couldn't remove passkey", error.message); return; }
-      setPasskeys((prev) => prev.filter((p) => p.id !== passkeyId));
-    } catch {
-      toast.error("Couldn't remove passkey", "Try again.");
-    } finally {
-      setPasskeyBusy(false);
     }
   }
 
@@ -1131,8 +1043,8 @@ function SecurityView({ email }: { email: string | undefined }) {
             <Icon name="passkey" fill className="text-[16px] text-[#5ea9ff]" />
           </div>
           <div className="flex-1">
-            <p className="text-[13px] font-black text-white">Sign-in passkeys</p>
-            <p className="text-[11px] text-slate-500">Log in with Face ID, fingerprint or a security key — no password</p>
+            <p className="text-[13px] font-black text-white">Passkeys</p>
+            <p className="text-[11px] text-slate-500">Log in and confirm withdrawals with Face ID, fingerprint or a security key — no password</p>
           </div>
         </div>
 
@@ -1158,44 +1070,6 @@ function SecurityView({ email }: { email: string | undefined }) {
           <button type="button" onClick={addSigninPasskey} disabled={signinPasskeyBusy || signinPasskeyLoading}
             className="text-[12px] font-black text-[#5ea9ff] transition hover:text-white disabled:opacity-50">
             {signinPasskeyBusy ? "Working…" : signinPasskeyLoading ? "Loading…" : "+ Add a sign-in passkey"}
-          </button>
-        </div>
-      </div>
-
-      {/* ── Withdrawal passkeys card (2FA step-up) ── */}
-      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
-        <div className="flex items-center gap-3 px-4 py-3.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
-            <Icon name="passkey" fill className="text-[16px] text-slate-400" />
-          </div>
-          <div className="flex-1">
-            <p className="text-[13px] font-black text-white">Withdrawal passkeys</p>
-            <p className="text-[11px] text-slate-500">Confirm withdrawals and use as your second factor</p>
-          </div>
-        </div>
-
-        {passkeys.length > 0 && (
-          <div>
-            {passkeys.map((pk) => (
-              <div key={pk.id} className="mx-4 flex items-center justify-between border-t border-white/[0.05] py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-[12px] font-bold text-white">{pk.friendly_name || "Passkey"}</p>
-                  <p className="text-[10px] text-slate-600">Added {new Date(pk.created_at).toLocaleDateString()}</p>
-                </div>
-                <button type="button" onClick={() => removePasskey(pk.id)} disabled={passkeyBusy}
-                  className="shrink-0 text-[11px] font-black text-red-400/80 transition hover:text-red-400 disabled:opacity-50">
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mx-4 h-px bg-white/[0.05]" />
-        <div className="px-4 py-3.5">
-          <button type="button" onClick={addPasskey} disabled={passkeyBusy || passkeyLoading}
-            className="text-[12px] font-black text-[#5ea9ff] transition hover:text-white disabled:opacity-50">
-            {passkeyBusy ? "Working…" : passkeyLoading ? "Loading…" : "+ Add a passkey"}
           </button>
         </div>
       </div>

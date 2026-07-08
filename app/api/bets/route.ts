@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
+import { spendForPlay } from "@/lib/balance";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { BetType, TransactionType, TransactionStatus } from "@prisma/client";
 import { getFixtureDetail } from "@/lib/theoddsapi";
@@ -108,12 +109,9 @@ export async function POST(req: Request) {
   let result: { bet: unknown; newBalance: number };
   try {
     result = await db.$transaction(async (tx) => {
-      // Deduct stake
-      const debited = await tx.user.updateMany({
-        where: { id: dbUser.id, walletBalance: { gte: stake } },
-        data: { walletBalance: { decrement: stake } },
-      });
-      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+      // Deduct stake — bonus first, then real balance (identical to prior
+      // behaviour for users with no bonus).
+      await spendForPlay(tx, dbUser.id, stake);
 
       const updated = await tx.user.findUniqueOrThrow({
         where: { id: dbUser.id },
