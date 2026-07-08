@@ -5,7 +5,7 @@ import {
 } from "@/lib/wallet-withdraw-options";
 
 describe("wallet withdraw options", () => {
-  it("lists only the same Polygon stablecoins available for deposit", () => {
+  it("lists the Polygon stablecoins plus native Bitcoin", () => {
     expect(CRYPTO_WITHDRAW_ASSETS).toEqual([
       expect.objectContaining({
         code: "USDT",
@@ -16,6 +16,10 @@ describe("wallet withdraw options", () => {
         code: "USDC",
         network: "POLYGON",
         min: 1,
+      }),
+      expect.objectContaining({
+        code: "BTC",
+        network: "BITCOIN",
       }),
     ]);
   });
@@ -36,6 +40,7 @@ describe("wallet withdraw options", () => {
     expect(VALID_CRYPTO_WITHDRAW_NETWORKS).toEqual({
       USDT: ["POLYGON"],
       USDC: ["POLYGON"],
+      BTC:  ["BITCOIN"],
     });
   });
 });
