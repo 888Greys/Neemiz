@@ -771,6 +771,12 @@ model BinaryTrade {
   payout        Decimal  @db.Decimal(18, 2)
   targetDigit   Int      @map("target_digit")
   entryDigit    Int      @map("entry_digit")
+  // Unix seconds of the entry tick. Settlement resolves on the tick at
+  // entryEpoch + durationTicks (a deterministic future tick), so a player can
+  // never wait for a favourable live digit and shop for their settle moment.
+  // Nullable: legacy rows placed before epoch-anchored settlement fall back to
+  // the latest-tick path so they can still be drained.
+  entryEpoch    Int?     @map("entry_epoch")
   exitDigit     Int?     @map("exit_digit")
   durationTicks Int      @map("duration_ticks")
   settleBefore  DateTime @map("settle_before")

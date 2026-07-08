@@ -1,0 +1,13 @@
+-- Anchor digit-contract settlement to a deterministic exit tick.
+--
+-- Digit trades (Over/Under/Even/Odd/Matches/Differs) previously settled on
+-- "the latest live tick when the client asked to settle", any time within the
+-- ~2-minute settleBefore window. That let a player watch the live feed and fire
+-- the settle request only once the current digit satisfied their bet — turning
+-- Over/Under into near-guaranteed wins (realised RTP 130-155%).
+--
+-- Store the entry tick's epoch so settlement resolves on the tick at
+-- entry_epoch + duration_ticks (exactly how directional contracts already
+-- settle). Nullable so existing PENDING rows without an epoch keep draining via
+-- the legacy latest-tick path.
+ALTER TABLE "binary_trades" ADD COLUMN IF NOT EXISTS "entry_epoch" INTEGER;

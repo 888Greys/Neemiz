@@ -29,7 +29,7 @@
  *   ?limit=300           cap per run (default 300, max 1000)
  */
 import { db } from "@/lib/db";
-import { getServerBinaryDigit } from "@/lib/binary-price";
+import { getContractExitDigit, getServerBinaryDigit } from "@/lib/binary-price";
 import { settleTradeWithDigit, voidTrade } from "@/lib/binary-settle";
 
 export const runtime = "nodejs";
@@ -82,11 +82,35 @@ export async function GET(req: Request) {
       continue;
     }
 
+    // Server-authoritative exit digit, anchored to the deterministic exit tick
+    // (entryEpoch + durationTicks) so the outcome can't be influenced by settle
+    // timing. Legacy trades without an entryEpoch drain via the latest-tick path.
     let exitDigit: number;
     try {
-      ({ digit: exitDigit } = await getServerBinaryDigit(trade.market));
+      if (trade.entryEpoch != null) {
+        const exit = await getContractExitDigit(trade.market, trade.entryEpoch, trade.durationTicks);
+        if (!exit.ready) {
+          // Exit tick not produced yet. If the window fully expired the feed has
+          // a gap we can't settle around — refund. Otherwise wait for a later run.
+          if (expired) {
+            try {
+              const r = await voidTrade(trade, "exit_tick_unavailable_expired");
+              if (r.outcome === "refunded") { voided++; creditedKes += Number(trade.stake); }
+              else already++;
+            } catch (e) {
+              errors.push(`${trade.id} void: ${e instanceof Error ? e.message : "error"}`);
+            }
+          } else {
+            stillPending++;
+          }
+          continue;
+        }
+        exitDigit = exit.digit;
+      } else {
+        ({ digit: exitDigit } = await getServerBinaryDigit(trade.market));
+      }
     } catch (err) {
-      // No live digit. If the window has fully expired the trade can never be
+      // No live feed. If the window has fully expired the trade can never be
       // settled fairly — refund the stake. Otherwise leave it for a later run.
       if (expired) {
         try {
