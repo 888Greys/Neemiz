@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
+import { stepUpWithPasskey } from "@/lib/passkey-client";
 import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
@@ -157,7 +158,7 @@ type WalletTab = "home" | "deposit" | "send" | "withdraw" | "history";
 export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boolean; initialTab?: WalletTab } = {}) {
   const { isSignedIn, user } = useSupabaseAuth();
   const { openLogin }        = useAuthModal();
-  const { balance, currency, refresh: refreshBalance } = useWalletBalance();
+  const { balance, bonusBalance, currency, refresh: refreshBalance } = useWalletBalance();
   // Display currency (header switcher). KES balances render in the chosen
   // currency; M-Pesa amounts stay KES below (it's a Kenya-only rail).
   const { format: formatDisplay, code: displayCurrency } = useCurrency();
@@ -499,13 +500,17 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   }
 
   async function confirmWithPassword() {
-    const email = user?.email;
-    if (!email) { setStepUpError("Could not verify your account. Please re-login."); return; }
     if (!stepUpPw) { setStepUpError("Enter your password."); return; }
     setStepUpBusy(true); setStepUpError("");
     try {
-      const { error } = await createClient().auth.signInWithPassword({ email, password: stepUpPw });
-      if (error) { setStepUpError("Incorrect password. Please try again."); return; }
+      // Verify the password SERVER-SIDE and mint the step-up proof the withdraw
+      // API requires. Does not touch the current session.
+      const res = await fetch("/api/auth/stepup/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: stepUpPw }),
+      });
+      if (!res.ok) { setStepUpError("Incorrect password. Please try again."); return; }
       setStepUpOpen(false); setStepUpPw("");
       await handleMpesaWithdraw();
     } catch {
@@ -518,21 +523,18 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   async function confirmWithPasskey() {
     setStepUpBusy(true); setStepUpError("");
     try {
-      const supabase = createClient();
-      // Passkeys are MFA WebAuthn factors here: find a verified one and run the
-      // authenticate ceremony as step-up (aal1 → aal2) before releasing money.
-      const { data: factors, error: listErr } = await supabase.auth.mfa.listFactors();
-      if (listErr) { setStepUpError("Could not check your passkeys. Use your password instead."); return; }
-      const passkey = (factors?.webauthn ?? []).find((f) => f.status === "verified");
-      if (!passkey) {
-        setStepUpError("No passkey on this account. Add one in Settings, or use your password.");
+      // Reuse the account's SIGN-IN passkey to confirm the withdrawal — there is
+      // no separate withdrawal passkey. Verifies presence server-side (scoped to
+      // this user) without minting a session.
+      const { ok, noPasskey, error } = await stepUpWithPasskey();
+      if (!ok) {
+        setStepUpError(
+          noPasskey
+            ? "No passkey on this account. Add a sign-in passkey in Settings, or use your password."
+            : (error ?? "Passkey check failed. Try again or use your password."),
+        );
         return;
       }
-      const { error } = await supabase.auth.mfa.webauthn.authenticate({
-        factorId: passkey.id,
-        webauthn: { rpId: window.location.hostname, rpOrigins: [window.location.origin] },
-      });
-      if (error) { setStepUpError("Passkey check failed or was dismissed. Try again or use your password."); return; }
       setStepUpOpen(false);
       await handleMpesaWithdraw();
     } catch {
@@ -553,11 +555,17 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ amountKes: amt, phoneNumber: wdPhone }),
       });
-      const data = await res.json().catch(() => ({})) as { ok?: boolean; payout?: number; fee?: number; queued?: boolean; pendingApproval?: boolean; message?: string; error?: string; needsPhoneVerification?: boolean };
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; payout?: number; fee?: number; queued?: boolean; pendingApproval?: boolean; message?: string; error?: string; needsPhoneVerification?: boolean; stepUpRequired?: boolean };
       // First-withdrawal SMS gate: open the verification modal and stop here. The
       // withdrawal resumes automatically once the number is verified (onVerified).
       if (res.status === 409 && data.needsPhoneVerification) {
         setPhoneVerifyOpen(true);
+        return;
+      }
+      // Step-up proof missing/expired (e.g. it lapsed before this call): re-open
+      // the confirm sheet so the user re-verifies, then retries.
+      if (res.status === 401 && data.stepUpRequired) {
+        setStepUpPw(""); setStepUpError("Please confirm it's you again."); setStepUpOpen(true);
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Withdrawal failed");
@@ -595,6 +603,9 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
       {tab === "home" ? (
         <WalletHome
           balance={isSignedIn ? fmtBalance : "—"}
+          bonusLabel={isSignedIn && bonusBalance > 0
+            ? `${CURRENCY_SYMBOL} ${bonusBalance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`
+            : null}
           cryptoBalances={nonZeroBalances}
           formatCryptoAmount={formatCryptoAmount}
           isSignedIn={!!isSignedIn}
@@ -1191,7 +1202,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                         />
                         {wdAmount && Number(wdAmount) >= 100 && (
                           <span className="shrink-0 text-right text-xs text-slate-600">
-                            you get → <span className="font-bold text-slate-400">{CURRENCY_SYMBOL} {(Number(wdAmount) * (1 - WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 2 })}</span>
+                            you get → <span className="font-bold text-slate-400">{CURRENCY_SYMBOL} {Math.floor(Number(wdAmount) * (1 - WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE)}</span>
                             <br />after {WITHDRAWAL_FEE_PCT} fee
                           </span>
                         )}
@@ -1339,6 +1350,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
 function WalletHome({
   balance,
+  bonusLabel,
   cryptoBalances,
   formatCryptoAmount,
   isSignedIn,
@@ -1346,6 +1358,7 @@ function WalletHome({
   onOpen,
 }: {
   balance: string;
+  bonusLabel: string | null;
   cryptoBalances: CryptoBalance[];
   formatCryptoAmount: (balance: CryptoBalance) => string;
   isSignedIn: boolean;
@@ -1366,6 +1379,12 @@ function WalletHome({
           <div>
             <p className="text-[12px] font-black uppercase tracking-wide text-slate-400">Main wallet</p>
             <p className="mt-1 text-3xl font-black tracking-tight text-white">{balance}</p>
+            {bonusLabel && (
+              <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-1 text-[12px] font-bold text-violet-300">
+                <Icon name="redeem" className="text-[14px]" />
+                Bonus {bonusLabel} · not withdrawable
+              </p>
+            )}
           </div>
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#087cff]/15 text-[#62a9ff]">
             <Icon name="account_balance_wallet" className="text-[24px]" />

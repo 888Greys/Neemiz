@@ -24,4 +24,9 @@ export const RP_NAME = "Nezeem";
 // Short-lived, single-use challenge cookies (httpOnly). One per ceremony type.
 export const REG_CHALLENGE_COOKIE = "pk_reg_challenge";
 export const LOGIN_CHALLENGE_COOKIE = "pk_login_challenge";
+// Step-up (re-auth) ceremony for an already-signed-in user, e.g. confirming a
+// withdrawal. Reuses the same sign-in passkeys — there is no separate
+// "withdrawal passkey" — but scopes the assertion to the current user and never
+// mints a new session.
+export const STEPUP_CHALLENGE_COOKIE = "pk_stepup_challenge";
 export const CHALLENGE_TTL_SECONDS = 300; // 5 min to complete the browser prompt

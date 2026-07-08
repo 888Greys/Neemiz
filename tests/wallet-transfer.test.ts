@@ -103,12 +103,14 @@ describe("Wallet Transfer Rules", () => {
     expect(data.error).toContain("Daily limit");
   });
 
-  it("exempts admin users from the cumulative daily limit check", async () => {
+  it("exempts admin users from the cumulative daily cash-out limit but applies the transfer cap", async () => {
     vi.mocked(getOrCreateUser).mockResolvedValue({ id: "admin_123", isAdmin: true, username: "admin" } as any);
     vi.mocked(db.user.findFirst).mockResolvedValue({ id: "rec_456", username: "recipient" } as any);
 
     // Mock successful debit
     mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    // Admin transfer cap: nothing sent yet in the window, so 40 is well under it
+    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
     // Mock prior transfers to this recipient: none
     mockTx.transaction.findFirst.mockResolvedValue(null);
     mockTx.user.findUnique.mockResolvedValue({ walletBalance: 100 } as any);
@@ -117,23 +119,56 @@ describe("Wallet Transfer Rules", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.ok).toBe(true);
-
-    // Assert aggregate daily check was NOT called since sender is admin
-    expect(mockTx.transaction.aggregate).not.toHaveBeenCalled();
   });
 
-  it("prevents admin users from sending to the same recipient more than once per day", async () => {
+  it("caps an admin's TOTAL daily transfers across all recipients", async () => {
+    vi.mocked(getOrCreateUser).mockResolvedValue({ id: "admin_123", isAdmin: true, username: "admin" } as any);
+    vi.mocked(db.user.findFirst).mockResolvedValue({ id: "rec_456", username: "recipient" } as any);
+
+    // Debit succeeds, but the admin has already transferred 480 in the window;
+    // sending another 40 would exceed the default 500 cap.
+    mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 480 } });
+
+    const res = await POST(makeRequest({ recipientId: "rec_456", amount: 40 }));
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain("Daily transfer limit");
+  });
+
+  it("prevents an admin from ever sending to the same recipient twice (once-ever)", async () => {
     vi.mocked(getOrCreateUser).mockResolvedValue({ id: "admin_123", isAdmin: true, username: "admin" } as any);
     vi.mocked(db.user.findFirst).mockResolvedValue({ id: "rec_456", username: "recipient" } as any);
 
     // Mock successful debit
     mockTx.user.updateMany.mockResolvedValue({ count: 1 });
-    // Mock prior transfers to this recipient: found a prior transaction
+    // Under the transfer cap
+    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+    // A prior transfer to this recipient exists (any time in the past)
     mockTx.transaction.findFirst.mockResolvedValue({ id: "tx_999", amount: 50 } as any);
 
     const res = await POST(makeRequest({ recipientId: "rec_456", amount: 10 }));
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("has been sent to");
+    expect(data.error).toContain("already received a transfer");
+  });
+
+  it("does NOT scope the admin once-ever check to a time window", async () => {
+    vi.mocked(getOrCreateUser).mockResolvedValue({ id: "admin_123", isAdmin: true, username: "admin" } as any);
+    vi.mocked(db.user.findFirst).mockResolvedValue({ id: "rec_456", username: "recipient" } as any);
+    mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+    mockTx.transaction.findFirst.mockResolvedValue(null);
+    mockTx.user.findUnique.mockResolvedValue({ walletBalance: 100 } as any);
+
+    await POST(makeRequest({ recipientId: "rec_456", amount: 40 }));
+
+    // The recipient-history lookup must NOT include a createdAt window — it looks
+    // at all-time history so a recipient can never be paid twice.
+    const onceEverCall = mockTx.transaction.findFirst.mock.calls.find(
+      ([arg]) => arg?.where?.provider === "wallet_transfer",
+    );
+    expect(onceEverCall).toBeTruthy();
+    expect(onceEverCall![0].where.createdAt).toBeUndefined();
   });
 });

@@ -18,6 +18,7 @@ export const runtime = "nodejs";
 const MIN_WITHDRAWAL: Record<string, number> = {
   USDT: 1,
   USDC: 1,
+  BTC:  0.0002, // above dust + a typical miner fee
 };
 
 // Keep the platform fee configurable. It is disabled while withdrawals are

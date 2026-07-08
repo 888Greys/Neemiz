@@ -15,6 +15,7 @@ import { TransactionStatus, TransactionType, type BinaryTrade } from "@prisma/cl
 import { retainedProfit } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { evaluateTrade, payoutRate } from "neemiz-binary-engine";
+import { creditWinnings } from "@/lib/balance";
 
 export { evaluateTrade, payoutRate };
 
@@ -49,10 +50,7 @@ export async function settleTradeWithDigit(trade: BinaryTrade, exitDigit: number
     if (claimed.count === 0) return { outcome: "already", exitDigit, winAmount: 0 };
 
     if (won) {
-      await tx.user.update({
-        where: { id: trade.userId },
-        data:  { walletBalance: { increment: winAmount } },
-      });
+      await creditWinnings(tx, trade.userId, winAmount);
       await tx.transaction.create({
         data: {
           userId:    trade.userId,
@@ -100,10 +98,7 @@ export async function voidTrade(trade: BinaryTrade, reason: string): Promise<Voi
     });
     if (claimed.count === 0) return { outcome: "already" };
 
-    await tx.user.update({
-      where: { id: trade.userId },
-      data:  { walletBalance: { increment: stake } },
-    });
+    await creditWinnings(tx, trade.userId, stake);
     await tx.transaction.create({
       data: {
         userId:    trade.userId,

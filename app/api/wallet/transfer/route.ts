@@ -4,7 +4,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
-import { dailyLimitKes, dailyCapWhere, withdrawalWindowStart } from "@/lib/withdrawal-window";
+import { dailyLimitKes, dailyCapWhere, transferDailyLimitKes, transferCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
 
@@ -108,7 +108,25 @@ export async function POST(req: Request) {
         }
       }
 
-      // Admins can send to any given account only once per rolling 24-hour window.
+      // Admins are exempt from the shared cash-out cap above, but must still be
+      // bounded on TOTAL transfers per rolling 24h across ALL recipients —
+      // otherwise the KSh 50 per-transfer cap can be sprayed across unlimited
+      // distinct accounts (the collins fan-out, 2026-07-08: ~520 accounts).
+      if (sender.isAdmin) {
+        const transferLimit = transferDailyLimitKes();
+        const priorTransfers = await tx.transaction.aggregate({ where: transferCapWhere(sender.id), _sum: { amount: true } });
+        const usedTransfers = Number(priorTransfers._sum?.amount ?? 0);
+        if (usedTransfers + amount > transferLimit) {
+          throw new Error(`TRANSFER_LIMIT:${Math.max(0, transferLimit - usedTransfers)}`);
+        }
+      }
+
+      // An admin may send to any given account ONLY ONCE, EVER. Once a recipient
+      // has received an admin transfer (at any time in the past), no further
+      // admin transfer to them is allowed — no rolling window. This is what
+      // actually stops the recurring "seed the same accomplices again next week"
+      // pattern (the KSh 50 fan-out); the daily total cap above bounds how many
+      // NEW accounts can be seeded per day.
       if (sender.isAdmin) {
         const priorTransfer = await tx.transaction.findFirst({
           where: {
@@ -116,7 +134,6 @@ export async function POST(req: Request) {
             type: TransactionType.WITHDRAWAL,
             provider: "wallet_transfer",
             status: { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
-            createdAt: { gte: withdrawalWindowStart() },
             OR: [
               ...(recipient.username ? [{ metadata: { path: ["to"], equals: recipient.username } }] : []),
               { metadata: { path: ["recipientId"], equals: recipient.id } },
@@ -125,7 +142,7 @@ export async function POST(req: Request) {
           select: { amount: true },
         });
         if (priorTransfer) {
-          throw new Error(`ADMIN_ONCE_PER_DAY:${Number(priorTransfer.amount)}`);
+          throw new Error("ADMIN_ONCE_EVER");
         }
       }
 
@@ -179,10 +196,17 @@ export async function POST(req: Request) {
           : "You've reached today's cash-out limit (sends + withdrawals). It resets at 2:00 AM.",
       }, { status: 400 });
     }
-    if (error instanceof Error && error.message.startsWith("ADMIN_ONCE_PER_DAY:")) {
-      const sentAmount = Number(error.message.split(":")[1] ?? 0);
+    if (error instanceof Error && error.message.startsWith("TRANSFER_LIMIT:")) {
+      const remaining = Number(error.message.split(":")[1] ?? 0);
       return Response.json({
-        error: `${CURRENCY_SYMBOL} ${sentAmount.toLocaleString(MONEY_LOCALE)} has been sent to ${recipient.username} today.`,
+        error: remaining > 0
+          ? `Daily transfer limit: you can send ${CURRENCY_SYMBOL} ${remaining.toLocaleString(MONEY_LOCALE)} more in the next 24 hours.`
+          : "You've reached the daily transfer limit. It resets on a rolling 24-hour basis.",
+      }, { status: 400 });
+    }
+    if (error instanceof Error && error.message === "ADMIN_ONCE_EVER") {
+      return Response.json({
+        error: `@${recipient.username} has already received a transfer from you. Each account can receive from an admin only once.`,
       }, { status: 400 });
     }
     console.error("POST /api/wallet/transfer:", error);

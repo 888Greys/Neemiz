@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { disableBetType } from "@/lib/game-guard";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
 import { sendRtpGuardAlertEmail } from "@/lib/brevo";
+import { sendTelegram } from "@/lib/telegram";
 
 const num = (v: string | undefined, d: number) => {
   const n = Number(v);
@@ -70,6 +71,7 @@ export async function runRtpGuard() {
 
   const halted: { kind: string; rtp: number }[] = [];
   const userFlags: { userId: string; rtp: number; count: number }[] = [];
+  let sentAlert = false;   // did any notification clear the cooldown this run?
 
   // Per-kind: auto-halt on breach.
   for (const kind of KINDS) {
@@ -79,12 +81,12 @@ export async function runRtpGuard() {
     if (!breach) continue;
     await disableBetType("directional", kind);           // pull it offline now
     halted.push({ kind, rtp });
-    await notify(
+    sentAlert = (await notify(
       `rtp_halt:${kind}`,
       `🚨 Binary ${kind} auto-halted — RTP ${(rtp * 100).toFixed(0)}%`,
       `${kind} paid out ${(rtp * 100).toFixed(0)}% of stake over ${agg.count} trades (>${(haltRtp * 100).toFixed(0)}%). It has been disabled automatically. Investigate before re-enabling.`,
       "/admin/risk",
-    );
+    )) || sentAlert;
   }
 
   // Per-user: alert only (human decides on a freeze).
@@ -94,17 +96,27 @@ export async function runRtpGuard() {
     if (rtp <= userRtp) continue;
     userFlags.push({ userId, rtp, count: agg.count });
     const u = await db.user.findUnique({ where: { id: userId }, select: { username: true } });
-    await notify(
+    sentAlert = (await notify(
       `rtp_user:${userId}`,
       `⚠️ High player RTP — ${u?.username ?? userId.slice(0, 8)} at ${(rtp * 100).toFixed(0)}%`,
       `${u?.username ?? userId} realized ${(rtp * 100).toFixed(0)}% RTP over ${agg.count} binary trades. Possible exploit — review and freeze if warranted.`,
       "/admin/players",
-    );
+    )) || sentAlert;
   }
 
   if (halted.length || userFlags.length) {
     try { await sendRtpGuardAlertEmail({ halted, userFlags, windowH }); }
     catch (e) { console.error("[rtp-guard] owner email failed", e); }
+
+    // Immediate Telegram page. Only fires when the cooldown let a notification
+    // through above (so we don't re-page every 10 min for the same breach).
+    if (sentAlert) {
+      const lines: string[] = [`🚨 <b>Neemiz RTP guard</b> — last ${windowH}h`];
+      for (const h of halted) lines.push(`• <b>${h.kind}</b> AUTO-HALTED at ${(h.rtp * 100).toFixed(0)}% RTP`);
+      for (const f of userFlags) lines.push(`• ⚠️ player <code>${f.userId.slice(0, 8)}</code> at ${(f.rtp * 100).toFixed(0)}% over ${f.count} trades`);
+      try { await sendTelegram(lines.join("\n")); }
+      catch (e) { console.error("[rtp-guard] telegram failed", e); }
+    }
   }
 
   return { kindsChecked: byKind.size, halted: halted.map((h) => h.kind), usersFlagged: userFlags.length };
