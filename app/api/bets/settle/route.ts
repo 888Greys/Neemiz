@@ -6,6 +6,7 @@ import { resolveSelection, determineBetOutcome, calculateWinAmount, isStaleUnset
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { creditWinnings } from "@/lib/balance";
 
 // Vercel Cron invokes endpoints with GET (and an Authorization: Bearer
 // <CRON_SECRET> header when CRON_SECRET is set). Reuse the same handler.
@@ -171,10 +172,7 @@ export async function POST(req: Request) {
 
         // Credit wallet on WON
         if (betOutcome === "WON" && winAmount > 0) {
-          await tx.user.update({
-            where: { id: bet.userId },
-            data: { walletBalance: { increment: winAmount } },
-          });
+          await creditWinnings(tx, bet.userId, winAmount);
           await tx.transaction.create({
             data: {
               userId: bet.userId,
@@ -190,10 +188,7 @@ export async function POST(req: Request) {
 
         // Refund stake on VOID
         if (betOutcome === "VOID") {
-          await tx.user.update({
-            where: { id: bet.userId },
-            data: { walletBalance: { increment: Number(bet.stake) } },
-          });
+          await creditWinnings(tx, bet.userId, Number(bet.stake));
           await tx.transaction.create({
             data: {
               userId: bet.userId,
@@ -269,10 +264,7 @@ export async function POST(req: Request) {
           where: { id: bet.id },
           data: { status: "VOID", settledAt: new Date() },
         });
-        await tx.user.update({
-          where: { id: bet.userId },
-          data: { walletBalance: { increment: Number(bet.stake) } },
-        });
+        await creditWinnings(tx, bet.userId, Number(bet.stake));
         await tx.transaction.create({
           data: {
             userId: bet.userId,

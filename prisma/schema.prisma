@@ -26,6 +26,18 @@ model User {
   // (bonus-first). Replaces the old "admin sends KSh 50 from his wallet" promo
   // hack that let promo credit be withdrawn/laundered.
   bonusBalance      Decimal   @default(0.00) @map("bonus_balance") @db.Decimal(18, 2)
+  // Wagering cycle for the bonus above (set when a grant starts a cycle):
+  //   bonusWagerRemaining — stake turnover still required before the bonus
+  //                         converts to real; every stake (bonus or real)
+  //                         counts down while a cycle is active.
+  //   bonusCashoutCap     — max amount converted to real when wagering
+  //                         completes; anything above it is forfeited.
+  //   bonusExpiresAt      — cycle deadline; at expiry the bonus is forfeited.
+  //                         NULL = no active cycle (legacy bonus stays playable
+  //                         but never converts).
+  bonusWagerRemaining Decimal  @default(0.00) @map("bonus_wager_remaining") @db.Decimal(18, 2)
+  bonusCashoutCap     Decimal  @default(0.00) @map("bonus_cashout_cap") @db.Decimal(18, 2)
+  bonusExpiresAt      DateTime? @map("bonus_expires_at")
   forexWalletBalance Decimal  @default(0.00) @map("forex_wallet_balance") @db.Decimal(18, 2)
   currency          String    @default("KES")
   isActive          Boolean   @default(true) @map("is_active")

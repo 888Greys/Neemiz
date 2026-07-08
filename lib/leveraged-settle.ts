@@ -13,6 +13,7 @@ import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type LeveragedTrade } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { creditWinnings } from "@/lib/balance";
 
 export type LeveragedTerminal = "CLOSED" | "STOPPED" | "KNOCKED_OUT";
 
@@ -58,10 +59,7 @@ export async function finalizeLeveraged(
     }
 
     if (creditedPayout > 0) {
-      await tx.user.update({
-        where: { id: trade.userId },
-        data: { walletBalance: { increment: creditedPayout } },
-      });
+      await creditWinnings(tx, trade.userId, creditedPayout);
       await tx.transaction.create({
         data: {
           userId: trade.userId,
@@ -113,10 +111,7 @@ export async function voidLeveraged(trade: LeveragedTrade, reason: string): Prom
     });
     if (claimed.count === 0) return { outcome: "already" };
 
-    await tx.user.update({
-      where: { id: trade.userId },
-      data: { walletBalance: { increment: stake } },
-    });
+    await creditWinnings(tx, trade.userId, stake);
     await tx.transaction.create({
       data: {
         userId: trade.userId,
