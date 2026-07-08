@@ -105,6 +105,7 @@ export async function POST(req: Request) {
           payout:       payoutVal,
           targetDigit:  targetDigit!,
           entryDigit,
+          entryEpoch,
           durationTicks: ticks,
           settleBefore,
           status:       "PENDING",

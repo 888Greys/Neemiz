@@ -49,6 +49,38 @@ export async function getServerBinaryDigit(symbol: string): Promise<{ digit: num
 
 export type { TickPoint };
 
+export type ContractExitDigit =
+  | { ready: true; digit: number; quote: number; epoch: number }
+  | { ready: false };
+
+/**
+ * Deterministic settlement digit for a digit contract: the last digit of the
+ * `durationTicks`-th tick STRICTLY AFTER `entryEpoch`. This is the exit tick the
+ * contract was priced against (pricing simulates `w.forward[duration-1]`), so
+ * price and settlement share the same tick and the player cannot influence the
+ * outcome by choosing WHEN to settle.
+ *
+ * Returns `{ ready: false }` when the exit tick hasn't been produced by the feed
+ * yet — the caller keeps the trade PENDING and retries, exactly like directional
+ * settlement. Throws only when the feed itself can't be reached (network/outage)
+ * so callers can distinguish "wait" from "refuse to settle".
+ */
+export async function getContractExitDigit(
+  symbol: string,
+  entryEpoch: number,
+  durationTicks: number,
+): Promise<ContractExitDigit> {
+  if (!VALID_SYMBOLS.has(symbol)) throw new Error(`Unsupported binary symbol: ${symbol}`);
+  // Ask for a little slack beyond the exit tick to tolerate feed jitter.
+  const hist = await getServerTickHistory(symbol, entryEpoch, durationTicks + 20);
+  const forward = hist
+    .filter((t) => t.epoch > entryEpoch && Number.isFinite(t.price) && t.price > 0)
+    .sort((a, b) => a.epoch - b.epoch);
+  if (forward.length < durationTicks) return { ready: false };
+  const exit = forward[durationTicks - 1];
+  return { ready: true, digit: quoteToDigit(exit.price), quote: exit.price, epoch: exit.epoch };
+}
+
 /**
  * Fetch the Deriv tick history for a symbol from `startEpoch` (exclusive) up to
  * the latest tick, server-side. Used for accumulator settlement, which has to
