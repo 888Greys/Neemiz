@@ -22,7 +22,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
-import { resolveContract, type ResolveParams, type DirectionalKind, type DirectionalSide } from "@/lib/binary/kernel";
+import {
+  resolveContract,
+  resolveDigitExitTick,
+  digitWonFromQuote,
+  exitDigitFromQuote,
+  type ResolveParams,
+  type DirectionalKind,
+  type DirectionalSide,
+  type DigitSide,
+} from "@/lib/binary/kernel";
 
 const SECRET = process.env.PROVABLY_FAIR_SECRET
   || (process.env.NODE_ENV === "production" ? "" : process.env.ADMIN_2FA_SECRET)
@@ -117,4 +126,79 @@ export function buildProof(input: {
 
 export function isProvablyFairConfigured(): boolean {
   return SECRET.length > 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROVABLY FAIR — digit contracts (Even/Odd/Matches/Differs/Over/Under)
+//
+// A digit contract settles on the last digit of ONE deterministic tick: the
+// durationTicks-th tick after the committed entryEpoch (see resolveDigitExitTick).
+// Same tamper-evidence as directional: commit SHA256(serverSeed) at bet time,
+// HMAC-sign the terms (incl. entryEpoch + targetDigit + payoutMultiplier), and
+// let anyone re-fetch the public ticks from entryEpoch and replay the kernel.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type DigitQuoteTerms = {
+  market: string;
+  side: DigitSide;
+  targetDigit: number;
+  entryEpoch: number;
+  durationTicks: number;
+  payoutMultiplier: number;   // net multiple on a win
+  commitment: string;         // SHA256(serverSeed)
+  clientSeed: string;
+  nonce: number;
+};
+
+/** Stable, order-independent serialization so the signature is reproducible. */
+export function canonicalizeDigit(t: DigitQuoteTerms): string {
+  return [
+    "digit",
+    t.market, t.side, t.targetDigit,
+    t.entryEpoch, t.durationTicks, t.payoutMultiplier,
+    t.commitment, t.clientSeed, t.nonce,
+  ].join("|");
+}
+
+export function signDigitQuote(t: DigitQuoteTerms): string {
+  if (!SECRET) throw new Error("PROVABLY_FAIR_SECRET is not configured");
+  return createHmac("sha256", SECRET).update(canonicalizeDigit(t)).digest("hex");
+}
+
+export function verifyDigitQuoteSignature(t: DigitQuoteTerms, signature: string): boolean {
+  if (!SECRET) return false;
+  const expected = signDigitQuote(t);
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(signature, "hex");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/**
+ * Replay a digit outcome from the committed terms + the real ticks (raw history
+ * from at/around entryEpoch). Selects the SAME deterministic exit tick settlement
+ * used, so the replay is bit-for-bit what the server decided.
+ */
+export function verifyDigitOutcome(
+  t: Pick<DigitQuoteTerms, "side" | "targetDigit" | "entryEpoch" | "durationTicks" | "payoutMultiplier">,
+  ticks: { price: number; epoch: number }[],
+  stake: number,
+): { ready: boolean; won: boolean; credit: number; exitDigit: number | null } {
+  const exit = resolveDigitExitTick(ticks, t.entryEpoch, t.durationTicks);
+  if (!exit) return { ready: false, won: false, credit: 0, exitDigit: null };
+  const won = digitWonFromQuote(t.side, t.targetDigit, exit.price);
+  const credit = won ? Number((stake * t.payoutMultiplier).toFixed(2)) : 0;
+  return { ready: true, won, credit, exitDigit: exitDigitFromQuote(exit.price) };
+}
+
+/** Build + sign a fresh proof envelope for a placed digit contract. */
+export function buildDigitProof(input: {
+  market: string; side: DigitSide; targetDigit: number;
+  entryEpoch: number; durationTicks: number; payoutMultiplier: number;
+  clientSeed: string; nonce: number;
+}): { serverSeed: string; commitment: string; signature: string; terms: DigitQuoteTerms } {
+  const serverSeed = newServerSeed();
+  const commitment = commitmentOf(serverSeed);
+  const terms: DigitQuoteTerms = { ...input, commitment };
+  const signature = signDigitQuote(terms);
+  return { serverSeed, commitment, signature, terms };
 }

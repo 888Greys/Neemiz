@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { getContractExitDigit, getServerBinaryDigit } from "@/lib/binary-price";
+import { getContractExitDigit } from "@/lib/binary-price";
 import { settleTradeWithDigit } from "@/lib/binary-settle";
 
 export async function POST(req: Request) {
@@ -32,23 +32,25 @@ export async function POST(req: Request) {
   if (now > trade.settleBefore)
     return Response.json({ error: "Settlement window expired" }, { status: 409 });
 
+  // A digit contract with no committed entryEpoch (placed before epoch-anchored
+  // settlement) can't be settled deterministically. NEVER fall back to a live
+  // tick — that is the timing hole itself. Leave it PENDING; the cron sweep
+  // refunds these once their window expires.
+  if (trade.entryEpoch == null)
+    return Response.json({ error: "Not ready", pending: true }, { status: 409 });
+
   // Server-authoritative exit digit. It is fixed by the market, NOT by when the
   // client asks to settle: the contract resolves on the durationTicks-th tick
   // after its entry tick (entryEpoch). This closes the timing hole where a
   // player could watch the live feed and only settle once the current digit
-  // favoured their Over/Under bet. Legacy trades placed before entryEpoch was
-  // recorded fall back to the latest-tick path so they can still be drained.
+  // favoured their Over/Under bet.
   let exitDigit: number;
   try {
-    if (trade.entryEpoch != null) {
-      const exit = await getContractExitDigit(trade.market, trade.entryEpoch, trade.durationTicks);
-      // Exit tick not produced by the feed yet — keep the trade PENDING and let
-      // the client's poll (or the cron sweep) retry within the settleBefore window.
-      if (!exit.ready) return Response.json({ error: "Not ready", pending: true }, { status: 409 });
-      exitDigit = exit.digit;
-    } else {
-      ({ digit: exitDigit } = await getServerBinaryDigit(trade.market));
-    }
+    const exit = await getContractExitDigit(trade.market, trade.entryEpoch, trade.durationTicks);
+    // Exit tick not produced by the feed yet — keep the trade PENDING and let
+    // the client's poll (or the cron sweep) retry within the settleBefore window.
+    if (!exit.ready) return Response.json({ error: "Not ready", pending: true }, { status: 409 });
+    exitDigit = exit.digit;
   } catch (err) {
     console.error("binary/settle digit fetch:", err instanceof Error ? err.message : err);
     return Response.json({ error: "Live feed unavailable, try again" }, { status: 503 });

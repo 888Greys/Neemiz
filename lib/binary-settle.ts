@@ -19,6 +19,24 @@ import { creditWinnings } from "@/lib/balance";
 
 export { evaluateTrade, payoutRate };
 
+/** Reveal the committed provably-fair seed + terms once a trade is terminal, so
+ *  the win/refund ledger row carries everything needed to independently replay
+ *  the outcome. No-op for trades placed without a proof. */
+function pfRevealMetadata(trade: BinaryTrade) {
+  if (!trade.pfCommitment || !trade.pfSignature || !trade.pfServerSeed) return {};
+  return {
+    pfReveal: {
+      commitment: trade.pfCommitment,
+      signature: trade.pfSignature,
+      serverSeed: trade.pfServerSeed,
+      clientSeed: trade.pfClientSeed,
+      nonce: trade.pfNonce,
+      payoutMultiplier: trade.pfPayoutMultiplier == null ? null : Number(trade.pfPayoutMultiplier),
+      revealedAt: new Date().toISOString(),
+    },
+  };
+}
+
 export type SettleOutcome = "won" | "lost" | "already";
 
 export type SettleResult = {
@@ -60,7 +78,7 @@ export async function settleTradeWithDigit(trade: BinaryTrade, exitDigit: number
           status:    TransactionStatus.COMPLETED,
           reference: `binary-win-${trade.userId}-${trade.id}`,
           provider:  "binary",
-          metadata:  { game: "binary", tradeId: trade.id, market: trade.market, side: trade.side, exitDigit, multiplier: Number(trade.payout) / stake, retainedAmount },
+          metadata:  { game: "binary", tradeId: trade.id, market: trade.market, side: trade.side, exitDigit, multiplier: Number(trade.payout) / stake, retainedAmount, ...pfRevealMetadata(trade) },
         },
       });
     }
@@ -108,7 +126,7 @@ export async function voidTrade(trade: BinaryTrade, reason: string): Promise<Voi
         status:    TransactionStatus.COMPLETED,
         reference: `binary-void-${trade.userId}-${trade.id}`,
         provider:  "binary",
-        metadata:  { game: "binary", tradeId: trade.id, market: trade.market, side: trade.side, reason },
+        metadata:  { game: "binary", tradeId: trade.id, market: trade.market, side: trade.side, reason, ...pfRevealMetadata(trade) },
       },
     });
     await tx.notification.create({
