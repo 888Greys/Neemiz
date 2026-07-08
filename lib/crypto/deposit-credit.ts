@@ -130,6 +130,7 @@ export async function creditOnChainDeposit(input: OnChainDepositCreditInput): Pr
       network:      input.network,
       cryptoAmount: amount,
       txHash:       input.txHash,
+      address:      input.depositAddress,
     }).catch((e) => console.warn("[crypto-deposit] email failed:", e));
   }
 
@@ -190,6 +191,7 @@ export async function notifyPendingDeposit(input: {
       network:      input.network,
       cryptoAmount: amount,
       txHash:       input.txHash,
+      address:      input.depositAddress,
     }).catch((e) => console.warn("[crypto-deposit] pending email failed:", e));
   }
 
