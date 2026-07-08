@@ -215,7 +215,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   const [stepUpError, setStepUpError] = useState("");
   const [stepUpBusy, setStepUpBusy]   = useState(false);
   const [stepUpShowPw, setStepUpShowPw] = useState(false);
-  const [stepUpAction, setStepUpAction] = useState<"withdraw" | "send">("withdraw");
+  const [stepUpAction, setStepUpAction] = useState<"withdraw" | "send" | "cryptoWithdraw">("withdraw");
   const [pendingSend, setPendingSend] = useState<{ recipientId: string; amount: number; recipient: TransferRecipient } | null>(null);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendError, setSendError] = useState("");
@@ -470,6 +470,21 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
     }
   }
 
+  // Crypto is irreversible — require a fresh password/passkey confirmation before
+  // the payout is signed and broadcast (mirrors the M-Pesa withdraw / send flow).
+  function requestCryptoWithdraw() {
+    if (!isSignedIn) { openLogin(); return; }
+    const amt = Number(cwAmount);
+    if (!cwAddress.trim() || !amt) return;
+    if (amt < cwAsset.min) {
+      setCwState({ step: "error", message: `Minimum withdrawal is ${cwAsset.min} ${cwAsset.code}` });
+      return;
+    }
+    setStepUpAction("cryptoWithdraw");
+    if (DEV_AUTH_PUBLIC) { void handleCryptoWithdraw(); return; } // no Supabase in dev
+    setStepUpPw(""); setStepUpError(""); setStepUpOpen(true);
+  }
+
   async function handleCryptoWithdraw() {
     if (!isSignedIn) { openLogin(); return; }
     const amt = Number(cwAmount);
@@ -494,9 +509,17 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
       // page, not JSON — surface a clear message instead of a raw "Unexpected
       // token '<'" parse error.
       const data = await res.json().catch(() => null) as
-        { txId?: string; payoutId?: string; error?: string; ok?: boolean } | null;
+        { txId?: string; payoutId?: string; error?: string; ok?: boolean; stepUpRequired?: boolean } | null;
       if (!data) {
         throw new Error("Withdrawal is taking longer than expected — check your transaction history before retrying.");
+      }
+      // Step-up proof missing/expired: re-open the confirm sheet so the user
+      // re-verifies, then retries.
+      if (res.status === 401 && data.stepUpRequired) {
+        setCwState({ step: "idle" });
+        setStepUpAction("cryptoWithdraw");
+        setStepUpPw(""); setStepUpError("Please confirm it's you again."); setStepUpOpen(true);
+        return;
       }
       if (!res.ok || data.error || data.ok === false) {
         throw new Error(data.error ?? "Withdrawal failed");
@@ -607,6 +630,8 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
       setStepUpOpen(false); setStepUpPw("");
       if (stepUpAction === "send" && pendingSend) {
         await executeTransfer(pendingSend.recipient, pendingSend.amount);
+      } else if (stepUpAction === "cryptoWithdraw") {
+        await handleCryptoWithdraw();
       } else {
         await handleMpesaWithdraw();
       }
@@ -632,6 +657,8 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
       setStepUpOpen(false);
       if (stepUpAction === "send" && pendingSend) {
         await executeTransfer(pendingSend.recipient, pendingSend.amount);
+      } else if (stepUpAction === "cryptoWithdraw") {
+        await handleCryptoWithdraw();
       } else {
         await handleMpesaWithdraw();
       }
@@ -1170,7 +1197,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                     )}
 
                     <Button
-                      onClick={handleCryptoWithdraw}
+                      onClick={requestCryptoWithdraw}
                       disabled={
                         cwState.step === "loading" ||
                         !cwAmount ||
@@ -1383,6 +1410,11 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                 <>
                   Sending <span className="font-black text-slate-300">{CURRENCY_SYMBOL} {pendingSend.amount.toLocaleString()}</span> to{" "}
                   <span className="font-black text-slate-300">@{pendingSend.recipient.username}</span>. Verify with your password or passkey.
+                </>
+              ) : stepUpAction === "cryptoWithdraw" ? (
+                <>
+                  Withdrawing <span className="font-black text-slate-300">{cwAmount || 0} {cwAsset.code}</span> to{" "}
+                  <span className="font-black text-slate-300">{cwAddress.trim().slice(0, 10)}…{cwAddress.trim().slice(-6)}</span>. Crypto transfers are irreversible — verify with your password or passkey.
                 </>
               ) : (
                 <>
