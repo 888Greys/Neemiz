@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
@@ -7,6 +8,11 @@ import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identit
 import { dailyLimitKes, dailyCapWhere, transferDailyLimitKes, transferCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
+import { DEV_AUTH_ENABLED } from "@/lib/dev-auth";
+import { verifyStepUpToken, STEPUP_COOKIE } from "@/lib/step-up";
+
+/** Per-transfer cap (KES). Keep in sync with wallet Send Max button. */
+const MAX_TRANSFER_KES = 50;
 
 const recipientSelect = {
   id: true,
@@ -30,10 +36,22 @@ export async function GET(req: Request) {
   const users = await db.user.findMany({
     where: { AND: [recipientLookupWhere(query), { id: { not: sender.id } }] },
     select: recipientSelect,
-    take: 6,
+    take: 12,
   });
 
-  const recipients = await Promise.all(users.map(async (recipient) => {
+  const needle = query.trim().toLowerCase();
+  const ranked = [...users].sort((a, b) => {
+    const score = (u: typeof a) => {
+      const uname = (u.username ?? "").toLowerCase();
+      const email = (u.email ?? "").toLowerCase();
+      if (uname === needle || email === needle) return 0;
+      if (uname.startsWith(needle) || email.startsWith(needle)) return 1;
+      return 2;
+    };
+    return score(a) - score(b);
+  });
+
+  const recipients = await Promise.all(ranked.map(async (recipient) => {
     const username = recipient.username ?? await generateUniqueUsername(db, recipient);
     if (!recipient.username) {
       await db.user.update({ where: { id: recipient.id }, data: { username } });
@@ -62,6 +80,20 @@ export async function POST(req: Request) {
   const killed = await transfersDisabledResponse();
   if (killed && !sender.isAdmin) return killed;
 
+  // Server-side step-up gate (same proof as M-Pesa withdraw). A direct POST
+  // that skips the confirm UI is rejected. Consumed on use.
+  if (!DEV_AUTH_ENABLED) {
+    const jar = await cookies();
+    const proof = jar.get(STEPUP_COOKIE)?.value;
+    if (!verifyStepUpToken(proof, user.id)) {
+      return Response.json(
+        { error: "Please confirm it's you to send money.", stepUpRequired: true },
+        { status: 401 },
+      );
+    }
+    jar.delete(STEPUP_COOKIE);
+  }
+
   let body: { recipientId?: string; amount?: number };
   try { body = await req.json(); } catch {
     return Response.json({ error: "Invalid request body" }, { status: 400 });
@@ -76,7 +108,6 @@ export async function POST(req: Request) {
   // transfer. This throttles the "seed an account then cash it out" fan-out
   // pattern where balance is moved in bulk to accomplices who withdraw it.
   // Admins are also subject to the KSh 50 per-transfer limit.
-  const MAX_TRANSFER_KES = 50;
   if (amount > MAX_TRANSFER_KES) {
     return Response.json({ error: `You can send at most ${CURRENCY_SYMBOL} ${MAX_TRANSFER_KES} per transfer.` }, { status: 400 });
   }
@@ -121,16 +152,12 @@ export async function POST(req: Request) {
         }
       }
 
-      // An admin may send to any given account ONLY ONCE, EVER. Once a recipient
-      // has received an admin transfer (at any time in the past), no further
-      // admin transfer to them is allowed — no rolling window. This is what
-      // actually stops the recurring "seed the same accomplices again next week"
-      // pattern (the KSh 50 fan-out); the daily total cap above bounds how many
-      // NEW accounts can be seeded per day.
+      // Any admin may seed a given account ONLY ONCE, EVER — across ALL admins
+      // (including goodhope / owner accounts). Once any admin has transferred
+      // to a recipient, no further admin transfer to them is allowed.
       if (sender.isAdmin) {
         const priorTransfer = await tx.transaction.findFirst({
           where: {
-            userId: sender.id,
             type: TransactionType.WITHDRAWAL,
             provider: "wallet_transfer",
             status: { notIn: [TransactionStatus.FAILED, TransactionStatus.CANCELLED] },
@@ -138,11 +165,17 @@ export async function POST(req: Request) {
               ...(recipient.username ? [{ metadata: { path: ["to"], equals: recipient.username } }] : []),
               { metadata: { path: ["recipientId"], equals: recipient.id } },
             ],
+            user: { isAdmin: true },
           },
-          select: { amount: true },
+          select: {
+            amount: true,
+            createdAt: true,
+            user: { select: { username: true } },
+          },
         });
         if (priorTransfer) {
-          throw new Error("ADMIN_ONCE_EVER");
+          const fromUser = priorTransfer.user.username ?? "an admin";
+          throw new Error(`ADMIN_ONCE_EVER:${priorTransfer.amount}:${fromUser}:${priorTransfer.createdAt.toISOString()}`);
         }
       }
 
@@ -204,9 +237,19 @@ export async function POST(req: Request) {
           : "You've reached the daily transfer limit. It resets on a rolling 24-hour basis.",
       }, { status: 400 });
     }
-    if (error instanceof Error && error.message === "ADMIN_ONCE_EVER") {
+    if (error instanceof Error && error.message.startsWith("ADMIN_ONCE_EVER")) {
+      const parts = error.message.split(":");
+      const priorAmount = Number(parts[1] ?? 0);
+      const fromLabel = parts[2] && parts[2] !== "an admin" ? `@${parts[2]}` : "an admin";
+      const sentAt = parts[3] ?? null;
       return Response.json({
-        error: `@${recipient.username} has already received a transfer from you. Each account can receive from an admin only once.`,
+        code: "ADMIN_ONCE_EVER",
+        alreadySent: true,
+        recipient: recipient.username,
+        priorAmount: Number.isFinite(priorAmount) ? priorAmount : null,
+        from: fromLabel,
+        sentAt,
+        error: `@${recipient.username} has already received an admin transfer. Each account can receive from an admin only once.`,
       }, { status: 400 });
     }
     console.error("POST /api/wallet/transfer:", error);

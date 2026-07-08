@@ -968,3 +968,25 @@ export async function sendTestingNoticeEmail(to: string, firstName?: string) {
     `)
   );
 }
+
+/** 6-digit email OTP for login / 2FA challenge. */
+export async function sendEmailOtpCode(to: string, firstName: string, code: string) {
+  const name = firstName || "there";
+  await sendEmail(
+    to,
+    name,
+    `${code} is your Nezeem verification code`,
+    emailWrapper(`
+      <h1 style="margin:0 0 8px;font-size:22px;font-weight:800;color:#1a1a2e;">Confirm it&apos;s you</h1>
+      <p style="margin:0 0 20px;font-size:15px;color:#4a5568;line-height:1.7;">
+        Hi ${name}, use this code to finish signing in to Nezeem. It expires in 10 minutes.
+      </p>
+      <div style="margin:0 0 24px;padding:18px 20px;background:#f7f9fc;border-radius:12px;text-align:center;">
+        <p style="margin:0;font-size:32px;font-weight:800;letter-spacing:0.35em;color:#087cff;">${code}</p>
+      </div>
+      <p style="margin:0;font-size:13px;color:#8a94a6;line-height:1.6;">
+        If you didn&apos;t try to sign in, you can ignore this email. Do not share this code with anyone.
+      </p>
+    `),
+  );
+}

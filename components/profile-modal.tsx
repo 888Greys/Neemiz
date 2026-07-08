@@ -734,6 +734,11 @@ function SecurityView({ email }: { email: string | undefined }) {
   const [disableError, setDisableError] = useState("");
   const [disableLoading, setDisableLoading] = useState(false);
   const [disabled2FA, setDisabled2FA] = useState(false);
+  const [emailOtpBusy, setEmailOtpBusy] = useState(false);
+  const [emailOtpPhase, setEmailOtpPhase] = useState<"idle" | "sent" | "done">("idle");
+  const [emailOtpCode, setEmailOtpCode] = useState("");
+  const [emailOtpError, setEmailOtpError] = useState("");
+  const [emailOtpMasked, setEmailOtpMasked] = useState("");
 
   // Passkeys (WebAuthn) — withdrawal step-up (GoTrue MFA factors)
 
@@ -864,7 +869,7 @@ function SecurityView({ email }: { email: string | undefined }) {
     }
   }
 
-  const effective2FA = is2FAEnabled && !disabled2FA;
+  const effective2FA = (is2FAEnabled && !disabled2FA) || emailOtpPhase === "done";
 
   return (
     <div className="space-y-3 px-4 py-3">
@@ -898,7 +903,7 @@ function SecurityView({ email }: { email: string | undefined }) {
           </div>
           <div className="flex-1">
             <p className="text-[13px] font-black text-white">Two-Factor Authentication</p>
-            <p className="text-[11px] text-slate-500">Google Authenticator (TOTP)</p>
+            <p className="text-[11px] text-slate-500">Pick one: authenticator app or email code</p>
           </div>
           {effective2FA || setupState.phase === "done" ? (
             <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-black text-emerald-400">On</span>
@@ -917,7 +922,31 @@ function SecurityView({ email }: { email: string | undefined }) {
               </button>
             ) : (
               <div className="space-y-2">
-                <p className="text-[11px] font-bold text-slate-400">Enter your authenticator code to confirm:</p>
+                <p className="text-[11px] font-bold text-slate-400">
+                  Enter your authenticator or email code to confirm:
+                </p>
+                {user?.user_metadata?.email_otp_enabled === true && (
+                  <button
+                    type="button"
+                    disabled={emailOtpBusy}
+                    onClick={async () => {
+                      setEmailOtpBusy(true); setDisableError("");
+                      try {
+                        const res = await fetch("/api/auth/2fa/email/send", { method: "POST" });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data.error ?? "Could not send code");
+                        toast.success("Code sent", "Check your email, then enter it below.");
+                      } catch (err) {
+                        setDisableError(err instanceof Error ? err.message : "Could not send code");
+                      } finally {
+                        setEmailOtpBusy(false);
+                      }
+                    }}
+                    className="text-[11px] font-black text-[#5ea9ff]"
+                  >
+                    {emailOtpBusy ? "Sending…" : "Email me a code"}
+                  </button>
+                )}
                 <input
                   type="text" inputMode="numeric" maxLength={6}
                   value={disableCode}
@@ -942,13 +971,105 @@ function SecurityView({ email }: { email: string | undefined }) {
           </div>
         )}
 
-        {/* ── NOT ENABLED: setup flow ── */}
-        {!effective2FA && setupState.phase === "idle" && (
-          <div className="border-t border-white/[0.05] px-4 py-3.5">
+        {/* ── NOT ENABLED: choose authenticator app OR email OTP ── */}
+        {!effective2FA && setupState.phase === "idle" && emailOtpPhase === "idle" && (
+          <div className="space-y-2 border-t border-white/[0.05] px-4 py-3.5">
+            <p className="text-[11px] font-bold text-slate-500">Choose only one method:</p>
             <button type="button" onClick={startSetup}
-              className="text-[12px] font-black text-[#5ea9ff] transition hover:text-white">
-              Enable 2FA →
+              className="flex w-full items-center justify-between rounded-xl bg-white/[0.04] px-3 py-3 text-left ring-1 ring-white/[0.06] transition hover:bg-white/[0.07]">
+              <span>
+                <span className="block text-[12px] font-black text-white">Authenticator app</span>
+                <span className="block text-[10px] font-bold text-slate-500">Google Authenticator / Authy</span>
+              </span>
+              <Icon name="chevron_right" className="text-[16px] text-slate-500" />
             </button>
+            <button
+              type="button"
+              disabled={!email || emailOtpBusy}
+              onClick={async () => {
+                if (!email) { toast.error("Email required", "Add an email to your account first."); return; }
+                setEmailOtpBusy(true); setEmailOtpError("");
+                try {
+                  const res = await fetch("/api/auth/2fa/email/send", { method: "POST" });
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok) throw new Error(data.error ?? "Could not send code");
+                  setEmailOtpMasked(typeof data.maskedEmail === "string" ? data.maskedEmail : email);
+                  setEmailOtpPhase("sent");
+                  toast.success("Code sent", "Check your email for the 6-digit code.");
+                } catch (err) {
+                  toast.error("Could not send code", err instanceof Error ? err.message : "Try again");
+                } finally {
+                  setEmailOtpBusy(false);
+                }
+              }}
+              className="flex w-full items-center justify-between rounded-xl bg-white/[0.04] px-3 py-3 text-left ring-1 ring-white/[0.06] transition hover:bg-white/[0.07] disabled:opacity-50"
+            >
+              <span>
+                <span className="block text-[12px] font-black text-white">Email code</span>
+                <span className="block text-[10px] font-bold text-slate-500">
+                  {emailOtpBusy ? "Sending…" : email ? `Send a code to ${email}` : "Add an email first"}
+                </span>
+              </span>
+              <Icon name="chevron_right" className="text-[16px] text-slate-500" />
+            </button>
+          </div>
+        )}
+
+        {!effective2FA && emailOtpPhase === "sent" && (
+          <div className="space-y-3 border-t border-white/[0.05] px-4 py-3.5">
+            <p className="text-[11px] font-bold text-slate-400">
+              Enter the 6-digit code we sent to <span className="text-slate-200">{emailOtpMasked || email}</span>
+            </p>
+            <input
+              type="text" inputMode="numeric" maxLength={6}
+              value={emailOtpCode}
+              onChange={(e) => { setEmailOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setEmailOtpError(""); }}
+              placeholder="000000"
+              className="h-11 w-full rounded-xl bg-white/[0.06] text-center text-base font-black tracking-[0.2em] text-white outline-none ring-1 ring-white/[0.08] focus:ring-[#087cff]/50"
+              autoFocus
+            />
+            {emailOtpError && <p className="text-[11px] font-bold text-red-400">{emailOtpError}</p>}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={emailOtpBusy || emailOtpCode.length !== 6}
+                onClick={async () => {
+                  setEmailOtpBusy(true); setEmailOtpError("");
+                  try {
+                    const res = await fetch("/api/auth/2fa/email/enable", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ code: emailOtpCode }),
+                    });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) { setEmailOtpError(data.error ?? "Invalid code"); return; }
+                    setEmailOtpPhase("done");
+                    toast.success("Email authentication on", "We'll email a code when you sign in.");
+                  } catch {
+                    setEmailOtpError("Network error — try again");
+                  } finally {
+                    setEmailOtpBusy(false);
+                  }
+                }}
+                className="flex-1 rounded-xl bg-[#087cff] py-2 text-[12px] font-black text-white disabled:opacity-50"
+              >
+                {emailOtpBusy ? "Verifying…" : "Activate email 2FA"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setEmailOtpPhase("idle"); setEmailOtpCode(""); setEmailOtpError(""); }}
+                className="rounded-xl bg-white/[0.06] px-4 text-[12px] font-black text-slate-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {emailOtpPhase === "done" && !disabling && (
+          <div className="flex items-center gap-2 border-t border-white/[0.05] px-4 py-3.5">
+            <Icon name="check_circle" fill className="text-[16px] text-emerald-400" />
+            <p className="text-[12px] font-bold text-emerald-400">Email authentication is active</p>
           </div>
         )}
 
@@ -1292,7 +1413,6 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
     { icon: "notifications", label: "Notifications",     sub: "Push & email alerts",       action: () => setView("notifications") },
     { icon: "security",      label: "Security & 2FA",    sub: "Password, two-factor auth", action: () => setView("security") },
     { icon: "language",      label: "Language & Region", sub: "English · Kenya",           action: () => setView("language") },
-    { icon: "support_agent", label: "Help & Support",    sub: "24/7 live chat",            action: () => setView("support") },
   ];
 
   return (
@@ -1450,6 +1570,19 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
               </div>
 
               <div className="mx-4 mb-2.5 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+                <button
+                  type="button"
+                  onClick={() => setView("support")}
+                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/[0.04]"
+                >
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
+                    <Icon name="support_agent" fill className="text-[15px] text-slate-400" />
+                  </div>
+                  <span className="flex-1 text-[13px] font-black text-white">Support</span>
+                  <span className="rounded-full bg-[#087cff] px-2 py-0.5 text-[10px] font-black text-white">24/7</span>
+                  <Icon name="chevron_right" className="text-[16px] text-slate-600" />
+                </button>
+                <div className="mx-4 h-px bg-white/[0.05]" />
                 <button
                   type="button"
                   onClick={() => setView("settings")}

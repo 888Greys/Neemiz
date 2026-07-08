@@ -1,18 +1,51 @@
 "use client";
 
-import { Suspense, useState, useRef } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/icon";
+import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 
 function TwoFactorContent() {
   const router       = useRouter();
   const searchParams = useSearchParams();
   const next         = searchParams.get("next") ?? "/";
+  const { user }     = useSupabaseAuth();
+
+  const emailOtpPreferred = user?.user_metadata?.email_otp_enabled === true;
 
   const [code, setCode]       = useState("");
   const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [maskedEmail, setMaskedEmail] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const autoSent = useRef(false);
+
+  async function sendEmailCode() {
+    setSending(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/2fa/email/send", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Could not send email code");
+        return;
+      }
+      setMaskedEmail(typeof data.maskedEmail === "string" ? data.maskedEmail : "");
+      setEmailSent(true);
+    } catch {
+      setError("Could not send email code — try again.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!emailOtpPreferred || autoSent.current) return;
+    autoSent.current = true;
+    void sendEmailCode();
+  }, [emailOtpPreferred]);
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
@@ -39,14 +72,24 @@ function TwoFactorContent() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[#0c0d10] px-4">
       <div className="w-full max-w-sm space-y-6">
-        {/* Logo */}
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#087cff]/15 ring-1 ring-[#087cff]/25">
             <Icon name="security" fill className="text-[32px] text-[#087cff]" />
           </div>
           <h1 className="text-2xl font-black text-white">Two-Factor Authentication</h1>
           <p className="mt-2 text-sm font-bold text-slate-500">
-            Open Google Authenticator and enter the 6-digit code for <strong className="text-slate-300">Nezeem</strong>.
+            {emailOtpPreferred
+              ? (
+                <>
+                  Enter the 6-digit code we emailed
+                  {maskedEmail ? <> to <strong className="text-slate-300">{maskedEmail}</strong></> : null}.
+                </>
+              )
+              : (
+                <>
+                  Open Google Authenticator and enter the 6-digit code for <strong className="text-slate-300">Nezeem</strong>.
+                </>
+              )}
           </p>
         </div>
 
@@ -88,12 +131,23 @@ function TwoFactorContent() {
           </button>
         </form>
 
-        <p className="text-center text-xs font-bold text-slate-600">
-          Lost access to your authenticator? Contact{" "}
-          <a href="mailto:support@nezeem.com" className="text-[#5ea9ff] transition hover:text-white">
-            support@nezeem.com
-          </a>
-        </p>
+        {emailOtpPreferred ? (
+          <button
+            type="button"
+            onClick={() => void sendEmailCode()}
+            disabled={sending}
+            className="w-full text-center text-xs font-bold text-[#5ea9ff] transition hover:text-white disabled:opacity-50"
+          >
+            {sending ? "Sending…" : emailSent ? "Resend email code" : "Send email code"}
+          </button>
+        ) : (
+          <p className="text-center text-xs font-bold text-slate-600">
+            Lost access to your authenticator? Contact{" "}
+            <a href="mailto:support@nezeem.com" className="text-[#5ea9ff] transition hover:text-white">
+              support@nezeem.com
+            </a>
+          </p>
+        )}
       </div>
     </div>
   );
