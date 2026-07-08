@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { getServerBinaryDigit } from "@/lib/binary-price";
+import { getContractExitDigit, getServerBinaryDigit } from "@/lib/binary-price";
 import { settleTradeWithDigit } from "@/lib/binary-settle";
 
 export async function POST(req: Request) {
@@ -32,12 +32,23 @@ export async function POST(req: Request) {
   if (now > trade.settleBefore)
     return Response.json({ error: "Settlement window expired" }, { status: 409 });
 
-  // Server-authoritative exit digit — the client value is never trusted. If the
-  // live feed is unavailable, refuse to settle so the client can retry; the
-  // trade stays PENDING within its settleBefore window.
+  // Server-authoritative exit digit. It is fixed by the market, NOT by when the
+  // client asks to settle: the contract resolves on the durationTicks-th tick
+  // after its entry tick (entryEpoch). This closes the timing hole where a
+  // player could watch the live feed and only settle once the current digit
+  // favoured their Over/Under bet. Legacy trades placed before entryEpoch was
+  // recorded fall back to the latest-tick path so they can still be drained.
   let exitDigit: number;
   try {
-    ({ digit: exitDigit } = await getServerBinaryDigit(trade.market));
+    if (trade.entryEpoch != null) {
+      const exit = await getContractExitDigit(trade.market, trade.entryEpoch, trade.durationTicks);
+      // Exit tick not produced by the feed yet — keep the trade PENDING and let
+      // the client's poll (or the cron sweep) retry within the settleBefore window.
+      if (!exit.ready) return Response.json({ error: "Not ready", pending: true }, { status: 409 });
+      exitDigit = exit.digit;
+    } else {
+      ({ digit: exitDigit } = await getServerBinaryDigit(trade.market));
+    }
   } catch (err) {
     console.error("binary/settle digit fetch:", err instanceof Error ? err.message : err);
     return Response.json({ error: "Live feed unavailable, try again" }, { status: 503 });
