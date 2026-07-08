@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
-import { spendForPlay } from "@/lib/balance";
+import { spendForPlay, creditWinnings } from "@/lib/balance";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { randomInt } from "crypto";
@@ -87,10 +87,7 @@ export async function POST(req: Request) {
 
       // Credit winnings if multiplier > 0
       if (winAmount > 0) {
-        await tx.user.update({
-          where: { id: dbUser.id },
-          data:  { walletBalance: { increment: winAmount } },
-        });
+        await creditWinnings(tx, dbUser.id, winAmount);
 
         await tx.transaction.create({
           data: {

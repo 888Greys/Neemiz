@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { fetchResolutionDetail } from "@/lib/polymarket";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { creditWinnings } from "@/lib/balance";
 
 export const runtime = "nodejs";
 
@@ -46,10 +47,7 @@ async function voidStalePolymarketBets(
       if (updated.count === 0) return;
       didVoid = true;
 
-      await tx.user.update({
-        where: { id: bet.userId },
-        data: { walletBalance: { increment: bet.stake } },
-      });
+      await creditWinnings(tx, bet.userId, Number(bet.stake));
 
       await tx.transaction.create({
         data: {
@@ -143,10 +141,7 @@ async function settlePolymarket(req: Request) {
         if (updated.count === 0) return false;
 
         if (won) {
-          await tx.user.update({
-            where: { id: bet.userId },
-            data:  { walletBalance: { increment: bet.potentialWin } },
-          });
+          await creditWinnings(tx, bet.userId, Number(bet.potentialWin));
 
           await tx.transaction.create({
             data: {

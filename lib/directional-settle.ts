@@ -9,6 +9,7 @@
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type DirectionalTrade } from "@prisma/client";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { creditWinnings } from "@/lib/balance";
 
 export type SettleResult = { outcome: "won" | "lost" | "already"; winAmount: number; exitSpot: number };
 
@@ -49,7 +50,7 @@ export async function finalizeDirectional(
     if (claimed.count === 0) return { outcome: "already", winAmount: 0, exitSpot: exit };
 
     if (credit > 0) {
-      await tx.user.update({ where: { id: trade.userId }, data: { walletBalance: { increment: credit } } });
+      await creditWinnings(tx, trade.userId, credit);
       await tx.transaction.create({
         data: {
           userId: trade.userId,
@@ -97,7 +98,7 @@ export async function voidDirectional(trade: DirectionalTrade, reason: string): 
     });
     if (claimed.count === 0) return { outcome: "already" };
 
-    await tx.user.update({ where: { id: trade.userId }, data: { walletBalance: { increment: stake } } });
+    await creditWinnings(tx, trade.userId, stake);
     await tx.transaction.create({
       data: {
         userId: trade.userId,

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { logAdminAction } from "@/lib/admin-audit";
+import { bonusWagerMult, bonusCashoutMult, bonusExpiryDays } from "@/lib/balance";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +22,15 @@ async function requireAdmin() {
 
 // Per-grant safety ceiling (override with BONUS_MAX_GRANT_KES).
 function maxGrantKes(): number {
-  const v = Number(process.env.BONUS_MAX_GRANT_KES ?? "1000000");
-  return Number.isFinite(v) && v > 0 ? v : 1_000_000;
+  const v = Number(process.env.BONUS_MAX_GRANT_KES ?? "200");
+  return Number.isFinite(v) && v > 0 ? v : 200;
+}
+
+// Aggregate daily ceiling across ALL grants/admins (override with
+// BONUS_MAX_DAILY_KES). Rate-limits a compromised admin account.
+function maxDailyKes(): number {
+  const v = Number(process.env.BONUS_MAX_DAILY_KES ?? "10000");
+  return Number.isFinite(v) && v > 0 ? v : 10_000;
 }
 
 /**
@@ -51,6 +59,16 @@ export async function POST(req: Request) {
     return Response.json({ error: "Provide a username or userId" }, { status: 400 });
   }
 
+  // Aggregate daily cap across all admins/grants (last 24h).
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const grantedToday = await db.transaction.aggregate({
+    where: { provider: "bonus_grant", createdAt: { gte: since } },
+    _sum: { amount: true },
+  });
+  if (Number(grantedToday._sum.amount ?? 0) + amount > maxDailyKes()) {
+    return Response.json({ error: `Daily bonus-grant cap of KES ${maxDailyKes().toLocaleString()} reached` }, { status: 429 });
+  }
+
   const target = await db.user.findFirst({
     where: body.userId ? { id: body.userId } : { username: body.username },
     select: { id: true, username: true, bonusBalance: true },
@@ -60,8 +78,22 @@ export async function POST(req: Request) {
   const before = Number(target.bonusBalance);
   const reference = `bonus-grant-${crypto.randomUUID()}`;
 
+  const wagerAdd  = amount * bonusWagerMult();
+  const capAdd    = amount * bonusCashoutMult();
+  const expiresAt = new Date(Date.now() + bonusExpiryDays() * 24 * 60 * 60 * 1000);
+
   const after = await db.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: target.id }, data: { bonusBalance: { increment: amount } } });
+    // Grant starts (or extends) a wagering cycle: turnover requirement and
+    // cashout cap stack per grant; the expiry clock resets to a full window.
+    await tx.user.update({
+      where: { id: target.id },
+      data: {
+        bonusBalance:        { increment: amount },
+        bonusWagerRemaining: { increment: wagerAdd },
+        bonusCashoutCap:     { increment: capAdd },
+        bonusExpiresAt:      expiresAt,
+      },
+    });
     await tx.transaction.create({
       data: {
         userId: target.id,
@@ -78,6 +110,9 @@ export async function POST(req: Request) {
           after: before + amount,
           reason: body.reason ?? "admin bonus grant",
           grantedBy: admin.id,
+          wagerRequired: wagerAdd,
+          cashoutCap: capAdd,
+          expiresAt: expiresAt.toISOString(),
         },
       },
     });
