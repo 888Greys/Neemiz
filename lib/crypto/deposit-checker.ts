@@ -26,6 +26,8 @@ export interface DepositTx {
   from:      string;
   timestamp: number; // ms
   logIndex?: string;
+  /** false = seen in mempool / 0-conf (notify only, do not credit). Default true. */
+  confirmed?: boolean;
 }
 
 interface DepositCheckOptions {
@@ -421,16 +423,25 @@ export async function checkTronTRXDeposits(
   return opts.txHash ? txs.filter((tx) => tx.txHash === opts.txHash) : txs;
 }
 
-// ─── Bitcoin via Blockstream API (free, no key) ───────────────────────────────
+// ─── Bitcoin via Blockstream, with mempool.space fallback ─────────────────────
+// Blockstream's free tier rate-limits our VPS IP (429 Too Many Requests), which
+// silently dropped BTC deposit detection. Prefer Blockstream when healthy, else
+// fall back to mempool.space (same Esplora-compatible JSON shape).
 
-function btcDepositOutputs(address: string, tx: Record<string, unknown>): DepositTx[] {
-  if (!(tx.status as Record<string, unknown>)?.confirmed) return [];
+const BTC_EXPLORERS = [
+  "https://blockstream.info/api",
+  "https://mempool.space/api",
+] as const;
+
+function btcDepositOutputs(address: string, tx: Record<string, unknown>, opts: { includeUnconfirmed?: boolean } = {}): DepositTx[] {
+  const confirmed = Boolean((tx.status as Record<string, unknown>)?.confirmed);
+  if (!confirmed && !opts.includeUnconfirmed) return [];
   const vout = tx.vout as Record<string, unknown>[] | undefined;
   if (!Array.isArray(vout)) return [];
 
   const firstInput = (tx.vin as Array<{ prevout?: { scriptpubkey_address?: string } }> | undefined)?.[0];
   const from = firstInput?.prevout?.scriptpubkey_address ?? "";
-  const timestamp = Number((tx.status as Record<string, unknown>)?.block_time ?? 0) * 1000;
+  const timestamp = Number((tx.status as Record<string, unknown>)?.block_time ?? Date.now() / 1000) * 1000;
 
   const results: DepositTx[] = [];
   vout.forEach((out, index) => {
@@ -438,21 +449,35 @@ function btcDepositOutputs(address: string, tx: Record<string, unknown>): Deposi
     const satoshis = Number(out.value ?? 0);
     if (satoshis <= 0) return;
     results.push({
-      txHash:   tx.txid as string,
-      amount:   (satoshis / 1e8).toFixed(8),
+      txHash:    tx.txid as string,
+      amount:    (satoshis / 1e8).toFixed(8),
       from,
       timestamp,
-      logIndex: String(index),
+      logIndex:  String(index),
+      confirmed,
     });
   });
   return results;
 }
 
+async function fetchBtcJson(path: string): Promise<unknown | null> {
+  for (const base of BTC_EXPLORERS) {
+    try {
+      const res = await fetch(`${base}${path}`, { cache: "no-store" });
+      if (!res.ok) continue;
+      return await res.json();
+    } catch {
+      // try next explorer
+    }
+  }
+  return null;
+}
+
 async function checkBTCDepositByHash(address: string, txHash: string): Promise<DepositTx[]> {
-  const res = await fetch(`https://blockstream.info/api/tx/${txHash}`, { cache: "no-store" });
-  if (!res.ok) return [];
-  const tx = await res.json() as Record<string, unknown>;
-  return btcDepositOutputs(address, tx);
+  const tx = await fetchBtcJson(`/tx/${txHash}`);
+  if (!tx || typeof tx !== "object") return [];
+  // Recovery by hash should include unconfirmed so we can still notify.
+  return btcDepositOutputs(address, tx as Record<string, unknown>, { includeUnconfirmed: true });
 }
 
 export async function checkBTCDeposits(
@@ -461,15 +486,13 @@ export async function checkBTCDeposits(
 ): Promise<DepositTx[]> {
   if (opts.txHash) return checkBTCDepositByHash(address, opts.txHash);
 
-  const url = `https://blockstream.info/api/address/${address}/txs`;
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) return [];
-  const txs = await res.json() as Record<string, unknown>[];
+  const txs = await fetchBtcJson(`/address/${address}/txs`);
   if (!Array.isArray(txs)) return [];
 
   const results: DepositTx[] = [];
   for (const tx of txs) {
-    results.push(...btcDepositOutputs(address, tx));
+    // Include mempool txs so cron can fire "Deposit detected" before confirmations.
+    results.push(...btcDepositOutputs(address, tx as Record<string, unknown>, { includeUnconfirmed: true }));
   }
   return results;
 }
@@ -533,11 +556,11 @@ async function getTRC20Balance(address: string, crypto: string): Promise<number>
 }
 
 async function getBTCBalance(address: string): Promise<number> {
-  const res  = await fetch(`https://blockstream.info/api/address/${address}`, { cache: "no-store" });
-  if (!res.ok) return 0;
-  const data = await res.json();
-  const funded = data?.chain_stats?.funded_txo_sum ?? 0;
-  const spent  = data?.chain_stats?.spent_txo_sum  ?? 0;
+  const data = await fetchBtcJson(`/address/${address}`);
+  if (!data || typeof data !== "object") return 0;
+  const stats = (data as { chain_stats?: { funded_txo_sum?: number; spent_txo_sum?: number } }).chain_stats;
+  const funded = stats?.funded_txo_sum ?? 0;
+  const spent  = stats?.spent_txo_sum  ?? 0;
   return (funded - spent) / 1e8;
 }
 
