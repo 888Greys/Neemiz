@@ -489,57 +489,24 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenProfi
           )}
         </button>
 
-        <div className={`mb-4 flex items-center gap-1.5 ${collapsed ? "flex-col" : ""}`}>
-          <a
-            href={`https://wa.me/${process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? "254700000000"}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="WhatsApp"
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35] text-white transition hover:bg-white/[0.08]"
-          >
-            <Icon name="chat" fill className="text-[19px]" />
-          </a>
-          <a
-            href="https://t.me/NeezemSupport"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Telegram"
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35] text-white transition hover:bg-white/[0.08]"
-          >
-            <TelegramIcon />
-          </a>
-          <a
-            href="https://instagram.com/nezeem"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Instagram"
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35] text-white transition hover:bg-white/[0.08]"
-          >
-            <Icon name="photo_camera" fill className="text-[19px]" />
-          </a>
-          {!collapsed && (
-            <button
-              type="button"
-              onClick={() => toast.info("Language", "More language options are coming soon!")}
-              className="ml-auto flex h-9 items-center gap-1 rounded-xl bg-[#2d2f35] px-2.5 text-xs font-bold transition hover:bg-white/[0.08]"
-            >
-              <span className="text-base leading-none">🇬🇧</span>
-              EN
-              <Icon name="expand_more" className="text-[18px]" />
-            </button>
-          )}
-        </div>
-
         <button
           type="button"
           onClick={onOpenProfile}
-          className={`flex w-full items-center rounded-2xl transition hover:bg-white/[0.03] ${collapsed ? "justify-center" : "gap-3"}`}
+          className={`flex w-full items-center rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07] transition hover:bg-white/[0.04] ${
+            collapsed ? "justify-center p-2" : "gap-3 px-3 py-2.5"
+          }`}
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35]">
-            <Icon name="person" fill className="text-[19px]" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#087cff]/15 text-[#75b8ff]">
+            <Icon name="person" fill className="text-[18px]" />
           </span>
           {!collapsed && (
-            <span className="flex-1 text-left text-base font-black">Profile</span>
+            <>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block text-[13px] font-black text-white">Profile</span>
+                <span className="block text-[10px] font-bold text-slate-500">Account & security</span>
+              </span>
+              <Icon name="chevron_right" className="text-[16px] text-slate-600" />
+            </>
           )}
         </button>
       </div>
@@ -856,48 +823,47 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
           </div>
         </div>
 
-        <div className="border-t border-white/10 p-2">
-          <div className="mb-2 flex items-center gap-1">
-            <a href={`https://wa.me/${process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ?? "254700000000"}`} target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35] text-white transition hover:bg-white/[0.08]">
-              <Icon name="chat" fill className="text-[17px]" />
-            </a>
-            <a href="https://t.me/NeezemSupport" target="_blank" rel="noopener noreferrer" aria-label="Telegram" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35] text-white transition hover:bg-white/[0.08]">
-              <TelegramIcon />
-            </a>
-            <a href="https://instagram.com/nezeem" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2d2f35] text-white transition hover:bg-white/[0.08]">
-              <Icon name="photo_camera" fill className="text-[17px]" />
-            </a>
+        <div className="border-t border-white/10 p-2.5">
+          <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
             <button
               type="button"
-              onClick={() => { onClose(); toast.info("Language", "More language options are coming soon!"); }}
-              className="ml-auto flex h-8 items-center gap-1 rounded-lg bg-[#2d2f35] px-2 text-[10px] font-black transition hover:bg-white/[0.08]"
+              onClick={onOpenProfile}
+              className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-white/[0.04]"
             >
-              <span>🇬🇧</span> EN
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#087cff]/15 text-[#75b8ff]">
+                <Icon name="person" fill className="text-[16px]" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-black text-white">Profile</span>
+                <span className="block text-[10px] font-bold text-slate-500">Account, security & settings</span>
+              </span>
+              <Icon name="chevron_right" className="text-[16px] text-slate-600" />
             </button>
+
+            {isSignedIn && (
+              <>
+                <div className="mx-3.5 h-px bg-white/[0.06]" />
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-red-500/[0.06]"
+                  onClick={async () => {
+                    onClose();
+                    await signOut();
+                    toast.info("Signed out", "See you next time!");
+                    router.push("/");
+                  }}
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-500/10 text-red-400">
+                    <Icon name="logout" className="text-[16px]" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13px] font-black text-red-400">Sign out</span>
+                    <span className="block text-[10px] font-bold text-slate-600">End this session securely</span>
+                  </span>
+                </button>
+              </>
+            )}
           </div>
-
-          <button type="button" onClick={onOpenProfile} className="flex w-full items-center gap-2 rounded-xl px-1.5 py-1 transition hover:bg-white/[0.03]">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#2d2f35]">
-              <Icon name="person" fill className="text-[15px]" />
-            </span>
-            <span className="flex-1 text-left text-[12px] font-black">Profile</span>
-          </button>
-
-          {isSignedIn && (
-            <button
-              type="button"
-              className="mt-2 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-red-400 transition hover:bg-red-500/10"
-              onClick={async () => {
-                onClose();
-                await signOut();
-                toast.info("Signed out", "See you next time!");
-                router.push("/");
-              }}
-            >
-              <Icon name="logout" className="text-[16px]" />
-              <span className="text-xs font-black">Sign Out</span>
-            </button>
-          )}
         </div>
       </aside>
     </div>

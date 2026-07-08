@@ -223,7 +223,9 @@ model Transaction {
   user   User   @relation(fields: [userId], references: [id])
 
   type     TransactionType
-  amount   Decimal           @db.Decimal(18, 2)
+  // 18,8 so BTC/ETH fractional deposits (e.g. 0.00052722 BTC) are not truncated
+  // to 0.00. Fiat KES amounts still fit cleanly in 2 dp.
+  amount   Decimal           @db.Decimal(18, 8)
   currency String            @default("KES")
   status   TransactionStatus @default(PENDING)
 
