@@ -104,7 +104,13 @@ describe("priceDigitServer", () => {
   });
 
   it("still allows Even/Odd on skewed ticks since they do not check digit stability", () => {
-    const skewedTicks = Array.from({ length: 600 }, (_, i) => 100.55);
+    // A skewed (non-uniform) digit distribution that would trip a stability gate,
+    // but where Even is still very winnable (~90%): last digit biased to evens.
+    // Even/Odd don't gate, and the contract is winnable, so it must still price.
+    // (A degenerate all-odd feed where Even can NEVER win is correctly rejected
+    // by the payout-cap guard — that's a different, desirable behaviour.)
+    const evenBias = [0, 2, 4, 6, 8, 1, 3, 5, 7, 0]; // 60% even → winnable but below the maxWinProb cap
+    const skewedTicks = Array.from({ length: 600 }, (_, i) => Number((100.5 + evenBias[i % evenBias.length] / 100).toFixed(2)));
     const rSkewedEven = priceDigitServer({ side: "Even", targetDigit: 0, durationTicks: 5, stake: 100, ticks: skewedTicks });
     expect(rSkewedEven.accepted).toBe(true);
   });
