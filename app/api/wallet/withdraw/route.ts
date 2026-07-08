@@ -124,8 +124,13 @@ export async function POST(req: Request) {
     }
 
     const feeRate   = lipaTestMode ? 0 : WITHDRAWAL_FEE_RATE;
-    const feeKes    = parseFloat((amountKes * feeRate).toFixed(2));
-    const payoutKes = parseFloat((amountKes - feeKes).toFixed(2));
+    // Lipa Haraka B2C only disburses WHOLE shillings, so the payout must be an
+    // integer. Floor the payout (i.e. round the fee UP to the next shilling) so
+    // we never send more than the net-of-fee amount. Enabling the 13% fee turned
+    // most payouts fractional (150 → 130.50), which previously tripped the
+    // integer guard below and surfaced as "Payment provider not configured".
+    const payoutKes = Math.floor(amountKes * (1 - feeRate));
+    const feeKes    = parseFloat((amountKes - payoutKes).toFixed(2));
 
     // Suspected-mule watchlist: don't block — HOLD the withdrawal for admin
     // review and page the owner (approve a real win, reject laundering).

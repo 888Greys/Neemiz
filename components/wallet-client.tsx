@@ -1202,7 +1202,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                         />
                         {wdAmount && Number(wdAmount) >= 100 && (
                           <span className="shrink-0 text-right text-xs text-slate-600">
-                            you get → <span className="font-bold text-slate-400">{CURRENCY_SYMBOL} {(Number(wdAmount) * (1 - WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 2 })}</span>
+                            you get → <span className="font-bold text-slate-400">{CURRENCY_SYMBOL} {Math.floor(Number(wdAmount) * (1 - WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE)}</span>
                             <br />after {WITHDRAWAL_FEE_PCT} fee
                           </span>
                         )}
