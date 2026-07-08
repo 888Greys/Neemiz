@@ -4,7 +4,7 @@
  * deposit address. No database — the web app passes the hdIndex.
  */
 import { HDNodeWallet, Mnemonic, Wallet } from "ethers";
-import { evmToTron } from "./address-codec";
+import { evmToTron, btcP2PKHFromPubKey } from "./address-codec";
 
 function getRoot(): HDNodeWallet {
   const phrase = process.env.MASTER_WALLET_MNEMONIC;
@@ -27,8 +27,9 @@ export function getHotTronKey(): string { return getRoot().derivePath("m/44'/195
 
 /** The on-chain address a private key controls, in the network's encoding. */
 function addressForKey(privKey: string, network: string): string {
-  const evm = new Wallet(privKey).address;
-  return network === "TRC20" ? evmToTron(evm) : evm;
+  const wallet = new Wallet(privKey);
+  if (network === "BITCOIN") return btcP2PKHFromPubKey(wallet.signingKey.compressedPublicKey);
+  return network === "TRC20" ? evmToTron(wallet.address) : wallet.address;
 }
 
 const MAX_SCAN = 1000;
