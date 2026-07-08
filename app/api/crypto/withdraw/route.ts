@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
@@ -7,6 +8,9 @@ import { getHotWalletAddresses } from "@/lib/crypto/xpub";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
+import { DEV_AUTH_ENABLED } from "@/lib/dev-auth";
+import { verifyStepUpToken, STEPUP_COOKIE } from "@/lib/step-up";
+import { sendCryptoWithdrawalEmail } from "@/lib/brevo";
 import {
   defaultCryptoWithdrawNetwork,
   VALID_CRYPTO_WITHDRAW_NETWORKS,
@@ -52,6 +56,24 @@ export async function POST(req: Request) {
   // the signer). Keyed by account, not IP, so it can't be sidestepped via proxies.
   const rl = rateLimit(`crypto-withdraw:${dbUser.id}`, 5, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
+
+  // ── Server-side step-up gate ──
+  // Crypto is irreversible, so every payout must carry a fresh, server-minted
+  // password/passkey proof (set by the /api/auth/stepup/* routes). A direct POST
+  // that skips the "Confirm it's you" UI is rejected here, not merely on the
+  // client. Consumed on use (one confirm → one withdrawal). Skipped under
+  // dev-auth (no real Supabase session locally).
+  if (!DEV_AUTH_ENABLED) {
+    const jar = await cookies();
+    const proof = jar.get(STEPUP_COOKIE)?.value;
+    if (!verifyStepUpToken(proof, user.id)) {
+      return Response.json(
+        { error: "Please confirm it's you to withdraw.", stepUpRequired: true },
+        { status: 401 },
+      );
+    }
+    jar.delete(STEPUP_COOKIE);
+  }
 
   let body: { crypto: string; network?: string; amount: number; address: string };
   try   { body = await req.json(); }
@@ -152,6 +174,19 @@ export async function POST(req: Request) {
         link:   "/wallet",
       },
     });
+
+    // Email receipt (Bybit-style). Fire-and-forget: a mail hiccup must never
+    // fail an already-broadcast, irreversible payout.
+    if (dbUser.email) {
+      sendCryptoWithdrawalEmail(dbUser.email, dbUser.username ?? "Trader", {
+        crypto,
+        network,
+        cryptoAmount: payoutAmount,
+        address,
+        txHash: result.txHash,
+        fee: feeAmount,
+      }).catch((e) => console.error("[crypto/withdraw] receipt email failed:", e));
+    }
 
     return Response.json({
       ok:       true,

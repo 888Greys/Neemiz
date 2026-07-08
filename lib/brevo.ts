@@ -831,6 +831,43 @@ export async function sendCryptoDepositEmail(
   );
 }
 
+export async function sendCryptoWithdrawalEmail(
+  to: string,
+  displayName: string,
+  opts: {
+    crypto: string;
+    network: string;
+    cryptoAmount: number;
+    address: string;
+    txHash?: string;
+    fee?: number;
+  },
+) {
+  const { crypto, network, cryptoAmount, address, txHash, fee } = opts;
+  const amount = `${cryptoAmount.toFixed(8)} ${crypto}`;
+  const timestamp = `${new Date().toISOString().slice(0, 19).replace("T", " ")} UTC`;
+
+  await sendEmail(
+    to,
+    displayName,
+    `${cryptoAmount.toFixed(6)} ${crypto} withdrawal sent`,
+    emailWrapper(`
+      ${traderGreeting(displayName)}
+      ${statusParagraph(`The status of your withdrawal has been updated to: Sent. You may check the relevant details on the blockchain.`)}
+      ${detailBlock("The withdrawal information is as follows:", `
+        ${detailRow("Withdrawal amount", escapeHtml(amount))}
+        ${detailRow("Chain type", escapeHtml(networkLabel(network)))}
+        ${detailRow("Withdrawal address", escapeHtml(address))}
+        ${txHash ? detailRow("TXID", txidLink(network, txHash)) : ""}
+        ${fee && fee > 0 ? detailRow("Transaction fee", escapeHtml(`${fee.toFixed(8)} ${crypto}`)) : ""}
+        ${detailRow("Timestamp", escapeHtml(timestamp))}
+        ${detailRow("Status", "Sent", true)}
+      `)}
+      ${statusParagraph("If you did not request this withdrawal, please contact support immediately.")}
+    `, "Crypto withdrawal sent"),
+  );
+}
+
 // Stage 1: the deposit has been SEEN on-chain but is still awaiting the
 // confirmations required before we credit it. Sent once per transaction; the
 // "credited" email (above) follows once it confirms.
