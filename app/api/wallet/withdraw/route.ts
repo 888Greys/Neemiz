@@ -1,6 +1,9 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
+import { DEV_AUTH_ENABLED } from "@/lib/dev-auth";
+import { verifyStepUpToken, STEPUP_COOKIE } from "@/lib/step-up";
 import { TransactionType, TransactionStatus, Prisma } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
@@ -72,6 +75,24 @@ export async function POST(req: Request) {
     }
     if (!/^254[17]\d{8}$/.test(msisdn)) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XX or 01XX format." }, { status: 400 });
+    }
+
+    // ── Server-side step-up gate ──
+    // Require a fresh, server-minted password/passkey proof (set by the
+    // /api/auth/stepup/* routes). This is what makes "Confirm it's you"
+    // enforceable — a direct POST here that skips the confirm UI is rejected,
+    // not merely discouraged. Consumed on use (single confirm → one withdrawal).
+    // Skipped under dev-auth (no real Supabase session locally).
+    if (!DEV_AUTH_ENABLED) {
+      const jar = await cookies();
+      const proof = jar.get(STEPUP_COOKIE)?.value;
+      if (!verifyStepUpToken(proof, user.id)) {
+        return Response.json(
+          { error: "Please confirm it's you to withdraw.", stepUpRequired: true },
+          { status: 401 },
+        );
+      }
+      jar.delete(STEPUP_COOKIE);
     }
 
     // Bound-number enforcement — TWILIO-INDEPENDENT. Each account is locked to a
