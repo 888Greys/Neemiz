@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { creditOnChainDeposit } from "@/lib/crypto/deposit-credit";
+import { creditOnChainDeposit, notifyPendingDeposit } from "@/lib/crypto/deposit-credit";
 import { isTatumWebhookSecretConfigured, verifyTatumPayload } from "@/lib/crypto/tatum";
 
 export const runtime = "nodejs";
@@ -199,6 +199,30 @@ export async function POST(req: Request) {
 
   if (!depositAddress) {
     return Response.json({ ok: true, ignored: "unknown_deposit_address" });
+  }
+
+  // Tatum may fire when a BTC/TRC20 tx is first seen (mempool / 0-conf) and again
+  // after it lands in a block. Mirror Moralis: pending → "Deposit detected"
+  // heads-up only; confirmed (blockNumber present) → credit + "received".
+  const blockNum = Number(deposit.blockNumber);
+  const confirmed = Number.isFinite(blockNum) && blockNum > 0;
+
+  if (!confirmed) {
+    const pending = await notifyPendingDeposit({
+      user:           depositAddress.user,
+      depositAddress: depositAddress.address,
+      crypto:         deposit.crypto,
+      network:        deposit.network,
+      amount:         deposit.amount,
+      txHash:         deposit.txHash,
+    });
+    return Response.json({
+      ok:        true,
+      credited:  0,
+      notified:  pending.notified ? 1 : 0,
+      skipped:   pending.notified ? 0 : 1,
+      reason:    pending.reason ?? "pending_unconfirmed",
+    });
   }
 
   const result = await creditOnChainDeposit({

@@ -12,7 +12,7 @@
  */
 import { db } from "@/lib/db";
 import { checkDeposits } from "@/lib/crypto/deposit-checker";
-import { creditOnChainDeposit } from "@/lib/crypto/deposit-credit";
+import { creditOnChainDeposit, notifyPendingDeposit } from "@/lib/crypto/deposit-credit";
 
 export const runtime = "nodejs";
 
@@ -36,6 +36,7 @@ export async function GET(req: Request) {
   });
 
   let credited = 0;
+  let notified = 0;
   const errors:  string[] = [];
   const details: Array<{
     address:  string;
@@ -44,6 +45,7 @@ export async function GET(req: Request) {
     txsFound: number;
     skipped:  number;
     credited: number;
+    notified: number;
     error?:   string;
   }> = [];
 
@@ -55,6 +57,7 @@ export async function GET(req: Request) {
       txsFound: 0,
       skipped:  0,
       credited: 0,
+      notified: 0,
     };
 
     try {
@@ -64,6 +67,26 @@ export async function GET(req: Request) {
       for (const tx of txs) {
         const amount = parseFloat(tx.amount);
         if (amount <= 0) { addrDetail.skipped++; continue; }
+
+        // Unconfirmed BTC (mempool): heads-up only — never credit until confirmed.
+        if (tx.confirmed === false) {
+          const pending = await notifyPendingDeposit({
+            user:           addr.user,
+            depositAddress: addr.address,
+            crypto:         addr.crypto,
+            network:        addr.network,
+            amount,
+            txHash:         tx.txHash,
+            logIndex:       tx.logIndex,
+          });
+          if (pending.notified) {
+            notified++;
+            addrDetail.notified++;
+          } else {
+            addrDetail.skipped++;
+          }
+          continue;
+        }
 
         const result = await creditOnChainDeposit({
           user:           addr.user,
@@ -93,5 +116,5 @@ export async function GET(req: Request) {
     details.push(addrDetail);
   }
 
-  return Response.json({ ok: true, checked: addresses.length, credited, errors, details });
+  return Response.json({ ok: true, checked: addresses.length, credited, notified, errors, details });
 }
