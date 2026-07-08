@@ -25,6 +25,20 @@ export function dailyLimitKes(): number {
 }
 
 /**
+ * Total KES an ADMIN may send via wallet transfers per rolling 24h window,
+ * summed across ALL recipients (default 500). Admins are exempt from the
+ * withdrawal/cash-out cap (owner treasury), and the per-recipient once-per-day
+ * rule doesn't bound the recipient COUNT — so without this a compromised (or
+ * misused) admin can spray the KSh-50 per-transfer cap across unlimited distinct
+ * accounts. This caps the aggregate. (See the collins fan-out, 2026-07-08:
+ * ~520 accounts seeded KSh 50 each.)
+ */
+export function transferDailyLimitKes(): number {
+  const parsed = Number(process.env.ADMIN_TRANSFER_DAILY_LIMIT_KES ?? "500");
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 500;
+}
+
+/**
  * Providers whose outgoing WITHDRAWAL-typed rows count against the shared daily
  * cash-out cap. M-Pesa (lipaharaka) and internal wallet transfers both move
  * value out of the sender's control, so a user can't dodge the M-Pesa cap by
