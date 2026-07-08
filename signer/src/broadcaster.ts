@@ -10,6 +10,7 @@
 import { ethers } from "ethers";
 import { createHash } from "crypto";
 import { getHotEVMKey, getHotTronKey, resolveUserKey } from "./keys";
+import { btcAddressToHash160 } from "./address-codec";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -212,6 +213,135 @@ async function broadcastTron(fromTronAddress: string, to: string, crypto: string
   return broadcastData.txid ?? txID;
 }
 
+// ─── Bitcoin (legacy P2PKH) ─────────────────────────────────────────────────
+//
+// Spends the user's own BTC UTXOs to the destination, change back to the same
+// address. Unlike EVM/TRON there is NO hot-wallet gas top-up: the miner fee is
+// paid out of the BTC being moved. Signing is pure secp256k1 (ethers SigningKey)
+// + manual sighash/DER, so the signer needs no extra Bitcoin dependency.
+
+const BTC_API = process.env.BTC_API ?? "https://blockstream.info/api";
+const DUST_SATS = 546;
+
+interface Utxo { txid: string; vout: number; value: number; }
+
+const btcSha256d = (b: Buffer) => createHash("sha256").update(createHash("sha256").update(b).digest()).digest();
+const u32le = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32LE(n >>> 0); return b; };
+const u64le = (n: bigint) => { const b = Buffer.alloc(8); b.writeBigUInt64LE(n); return b; };
+function varint(n: number): Buffer {
+  if (n < 0xfd) return Buffer.from([n]);
+  if (n <= 0xffff) { const b = Buffer.alloc(3); b[0] = 0xfd; b.writeUInt16LE(n, 1); return b; }
+  const b = Buffer.alloc(5); b[0] = 0xfe; b.writeUInt32LE(n, 1); return b;
+}
+function p2pkhScript(hash160: Buffer): Buffer {
+  return Buffer.concat([Buffer.from([0x76, 0xa9, 0x14]), hash160, Buffer.from([0x88, 0xac])]);
+}
+function derInt(buf: Buffer): Buffer {
+  let b = Buffer.from(buf); let i = 0;
+  while (i < b.length - 1 && b[i] === 0) i++;
+  b = b.subarray(i);
+  if (b[0] & 0x80) b = Buffer.concat([Buffer.from([0]), b]);
+  return Buffer.concat([Buffer.from([0x02, b.length]), b]);
+}
+function derSig(rHex: string, sHex: string): Buffer {
+  const body = Buffer.concat([
+    derInt(Buffer.from(rHex.replace(/^0x/, ""), "hex")),
+    derInt(Buffer.from(sHex.replace(/^0x/, ""), "hex")),
+  ]);
+  return Buffer.concat([Buffer.from([0x30, body.length]), body]);
+}
+
+async function btcFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BTC_API}${path}`, init);
+  if (!res.ok) throw new Error(`BTC API ${path} -> HTTP ${res.status}`);
+  const text = await res.text();
+  try { return JSON.parse(text) as T; } catch { return text as unknown as T; }
+}
+
+// Serialize the tx; when `scriptForInput` is set (index >= 0) that input carries
+// the prevout script (for sighash), all others are empty — legacy SIGHASH_ALL.
+function serializeBtcTx(
+  inputs: Utxo[],
+  outputs: { script: Buffer; value: bigint }[],
+  scripts: (Buffer | null)[],
+): Buffer {
+  const parts: Buffer[] = [u32le(1), varint(inputs.length)];
+  inputs.forEach((inp, i) => {
+    const script = scripts[i] ?? Buffer.alloc(0);
+    parts.push(
+      Buffer.from(inp.txid, "hex").reverse(), u32le(inp.vout),
+      varint(script.length), script, u32le(0xffffffff),
+    );
+  });
+  parts.push(varint(outputs.length));
+  outputs.forEach((o) => parts.push(u64le(o.value), varint(o.script.length), o.script));
+  parts.push(u32le(0));
+  return Buffer.concat(parts);
+}
+
+async function broadcastBTC(fromAddress: string, to: string, amountBtc: number, userPrivKey: string): Promise<string> {
+  const sendSats = BigInt(Math.round(amountBtc * 1e8));
+  if (sendSats <= BigInt(DUST_SATS)) throw new Error("BTC amount below dust");
+
+  const utxos = (await btcFetch<Utxo[]>(`/address/${fromAddress}/utxo`))
+    .filter((u) => u.value > 0)
+    .sort((a, b) => b.value - a.value);
+  if (utxos.length === 0) throw new Error("No spendable BTC at deposit address");
+
+  const feeEst = await btcFetch<Record<string, number>>(`/fee-estimates`);
+  const feeRate = Math.max(Math.ceil(feeEst["2"] ?? feeEst["3"] ?? 2), 2); // sat/vB, floor 2
+
+  const fromH160 = btcAddressToHash160(fromAddress);
+  const toScript = p2pkhScript(btcAddressToHash160(to));
+  const fromScript = p2pkhScript(fromH160);
+  const compressedPub = Buffer.from(new ethers.SigningKey(userPrivKey).compressedPublicKey.slice(2), "hex");
+
+  // Greedily add inputs until value covers send + fee. Legacy sizes: ~148 vB per
+  // input, 34 vB per output, ~10 vB overhead. Assume 2 outputs (dest + change).
+  const chosen: Utxo[] = [];
+  let inValue = 0n;
+  let fee = 0n;
+  let sendMinusFee = false;
+  for (const u of utxos) {
+    chosen.push(u); inValue += BigInt(u.value);
+    const vbytes = chosen.length * 148 + 2 * 34 + 10;
+    fee = BigInt(feeRate * vbytes);
+    if (inValue >= sendSats + fee) break;
+  }
+  let outValue = sendSats;
+  let change = inValue - sendSats - fee;
+  if (change < 0n) {
+    // Can't cover fee on top — take it out of the amount (max-send), 1 output.
+    const vbytes = chosen.length * 148 + 34 + 10;
+    fee = BigInt(feeRate * vbytes);
+    outValue = inValue - fee;
+    change = 0n;
+    sendMinusFee = true;
+    if (outValue <= BigInt(DUST_SATS)) throw new Error("BTC balance too low to cover network fee");
+  }
+
+  const outputs = [{ script: toScript, value: outValue }];
+  if (!sendMinusFee && change > BigInt(DUST_SATS)) outputs.push({ script: fromScript, value: change });
+
+  // Sign each input with SIGHASH_ALL.
+  const signingKey = new ethers.SigningKey(userPrivKey);
+  const scriptSigs: Buffer[] = chosen.map((_, idx) => {
+    const scripts = chosen.map((__, j) => (j === idx ? fromScript : null));
+    const preimage = Buffer.concat([serializeBtcTx(chosen, outputs, scripts), u32le(1)]); // hashtype 1
+    const sig = signingKey.sign(btcSha256d(preimage));
+    const der = derSig(sig.r, sig.s);
+    return Buffer.concat([
+      varint(der.length + 1), der, Buffer.from([0x01]),
+      varint(compressedPub.length), compressedPub,
+    ]);
+  });
+
+  const finalTx = serializeBtcTx(chosen, outputs, scriptSigs).toString("hex");
+  const txid = await btcFetch<string>(`/tx`, { method: "POST", body: finalTx });
+  if (!/^[0-9a-f]{64}$/.test(txid)) throw new Error(`BTC broadcast failed: ${txid}`);
+  return txid;
+}
+
 // ─── Public dispatcher ──────────────────────────────────────────────────────
 
 export interface BroadcastResult { txHash: string; network: string; explorer: string; }
@@ -231,7 +361,7 @@ export async function broadcastWithdrawal(input: {
   if (network === "TRC20") {
     txHash = await broadcastTron(fromAddress, to, crypto, amount, userPrivKey);
   } else if (network === "BITCOIN") {
-    throw new Error("BTC withdrawals not yet supported — coming soon");
+    txHash = await broadcastBTC(fromAddress, to, amount, userPrivKey);
   } else if (EVM_CHAINS[network]) {
     txHash = await broadcastEVM(fromAddress, to, crypto, network, amount, userPrivKey);
   } else {
@@ -240,6 +370,7 @@ export async function broadcastWithdrawal(input: {
 
   const explorer =
     network === "TRC20"   ? `https://tronscan.org/#/transaction/${txHash}` :
+    network === "BITCOIN" ? `https://mempool.space/tx/${txHash}` :
     network === "BEP20"   ? `https://bscscan.com/tx/${txHash}` :
     network === "POLYGON" ? `https://polygonscan.com/tx/${txHash}` :
                             `https://etherscan.io/tx/${txHash}`;

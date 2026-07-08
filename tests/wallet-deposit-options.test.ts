@@ -13,7 +13,8 @@ describe("wallet deposit options", () => {
 
     expect(cryptoRows).toEqual([
       expect.objectContaining({ id: "usdt", enabled: true, soon: false }),
-      expect.objectContaining({ id: "btc", enabled: false, soon: true }),
+      // BTC pays its miner fee out of the deposited coins (no gas top-up needed).
+      expect.objectContaining({ id: "btc", enabled: true, soon: false }),
       expect.objectContaining({ id: "eth", enabled: false, soon: true }),
       expect.objectContaining({ id: "other", enabled: true, soon: false }),
     ]);
@@ -36,6 +37,7 @@ describe("wallet deposit options", () => {
       expect.objectContaining({ code: "USDT", network: "POLYGON", min: 1, enabled: true, soon: false }),
       expect.objectContaining({ code: "USDT", network: "BEP20", min: 1, enabled: false, soon: true }),
       expect.objectContaining({ code: "USDC", network: "POLYGON", min: 1, enabled: true, soon: false }),
+      expect.objectContaining({ code: "BTC", network: "BITCOIN", enabled: true, soon: false }),
     ]);
   });
 
@@ -43,5 +45,6 @@ describe("wallet deposit options", () => {
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).toContain("POLYGON");
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).not.toContain("BEP20");
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDC).toEqual(["POLYGON"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BTC).toEqual(["BITCOIN"]);
   });
 });
