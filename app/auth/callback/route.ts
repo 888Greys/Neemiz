@@ -46,6 +46,21 @@ export async function GET(request: Request) {
         await supabase.auth.signOut();
         return NextResponse.redirect(`${appUrl}/suspended`);
       }
+
+      // Shrink the session cookie: Google returns several bulky, app-unused
+      // user_metadata keys — `picture` duplicates `avatar_url`, and iss/sub/
+      // provider_id are redundant. They inflate the JWT (embedded in the auth
+      // cookie) and, for heavy-cookie users, help trip the edge proxy's header
+      // size cap. Drop them; keep avatar_url/full_name/name/email. Best effort —
+      // never block login on it.
+      const md = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+      const BULKY_KEYS = ["picture", "iss", "sub", "provider_id"];
+      if (BULKY_KEYS.some((k) => md[k] != null)) {
+        const cleared: Record<string, null> = {};
+        for (const k of BULKY_KEYS) cleared[k] = null;
+        await supabase.auth.updateUser({ data: cleared }).catch(() => {});
+      }
+
       return NextResponse.redirect(`${appUrl}${next}`);
     }
   }
