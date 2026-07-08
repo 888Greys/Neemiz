@@ -500,13 +500,17 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   }
 
   async function confirmWithPassword() {
-    const email = user?.email;
-    if (!email) { setStepUpError("Could not verify your account. Please re-login."); return; }
     if (!stepUpPw) { setStepUpError("Enter your password."); return; }
     setStepUpBusy(true); setStepUpError("");
     try {
-      const { error } = await createClient().auth.signInWithPassword({ email, password: stepUpPw });
-      if (error) { setStepUpError("Incorrect password. Please try again."); return; }
+      // Verify the password SERVER-SIDE and mint the step-up proof the withdraw
+      // API requires. Does not touch the current session.
+      const res = await fetch("/api/auth/stepup/password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: stepUpPw }),
+      });
+      if (!res.ok) { setStepUpError("Incorrect password. Please try again."); return; }
       setStepUpOpen(false); setStepUpPw("");
       await handleMpesaWithdraw();
     } catch {
@@ -551,11 +555,17 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ amountKes: amt, phoneNumber: wdPhone }),
       });
-      const data = await res.json().catch(() => ({})) as { ok?: boolean; payout?: number; fee?: number; queued?: boolean; pendingApproval?: boolean; message?: string; error?: string; needsPhoneVerification?: boolean };
+      const data = await res.json().catch(() => ({})) as { ok?: boolean; payout?: number; fee?: number; queued?: boolean; pendingApproval?: boolean; message?: string; error?: string; needsPhoneVerification?: boolean; stepUpRequired?: boolean };
       // First-withdrawal SMS gate: open the verification modal and stop here. The
       // withdrawal resumes automatically once the number is verified (onVerified).
       if (res.status === 409 && data.needsPhoneVerification) {
         setPhoneVerifyOpen(true);
+        return;
+      }
+      // Step-up proof missing/expired (e.g. it lapsed before this call): re-open
+      // the confirm sheet so the user re-verifies, then retries.
+      if (res.status === 401 && data.stepUpRequired) {
+        setStepUpPw(""); setStepUpError("Please confirm it's you again."); setStepUpOpen(true);
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Withdrawal failed");
