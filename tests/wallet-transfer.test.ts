@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 
+process.env.STEPUP_SECRET = "test-step-up-secret-value";
+
 vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(),
 }));
@@ -19,6 +21,17 @@ vi.mock("@/lib/withdrawal-guard", () => ({
 vi.mock("@/lib/rate-limit", () => ({
   rateLimit: vi.fn().mockReturnValue({ ok: true }),
   tooManyRequests: vi.fn(),
+}));
+
+vi.mock("@/lib/dev-auth", () => ({
+  DEV_AUTH_ENABLED: true,
+}));
+
+vi.mock("next/headers", () => ({
+  cookies: vi.fn().mockResolvedValue({
+    get: vi.fn(),
+    delete: vi.fn(),
+  }),
 }));
 
 const mockTx = {
@@ -136,7 +149,7 @@ describe("Wallet Transfer Rules", () => {
     expect(data.error).toContain("Daily transfer limit");
   });
 
-  it("prevents an admin from ever sending to the same recipient twice (once-ever)", async () => {
+  it("prevents an admin from ever sending to the same recipient twice (once-ever, any admin)", async () => {
     vi.mocked(getOrCreateUser).mockResolvedValue({ id: "admin_123", isAdmin: true, username: "admin" } as any);
     vi.mocked(db.user.findFirst).mockResolvedValue({ id: "rec_456", username: "recipient" } as any);
 
@@ -144,16 +157,22 @@ describe("Wallet Transfer Rules", () => {
     mockTx.user.updateMany.mockResolvedValue({ count: 1 });
     // Under the transfer cap
     mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
-    // A prior transfer to this recipient exists (any time in the past)
-    mockTx.transaction.findFirst.mockResolvedValue({ id: "tx_999", amount: 50 } as any);
+    // A prior transfer from ANY admin exists (e.g. goodhope already seeded them)
+    mockTx.transaction.findFirst.mockResolvedValue({
+      amount: 50,
+      createdAt: new Date("2026-07-01T12:00:00.000Z"),
+      user: { username: "goodhope229" },
+    } as any);
 
     const res = await POST(makeRequest({ recipientId: "rec_456", amount: 10 }));
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("already received a transfer");
+    expect(data.alreadySent).toBe(true);
+    expect(data.error).toContain("already received an admin transfer");
+    expect(data.from).toBe("@goodhope229");
   });
 
-  it("does NOT scope the admin once-ever check to a time window", async () => {
+  it("scopes the once-ever check across all admins, not only the current sender", async () => {
     vi.mocked(getOrCreateUser).mockResolvedValue({ id: "admin_123", isAdmin: true, username: "admin" } as any);
     vi.mocked(db.user.findFirst).mockResolvedValue({ id: "rec_456", username: "recipient" } as any);
     mockTx.user.updateMany.mockResolvedValue({ count: 1 });
@@ -163,12 +182,12 @@ describe("Wallet Transfer Rules", () => {
 
     await POST(makeRequest({ recipientId: "rec_456", amount: 40 }));
 
-    // The recipient-history lookup must NOT include a createdAt window — it looks
-    // at all-time history so a recipient can never be paid twice.
     const onceEverCall = mockTx.transaction.findFirst.mock.calls.find(
       ([arg]) => arg?.where?.provider === "wallet_transfer",
     );
     expect(onceEverCall).toBeTruthy();
+    expect(onceEverCall![0].where.userId).toBeUndefined();
+    expect(onceEverCall![0].where.user).toEqual({ isAdmin: true });
     expect(onceEverCall![0].where.createdAt).toBeUndefined();
   });
 });

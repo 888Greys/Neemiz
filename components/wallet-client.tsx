@@ -29,6 +29,21 @@ import {
 
 const POLL_INTERVAL = 4_000;
 const MAX_POLLS     = 30;
+/** Matches server `MAX_TRANSFER_KES` in `/api/wallet/transfer`. */
+const MAX_TRANSFER_KES = 50;
+
+type TransferRecipient = {
+  id: string;
+  username: string;
+  displayName: string;
+  imageUrl: string | null;
+};
+
+type TransferReceipt = {
+  amount: number;
+  recipient: TransferRecipient;
+  reference: string;
+};
 
 // Flag for the local-currency "coin" (e.g. KES, NGN). First two letters of the
 // currency code map to the country flag for most local currencies.
@@ -194,12 +209,20 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   const [wdError, setWdError]   = useState("");
   const [wdDone, setWdDone]     = useState<{ payout: number; fee: number; queued?: boolean; message?: string } | null>(null);
 
-  // ── Withdrawal step-up auth (password / passkey) ──
+  // ── Step-up auth (password / passkey) for withdraw + send ──
   const [stepUpOpen, setStepUpOpen]   = useState(false);
   const [stepUpPw, setStepUpPw]       = useState("");
   const [stepUpError, setStepUpError] = useState("");
   const [stepUpBusy, setStepUpBusy]   = useState(false);
   const [stepUpShowPw, setStepUpShowPw] = useState(false);
+  const [stepUpAction, setStepUpAction] = useState<"withdraw" | "send">("withdraw");
+  const [pendingSend, setPendingSend] = useState<{ recipientId: string; amount: number; recipient: TransferRecipient } | null>(null);
+  const [sendBusy, setSendBusy] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const [sendAlreadySent, setSendAlreadySent] = useState<{
+    recipient: string; priorAmount: number | null; from: string; sentAt: string | null;
+  } | null>(null);
+  const [sendReceipt, setSendReceipt] = useState<TransferReceipt | null>(null);
 
   // ── Withdrawal allowance (rolling 24h window) + phone-verification state ──
   const [wdLimit, setWdLimit] = useState<{
@@ -488,23 +511,93 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
     }
   }
 
-  // Step-up auth: every M-Pesa withdrawal must be confirmed with the account
-  // password or a passkey before any money moves.
+  // Step-up auth: M-Pesa withdrawals and wallet sends must be confirmed with
+  // the account password or a passkey before any money moves.
   function requestMpesaWithdraw() {
     if (!isSignedIn) { openLogin(); return; }
     const amt = Number(wdAmount);
     if (!wdPhone.trim() || !amt) return;
     setWdError("");
+    setStepUpAction("withdraw");
     if (DEV_AUTH_PUBLIC) { void handleMpesaWithdraw(); return; } // no Supabase in dev
     setStepUpPw(""); setStepUpError(""); setStepUpOpen(true);
+  }
+
+  function requestSendTransfer(next: { recipient: TransferRecipient; amount: number }) {
+    if (!isSignedIn) { openLogin(); return; }
+    setSendError("");
+    setSendAlreadySent(null);
+    setPendingSend({ recipientId: next.recipient.id, amount: next.amount, recipient: next.recipient });
+    setStepUpAction("send");
+    if (DEV_AUTH_PUBLIC) {
+      void executeTransfer(next.recipient, next.amount);
+      return;
+    }
+    setStepUpPw(""); setStepUpError(""); setStepUpOpen(true);
+  }
+
+  async function executeTransfer(recipient: TransferRecipient, amount: number) {
+    setSendBusy(true);
+    setSendError("");
+    setSendAlreadySent(null);
+    try {
+      const response = await fetch("/api/wallet/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipientId: recipient.id, amount }),
+      });
+      const data = await response.json().catch(() => ({})) as {
+        ok?: boolean;
+        reference?: string;
+        error?: string;
+        stepUpRequired?: boolean;
+        alreadySent?: boolean;
+        code?: string;
+        recipient?: string;
+        priorAmount?: number | null;
+        from?: string;
+        sentAt?: string | null;
+      };
+      if (response.status === 401 && data.stepUpRequired) {
+        setStepUpAction("send");
+        setPendingSend({ recipientId: recipient.id, amount, recipient });
+        setStepUpPw("");
+        setStepUpError("Please confirm it's you again.");
+        setStepUpOpen(true);
+        return;
+      }
+      if (!response.ok) {
+        if (data.alreadySent || data.code === "ADMIN_ONCE_EVER") {
+          setSendAlreadySent({
+            recipient: data.recipient ?? recipient.username,
+            priorAmount: typeof data.priorAmount === "number" ? data.priorAmount : null,
+            from: data.from ?? "an admin",
+            sentAt: data.sentAt ?? null,
+          });
+          return;
+        }
+        throw new Error(data.error ?? "Transfer failed");
+      }
+      setSendReceipt({
+        amount,
+        recipient,
+        reference: typeof data.reference === "string" ? data.reference : "Completed",
+      });
+      setPendingSend(null);
+      window.dispatchEvent(new Event(NOTIFICATIONS_REFRESH_EVENT));
+      refreshBalance();
+      loadWdLimit();
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Transfer failed");
+    } finally {
+      setSendBusy(false);
+    }
   }
 
   async function confirmWithPassword() {
     if (!stepUpPw) { setStepUpError("Enter your password."); return; }
     setStepUpBusy(true); setStepUpError("");
     try {
-      // Verify the password SERVER-SIDE and mint the step-up proof the withdraw
-      // API requires. Does not touch the current session.
       const res = await fetch("/api/auth/stepup/password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -512,7 +605,11 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
       });
       if (!res.ok) { setStepUpError("Incorrect password. Please try again."); return; }
       setStepUpOpen(false); setStepUpPw("");
-      await handleMpesaWithdraw();
+      if (stepUpAction === "send" && pendingSend) {
+        await executeTransfer(pendingSend.recipient, pendingSend.amount);
+      } else {
+        await handleMpesaWithdraw();
+      }
     } catch {
       setStepUpError("Could not verify. Please try again.");
     } finally {
@@ -523,9 +620,6 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   async function confirmWithPasskey() {
     setStepUpBusy(true); setStepUpError("");
     try {
-      // Reuse the account's SIGN-IN passkey to confirm the withdrawal — there is
-      // no separate withdrawal passkey. Verifies presence server-side (scoped to
-      // this user) without minting a session.
       const { ok, noPasskey, error } = await stepUpWithPasskey();
       if (!ok) {
         setStepUpError(
@@ -536,7 +630,11 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
         return;
       }
       setStepUpOpen(false);
-      await handleMpesaWithdraw();
+      if (stepUpAction === "send" && pendingSend) {
+        await executeTransfer(pendingSend.recipient, pendingSend.amount);
+      } else {
+        await handleMpesaWithdraw();
+      }
     } catch {
       setStepUpError("Passkey check failed. Try again or use your password.");
     } finally {
@@ -565,6 +663,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
       // Step-up proof missing/expired (e.g. it lapsed before this call): re-open
       // the confirm sheet so the user re-verifies, then retries.
       if (res.status === 401 && data.stepUpRequired) {
+        setStepUpAction("withdraw");
         setStepUpPw(""); setStepUpError("Please confirm it's you again."); setStepUpOpen(true);
         return;
       }
@@ -853,9 +952,14 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
             isSignedIn={!!isSignedIn}
             balance={balance}
             openLogin={openLogin}
-            refreshBalance={refreshBalance}
             wdLimit={wdLimit}
-            refreshWdLimit={loadWdLimit}
+            sending={sendBusy}
+            error={sendError}
+            alreadySent={sendAlreadySent}
+            receipt={sendReceipt}
+            onClearReceipt={() => setSendReceipt(null)}
+            onClearAlreadySent={() => setSendAlreadySent(null)}
+            onRequestSend={requestSendTransfer}
           />
         )}
 
@@ -1266,7 +1370,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
         </WalletPageFrame>
       )}
 
-      {/* ── Withdrawal step-up auth ── */}
+      {/* ── Step-up auth (withdraw + send) ── */}
       {stepUpOpen && (
         <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => !stepUpBusy && setStepUpOpen(false)}>
           <div className="w-full rounded-t-3xl border border-white/[0.08] bg-[#111316] p-6 shadow-2xl sm:max-w-[400px] sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
@@ -1275,7 +1379,16 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
             </div>
             <h3 className="text-center text-lg font-black text-white">Confirm it&rsquo;s you</h3>
             <p className="mt-1 mb-5 text-center text-xs leading-5 text-slate-500">
-              Withdrawing <span className="font-black text-slate-300">{CURRENCY_SYMBOL} {Number(wdAmount || 0).toLocaleString()}</span> to +{wdPhone.trim().startsWith("0") ? `254${wdPhone.trim().slice(1)}` : wdPhone.trim()}. Verify with your password or passkey.
+              {stepUpAction === "send" && pendingSend ? (
+                <>
+                  Sending <span className="font-black text-slate-300">{CURRENCY_SYMBOL} {pendingSend.amount.toLocaleString()}</span> to{" "}
+                  <span className="font-black text-slate-300">@{pendingSend.recipient.username}</span>. Verify with your password or passkey.
+                </>
+              ) : (
+                <>
+                  Withdrawing <span className="font-black text-slate-300">{CURRENCY_SYMBOL} {Number(wdAmount || 0).toLocaleString()}</span> to +{wdPhone.trim().startsWith("0") ? `254${wdPhone.trim().slice(1)}` : wdPhone.trim()}. Verify with your password or passkey.
+                </>
+              )}
             </p>
 
             <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
@@ -1302,7 +1415,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
               disabled={stepUpBusy || !stepUpPw}
               className="mt-4 w-full rounded-2xl bg-[#05b957] py-3.5 text-sm font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#07cc63] active:scale-[.98] disabled:opacity-60"
             >
-              {stepUpBusy ? <LoadingDots label="Verifying" /> : "Confirm & withdraw"}
+              {stepUpBusy ? <LoadingDots label="Verifying" /> : (stepUpAction === "send" ? "Confirm & send" : "Confirm & withdraw")}
             </button>
 
             <div className="my-3 flex items-center gap-3">
@@ -1534,33 +1647,35 @@ function DepositMethodStep({
   );
 }
 
-type TransferRecipient = {
-  id: string;
-  username: string;
-  displayName: string;
-  imageUrl: string | null;
-};
-
-type TransferReceipt = {
-  amount: number;
-  recipient: TransferRecipient;
-  reference: string;
-};
-
 function WalletTransferPanel({
   isSignedIn,
   balance,
   openLogin,
-  refreshBalance,
   wdLimit,
-  refreshWdLimit,
+  sending,
+  error,
+  alreadySent,
+  receipt,
+  onClearReceipt,
+  onClearAlreadySent,
+  onRequestSend,
 }: {
   isSignedIn: boolean;
   balance: number;
   openLogin: () => void;
-  refreshBalance: () => void;
   wdLimit: { limit: number; used: number; remaining: number; resetsAt: string | null } | null;
-  refreshWdLimit: () => void;
+  sending: boolean;
+  error: string;
+  alreadySent: {
+    recipient: string;
+    priorAmount: number | null;
+    from: string;
+    sentAt: string | null;
+  } | null;
+  receipt: TransferReceipt | null;
+  onClearReceipt: () => void;
+  onClearAlreadySent: () => void;
+  onRequestSend: (next: { recipient: TransferRecipient; amount: number }) => void;
 }) {
   const { format: formatDisplay } = useCurrency();
   const [query, setQuery] = useState("");
@@ -1568,9 +1683,15 @@ function WalletTransferPanel({
   const [recipient, setRecipient] = useState<TransferRecipient | null>(null);
   const [amount, setAmount] = useState("");
   const [searching, setSearching] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
-  const [receipt, setReceipt] = useState<TransferReceipt | null>(null);
+
+  const maxSendable = Math.max(
+    0,
+    Math.min(
+      MAX_TRANSFER_KES,
+      Math.floor(balance),
+      wdLimit?.remaining ?? MAX_TRANSFER_KES,
+    ),
+  );
 
   useEffect(() => {
     if (!isSignedIn || recipient || query.trim().length < 2) {
@@ -1598,32 +1719,12 @@ function WalletTransferPanel({
     };
   }, [isSignedIn, query, recipient]);
 
-  async function sendMoney() {
+  function sendMoney() {
     if (!isSignedIn) { openLogin(); return; }
-    if (!recipient) { setError("Select a recipient from the search results"); return; }
-    setSending(true);
-    setError("");
-    try {
-      const response = await fetch("/api/wallet/transfer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ recipientId: recipient.id, amount: Number(amount) }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error ?? "Transfer failed");
-      setReceipt({
-        amount: Number(amount),
-        recipient,
-        reference: typeof data.reference === "string" ? data.reference : "Completed",
-      });
-      window.dispatchEvent(new Event(NOTIFICATIONS_REFRESH_EVENT));
-      refreshBalance();
-      refreshWdLimit();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Transfer failed");
-    } finally {
-      setSending(false);
-    }
+    if (!recipient) return;
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0) return;
+    onRequestSend({ recipient, amount: value });
   }
 
   if (receipt) {
@@ -1655,14 +1756,61 @@ function WalletTransferPanel({
         <p className="mt-4 text-xs font-medium text-slate-500">The recipient&apos;s Nezeem wallet was credited instantly.</p>
         <Button
           onClick={() => {
-            setReceipt(null);
+            onClearReceipt();
             setQuery("");
             setRecipient(null);
             setAmount("");
           }}
           className="mt-6 h-14 w-full rounded-2xl text-sm"
         >
-          Send Again
+          Send to someone else
+        </Button>
+      </div>
+    );
+  }
+
+  if (alreadySent) {
+    const when = alreadySent.sentAt
+      ? new Date(alreadySent.sentAt).toLocaleDateString("en-KE", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })
+      : null;
+    return (
+      <div className="overflow-hidden rounded-3xl bg-[radial-gradient(circle_at_top,#1a2438_0%,#11161b_48%,#101116_100%)] p-6 text-center ring-1 ring-blue-400/20">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-400/10 ring-1 ring-blue-400/25">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#087cff]/20 text-[#75b8ff]">
+            <Icon name="verified" fill className="text-[32px]" />
+          </div>
+        </div>
+        <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-[#75b8ff]">Already completed</p>
+        <h2 className="mt-2 text-2xl font-black tracking-tight text-white">
+          @{alreadySent.recipient} already received an admin transfer
+        </h2>
+        <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-400">
+          Each account can receive from an admin only once. This protects the platform from repeat seeding.
+          {alreadySent.priorAmount != null && (
+            <>
+              {" "}A prior transfer of{" "}
+              <span className="font-black text-slate-200">
+                {CURRENCY_SYMBOL} {alreadySent.priorAmount.toLocaleString(MONEY_LOCALE)}
+              </span>
+              {alreadySent.from !== "an admin" ? <> from {alreadySent.from}</> : null}
+              {when ? <> on {when}</> : null} is already on record.
+            </>
+          )}
+        </p>
+        <Button
+          onClick={() => {
+            onClearAlreadySent();
+            setQuery("");
+            setRecipient(null);
+            setAmount("");
+          }}
+          className="mt-6 h-14 w-full rounded-2xl text-sm"
+        >
+          Choose another recipient
         </Button>
       </div>
     );
@@ -1677,7 +1825,7 @@ function WalletTransferPanel({
         {recipient ? (
           <button
             type="button"
-            onClick={() => { setRecipient(null); setQuery(""); }}
+            onClick={() => { setRecipient(null); setQuery(""); onClearAlreadySent(); }}
             className="flex w-full items-center gap-3 rounded-2xl bg-[#16171d] p-4 text-left ring-1 ring-[#087cff]/40"
           >
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#087cff]/20 font-black text-[#75b8ff]">
@@ -1695,8 +1843,8 @@ function WalletTransferPanel({
           <div className="relative">
             <input
               value={query}
-              onChange={(event) => { setQuery(event.target.value); setError(""); }}
-              placeholder="Username, email or phone number"
+              onChange={(event) => { setQuery(event.target.value); }}
+              placeholder="Username, email or phone — including admin accounts"
               className="w-full rounded-2xl bg-[#16171d] px-4 py-4 text-sm font-bold text-white outline-none ring-1 ring-white/[0.07] placeholder:text-slate-700 focus:ring-[#087cff]/50"
             />
             {(searching || results.length > 0) && (
@@ -1707,7 +1855,7 @@ function WalletTransferPanel({
                   <button
                     key={user.id}
                     type="button"
-                    onClick={() => { setRecipient(user); setQuery(`@${user.username}`); setResults([]); }}
+                    onClick={() => { setRecipient(user); setQuery(`@${user.username}`); setResults([]); onClearAlreadySent(); }}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.06]"
                   >
                     <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white/[0.07] text-sm font-black text-white">
@@ -1732,18 +1880,30 @@ function WalletTransferPanel({
           <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount</p>
           <p className="text-xs font-bold text-slate-500">Balance: {formatDisplay(balance)}</p>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+        <div className="flex items-center gap-2 rounded-2xl bg-[#16171d] pl-4 pr-2 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
           <span className="text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
           <input
             type="number"
             min="1"
-            max={balance}
+            max={maxSendable || undefined}
             value={amount}
-            onChange={(event) => { setAmount(event.target.value); setError(""); }}
+            onChange={(event) => { setAmount(event.target.value); }}
             placeholder="0.00"
-            className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
+            className="min-w-0 flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
           />
+          <button
+            type="button"
+            onClick={() => setAmount(String(maxSendable))}
+            disabled={maxSendable <= 0}
+            className="shrink-0 rounded-xl bg-[#087cff]/15 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-[#75b8ff] transition hover:bg-[#087cff]/25 disabled:opacity-40"
+          >
+            Max
+          </button>
         </div>
+        <p className="mt-2 text-[10px] font-bold text-slate-600">
+          Max per transfer {CURRENCY_SYMBOL} {MAX_TRANSFER_KES}
+          {maxSendable > 0 ? ` · available now ${CURRENCY_SYMBOL} ${maxSendable.toLocaleString()}` : ""}
+        </p>
       </div>
 
       {wdLimit && (
@@ -1766,23 +1926,17 @@ function WalletTransferPanel({
         </div>
       )}
 
-      {error && (
-        error.includes("has been sent to") ? (
-          <div className="flex items-center gap-2.5 rounded-2xl bg-emerald-500/10 p-4 ring-1 ring-emerald-500/20 text-left">
-            <Icon name="info" className="text-emerald-400 shrink-0" fill />
-            <p className="text-xs font-bold text-emerald-400">{error}</p>
-          </div>
-        ) : (
-          <p className="text-xs font-bold text-red-400">{error}</p>
-        )
-      )}
+      {error && <p className="text-xs font-bold text-red-400">{error}</p>}
       <Button
         onClick={sendMoney}
-        disabled={sending || !recipient || !amount || Number(amount) <= 0}
+        disabled={sending || !recipient || !amount || Number(amount) <= 0 || maxSendable <= 0}
         className="h-14 w-full rounded-2xl text-base"
       >
         {sending ? <LoadingDots label="Sending" /> : "Send Money"}
       </Button>
+      <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
+        <Icon name="lock" fill className="text-[13px]" /> You&rsquo;ll confirm with your password or passkey
+      </p>
     </div>
   );
 }
