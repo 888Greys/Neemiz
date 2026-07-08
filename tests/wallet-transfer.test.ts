@@ -103,12 +103,14 @@ describe("Wallet Transfer Rules", () => {
     expect(data.error).toContain("Daily limit");
   });
 
-  it("exempts admin users from the cumulative daily limit check", async () => {
+  it("exempts admin users from the cumulative daily cash-out limit but applies the transfer cap", async () => {
     vi.mocked(getOrCreateUser).mockResolvedValue({ id: "admin_123", isAdmin: true, username: "admin" } as any);
     vi.mocked(db.user.findFirst).mockResolvedValue({ id: "rec_456", username: "recipient" } as any);
 
     // Mock successful debit
     mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    // Admin transfer cap: nothing sent yet in the window, so 40 is well under it
+    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
     // Mock prior transfers to this recipient: none
     mockTx.transaction.findFirst.mockResolvedValue(null);
     mockTx.user.findUnique.mockResolvedValue({ walletBalance: 100 } as any);
@@ -117,9 +119,21 @@ describe("Wallet Transfer Rules", () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.ok).toBe(true);
+  });
 
-    // Assert aggregate daily check was NOT called since sender is admin
-    expect(mockTx.transaction.aggregate).not.toHaveBeenCalled();
+  it("caps an admin's TOTAL daily transfers across all recipients", async () => {
+    vi.mocked(getOrCreateUser).mockResolvedValue({ id: "admin_123", isAdmin: true, username: "admin" } as any);
+    vi.mocked(db.user.findFirst).mockResolvedValue({ id: "rec_456", username: "recipient" } as any);
+
+    // Debit succeeds, but the admin has already transferred 480 in the window;
+    // sending another 40 would exceed the default 500 cap.
+    mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 480 } });
+
+    const res = await POST(makeRequest({ recipientId: "rec_456", amount: 40 }));
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain("Daily transfer limit");
   });
 
   it("prevents admin users from sending to the same recipient more than once per day", async () => {
@@ -128,6 +142,8 @@ describe("Wallet Transfer Rules", () => {
 
     // Mock successful debit
     mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    // Under the transfer cap
+    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
     // Mock prior transfers to this recipient: found a prior transaction
     mockTx.transaction.findFirst.mockResolvedValue({ id: "tx_999", amount: 50 } as any);
 
