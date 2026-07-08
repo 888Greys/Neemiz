@@ -1,6 +1,9 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser, SuspendedAccountError } from "@/lib/get-or-create-user";
+import { DEV_AUTH_ENABLED } from "@/lib/dev-auth";
+import { verifyStepUpToken, STEPUP_COOKIE } from "@/lib/step-up";
 import { TransactionType, TransactionStatus, Prisma } from "@prisma/client";
 import { initiateLipaHarakaWithdrawal } from "@/lib/lipaharaka";
 import { notifyAdminsSuspiciousNumber } from "@/lib/admin-alert";
@@ -74,6 +77,24 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid Safaricom number. Use 07XX or 01XX format." }, { status: 400 });
     }
 
+    // ── Server-side step-up gate ──
+    // Require a fresh, server-minted password/passkey proof (set by the
+    // /api/auth/stepup/* routes). This is what makes "Confirm it's you"
+    // enforceable — a direct POST here that skips the confirm UI is rejected,
+    // not merely discouraged. Consumed on use (single confirm → one withdrawal).
+    // Skipped under dev-auth (no real Supabase session locally).
+    if (!DEV_AUTH_ENABLED) {
+      const jar = await cookies();
+      const proof = jar.get(STEPUP_COOKIE)?.value;
+      if (!verifyStepUpToken(proof, user.id)) {
+        return Response.json(
+          { error: "Please confirm it's you to withdraw.", stepUpRequired: true },
+          { status: 401 },
+        );
+      }
+      jar.delete(STEPUP_COOKIE);
+    }
+
     // Bound-number enforcement — TWILIO-INDEPENDENT. Each account is locked to a
     // single M-Pesa withdrawal number for life, whether or not SMS verification
     // is available:
@@ -103,8 +124,13 @@ export async function POST(req: Request) {
     }
 
     const feeRate   = lipaTestMode ? 0 : WITHDRAWAL_FEE_RATE;
-    const feeKes    = parseFloat((amountKes * feeRate).toFixed(2));
-    const payoutKes = parseFloat((amountKes - feeKes).toFixed(2));
+    // Lipa Haraka B2C only disburses WHOLE shillings, so the payout must be an
+    // integer. Floor the payout (i.e. round the fee UP to the next shilling) so
+    // we never send more than the net-of-fee amount. Enabling the 13% fee turned
+    // most payouts fractional (150 → 130.50), which previously tripped the
+    // integer guard below and surfaced as "Payment provider not configured".
+    const payoutKes = Math.floor(amountKes * (1 - feeRate));
+    const feeKes    = parseFloat((amountKes - payoutKes).toFixed(2));
 
     // Suspected-mule watchlist: don't block — HOLD the withdrawal for admin
     // review and page the owner (approve a real win, reject laundering).
