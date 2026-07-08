@@ -4,7 +4,7 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { generateUniqueUsername, recipientLookupWhere } from "@/lib/user-identity";
-import { dailyLimitKes, dailyCapWhere, withdrawalWindowStart } from "@/lib/withdrawal-window";
+import { dailyLimitKes, dailyCapWhere, withdrawalWindowStart, transferDailyLimitKes, transferCapWhere } from "@/lib/withdrawal-window";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
 
@@ -108,6 +108,19 @@ export async function POST(req: Request) {
         }
       }
 
+      // Admins are exempt from the shared cash-out cap above, but must still be
+      // bounded on TOTAL transfers per rolling 24h across ALL recipients —
+      // otherwise the KSh 50 per-transfer cap can be sprayed across unlimited
+      // distinct accounts (the collins fan-out, 2026-07-08: ~520 accounts).
+      if (sender.isAdmin) {
+        const transferLimit = transferDailyLimitKes();
+        const priorTransfers = await tx.transaction.aggregate({ where: transferCapWhere(sender.id), _sum: { amount: true } });
+        const usedTransfers = Number(priorTransfers._sum?.amount ?? 0);
+        if (usedTransfers + amount > transferLimit) {
+          throw new Error(`TRANSFER_LIMIT:${Math.max(0, transferLimit - usedTransfers)}`);
+        }
+      }
+
       // Admins can send to any given account only once per rolling 24-hour window.
       if (sender.isAdmin) {
         const priorTransfer = await tx.transaction.findFirst({
@@ -177,6 +190,14 @@ export async function POST(req: Request) {
         error: remaining > 0
           ? `Daily limit: you can send or withdraw ${CURRENCY_SYMBOL} ${remaining.toLocaleString()} more today. Resets at 2:00 AM.`
           : "You've reached today's cash-out limit (sends + withdrawals). It resets at 2:00 AM.",
+      }, { status: 400 });
+    }
+    if (error instanceof Error && error.message.startsWith("TRANSFER_LIMIT:")) {
+      const remaining = Number(error.message.split(":")[1] ?? 0);
+      return Response.json({
+        error: remaining > 0
+          ? `Daily transfer limit: you can send ${CURRENCY_SYMBOL} ${remaining.toLocaleString(MONEY_LOCALE)} more in the next 24 hours.`
+          : "You've reached the daily transfer limit. It resets on a rolling 24-hour basis.",
       }, { status: 400 });
     }
     if (error instanceof Error && error.message.startsWith("ADMIN_ONCE_PER_DAY:")) {
