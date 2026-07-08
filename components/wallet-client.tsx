@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
+import { stepUpWithPasskey } from "@/lib/passkey-client";
 import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
@@ -518,21 +519,18 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   async function confirmWithPasskey() {
     setStepUpBusy(true); setStepUpError("");
     try {
-      const supabase = createClient();
-      // Passkeys are MFA WebAuthn factors here: find a verified one and run the
-      // authenticate ceremony as step-up (aal1 → aal2) before releasing money.
-      const { data: factors, error: listErr } = await supabase.auth.mfa.listFactors();
-      if (listErr) { setStepUpError("Could not check your passkeys. Use your password instead."); return; }
-      const passkey = (factors?.webauthn ?? []).find((f) => f.status === "verified");
-      if (!passkey) {
-        setStepUpError("No passkey on this account. Add one in Settings, or use your password.");
+      // Reuse the account's SIGN-IN passkey to confirm the withdrawal — there is
+      // no separate withdrawal passkey. Verifies presence server-side (scoped to
+      // this user) without minting a session.
+      const { ok, noPasskey, error } = await stepUpWithPasskey();
+      if (!ok) {
+        setStepUpError(
+          noPasskey
+            ? "No passkey on this account. Add a sign-in passkey in Settings, or use your password."
+            : (error ?? "Passkey check failed. Try again or use your password."),
+        );
         return;
       }
-      const { error } = await supabase.auth.mfa.webauthn.authenticate({
-        factorId: passkey.id,
-        webauthn: { rpId: window.location.hostname, rpOrigins: [window.location.origin] },
-      });
-      if (error) { setStepUpError("Passkey check failed or was dismissed. Try again or use your password."); return; }
       setStepUpOpen(false);
       await handleMpesaWithdraw();
     } catch {
