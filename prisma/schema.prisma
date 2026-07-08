@@ -44,6 +44,11 @@ model User {
   isAdmin           Boolean   @default(false) @map("is_admin")
   totpSecret        String?   @map("totp_secret")
   totpEnabled       Boolean   @default(false) @map("totp_enabled")
+  // Email OTP as an alternative to authenticator-app TOTP. When true, login
+  // challenges are sent to the account email instead of (or in addition to)
+  // Google Authenticator. totpEnabled remains the master "2FA on" flag that
+  // middleware checks via Supabase user_metadata.totp_enabled.
+  emailOtpEnabled   Boolean   @default(false) @map("email_otp_enabled")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
 

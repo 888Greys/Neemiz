@@ -298,7 +298,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             sidebarCollapsed ? "w-[78px]" : "w-[280px]"
           }`}
         >
-          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => openWallet()} onOpenBonuses={() => openProfile("bonuses")} onOpenSupport={() => openProfile("support")} />
+          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => openWallet()} onOpenBonuses={() => openProfile("bonuses")} onOpenProfile={() => { setProfileInitialView(undefined); setProfileOpen(true); }} />
         </aside>
         )}
 
@@ -321,7 +321,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
       {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={(tab) => { setProfileOpen(false); openWallet(tab); }} initialView={profileInitialView} />}
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} initialTab={walletInitialTab} />}
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileOpen(true); }} onOpenSupport={() => { setMobileMenuOpen(false); openProfile("support"); }} onOpenWallet={(tab) => { setMobileMenuOpen(false); openWallet(tab); }} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileInitialView(undefined); setProfileOpen(true); }} onOpenWallet={(tab) => { setMobileMenuOpen(false); openWallet(tab); }} />}
       {missingPhone && <PhonePromptModal onComplete={handlePhoneComplete} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
@@ -415,7 +415,7 @@ function UserAvatar({ src, initials, className }: { src?: string | null; initial
   );
 }
 
-function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSupport, pathname }: { collapsed: boolean; onToggle: () => void; onOpenWallet: () => void; onOpenBonuses: () => void; onOpenSupport: () => void; pathname: string }) {
+function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenProfile, pathname }: { collapsed: boolean; onToggle: () => void; onOpenWallet: () => void; onOpenBonuses: () => void; onOpenProfile: () => void; pathname: string }) {
   const [openGroups, setOpenGroups] = useState({
     sports: true,
     p2p: false,
@@ -532,17 +532,14 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenSuppo
 
         <button
           type="button"
-          onClick={onOpenSupport}
+          onClick={onOpenProfile}
           className={`flex w-full items-center rounded-2xl transition hover:bg-white/[0.03] ${collapsed ? "justify-center" : "gap-3"}`}
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2d2f35]">
-            <Icon name="support_agent" fill className="text-[19px]" />
+            <Icon name="person" fill className="text-[19px]" />
           </span>
           {!collapsed && (
-            <>
-              <span className="flex-1 text-left text-base font-black">Support</span>
-              <span className="rounded-full bg-[#087cff] px-2.5 py-0.5 text-xs font-black text-white">24/7</span>
-            </>
+            <span className="flex-1 text-left text-base font-black">Profile</span>
           )}
         </button>
       </div>
@@ -739,7 +736,7 @@ function TelegramIcon() {
   );
 }
 
-function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenSupport, onOpenWallet }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenSupport: () => void; onOpenWallet: (tab?: "deposit" | "send" | "withdraw" | "history") => void }) {
+function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenWallet }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenWallet: (tab?: "deposit" | "send" | "withdraw" | "history") => void }) {
   const { isSignedIn, user, signOut } = useSupabaseAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -879,12 +876,11 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
             </button>
           </div>
 
-          <button type="button" onClick={onOpenSupport} className="flex w-full items-center gap-2 rounded-xl px-1.5 py-1 transition hover:bg-white/[0.03]">
+          <button type="button" onClick={onOpenProfile} className="flex w-full items-center gap-2 rounded-xl px-1.5 py-1 transition hover:bg-white/[0.03]">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#2d2f35]">
-              <Icon name="support_agent" fill className="text-[15px]" />
+              <Icon name="person" fill className="text-[15px]" />
             </span>
-            <span className="flex-1 text-left text-[12px] font-black">Support</span>
-            <span className="rounded-full bg-[#087cff] px-2 py-0.5 text-[10px] font-black">24/7</span>
+            <span className="flex-1 text-left text-[12px] font-black">Profile</span>
           </button>
 
           {isSignedIn && (
