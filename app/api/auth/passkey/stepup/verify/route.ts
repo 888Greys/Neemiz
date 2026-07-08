@@ -13,6 +13,7 @@ import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import type { AuthenticatorTransportFuture, AuthenticationResponseJSON } from "@simplewebauthn/server";
 import { createClient } from "@/lib/supabase/server";
 import { rpConfig, STEPUP_CHALLENGE_COOKIE } from "@/lib/passkey";
+import { mintStepUpToken, STEPUP_COOKIE, stepUpCookieOptions } from "@/lib/step-up";
 
 export const runtime = "nodejs";
 
@@ -70,6 +71,9 @@ export async function POST(req: Request) {
     where: { id: passkey.id },
     data:  { counter: BigInt(verification.authenticationInfo.newCounter), lastUsedAt: new Date() },
   }).catch(() => {});
+
+  // Mint the step-up proof the withdraw API requires.
+  jar.set(STEPUP_COOKIE, mintStepUpToken(user.id), stepUpCookieOptions);
 
   return Response.json({ ok: true });
 }
