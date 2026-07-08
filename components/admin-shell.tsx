@@ -221,7 +221,32 @@ export function AdminShell({ children, adminEmail }: { children: React.ReactNode
         </div>
       </aside>
 
-      <main className="admin-main min-w-0 flex-1 lg:ml-60">{children}</main>
+      <main className="admin-main min-w-0 flex-1 lg:ml-60">
+        {pathname !== "/admin/new" && (
+          <div className="mx-auto w-full max-w-[1640px] px-3 pt-3 sm:px-6 lg:px-6">
+            <Link
+              href="/admin/new"
+              className="group flex flex-col gap-3 rounded-lg border border-blue-400/20 bg-blue-500/[0.055] px-4 py-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,.04)] transition hover:border-blue-300/35 hover:bg-blue-500/[0.085] sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span className="flex min-w-0 items-start gap-3">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-blue-300/20 bg-blue-400/10 text-blue-300">
+                  <Icon name="auto_awesome" size={16} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[12px] font-black text-white">New admin console is ready</span>
+                  <span className="mt-0.5 block text-[10px] font-semibold text-slate-400">
+                    Preview the redesigned Nezeem operations workspace before it replaces this console.
+                  </span>
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-black text-blue-300 transition group-hover:text-white">
+                Open new console <Icon name="arrow_forward" size={13} />
+              </span>
+            </Link>
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }
