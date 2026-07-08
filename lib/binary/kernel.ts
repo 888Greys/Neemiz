@@ -67,6 +67,30 @@ export function digitWonFromQuote(side: DigitSide, targetDigit: number, exitQuot
   return digitContractWon(side, targetDigit, exitDigitFromQuote(exitQuote));
 }
 
+/**
+ * Select the DETERMINISTIC exit tick for a digit contract from a tick path: the
+ * `durationTicks`-th tick STRICTLY AFTER `entryEpoch` (chronological order).
+ *
+ * This is the single source of truth for "which tick settles a digit contract".
+ * It is exactly the tick pricing simulates against (`w.forward[duration-1]`), so
+ * the outcome is fixed by the market and CANNOT be shopped by choosing when to
+ * call settle. Returns null until the feed has produced that many ticks — the
+ * caller keeps the trade PENDING rather than settling on whatever is live now.
+ *
+ * Pure and deterministic (no I/O, clock, or randomness) so it is replayable for
+ * both settlement and provably-fair verification, and unit-testable without a feed.
+ */
+export function resolveDigitExitTick(
+  ticks: TickPath,
+  entryEpoch: number,
+  durationTicks: number,
+): { price: number; epoch: number } | null {
+  const forward = ticks
+    .filter((t) => t.epoch > entryEpoch && Number.isFinite(t.price) && t.price > 0)
+    .sort((a, b) => a.epoch - b.epoch);
+  return forward.length >= durationTicks ? forward[durationTicks - 1] : null;
+}
+
 // ─── Directional / path family (Rise-Fall, Higher-Lower, Touch, Vanilla) ─────
 // `resolveContract` walks the tick path exactly as settlement does (early touch
 // resolution, duration-tick expiry, vanilla intrinsic + retention). It is the

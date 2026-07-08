@@ -9,6 +9,7 @@ import { getCalibrationTicks } from "@/lib/binary/calibration";
 import { getLiveEntrySpot } from "@/lib/binary-price";
 import { priceDigitServer, resolveDigitEdgeFloor } from "@/lib/binary/server-price";
 import { exitDigitFromQuote, type DigitSide } from "@/lib/binary/kernel";
+import { buildDigitProof, isProvablyFairConfigured, sha256 } from "@/lib/binary/provably-fair";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
   const rl = rateLimit(`binary-bet:${user.id}`, 30, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
-  let body: { market?: string; side?: string; stake?: number; targetDigit?: number; durationTicks?: number };
+  let body: { market?: string; side?: string; stake?: number; targetDigit?: number; durationTicks?: number; clientSeed?: string };
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
 
   const { market, side, stake, targetDigit, durationTicks } = body;
@@ -89,6 +90,24 @@ export async function POST(req: Request) {
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
+  // Provably-fair proof: commit + sign the exact terms (incl. entryEpoch +
+  // targetDigit + payoutMultiplier) so the outcome — a replay of public Deriv
+  // ticks through the open-source kernel — can be independently verified and
+  // can't be backdated or altered.
+  const clientSeed = typeof body.clientSeed === "string" && body.clientSeed ? body.clientSeed.slice(0, 128) : sha256(dbUser.id);
+  const proof = isProvablyFairConfigured()
+    ? buildDigitProof({
+        market,
+        side: side as DigitSide,
+        targetDigit: targetDigit!,
+        entryEpoch,
+        durationTicks: ticks,
+        payoutMultiplier: priced.multiplier,
+        clientSeed,
+        nonce: Date.now(),
+      })
+    : null;
+
   try {
     const result = await db.$transaction(async (tx) => {
       // Stake spends promo bonus first, then real balance. For users with no
@@ -109,6 +128,12 @@ export async function POST(req: Request) {
           durationTicks: ticks,
           settleBefore,
           status:       "PENDING",
+          pfServerSeed:       proof?.serverSeed,
+          pfCommitment:       proof?.commitment,
+          pfSignature:        proof?.signature,
+          pfClientSeed:       proof ? clientSeed : undefined,
+          pfNonce:            proof ? String(proof.terms.nonce) : undefined,
+          pfPayoutMultiplier: proof ? priced.multiplier : undefined,
         },
       });
 
@@ -121,14 +146,19 @@ export async function POST(req: Request) {
           status:    TransactionStatus.COMPLETED,
           reference: `binary-stake-${dbUser.id}-${trade.id}`,
           provider:  "binary",
-          metadata:  { game: "binary", tradeId: trade.id, market, side, targetDigit, durationTicks: ticks, grossPayout: payoutVal, edgeFloor: digitEdgeFloor },
+          metadata:  { game: "binary", tradeId: trade.id, market, side, targetDigit, durationTicks: ticks, grossPayout: payoutVal, edgeFloor: digitEdgeFloor,
+            ...(proof ? { pf: { commitment: proof.commitment, signature: proof.signature, clientSeed, nonce: proof.terms.nonce, payoutMultiplier: priced.multiplier } } : {}) },
         },
       });
 
       return trade;
     });
 
-    return Response.json({ tradeId: result.id, payout: payoutVal }, { status: 201 });
+    return Response.json({
+      tradeId: result.id,
+      payout: payoutVal,
+      ...(proof ? { provablyFair: { commitment: proof.commitment, signature: proof.signature, clientSeed, nonce: proof.terms.nonce } } : {}),
+    }, { status: 201 });
   } catch (err) {
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE")
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
