@@ -29,7 +29,7 @@
  *   ?limit=300           cap per run (default 300, max 1000)
  */
 import { db } from "@/lib/db";
-import { getContractExitDigit, getServerBinaryDigit } from "@/lib/binary-price";
+import { getContractExitDigit } from "@/lib/binary-price";
 import { settleTradeWithDigit, voidTrade } from "@/lib/binary-settle";
 
 export const runtime = "nodejs";
@@ -82,33 +82,42 @@ export async function GET(req: Request) {
       continue;
     }
 
+    // Legacy trade placed before epoch-anchored settlement: it has no committed
+    // exit tick and can NEVER be settled deterministically. Refund it rather than
+    // ever resolving on a live tick (the timing hole). These drain once and are gone.
+    if (trade.entryEpoch == null) {
+      try {
+        const r = await voidTrade(trade, "no_entry_epoch_legacy");
+        if (r.outcome === "refunded") { voided++; creditedKes += Number(trade.stake); }
+        else already++;
+      } catch (e) {
+        errors.push(`${trade.id} void(legacy): ${e instanceof Error ? e.message : "error"}`);
+      }
+      continue;
+    }
+
     // Server-authoritative exit digit, anchored to the deterministic exit tick
-    // (entryEpoch + durationTicks) so the outcome can't be influenced by settle
-    // timing. Legacy trades without an entryEpoch drain via the latest-tick path.
+    // (entryEpoch + durationTicks) so the outcome can't be influenced by settle timing.
     let exitDigit: number;
     try {
-      if (trade.entryEpoch != null) {
-        const exit = await getContractExitDigit(trade.market, trade.entryEpoch, trade.durationTicks);
-        if (!exit.ready) {
-          // Exit tick not produced yet. If the window fully expired the feed has
-          // a gap we can't settle around — refund. Otherwise wait for a later run.
-          if (expired) {
-            try {
-              const r = await voidTrade(trade, "exit_tick_unavailable_expired");
-              if (r.outcome === "refunded") { voided++; creditedKes += Number(trade.stake); }
-              else already++;
-            } catch (e) {
-              errors.push(`${trade.id} void: ${e instanceof Error ? e.message : "error"}`);
-            }
-          } else {
-            stillPending++;
+      const exit = await getContractExitDigit(trade.market, trade.entryEpoch, trade.durationTicks);
+      if (!exit.ready) {
+        // Exit tick not produced yet. If the window fully expired the feed has
+        // a gap we can't settle around — refund. Otherwise wait for a later run.
+        if (expired) {
+          try {
+            const r = await voidTrade(trade, "exit_tick_unavailable_expired");
+            if (r.outcome === "refunded") { voided++; creditedKes += Number(trade.stake); }
+            else already++;
+          } catch (e) {
+            errors.push(`${trade.id} void: ${e instanceof Error ? e.message : "error"}`);
           }
-          continue;
+        } else {
+          stillPending++;
         }
-        exitDigit = exit.digit;
-      } else {
-        ({ digit: exitDigit } = await getServerBinaryDigit(trade.market));
+        continue;
       }
+      exitDigit = exit.digit;
     } catch (err) {
       // No live feed. If the window has fully expired the trade can never be
       // settled fairly — refund the stake. Otherwise leave it for a later run.

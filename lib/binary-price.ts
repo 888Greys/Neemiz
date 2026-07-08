@@ -1,13 +1,15 @@
-// Server-side binary (synthetic index) digit source.
+// Server-side binary (synthetic index) tick source.
 //
-// SECURITY: binary settlement must NEVER trust a client-supplied exit digit.
-// The browser streams Deriv ticks for charting, but the digit a trade settles
-// on has to be fetched here, server-side, from the same Deriv feed. If we can't
-// get a live tick we refuse to settle rather than fall back to a guessable
-// value — trusting the client's digit is exactly what was being exploited to
-// mint guaranteed wins (the forex feature had, and fixed, the same hole).
+// SECURITY: binary settlement must NEVER trust a client-supplied exit digit, and
+// it must NEVER settle on "the latest live tick" — that let a player watch the
+// feed and only settle once the current digit favoured their bet. A digit
+// contract settles on the DETERMINISTIC exit tick: the durationTicks-th tick
+// after its committed entryEpoch, fetched here server-side from the same public
+// Deriv feed used for pricing. If that tick can't be obtained we refuse to
+// settle (retry) rather than fall back to any guessable value.
 
 import { quoteToDigit, DerivClient, type TickPoint } from "neemiz-binary-engine";
+import { resolveDigitExitTick } from "@/lib/binary/kernel";
 
 // Synthetic index symbols accepted for binary trades. Mirrors VALID_MARKETS in
 // app/api/binary/bet/route.ts and MARKETS in components/binary/binary-client.tsx.
@@ -17,35 +19,9 @@ export function isKnownBinarySymbol(symbol: string): boolean {
   return VALID_SYMBOLS.has(symbol);
 }
 
-type CacheEntry = { digit: number; quote: number; at: number };
-const cache = new Map<string, CacheEntry>();
-const CACHE_TTL_MS = 800; // ticks land ~1s apart; short cache stays fresh & cheap
-
 const derivClient = new DerivClient({
   wsTimeoutMs: 6000
 });
-
-/**
- * Fetch the latest live tick for a synthetic-index symbol from Deriv and derive
- * its last digit, server-side. Throws if the symbol is unknown or no live tick
- * can be obtained.
- */
-export async function getServerBinaryDigit(symbol: string): Promise<{ digit: number; quote: number }> {
-  if (!VALID_SYMBOLS.has(symbol)) throw new Error(`Unsupported binary symbol: ${symbol}`);
-
-  const cached = cache.get(symbol);
-  if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
-    return { digit: cached.digit, quote: cached.quote };
-  }
-
-  const quote = await derivClient.fetchLatestPrice(symbol);
-  if (!Number.isFinite(quote) || quote <= 0) {
-    throw new Error(`Invalid live tick for ${symbol}`);
-  }
-  const digit = quoteToDigit(quote);
-  cache.set(symbol, { digit, quote, at: Date.now() });
-  return { digit, quote };
-}
 
 export type { TickPoint };
 
@@ -58,7 +34,8 @@ export type ContractExitDigit =
  * `durationTicks`-th tick STRICTLY AFTER `entryEpoch`. This is the exit tick the
  * contract was priced against (pricing simulates `w.forward[duration-1]`), so
  * price and settlement share the same tick and the player cannot influence the
- * outcome by choosing WHEN to settle.
+ * outcome by choosing WHEN to settle. The tick selection itself is the pure,
+ * unit-tested `resolveDigitExitTick` kernel — this only supplies the real ticks.
  *
  * Returns `{ ready: false }` when the exit tick hasn't been produced by the feed
  * yet — the caller keeps the trade PENDING and retries, exactly like directional
@@ -73,11 +50,8 @@ export async function getContractExitDigit(
   if (!VALID_SYMBOLS.has(symbol)) throw new Error(`Unsupported binary symbol: ${symbol}`);
   // Ask for a little slack beyond the exit tick to tolerate feed jitter.
   const hist = await getServerTickHistory(symbol, entryEpoch, durationTicks + 20);
-  const forward = hist
-    .filter((t) => t.epoch > entryEpoch && Number.isFinite(t.price) && t.price > 0)
-    .sort((a, b) => a.epoch - b.epoch);
-  if (forward.length < durationTicks) return { ready: false };
-  const exit = forward[durationTicks - 1];
+  const exit = resolveDigitExitTick(hist, entryEpoch, durationTicks);
+  if (!exit) return { ready: false };
   return { ready: true, digit: quoteToDigit(exit.price), quote: exit.price, epoch: exit.epoch };
 }
 
