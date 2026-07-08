@@ -896,6 +896,15 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
   const clientSigma = useMemo(() => {
     try { return computeSigma(ticks.slice(-(SIGMA_WINDOW + 1)).map((t) => t.quote)); } catch { return null; }
   }, [ticks]);
+  // Fair barrier band: keep the offset within ±K·σ·√duration of spot so the
+  // contract prices into a sensible win-chance band. Beyond it the server rejects
+  // the trade ("barrier too far") rather than sell a capped, near-unwinnable
+  // ticket — this bound keeps the UI inside the sellable range. σ is per-tick.
+  const BARRIER_BAND_SIGMAS = 2;
+  const maxBarrierOffset = useMemo(() => {
+    const frac = (clientSigma ?? 0.003) * Math.sqrt(Math.max(1, duration)) * BARRIER_BAND_SIGMAS;
+    return Math.max(0.02, Math.round(latest.quote * frac * 100) / 100);
+  }, [clientSigma, duration, latest.quote]);
   // Fixed-payout preview (Rise/Fall, Higher/Lower, Touch/No-Touch).
   const dirPayoutFor = (side: DirectionalSide): number => {
     let rate = 1.90;
@@ -1857,6 +1866,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                 durationUnit={durationUnit} setDurationUnit={setDurationUnit}
                 secPerTick={Math.max(1, Math.round(market.speedMs / 1000))}
                 barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
+                maxBarrierOffset={maxBarrierOffset}
                 latestSpot={latest.quote}
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
                 minStake={isLive ? 10 : 1}

@@ -25,7 +25,7 @@ export function DirectionalPanel({
   stake, setStake,
   duration, setDuration,
   durationUnit, setDurationUnit, secPerTick,
-  barrierOffset, setBarrierOffset,
+  barrierOffset, setBarrierOffset, maxBarrierOffset,
   latestSpot,
   stakePresets, minStake,
   payoutFor, format, formatSpot,
@@ -39,6 +39,7 @@ export function DirectionalPanel({
   durationUnit: "ticks" | "seconds"; setDurationUnit: (v: "ticks" | "seconds") => void;
   secPerTick: number;
   barrierOffset: number; setBarrierOffset: (v: number) => void;
+  maxBarrierOffset: number;
   latestSpot: number;
   stakePresets: number[];
   minStake: number;
@@ -54,6 +55,10 @@ export function DirectionalPanel({
   const setStakeDisplay = (shown: number) => setStake(Math.max(minStake, Math.round(toKes(shown))));
   const needsBarrier = kind !== "RISE_FALL";
   const offsetStep = Math.max(0.01, Math.round(latestSpot * 0.0003 * 100) / 100);
+  // Keep the barrier inside the fair band (see maxBarrierOffset). Anything past
+  // it prices out of range and the server rejects it, so we never let the UI go there.
+  const clampOffset = (v: number) =>
+    Math.max(-maxBarrierOffset, Math.min(maxBarrierOffset, Math.round((v || 0) * 100) / 100));
   const barrier = latestSpot + barrierOffset;
 
   // Mobile uses Deriv's single-CTA model: a side toggle + one Buy button.
@@ -72,6 +77,7 @@ export function DirectionalPanel({
         duration={duration} setDuration={setDuration}
         durationUnit={durationUnit} setDurationUnit={setDurationUnit} secPerTick={secPerTick}
         barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
+        maxBarrierOffset={maxBarrierOffset}
         needsBarrier={needsBarrier}
         barrier={barrier}
         latestSpot={latestSpot}
@@ -139,14 +145,14 @@ export function DirectionalPanel({
               Barrier offset
             </div>
             <div className={`min-w-0 flex-1 ${FIELD}`}>
-              <button type="button" onClick={() => setBarrierOffset(Math.round((barrierOffset - offsetStep) * 100) / 100)}
+              <button type="button" onClick={() => setBarrierOffset(clampOffset(barrierOffset - offsetStep))}
                 className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="remove" className="text-[14px] sm:text-[18px]" />
               </button>
               <input type="number" value={barrierOffset}
-                onChange={(e) => setBarrierOffset(Number(e.target.value) || 0)}
+                onChange={(e) => setBarrierOffset(clampOffset(Number(e.target.value)))}
                 className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-              <button type="button" onClick={() => setBarrierOffset(Math.round((barrierOffset + offsetStep) * 100) / 100)}
+              <button type="button" onClick={() => setBarrierOffset(clampOffset(barrierOffset + offsetStep))}
                 className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
                 <Icon name="add" className="text-[14px] sm:text-[18px]" />
             </button>
@@ -154,6 +160,10 @@ export function DirectionalPanel({
             <div className="hidden items-center justify-between text-[12px] sm:mt-2 sm:flex">
               <span className="font-bold text-slate-400">Barrier</span>
               <span className="font-mono font-black text-amber-300">{formatSpot(barrier)}</span>
+            </div>
+            <div className="hidden items-center justify-between text-[10px] sm:mt-1 sm:flex">
+              <span className="font-medium text-slate-500">Range</span>
+              <span className="font-mono font-bold text-slate-500">±{maxBarrierOffset.toFixed(2)}</span>
             </div>
           </div>
         )}
@@ -206,7 +216,7 @@ function MobileDirectional({
   currency, sides, selectedSide, onArmSide,
   stake, setStake, duration, setDuration,
   durationUnit, setDurationUnit, secPerTick,
-  barrierOffset, setBarrierOffset, needsBarrier, barrier, latestSpot, offsetStep,
+  barrierOffset, setBarrierOffset, maxBarrierOffset, needsBarrier, barrier, latestSpot, offsetStep,
   stakePresets, minStake, payoutFor, format, formatSpot,
   onTrade, placing, openPositions,
 }: {
@@ -219,6 +229,7 @@ function MobileDirectional({
   durationUnit: "ticks" | "seconds"; setDurationUnit: (v: "ticks" | "seconds") => void;
   secPerTick: number;
   barrierOffset: number; setBarrierOffset: (v: number) => void;
+  maxBarrierOffset: number;
   needsBarrier: boolean;
   barrier: number;
   latestSpot: number;
@@ -326,6 +337,7 @@ function MobileDirectional({
       {picker === "barrier" && (
         <BarrierSheet
           latestSpot={latestSpot} offset={barrierOffset} setOffset={setBarrierOffset}
+          maxOffset={maxBarrierOffset}
           offsetStep={offsetStep} formatSpot={formatSpot} onClose={() => setPicker(null)}
         />
       )}
@@ -356,11 +368,12 @@ function MobileDirectional({
 // a signed offset (target = spot + offset), so callers are unchanged. Exported so
 // the Vanilla panel reuses it for its Strike (same signed-offset model).
 export function BarrierSheet({
-  title = "Barrier", latestSpot, offset, setOffset, offsetStep, formatSpot, onClose,
+  title = "Barrier", latestSpot, offset, setOffset, maxOffset, offsetStep, formatSpot, onClose,
 }: {
   title?: string;
   latestSpot: number;
   offset: number; setOffset: (v: number) => void;
+  maxOffset?: number;   // fair-band cap on |offset| (see DirectionalPanel). Omitted = no cap.
   offsetStep: number;
   formatSpot: (v: number) => string;
   onClose: () => void;
@@ -383,10 +396,15 @@ export function BarrierSheet({
   };
 
   const min = 0;
-  const step = (dir: 1 | -1) => setAmount((a) => round(Math.max(min, (a || 0) + dir * offsetStep)));
+  // Upper bound on the entered magnitude: for above/below it's the fair band;
+  // for a fixed absolute price it's spot ± band.
+  const amountMax = maxOffset == null ? Infinity : mode === "fixed" ? latestSpot + maxOffset : maxOffset;
+  const amountMin = maxOffset != null && mode === "fixed" ? Math.max(min, latestSpot - maxOffset) : min;
+  const step = (dir: 1 | -1) => setAmount((a) => round(Math.min(amountMax, Math.max(amountMin, (a || 0) + dir * offsetStep))));
 
   const save = () => {
-    const signed = mode === "fixed" ? amount - latestSpot : mode === "below" ? -Math.abs(amount) : Math.abs(amount);
+    let signed = mode === "fixed" ? amount - latestSpot : mode === "below" ? -Math.abs(amount) : Math.abs(amount);
+    if (maxOffset != null) signed = Math.max(-maxOffset, Math.min(maxOffset, signed));
     setOffset(round(signed));
     onClose();
   };
@@ -417,7 +435,7 @@ export function BarrierSheet({
               <Icon name="remove" className="text-[18px]" />
             </button>
             <input type="number" inputMode="decimal" value={amount}
-              onChange={(e) => setAmount(Math.max(min, Number(e.target.value) || 0))}
+              onChange={(e) => setAmount(Math.min(amountMax, Math.max(amountMin, Number(e.target.value) || 0)))}
               className="w-full min-w-0 bg-transparent text-center text-[18px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
             <button type="button" onClick={() => step(1)} className="grid h-12 w-12 place-items-center text-slate-300">
               <Icon name="add" className="text-[18px]" />
