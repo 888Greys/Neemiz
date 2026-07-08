@@ -2,6 +2,7 @@ export const DEV_FAST = process.env.NEXT_PUBLIC_DEV_FAST === "1";
 
 export const DEV_FAST_WALLET_STATE = {
   balance: 0,
+  bonusBalance: 0,
   forexBalance: 0,
   currency: "KES",
   cryptoBalances: [],

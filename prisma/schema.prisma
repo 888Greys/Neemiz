@@ -20,6 +20,12 @@ model User {
   imageUrl          String?   @map("image_url")
   displayCurrency   String?   @map("display_currency")
   walletBalance     Decimal   @default(0.00) @map("wallet_balance") @db.Decimal(18, 2)
+  // Non-withdrawable, non-transferable promo credit. Kept STRICTLY separate from
+  // walletBalance (real cash) so the two can never mix: withdrawals, transfers,
+  // and P2P debit walletBalance only — never this. Playable via spendForPlay()
+  // (bonus-first). Replaces the old "admin sends KSh 50 from his wallet" promo
+  // hack that let promo credit be withdrawn/laundered.
+  bonusBalance      Decimal   @default(0.00) @map("bonus_balance") @db.Decimal(18, 2)
   forexWalletBalance Decimal  @default(0.00) @map("forex_wallet_balance") @db.Decimal(18, 2)
   currency          String    @default("KES")
   isActive          Boolean   @default(true) @map("is_active")
