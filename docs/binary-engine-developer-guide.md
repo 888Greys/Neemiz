@@ -22,7 +22,7 @@ refuse to quote.
 | `lib/binary/fairness.ts` | Harness core: `estimateWinProb`, `measureRtp`, `safePayoutMultiplier`, seeded market sim (`makeRng`, `simulatePath`). | ✅ pure |
 | `lib/binary/pricing.ts` | Nonparametric pricing: `sampleWindows` (block bootstrap), `wilsonUpper`, `priceDirectionalContract`, `priceDigitContract`, `measureSymbolEdge`. | ✅ pure |
 | `lib/binary/calibration.ts` | Real-tick supply per symbol (cached ~3s) + the per-symbol `edge`. Fail-closed on thin data. | I/O (Deriv) |
-| `lib/binary-price.ts` | Deriv access: `getServerTickHistory`, **`getLiveEntrySpot`** (fresh, uncached entry), `getServerBinaryDigit`. | I/O (Deriv) |
+| `lib/binary-price.ts` | Deriv access: `getServerTickHistory`, **`getLiveEntrySpot`** (fresh, uncached entry), `getContractExitDigit` (deterministic exit tick at `entryEpoch + durationTicks`). | I/O (Deriv) |
 | `lib/binary/server-price.ts` | Request-path pricing (`priceDirectionalServer`) — turns a bet request + ticks into a stored payout. | ✅ pure |
 | `lib/binary/provably-fair.ts` | Commit-reveal + signed quotes + `verifyOutcome` (kernel replay). | ✅ pure |
 | `lib/binary/rtp-guard.ts` | Runtime guard: measures realized RTP, auto-halts a bleeding kind, flags high-RTP players. | I/O (DB) |

@@ -32,8 +32,18 @@ export function evaluateKind(a: Agg, minSample: number, haltRtp: number): { rtp:
 // Directional contract kinds live in `directionalTrade.kind`; digit contract
 // sides live in `binaryTrade.side`. Both are exploitable and both auto-halt via
 // their own game-guard namespace ("directional:<kind>" / "binary:<side>").
-const KINDS = ["RISE_FALL", "HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"] as const;
-const DIGIT_SIDES = ["Even", "Odd", "Matches", "Differs", "Over", "Under"] as const;
+export const KINDS = ["RISE_FALL", "HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"] as const;
+export const DIGIT_SIDES = ["Even", "Odd", "Matches", "Differs", "Over", "Under"] as const;
+
+/** Every contract the runtime RTP guard watches, namespaced by game. Exported so
+ *  a test can assert the guard covers BOTH directional kinds AND digit sides —
+ *  the digit sides were the blind spot that let Over/Under bleed unchecked. */
+export function guardedContracts(): { game: string; key: string }[] {
+  return [
+    ...KINDS.map((k) => ({ game: "directional", key: k as string })),
+    ...DIGIT_SIDES.map((s) => ({ game: "binary", key: s as string })),
+  ];
+}
 
 export async function runRtpGuard() {
   const windowH   = num(process.env.RTP_WINDOW_HOURS, 12);
@@ -92,11 +102,7 @@ export async function runRtpGuard() {
   let sentAlert = false;   // did any notification clear the cooldown this run?
 
   // Per-contract: auto-halt on breach, across BOTH directional kinds and digit sides.
-  const contracts: { game: string; key: string }[] = [
-    ...KINDS.map((k) => ({ game: "directional", key: k as string })),
-    ...DIGIT_SIDES.map((s) => ({ game: "binary", key: s as string })),
-  ];
-  for (const { game, key } of contracts) {
+  for (const { game, key } of guardedContracts()) {
     const agg = byKind.get(`${game}:${key}`);
     if (!agg) continue;
     const { rtp, breach } = evaluateKind(agg, kindMin, haltRtp);

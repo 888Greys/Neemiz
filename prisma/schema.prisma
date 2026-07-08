@@ -784,6 +784,16 @@ model BinaryTrade {
   status    BinaryTradeStatus @default(PENDING)
   settledAt DateTime?         @map("settled_at")
 
+  // Provably-fair digit proof (mirrors DirectionalTrade). Commit at bet time,
+  // reveal the seed after the trade is terminal. The outcome is a replay of
+  // public Deriv ticks from entryEpoch through the open-source kernel.
+  pfServerSeed       String?  @map("pf_server_seed")
+  pfCommitment       String?  @map("pf_commitment")
+  pfSignature        String?  @map("pf_signature")
+  pfClientSeed       String?  @map("pf_client_seed")
+  pfNonce            String?  @map("pf_nonce")
+  pfPayoutMultiplier Decimal? @map("pf_payout_multiplier") @db.Decimal(10, 4)
+
   // Set when this trade was placed by an auto-trader session (lib/auto-trade).
   // Plain reference (no FK) so the settle path stays untouched; the auto engine
   // looks up a session's latest trade by this column.

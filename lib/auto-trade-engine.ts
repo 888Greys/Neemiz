@@ -10,8 +10,9 @@
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type AutoTradeSession } from "@prisma/client";
 import { getLiveEntrySpot } from "@/lib/binary-price";
-import { exitDigitFromQuote } from "@/lib/binary/kernel";
+import { exitDigitFromQuote, type DigitSide } from "@/lib/binary/kernel";
 import { payoutRate } from "@/lib/binary-settle";
+import { buildDigitProof, isProvablyFairConfigured, sha256 } from "@/lib/binary/provably-fair";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { nextStake, stopStatus, type AutoStrategy } from "@/lib/auto-trade";
 
@@ -34,6 +35,22 @@ async function placeNext(session: AutoTradeSession): Promise<string> {
   const payout      = applyProfitRetention(stake, grossPayout);
   const settleBefore = new Date(Date.now() + session.durationTicks * 1000 + 90_000);
 
+  // Provably-fair proof over the committed terms, same as the manual bet route.
+  const payoutMultiplier = stake > 0 ? Number((payout / stake).toFixed(4)) : 0;
+  const clientSeed = sha256(session.id);
+  const proof = isProvablyFairConfigured()
+    ? buildDigitProof({
+        market: session.market,
+        side: session.side as DigitSide,
+        targetDigit: session.targetDigit,
+        entryEpoch: entry.epoch,
+        durationTicks: session.durationTicks,
+        payoutMultiplier,
+        clientSeed,
+        nonce: Date.now(),
+      })
+    : null;
+
   const tradeId = await db.$transaction(async (tx) => {
     const debited = await tx.user.updateMany({
       where: { id: session.userId, walletBalance: { gte: stake } },
@@ -55,6 +72,12 @@ async function placeNext(session: AutoTradeSession): Promise<string> {
         settleBefore,
         status:        "PENDING",
         autoSessionId: session.id,
+        pfServerSeed:       proof?.serverSeed,
+        pfCommitment:       proof?.commitment,
+        pfSignature:        proof?.signature,
+        pfClientSeed:       proof ? clientSeed : undefined,
+        pfNonce:            proof ? String(proof.terms.nonce) : undefined,
+        pfPayoutMultiplier: proof ? payoutMultiplier : undefined,
       },
     });
 
