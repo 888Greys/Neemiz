@@ -892,7 +892,7 @@ export async function fetchOddsStatus(
   if (!API_KEY) return { data: [], failed: true, credits: 0, remaining: null };
   const url = `${BASE}/sports/${sportKey}/odds?apiKey=${API_KEY}&regions=eu&markets=${encodeURIComponent(markets)}&oddsFormat=decimal`;
   try {
-    const res = await fetch(url, { next: { revalidate: 0, cache: "no-store" } });
+    const res = await fetch(url, { cache: "no-store" });
     const credits = Number(res.headers.get("x-requests-last") ?? markets.split(",").length);
     const remainingRaw = res.headers.get("x-requests-remaining");
     const remaining = remainingRaw != null ? Number(remainingRaw) : null;
@@ -919,7 +919,7 @@ export async function fetchScoresStatus(
       : `apiKey=${API_KEY}&daysFrom=${daysFrom}`;
   const url = `${BASE}/sports/${sportKey}/scores?${qs}`;
   try {
-    const res = await fetch(url, { next: { revalidate: 0, cache: "no-store" } });
+    const res = await fetch(url, { cache: "no-store" });
     const credits = Number(res.headers.get("x-requests-last") ?? (daysFrom == null ? 1 : 2));
     const remainingRaw = res.headers.get("x-requests-remaining");
     const remaining = remainingRaw != null ? Number(remainingRaw) : null;
