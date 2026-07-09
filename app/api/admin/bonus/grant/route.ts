@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { logAdminAction } from "@/lib/admin-audit";
-import { bonusWagerMult, bonusCashoutMult, bonusExpiryDays } from "@/lib/balance";
 
 export const dynamic = "force-dynamic";
 
@@ -34,10 +33,8 @@ function maxDailyKes(): number {
 }
 
 /**
- * Grant promo credit to a user's bonusBalance (NOT their real walletBalance).
- * Bonus is non-withdrawable and non-transferable by construction, so this
- * replaces the old "admin sends KSh 50 from his own wallet" pattern that let
- * promo credit be cashed out and laundered.
+ * Grant promo credit straight to the user's main walletBalance. Bonus and real
+ * cash intentionally share one KES wallet again.
  *
  * Body: { username?: string, userId?: string, amount: number, reason?: string }
  */
@@ -71,28 +68,17 @@ export async function POST(req: Request) {
 
   const target = await db.user.findFirst({
     where: body.userId ? { id: body.userId } : { username: body.username },
-    select: { id: true, username: true, bonusBalance: true },
+    select: { id: true, username: true, walletBalance: true },
   });
   if (!target) return Response.json({ error: "User not found" }, { status: 404 });
 
-  const before = Number(target.bonusBalance);
+  const before = Number(target.walletBalance);
   const reference = `bonus-grant-${crypto.randomUUID()}`;
 
-  const wagerAdd  = amount * bonusWagerMult();
-  const capAdd    = amount * bonusCashoutMult();
-  const expiresAt = new Date(Date.now() + bonusExpiryDays() * 24 * 60 * 60 * 1000);
-
   const after = await db.$transaction(async (tx) => {
-    // Grant starts (or extends) a wagering cycle: turnover requirement and
-    // cashout cap stack per grant; the expiry clock resets to a full window.
     await tx.user.update({
       where: { id: target.id },
-      data: {
-        bonusBalance:        { increment: amount },
-        bonusWagerRemaining: { increment: wagerAdd },
-        bonusCashoutCap:     { increment: capAdd },
-        bonusExpiresAt:      expiresAt,
-      },
+      data:  { walletBalance: { increment: amount } },
     });
     await tx.transaction.create({
       data: {
@@ -105,19 +91,16 @@ export async function POST(req: Request) {
         provider: "bonus_grant",
         metadata: {
           action: "admin_bonus_grant",
-          balance: "bonus",
+          balance: "wallet",
           before,
           after: before + amount,
           reason: body.reason ?? "admin bonus grant",
           grantedBy: admin.id,
-          wagerRequired: wagerAdd,
-          cashoutCap: capAdd,
-          expiresAt: expiresAt.toISOString(),
         },
       },
     });
-    const updated = await tx.user.findUnique({ where: { id: target.id }, select: { bonusBalance: true } });
-    return Number(updated?.bonusBalance ?? 0);
+    const updated = await tx.user.findUnique({ where: { id: target.id }, select: { walletBalance: true } });
+    return Number(updated?.walletBalance ?? 0);
   });
 
   await logAdminAction({
@@ -127,5 +110,5 @@ export async function POST(req: Request) {
     metadata: { amount, before, after, reason: body.reason ?? null, reference },
   });
 
-  return Response.json({ ok: true, username: target.username, bonusBalance: after, granted: amount, reference });
+  return Response.json({ ok: true, username: target.username, balance: after, bonusBalance: 0, granted: amount, reference });
 }

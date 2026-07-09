@@ -173,7 +173,7 @@ type WalletTab = "home" | "deposit" | "send" | "withdraw" | "history";
 export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boolean; initialTab?: WalletTab } = {}) {
   const { isSignedIn, user } = useSupabaseAuth();
   const { openLogin }        = useAuthModal();
-  const { balance, bonusBalance, currency, refresh: refreshBalance } = useWalletBalance();
+  const { balance, currency, refresh: refreshBalance } = useWalletBalance();
   // Display currency (header switcher). KES balances render in the chosen
   // currency; M-Pesa amounts stay KES below (it's a Kenya-only rail).
   const { format: formatDisplay, code: displayCurrency } = useCurrency();
@@ -729,9 +729,6 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
       {tab === "home" ? (
         <WalletHome
           balance={isSignedIn ? fmtBalance : "—"}
-          bonusLabel={isSignedIn && bonusBalance > 0
-            ? `${CURRENCY_SYMBOL} ${bonusBalance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`
-            : null}
           cryptoBalances={nonZeroBalances}
           formatCryptoAmount={formatCryptoAmount}
           isSignedIn={!!isSignedIn}
@@ -1495,7 +1492,6 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
 function WalletHome({
   balance,
-  bonusLabel,
   cryptoBalances,
   formatCryptoAmount,
   isSignedIn,
@@ -1503,7 +1499,6 @@ function WalletHome({
   onOpen,
 }: {
   balance: string;
-  bonusLabel: string | null;
   cryptoBalances: CryptoBalance[];
   formatCryptoAmount: (balance: CryptoBalance) => string;
   isSignedIn: boolean;
@@ -1524,12 +1519,6 @@ function WalletHome({
           <div>
             <p className="text-[12px] font-black uppercase tracking-wide text-slate-400">Main wallet</p>
             <p className="mt-1 text-3xl font-black tracking-tight text-white">{balance}</p>
-            {bonusLabel && (
-              <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2.5 py-1 text-[12px] font-bold text-violet-300">
-                <Icon name="redeem" className="text-[14px]" />
-                Bonus {bonusLabel} · not withdrawable
-              </p>
-            )}
           </div>
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#087cff]/15 text-[#62a9ff]">
             <Icon name="account_balance_wallet" className="text-[24px]" />
