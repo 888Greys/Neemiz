@@ -348,91 +348,6 @@ function WheelOfFortune({
   );
 }
 
-// ─── Share Bet Modal ───────────────────────────────────────────────────────────
-
-function ShareBetModal({ onClose }: { onClose: () => void }) {
-  const [code]    = useState(() => Math.random().toString(36).slice(2, 8).toUpperCase());
-  const [copied, setCopied] = useState<"code" | "link" | null>(null);
-
-  const link = typeof window !== "undefined"
-    ? `${window.location.origin}/sports?bet=${code}`
-    : `/sports?bet=${code}`;
-
-  async function copyCode() {
-    await navigator.clipboard.writeText(code);
-    setCopied("code");
-    setTimeout(() => setCopied(null), 2000);
-  }
-
-  async function shareLink() {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: "Nezeem Bet", url: link });
-        return;
-      } catch { /* fallthrough */ }
-    }
-    await navigator.clipboard.writeText(link);
-    setCopied("link");
-    setTimeout(() => setCopied(null), 2000);
-  }
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Card */}
-      <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl bg-[#13161f] shadow-2xl ring-1 ring-white/10">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 pt-4 pb-3">
-          <div>
-            <h3 className="text-[15px] font-black text-white">Share bet</h3>
-            <p className="mt-0.5 text-[11px] text-slate-500">Copy the code or share a link</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.07] text-slate-400 transition hover:bg-white/[0.12] hover:text-white"
-          >
-            <Icon name="close" className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="px-5 py-4">
-          <div className="mb-4 flex items-center gap-2 rounded-xl bg-[#1c2433] px-3 py-3 ring-1 ring-white/[0.06]">
-            <span className="flex-1 font-mono text-[16px] font-black tracking-widest text-white">{code}</span>
-            <button
-              type="button"
-              onClick={copyCode}
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition ${
-                copied === "code" ? "bg-emerald-500 text-white" : "bg-[#087cff] text-white hover:bg-[#0570e8]"
-              }`}
-            >
-              <Icon name={copied === "code" ? "check" : "photo_camera"} className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="mb-4 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/[0.07]" />
-            <span className="text-[11px] font-black text-slate-600">OR</span>
-            <div className="h-px flex-1 bg-white/[0.07]" />
-          </div>
-
-          <button
-            type="button"
-            onClick={shareLink}
-            className={`flex w-full items-center justify-center gap-2.5 rounded-xl py-3.5 text-sm font-black transition ${
-              copied === "link" ? "bg-emerald-500 text-white" : "bg-[#087cff] text-white hover:bg-[#0570e8]"
-            }`}
-          >
-            <Icon name={copied === "link" ? "check" : "open_in_new"} className="h-4 w-4" />
-            {copied === "link" ? "Link copied!" : "Share a link"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Betslip ─────────────────────────────────────────────────────────────
 
 export function SportsBetSlip() {
@@ -451,7 +366,6 @@ export function SportsBetSlip() {
   const [myBets,     setMyBets]     = useState<MyBet[]>([]);
   const [betsLoading,setBetsLoading]= useState(false);
   const [expandedBet,setExpandedBet]= useState<string | null>(null);
-  const [showShare,  setShowShare]  = useState(false);
 
   const totalOdds  = bets.reduce((acc, b) => acc * parseFloat(b.value || "1"), 1);
   // `amounts` values are display-currency strings; *_Kes are the canonical
@@ -562,8 +476,6 @@ export function SportsBetSlip() {
 
   return (
     <>
-      {showShare && <ShareBetModal onClose={() => setShowShare(false)} />}
-
       <div className="flex h-full min-h-0 w-full flex-col bg-[#0d0e11]">
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#141820] px-3 py-2.5">
@@ -786,12 +698,41 @@ export function SportsBetSlip() {
               )}
             </div>
           ) : bets.length === 0 ? (
-            <WheelOfFortune
-              balance={balance}
-              isSignedIn={isSignedIn}
-              openLogin={openLogin}
-              refreshBalance={refreshBalance}
-            />
+            <div className="flex flex-col">
+              <div className="flex flex-col items-center px-5 py-10 text-center">
+                <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1c2433] text-[#087cff]">
+                  <Icon name="receipt_long" className="h-6 w-6" />
+                </span>
+                <p className="text-[14px] font-black text-white">Your betslip is empty</p>
+                <p className="mt-1.5 max-w-[220px] text-[12px] font-medium leading-relaxed text-slate-500">
+                  Tap odds on any match to add selections here.
+                </p>
+                <Link
+                  href="/sports"
+                  className="mt-5 rounded-xl bg-[#087cff] px-5 py-2.5 text-[12px] font-black text-white transition hover:bg-[#0570e8] active:scale-[0.98]"
+                >
+                  Browse sports
+                </Link>
+              </div>
+              <div className="mx-3 mb-3 overflow-hidden rounded-xl border border-white/10 bg-[#141820]">
+                <button
+                  type="button"
+                  onClick={() => setShowWheel((v) => !v)}
+                  className="flex w-full items-center justify-between px-3 py-2.5"
+                >
+                  <span className="text-[12px] font-black text-white">Lucky Spin</span>
+                  <Icon name={showWheel ? "expand_less" : "expand_more"} className="h-4 w-4 text-slate-400" />
+                </button>
+                {showWheel && (
+                  <WheelOfFortune
+                    balance={balance}
+                    isSignedIn={isSignedIn}
+                    openLogin={openLogin}
+                    refreshBalance={refreshBalance}
+                  />
+                )}
+              </div>
+            </div>
           ) : tab === "single" ? (
             <div>
               {bets.map((bet) => {
@@ -1003,29 +944,19 @@ export function SportsBetSlip() {
                 )}
                 <div className="mb-2 flex items-center justify-between px-0.5">
                   <span className="text-[11px] text-slate-500">Possible win</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-black tabular-nums text-emerald-400">
-                      {formatInCurrency(
-                        tab === "multi"
-                          ? multiPayout
-                            ? Number(multiPayout)
-                            : 0
-                          : bets.reduce((s, b) => {
-                              const stake = parseFloat(amounts[b.id] || "0");
-                              return s + (stake > 0 ? retainedPayout(stake, stake * parseFloat(b.value)) : 0);
-                            }, 0),
-                        dispCur.code,
-                      )}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowShare(true)}
-                      title="Share bet"
-                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#1c2433] text-slate-400 transition hover:bg-[#243044] hover:text-white"
-                    >
-                      <Icon name="open_in_new" className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  <span className="text-[13px] font-black tabular-nums text-emerald-400">
+                    {formatInCurrency(
+                      tab === "multi"
+                        ? multiPayout
+                          ? Number(multiPayout)
+                          : 0
+                        : bets.reduce((s, b) => {
+                            const stake = parseFloat(amounts[b.id] || "0");
+                            return s + (stake > 0 ? retainedPayout(stake, stake * parseFloat(b.value)) : 0);
+                          }, 0),
+                      dispCur.code,
+                    )}
+                  </span>
                 </div>
                 <button
                   type="button"

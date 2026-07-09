@@ -57,14 +57,14 @@ export const forexMobileNav: MobileNavItem[] = [
   { href: "/forex?panel=positions", label: "Positions", icon: "schedule",               panel: "positions", activePath: "/forex" },
 ];
 
-// Sports is its own destination: Top / Live event streams plus a My Bets escape,
+// Sports is its own destination: Sports / Live event streams plus a My Bets escape,
 // with Menu as the constant hatch back to the rest of the platform. Tabs carry a
 // `?tab=` the sports client already reads, so `activePath` keys off the pathname.
 export const sportsMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
-  { href: "/sports?tab=Top",  label: "Top",     icon: "local_fire_department", activePath: "/sports" },
-  { href: "/sports?tab=Live", label: "Live",    icon: "sensors",               activePath: "/sports" },
-  { href: "/my-bets",         label: "My Bets", icon: "receipt_long" },
+  { href: "/sports",            label: "Sports",  icon: "sports_soccer", activePath: "/sports" },
+  { href: "/sports?tab=live",   label: "Live",    icon: "sensors",       activePath: "/sports" },
+  { href: "/my-bets",           label: "My Bets", icon: "receipt_long" },
 ];
 
 // P2P is a self-contained marketplace: Browse ads / Merchant center / My orders,

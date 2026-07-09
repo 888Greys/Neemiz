@@ -203,13 +203,17 @@ export function MatchRow({ match: m }: { match: Match }) {
         {m.isLive ? (
           <span className="inline-flex items-center gap-1 rounded bg-[#ff1979]/15 px-1.5 py-0.5 text-[10px] font-black uppercase text-[#ff1979]">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ff1979]" />
-            {m.period}
+            {m.period && m.period.toLowerCase() !== "live" ? m.period : "Live"}
           </span>
         ) : (
           <span className="font-bold text-slate-500">{when}</span>
         )}
-        <span className="text-slate-700">|</span>
-        <span className="font-bold text-slate-600">ID: {String(m.id).slice(-4)}</span>
+        {m.league && (
+          <>
+            <span className="text-slate-700">·</span>
+            <span className="truncate font-bold text-slate-500">{m.league}</span>
+          </>
+        )}
       </div>
 
       {/* Teams */}
