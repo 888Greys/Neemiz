@@ -35,14 +35,14 @@ export async function GET() {
         locked:    Number(r.locked),
       }));
 
+    const mainBalance = Number(dbUser.walletBalance) + Number(dbUser.bonusBalance ?? 0);
+
     return Response.json({
-      balance:        Number(dbUser.walletBalance),
-      bonusBalance:   Number(dbUser.bonusBalance ?? 0),
-      // Wagering cycle progress (null when no active cycle): stake this much
-      // more and the bonus converts to real, capped at bonusCashoutCap.
-      bonusWagerRemaining: dbUser.bonusExpiresAt ? Number(dbUser.bonusWagerRemaining ?? 0) : null,
-      bonusCashoutCap:     dbUser.bonusExpiresAt ? Number(dbUser.bonusCashoutCap ?? 0) : null,
-      bonusExpiresAt:      dbUser.bonusExpiresAt ?? null,
+      balance:        mainBalance,
+      bonusBalance:   0,
+      bonusWagerRemaining: null,
+      bonusCashoutCap:     null,
+      bonusExpiresAt:      null,
       forexBalance:   Number(dbUser.forexWalletBalance ?? 0),
       currency:       dbUser.currency,
       cryptoBalances,
