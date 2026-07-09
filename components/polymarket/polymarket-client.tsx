@@ -160,17 +160,17 @@ function HeroCard({ market, allMarkets, onBet, onOpen }: { market: PolymarketMar
   const noMult  = noP  > 0 ? (1 / noP).toFixed(2)  : "—";
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+    <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#18191f]">
       {/* ── Top header row ── */}
       <div
         onClick={() => onOpen(market)}
-        className="flex cursor-pointer items-center justify-between gap-4 border-b border-white/[0.06] px-5 pt-4 pb-3 hover:bg-white/[0.03] transition"
+        className="flex cursor-pointer items-center justify-between gap-4 border-b border-white/[0.06] px-5 pt-4 pb-3 transition hover:bg-[#1c1d24]"
       >
         <div className="flex items-center gap-3">
           {market.image ? (
             <Image src={market.image} alt="" width={36} height={36} unoptimized className="h-9 w-9 shrink-0 rounded-xl object-cover" />
           ) : (
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-sm font-black text-white">?</div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#087cff]/30 text-sm font-black text-[#8bc3ff]">?</div>
           )}
           <div>
             <p className="text-sm font-black leading-tight text-white sm:text-base">{market.question}</p>
@@ -195,10 +195,9 @@ function HeroCard({ market, allMarkets, onBet, onOpen }: { market: PolymarketMar
         <div className="flex items-center gap-2 border-r border-white/[0.06] px-4 py-3 sm:hidden">
           <button
             onClick={() => onBet(market, yesLbl)}
-            className="flex flex-1 items-center justify-between rounded-xl px-3 py-2 transition active:scale-95"
-            style={{ background: "rgba(133,77,14,0.55)" }}
+            className="flex flex-1 items-center justify-between rounded-xl bg-[#087cff]/25 px-3 py-2 transition active:scale-95 hover:bg-[#087cff]/35"
           >
-            <span className="text-xs font-black uppercase tracking-wide text-amber-300">{yesLbl}</span>
+            <span className="text-xs font-black uppercase tracking-wide text-[#8bc3ff]">{yesLbl}</span>
             <span className="text-sm font-black text-white">{yesMult}×</span>
           </button>
           <button
@@ -217,10 +216,9 @@ function HeroCard({ market, allMarkets, onBet, onOpen }: { market: PolymarketMar
         <div className="hidden flex-col gap-3 border-r border-white/[0.06] p-5 sm:flex">
           <button
             onClick={() => onBet(market, yesLbl)}
-            className="flex h-10 items-center justify-between rounded-xl px-4 transition"
-            style={{ background: "rgba(133,77,14,0.55)" }}
+            className="flex h-10 items-center justify-between rounded-xl bg-[#087cff]/25 px-4 transition hover:bg-[#087cff]/35"
           >
-            <span className="text-sm font-black uppercase tracking-wide text-amber-300">{yesLbl}</span>
+            <span className="text-sm font-black uppercase tracking-wide text-[#8bc3ff]">{yesLbl}</span>
             <span className="text-base font-black text-white">{yesMult}×</span>
           </button>
           <button
@@ -357,7 +355,7 @@ function BreakingNews({ markets, onOpen }: { markets: PolymarketMarket[]; onOpen
   if (markets.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
+    <div className="rounded-2xl border border-white/[0.06] bg-[#18191f] p-5">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[15px] font-black text-white">Breaking news</span>
         <button className="flex items-center gap-0.5 text-[12px] text-white/35 hover:text-white/60">
@@ -405,7 +403,7 @@ function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTag
   if (topics.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
+    <div className="rounded-2xl border border-white/[0.06] bg-[#18191f] p-5">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[15px] font-black text-white">Hot topics</span>
         <button className="flex items-center gap-0.5 text-[12px] text-white/35 hover:text-white/60">
@@ -427,7 +425,7 @@ function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTag
           </button>
         ))}
       </div>
-      <button className="mt-4 w-full rounded-xl border border-white/[0.08] py-2.5 text-[13px] font-black text-white/40 transition hover:bg-white/[0.04] hover:text-white/70">
+      <button className="mt-4 w-full rounded-xl border border-white/[0.06] py-2.5 text-[13px] font-black text-white/40 transition hover:bg-white/[0.04] hover:text-white/70">
         Explore all
       </button>
     </div>
@@ -455,7 +453,7 @@ function CompactCard({ market, onBet, onOpen }: { market: PolymarketMarket; onBe
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onOpen(market);
       }}
-      className="flex min-h-[216px] cursor-pointer flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 text-left transition hover:border-white/[0.14] hover:bg-white/[0.05]"
+      className="flex min-h-[216px] cursor-pointer flex-col rounded-2xl border border-white/[0.06] bg-[#18191f] p-4 text-left transition hover:border-white/[0.12] hover:bg-[#1c1d24]"
     >
       <div className="mb-4 flex items-start gap-3">
         {market.image ? (
@@ -621,7 +619,7 @@ function DetailTradeTicket({
 
   return (
     <aside className={compact ? "" : "lg:sticky lg:top-24 lg:self-start"}>
-      <div className={`overflow-hidden border border-white/[0.08] bg-white/[0.03] shadow-2xl shadow-black/25 ${compact ? "rounded-t-3xl" : "rounded-2xl"}`}>
+      <div className={`overflow-hidden border border-white/[0.06] bg-[#18191f] shadow-2xl shadow-black/25 ${compact ? "rounded-t-3xl" : "rounded-2xl"}`}>
         {!compact && <div className="flex items-center gap-3 border-b border-white/[0.06] p-4">
           {market.image ? (
             <Image src={market.image} alt="" width={44} height={44} unoptimized className="h-11 w-11 shrink-0 rounded-xl object-cover" />
@@ -688,7 +686,7 @@ function DetailTradeTicket({
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setReceipt(null)}
-                  className="h-10 rounded-xl border border-white/[0.08] bg-white/[0.04] text-[12px] font-black text-white/60"
+                  className="h-10 rounded-xl border border-white/[0.06] bg-white/[0.04] text-[12px] font-black text-white/60"
                 >
                   Trade again
                 </button>
@@ -764,7 +762,7 @@ function DetailTradeTicket({
       </div>
 
       {!compact && <p className="px-5 py-4 text-[12px] font-semibold text-white/35">By trading, you agree to the <span className="underline">Terms of Use</span>.</p>}
-      {!compact && <div className="border-t border-dashed border-white/[0.08] pt-4">
+      {!compact && <div className="border-t border-dashed border-white/[0.06] pt-4">
         <div className="mb-3 flex gap-2">
           {["All", ...(market.tags.slice(0, 2).length ? market.tags.slice(0, 2) : ["Market"])].map((t, i) => (
             <span key={`${t}-${i}`} className={`rounded-full px-4 py-2 text-[12px] font-black ${i === 0 ? "bg-white/[0.08] text-white" : "text-white/40"}`}>{t}</span>
@@ -893,7 +891,7 @@ function DetailMyBets({ bets }: { bets: MyBet[] }) {
   const openToWin = bets.filter((b) => b.status === "PENDING").reduce((s, b) => s + b.potentialWin, 0);
 
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
+    <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#18191f]">
       <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
         <span className="text-[13px] font-black text-white">My Bets</span>
         <div className="flex items-center gap-2">
@@ -908,11 +906,11 @@ function DetailMyBets({ bets }: { bets: MyBet[] }) {
 
       {bets.length > 1 && (
         <div className="grid grid-cols-2 gap-px border-b border-white/[0.06] bg-white/[0.06]">
-          <div className="bg-white/[0.03] px-4 py-2.5">
+          <div className="bg-[#18191f] px-4 py-2.5">
             <p className="text-[10px] font-black uppercase tracking-wide text-white/30">Staked</p>
             <p className="mt-0.5 font-mono text-[13px] font-black text-white">{format(totalStake)}</p>
           </div>
-          <div className="bg-white/[0.03] px-4 py-2.5">
+          <div className="bg-[#18191f] px-4 py-2.5">
             <p className="text-[10px] font-black uppercase tracking-wide text-white/30">To win</p>
             <p className="mt-0.5 font-mono text-[13px] font-black text-[#31c45d]">{format(openToWin)}</p>
           </div>
@@ -1018,7 +1016,7 @@ function MarketDetailView({
                     onClick={() => { setSelectedOutcome(outcome); setSelectedTradeSide("yes"); }}
                     className={`flex items-center gap-1.5 text-[13px] font-semibold ${selectedOutcome === outcome ? "text-white" : "text-white/45 hover:text-white/70"}`}
                   >
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: ["#8bc3ff", "#2997ff", "#facc15", "#f97316"][i % 4] }} />
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: ["#8bc3ff", "#2997ff", "#31c45d", "#f97316"][i % 4] }} />
                     {outcome} <span className="font-black">{(marketPrice(market, i) * 100).toFixed(i === 0 ? 0 : 1)}%</span>
                   </button>
                 ))}
@@ -1166,7 +1164,7 @@ function MarketDetailView({
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-14 z-40 border-t border-white/[0.08] bg-[#151518]/95 px-3 pt-2 shadow-2xl shadow-black/60 backdrop-blur lg:hidden">
+      <div className="fixed inset-x-0 bottom-14 z-40 border-t border-white/[0.06] bg-[#151518]/95 px-3 pt-2 shadow-2xl shadow-black/60 backdrop-blur lg:hidden">
         {mobileTradeOpen ? (
           <>
             <button
@@ -1208,7 +1206,7 @@ function MarketDetailView({
 }
 
 const HOLDER_NAMES = ["CryptoWhale", "PredictorX", "AlphaTrader", "MarketMaker", "DegenBull", "SmartMoney", "InfoTrader", "EliteHedge"];
-const OUTCOME_COLORS = ["#8bc3ff", "#2997ff", "#facc15", "#f97316"];
+const OUTCOME_COLORS = ["#8bc3ff", "#2997ff", "#31c45d", "#f97316"];
 
 function TopHoldersPanel({ market }: { market: PolymarketMarket }) {
   const holders = HOLDER_NAMES.map((name, i) => ({
@@ -1224,7 +1222,7 @@ function TopHoldersPanel({ market }: { market: PolymarketMarket }) {
   return (
     <div className="space-y-2">
       {holders.map((h, i) => (
-        <div key={h.name} className="flex items-center gap-3 rounded-xl bg-white/[0.03] px-4 py-3 hover:bg-white/[0.06]">
+        <div key={h.name} className="flex items-center gap-3 rounded-xl bg-[#18191f] px-4 py-3 hover:bg-white/[0.06]">
           <span className="w-5 text-[12px] font-black text-white/30">{i + 1}</span>
           <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-amber-300" />
           <div className="flex-1 min-w-0">
@@ -1263,7 +1261,7 @@ function PositionsPanel({ market }: { market: PolymarketMarket }) {
         </thead>
         <tbody className="divide-y divide-white/[0.04]">
           {positions.map((p, i) => (
-            <tr key={i} className="hover:bg-white/[0.03]">
+            <tr key={i} className="hover:bg-[#18191f]">
               <td className="px-4 py-3 font-black text-white">{p.outcome}</td>
               <td className="px-4 py-3">
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${p.side === "Yes" ? "bg-[#31c45d]/15 text-[#31c45d]" : "bg-red-500/15 text-red-400"}`}>{p.side}</span>
@@ -1328,7 +1326,7 @@ function CommentsPanel({ comments, onAddComment }: { comments: DetailComment[]; 
 
   return (
     <>
-      <div className="mb-4 rounded-xl border border-white/[0.08] bg-[#18191f] p-3">
+      <div className="mb-4 rounded-xl border border-white/[0.06] bg-[#18191f] p-3">
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -1446,7 +1444,7 @@ function TradeSheet({
         onClick={(e) => e.stopPropagation()}
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="flex flex-col items-center bg-white/[0.03] pt-3 pb-1 rounded-t-3xl">
+        <div className="flex flex-col items-center bg-[#18191f] pt-3 pb-1 rounded-t-3xl">
           <div className="h-1 w-10 rounded-full bg-white/20 mb-2" />
           <button
             onClick={onClose}
@@ -1740,9 +1738,24 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   return (
     <div className="flex flex-col gap-0 text-white">
 
+      {/* Quiet intro — land here before market controls */}
+      {!selectedMarket && tab === "browse" && (
+        <div className="mb-5 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#18191f] px-4 py-5 sm:px-6 sm:py-6">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#75b8ff]">
+            Nezeem Predictions
+          </p>
+          <h1 className="mt-1.5 text-[22px] font-black tracking-tight text-white sm:text-[26px]">
+            Trade what happens next
+          </h1>
+          <p className="mt-1.5 max-w-xl text-[13px] font-medium leading-relaxed text-slate-400">
+            Real-world markets. Pick Yes or No, cash out when you&apos;re ahead.
+          </p>
+        </div>
+      )}
+
       {/* ── Search + balance bar ─────────────────────────────────────────── */}
       {!selectedMarket && <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4">
+        <div className="flex h-10 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-[#18191f] px-4">
           <Search className="h-4 w-4 shrink-0 text-white/25" />
           <input
             value={search}
@@ -1752,14 +1765,14 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
           />
           {search && <button onClick={() => setSearch("")} className="text-[11px] text-white/30 hover:text-white/60">✕</button>}
         </div>
-        <div className="hidden h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 sm:flex">
+        <div className="hidden h-10 items-center gap-2 rounded-xl border border-white/[0.06] bg-[#18191f] px-4 sm:flex">
           <span className="text-[11px] font-black uppercase tracking-widest text-white/25">Balance</span>
           <span className="font-black text-white">{format(balance)}</span>
         </div>
         <button
           onClick={() => tab === "my-bets" ? goBackToMarkets() : viewMyBets()}
           className={`h-10 rounded-xl px-4 text-[13px] font-black transition ${
-            tab === "my-bets" ? "bg-[#087cff] text-white" : "border border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white"
+            tab === "my-bets" ? "bg-[#087cff] text-white" : "border border-white/[0.06] bg-[#18191f] text-white/50 hover:text-white"
           }`}
         >
           My Bets
@@ -1815,11 +1828,11 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
             {loading ? (
               <div className="flex flex-col gap-3">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-28 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                  <div key={i} className="h-28 animate-pulse rounded-2xl border border-white/[0.06] bg-[#18191f]" />
                 ))}
               </div>
             ) : filtered.length === 0 ? (
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] py-20 text-center">
+              <div className="rounded-2xl border border-white/[0.06] bg-[#18191f] py-20 text-center">
                 <p className="text-sm text-white/25">No markets found</p>
               </div>
             ) : (
@@ -1837,7 +1850,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
             <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
               <div>
                 {loading ? (
-                  <div className="h-72 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                  <div className="h-72 animate-pulse rounded-2xl border border-white/[0.06] bg-[#18191f]" />
                 ) : heroMarkets.length > 0 ? (
                   <HeroCarousel markets={heroMarkets} allMarkets={markets} onBet={openBet} onOpen={openMarket} />
                 ) : null}
@@ -1845,8 +1858,8 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
               <div className="flex flex-col gap-4 lg:sticky lg:top-24 lg:self-start">
                 {loading ? (
                   <>
-                    <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
-                    <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                    <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-[#18191f]" />
+                    <div className="h-52 animate-pulse rounded-2xl border border-white/[0.06] bg-[#18191f]" />
                   </>
                 ) : (
                   <>
@@ -1868,11 +1881,11 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
               {loading ? (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="h-44 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]" />
+                    <div key={i} className="h-44 animate-pulse rounded-2xl border border-white/[0.06] bg-[#18191f]" />
                   ))}
                 </div>
               ) : gridMarkets.length === 0 ? (
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] py-20 text-center">
+                <div className="rounded-2xl border border-white/[0.06] bg-[#18191f] py-20 text-center">
                   <p className="text-sm text-white/25">No markets found</p>
                 </div>
               ) : (
@@ -1898,11 +1911,11 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
           </button>
 
           {!userId ? (
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] py-20 text-center">
+            <div className="rounded-2xl border border-white/[0.06] bg-[#18191f] py-20 text-center">
               <p className="text-sm text-white/30">Sign in to see your bets</p>
             </div>
           ) : myBets.length === 0 ? (
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] py-20 text-center">
+            <div className="rounded-2xl border border-white/[0.06] bg-[#18191f] py-20 text-center">
               <p className="text-sm text-white/30">No bets yet</p>
               <button
                 onClick={goBackToMarkets}
@@ -1933,7 +1946,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
                   <h2 className="text-xl font-black text-white">My positions</h2>
                   <p className="mt-1 text-sm text-white/35">Track pending bets, entry price, stake, and potential payout.</p>
                 </div>
-                <div className="grid grid-cols-3 rounded-xl border border-white/[0.08] bg-[#18191f] p-1">
+                <div className="grid grid-cols-3 rounded-xl border border-white/[0.06] bg-[#18191f] p-1">
                   {([
                     ["open", `Open ${openBets.length}`],
                     ["resolved", `Resolved ${resolvedBets.length}`],
