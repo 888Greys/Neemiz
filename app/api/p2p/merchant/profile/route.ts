@@ -21,6 +21,7 @@ export async function GET() {
     where: { userId: dbUser.id },
     include: {
       ads: { where: { isActive: true }, select: { id: true } },
+      user: { select: { imageUrl: true } },
     },
   });
 
@@ -101,7 +102,7 @@ export async function GET() {
     kycStatus:       merchant.kycStatus,
     isOnline:        merchant.isOnline,
     displayName:     merchant.displayName,
-    avatarUrl:       merchant.avatarUrl,
+    avatarUrl:       merchant.avatarUrl ?? merchant.user.imageUrl,
     completedTrades: merchant.completedTrades,
     completionRate,
     totalTrades:     merchant.totalTrades,
