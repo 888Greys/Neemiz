@@ -677,7 +677,7 @@ function MobileP2POrderView({
             <div className="flex items-center justify-between gap-3 text-[13px]">
               <span className="font-bold text-slate-400">Payment method</span>
               <span className="flex items-center gap-1.5 font-bold text-white">
-                <span className={`h-3.5 w-0.5 rounded-full ${order.paymentMethod === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
+                <span className={`h-3.5 w-0.5 rounded-full ${order.paymentMethod === "MPESA" ? "bg-[#05b957]" : "bg-[#087cff]"}`} />
                 {paymentName}
               </span>
             </div>
@@ -868,7 +868,7 @@ function MobileP2POrderView({
           <button
             type="button"
             onClick={() => setShowChat(true)}
-            className="shrink-0 rounded-lg bg-[#facc15] px-4 py-2 text-xs font-black text-black transition-colors hover:bg-[#facc15]/80"
+            className="shrink-0 rounded-lg bg-[#087cff] px-4 py-2 text-xs font-black text-white transition-colors hover:bg-[#087cff]/80"
           >
             Chat
           </button>
@@ -993,7 +993,7 @@ function MobileP2POrderView({
         ) : (
           <section className="mb-5 rounded-2xl border border-white/[0.08] bg-[#18191f] px-4 py-4">
             <div className="flex items-start gap-3">
-              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#f59e0b]/15 text-[#f59e0b]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#087cff]/15 text-[#75b8ff]">
                 <Icon name="schedule" className="text-[18px]" />
               </span>
               <div>
@@ -1070,7 +1070,7 @@ function MobileP2POrderView({
       {order.status === "PENDING" && (
         <button type="button" className="mb-5 flex w-full items-center justify-between rounded-2xl bg-[#18191f] px-4 py-3 text-left">
           <span className="flex items-center gap-2 text-xs text-white">
-            <Icon name="tips_and_updates" className="text-[16px] text-[#f59e0b]" />
+            <Icon name="tips_and_updates" className="text-[16px] text-[#75b8ff]" />
             Encountered an issue?
           </span>
           <Icon name="chevron_right" className="text-[16px] text-slate-500" />

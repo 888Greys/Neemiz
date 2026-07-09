@@ -258,45 +258,38 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {/* ── Banner ── */}
-          <div
-            className="relative h-28 shrink-0"
-            style={{ background: "conic-gradient(from 45deg at 50% 45%, #0a4ea8 0deg 90deg, #1a78ff 90deg 180deg, #0a4ea8 180deg 270deg, #1a78ff 270deg 360deg)" }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent" />
+          {/* ── Header (matches ad-row surface — no blue banner / share) ── */}
+          <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-3 sm:px-5">
             <button
               type="button"
               onClick={onClose}
-              className="absolute left-3 top-3 grid h-9 w-9 place-items-center rounded-full text-white/90 transition hover:bg-black/10"
+              className="grid h-9 w-9 place-items-center rounded-xl bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
+              aria-label="Close"
             >
-              <Icon name="arrow_back" className="text-[22px]" />
+              <Icon name="arrow_back" className="text-[20px]" />
             </button>
-            <button
-              type="button"
-              className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full text-white/90 transition hover:bg-black/10"
-              title="Share"
-            >
-              <Icon name="share" className="text-[20px]" />
-            </button>
+            <p className="text-[13px] font-black text-white">Merchant</p>
+            <span className="w-9" aria-hidden />
           </div>
 
           {/* ── Identity ── */}
-          <div className="shrink-0 px-4 sm:px-5">
-            <div className="mt-2 flex items-end justify-between">
+          <div className="shrink-0 px-4 pt-4 sm:px-5">
+            <div className="flex items-center justify-between gap-3">
               <MerchantAvatar
                 id={source.id ?? source.displayName}
                 name={source.displayName}
                 avatarUrl={source.avatarUrl}
-                size={64}
-                className="border-[3px] border-[#151518]"
+                size={56}
                 online={source.isOnline}
                 onlineRingClass="border-[#151518]"
               />
               <button
                 type="button"
                 onClick={() => setFollowing((f) => !f)}
-                className={`mb-1.5 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-black transition ${
-                  following ? "bg-white/10 text-slate-200" : "bg-[#087cff] text-white hover:bg-[#1a78ff]"
+                className={`inline-flex items-center gap-1 rounded-xl px-3 py-2 text-[12px] font-black ring-1 transition ${
+                  following
+                    ? "bg-white/[0.06] text-slate-200 ring-white/[0.08]"
+                    : "bg-white/[0.04] text-white ring-white/[0.08] hover:bg-white/[0.08]"
                 }`}
               >
                 <Icon name={following ? "check" : "person_add"} className="text-[15px]" />
@@ -348,7 +341,7 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
           {/* ── Tab content ── */}
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-2 sm:px-5">
             {error && (
-              <div className="mb-2 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[11px] font-semibold text-amber-200">
+              <div className="mb-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-semibold text-slate-300">
                 Showing available merchant data. {error}
               </div>
             )}
@@ -625,8 +618,8 @@ function OfferDetailsModal({
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.06] p-4">
-                <p className="text-sm font-black text-amber-200">Cancellation policy</p>
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4">
+                <p className="text-sm font-black text-slate-300">Cancellation policy</p>
                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-400">
                   The fiat payer may cancel before marking payment as sent. After payment is marked, use dispute support instead of cancelling.
                 </p>
@@ -891,7 +884,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="flex items-center gap-2 text-sm font-black text-white">
-                          <span className={`h-3.5 w-0.5 rounded-full ${method.name === "MPESA" ? "bg-[#05b957]" : "bg-[#facc15]"}`} />
+                          <span className={`h-3.5 w-0.5 rounded-full ${method.name === "MPESA" ? "bg-[#05b957]" : "bg-[#087cff]"}`} />
                           {p2pRailLabel(method.name, ad.fiat)}
                         </p>
                         <p className="mt-3 text-xs font-semibold text-slate-400">{method.accountName}</p>
@@ -921,7 +914,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                 ))}
               </div>
             ) : (
-              <div className="rounded-xl border border-amber-400/25 bg-amber-400/10 px-4 py-4 text-sm font-bold text-amber-200">
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-4 text-sm font-bold text-slate-300">
                 Add a receiving payment method before selling {ad.crypto}.
               </div>
             )}
@@ -930,7 +923,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
             <div className="space-y-2">
               {supportedRails.map((method) => (
                 <button key={method.value} type="button" onClick={() => void addPaymentMethod(method.value)} className="flex h-12 w-full items-center justify-between rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 text-sm text-white">
-                  <span className="flex items-center gap-3"><span className={`h-3.5 w-0.5 rounded-full ${method.value === "MPESA" ? "bg-[#05b957]" : "bg-[#facc15]"}`} />Add {p2pRailLabel(method.value, ad.fiat)}</span>
+                  <span className="flex items-center gap-3"><span className={`h-3.5 w-0.5 rounded-full ${method.value === "MPESA" ? "bg-[#05b957]" : "bg-[#087cff]"}`} />Add {p2pRailLabel(method.value, ad.fiat)}</span>
                   <Icon name="add" className="text-[18px]" />
                 </button>
               ))}
@@ -1053,14 +1046,14 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                 <button
                   type="button"
                   onClick={() => { setInputMode("fiat"); setRawInput(""); }}
-                  className={`pb-2 text-[12px] font-black ${inputMode === "fiat" ? "border-b-2 border-[#facc15] text-white" : "text-slate-500"}`}
+                  className={`pb-2 text-[12px] font-black ${inputMode === "fiat" ? "border-b-2 border-[#087cff] text-white" : "text-slate-500"}`}
                 >
                   By {ad.fiat}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setInputMode("crypto"); setRawInput(""); }}
-                  className={`pb-2 text-[12px] font-black ${inputMode === "crypto" ? "border-b-2 border-[#facc15] text-white" : "text-slate-500"}`}
+                  className={`pb-2 text-[12px] font-black ${inputMode === "crypto" ? "border-b-2 border-[#087cff] text-white" : "text-slate-500"}`}
                 >
                   By {ad.crypto}
                 </button>
@@ -1090,7 +1083,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                     setRawInput(ad.availableAmount.toFixed(8));
                   }
                 }}
-                className="text-sm font-black text-[#f59e0b]"
+                className="text-sm font-black text-[#75b8ff]"
               >
                 All
               </button>
@@ -1149,7 +1142,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                 {selectedMethod ? (
                   <span className="min-w-0">
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className={`h-3.5 w-0.5 rounded-full ${selectedMethod.name === "MPESA" ? "bg-[#05b957]" : "bg-[#facc15]"}`} />
+                      <span className={`h-3.5 w-0.5 rounded-full ${selectedMethod.name === "MPESA" ? "bg-[#05b957]" : "bg-[#087cff]"}`} />
                       <span className="truncate">{p2pRailLabel(selectedMethod.name, ad.fiat)}</span>
                     </span>
                     <span className="mt-1 block truncate pl-2 text-xs font-semibold text-slate-500">
@@ -1519,7 +1512,7 @@ function AdCard({
         <div className="flex flex-wrap items-center gap-1">
           {ad.paymentMethods.slice(0, 3).map((m) => (
             <span key={m} className="flex items-center gap-1 rounded bg-white/[0.05] px-1.5 py-0.5 text-[10px] font-semibold text-white/70">
-              <span className={`h-2.5 w-0.5 rounded-full ${m === "MPESA" || m === "AIRTEL" || m === "MTN_MOMO" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
+              <span className={`h-2.5 w-0.5 rounded-full ${m === "MPESA" || m === "AIRTEL" || m === "MTN_MOMO" ? "bg-[#05b957]" : "bg-[#087cff]"}`} />
               {fmtPm(m)}
             </span>
           ))}
@@ -1593,7 +1586,7 @@ function OffersTable({
     <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-[#151518]">
       <div className="flex items-center justify-between border-b border-white/[0.07] px-3 py-1.5">
         <span className="flex items-center gap-1.5 text-[11px] font-black text-white">
-          {promoted && <Icon name="bolt" fill className="text-[12px] text-[#f59e0b]" />}
+          {promoted && <Icon name="bolt" fill className="text-[12px] text-[#75b8ff]" />}
           {title} <span className="text-white/40">({ads.length})</span>
         </span>
       </div>

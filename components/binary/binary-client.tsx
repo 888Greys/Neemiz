@@ -332,7 +332,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
       height: container.clientHeight,
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: "#070b10" },
+        background: { type: ColorType.Solid, color: "#151518" },
         textColor: "#8d99ae",
         fontFamily: "var(--font-jakarta), sans-serif",
       },
@@ -556,7 +556,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
   };
 
   return (
-    <div className="relative h-full min-h-[180px] overflow-hidden bg-[#070b10] sm:min-h-[260px]">
+    <div className="relative h-full min-h-[180px] overflow-hidden bg-[#151518] sm:min-h-[260px]">
       <div ref={containerRef} className="absolute inset-0" />
 
       {/* Dashed price stub — runs from the live dot to the right edge only (the
@@ -569,7 +569,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
       <div ref={dotRef} className="pointer-events-none absolute left-0 top-0 z-20 opacity-0 will-change-transform">
         <span className="relative flex h-3 w-3 -translate-x-1/2 -translate-y-1/2">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/50" />
-          <span className="relative inline-flex h-3 w-3 rounded-full bg-white ring-2 ring-[#070b10]" />
+          <span className="relative inline-flex h-3 w-3 rounded-full bg-white ring-2 ring-[#151518]" />
         </span>
       </div>
 
@@ -577,20 +577,20 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
           attribution logo and given enough contrast to read on the dark chart */}
       <div className="absolute bottom-14 left-3 z-10 flex flex-col gap-1 sm:bottom-12">
         <button type="button" onClick={() => zoom(1.3)} title="Zoom in" aria-label="Zoom in"
-          className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42] sm:h-8 sm:w-8">
+          className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1c1d24]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#22242a] sm:h-8 sm:w-8">
           <Icon name="add" className="text-[15px] sm:text-[18px]" />
         </button>
         <button type="button" onClick={recenter} title="Latest" aria-label="Scroll to latest"
-          className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42] sm:h-8 sm:w-8">
+          className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1c1d24]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#22242a] sm:h-8 sm:w-8">
           <Icon name="my_location" className="text-[14px] sm:text-[16px]" />
         </button>
         <button type="button" onClick={() => zoom(1 / 1.3)} title="Zoom out" aria-label="Zoom out"
-          className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42] sm:h-8 sm:w-8">
+          className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1c1d24]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#22242a] sm:h-8 sm:w-8">
           <Icon name="remove" className="text-[15px] sm:text-[18px]" />
         </button>
       </div>
 
-      <span className="absolute bottom-3 right-3 z-10 rounded bg-[#1b2332]/90 px-2 py-1 text-[10px] font-black text-emerald-300 backdrop-blur">LIVE</span>
+      <span className="absolute bottom-3 right-3 z-10 rounded bg-[#1c1d24]/90 px-2 py-1 text-[10px] font-black text-emerald-300 backdrop-blur">LIVE</span>
     </div>
   );
 }
@@ -1646,7 +1646,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         </aside>
 
         <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:h-[52svh] sm:min-h-[520px] sm:max-h-none sm:flex-none sm:rounded sm:border xl:order-none xl:h-auto xl:min-h-0 xl:rounded-none xl:border-0">
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#18191f]">
             {/* Desktop header (market select + price). Mobile uses the Deriv-style
                 market row placed below the trade-type pills instead. */}
             <div className="hidden shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-white/[0.07] px-2 py-1 sm:flex sm:px-4 sm:py-2">
@@ -1656,7 +1656,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                   onChange={(event) => setMarketSymbol(event.target.value)}
                   disabled={!!accaPos || !!levPos}
                   title={accaPos || levPos ? "Finish your open contract before switching markets" : undefined}
-                  className="hidden h-10 max-w-none rounded border border-white/[0.08] bg-[#151a22] px-3 text-sm font-black text-white outline-none disabled:opacity-50 sm:block"
+                  className="hidden h-10 max-w-none rounded border border-white/[0.08] bg-[#18191f] px-3 text-sm font-black text-white outline-none disabled:opacity-50 sm:block"
                 >
                   {MARKETS.map((item) => (
                     <option key={item.symbol} value={item.symbol}>{item.symbol}</option>
@@ -1682,7 +1682,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
               {/* Mobile trade-type quick bar (Deriv-style) — floats over the chart's
                   faded top (no solid bar) so it reads as part of the graph. The
                   active type is outlined; "View all" opens the full picker. */}
-              <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 overflow-x-auto bg-gradient-to-b from-[#070b10] via-[#070b10]/70 to-transparent px-2 pb-5 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
+              <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 overflow-x-auto bg-gradient-to-b from-[#151518] via-[#151518]/70 to-transparent px-2 pb-5 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
                 {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
                   <button
                     key={t.id}
@@ -1712,7 +1712,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                 type="button"
                 onClick={() => setMarketsOpen(true)}
                 disabled={!!accaPos || !!levPos}
-                className="absolute inset-x-0 top-[44px] z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#070b10] via-[#070b10]/85 to-transparent px-3 pb-6 pt-1 text-left disabled:opacity-50 sm:hidden"
+                className="absolute inset-x-0 top-[44px] z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#151518] via-[#151518]/85 to-transparent px-3 pb-6 pt-1 text-left disabled:opacity-50 sm:hidden"
               >
                 <MarketIcon symbol={market.symbol} size={32} />
                 <span className="min-w-0">
@@ -1734,11 +1734,11 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
               {/* Mobile chart tools (Deriv-style) — "1t" chart types + drawing */}
               <div className="absolute bottom-3 left-3 z-10 flex gap-2 sm:hidden">
                 <button type="button" onClick={() => setChartSheet("types")} aria-label="Chart types"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-[#1b2332]/90 text-[11px] font-black text-slate-100 ring-1 ring-white/10 backdrop-blur active:scale-95">
+                  className="grid h-9 w-9 place-items-center rounded-full bg-[#1c1d24]/90 text-[11px] font-black text-slate-100 ring-1 ring-white/10 backdrop-blur active:scale-95">
                   1t
                 </button>
                 <button type="button" onClick={() => setChartSheet("drawing")} aria-label="Drawing tools"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-[#1b2332]/90 text-slate-100 ring-1 ring-white/10 backdrop-blur active:scale-95">
+                  className="grid h-9 w-9 place-items-center rounded-full bg-[#1c1d24]/90 text-slate-100 ring-1 ring-white/10 backdrop-blur active:scale-95">
                   <Icon name="draw" className="text-[16px]" />
                 </button>
               </div>
@@ -1747,7 +1747,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
             {/* Digit-frequency strip — last-100-tick distribution. Click a digit
                 to set it as the Matches/Differs/Over/Under target. Digit types only. */}
             {isDigitType && (
-              <section className="grid h-[48px] shrink-0 grid-cols-10 bg-[#0b0d12] sm:mb-2.5 sm:h-[78px]">
+              <section className="grid h-[48px] shrink-0 grid-cols-10 bg-[#151518] sm:mb-2.5 sm:h-[78px]">
                 {digitStats.map((stat) => (
                   <button
                     key={stat.digit}
@@ -1767,7 +1767,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         </main>
 
         <aside className="order-2 flex min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 sm:flex-none sm:max-h-[calc(100svh-8rem)] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
-          <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#0f1218]">
+          <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#18191f]">
             {/* Trade-type selector — desktop only; mobile uses the top quick bar */}
             <button
               type="button"
@@ -2149,7 +2149,7 @@ function ChartToolSheet({ title, children, onClose }: { title: string; children:
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
-      <div className="animate-sheet-in relative flex max-h-[80dvh] flex-col rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+      <div className="animate-sheet-in relative flex max-h-[80dvh] flex-col rounded-t-3xl bg-[#18191f] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
         <div className="flex items-center justify-between px-4 pb-2 pt-4">
           <span className="text-[15px] font-black text-white">{title}</span>
           <button type="button" onClick={onClose} aria-label="Close" className="grid h-6 w-6 place-items-center rounded-full bg-white/[0.05] text-slate-400 active:scale-95">
@@ -2183,7 +2183,7 @@ function ChartTypesSheet({ onClose }: { onClose: () => void }) {
         {types.map((t) => (
           <button key={t.label} type="button" disabled={!t.active}
             className={`flex flex-col items-center gap-1 rounded-xl py-3 transition disabled:opacity-40 ${
-              t.active ? "bg-[#0f1319] ring-1 ring-sky-400/50 text-white" : "bg-[#0f1319] text-slate-400"
+              t.active ? "bg-[#18191f] ring-1 ring-sky-400/50 text-white" : "bg-[#18191f] text-slate-400"
             }`}>
             <Icon name={t.icon} className="text-[20px]" />
             <span className="text-[11px] font-black">{t.label}</span>
@@ -2199,14 +2199,14 @@ function ChartTypesSheet({ onClose }: { onClose: () => void }) {
         {intervals.map((iv, i) => (
           <button key={iv} type="button" disabled={i !== 0}
             className={`rounded-xl py-2.5 text-[12px] font-black transition disabled:opacity-40 ${
-              i === 0 ? "bg-[#0f1319] ring-1 ring-sky-400/50 text-white" : "bg-[#0f1319] text-slate-400"
+              i === 0 ? "bg-[#18191f] ring-1 ring-sky-400/50 text-white" : "bg-[#18191f] text-slate-400"
             }`}>
             {iv}
           </button>
         ))}
       </div>
 
-      <div className="mt-4 flex items-center justify-between rounded-xl bg-[#0f1319] px-3 py-3">
+      <div className="mt-4 flex items-center justify-between rounded-xl bg-[#18191f] px-3 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2"><span className="text-[13px] font-black text-white">Smooth chart movement</span><ComingSoon /></div>
           <div className="mt-0.5 text-[11px] font-bold text-slate-500">Performance may vary by device.</div>
@@ -2295,7 +2295,7 @@ function BinaryActivityPanel({
   return (
     <>
       {/* Tab bar */}
-      <div className="flex shrink-0 items-stretch border-b border-white/[0.07] bg-[#0f1218] text-xs font-black">
+      <div className="flex shrink-0 items-stretch border-b border-white/[0.07] bg-[#18191f] text-xs font-black">
         {(["open", "closed", "tx"] as const).map((t) => (
           <button
             key={t}
@@ -2320,7 +2320,7 @@ function BinaryActivityPanel({
       </div>
 
       {/* Tab content — scrollable */}
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[#0f1218]">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[#18191f]">
         {tab === "open" && (
           <div className="space-y-1.5 p-3">
             {openPositions.length === 0 ? (
@@ -2364,7 +2364,7 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
       onClick={onExpand}
       title="Expand positions"
       aria-label="Expand positions"
-      className="group flex h-full w-full flex-col items-center gap-3 bg-[#0f1218] py-3 text-slate-500 transition hover:bg-white/[0.03] hover:text-white"
+      className="group flex h-full w-full flex-col items-center gap-3 bg-[#18191f] py-3 text-slate-500 transition hover:bg-white/[0.03] hover:text-white"
     >
       <span className="grid h-7 w-7 place-items-center rounded bg-white/[0.06] text-slate-300 transition group-hover:bg-white/[0.1]">
         <Icon name="add" className="text-[16px]" />
@@ -2395,7 +2395,7 @@ function MobilePositions({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-14 top-14 z-40 flex flex-col bg-[#0b0d12] lg:hidden">
+    <div className="fixed inset-x-0 bottom-14 top-14 z-40 flex flex-col bg-[#151518] lg:hidden">
       {/* Open / Closed tabs */}
       <div className="flex shrink-0 items-stretch border-b border-white/[0.07] text-[13px] font-black">
         {(["open", "closed"] as const).map((t) => (
