@@ -126,7 +126,35 @@ function PaymentIcon({ badge }: { badge: string }) {
   );
 }
 
-type CryptoBalance = { crypto: string; network: string; available: number; locked: number };
+type CryptoBalance = { crypto: string; network: string; available: number; locked: number; usdtValue?: number | null };
+
+function parseCryptoBalancePayload(data: unknown): { balances: CryptoBalance[]; totalUsdt: number } {
+  // New shape: { balances, totalUsdt }. Legacy: bare array.
+  if (Array.isArray(data)) {
+    const balances = data.map((b: { crypto: string; network: string; available: string | number; locked: string | number; usdtValue?: number | null }) => ({
+      crypto: b.crypto,
+      network: b.network,
+      available: Number(b.available),
+      locked: Number(b.locked),
+      usdtValue: b.usdtValue == null ? null : Number(b.usdtValue),
+    }));
+    return { balances, totalUsdt: 0 };
+  }
+  if (data && typeof data === "object" && Array.isArray((data as { balances?: unknown }).balances)) {
+    const body = data as { balances: Array<{ crypto: string; network: string; available: string | number; locked: string | number; usdtValue?: number | null }>; totalUsdt?: number };
+    return {
+      balances: body.balances.map((b) => ({
+        crypto: b.crypto,
+        network: b.network,
+        available: Number(b.available),
+        locked: Number(b.locked),
+        usdtValue: b.usdtValue == null ? null : Number(b.usdtValue),
+      })),
+      totalUsdt: Number(body.totalUsdt ?? 0),
+    };
+  }
+  return { balances: [], totalUsdt: 0 };
+}
 
 type DepositState =
   | { step: "idle" }
@@ -194,6 +222,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
   // ── crypto balance state ──
   const [cryptoBalances, setCryptoBalances] = useState<CryptoBalance[]>([]);
+  const [cryptoTotalUsdt, setCryptoTotalUsdt] = useState(0);
 
   // ── crypto withdraw state ──
   const [withdrawMode, setWithdrawMode] = useState<"crypto" | "fiat">("fiat");
@@ -295,21 +324,15 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
     if (isSignedIn && (tab === "withdraw" || tab === "send")) loadWdLimit();
   }, [isSignedIn, tab, loadWdLimit]);
 
-  // Fetch crypto balances
+  // Fetch crypto balances (+ combined USDT total for home)
   const fetchCryptoBalances = () => {
     fetch("/api/crypto/balance")
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => (r.ok ? r.json() : null))
       .then((data: unknown) => {
-        if (Array.isArray(data)) {
-          setCryptoBalances(
-            (data as Array<{ crypto: string; network: string; available: string; locked: string }>).map((b) => ({
-              crypto:    b.crypto,
-              network:   b.network,
-              available: Number(b.available),
-              locked:    Number(b.locked),
-            })),
-          );
-        }
+        if (!data) return;
+        const { balances, totalUsdt } = parseCryptoBalancePayload(data);
+        setCryptoBalances(balances);
+        setCryptoTotalUsdt(totalUsdt);
       })
       .catch(() => {});
   };
@@ -731,7 +754,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
         <WalletHome
           balance={isSignedIn ? fmtBalance : "—"}
           cryptoBalances={nonZeroBalances}
-          formatCryptoAmount={formatCryptoAmount}
+          cryptoTotalUsdt={cryptoTotalUsdt}
           isSignedIn={!!isSignedIn}
           onLogin={openLogin}
           onOpen={(t) => { if (t === "deposit") setDepositStep("method"); setTab(t); }}
@@ -1448,14 +1471,14 @@ const STATUS_PANEL =
 function WalletHome({
   balance,
   cryptoBalances,
-  formatCryptoAmount,
+  cryptoTotalUsdt,
   isSignedIn,
   onLogin,
   onOpen,
 }: {
   balance: string;
   cryptoBalances: CryptoBalance[];
-  formatCryptoAmount: (balance: CryptoBalance) => string;
+  cryptoTotalUsdt: number;
   isSignedIn: boolean;
   onLogin: () => void;
   onOpen: (tab: WalletTab) => void;
@@ -1466,6 +1489,10 @@ function WalletHome({
     { tab: "withdraw", label: "Withdraw", icon: "arrow_upward" },
     { tab: "history", label: "History", icon: "history" },
   ];
+  const usdtLabel = cryptoTotalUsdt.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8 sm:max-w-2xl sm:pb-10 sm:pt-10">
@@ -1479,6 +1506,11 @@ function WalletHome({
         <p className={`mt-2 text-[2.35rem] font-black leading-none tracking-tight sm:text-5xl ${isSignedIn ? "text-white" : "text-slate-600"}`}>
           {balance}
         </p>
+        {isSignedIn && cryptoBalances.length > 0 && (
+          <p className="mt-2 text-[13px] font-semibold text-slate-500">
+            Crypto ≈ <span className="font-black tabular-nums text-white">{usdtLabel} USDT</span>
+          </p>
+        )}
         {!isSignedIn && (
           <Button onClick={onLogin} className="mt-6 h-11 w-full max-w-xs rounded-xl text-sm">
             Log in
@@ -1507,44 +1539,37 @@ function WalletHome({
           <h2 className="text-[13px] font-black text-white">Assets</h2>
           {cryptoBalances.length > 0 && (
             <span className="text-[11px] font-semibold text-slate-500">
-              {cryptoBalances.length} {cryptoBalances.length === 1 ? "asset" : "assets"}
+              Combined in USDT · send to pick a coin
             </span>
           )}
         </div>
         {cryptoBalances.length ? (
           <ul className="divide-y divide-white/[0.05]">
-            {cryptoBalances.slice(0, 6).map((item) => (
-              <li
-                key={`${item.crypto}-${item.network}`}
-                className="flex items-center justify-between gap-3 py-3.5 first:pt-1"
-              >
-                <span className="flex min-w-0 items-center gap-3">
-                  {COIN_ICON_URL[item.crypto] ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={COIN_ICON_URL[item.crypto]}
-                      alt={item.crypto}
-                      width={32}
-                      height={32}
-                      className="h-8 w-8 shrink-0 rounded-full"
-                    />
-                  ) : (
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[0.08] text-[10px] font-black">
-                      {item.crypto.slice(0, 2)}
-                    </span>
-                  )}
-                  <span className="min-w-0">
-                    <span className="block text-[14px] font-black text-white">{item.crypto}</span>
-                    <span className="block text-[11px] font-medium text-slate-500">
-                      {NETWORK_LABEL[item.network] ?? item.network}
-                    </span>
+            {/* Bybit-style: one combined crypto line in USDT on home */}
+            <li className="flex items-center justify-between gap-3 py-3.5 first:pt-1">
+              <span className="flex min-w-0 items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={COIN_ICON_URL.USDT}
+                  alt="USDT"
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 shrink-0 rounded-full"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[14px] font-black text-white">Crypto</span>
+                  <span className="block text-[11px] font-medium text-slate-500">
+                    {cryptoBalances.length} {cryptoBalances.length === 1 ? "coin" : "coins"} · USDT value
                   </span>
                 </span>
-                <span className="shrink-0 font-mono text-[13px] font-bold tabular-nums text-white">
-                  {formatCryptoAmount(item)}
+              </span>
+              <span className="shrink-0 text-right">
+                <span className="block font-mono text-[13px] font-bold tabular-nums text-white">
+                  {usdtLabel}
                 </span>
-              </li>
-            ))}
+                <span className="block text-[10px] font-semibold text-slate-500">USDT</span>
+              </span>
+            </li>
           </ul>
         ) : (
           <p className="py-2 text-[13px] font-medium text-slate-500">
