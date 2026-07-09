@@ -54,7 +54,7 @@ export const binaryMobileNav: MobileNavItem[] = [
 // (Markets pair-picker / Trade / Positions), Menu as the constant escape hatch.
 export const forexMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
-  { href: "/forex?panel=funding",   label: "Funding",   icon: "account_balance_wallet", panel: "funding",   activePath: "/forex" },
+  { href: "/wallet",                label: "Wallet",    icon: "account_balance_wallet" },
   { href: "/forex",                 label: "Trade",     icon: "show_chart",             panel: "",          activePath: "/forex" },
   { href: "/forex?panel=discover",  label: "Discover",  icon: "explore",                panel: "discover",  activePath: "/forex" },
   { href: "/forex?panel=positions", label: "Positions", icon: "schedule",               panel: "positions", activePath: "/forex" },

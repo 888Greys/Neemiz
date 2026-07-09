@@ -157,7 +157,7 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
       height: container.clientHeight,
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: "#070b10" },
+        background: { type: ColorType.Solid, color: "#151518" },
         textColor: "#8d99ae",
         fontFamily: "var(--font-jakarta), sans-serif",
       },
@@ -261,21 +261,21 @@ function TradingViewCandles({ candles, market }: { candles: Candle[]; market: Fo
   };
 
   return (
-    <div className="relative h-full min-h-[180px] overflow-hidden bg-[#070b10] sm:min-h-[260px]">
+    <div className="relative h-full min-h-[180px] overflow-hidden bg-[#151518] sm:min-h-[260px]">
       <div ref={containerRef} className="absolute inset-0" />
 
       {/* Deriv-style zoom / recenter controls, mirroring the Binary chart */}
       <div className="absolute bottom-12 left-3 z-10 flex flex-col gap-1.5">
         <button type="button" onClick={() => zoom(1.3)} title="Zoom in" aria-label="Zoom in"
-          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
+          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1c1d24]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#22242a]">
           <Icon name="add" className="text-[18px]" />
         </button>
         <button type="button" onClick={recenter} title="Latest" aria-label="Scroll to latest"
-          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
+          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1c1d24]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#22242a]">
           <Icon name="my_location" className="text-[16px]" />
         </button>
         <button type="button" onClick={() => zoom(1 / 1.3)} title="Zoom out" aria-label="Zoom out"
-          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1b2332]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#252f42]">
+          className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-[#1c1d24]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#22242a]">
           <Icon name="remove" className="text-[18px]" />
         </button>
       </div>
@@ -311,7 +311,11 @@ export function ForexClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const panel = searchParams.get("panel");
-  const section: ForexSection = panel === "funding" ? "funding" : panel === "discover" ? "discover" : "trade";
+  // Funding moved to the main Wallet — old ?panel=funding links redirect there.
+  useEffect(() => {
+    if (panel === "funding") router.replace("/wallet");
+  }, [panel, router]);
+  const section: ForexSection = panel === "discover" ? "discover" : "trade";
   const marketsOpen = panel === "markets";
   const positionsOpen = panel === "positions";
   const closePanel = useCallback(() => { router.replace(pathname, { scroll: false }); }, [router, pathname]);
@@ -686,15 +690,8 @@ export function ForexClient() {
         );
       })()}
 
-      {section === "funding" ? (
-        <ForexFundingPanel
-          mainBalance={wallet.balance}
-          forexBalance={wallet.forexBalance}
-          format={format}
-          onFunded={() => wallet.refresh(true)}
-        />
-      ) : section === "discover" ? (
-        <ForexDiscoverComingSoon />
+      {section === "discover" ? (
+        <ForexDiscoverNews />
       ) : (
       <div data-forex-grid="true" className={`flex min-h-0 flex-1 flex-col max-w-full min-w-0 gap-1 overflow-hidden px-0 py-0 sm:grid sm:overflow-visible sm:px-2 sm:py-2 xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         <aside className="order-2 hidden min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:flex xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
@@ -711,7 +708,7 @@ export function ForexClient() {
         </aside>
 
         <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:flex-none sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0f1218]">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#18191f]">
             <div className="hidden shrink-0 flex-col gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -741,7 +738,7 @@ export function ForexClient() {
               <button
                 type="button"
                 onClick={() => router.replace(`${pathname}?panel=markets`, { scroll: false })}
-                className="absolute inset-x-0 top-0 z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#070b10] via-[#070b10]/85 to-transparent px-3 pb-6 pt-2 text-left sm:hidden"
+                className="absolute inset-x-0 top-0 z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#151518] via-[#151518]/85 to-transparent px-3 pb-6 pt-2 text-left sm:hidden"
               >
                 <PairFlags base={selectedMarket.base} quote={selectedMarket.quote} />
                 <span className="min-w-0">
@@ -765,8 +762,8 @@ export function ForexClient() {
               </button>
               <TradingViewCandles candles={chartCandles} market={selectedMarket} />
               {chartCandles.length === 0 && (
-                <div className="absolute inset-0 grid place-items-center bg-[#070b10]/80">
-                  <div className="rounded-lg border border-white/[0.08] bg-[#0f1218]/90 px-4 py-3 text-center shadow-2xl shadow-black/30">
+                <div className="absolute inset-0 grid place-items-center bg-[#151518]/80">
+                  <div className="rounded-lg border border-white/[0.08] bg-[#18191f]/90 px-4 py-3 text-center shadow-2xl shadow-black/30">
                     <div className="mx-auto mb-2 h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
                     <p className="text-xs font-black text-white">Loading live candles</p>
                     <p className="mt-1 text-[11px] font-semibold text-slate-500">Waiting for Deriv history for {selectedMarket.symbol}</p>
@@ -776,7 +773,7 @@ export function ForexClient() {
             </div>
           </section>
 
-          <section className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.08] bg-[#0f1218] px-3 py-1.5 text-[11px] sm:flex sm:px-4">
+          <section className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.08] bg-[#18191f] px-3 py-1.5 text-[11px] sm:flex sm:px-4">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">Session</span>
             <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">High</span><span className="font-mono font-black text-emerald-300">{formatPrice(selectedMarket, levels.high)}</span></span>
             <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">Avg</span><span className="font-mono font-black text-white">{formatPrice(selectedMarket, levels.average)}</span></span>
@@ -784,7 +781,7 @@ export function ForexClient() {
           </section>
         </main>
 
-        <aside className="order-2 shrink-0 min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f1218] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 sm:rounded sm:border xl:order-none xl:block xl:min-h-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+        <aside className="order-2 shrink-0 min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#18191f] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 sm:rounded sm:border xl:order-none xl:block xl:min-h-0 xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
           <section className="flex h-full min-h-0 flex-col xl:h-full xl:min-h-0">
             {/* Mobile Deriv-style ticket (sm:hidden); desktop/tablet ticket below */}
             <MobileForexTicket
@@ -935,13 +932,28 @@ export function ForexClient() {
       {/* Mobile Positions screen (Deriv-style) — opened by the Positions tab
           (?panel=positions); full surface between app header and bottom nav. */}
       {positionsOpen && (
-        <div className="fixed inset-x-0 bottom-14 top-14 z-40 flex flex-col bg-[#0b0d12] lg:hidden">
-          <ForexActivityPanel
-            tab={activityTab} setTab={setActivityTab}
-            openTrades={trades} forexHistory={forexHistory}
-            price={price} closingId={closingId} closeTrade={closeTrade}
-            onCollapse={closePanel}
-          />
+        <div className="fixed inset-x-0 bottom-14 top-14 z-40 flex flex-col overflow-hidden bg-[#151518] lg:hidden">
+          <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-3">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Forex</p>
+              <h2 className="text-[16px] font-black text-white">Positions</h2>
+            </div>
+            <button
+              type="button"
+              onClick={closePanel}
+              className="grid h-9 w-9 place-items-center rounded-xl bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
+              aria-label="Close positions"
+            >
+              <Icon name="close" className="text-[18px]" />
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <ForexActivityPanel
+              tab={activityTab} setTab={setActivityTab}
+              openTrades={trades} forexHistory={forexHistory}
+              price={price} closingId={closingId} closeTrade={closeTrade}
+            />
+          </div>
         </div>
       )}
 
@@ -958,7 +970,7 @@ export function ForexClient() {
       {/* Sticky mobile CTA — a single Open button that follows the Buy/Sell
           toggle above, so there's one clear action (no duplicate buttons).
           Hidden while a nav panel sheet (Markets/Positions) is open. */}
-      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 hidden border-t border-white/[0.08] bg-[#0f1218]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur sm:block lg:bottom-0 xl:hidden ${positionsOpen || marketsOpen || section !== "trade" ? "sm:hidden" : ""}`}>
+      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] left-0 right-0 z-40 hidden border-t border-white/[0.08] bg-[#18191f]/95 p-2 shadow-[0_-12px_24px_rgba(0,0,0,.45)] backdrop-blur sm:block lg:bottom-0 xl:hidden ${positionsOpen || marketsOpen || section !== "trade" ? "sm:hidden" : ""}`}>
         <button
           type="button"
           onClick={() => openTrade()}
@@ -981,159 +993,127 @@ export function ForexClient() {
   );
 }
 
-function ForexFundingPanel({
-  forexBalance,
-  format,
-  mainBalance,
-  onFunded,
-}: {
-  forexBalance: number;
-  format: (value: number) => string;
-  mainBalance: number;
-  onFunded: () => void | Promise<void>;
-}) {
-  const [amount, setAmount] = useState(100);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const presets = [50, 100, 250, 500];
-  const canSubmit = Number.isFinite(amount) && amount > 0 && !busy;
+type DiscoverNewsItem = {
+  id: string;
+  title: string;
+  link: string;
+  source: string;
+  publishedAt: string | null;
+  summary: string | null;
+};
 
-  async function fund() {
-    if (!canSubmit) return;
-    setBusy(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/forex/funding", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }),
+function ForexDiscoverNews() {
+  const [items, setItems] = useState<DiscoverNewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetch("/api/forex/news")
+      .then(async (r) => {
+        if (!r.ok) throw new Error("Could not load news");
+        return r.json() as Promise<{ items?: DiscoverNewsItem[] }>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setItems(Array.isArray(data.items) ? data.items : []);
+        setError(null);
+      })
+      .catch(() => {
+        if (!cancelled) setError("News feed unavailable right now.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage(data.error ?? "Funding failed");
-        return;
-      }
-      setMessage(`Moved ${format(amount)} to forex wallet`);
-      window.dispatchEvent(new Event("wallet-refresh"));
-      await onFunded();
-    } catch {
-      setMessage("Network error - please try again");
-    } finally {
-      setBusy(false);
-    }
+    return () => { cancelled = true; };
+  }, []);
+
+  function relativeTime(iso: string | null): string {
+    if (!iso) return "";
+    const t = Date.parse(iso);
+    if (!Number.isFinite(t)) return "";
+    const mins = Math.max(0, Math.round((Date.now() - t) / 60_000));
+    if (mins < 60) return `${mins}m`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 48) return `${hrs}h`;
+    return `${Math.round(hrs / 24)}d`;
   }
 
   return (
     <main className="min-h-0 flex-1 overflow-y-auto bg-[#151518] px-4 pb-24 pt-5 text-white sm:px-6 sm:pb-10">
-      <div className="mx-auto flex max-w-md flex-col gap-4">
-        <section className="rounded-2xl bg-[#222327] p-4 shadow-[0_18px_45px_rgba(0,0,0,.28)] ring-1 ring-white/[0.06]">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[12px] font-black uppercase tracking-wide text-slate-400">Forex wallet</p>
-              <p className="mt-1 font-mono text-3xl font-black tabular-nums text-white">{format(forexBalance)}</p>
-            </div>
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#19b38f]/15 text-[#2ce1b5]">
-              <Icon name="account_balance_wallet" className="text-[24px]" />
-            </span>
+      <div className="mx-auto flex max-w-lg flex-col">
+        <div className="mb-4 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Discover</p>
+            <h1 className="mt-1 text-lg font-black">Market news</h1>
           </div>
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-black/22 px-3 py-2">
-            <span className="text-[12px] font-bold text-slate-400">Main wallet</span>
-            <span className="font-mono text-sm font-black text-slate-100">{format(mainBalance)}</span>
-          </div>
-        </section>
-
-        <section className="rounded-2xl bg-[#1f2024] p-4 ring-1 ring-white/[0.06]">
-          <label className="text-[12px] font-black uppercase tracking-wide text-slate-400" htmlFor="forex-fund-amount">
-            Amount to move
-          </label>
-          <div className="mt-2 flex h-14 items-center rounded-xl bg-[#111216] px-3 ring-1 ring-white/[0.07] focus-within:ring-[#19b38f]/70">
-            <span className="pr-2 text-[12px] font-black text-slate-500">KES</span>
-            <input
-              id="forex-fund-amount"
-              type="number"
-              min={1}
-              value={amount}
-              onChange={(event) => setAmount(Math.max(0, Number(event.target.value) || 0))}
-              className="min-w-0 flex-1 bg-transparent font-mono text-2xl font-black text-white outline-none"
-            />
-          </div>
-          <div className="mt-3 grid grid-cols-4 gap-2">
-            {presets.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => setAmount(preset)}
-                className={`h-10 rounded-xl text-[12px] font-black transition active:scale-[0.98] ${amount === preset ? "bg-white text-[#17181c]" : "bg-white/[0.07] text-slate-300"}`}
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
-          {message && (
-            <p className={`mt-3 rounded-xl px-3 py-2 text-[12px] font-bold ${message.includes("Moved") ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
-              {message}
-            </p>
-          )}
           <button
             type="button"
-            onClick={fund}
-            disabled={!canSubmit}
-            className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#19a98c] px-4 py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-45"
+            onClick={() => {
+              setLoading(true);
+              fetch("/api/forex/news")
+                .then((r) => r.json())
+                .then((d: { items?: DiscoverNewsItem[] }) => setItems(d.items ?? []))
+                .finally(() => setLoading(false));
+            }}
+            className="rounded-lg bg-white/[0.06] px-3 py-1.5 text-[11px] font-black text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
           >
-            <Icon name="arrow_forward" className="text-[18px]" />
-            {busy ? "Moving funds..." : "Move to forex wallet"}
+            Refresh
           </button>
-        </section>
-      </div>
-    </main>
-  );
-}
-
-function ForexDiscoverComingSoon() {
-  // Use only icon names the Icon map actually resolves (unmapped names render as
-  // a "?" — which is exactly what we're fixing here).
-  const previews: Array<{ icon: string; title: string; body: string }> = [
-    { icon: "calendar_month",   title: "Economic calendar", body: "High-impact events and releases as they land." },
-    { icon: "campaign",         title: "Market news",        body: "Live headlines that move the markets you trade." },
-    { icon: "tips_and_updates", title: "Trading ideas",      body: "Curated setups and insights, tailored to you." },
-  ];
-
-  return (
-    <main className="min-h-0 flex-1 overflow-y-auto bg-[#151518] px-4 pb-24 pt-5 text-white sm:px-6 sm:pb-10">
-      <div className="mx-auto flex min-h-[70vh] max-w-md flex-col">
-        <div className="mb-6">
-          <h1 className="text-lg font-black">Discover</h1>
         </div>
 
-        {/* Hero */}
-        <div className="flex flex-col items-center rounded-3xl bg-[#232326] px-6 py-10 text-center shadow-[0_18px_45px_rgba(0,0,0,.28)] ring-1 ring-white/[0.06]">
-          <span className="grid h-16 w-16 place-items-center rounded-2xl bg-[#087cff]/15 text-[#62a9ff]">
-            <Icon name="rocket_launch" className="text-[32px]" />
-          </span>
-          <h2 className="mt-5 text-2xl font-black text-white">Coming soon</h2>
-          <p className="mt-2 max-w-[18rem] text-[13px] font-bold leading-relaxed text-slate-400">
-            We&apos;re building a smarter Discover — market news, an economic calendar, and trading ideas, all in one place.
-          </p>
-          <span className="mt-5 inline-flex items-center gap-1.5 rounded-full bg-[#087cff]/12 px-3 py-1.5 text-[11px] font-black text-[#62a9ff]">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#62a9ff]" />
-            In the works
-          </span>
-        </div>
+        {loading && (
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-20 animate-pulse rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]" />
+            ))}
+          </div>
+        )}
 
-        {/* What's coming */}
-        <div className="mt-4 space-y-2.5">
-          {previews.map((p) => (
-            <div key={p.title} className="flex items-center gap-3 rounded-2xl bg-[#232326] p-3.5 ring-1 ring-white/[0.06]">
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-slate-300">
-                <Icon name={p.icon} className="text-[20px]" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-[14px] font-black text-white">{p.title}</span>
-                <span className="block text-[12px] font-bold text-slate-500">{p.body}</span>
-              </span>
-            </div>
-          ))}
-        </div>
+        {!loading && error && (
+          <div className="rounded-2xl bg-red-500/10 px-4 py-6 text-center text-[13px] font-bold text-red-300 ring-1 ring-red-500/20">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && items.length === 0 && (
+          <div className="rounded-2xl bg-[#18191f] px-4 py-10 text-center ring-1 ring-white/[0.06]">
+            <p className="text-sm font-black text-white">No headlines yet</p>
+            <p className="mt-1 text-[12px] font-semibold text-slate-500">Try refresh in a moment.</p>
+          </div>
+        )}
+
+        {!loading && items.length > 0 && (
+          <ul className="space-y-2">
+            {items.map((item) => (
+              <li key={item.id}>
+                <a
+                  href={item.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-2xl bg-[#18191f] p-3.5 ring-1 ring-white/[0.06] transition hover:bg-white/[0.04] hover:ring-white/[0.1]"
+                >
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-slate-500">
+                    <span className="text-[#75b8ff]">{item.source}</span>
+                    {item.publishedAt && (
+                      <>
+                        <span>·</span>
+                        <span>{relativeTime(item.publishedAt)}</span>
+                      </>
+                    )}
+                  </div>
+                  <p className="mt-1.5 text-[14px] font-black leading-snug text-white">{item.title}</p>
+                  {item.summary && (
+                    <p className="mt-1 line-clamp-2 text-[12px] font-medium leading-relaxed text-slate-500">
+                      {item.summary}
+                    </p>
+                  )}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </main>
   );
@@ -1165,14 +1145,14 @@ function PairDropdown({ markets, onSelect, price, selected, streamStatus }: {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-9 items-center gap-2 rounded border border-white/[0.08] bg-[#151a22] px-2 text-sm font-black text-white outline-none transition hover:border-white/20 sm:h-10 sm:px-3"
+        className="flex h-9 items-center gap-2 rounded border border-white/[0.08] bg-[#18191f] px-2 text-sm font-black text-white outline-none transition hover:border-white/20 sm:h-10 sm:px-3"
       >
         <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-sky-400/15 text-[9px] font-black text-sky-300">FX</span>
         {selected.symbol}
         <Icon name="expand_more" className={`text-[18px] text-slate-400 transition ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-64 overflow-hidden rounded-lg border border-white/[0.1] bg-[#0f1218] shadow-2xl shadow-black/50">
+        <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-64 overflow-hidden rounded-lg border border-white/[0.1] bg-[#18191f] shadow-2xl shadow-black/50">
           <div className="max-h-[60vh] overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {markets.map((market) => {
               const isSelected = market.symbol === selected.symbol;
@@ -1256,15 +1236,15 @@ function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, clos
     <>
       <ForexSessionStats openTrades={openTrades} forexHistory={forexHistory} price={price} />
 
-      <div className="flex shrink-0 items-stretch border-b border-white/[0.07] bg-[#0f1218] text-xs font-black">
+      <div className="flex shrink-0 items-stretch border-b border-white/[0.06] bg-[#151518] text-xs font-black">
         {(["open", "history", "tx"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`flex-1 py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
+            className={`flex-1 py-3 transition ${tab === t ? "border-b-2 border-[#087cff] text-white" : "text-slate-500 hover:text-white"}`}
           >
-            {t === "open" ? `Positions (${openTrades.length})` : t === "history" ? `History (${forexHistory.length})` : "Tx"}
+            {t === "open" ? `Open (${openTrades.length})` : t === "history" ? `Closed (${forexHistory.length})` : "Activity"}
           </button>
         ))}
         {onCollapse && (
@@ -1273,18 +1253,21 @@ function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, clos
             onClick={onCollapse}
             title="Collapse panel"
             aria-label="Collapse panel"
-            className="grid w-9 shrink-0 place-items-center border-l border-white/[0.07] text-slate-500 transition hover:bg-white/[0.04] hover:text-white"
+            className="grid w-9 shrink-0 place-items-center border-l border-white/[0.06] text-slate-500 transition hover:bg-white/[0.04] hover:text-white"
           >
             <Icon name="remove" className="text-[18px]" />
           </button>
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[#0f1218]">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[#151518]">
         {tab === "open" && (
           <div className="space-y-2 p-3">
             {openTrades.length === 0 ? (
-              <div className="rounded border border-dashed border-white/[0.08] py-6 text-center text-xs font-bold text-slate-600">No open positions</div>
+              <div className="rounded-2xl bg-[#18191f] px-4 py-10 text-center ring-1 ring-white/[0.06]">
+                <p className="text-[13px] font-black text-white">No open positions</p>
+                <p className="mt-1 text-[11px] font-semibold text-slate-500">Open a trade from the chart to see it here.</p>
+              </div>
             ) : (
               openTrades.map((trade) => (
                 <PositionRow key={trade.id} currentPrice={price} onClose={() => closeTrade(trade.id)} trade={trade} closing={closingId === trade.id} />
@@ -1295,7 +1278,9 @@ function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, clos
         {tab === "history" && (
           <div className="space-y-2 p-3">
             {forexHistory.length === 0 ? (
-              <div className="rounded border border-dashed border-white/[0.08] py-6 text-center text-xs font-bold text-slate-600">No closed trades yet</div>
+              <div className="rounded-2xl bg-[#18191f] px-4 py-10 text-center ring-1 ring-white/[0.06]">
+                <p className="text-[13px] font-black text-white">No closed trades yet</p>
+              </div>
             ) : (
               forexHistory.map((trade) => <HistoryRow key={trade.id} trade={trade} />)
             )}
@@ -1304,7 +1289,9 @@ function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, clos
         {tab === "tx" && (
           <div className="space-y-1.5 p-3">
             {transactions.length === 0 ? (
-              <div className="rounded border border-dashed border-white/[0.08] py-6 text-center text-xs font-bold text-slate-600">No transactions yet</div>
+              <div className="rounded-2xl bg-[#18191f] px-4 py-10 text-center ring-1 ring-white/[0.06]">
+                <p className="text-[13px] font-black text-white">No activity yet</p>
+              </div>
             ) : (
               transactions.map((tx) => <TransactionRow key={tx.id} tx={tx} />)
             )}
@@ -1328,7 +1315,7 @@ function ForexSessionStats({ openTrades, forexHistory, price }: { openTrades: Tr
   }, 0);
 
   return (
-    <div className="grid shrink-0 grid-cols-3 divide-x divide-white/[0.06] border-b border-white/[0.07] bg-[#0b0f15]">
+    <div className="grid shrink-0 grid-cols-3 divide-x divide-white/[0.06] border-b border-white/[0.07] bg-[#151518]">
       <div className="px-3 py-2">
         <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">W / L</div>
         <div className="mt-0.5 font-mono text-sm font-black text-white">
@@ -1359,7 +1346,7 @@ function TransactionRow({ tx }: { tx: ForexTx }) {
   const positive = tx.amount >= 0;
   const time = new Intl.DateTimeFormat("en-KE", { dateStyle: "short", timeStyle: "short" }).format(new Date(tx.at));
   return (
-    <div className="flex items-center justify-between gap-3 rounded bg-black/25 px-3 py-2">
+    <div className="flex items-center justify-between gap-3 rounded-xl bg-[#18191f] px-3 py-2.5 ring-1 ring-white/[0.05]">
       <div className="min-w-0">
         <div className="truncate text-xs font-black text-slate-200">{tx.symbol} · {label}</div>
         <div className="text-[10px] font-bold text-slate-600">{time}</div>
@@ -1380,7 +1367,7 @@ function CollapsedActivityRail({ openCount, onExpand }: { openCount: number; onE
       onClick={onExpand}
       title="Expand positions"
       aria-label="Expand positions"
-      className="group flex h-full w-full flex-col items-center gap-3 bg-[#0f1218] py-3 text-slate-500 transition hover:bg-white/[0.03] hover:text-white"
+      className="group flex h-full w-full flex-col items-center gap-3 bg-[#18191f] py-3 text-slate-500 transition hover:bg-white/[0.03] hover:text-white"
     >
       <span className="grid h-7 w-7 place-items-center rounded bg-white/[0.06] text-slate-300 transition group-hover:bg-white/[0.1]">
         <Icon name="add" className="text-[16px]" />
@@ -1444,7 +1431,7 @@ function MobileForexTicket({
 
       <div className="space-y-2.5 px-3 pb-1">
         {/* Buy / Sell toggle — armed side glows, fill price beneath */}
-        <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-[#0f1319] p-1.5 ring-1 ring-white/[0.06]">
+        <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-[#18191f] p-1.5 ring-1 ring-white/[0.06]">
           <button type="button" onClick={() => setDirection("buy")}
             className={`flex flex-col items-center rounded-xl py-2 transition active:scale-[0.98] ${buy ? "bg-[#16a085] text-white" : "text-slate-400"}`}>
             <span className="text-[13px] font-black">BUY</span>
@@ -1534,7 +1521,7 @@ function RrSheet({
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
-      <div className="animate-sheet-in relative rounded-t-3xl bg-[#16181d] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
+      <div className="animate-sheet-in relative rounded-t-3xl bg-[#18191f] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
         <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
         <div className="px-4 pb-1 pt-2 text-center text-[13px] font-black text-white">Risk : Reward</div>
         <div className="flex items-center justify-center gap-3 pb-2 font-mono text-[11px] font-black">
@@ -1546,7 +1533,7 @@ function RrSheet({
             const active = riskPips === p.sl && targetPips === p.tp;
             return (
               <button key={p.label} type="button" onClick={() => { onSelect(p.sl, p.tp); onClose(); }}
-                className={`flex flex-col items-start rounded-2xl px-4 py-3 transition active:scale-[0.98] ${active ? "bg-white text-[#16181d]" : "bg-[#0f1319] text-white"}`}>
+                className={`flex flex-col items-start rounded-2xl px-4 py-3 transition active:scale-[0.98] ${active ? "bg-white text-[#18191f]" : "bg-[#18191f] text-white"}`}>
                 <span className="text-[15px] font-black">{p.label}</span>
                 <span className={`text-[11px] font-bold ${active ? "text-slate-600" : "text-slate-500"}`}>SL {p.sl} · TP {p.tp} pips</span>
               </button>
@@ -1841,18 +1828,23 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
   const nearBarrier = progress <= 0.12 || progress >= 0.88;
 
   return (
-    <div className="rounded border border-white/[0.07] bg-black/20 p-3">
+    <div className="rounded-2xl bg-[#18191f] p-3.5 ring-1 ring-white/[0.06]">
       <div className="flex items-center justify-between gap-3">
-        <div>
-          <div className="text-sm font-black text-white">{trade.symbol}</div>
-          <div className="text-[11px] font-bold text-slate-500">
-            {trade.direction.toUpperCase()} {trade.size.toLocaleString("en-US")} @ {formatPrice(trade, trade.entry)}
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-black text-white">{trade.symbol}</span>
+            <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase ${trade.direction === "buy" ? "bg-emerald-500/15 text-emerald-300" : "bg-red-500/15 text-red-300"}`}>
+              {trade.direction.toUpperCase()}
+            </span>
+          </div>
+          <div className="mt-0.5 text-[11px] font-bold text-slate-500">
+            {trade.size.toLocaleString("en-US")} @ {formatPrice(trade, trade.entry)}
           </div>
           {trade.margin && (
             <div className="text-[10px] text-slate-600">Margin: {format(Number(trade.margin))}</div>
           )}
         </div>
-        <div className="text-right">
+        <div className="shrink-0 text-right">
           <div className={`font-mono text-sm font-black tabular-nums ${pips >= 0 ? "text-[#33d49b]" : "text-[#ff6171]"}`}>
             {pips >= 0 ? "+" : ""}{pips.toFixed(1)} pips
           </div>
@@ -1888,7 +1880,7 @@ function PositionRow({ closing, currentPrice, onClose, trade }: { closing?: bool
         type="button"
         onClick={onClose}
         disabled={closing}
-        className="mt-3 w-full rounded bg-white/[0.06] py-2 text-xs font-black text-slate-300 transition hover:bg-white/[0.1] hover:text-white disabled:opacity-50"
+        className="mt-3 w-full rounded-xl bg-white/[0.06] py-2.5 text-xs font-black text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white disabled:opacity-50"
       >
         {closing ? "Closing…" : "Close position"}
       </button>
@@ -1903,7 +1895,7 @@ function HistoryRow({ trade }: { trade: ClosedTrade }) {
   const closedDate = trade.closedAt ? new Intl.DateTimeFormat("en-KE", { dateStyle: "short", timeStyle: "short" }).format(new Date(trade.closedAt)) : "—";
 
   return (
-    <div className="rounded border border-white/[0.07] bg-black/20 p-3">
+    <div className="rounded-2xl bg-[#18191f] p-3.5 ring-1 ring-white/[0.06]">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-1.5">
