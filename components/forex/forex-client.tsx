@@ -1571,6 +1571,11 @@ function ForexPairSheet({
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"favourites" | "all">("all");
   const [favs, setFavs] = useState<Set<string>>(new Set());
+  const [closing, setClosing] = useState(false);
+  const [starPop, setStarPop] = useState<string | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const starTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("forex-fav-pairs") ?? "[]");
@@ -1580,8 +1585,32 @@ function ForexPairSheet({
   useEffect(() => {
     try { localStorage.setItem("forex-fav-pairs", JSON.stringify([...favs])); } catch { /* ignore */ }
   }, [favs]);
-  const toggleFav = (sym: string) =>
-    setFavs((s) => { const n = new Set(s); n.has(sym) ? n.delete(sym) : n.add(sym); return n; });
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    if (starTimer.current) clearTimeout(starTimer.current);
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      onClose();
+      closeTimer.current = null;
+    }, 220);
+  }, [closing, onClose]);
+
+  const toggleFav = (sym: string) => {
+    setFavs((s) => {
+      const n = new Set(s);
+      if (n.has(sym)) n.delete(sym);
+      else n.add(sym);
+      return n;
+    });
+    setStarPop(sym);
+    if (starTimer.current) clearTimeout(starTimer.current);
+    starTimer.current = setTimeout(() => setStarPop(null), 280);
+  };
 
   const term = q.trim().toLowerCase();
   const base = tab === "favourites" ? markets.filter((m) => favs.has(m.symbol)) : markets;
@@ -1591,59 +1620,119 @@ function ForexPairSheet({
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
-      <div className="animate-sheet-in relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#0d0e11] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/10">
-        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
-        <div className="flex items-center gap-2 px-4 pb-3 pt-2.5">
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={requestClose}
+        className={`absolute inset-0 bg-black/60 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
+      />
+      <div
+        className={`relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#0d0e11] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/10 ${
+          closing ? "animate-sheet-out" : "animate-sheet-in"
+        }`}
+      >
+        <button type="button" onClick={requestClose} className="flex w-full justify-center pt-2.5 pb-1" aria-label="Close sheet">
+          <span className="h-1 w-9 rounded-full bg-white/20" />
+        </button>
+        <div className="flex items-center gap-2 px-4 pb-3 pt-1.5">
           <div className="flex flex-1 items-center gap-2 rounded-xl bg-white/[0.05] px-3 ring-1 ring-white/[0.07] focus-within:ring-sky-500/50">
             <Icon name="search" className="text-[18px] text-slate-500" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search pairs"
-              className="h-9 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-slate-600" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search pairs"
+              className="h-9 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-slate-600"
+            />
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-400 active:scale-95">
-            <Icon name="close" className="text-[13px]" />
+          <button
+            type="button"
+            onClick={requestClose}
+            aria-label="Close"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-400 transition-[transform] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.97]"
+          >
+            <Icon name="close" className="text-[14px]" />
           </button>
         </div>
 
-        {/* Favourites / All tabs */}
         <div className="flex items-stretch gap-5 border-b border-white/[0.07] px-4 text-[13px] font-black">
           {(["favourites", "all"] as const).map((t) => (
-            <button key={t} type="button" onClick={() => setTab(t)}
-              className={`-mb-px border-b-2 py-2.5 capitalize transition ${tab === t ? "border-white text-white" : "border-transparent text-slate-500"}`}>
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`-mb-px border-b-2 py-2.5 capitalize transition-[color,border-color] duration-150 [transition-timing-function:var(--ease-out)] ${
+                tab === t ? "border-white text-white" : "border-transparent text-slate-500"
+              }`}
+            >
               {t}
+              {t === "favourites" && favs.size > 0 && (
+                <span className="ml-1.5 tabular-nums text-[11px] text-slate-500">{favs.size}</span>
+              )}
             </button>
           ))}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1">
           {tab === "favourites" && filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
+            <div className="animate-fav-empty flex flex-col items-center justify-center px-8 py-16 text-center">
               <Icon name="star" className="text-[56px] text-slate-700" />
               <div className="mt-3 text-[14px] font-black text-slate-400">No favourites</div>
               <div className="mt-1 text-[12px] font-bold text-slate-600">Tap the star on a pair to add it here.</div>
+              <button
+                type="button"
+                onClick={() => setTab("all")}
+                className="mt-5 rounded-xl bg-[#087cff] px-4 py-2.5 text-[12px] font-black text-white transition-[transform] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.97]"
+              >
+                Browse pairs
+              </button>
             </div>
           ) : filtered.length === 0 ? (
             <p className="py-10 text-center text-[12px] font-bold text-slate-600">No pairs match “{q}”.</p>
-          ) : (<>
-          <p className="px-3 pb-1 pt-1 text-[11px] font-black uppercase tracking-wide text-slate-500">Forex pairs</p>
-          {filtered.map((m) => {
-            const active = m.symbol === current;
-            const starred = favs.has(m.symbol);
-            return (
-              <button key={m.symbol} type="button" onClick={() => onSelect(m.symbol)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition active:scale-[0.99] ${active ? "bg-white" : "hover:bg-white/[0.04]"}`}>
-                <PairFlags base={m.base} quote={m.quote} />
-                <span className="min-w-0 flex-1">
-                  <span className={`block truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>{m.symbol}</span>
-                  <span className={`block truncate text-[11px] font-bold ${active ? "text-slate-600" : "text-slate-500"}`}>{m.name}</span>
-                </span>
-                <span role="button" tabIndex={-1} onClick={(e) => { e.stopPropagation(); toggleFav(m.symbol); }} className="shrink-0">
-                  <Icon name="star" className={`text-[20px] ${starred ? "fill-current text-amber-400" : active ? "text-slate-500" : "text-slate-600"}`} />
-                </span>
-              </button>
-            );
-          })}
-          </>)}
+          ) : (
+            <>
+              <p className="px-3 pb-1 pt-1 text-[11px] font-black uppercase tracking-wide text-slate-500">Forex pairs</p>
+              {filtered.map((m) => {
+                const active = m.symbol === current;
+                const starred = favs.has(m.symbol);
+                return (
+                  <button
+                    key={m.symbol}
+                    type="button"
+                    onClick={() => onSelect(m.symbol)}
+                    className={`animate-fav-row flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-[transform,background-color] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.97] ${
+                      active ? "bg-white" : "hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <PairFlags base={m.base} quote={m.quote} />
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>
+                        {m.symbol}
+                      </span>
+                      <span className={`block truncate text-[11px] font-bold ${active ? "text-slate-600" : "text-slate-500"}`}>
+                        {m.name}
+                      </span>
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={-1}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFav(m.symbol);
+                      }}
+                      className={`shrink-0 transition-[transform] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.92] ${
+                        starPop === m.symbol ? "animate-fav-star-pop" : ""
+                      }`}
+                    >
+                      <Icon
+                        name="star"
+                        className={`text-[20px] ${starred ? "fill-current text-amber-400" : active ? "text-slate-500" : "text-slate-600"}`}
+                      />
+                    </span>
+                  </button>
+                );
+              })}
+            </>
+          )}
         </div>
       </div>
     </div>

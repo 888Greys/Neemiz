@@ -35,15 +35,16 @@ function statusColor(s: string) {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    WON:       "bg-emerald-500/15 text-emerald-400",
-    LOST:      "bg-red-500/15 text-red-400",
-    VOID:      "bg-white/[0.07] text-slate-400",
-    PENDING:   "bg-amber-500/15 text-amber-400",
-    CASHED_OUT:"bg-purple-500/15 text-purple-400",
+    WON: "bg-emerald-500/15 text-emerald-400",
+    LOST: "bg-red-500/15 text-red-400",
+    VOID: "bg-white/[0.06] text-slate-400",
+    PENDING: "bg-amber-500/15 text-amber-400",
+    CASHED_OUT: "bg-[#087cff]/15 text-[#75b8ff]",
   };
+  const label = status === "PENDING" ? "Running" : status.replace("_", " ");
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${colors[status] ?? colors.PENDING}`}>
-      {status}
+    <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${colors[status] ?? colors.PENDING}`}>
+      {label}
     </span>
   );
 }
@@ -274,60 +275,73 @@ function WheelOfFortune({
       </div>
 
       {/* Bet amount input */}
-      <div className="w-full mb-2">
-        <div className={`flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2.5 ring-1 transition-shadow ${
-          notEnoughFunds ? "ring-red-500/40" : "ring-white/[0.07] focus-within:ring-[#087cff]/40"
-        }`}>
+      <div className="mb-2 w-full">
+        <div
+          className={`flex items-center gap-2 rounded-xl bg-[#1c2433] px-3 py-2.5 ring-1 transition ${
+            notEnoughFunds ? "ring-red-500/40" : "ring-white/[0.06] focus-within:ring-[#087cff]/50"
+          }`}
+        >
           <span className="shrink-0 text-[11px] font-black text-slate-500">{currency.symbol}</span>
           <input
-            type="number" min={convert(MIN_PLAY_AMOUNT)} placeholder="Bet amount"
+            type="number"
+            min={convert(MIN_PLAY_AMOUNT)}
+            placeholder="Bet amount"
             value={amount}
-            onChange={(e) => { setAmount(e.target.value); setError(null); }}
-            className="min-w-0 flex-1 bg-transparent text-[13px] font-black text-white outline-none placeholder:text-slate-600"
+            onChange={(e) => {
+              setAmount(e.target.value);
+              setError(null);
+            }}
+            className="min-w-0 flex-1 bg-transparent text-[13px] font-black tabular-nums text-white outline-none placeholder:text-slate-600"
           />
         </div>
         {notEnoughFunds && (
-          <p className="mt-1 text-[10px] text-red-400 font-bold">
+          <p className="mt-1 text-[10px] font-bold text-red-400">
             Insufficient balance — {format(balance)} available
           </p>
         )}
       </div>
 
-      {/* Range hint */}
-      <p className="mb-2.5 text-[10px] text-slate-600 self-start">
+      <p className="mb-2.5 self-start text-[10px] text-slate-600">
         from {format(MIN_PLAY_AMOUNT)} to {balance > 0 ? format(balance) : "—"}
       </p>
 
-      {/* Multiplier quick-pick */}
-      <div className="mb-3 flex w-full gap-2">
+      <div className="mb-3 flex w-full gap-1.5">
         {([1.5, 2, 3] as const).map((m) => (
-          <button key={m} type="button"
+          <button
+            key={m}
+            type="button"
             onClick={() => setAmount((v) => (parseFloat(v || "0") * m).toFixed(2))}
-            className="flex-1 rounded-xl bg-white/[0.05] py-1.5 text-[11px] font-black text-slate-400 ring-1 ring-white/[0.06] hover:bg-[#087cff]/15 hover:text-[#75b8ff] transition">
+            className="flex-1 rounded-lg bg-[#141820] py-1.5 text-[11px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/15 hover:text-[#75b8ff]"
+          >
             ×{m}
           </button>
         ))}
       </div>
 
-      {/* CTA button — changes based on state */}
       {!isSignedIn ? (
-        <button type="button" onClick={openLogin}
-          className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-[0_4px_20px_rgba(8,124,255,.35)] hover:bg-[#0570e8] active:scale-[.98] transition-all">
+        <button
+          type="button"
+          onClick={openLogin}
+          className="w-full rounded-xl bg-[#087cff] py-3.5 text-sm font-black text-white transition hover:bg-[#0570e8] active:scale-[.99]"
+        >
           Log in to Spin
         </button>
       ) : notEnoughFunds ? (
-        <Link href="/wallet"
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#06c96e] py-3.5 text-sm font-black text-white shadow-[0_4px_14px_rgba(6,201,110,.3)] hover:bg-[#05b85f] active:scale-[.98] transition-all">
-          <Icon name="account_balance_wallet" className="w-4 h-4" />
+        <Link
+          href="/wallet"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#06c96e] py-3.5 text-sm font-black text-white transition hover:bg-[#05b85f] active:scale-[.99]"
+        >
+          <Icon name="account_balance_wallet" className="h-4 w-4" />
           Deposit to Spin
         </Link>
       ) : (
-        <button type="button" onClick={spin}
+        <button
+          type="button"
+          onClick={spin}
           disabled={spinning || loading || !amt || amtKes < MIN_PLAY_AMOUNT}
-          className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-[0_4px_20px_rgba(8,124,255,.35)] hover:bg-[#0570e8] active:scale-[.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all">
-          {(spinning || loading) ? (
-            <LoadingDots label={loading ? "Placing" : "Spinning"} />
-          ) : "Spin"}
+          className="w-full rounded-xl bg-[#087cff] py-3.5 text-sm font-black text-white transition hover:bg-[#0570e8] active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {spinning || loading ? <LoadingDots label={loading ? "Placing" : "Spinning"} /> : "Spin"}
         </button>
       )}
     </div>
@@ -368,52 +382,49 @@ function ShareBetModal({ onClose }: { onClose: () => void }) {
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       {/* Card */}
-      <div className="relative z-10 w-full max-w-sm rounded-3xl bg-[#13161f] ring-1 ring-white/[0.08] shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-white/[0.06]">
+      <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl bg-[#13161f] shadow-2xl ring-1 ring-white/10">
+        <div className="flex items-center justify-between border-b border-white/10 px-5 pt-4 pb-3">
           <div>
             <h3 className="text-[15px] font-black text-white">Share bet</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">Copy the code or share a link</p>
+            <p className="mt-0.5 text-[11px] text-slate-500">Copy the code or share a link</p>
           </div>
-          <button type="button" onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.07] text-slate-400 hover:text-white hover:bg-white/[0.12] transition">
-            <Icon name="close" className="w-4 h-4" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.07] text-slate-400 transition hover:bg-white/[0.12] hover:text-white"
+          >
+            <Icon name="close" className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="px-6 py-5">
-          {/* Code field */}
-          <div className="flex items-center gap-2 rounded-2xl bg-white/[0.05] px-4 py-3 ring-1 ring-white/[0.08] mb-4">
-            <span className="flex-1 font-mono text-[16px] font-black text-white tracking-widest">{code}</span>
-            <button type="button" onClick={copyCode}
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${
-                copied === "code"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-[#087cff] text-white hover:bg-[#0570e8]"
-              }`}>
-              <Icon name={copied === "code" ? "check" : "photo_camera"} className="w-4 h-4" />
+        <div className="px-5 py-4">
+          <div className="mb-4 flex items-center gap-2 rounded-xl bg-[#1c2433] px-3 py-3 ring-1 ring-white/[0.06]">
+            <span className="flex-1 font-mono text-[16px] font-black tracking-widest text-white">{code}</span>
+            <button
+              type="button"
+              onClick={copyCode}
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition ${
+                copied === "code" ? "bg-emerald-500 text-white" : "bg-[#087cff] text-white hover:bg-[#0570e8]"
+              }`}
+            >
+              <Icon name={copied === "code" ? "check" : "photo_camera"} className="h-4 w-4" />
             </button>
           </div>
 
-          {/* OR divider */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex-1 h-px bg-white/[0.07]" />
+          <div className="mb-4 flex items-center gap-3">
+            <div className="h-px flex-1 bg-white/[0.07]" />
             <span className="text-[11px] font-black text-slate-600">OR</span>
-            <div className="flex-1 h-px bg-white/[0.07]" />
+            <div className="h-px flex-1 bg-white/[0.07]" />
           </div>
 
-          {/* Share link button */}
           <button
             type="button"
             onClick={shareLink}
-            className={`flex w-full items-center justify-center gap-2.5 rounded-2xl py-3.5 text-sm font-black transition ${
-              copied === "link"
-                ? "bg-emerald-500 text-white"
-                : "bg-[#087cff] text-white hover:bg-[#0570e8]"
+            className={`flex w-full items-center justify-center gap-2.5 rounded-xl py-3.5 text-sm font-black transition ${
+              copied === "link" ? "bg-emerald-500 text-white" : "bg-[#087cff] text-white hover:bg-[#0570e8]"
             }`}
           >
-            <Icon name={copied === "link" ? "check" : "open_in_new"} className="w-4 h-4" />
+            <Icon name={copied === "link" ? "check" : "open_in_new"} className="h-4 w-4" />
             {copied === "link" ? "Link copied!" : "Share a link"}
           </button>
         </div>
@@ -554,84 +565,99 @@ export function SportsBetSlip() {
       {showShare && <ShareBetModal onClose={() => setShowShare(false)} />}
 
       <div className="flex h-full min-h-0 w-full flex-col bg-[#0d0e11]">
-        {/* ── Header ── */}
-        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3">
+        {/* Header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#141820] px-3 py-2.5">
           <div className="flex items-center gap-2">
-            <span className="text-[15px] font-black text-white">Betslip</span>
+            <span className="text-[14px] font-black text-white">Betslip</span>
             {bets.length > 0 && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#087cff] text-[10px] font-black text-white">
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#087cff] px-1.5 text-[10px] font-black tabular-nums text-white">
                 {bets.length}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {isSignedIn && (
-              <Link href="/wallet" className="flex items-center gap-1 rounded-full bg-white/[0.07] px-3 py-1.5 transition hover:bg-white/[0.12]">
-                <Icon name="account_balance_wallet" className="w-3 h-3 text-slate-400" />
-                <span className="text-[12px] font-black text-slate-300">{fmtBalance}</span>
+              <Link
+                href="/wallet"
+                className="flex items-center gap-1 rounded-full bg-[#1c2433] px-2.5 py-1.5 transition hover:bg-[#243044]"
+              >
+                <Icon name="account_balance_wallet" className="h-3 w-3 text-slate-500" />
+                <span className="text-[11px] font-black tabular-nums text-slate-300">{fmtBalance}</span>
               </Link>
             )}
             {bets.length > 0 && (
-              <button type="button" onClick={clearBets}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.07] text-slate-500 transition hover:bg-red-500/15 hover:text-red-400"
-                aria-label="Clear betslip">
-                <Icon name="delete_outline" className="w-4 h-4" />
+              <button
+                type="button"
+                onClick={clearBets}
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1c2433] text-slate-500 transition hover:bg-red-500/15 hover:text-red-400"
+                aria-label="Clear betslip"
+              >
+                <Icon name="delete_outline" className="h-4 w-4" />
               </button>
             )}
           </div>
         </div>
 
-        {/* ── Tabs ── */}
-        <div className="flex shrink-0 border-b border-white/[0.07]">
+        {/* Tabs */}
+        <div className="flex shrink-0 border-b border-white/10">
           {(["single", "multi", "mybets"] as const).map((t) => (
-            <button key={t} type="button" onClick={() => setTab(t)}
-              className={`flex-1 py-2.5 text-[11px] font-black transition ${
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`flex-1 py-2.5 text-[11px] font-black uppercase tracking-wide transition ${
                 tab === t
-                  ? "border-b-2 border-[#087cff] text-white"
+                  ? "border-b-2 border-[#087cff] bg-[#087cff]/10 text-white"
                   : "text-slate-500 hover:text-slate-300"
-              }`}>
-              {t === "single" ? `Single${bets.length > 0 ? ` (${bets.length})` : ""}` : t === "multi" ? "Multi" : "My Bets"}
+              }`}
+            >
+              {t === "single"
+                ? `Single${bets.length > 0 ? ` ${bets.length}` : ""}`
+                : t === "multi"
+                  ? "Multi"
+                  : "My Bets"}
             </button>
           ))}
         </div>
 
-        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto pb-2">
-          {/* Flash message */}
+        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
           {placedMsg && (
-            <div className={`mx-3 mt-3 flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-bold ${
-              placedMsg.ok ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"
-            }`}>
-              <Icon name={placedMsg.ok ? "check_circle" : "error"} fill className="w-4 h-4 shrink-0" />
+            <div
+              className={`mx-3 mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-[11px] font-bold ${
+                placedMsg.ok ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"
+              }`}
+            >
+              <Icon name={placedMsg.ok ? "check_circle" : "error"} fill className="h-4 w-4 shrink-0" />
               <span className="flex-1">{placedMsg.text}</span>
               <button type="button" onClick={() => setPlacedMsg(null)}>
-                <Icon name="close" className="w-3.5 h-3.5" />
+                <Icon name="close" className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
 
           {tab === "mybets" ? (
-            /* ── My Bets ── */
-            <div className="divide-y divide-white/[0.05]">
+            <div>
               {!isSignedIn ? (
-                <div className="flex flex-col items-center py-12 text-center">
-                  <Icon name="lock" fill className="w-8 h-8 text-slate-600 mb-3" />
-                  <p className="text-sm font-black text-slate-500">Sign in to see your bets</p>
-                  <button type="button" onClick={openLogin}
-                    className="mt-4 rounded-xl bg-[#087cff] px-5 py-2 text-xs font-black text-white">
+                <div className="flex flex-col items-center px-4 py-12 text-center">
+                  <Icon name="lock" fill className="mb-3 h-7 w-7 text-slate-600" />
+                  <p className="text-[13px] font-black text-slate-400">Sign in to see your bets</p>
+                  <button
+                    type="button"
+                    onClick={openLogin}
+                    className="mt-4 rounded-xl bg-[#087cff] px-5 py-2 text-[12px] font-black text-white"
+                  >
                     Log in
                   </button>
                 </div>
               ) : betsLoading ? (
                 <div className="flex justify-center py-10">
-                  <svg className="h-6 w-6 animate-spin text-[#087cff]" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#087cff]/25 border-t-[#087cff]" />
                 </div>
               ) : myBets.length === 0 ? (
-                <div className="flex flex-col items-center py-12 text-center">
-                  <Icon name="receipt_long" className="w-8 h-8 text-slate-600 mb-3" />
-                  <p className="text-sm font-black text-slate-500">No bets yet</p>
+                <div className="flex flex-col items-center px-4 py-12 text-center">
+                  <Icon name="receipt_long" className="mb-3 h-7 w-7 text-slate-600" />
+                  <p className="text-[13px] font-black text-slate-400">No bets yet</p>
+                  <p className="mt-1 text-[11px] text-slate-600">Pick odds from the sports list</p>
                 </div>
               ) : (
                 myBets.map((bet) => {
@@ -639,177 +665,206 @@ export function SportsBetSlip() {
                   const shownSelections = isOpen ? bet.selections : bet.selections.slice(0, 1);
                   const hiddenCount = bet.selections.length - shownSelections.length;
                   return (
-                  <div key={bet.id} className={`px-4 py-3.5 transition-colors ${isOpen ? "bg-white/[0.03]" : ""}`}>
-                    <button
-                      type="button"
-                      onClick={() => setExpandedBet(isOpen ? null : bet.id)}
-                      aria-expanded={isOpen}
-                      className="w-full text-left transition active:scale-[0.99]"
+                    <div
+                      key={bet.id}
+                      className={`border-b border-white/[0.06] ${isOpen ? "bg-[#141820]" : ""}`}
                     >
-                      <div className="mb-2.5 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          {bet.status === "PENDING" && (
-                            <span className="relative flex h-2 w-2">
-                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-                              <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-400" />
+                      <button
+                        type="button"
+                        onClick={() => setExpandedBet(isOpen ? null : bet.id)}
+                        aria-expanded={isOpen}
+                        className="w-full px-3 py-3 text-left transition active:bg-white/[0.02]"
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            {bet.status === "PENDING" && (
+                              <span className="relative flex h-1.5 w-1.5 shrink-0">
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-400" />
+                              </span>
+                            )}
+                            <StatusBadge status={bet.status} />
+                            <span className="text-[9px] font-bold uppercase text-slate-600">{bet.type}</span>
+                            {bet.selections.length > 1 && (
+                              <span className="text-[9px] font-black text-slate-500">
+                                {bet.selections.length} legs
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <span className="text-[10px] tabular-nums text-slate-600">
+                              {new Date(bet.createdAt).toLocaleString(MONEY_LOCALE, {
+                                timeZone: "Africa/Nairobi",
+                                day: "numeric",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
                             </span>
-                          )}
-                          <StatusBadge status={bet.status} />
-                          <span className="text-[10px] font-bold text-slate-600 uppercase">{bet.type}</span>
-                          {bet.selections.length > 1 && (
-                            <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-black text-slate-400">
-                              {bet.selections.length} LEGS
-                            </span>
-                          )}
+                            <Icon
+                              name="expand_more"
+                              className={`h-4 w-4 text-slate-600 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                            />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-slate-600">
-                            {new Date(bet.createdAt).toLocaleString(MONEY_LOCALE, { timeZone: "Africa/Nairobi", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                          <Icon name="expand_more" className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
-                        </div>
-                      </div>
-                      {shownSelections.map((s, i) => (
-                        <div key={i} className="mb-2 flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-[10px] text-slate-500">{s.matchName}</div>
-                            <div className="truncate text-[12px] font-black text-white">
-                              {s.label}
-                              <span className="ml-1 text-[10px] font-bold text-slate-500">· {s.market}</span>
-                            </div>
-                            {kickoffEAT(s.kickoff) && (
-                              <div className="mt-0.5 flex items-center gap-1 text-[9px] font-semibold text-slate-600">
-                                <Icon name="schedule" className="h-2.5 w-2.5" />
-                                {kickoffEAT(s.kickoff)}
+                        {shownSelections.map((s, i) => (
+                          <div key={i} className="mb-1.5 flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-[10px] text-slate-500">{s.matchName}</div>
+                              <div className="truncate text-[12px] font-black text-white">
+                                {s.label}
+                                <span className="ml-1 text-[10px] font-bold text-slate-500">{s.market}</span>
                               </div>
-                            )}
+                              {kickoffEAT(s.kickoff) && (
+                                <div className="mt-0.5 flex items-center gap-1 text-[9px] text-slate-600">
+                                  <Icon name="schedule" className="h-2.5 w-2.5" />
+                                  {kickoffEAT(s.kickoff)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-0.5">
+                              <span className="rounded-lg bg-[#1c2433] px-1.5 py-0.5 text-[11px] font-black tabular-nums text-white">
+                                {s.odds.toFixed(2)}
+                              </span>
+                              {s.result !== "PENDING" && (
+                                <span className={`text-[9px] font-black uppercase ${statusColor(s.result)}`}>
+                                  {s.result}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex shrink-0 flex-col items-end gap-0.5">
-                            <span className="rounded-md bg-[#087cff]/15 px-1.5 py-0.5 text-[11px] font-black text-[#75b8ff]">
-                              {s.odds.toFixed(2)}
+                        ))}
+                        {hiddenCount > 0 && (
+                          <div className="text-[10px] font-bold text-[#75b8ff]">
+                            +{hiddenCount} more · tap to view
+                          </div>
+                        )}
+                      </button>
+                      <div className="flex items-center justify-between border-t border-white/[0.04] px-3 py-2 text-[11px]">
+                        <span className="text-slate-500">
+                          Stake <span className="font-black tabular-nums text-white">{format(bet.stake)}</span>
+                        </span>
+                        {bet.status === "WON" && bet.winAmount ? (
+                          <span className="font-black tabular-nums text-emerald-400">+{format(bet.winAmount)}</span>
+                        ) : bet.status === "LOST" ? (
+                          <span className="font-black tabular-nums text-red-400">-{format(bet.stake)}</span>
+                        ) : (
+                          <span className="text-slate-500">
+                            To win{" "}
+                            <span className="font-black tabular-nums text-white">{format(bet.potentialWin)}</span>
+                          </span>
+                        )}
+                      </div>
+                      {isOpen && (
+                        <div className="space-y-1.5 border-t border-white/[0.04] bg-[#0a0b0e] px-3 py-2.5 text-[11px]">
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Total odds</span>
+                            <span className="font-black tabular-nums text-white">{bet.totalOdds.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-500">Bet ID</span>
+                            <span className="font-mono text-[10px] text-slate-400">
+                              #{bet.id.slice(-8).toUpperCase()}
                             </span>
-                            {s.result !== "PENDING" && (
-                              <span className={`text-[9px] font-black uppercase ${statusColor(s.result)}`}>{s.result}</span>
-                            )}
                           </div>
                         </div>
-                      ))}
-                      {hiddenCount > 0 && (
-                        <div className="mb-2 text-[10px] font-black text-[#75b8ff]">
-                          + {hiddenCount} more selection{hiddenCount > 1 ? "s" : ""} — tap to view
-                        </div>
-                      )}
-                    </button>
-                    <div className="mt-2 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 text-[11px]">
-                      <span className="text-slate-500">Stake <span className="font-black text-white">{format(bet.stake)}</span></span>
-                      {bet.status === "WON" && bet.winAmount ? (
-                        <span className="font-black text-emerald-400">+{format(bet.winAmount)}</span>
-                      ) : bet.status === "LOST" ? (
-                        <span className="text-red-400 font-black">-{format(bet.stake)}</span>
-                      ) : (
-                        <span className="text-slate-500">To win <span className="font-black text-amber-400">{format(bet.potentialWin)}</span></span>
                       )}
                     </div>
-                    {isOpen && (
-                      <div className="mt-2 space-y-1.5 rounded-xl bg-white/[0.02] px-3 py-2.5 text-[11px] ring-1 ring-white/[0.05]">
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Total odds</span>
-                          <span className="font-black text-white">{bet.totalOdds.toFixed(2)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Potential win</span>
-                          <span className="font-black text-amber-400">{format(bet.potentialWin)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Placed</span>
-                          <span className="font-bold text-slate-300">
-                            {new Date(bet.createdAt).toLocaleString(MONEY_LOCALE, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Bet ID</span>
-                          <span className="font-mono text-[10px] text-slate-400">#{bet.id.slice(-8).toUpperCase()}</span>
-                        </div>
-                        <Link href="/my-bets"
-                          className="mt-1 flex items-center justify-center gap-1 rounded-lg bg-[#087cff]/15 py-1.5 text-[11px] font-black text-[#75b8ff] transition hover:bg-[#087cff]/25">
-                          View full details
-                          <Icon name="arrow_forward" className="w-3 h-3" />
-                        </Link>
-                      </div>
-                    )}
-                  </div>
                   );
                 })
               )}
-              <Link href="/my-bets"
-                className="mx-3 my-3 flex items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.06] transition hover:bg-white/[0.08]">
-                <span className="text-[11px] font-black text-slate-400">Open full My Bets page</span>
-                <Icon name="arrow_forward" className="w-3.5 h-3.5 text-[#087cff]" />
-              </Link>
+              {myBets.length > 0 && (
+                <div className="border-t border-white/[0.06] px-3 py-3">
+                  <Link
+                    href="/my-bets"
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-[#087cff] py-2.5 text-[12px] font-black text-white transition hover:bg-[#0570e8] active:scale-[0.99]"
+                  >
+                    View all bets
+                    <Icon name="arrow_forward" className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              )}
             </div>
-
           ) : bets.length === 0 ? (
-            /* ── Empty state → Wheel ── */
             <WheelOfFortune
               balance={balance}
               isSignedIn={isSignedIn}
               openLogin={openLogin}
               refreshBalance={refreshBalance}
             />
-
           ) : tab === "single" ? (
-            /* ── Single bets ── */
-            <div className="divide-y divide-white/[0.05]">
+            <div>
               {bets.map((bet) => {
-                const stake  = parseFloat(amounts[bet.id] || "0");
+                const stake = parseFloat(amounts[bet.id] || "0");
                 const grossPayout = stake > 0 ? stake * parseFloat(bet.value) : 0;
                 const payout = stake > 0 ? retainedPayout(stake, grossPayout).toFixed(2) : null;
                 return (
-                  <div key={bet.id} className="px-4 py-3">
-                    <div className="mb-2.5 flex items-start justify-between gap-2">
+                  <div key={bet.id} className="border-b border-white/[0.06] px-3 py-3">
+                    <div className="mb-2 flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-[11px] text-slate-500">{bet.matchName}</div>
-                        <div className="truncate text-[13px] font-black text-white">{bet.market} · {bet.label}</div>
+                        <div className="truncate text-[10px] text-slate-500">{bet.matchName}</div>
+                        <div className="truncate text-[13px] font-black text-white">
+                          {bet.label}
+                          <span className="ml-1.5 text-[10px] font-bold text-slate-500">{bet.market}</span>
+                        </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1.5">
-                        <span className="rounded-lg bg-[#087cff] px-2.5 py-0.5 text-[13px] font-black text-white tabular-nums">
+                        <span className="rounded-lg bg-[#087cff] px-2 py-1 text-[13px] font-black tabular-nums text-white">
                           {bet.value}
                         </span>
-                        <button type="button" onClick={() => removeBet(bet.id)}
-                          className="flex h-6 w-6 items-center justify-center rounded-full bg-white/[0.06] text-slate-500 transition hover:bg-red-500/15 hover:text-red-400">
-                          <Icon name="close" className="w-3 h-3" />
+                        <button
+                          type="button"
+                          onClick={() => removeBet(bet.id)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1c2433] text-slate-500 transition hover:bg-red-500/15 hover:text-red-400"
+                          aria-label="Remove selection"
+                        >
+                          <Icon name="close" className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/40">
+                    <div className="flex items-center gap-2 rounded-xl bg-[#1c2433] px-3 py-2 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
                       <span className="shrink-0 text-[11px] font-black text-slate-500">{dispCur.symbol}</span>
                       <input
-                        type="number" min="0" placeholder="0"
+                        type="number"
+                        min="0"
+                        placeholder="0"
                         value={amounts[bet.id] ?? ""}
                         onChange={(e) => setAmounts((a) => ({ ...a, [bet.id]: e.target.value }))}
-                        className="min-w-0 flex-1 bg-transparent text-[13px] font-black text-white outline-none placeholder:text-slate-600"
+                        className="min-w-0 flex-1 bg-transparent text-[13px] font-black tabular-nums text-white outline-none placeholder:text-slate-600"
                       />
-                      <button type="button"
+                      <button
+                        type="button"
                         className="shrink-0 text-[11px] font-black text-[#087cff] transition hover:text-[#4fa8ff]"
-                        onClick={() => setAmounts((a) => ({ ...a, [bet.id]: String(Math.floor(convert(balance))) }))}>
+                        onClick={() =>
+                          setAmounts((a) => ({ ...a, [bet.id]: String(Math.floor(convert(balance))) }))
+                        }
+                      >
                         Max
                       </button>
                     </div>
                     <div className="mt-1.5 flex gap-1.5">
                       {[50, 100, 200, 500].map((q) => {
-                        const qd = Math.round(convert(q)); // KES preset → display units
+                        const qd = Math.round(convert(q));
                         return (
-                        <button key={q} type="button"
-                          onClick={() => setAmounts((a) => ({ ...a, [bet.id]: String(parseFloat(a[bet.id] || "0") + qd) }))}
-                          className="flex-1 rounded-lg bg-white/[0.05] py-1 text-[10px] font-black text-slate-400 transition hover:bg-[#087cff]/20 hover:text-[#75b8ff]">
-                          +{qd.toLocaleString(dispCur.locale)}
-                        </button>
+                          <button
+                            key={q}
+                            type="button"
+                            onClick={() =>
+                              setAmounts((a) => ({
+                                ...a,
+                                [bet.id]: String(parseFloat(a[bet.id] || "0") + qd),
+                              }))
+                            }
+                            className="flex-1 rounded-lg bg-[#141820] py-1.5 text-[10px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/20 hover:text-[#75b8ff]"
+                          >
+                            +{qd.toLocaleString(dispCur.locale)}
+                          </button>
                         );
                       })}
                     </div>
                     <div className="mt-2 flex items-center justify-between text-[11px]">
                       <span className="text-slate-500">Possible win</span>
-                      <span className={`font-black ${payout ? "text-emerald-400" : "text-slate-600"}`}>
+                      <span className={`font-black tabular-nums ${payout ? "text-emerald-400" : "text-slate-600"}`}>
                         {formatInCurrency(payout ? Number(payout) : 0, dispCur.code)}
                       </span>
                     </div>
@@ -817,45 +872,82 @@ export function SportsBetSlip() {
                 );
               })}
             </div>
-
           ) : (
-            /* ── Multi bet ── */
-            <div className="divide-y divide-white/[0.05]">
+            <div>
               {bets.map((bet) => (
-                <div key={bet.id} className="flex items-center justify-between px-4 py-2.5">
+                <div
+                  key={bet.id}
+                  className="flex items-center justify-between border-b border-white/[0.06] px-3 py-2.5"
+                >
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[10px] text-slate-500">{bet.matchName}</div>
-                    <div className="truncate text-[11px] font-black text-white">{bet.label}</div>
+                    <div className="truncate text-[12px] font-black text-white">{bet.label}</div>
                   </div>
-                  <div className="ml-2 flex shrink-0 items-center gap-2">
-                    <span className="text-[12px] font-black text-[#087cff]">{bet.value}</span>
-                    <button type="button" onClick={() => removeBet(bet.id)}
-                      className="flex h-5 w-5 items-center justify-center rounded-full bg-white/[0.06] text-slate-500 hover:text-red-400">
-                      <Icon name="close" className="w-2.5 h-2.5" />
+                  <div className="ml-2 flex shrink-0 items-center gap-1.5">
+                    <span className="rounded-lg bg-[#1c2433] px-1.5 py-0.5 text-[12px] font-black tabular-nums text-white">
+                      {bet.value}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeBet(bet.id)}
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-[#141820] text-slate-500 hover:text-red-400"
+                      aria-label="Remove selection"
+                    >
+                      <Icon name="close" className="h-3 w-3" />
                     </button>
                   </div>
                 </div>
               ))}
-              <div className="px-4 py-3">
+              <div className="px-3 py-3">
                 <div className="mb-2.5 flex items-center justify-between text-[12px]">
-                  <span className="text-slate-400 font-bold">Total odds</span>
-                  <span className="font-black text-white tabular-nums">{totalOdds.toFixed(2)}</span>
+                  <span className="font-bold text-slate-400">Total odds</span>
+                  <span className="font-black tabular-nums text-white">{totalOdds.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-xl bg-white/[0.05] px-3 py-2.5 ring-1 ring-white/[0.06]">
+                <div className="flex items-center gap-2 rounded-xl bg-[#1c2433] px-3 py-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
+                  <span className="shrink-0 text-[11px] font-black text-slate-500">{dispCur.symbol}</span>
                   <input
-                    type="number" min="0" placeholder="Bet amount"
+                    type="number"
+                    min="0"
+                    placeholder="Bet amount"
                     value={amounts["__multi__"] ?? ""}
                     onChange={(e) => setAmounts((a) => ({ ...a, __multi__: e.target.value }))}
-                    className="min-w-0 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-slate-600"
+                    className="min-w-0 flex-1 bg-transparent text-[13px] font-black tabular-nums text-white outline-none placeholder:text-slate-600"
                   />
-                  <button type="button" className="shrink-0 text-[11px] font-black text-[#087cff]"
-                    onClick={() => setAmounts((a) => ({ ...a, __multi__: String(Math.floor(convert(balance))) }))}>
-                    All in
+                  <button
+                    type="button"
+                    className="shrink-0 text-[11px] font-black text-[#087cff]"
+                    onClick={() =>
+                      setAmounts((a) => ({ ...a, __multi__: String(Math.floor(convert(balance))) }))
+                    }
+                  >
+                    Max
                   </button>
+                </div>
+                <div className="mt-1.5 flex gap-1.5">
+                  {[50, 100, 200, 500].map((q) => {
+                    const qd = Math.round(convert(q));
+                    return (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() =>
+                          setAmounts((a) => ({
+                            ...a,
+                            __multi__: String(parseFloat(a["__multi__"] || "0") + qd),
+                          }))
+                        }
+                        className="flex-1 rounded-lg bg-[#141820] py-1.5 text-[10px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/20 hover:text-[#75b8ff]"
+                      >
+                        +{qd.toLocaleString(dispCur.locale)}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px]">
                   <span className="text-slate-500">Possible win</span>
-                  <span className={`font-black ${multiPayout ? "text-emerald-400" : "text-slate-600"}`}>
+                  <span
+                    className={`font-black tabular-nums ${multiPayout ? "text-emerald-400" : "text-slate-600"}`}
+                  >
                     {formatInCurrency(multiPayout ? Number(multiPayout) : 0, dispCur.code)}
                   </span>
                 </div>
@@ -863,17 +955,14 @@ export function SportsBetSlip() {
             </div>
           )}
 
-          {/* Lucky Spin — stays available even after selecting bets */}
           {bets.length > 0 && tab !== "mybets" && (
-            <div className="mx-3 mb-3 mt-1 overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.02]">
+            <div className="mx-3 mb-3 mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#141820]">
               <button
                 type="button"
                 onClick={() => setShowWheel((v) => !v)}
                 className="flex w-full items-center justify-between px-3 py-2.5"
               >
-                <span className="flex items-center gap-2 text-[12px] font-black text-white">
-                  <span className="text-base">🎡</span> Lucky Spin
-                </span>
+                <span className="text-[12px] font-black text-white">Lucky Spin</span>
                 <Icon name={showWheel ? "expand_less" : "expand_more"} className="h-4 w-4 text-slate-400" />
               </button>
               {showWheel && (
@@ -888,18 +977,17 @@ export function SportsBetSlip() {
           )}
         </div>
 
-        {/* ── Footer ── */}
         {bets.length > 0 && tab !== "mybets" && (
-          <div className="sticky bottom-0 z-10 shrink-0 border-t border-white/[0.07] bg-[#0d0e11] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="sticky bottom-0 z-10 shrink-0 border-t border-white/10 bg-[#141820] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             {notEnoughFunds ? (
-              <div className="mb-3 flex flex-col items-center gap-2 rounded-2xl bg-[#16171d] px-4 py-4 text-center ring-1 ring-white/[0.07]">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/15">
-                  <Icon name="warning" fill className="w-5 h-5 text-amber-400" />
-                </div>
+              <div className="mb-2 flex flex-col items-center gap-2 rounded-xl bg-[#0d0e11] px-3 py-4 text-center ring-1 ring-white/10">
+                <Icon name="warning" fill className="h-5 w-5 text-amber-400" />
                 <p className="text-[13px] font-black text-white">Not enough funds</p>
-                <p className="text-[11px] text-slate-500">Top up your account to continue</p>
-                <Link href="/wallet"
-                  className="mt-1 w-full rounded-xl bg-[#05b957] py-2.5 text-center text-[13px] font-black text-white transition hover:bg-[#07cc63]">
+                <p className="text-[11px] text-slate-500">Top up to place this bet</p>
+                <Link
+                  href="/wallet"
+                  className="mt-1 w-full rounded-xl bg-[#05b957] py-2.5 text-center text-[13px] font-black text-white transition hover:bg-[#07cc63]"
+                >
                   Deposit
                 </Link>
               </div>
@@ -907,33 +995,35 @@ export function SportsBetSlip() {
               <>
                 {!isSignedIn && (
                   <p className="mb-2 text-center text-[11px] text-slate-500">
-                    <button type="button" onClick={openLogin} className="font-bold text-[#087cff] hover:underline">Log in</button>
-                    {" "}to place bets
+                    <button type="button" onClick={openLogin} className="font-bold text-[#087cff] hover:underline">
+                      Log in
+                    </button>{" "}
+                    to place bets
                   </p>
                 )}
-                {/* Possible win row with share button */}
-                <div className="mb-2.5 flex items-center justify-between px-1">
+                <div className="mb-2 flex items-center justify-between px-0.5">
                   <span className="text-[11px] text-slate-500">Possible win</span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-black text-emerald-400 tabular-nums">
+                    <span className="text-[13px] font-black tabular-nums text-emerald-400">
                       {formatInCurrency(
                         tab === "multi"
-                          ? (multiPayout ? Number(multiPayout) : 0)
+                          ? multiPayout
+                            ? Number(multiPayout)
+                            : 0
                           : bets.reduce((s, b) => {
                               const stake = parseFloat(amounts[b.id] || "0");
                               return s + (stake > 0 ? retainedPayout(stake, stake * parseFloat(b.value)) : 0);
                             }, 0),
-                        dispCur.code
+                        dispCur.code,
                       )}
                     </span>
-                    {/* Share button */}
                     <button
                       type="button"
                       onClick={() => setShowShare(true)}
                       title="Share bet"
-                      className="flex h-7 w-7 items-center justify-center rounded-xl bg-white/[0.07] text-slate-400 hover:bg-white/[0.12] hover:text-white transition"
+                      className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#1c2433] text-slate-400 transition hover:bg-[#243044] hover:text-white"
                     >
-                      <Icon name="open_in_new" className="w-3.5 h-3.5" />
+                      <Icon name="open_in_new" className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>
@@ -941,13 +1031,15 @@ export function SportsBetSlip() {
                   type="button"
                   onClick={placeBets}
                   disabled={placing}
-                  className="w-full rounded-2xl bg-[#06c96e] py-3.5 text-sm font-black text-white shadow-[0_4px_14px_rgba(6,201,110,.3)] transition hover:bg-[#05b85f] active:scale-[.98] disabled:opacity-60"
+                  className="w-full rounded-xl bg-[#06c96e] py-3.5 text-sm font-black text-white transition hover:bg-[#05b85f] active:scale-[.99] disabled:opacity-60"
                 >
                   {placing ? (
                     <LoadingDots label="Placing" />
-                  ) : isSignedIn
-                    ? `Place ${bets.length === 1 ? "Bet" : `${bets.length} Bets`}`
-                    : "Log in to Bet"}
+                  ) : isSignedIn ? (
+                    `Place ${bets.length === 1 ? "Bet" : `${bets.length} Bets`}`
+                  ) : (
+                    "Log in to Bet"
+                  )}
                 </button>
               </>
             )}

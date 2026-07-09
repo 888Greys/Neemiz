@@ -14,9 +14,9 @@ export function OddButton({ bet }: Props) {
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); toggleBet(bet); }}
-      className={`group flex flex-1 items-center justify-between gap-1.5 rounded-xl px-2.5 py-2 transition ${
+      className={`group flex flex-1 items-center justify-between gap-1.5 rounded-xl px-1.5 py-2.5 transition active:scale-[0.97] sm:px-2.5 ${
         active
-          ? "bg-[#087cff] ring-1 ring-[#087cff]/50"
+          ? "bg-[#087cff] ring-1 ring-[#087cff]/50 shadow-md shadow-[#087cff]/25"
           : "bg-white/[0.06] hover:bg-[#087cff]/15"
       }`}
     >

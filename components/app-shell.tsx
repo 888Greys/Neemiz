@@ -316,7 +316,11 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           )}
         </main>
 
-        {rightPanel && <aside className="hidden w-80 shrink-0 bg-surface-container-lowest lg:flex">{rightPanel}</aside>}
+        {rightPanel && (
+          <aside className="hidden w-80 shrink-0 border-l border-white/10 bg-[#0d0e11] lg:flex">
+            {rightPanel}
+          </aside>
+        )}
       </div>
 
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onSwitchToRegister={() => { setLoginOpen(false); setRegisterOpen(true); }} />}
@@ -435,9 +439,7 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenProfi
         <SidebarGroup collapsed={collapsed} icon="sports_soccer" isOpen={openGroups.sports} onToggle={() => toggleGroup("sports")} title="Sports">
           <SidebarItem collapsed={collapsed} href="/sports?tab=Top" icon="local_fire_department" label="Top" pathname={pathname} suppressActive />
           <SidebarItem collapsed={collapsed} href="/sports?tab=Live" icon="sensors" label="Live" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=Esports" icon="sports_esports" label="Esports" pathname={pathname} suppressActive />
           <SidebarItem collapsed={collapsed} href="/sports?tab=Sports" icon="calendar_month" label="All Sports" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=Markets" icon="trending_up" label="Markets" pathname={pathname} suppressActive />
           <SidebarItem collapsed={collapsed} href="/my-bets" icon="receipt_long" label="My Bets" pathname={pathname} />
         </SidebarGroup>
 
@@ -791,9 +793,7 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
             <MobileDrawerGroup icon="sports_soccer" isOpen={openGroups.sports} label="Sports" onToggle={() => setOpenGroups((v) => ({ ...v, sports: !v.sports }))}>
               <MobileDrawerLink nested href="/sports?tab=Top" icon="local_fire_department" label="Top" onClick={onClose} />
               <MobileDrawerLink nested href="/sports?tab=Live" icon="sensors" label="Live" onClick={onClose} />
-              <MobileDrawerLink nested href="/sports?tab=Esports" icon="sports_esports" label="Esports" onClick={onClose} />
               <MobileDrawerLink nested href="/sports?tab=Sports" icon="calendar_month" label="All Sports" onClick={onClose} />
-              <MobileDrawerLink nested href="/sports?tab=Markets" icon="trending_up" label="Markets" onClick={onClose} />
               <MobileDrawerLink nested href="/my-bets" icon="receipt_long" label="My Bets" active={isActive("/my-bets")} onClick={onClose} />
             </MobileDrawerGroup>
 
@@ -909,56 +909,116 @@ function MobileDrawerLink({ active, badge, href, icon, label, nested, onClick }:
 function MobileBetslipSheet({ children }: { children: React.ReactNode }) {
   const { bets } = useBetslip();
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const combinedOdds = bets.reduce((acc, b) => acc * (parseFloat(b.value) || 1), 1);
+
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      setOpen(false);
+      setClosing(false);
+      closeTimer.current = null;
+    }, 220);
+  }, [closing]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open || closing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") requestClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, closing, requestClose]);
 
   return (
     <>
-      {/* FAB — sits just above the bottom nav */}
-      <div className="fixed bottom-[84px] left-0 right-0 z-40 flex justify-center lg:hidden pointer-events-none">
+      {/* FAB — compact pill above bottom nav */}
+      <div className="pointer-events-none fixed bottom-[84px] left-0 right-0 z-40 flex justify-center lg:hidden">
         <button
           type="button"
-          onClick={() => setOpen(true)}
-          className="pointer-events-auto flex items-center gap-2.5 rounded-full bg-[#16171d] pl-4 pr-3 py-2.5 ring-1 ring-white/[0.12] shadow-[0_4px_24px_rgba(0,0,0,.5)] transition active:scale-[0.97]"
+          onClick={() => {
+            if (closing) return;
+            setOpen(true);
+          }}
+          className={`pointer-events-auto flex items-center gap-2.5 rounded-full py-2.5 pl-4 pr-3 shadow-[0_4px_24px_rgba(0,0,0,.5)] transition active:scale-[0.97] ${
+            bets.length > 0
+              ? "bg-[#087cff] shadow-[0_8px_28px_rgba(8,124,255,.35)] ring-1 ring-[#087cff]/60"
+              : "bg-[#16171d] ring-1 ring-white/[0.12]"
+          }`}
         >
-          <Icon name="receipt_long" fill className={`text-[18px] ${bets.length > 0 ? "text-[#087cff]" : "text-slate-500"}`} />
+          <Icon
+            name="receipt_long"
+            fill
+            className={`text-[18px] ${bets.length > 0 ? "text-white" : "text-slate-500"}`}
+          />
           <span className={`text-[13px] font-black ${bets.length > 0 ? "text-white" : "text-slate-400"}`}>
             Betslip
           </span>
           {bets.length > 0 ? (
-            <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#087cff] px-1.5 text-[10px] font-black text-white">
-              {bets.length}
-            </span>
+            <>
+              <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 px-1.5 text-[10px] font-black text-white">
+                {bets.length}
+              </span>
+              <span className="rounded-full bg-black/20 px-2 py-0.5 font-mono text-[11px] font-black tabular-nums text-white">
+                @{combinedOdds.toFixed(2)}
+              </span>
+            </>
           ) : (
             <Icon name="expand_less" className="text-[16px] text-slate-500" />
           )}
         </button>
       </div>
 
-      {/* Bottom sheet */}
       {open && (
         <div className="fixed bottom-14 left-0 right-0 top-0 z-[45] lg:hidden">
-          {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/70 animate-fade-in"
-            onClick={() => setOpen(false)}
+            className={`absolute inset-0 bg-black/70 ${
+              closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"
+            }`}
+            onClick={requestClose}
           />
-          {/* Sheet */}
-          <div className="animate-sheet-in absolute bottom-0 left-0 right-0 flex h-[calc(100dvh-3.5rem)] max-h-[calc(93dvh-3.5rem)] flex-col rounded-t-3xl bg-[#0d0e11] shadow-2xl">
-            {/* Handle bar */}
-            <div className="flex shrink-0 items-center justify-between px-4 pt-3 pb-1">
-              <div className="mx-auto h-1 w-10 rounded-full bg-white/[0.15]" />
-            </div>
-            {/* Close row */}
-            <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 pb-2">
-              <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Betslip</span>
+          <div
+            className={`absolute bottom-0 left-0 right-0 flex h-[calc(100dvh-3.5rem)] max-h-[calc(93dvh-3.5rem)] flex-col rounded-t-2xl bg-[#0d0e11] shadow-2xl ${
+              closing ? "animate-sheet-out" : "animate-sheet-in"
+            }`}
+          >
+            <div className="flex shrink-0 flex-col items-center border-b border-white/10 px-3 pb-2.5 pt-2">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.07] text-slate-400 transition hover:bg-white/[0.12] hover:text-white"
+                onClick={requestClose}
+                className="mb-2 flex w-full flex-col items-center gap-2 py-1"
+                aria-label="Close betslip"
               >
-                <Icon name="close" className="text-[16px]" />
+                <span className="h-1 w-10 rounded-full bg-white/20" />
               </button>
+              <div className="flex w-full items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-500">Betslip</span>
+                  {bets.length > 0 && (
+                    <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#087cff] px-1.5 text-[10px] font-black text-white">
+                      {bets.length}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={requestClose}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06] text-slate-400 transition hover:bg-white/[0.1] hover:text-white active:scale-95"
+                  aria-label="Close betslip"
+                >
+                  <Icon name="close" className="text-[16px]" />
+                </button>
+              </div>
             </div>
-            {/* Betslip content */}
             <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
           </div>
         </div>

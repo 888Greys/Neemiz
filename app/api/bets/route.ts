@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { spendForPlay } from "@/lib/balance";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { BetType, TransactionType, TransactionStatus } from "@prisma/client";
-import { getFixtureDetail } from "@/lib/theoddsapi";
 import { readFixtureDetail } from "@/lib/fixtures-cache";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
@@ -29,11 +28,8 @@ type PlaceBetBody = {
 async function resolveLiveSelections(selections: BetSelectionInput[]) {
   return Promise.all(
     selections.map(async (selection) => {
-      // Verify from the cache first (0 API credits); fall back to a direct
-      // lookup if the fixture isn't cached yet.
-      const detail =
-        (await readFixtureDetail(Number(selection.fixtureId))) ??
-        (await getFixtureDetail(Number(selection.fixtureId)));
+      // Cache only — never spend Odds credits on bet placement (4k+ users).
+      const detail = await readFixtureDetail(Number(selection.fixtureId));
       if (!detail) {
         throw new Error("MARKET_UNAVAILABLE");
       }
