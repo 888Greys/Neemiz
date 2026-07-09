@@ -51,7 +51,7 @@ export function TrendingMatchCarousel() {
 
   return (
     <section
-      className="px-3"
+      className="w-full"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
