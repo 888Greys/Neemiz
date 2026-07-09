@@ -743,8 +743,6 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   );
   // Non-zero crypto balances for hero display
   const nonZeroBalances = cryptoBalances.filter((b) => b.crypto !== "KES" && (b.available > 0 || b.locked > 0));
-  const formatCryptoAmount = (b: CryptoBalance) =>
-    b.available.toFixed(b.crypto === "KES" ? 2 : b.crypto === "BTC" || b.crypto === "ETH" ? 8 : 4);
 
   const activeTitle = tab.charAt(0).toUpperCase() + tab.slice(1);
 
