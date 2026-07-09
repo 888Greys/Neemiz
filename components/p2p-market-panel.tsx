@@ -13,7 +13,7 @@ function TradingGuideBlock() {
   ];
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#111118]">
+    <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#18191f]">
       <div className="flex items-center justify-between border-b border-white/[0.06] px-3 py-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">Before you trade</p>

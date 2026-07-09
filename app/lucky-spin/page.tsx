@@ -5,7 +5,7 @@ export const metadata = { title: "Lucky Spin · Nezeem" };
 
 export default function LuckySpinPage() {
   return (
-    <AppShell>
+    <AppShell fullHeight hideFooter>
       <LuckySpinView />
     </AppShell>
   );
