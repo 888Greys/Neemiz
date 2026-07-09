@@ -45,6 +45,7 @@ export async function GET(req: Request) {
             completionRate: true,
             avgReleaseTime: true,
             createdAt:       true,
+            user: { select: { imageUrl: true } },
           },
         },
       },
@@ -82,7 +83,8 @@ export async function GET(req: Request) {
       merchant: {
         id:              ad.merchant.id,
         displayName:     ad.merchant.displayName,
-        avatarUrl:       ad.merchant.avatarUrl,
+        // Prefer merchant upload, else Google/email account photo.
+        avatarUrl:       ad.merchant.avatarUrl ?? ad.merchant.user.imageUrl,
         // Online = a heartbeat in the last 3 minutes.
         isOnline:        !!ad.merchant.lastSeenAt && (Date.now() - new Date(ad.merchant.lastSeenAt).getTime() < 3 * 60 * 1000),
         totalTrades,

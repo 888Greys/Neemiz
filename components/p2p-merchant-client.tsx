@@ -2146,17 +2146,14 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               disabled={avatarUploading}
               className="sr-only"
             />
-            {user?.user_metadata?.avatar_url ? (
-              <img
-                src={user.user_metadata.avatar_url}
-                alt={status.displayName ?? "avatar"}
-                className="h-full w-full rounded-xl object-cover shadow-lg shadow-black/30 lg:rounded-lg"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center rounded-xl bg-gradient-to-br from-[#087cff] to-[#6366f1] text-xl font-black text-white shadow-lg shadow-[#087cff]/20 lg:rounded-lg lg:text-lg">
-                {status.displayName?.charAt(0).toUpperCase()}
-              </div>
-            )}
+            <MerchantAvatar
+              id={status.displayName ?? "merchant"}
+              name={status.displayName ?? "Merchant"}
+              avatarUrl={user?.user_metadata?.avatar_url || status.avatarUrl}
+              size={48}
+              rounded="xl"
+              className="pointer-events-none h-12 w-12 lg:h-10 lg:w-10 [&_img]:shadow-lg [&_img]:shadow-black/30 lg:[&_img]:rounded-lg"
+            />
             {/* Hover / uploading overlay */}
             <div className={`absolute inset-0 flex items-center justify-center rounded-xl bg-black/55 transition-opacity lg:rounded-lg ${avatarUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
               <Icon name={avatarUploading ? "progress_activity" : "photo_camera"} className={`text-[18px] text-white ${avatarUploading ? "animate-spin" : ""}`} />

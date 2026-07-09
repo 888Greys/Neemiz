@@ -18,6 +18,7 @@ export async function GET(
     const merchant = await db.merchantProfile.findUnique({
       where: { id },
       include: {
+        user: { select: { imageUrl: true } },
         ads: {
           where: { isActive: true, availableAmount: { gt: 0 } },
           select: {
@@ -109,7 +110,7 @@ export async function GET(
     return Response.json({
       id: merchant.id,
       displayName: merchant.displayName,
-      avatarUrl: merchant.avatarUrl,
+      avatarUrl: merchant.avatarUrl ?? merchant.user.imageUrl,
       isVerified: merchant.isVerified,
       kycStatus: merchant.kycStatus,
       isOnline: !!merchant.lastSeenAt && (Date.now() - new Date(merchant.lastSeenAt).getTime() < 3 * 60 * 1000),
