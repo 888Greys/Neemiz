@@ -611,7 +611,13 @@ function DepositSection() {
       ]);
       if (depRes.ok) setDeposits(await depRes.json());
       if (balRes.ok) setBalances(await balRes.json());
-      if (walletRes.ok) setWalletBalances(await walletRes.json());
+      if (walletRes.ok) {
+        const walletData = await walletRes.json();
+        const rows = Array.isArray(walletData)
+          ? walletData
+          : (walletData?.balances ?? []);
+        setWalletBalances(rows);
+      }
     }
     catch (err) { toast.error(err instanceof Error ? err.message : "Failed to load deposit info"); } finally { setLoading(false); }
   }, []);
