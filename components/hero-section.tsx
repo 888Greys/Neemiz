@@ -1,231 +1,225 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 
-/* ── Laurel wreath ────────────────────────────────────── */
-function LaurelWreath({ flip = false }: { flip?: boolean }) {
-  return (
-    <svg
-      width="36" height="64" viewBox="0 0 36 64"
-      fill="currentColor"
-      style={flip ? { transform: "scaleX(-1)" } : undefined}
-    >
-      {/* 6 leaf pairs curving along an arc */}
-      <ellipse cx="26" cy="7"  rx="9" ry="3.5" transform="rotate(-45 26 7)"  opacity="0.95" />
-      <ellipse cx="17" cy="14" rx="9" ry="3.5" transform="rotate(-62 17 14)" opacity="0.88" />
-      <ellipse cx="11" cy="24" rx="9" ry="3.5" transform="rotate(-82 11 24)" opacity="0.82" />
-      <ellipse cx="11" cy="35" rx="9" ry="3.5" transform="rotate(-98 11 35)" opacity="0.82" />
-      <ellipse cx="17" cy="46" rx="9" ry="3.5" transform="rotate(-115 17 46)" opacity="0.88" />
-      <ellipse cx="26" cy="54" rx="9" ry="3.5" transform="rotate(-132 26 54)" opacity="0.95" />
-      {/* Stem dot */}
-      <circle cx="32" cy="31" r="2.5" opacity="0.5" />
-    </svg>
-  );
-}
+type HeroSlide = {
+  href: string;
+  title: string;
+  tag: string;
+  blurb: string;
+  cta: string;
+  icon: string;
+  accent: string;
+  glow: string;
+  gradient: string;
+  image?: string;
+};
 
-function LaurelBadge({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="flex items-center gap-2 text-amber-400">
-      <LaurelWreath />
-      <div className="text-center">
-        <div className="text-xl font-black leading-none">{title}</div>
-        <div className="mt-1 text-[11px] font-bold uppercase tracking-wide text-amber-400/65">{subtitle}</div>
-      </div>
-      <LaurelWreath flip />
-    </div>
-  );
-}
-
-/* ── Right panel data ─────────────────────────────────── */
-const panelTabs = ["Live Sports", "Markets", "Trading"];
-
-const liveMatches = [
-  { home: "Arsenal", away: "Chelsea", score: "2 – 1", time: "62'", odds: "1.45", league: "Premier League", up: true },
-  { home: "Barcelona", away: "Sevilla", score: "1 – 0", time: "72'", odds: "1.62", league: "La Liga", up: false },
-  { home: "Man City", away: "Liverpool", score: "0 – 0", time: "34'", odds: "2.10", league: "Premier League", up: true },
-  { home: "Juventus", away: "AC Milan", score: "0 – 0", time: "12'", odds: "2.60", league: "Serie A", up: true },
+const SLIDES: HeroSlide[] = [
+  {
+    href: "/aviator",
+    title: "Aviator",
+    tag: "Featured · Crash",
+    blurb: "Ride the multiplier. Cash out before it flies away.",
+    cta: "Play now",
+    icon: "rocket_launch",
+    accent: "#ff1979",
+    glow: "bg-orange-500/20",
+    gradient:
+      "linear-gradient(125deg, rgba(18,6,2,.94) 0%, rgba(40,12,4,.7) 42%, rgba(12,8,4,.28) 100%)",
+    image: "https://v3.bundlecdn.com/b02632/plain/casino/game-of-the-week.1/mobile.png",
+  },
+  {
+    href: "/sports",
+    title: "Sports",
+    tag: "Sportsbook · Live",
+    blurb: "Football, basketball, and in-play markets — bet before the whistle.",
+    cta: "Open sportsbook",
+    icon: "sports_soccer",
+    accent: "#a78bfa",
+    glow: "bg-violet-500/25",
+    gradient:
+      "radial-gradient(ellipse at top right, rgba(139,92,246,.45), transparent 55%), radial-gradient(ellipse at bottom left, rgba(8,124,255,.22), transparent 50%), linear-gradient(160deg, #0c0d14 0%, #16122a 55%, #0d0e12 100%)",
+  },
+  {
+    href: "/binary",
+    title: "Binary",
+    tag: "Trade · Digits",
+    blurb: "Digit contracts and live charts — call the next tick.",
+    cta: "Start trading",
+    icon: "candlestick_chart",
+    accent: "#38bdf8",
+    glow: "bg-sky-500/25",
+    gradient:
+      "radial-gradient(ellipse at top right, rgba(14,165,233,.4), transparent 55%), linear-gradient(160deg, #071018 0%, #0c1a24 55%, #0d0e12 100%)",
+  },
+  {
+    href: "/forex",
+    title: "Forex",
+    tag: "FX · Markets",
+    blurb: "Pairs, candles, and an order ticket built for quick entries.",
+    cta: "Open forex",
+    icon: "currency_exchange",
+    accent: "#2dd4bf",
+    glow: "bg-teal-500/25",
+    gradient:
+      "radial-gradient(ellipse at top right, rgba(20,184,166,.38), transparent 55%), linear-gradient(160deg, #061412 0%, #0c1f1c 55%, #0d0e12 100%)",
+  },
+  {
+    href: "/predictions",
+    title: "Predictions",
+    tag: "Yes / No · Live",
+    blurb: "Trade outcomes on live markets with clear probabilities.",
+    cta: "Browse markets",
+    icon: "online_prediction",
+    accent: "#e879f9",
+    glow: "bg-fuchsia-500/25",
+    gradient:
+      "radial-gradient(ellipse at top right, rgba(217,70,239,.38), transparent 55%), linear-gradient(160deg, #120814 0%, #1a1024 55%, #0d0e12 100%)",
+  },
+  {
+    href: "/p2p",
+    title: "P2P",
+    tag: "Escrow · Trade",
+    blurb: "Buy and sell peer-to-peer with escrow protection.",
+    cta: "Open P2P",
+    icon: "swap_horiz",
+    accent: "#34d399",
+    glow: "bg-emerald-500/25",
+    gradient:
+      "radial-gradient(ellipse at top right, rgba(16,185,129,.38), transparent 55%), linear-gradient(160deg, #06140e 0%, #0c1f16 55%, #0d0e12 100%)",
+  },
 ];
 
-const marketData = [
-  { title: "BTC hits $100k?", yes: 68, volume: "$4.2M", change: "+2.3%" },
-  { title: "Arsenal win league?", yes: 37, volume: "$980K", change: "-1.2%" },
-  { title: "US Election winner", yes: 45, volume: "$12.8M", change: "+0.8%" },
-  { title: "Fed rate cut in Q3?", yes: 71, volume: "$2.1M", change: "+4.1%" },
-];
-
-const tradingPairs = [
-  { pair: "EUR/USD", price: "1.08452", change: "+0.012%", up: true },
-  { pair: "GBP/JPY", price: "189.234", change: "-0.034%", up: false },
-  { pair: "BTC/USD", price: "81,294.91", change: "+2.80%", up: true },
-  { pair: "XRP/USD", price: "1.47", change: "+3.98%", up: true },
-];
-
-const INTERVAL = 2250;
-const BG_IMAGES = ["https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg1.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg2.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg3.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg4.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg5.avif", "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg6.avif"];
-const BG_INTERVAL = 5000;
-
-/* ── Hero Section ─────────────────────────────────────── */
-export function HeroSection() {
-  const [activeTab, setActiveTab] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [visible, setVisible] = useState(true);
-  const [bgIndex, setBgIndex] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const progressRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const bgTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Ref so interval callbacks always read the latest value without stale closure
-  const isHoveredRef = useRef(false);
-
-  const startCycle = (tab: number) => {
-    // clear existing
-    if (timerRef.current) clearInterval(timerRef.current);
-    if (progressRef.current) clearInterval(progressRef.current);
-
-    setProgress(0);
-    const step = 100 / (INTERVAL / 50);
-    progressRef.current = setInterval(() => {
-      if (isHoveredRef.current) return; // paused on hover
-      setProgress((p) => Math.min(p + step, 100));
-    }, 50);
-
-    timerRef.current = setInterval(() => {
-      if (isHoveredRef.current) return; // paused on hover
-      setVisible(false);
-      setTimeout(() => {
-        setActiveTab((t) => {
-          const next = (t + 1) % panelTabs.length;
-          return next;
-        });
-        setProgress(0);
-        setVisible(true);
-      }, 250);
-    }, INTERVAL);
-  };
+/** Full-bleed product carousel — one game per slide, auto-rotates. */
+export function HeroSection({ compact = false }: { compact?: boolean } = {}) {
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const slide = SLIDES[index]!;
 
   useEffect(() => {
-    startCycle(0);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (progressRef.current) clearInterval(progressRef.current);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (isHovered) {
-      if (bgTimerRef.current) clearInterval(bgTimerRef.current);
-      return;
-    }
-    bgTimerRef.current = setInterval(() => {
-      setBgIndex((i) => (i + 1) % BG_IMAGES.length);
-    }, BG_INTERVAL);
-    return () => {
-      if (bgTimerRef.current) clearInterval(bgTimerRef.current);
-    };
-  }, [isHovered]);
-
-  const handleTabClick = (i: number) => {
-    setVisible(false);
-    setTimeout(() => {
-      setActiveTab(i);
-      setVisible(true);
-      startCycle(i);
-    }, 150);
-  };
+    if (paused) return;
+    const t = setInterval(() => setIndex((i) => (i + 1) % SLIDES.length), 5500);
+    return () => clearInterval(t);
+  }, [paused]);
 
   return (
     <section
-      className="relative overflow-hidden min-h-[calc(100vh-64px)] flex flex-col justify-center"
-      onMouseEnter={() => { isHoveredRef.current = true;  setIsHovered(true); }}
-      onMouseLeave={() => { isHoveredRef.current = false; setIsHovered(false); }}
+      className={`group relative overflow-hidden ${
+        compact
+          ? "min-h-[58vw] max-h-[380px] rounded-b-3xl"
+          : "min-h-[min(72vh,720px)]"
+      }`}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onTouchStart={() => setPaused(true)}
+      onTouchEnd={() => setPaused(false)}
     >
-      {/* Background image carousel */}
-      <div className="pointer-events-none absolute inset-0">
-        {BG_IMAGES.map((src, i) => (
-          <div
-            key={src}
-            className="absolute inset-0 bg-cover bg-center transition-opacity duration-1000"
-            style={{
-              backgroundImage: `url(${src})`,
-              opacity: i === bgIndex ? 1 : 0,
-            }}
+      {/* Backgrounds — crossfade */}
+      {SLIDES.map((s, i) => (
+        <div
+          key={s.href}
+          className="absolute inset-0 bg-cover bg-center transition-opacity duration-700"
+          style={{
+            opacity: i === index ? 1 : 0,
+            backgroundImage: s.image
+              ? `${s.gradient}, url(${s.image})`
+              : s.gradient,
+          }}
+        />
+      ))}
+
+      <div
+        className={`absolute -right-16 -top-16 h-56 w-56 rounded-full blur-3xl transition duration-700 ${slide.glow}`}
+      />
+      <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-[#0d0e12] to-transparent" />
+
+      <div
+        key={slide.href}
+        className={`animate-fade-up relative z-10 flex h-full flex-col justify-end ${
+          compact
+            ? "px-5 pb-9 pt-14"
+            : "mx-auto w-full max-w-[1600px] px-6 py-16 xl:px-8 xl:py-20"
+        }`}
+        style={{ animationDuration: "0.4s" }}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className="h-2 w-2 animate-pulse rounded-full motion-reduce:animate-none"
+            style={{ backgroundColor: slide.accent }}
           />
-        ))}
-        {/* Dark overlay so text stays readable */}
-        <div className="absolute inset-0 bg-black/60" />
-        {/* Subtle bottom fade into page */}
-        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[#0d0e12] to-transparent" />
-      </div>
+          <span
+            className="text-[10px] font-black uppercase tracking-[0.22em]"
+            style={{ color: slide.accent }}
+          >
+            {slide.tag}
+          </span>
+        </div>
 
-      <div className="relative mx-auto w-full max-w-[1600px] px-6 py-12 xl:py-16">
-        <div className="grid items-center gap-10">
-
-          {/* ── Left ── */}
-          <div className="max-w-2xl">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-black uppercase tracking-widest text-slate-300 backdrop-blur">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-              </span>
-              Platform live · no filler
-            </div>
-
-            <h1 className="text-5xl font-black uppercase leading-[.92] tracking-tight text-white xl:text-7xl 2xl:text-8xl">
-              Bet. Trade.
-              <br />
-              <span className="bg-gradient-to-r from-orange-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent">
-                One home.
-              </span>
+        <div className={`mt-4 flex items-end justify-between gap-6 ${compact ? "" : "max-w-3xl"}`}>
+          <div>
+            <h1
+              className={`font-black leading-none tracking-tight text-white ${
+                compact ? "text-[42px]" : "text-6xl xl:text-7xl 2xl:text-8xl"
+              }`}
+            >
+              {slide.title}
             </h1>
-
-            <p className="mt-5 max-w-lg text-base leading-7 text-slate-400 xl:text-lg xl:leading-8">
-              Sports, Aviator, Binary, Forex, Predictions, and P2P — every tile below opens a live product. No coming-soon casino filler.
+            <p
+              className={`mt-3 font-medium text-white/55 ${
+                compact ? "max-w-[240px] text-[13px]" : "max-w-md text-base xl:text-lg"
+              }`}
+            >
+              {slide.blurb}
             </p>
-
-            {/* Laurel badges — mobile only (desktop shows them inside the right panel) */}
-            <div className="mt-7 flex flex-wrap gap-6 xl:hidden">
-              <LaurelBadge title="No.1" subtitle="Betting Platform" />
-              <LaurelBadge title="No.1" subtitle="Trading Volume" />
-            </div>
-
-            {/* CTAs */}
-            <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Link
-                href="/sports"
-                prefetch={false}
-                className="rounded-2xl bg-white px-8 py-3.5 text-base font-black text-black transition hover:bg-white/90 active:scale-[.98]"
-              >
-                Open sportsbook
-              </Link>
-              <Link
-                href="/aviator"
-                prefetch={false}
-                className="rounded-2xl border border-white/15 bg-white/8 px-8 py-3.5 text-base font-black text-white transition hover:bg-white/12"
-              >
-                Play Aviator
-              </Link>
-              <Link
-                href="/binary"
-                prefetch={false}
-                className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3.5 text-base font-black text-white/80 transition hover:bg-white/10 hover:text-white"
-              >
-                Binary
-              </Link>
-            </div>
           </div>
+          {!compact && (
+            <span
+              className="hidden shrink-0 drop-shadow-lg transition duration-500 group-hover:-translate-y-2 group-hover:translate-x-1 xl:block"
+              style={{ color: `${slide.accent}99` }}
+            >
+              <Icon name={slide.icon} fill className="text-[120px]" />
+            </span>
+          )}
+        </div>
 
+        <div className={`mt-6 flex flex-wrap items-center gap-3 ${compact ? "" : "mt-8"}`}>
+          <Link
+            href={slide.href}
+            prefetch={false}
+            className="inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-[13px] font-black text-white shadow-lg transition hover:brightness-110 active:scale-[0.98] xl:px-8 xl:py-3.5 xl:text-base"
+            style={{
+              backgroundColor: slide.accent,
+              boxShadow: `0 12px 28px ${slide.accent}4d`,
+            }}
+          >
+            {slide.cta}
+            <Icon name="arrow_forward" className="text-[16px]" />
+          </Link>
         </div>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-      {/* Progress bar for active tab cycling */}
+      {/* Dots */}
       <div
-        className="absolute bottom-0 left-0 h-0.5 bg-[#087cff] transition-none"
-        style={{ width: `${progress}%` }}
-      />
+        className={`absolute z-20 flex gap-1.5 ${
+          compact ? "bottom-3 right-4" : "bottom-8 right-8 xl:bottom-10 xl:right-10"
+        }`}
+      >
+        {SLIDES.map((s, i) => (
+          <button
+            key={s.href}
+            type="button"
+            aria-label={`Show ${s.title}`}
+            aria-current={i === index}
+            onClick={() => setIndex(i)}
+            className={`h-1.5 rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 ${
+              i === index ? "w-5 bg-white" : "w-1.5 bg-white/25 hover:bg-white/45"
+            }`}
+          />
+        ))}
+      </div>
     </section>
   );
 }

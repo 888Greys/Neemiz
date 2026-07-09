@@ -1,3 +1,5 @@
+import { getTeamLogo } from "@/lib/team-logos";
+
 const BASE    = "https://api.the-odds-api.com/v4";
 const API_KEY = process.env.ODDS_API_KEY ?? "";
 
@@ -477,8 +479,14 @@ export async function enrichBadges(matches: Match[], cap: number): Promise<Match
   return matches.map((m, idx) =>
     idx >= cap ? m : {
       ...m,
-      home: { ...m.home, logo: m.home.logo ?? badges.get(m.home.name) },
-      away: { ...m.away, logo: m.away.logo ?? badges.get(m.away.name) },
+      home: {
+        ...m.home,
+        logo: m.home.logo ?? getTeamLogo(m.home.name) ?? badges.get(m.home.name),
+      },
+      away: {
+        ...m.away,
+        logo: m.away.logo ?? getTeamLogo(m.away.name) ?? badges.get(m.away.name),
+      },
     },
   );
 }
@@ -699,56 +707,80 @@ export async function getFixtureDetail(id: number): Promise<MatchDetail | null> 
 
 // ── Mock fallback ─────────────────────────────────────────────────────────────
 
+function withLogos<T extends Match>(m: T): T {
+  return {
+    ...m,
+    home: { ...m.home, logo: m.home.logo ?? getTeamLogo(m.home.name) },
+    away: { ...m.away, logo: m.away.logo ?? getTeamLogo(m.away.name) },
+  };
+}
+
 export const MOCK_LIVE: Match[] = [
-  {
+  withLogos({
     id: 1, eventId: "mock-1", sportKey: "soccer_epl",
     league: "Premier League", country: "England", countryFlag: FLAG("gb-eng"),
     home: { name: "Arsenal",  score: 2 }, away: { name: "Chelsea", score: 1 },
-    period: "Live", isLive: true, startingAt: "",
+    period: "62'", isLive: true, startingAt: "",
     odds: [{ label: "1", value: "1.45" }, { label: "X", value: "4.20" }, { label: "2", value: "6.50" }],
     extraMarkets: 12,
-  },
-  {
+  }),
+  withLogos({
     id: 2, eventId: "mock-2", sportKey: "soccer_germany_bundesliga",
     league: "Bundesliga", country: "Germany", countryFlag: FLAG("de"),
-    home: { name: "Bayern Munich", score: 2 }, away: { name: "Dortmund", score: 1 },
-    period: "Live", isLive: true, startingAt: "",
+    home: { name: "Bayern Munich", score: 2 }, away: { name: "Borussia Dortmund", score: 1 },
+    period: "HT", isLive: true, startingAt: "",
     odds: [{ label: "1", value: "1.35" }, { label: "X", value: "4.80" }, { label: "2", value: "7.20" }],
     extraMarkets: 8,
-  },
-  {
+  }),
+  withLogos({
     id: 3, eventId: "mock-3", sportKey: "soccer_spain_la_liga",
     league: "La Liga", country: "Spain", countryFlag: FLAG("es"),
     home: { name: "Barcelona", score: 1 }, away: { name: "Real Madrid", score: 1 },
-    period: "Live", isLive: true, startingAt: "",
+    period: "71'", isLive: true, startingAt: "",
     odds: [{ label: "1", value: "2.60" }, { label: "X", value: "3.10" }, { label: "2", value: "2.80" }],
     extraMarkets: 11,
-  },
+  }),
+  withLogos({
+    id: 4, eventId: "mock-4", sportKey: "soccer_italy_serie_a",
+    league: "Serie A", country: "Italy", countryFlag: FLAG("it"),
+    home: { name: "Juventus", score: 0 }, away: { name: "AC Milan", score: 1 },
+    period: "38'", isLive: true, startingAt: "",
+    odds: [{ label: "1", value: "2.90" }, { label: "X", value: "3.20" }, { label: "2", value: "2.45" }],
+    extraMarkets: 9,
+  }),
+  withLogos({
+    id: 5, eventId: "mock-5", sportKey: "basketball_nba",
+    league: "NBA", country: "USA", countryFlag: FLAG("us"),
+    home: { name: "Los Angeles Lakers", score: 88 }, away: { name: "Boston Celtics", score: 91 },
+    period: "Q3", isLive: true, startingAt: "",
+    odds: [{ label: "1", value: "2.10" }, { label: "2", value: "1.75" }],
+    extraMarkets: 6,
+  }),
 ];
 
 export const MOCK_UPCOMING: Match[] = [
-  {
+  withLogos({
     id: 101, eventId: "mock-101", sportKey: "soccer_epl",
     league: "Premier League", country: "England", countryFlag: FLAG("gb-eng"),
     home: { name: "Aston Villa", score: null }, away: { name: "Liverpool", score: null },
     period: "22:00", isLive: false, startingAt: new Date(Date.now() + 3_600_000).toISOString(),
     odds: [{ label: "1", value: "2.78" }, { label: "X", value: "3.46" }, { label: "2", value: "2.54" }],
     extraMarkets: 9,
-  },
-  {
+  }),
+  withLogos({
     id: 102, eventId: "mock-102", sportKey: "basketball_nba",
     league: "NBA", country: "USA", countryFlag: FLAG("us"),
     home: { name: "Cleveland Cavaliers", score: null }, away: { name: "Detroit Pistons", score: null },
     period: "02:00", isLive: false, startingAt: new Date(Date.now() + 7_200_000).toISOString(),
     odds: [{ label: "1", value: "1.54" }, { label: "2", value: "2.43" }],
     extraMarkets: 4,
-  },
-  {
+  }),
+  withLogos({
     id: 103, eventId: "mock-103", sportKey: "soccer_italy_serie_a",
     league: "Serie A", country: "Italy", countryFlag: FLAG("it"),
     home: { name: "Juventus", score: null }, away: { name: "AC Milan", score: null },
     period: "20:45", isLive: false, startingAt: new Date(Date.now() + 10_800_000).toISOString(),
     odds: [{ label: "1", value: "2.20" }, { label: "X", value: "3.20" }, { label: "2", value: "3.40" }],
     extraMarkets: 7,
-  },
+  }),
 ];
