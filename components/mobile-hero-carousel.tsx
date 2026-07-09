@@ -43,35 +43,42 @@ export function MobileHeroCarousel({ slides }: { slides: string[] }) {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
           </span>
-          Platform live · 6 products
+          Platform live · no filler
         </div>
 
         <h1 className="text-[32px] font-black uppercase leading-[.88] tracking-tight text-white drop-shadow-lg">
-          One platform.
+          Bet. Trade.
           <br />
-          <span className="bg-gradient-to-r from-violet-400 via-fuchsia-300 to-amber-400 bg-clip-text text-transparent">
-            Six markets.
+          <span className="bg-gradient-to-r from-orange-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent">
+            One home.
           </span>
         </h1>
 
-        <p className="mt-2.5 text-[11px] font-semibold leading-relaxed text-white/50 tracking-wide">
-          Sports · Aviator · Predictions · P2P · Binary · Wallet
+        <p className="mt-2.5 text-[11px] font-semibold leading-relaxed tracking-wide text-white/50">
+          Live products only — no waiting rooms
         </p>
 
         <div className="mt-5 flex items-center gap-2.5">
           <Link
             href="/sports"
             prefetch={false}
-            className="rounded-2xl bg-white px-6 py-3 text-[13px] font-black text-black shadow-lg active:scale-[0.97] transition"
+            className="rounded-2xl bg-white px-6 py-3 text-[13px] font-black text-black shadow-lg transition active:scale-[0.97]"
           >
-            Get started
+            Sports
           </Link>
           <Link
             href="/aviator"
             prefetch={false}
-            className="rounded-2xl border border-white/20 bg-white/10 px-6 py-3 text-[13px] font-black text-white backdrop-blur-sm active:scale-[0.97] transition"
+            className="rounded-2xl border border-white/20 bg-white/10 px-6 py-3 text-[13px] font-black text-white backdrop-blur-sm transition active:scale-[0.97]"
           >
-            Play Aviator
+            Aviator
+          </Link>
+          <Link
+            href="/binary"
+            prefetch={false}
+            className="rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-[13px] font-black text-white/80 transition active:scale-[0.97]"
+          >
+            Binary
           </Link>
         </div>
       </div>
