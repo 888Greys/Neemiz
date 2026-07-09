@@ -170,19 +170,19 @@ export function HeroSection() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
               </span>
-              Platform is live · 6 products
+              Platform live · no filler
             </div>
 
             <h1 className="text-5xl font-black uppercase leading-[.92] tracking-tight text-white xl:text-7xl 2xl:text-8xl">
-              One platform.
+              Bet. Trade.
               <br />
-              <span className="bg-gradient-to-r from-violet-400 via-white to-amber-400 bg-clip-text text-transparent">
-                Six markets.
+              <span className="bg-gradient-to-r from-orange-300 via-fuchsia-300 to-sky-300 bg-clip-text text-transparent">
+                One home.
               </span>
             </h1>
 
             <p className="mt-5 max-w-lg text-base leading-7 text-slate-400 xl:text-lg xl:leading-8">
-              Sports betting, Aviator, Polymarket predictions, P2P trading, Binary &amp; Forex, and a Smart Wallet — built into one seamless experience.
+              Sports, Aviator, Binary, Forex, Predictions, and P2P — every tile below opens a live product. No coming-soon casino filler.
             </p>
 
             {/* Laurel badges — mobile only (desktop shows them inside the right panel) */}
@@ -198,7 +198,7 @@ export function HeroSection() {
                 prefetch={false}
                 className="rounded-2xl bg-white px-8 py-3.5 text-base font-black text-black transition hover:bg-white/90 active:scale-[.98]"
               >
-                Get started
+                Open sportsbook
               </Link>
               <Link
                 href="/aviator"
@@ -206,6 +206,13 @@ export function HeroSection() {
                 className="rounded-2xl border border-white/15 bg-white/8 px-8 py-3.5 text-base font-black text-white transition hover:bg-white/12"
               >
                 Play Aviator
+              </Link>
+              <Link
+                href="/binary"
+                prefetch={false}
+                className="rounded-2xl border border-white/10 bg-white/5 px-6 py-3.5 text-base font-black text-white/80 transition hover:bg-white/10 hover:text-white"
+              >
+                Binary
               </Link>
             </div>
           </div>
