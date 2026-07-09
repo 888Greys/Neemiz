@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AviatorCanvas }   from "./aviator-canvas";
 import { AviatorBetPanel } from "./aviator-bet-panel";
@@ -94,6 +95,23 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [loading,        setLoading]        = useState(true);
   const [dualPanel,      setDualPanel]      = useState(false);
   const [soundEnabled,   setSoundEnabled]   = useState(loadSoundEnabled);
+  // Mobile bottom-nav: players / mine open the side panel on the matching tab.
+  const searchParams = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  const [playersOpen, setPlayersOpen] = useState(false);
+  const [playersTab, setPlayersTab] = useState<"live" | "mine" | "prev">("live");
+  useEffect(() => {
+    if (urlTab === "mine") {
+      setPlayersOpen(true);
+      setPlayersTab("mine");
+    } else if (urlTab === "players") {
+      setPlayersOpen(true);
+      setPlayersTab("live");
+    } else {
+      setPlayersOpen(false);
+      setPlayersTab("live");
+    }
+  }, [urlTab]);
 
   const wsRef          = useRef<WebSocket | null>(null);
   const rafRef         = useRef<number>(0);
@@ -597,6 +615,10 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             myHistory={myHistory}
             myCurrentBets={Object.values(myBets)}
             userId={userId}
+            open={playersOpen}
+            onOpenChange={setPlayersOpen}
+            tab={playersTab}
+            onTabChange={setPlayersTab}
           />
           {/* Desktop: always-visible full table */}
           <div className="hidden lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
@@ -606,6 +628,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
               myHistory={myHistory}
               myCurrentBets={Object.values(myBets)}
               userId={userId}
+              tab={playersTab}
+              onTabChange={setPlayersTab}
             />
           </div>
         </aside>
@@ -641,14 +665,20 @@ function AviatorTicker({ liveBets }: { liveBets: AviatorBetPublic[] }) {
 
 function AviatorPlayersTable({
   liveBets, prevRoundBets, myHistory, myCurrentBets, userId,
+  tab: controlledTab,
+  onTabChange,
 }: {
   liveBets:      AviatorBetPublic[];
   prevRoundBets: AviatorBetPublic[];
   myHistory:     MyHistoryBet[];
   myCurrentBets: AviatorBetPublic[];
   userId?: string;
+  tab?: "live" | "mine" | "prev";
+  onTabChange?: (t: "live" | "mine" | "prev") => void;
 }) {
-  const [tab, setTab] = useState<"live" | "mine" | "prev">("live");
+  const [internalTab, setInternalTab] = useState<"live" | "mine" | "prev">("live");
+  const tab = controlledTab ?? internalTab;
+  const setTab = onTabChange ?? setInternalTab;
 
   // Deduplicate live bets — my current bets override any WS entry for same userId
   const myIds = new Set(myCurrentBets.map((b) => b.userId));
@@ -751,19 +781,31 @@ function BetRow({ bet, isMe }: { bet: AviatorBetPublic; isMe?: boolean }) {
   );
 }
 
-function MobilePlayersCollapsible({ liveBets, prevRoundBets, myHistory, myCurrentBets, userId }: {
+function MobilePlayersCollapsible({
+  liveBets, prevRoundBets, myHistory, myCurrentBets, userId,
+  open: controlledOpen,
+  onOpenChange,
+  tab,
+  onTabChange,
+}: {
   liveBets:      AviatorBetPublic[];
   prevRoundBets: AviatorBetPublic[];
   myHistory:     MyHistoryBet[];
   myCurrentBets: AviatorBetPublic[];
   userId?:       string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  tab?: "live" | "mine" | "prev";
+  onTabChange?: (t: "live" | "mine" | "prev") => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
   return (
     <div className="lg:hidden border-t border-white/[0.06]">
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between px-4 py-2.5 text-[11px] font-black text-white/40 transition-colors hover:text-white/60"
       >
         <span className="flex items-center gap-2">
@@ -782,6 +824,8 @@ function MobilePlayersCollapsible({ liveBets, prevRoundBets, myHistory, myCurren
             myHistory={myHistory}
             myCurrentBets={myCurrentBets}
             userId={userId}
+            tab={tab}
+            onTabChange={onTabChange}
           />
         </div>
       )}
