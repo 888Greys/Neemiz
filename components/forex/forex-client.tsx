@@ -671,7 +671,7 @@ export function ForexClient() {
   }, [price, trades]);
 
   return (
-    <div className="flex h-full min-h-0 max-w-full flex-col overflow-hidden bg-[#050506] text-white sm:block sm:h-auto sm:min-h-full sm:overflow-x-hidden sm:pb-36 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+    <div className="flex h-full min-h-0 max-w-full flex-col overflow-hidden bg-[#151518] text-white sm:block sm:h-auto sm:min-h-full sm:overflow-x-hidden sm:pb-36 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       {streamStatus === "fallback" && (() => {
         const isClosed = /closed|presently closed|market.*open/i.test(streamError ?? "");
         return isClosed ? (
@@ -1408,8 +1408,8 @@ const flagUrl = (cur: string) => `https://flagcdn.com/w40/${CURRENCY_ISO[cur] ??
 function PairFlags({ base, quote, className = "" }: { base: string; quote: string; className?: string }) {
   return (
     <span className={`relative inline-block h-9 w-9 shrink-0 ${className}`} aria-hidden>
-      <span className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-[#1b2433] bg-cover bg-center ring-2 ring-[#0d0e11]" style={{ backgroundImage: `url(${flagUrl(quote)})` }} />
-      <span className="absolute left-0 top-0 h-6 w-6 rounded-full bg-[#1b2433] bg-cover bg-center ring-2 ring-[#0d0e11]" style={{ backgroundImage: `url(${flagUrl(base)})` }} />
+      <span className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-[#1b2433] bg-cover bg-center ring-2 ring-[#151518]" style={{ backgroundImage: `url(${flagUrl(quote)})` }} />
+      <span className="absolute left-0 top-0 h-6 w-6 rounded-full bg-[#1b2433] bg-cover bg-center ring-2 ring-[#151518]" style={{ backgroundImage: `url(${flagUrl(base)})` }} />
     </span>
   );
 }
@@ -1627,7 +1627,7 @@ function ForexPairSheet({
         className={`absolute inset-0 bg-black/60 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
       />
       <div
-        className={`relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#0d0e11] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/10 ${
+        className={`relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.06] ${
           closing ? "animate-sheet-out" : "animate-sheet-in"
         }`}
       >
@@ -1705,7 +1705,7 @@ function ForexPairSheet({
                   >
                     <PairFlags base={m.base} quote={m.quote} />
                     <span className="min-w-0 flex-1">
-                      <span className={`block truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>
+                      <span className={`block truncate text-[14px] font-black ${active ? "text-[#151518]" : "text-white"}`}>
                         {m.symbol}
                       </span>
                       <span className={`block truncate text-[11px] font-bold ${active ? "text-slate-600" : "text-slate-500"}`}>

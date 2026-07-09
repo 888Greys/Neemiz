@@ -141,7 +141,7 @@ export function LuckySpinWheel() {
             const mid = i * DEG + DEG / 2;
             return (
               <g key={i}>
-                <path d={slicePath(i)} fill={seg.fill} stroke="#0d0e11" strokeWidth="1.5" />
+                <path d={slicePath(i)} fill={seg.fill} stroke="#151518" strokeWidth="1.5" />
                 <g transform={`rotate(${mid},${CX},${CY})`}>
                   <text
                     x={CX}
@@ -158,20 +158,20 @@ export function LuckySpinWheel() {
                 </g>
                 {(() => {
                   const p = polarXY(CX, CY, R - 4, i * DEG);
-                  return <circle cx={p.x} cy={p.y} r="2" fill="#0d0e11" opacity="0.7" />;
+                  return <circle cx={p.x} cy={p.y} r="2" fill="#151518" opacity="0.7" />;
                 })()}
               </g>
             );
           })}
 
-          <circle cx={CX} cy={CY} r="16" fill="#0d0e11" stroke="#1e2a3a" strokeWidth="2" />
+          <circle cx={CX} cy={CY} r="16" fill="#151518" stroke="#1e2a3a" strokeWidth="2" />
           <circle cx={CX} cy={CY} r="7" fill="#087cff" />
           <circle cx={CX} cy={CY} r="3" fill="#fff" opacity="0.6" />
         </svg>
       </div>
 
       {isSignedIn && (
-        <div className="mb-4 flex w-full items-center justify-between rounded-xl bg-[#141820] px-3 py-2.5 ring-1 ring-white/[0.06]">
+        <div className="mb-4 flex w-full items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.06]">
           <span className="text-[11px] font-bold text-slate-500">Balance</span>
           <Link href="/wallet" className="text-[13px] font-black tabular-nums text-white hover:text-[#75b8ff]">
             {format(balance)}
@@ -230,7 +230,7 @@ export function LuckySpinWheel() {
         </div>
       )}
 
-      <div className="mb-3 w-full rounded-xl bg-[#141820] px-3 py-2 ring-1 ring-white/[0.06]">
+      <div className="mb-3 w-full rounded-xl bg-white/[0.04] px-3 py-2 ring-1 ring-white/[0.06]">
         <div className="flex items-center justify-between text-[11px]">
           <span className="text-slate-500">Win</span>
           <span
@@ -245,7 +245,7 @@ export function LuckySpinWheel() {
 
       <div className="mb-2 w-full">
         <div
-          className={`flex items-center gap-2 rounded-xl bg-[#1c2433] px-3 py-2.5 ring-1 transition ${
+          className={`flex items-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 transition ${
             notEnoughFunds ? "ring-red-500/40" : "ring-white/[0.06] focus-within:ring-[#087cff]/50"
           }`}
         >
@@ -279,7 +279,7 @@ export function LuckySpinWheel() {
             key={m}
             type="button"
             onClick={() => setAmount((v) => (parseFloat(v || "0") * m).toFixed(2))}
-            className="flex-1 rounded-lg bg-[#141820] py-1.5 text-[11px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/15 hover:text-[#75b8ff]"
+            className="flex-1 rounded-lg bg-white/[0.04] py-1.5 text-[11px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/15 hover:text-[#75b8ff]"
           >
             ×{m}
           </button>

@@ -187,7 +187,7 @@ export function AdminBroadcastClient() {
 
       {/* Existing broadcasts */}
       <div className="mt-6">
-        <div className="mb-3 flex items-center justify-between border border-white/[0.07] bg-[#121419] px-4 py-3">
+        <div className="mb-3 flex items-center justify-between border border-white/[0.07] bg-white/[0.03] px-4 py-3">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">All broadcasts</p>
           <button onClick={load} className="flex items-center gap-1.5 text-[10px] font-black text-slate-500 transition hover:text-white">
             <Icon name="refresh" className="text-[13px]" /> Refresh

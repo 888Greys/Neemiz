@@ -50,7 +50,7 @@ function CustomTooltip({
 }) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#1a1b22] px-3 py-2.5 shadow-xl">
+    <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2.5 shadow-xl">
       <p className="mb-1.5 text-[11px] font-bold text-white/35">{formatTime(label ?? 0, interval)}</p>
       {payload.map((entry) => (
         <div key={entry.name} className="flex items-center gap-2">

@@ -90,9 +90,9 @@ export function MarketsSection({
   const visible = filterMarkets(enriched, activeTab);
 
   return (
-    <div className="bg-[#141820]">
+    <div className="bg-[#151518]">
       {/* Market tabs — flat, sticky under scoreboard */}
-      <div className="sticky top-[120px] z-10 flex gap-1 overflow-x-auto no-scrollbar border-b border-white/[0.06] bg-[#0e0f14]/95 px-3 py-2 backdrop-blur-md sm:top-[128px]">
+      <div className="sticky top-[120px] z-10 flex gap-1 overflow-x-auto no-scrollbar border-b border-white/[0.06] bg-[#151518]/95 px-3 py-2 backdrop-blur-md sm:top-[128px]">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -223,7 +223,7 @@ function OddBtn({
       className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2.5 transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/50 ${
         active
           ? "bg-[#087cff] text-white shadow-md shadow-[#087cff]/25"
-          : "bg-[#1c2433] text-white hover:bg-[#243044]"
+          : "bg-white/[0.04] text-white hover:bg-white/[0.07]"
       }`}
     >
       <span

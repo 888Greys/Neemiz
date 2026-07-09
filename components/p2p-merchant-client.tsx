@@ -2406,7 +2406,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             {[1,2].map((i) => <div key={i} className="h-20 rounded-2xl bg-white/[0.03] animate-pulse" />)}
           </div>
         ) : filteredAds.length === 0 ? (
-          <div className="flex min-h-[120px] flex-col items-center justify-center rounded-2xl ring-1 ring-white/[0.07] bg-[#16171d] px-6 py-5 text-center">
+          <div className="flex min-h-[120px] flex-col items-center justify-center rounded-2xl ring-1 ring-white/[0.07] bg-white/[0.03] px-6 py-5 text-center">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
               <Icon name="post_add" className="text-xl text-slate-500" />
             </div>
@@ -2424,7 +2424,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
               const dotColor = P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)?.color ?? "#087cff";
               return (
-                <div key={ad.id} className="relative grid w-full grid-cols-[minmax(0,1fr)_44px] gap-3 rounded-lg bg-[#16171d] px-3 py-2.5 ring-1 ring-white/[0.07] transition hover:bg-[#1a1b22] hover:ring-white/[0.14] sm:px-4 lg:items-center">
+                <div key={ad.id} className="relative grid w-full grid-cols-[minmax(0,1fr)_44px] gap-3 rounded-lg bg-white/[0.03] px-3 py-2.5 ring-1 ring-white/[0.07] transition hover:bg-white/[0.03] hover:ring-white/[0.14] sm:px-4 lg:items-center">
                   <div className="min-w-0">
                     {/* Row 1: crypto dot + name + side badge + status */}
                     <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-0">

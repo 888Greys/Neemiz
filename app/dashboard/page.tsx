@@ -280,7 +280,7 @@ function TopPicks() {
           return (
             <div
               key={p.id}
-              className="rounded-xl border border-white/[0.06] bg-[#141820] p-4"
+              className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-white/40">
@@ -298,7 +298,7 @@ function TopPicks() {
               </div>
 
               <div className="mt-3 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1c2433]">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.04]">
                   {p.homeLogo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.homeLogo} alt="" className="h-7 w-7 object-contain" />
@@ -314,7 +314,7 @@ function TopPicks() {
                     {p.market} · {p.tip}
                   </p>
                 </div>
-                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1c2433]">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.04]">
                   {p.awayLogo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.awayLogo} alt="" className="h-7 w-7 object-contain" />
@@ -339,7 +339,7 @@ function TopPicks() {
                   className={`mt-4 flex w-full items-center justify-between rounded-lg px-4 py-3 transition active:scale-[0.98] ${
                     selected
                       ? "bg-[#087cff] text-white shadow-md shadow-[#087cff]/25"
-                      : "bg-[#1c2433] text-white hover:bg-[#243044]"
+                      : "bg-white/[0.04] text-white hover:bg-white/[0.07]"
                   }`}
                 >
                   <span className={`text-[12px] font-bold ${selected ? "text-white/80" : "text-slate-400"}`}>
@@ -353,7 +353,7 @@ function TopPicks() {
                 <Link
                   href={p.href}
                   prefetch={false}
-                  className="mt-4 flex w-full items-center justify-between rounded-lg bg-[#1c2433] px-4 py-3 transition hover:bg-[#243044]"
+                  className="mt-4 flex w-full items-center justify-between rounded-lg bg-white/[0.04] px-4 py-3 transition hover:bg-white/[0.07]"
                 >
                   <span className="text-[12px] font-bold text-slate-400">{p.tip}</span>
                   <span className="inline-flex items-center gap-1 text-[12px] font-black text-white">

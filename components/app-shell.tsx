@@ -176,7 +176,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
     <NavBadgeContext.Provider value={navBadgeContext}>
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
-      <header className="fixed left-0 right-0 top-0 z-50 flex h-14 max-w-[100vw] items-center overflow-visible bg-[#111113] px-3 lg:h-20 lg:px-0">
+      <header className="fixed left-0 right-0 top-0 z-50 flex h-14 max-w-[100vw] items-center overflow-visible border-b border-white/[0.06] bg-[#151518] px-3 lg:h-20 lg:px-0">
         {!hideSidebar && (
         <div
           className={`hidden h-full shrink-0 items-center border-r border-white/10 px-3 transition-[width] duration-300 ease-out lg:flex ${
@@ -276,14 +276,14 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
               <button
                 onClick={() => setLoginOpen(true)}
-                className="rounded-lg bg-[#28292d] px-2.5 py-2 text-[11px] font-black text-white transition hover:bg-[#34353b] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"
+                className="rounded-lg bg-[#28292d] px-2.5 py-2 text-[11px] font-black text-white transition hover:bg-[#34353b] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"
                 type="button"
               >
                 Login
               </button>
               <button
                 onClick={() => setRegisterOpen(true)}
-                className="rounded-lg bg-[#05b957] px-2.5 py-2 text-[11px] font-black text-white transition hover:bg-[#08c963] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05b957]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"
+                className="rounded-lg bg-[#05b957] px-2.5 py-2 text-[11px] font-black text-white transition hover:bg-[#08c963] active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#05b957]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"
                 type="button"
               >
                 <span className="sm:hidden">Join</span>
@@ -297,7 +297,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       <div className="flex h-screen overflow-hidden pt-14 lg:pt-20">
         {!hideSidebar && (
         <aside
-          className={`hidden shrink-0 overflow-hidden border-r border-white/10 bg-[#1b1c20] transition-[width] duration-300 ease-out lg:block ${
+          className={`hidden shrink-0 overflow-hidden border-r border-white/[0.06] bg-[#151518] transition-[width] duration-300 ease-out lg:block ${
             sidebarCollapsed ? "w-[78px]" : "w-[280px]"
           }`}
         >
@@ -318,7 +318,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </main>
 
         {rightPanel && (
-          <aside className="hidden w-80 shrink-0 border-l border-white/10 bg-[#0d0e11] lg:flex">
+          <aside className="hidden w-80 shrink-0 border-l border-white/[0.06] bg-[#151518] lg:flex">
             {rightPanel}
           </aside>
         )}
@@ -332,7 +332,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {missingPhone && <PhonePromptModal onComplete={handlePhoneComplete} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/10 bg-[#111113] px-1 shadow-lg lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/[0.06] bg-[#151518] px-1 lg:hidden">
         {mobileNav.map((item) => {
           const activePath = item.activePath ?? (item.href ?? "").split("?")[0].split("#")[0];
           // Panel tabs (binary's Markets/Trade/Positions) share one route and are
@@ -368,7 +368,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
               <span className="relative">
                 <Icon name={item.icon} fill={active} className={`text-[20px] ${navigating ? "animate-pulse" : ""}`} />
                 {(navBadges[item.panel ?? item.label] ?? 0) > 0 && (
-                  <span className="absolute -right-2 -top-2 grid min-w-4 h-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#111113]">
+                  <span className="absolute -right-2 -top-2 grid min-w-4 h-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#151518]">
                     {(navBadges[item.panel ?? item.label] ?? 0) > 99 ? "99+" : navBadges[item.panel ?? item.label]}
                   </span>
                 )}
@@ -503,7 +503,7 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenProfi
         <button
           type="button"
           onClick={onOpenProfile}
-          className={`flex w-full items-center rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07] transition hover:bg-white/[0.04] ${
+          className={`flex w-full items-center rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07] transition hover:bg-white/[0.04] ${
             collapsed ? "justify-center p-2" : "gap-3 px-3 py-2.5"
           }`}
         >
@@ -930,7 +930,7 @@ function MobileBetslipSheet({ children }: { children: React.ReactNode }) {
           className={`pointer-events-auto flex items-center gap-2.5 rounded-full py-2.5 pl-4 pr-3 shadow-[0_4px_24px_rgba(0,0,0,.5)] transition active:scale-[0.97] ${
             bets.length > 0
               ? "bg-[#087cff] shadow-[0_8px_28px_rgba(8,124,255,.35)] ring-1 ring-[#087cff]/60"
-              : "bg-[#16171d] ring-1 ring-white/[0.12]"
+              : "bg-white/[0.03] ring-1 ring-white/[0.12]"
           }`}
         >
           <Icon
@@ -965,7 +965,7 @@ function MobileBetslipSheet({ children }: { children: React.ReactNode }) {
             onClick={requestClose}
           />
           <div
-            className={`absolute bottom-0 left-0 right-0 flex h-[calc(100dvh-3.5rem)] max-h-[calc(93dvh-3.5rem)] flex-col rounded-t-2xl bg-[#0d0e11] shadow-2xl ${
+            className={`absolute bottom-0 left-0 right-0 flex h-[calc(100dvh-3.5rem)] max-h-[calc(93dvh-3.5rem)] flex-col rounded-t-2xl bg-[#151518] shadow-2xl ring-1 ring-white/[0.06] ${
               closing ? "animate-sheet-out" : "animate-sheet-in"
             }`}
           >
@@ -1018,7 +1018,7 @@ function AppFooter() {
   ];
 
   return (
-    <footer className="border-t border-white/[0.06] bg-[#0d0e11]">
+    <footer className="border-t border-white/[0.06] bg-[#151518]">
       {/* ── Main body ── */}
       <div className="mx-auto grid gap-12 px-6 py-12 xl:px-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
 
