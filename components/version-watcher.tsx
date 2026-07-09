@@ -59,23 +59,23 @@ export function VersionWatcher() {
   if (!updateReady || dismissed) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[10000] flex justify-center px-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
-      <div className="flex w-full max-w-[420px] items-center gap-3 rounded-2xl border border-white/[0.08] bg-[#111316]/95 px-4 py-3 shadow-2xl backdrop-blur-md">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#087cff]/15 text-base">✨</span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-white">New version available</p>
-          <p className="text-[11px] text-slate-400">Refresh to get the latest update.</p>
+    <div className="fixed inset-x-0 bottom-0 z-[10000] flex justify-center px-2 pb-[calc(env(safe-area-inset-bottom)+8px)] sm:px-3 sm:pb-[calc(env(safe-area-inset-bottom)+12px)]">
+      <div className="flex w-auto max-w-[min(100%,420px)] items-center gap-1.5 rounded-full border border-white/[0.08] bg-[#111316]/95 px-2 py-1 shadow-xl backdrop-blur-md sm:w-full sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3 sm:shadow-2xl">
+        <span className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#087cff]/15 text-base sm:flex">✨</span>
+        <div className="min-w-0 flex-1 px-1 sm:px-0">
+          <p className="text-[11px] font-black leading-tight text-white sm:text-sm">New version available</p>
+          <p className="hidden text-[11px] text-slate-400 sm:block">Refresh to get the latest update.</p>
         </div>
         <button
           onClick={() => window.location.reload()}
-          className="shrink-0 rounded-xl bg-[#087cff] px-4 py-2 text-xs font-black text-white transition hover:bg-[#1a85ff] active:scale-[.97]"
+          className="shrink-0 rounded-full bg-[#087cff] px-2.5 py-1 text-[10px] font-black text-white transition hover:bg-[#1a85ff] active:scale-[.97] sm:rounded-xl sm:px-4 sm:py-2 sm:text-xs"
         >
           Refresh
         </button>
         <button
           onClick={() => setDismissed(true)}
           aria-label="Dismiss"
-          className="shrink-0 rounded-lg px-1.5 py-1 text-slate-500 transition hover:text-white"
+          className="shrink-0 rounded-lg px-1 py-0.5 text-[10px] text-slate-500 transition hover:text-white sm:px-1.5 sm:py-1 sm:text-sm"
         >
           ✕
         </button>
