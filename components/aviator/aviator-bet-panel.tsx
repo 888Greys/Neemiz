@@ -171,7 +171,7 @@ export function AviatorBetPanel({
 
   // ── Betika-style pill tab bar ──────────────────────────────────────────────
   const TabBar = (
-    <div className="mx-auto mb-1 flex w-[170px] shrink-0 rounded-full bg-[#171819] p-[2px]">
+    <div className="mx-auto mb-1 flex w-[170px] shrink-0 rounded-full bg-[#18191f] p-[2px]">
       {(["bet", "auto"] as const).map((t) => (
         <button
           key={t}
@@ -341,7 +341,7 @@ export function AviatorBetPanel({
   };
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-[#2a2b2c] p-2">
+    <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#18191f] p-2">
       {TabBar}
 
       {/* Betting countdown banner */}
@@ -366,7 +366,7 @@ export function AviatorBetPanel({
             {/* Left column */}
             <div className="flex min-w-0 flex-col gap-1">
               {/* Amount row: ⊖  value  ⊕ */}
-              <div className="flex h-[35px] items-center rounded-md bg-[#171819]">
+              <div className="flex h-[35px] items-center rounded-md bg-[#151518]">
                 <button
                   onClick={() => { adj(-snapStep(amount)); setError(null); }}
                   className="flex h-full w-9 shrink-0 items-center justify-center text-xl font-black text-white/55 transition-colors hover:text-white active:scale-90"
