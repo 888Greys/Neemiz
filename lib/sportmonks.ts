@@ -1,3 +1,5 @@
+import { getTeamLogo } from "@/lib/team-logos";
+
 const BASE = "https://api.sportmonks.com/v3/football";
 const TOKEN = process.env.SPORTS_MONK_API ?? "";
 
@@ -420,67 +422,65 @@ export async function getFixtureDetail(id: number): Promise<MatchDetail | null> 
 
 const FLAG = (code: string) => `https://flagcdn.com/w40/${code}.png`;
 
+function withLogos(m: Match): Match {
+  return {
+    ...m,
+    home: { ...m.home, logo: m.home.logo ?? getTeamLogo(m.home.name) },
+    away: { ...m.away, logo: m.away.logo ?? getTeamLogo(m.away.name) },
+  };
+}
+
 export const MOCK_LIVE: Match[] = [
-  {
+  withLogos({
     id: 1,
-    league: "Turkey. Süper Lig", country: "Turkey",
-    countryFlag: FLAG("tr"),
-    home: { name: "Rizespor", score: 2 },
-    away: { name: "Beşiktaş", score: 2 },
-    period: "2nd Half 86'", isLive: true, startingAt: "",
-    odds: [{ label: "1", value: "5.50" }, { label: "X", value: "1.50" }, { label: "2", value: "5.00" }],
-    extraMarkets: 57,
-  },
-  {
-    id: 2,
-    league: "ATP Rome — Clay", country: "Italy",
-    countryFlag: FLAG("it"),
-    home: { name: "J. Sinner", score: null },
-    away: { name: "D. Medvedev", score: null },
-    period: "2nd Set", isLive: true, startingAt: "",
-    odds: [{ label: "1", value: "1.11" }, { label: "2", value: "6.49" }],
-    extraMarkets: 99,
-  },
-  {
-    id: 3,
-    league: "France. Ligue 2", country: "France",
-    countryFlag: FLAG("fr"),
-    home: { name: "Saint-Étienne", score: 0 },
-    away: { name: "Rodez Aveyron", score: 0 },
-    period: "1st Half 17'", isLive: true, startingAt: "",
-    odds: [{ label: "1", value: "1.90" }, { label: "X", value: "3.23" }, { label: "2", value: "4.30" }],
-    extraMarkets: 43,
-  },
-  {
-    id: 4,
-    league: "Germany. Bundesliga", country: "Germany",
-    countryFlag: FLAG("de"),
-    home: { name: "Bayern Munich", score: 2 },
-    away: { name: "Dortmund", score: 1 },
-    period: "HT", isLive: true, startingAt: "",
-    odds: [{ label: "1", value: "1.35" }, { label: "X", value: "4.80" }, { label: "2", value: "7.20" }],
-    extraMarkets: 84,
-  },
-  {
-    id: 5,
-    league: "Spain. La Liga", country: "Spain",
-    countryFlag: FLAG("es"),
-    home: { name: "Barcelona", score: 1 },
-    away: { name: "Real Madrid", score: 1 },
-    period: "2nd Half 71'", isLive: true, startingAt: "",
-    odds: [{ label: "1", value: "2.60" }, { label: "X", value: "3.10" }, { label: "2", value: "2.80" }],
-    extraMarkets: 112,
-  },
-  {
-    id: 6,
-    league: "England. Premier League", country: "England",
+    league: "Premier League", country: "England",
     countryFlag: FLAG("gb-eng"),
     home: { name: "Arsenal", score: 2 },
     away: { name: "Chelsea", score: 1 },
-    period: "2nd Half 62'", isLive: true, startingAt: "",
+    period: "62'", isLive: true, startingAt: "",
     odds: [{ label: "1", value: "1.45" }, { label: "X", value: "4.20" }, { label: "2", value: "6.50" }],
     extraMarkets: 124,
-  },
+  }),
+  withLogos({
+    id: 2,
+    league: "Bundesliga", country: "Germany",
+    countryFlag: FLAG("de"),
+    home: { name: "Bayern Munich", score: 2 },
+    away: { name: "Borussia Dortmund", score: 1 },
+    period: "HT", isLive: true, startingAt: "",
+    odds: [{ label: "1", value: "1.35" }, { label: "X", value: "4.80" }, { label: "2", value: "7.20" }],
+    extraMarkets: 84,
+  }),
+  withLogos({
+    id: 3,
+    league: "La Liga", country: "Spain",
+    countryFlag: FLAG("es"),
+    home: { name: "Barcelona", score: 1 },
+    away: { name: "Real Madrid", score: 1 },
+    period: "71'", isLive: true, startingAt: "",
+    odds: [{ label: "1", value: "2.60" }, { label: "X", value: "3.10" }, { label: "2", value: "2.80" }],
+    extraMarkets: 112,
+  }),
+  withLogos({
+    id: 4,
+    league: "Serie A", country: "Italy",
+    countryFlag: FLAG("it"),
+    home: { name: "Juventus", score: 0 },
+    away: { name: "AC Milan", score: 1 },
+    period: "38'", isLive: true, startingAt: "",
+    odds: [{ label: "1", value: "2.90" }, { label: "X", value: "3.20" }, { label: "2", value: "2.45" }],
+    extraMarkets: 99,
+  }),
+  withLogos({
+    id: 5,
+    league: "NBA", country: "USA",
+    countryFlag: FLAG("us"),
+    home: { name: "Los Angeles Lakers", score: 88 },
+    away: { name: "Boston Celtics", score: 91 },
+    period: "Q3", isLive: true, startingAt: "",
+    odds: [{ label: "1", value: "2.10" }, { label: "2", value: "1.75" }],
+    extraMarkets: 45,
+  }),
 ];
 
 export const MOCK_UPCOMING: Match[] = [

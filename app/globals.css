@@ -304,11 +304,85 @@ input[type="email"]:focus {
 }
 .animate-drawer-in { animation: drawer-in 0.25s cubic-bezier(0,0,0.2,1) both; }
 
+/* Emil Kowalski–style motion tokens */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 @keyframes sheet-in {
   from { transform: translateY(100%); }
   to   { transform: translateY(0); }
 }
-.animate-sheet-in { animation: sheet-in 0.28s cubic-bezier(0,0,0.2,1) both; }
+.animate-sheet-in { animation: sheet-in 0.32s var(--ease-drawer) both; }
+
+@keyframes sheet-out {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
+}
+.animate-sheet-out { animation: sheet-out 0.22s var(--ease-out) both; }
+
+@keyframes sheet-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-sheet-backdrop-in { animation: sheet-backdrop-in 0.22s var(--ease-out) both; }
+
+@keyframes sheet-backdrop-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+.animate-sheet-backdrop-out { animation: sheet-backdrop-out 0.18s var(--ease-out) both; }
+
+/* Favourites list: short stagger (30–50ms) — decorative, never blocks taps */
+@keyframes fav-row-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fav-row {
+  opacity: 0;
+  animation: fav-row-in 0.28s var(--ease-out) forwards;
+}
+.animate-fav-row:nth-child(1) { animation-delay: 0ms; }
+.animate-fav-row:nth-child(2) { animation-delay: 35ms; }
+.animate-fav-row:nth-child(3) { animation-delay: 70ms; }
+.animate-fav-row:nth-child(4) { animation-delay: 105ms; }
+.animate-fav-row:nth-child(5) { animation-delay: 140ms; }
+.animate-fav-row:nth-child(6) { animation-delay: 175ms; }
+.animate-fav-row:nth-child(7) { animation-delay: 210ms; }
+.animate-fav-row:nth-child(8) { animation-delay: 245ms; }
+.animate-fav-row:nth-child(n+9) { animation-delay: 280ms; }
+
+@keyframes fav-star-pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.28); }
+  100% { transform: scale(1); }
+}
+.animate-fav-star-pop { animation: fav-star-pop 0.28s var(--ease-out) both; }
+
+@keyframes fav-empty-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-fav-empty { animation: fav-empty-in 0.32s var(--ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sheet-in,
+  .animate-sheet-out,
+  .animate-sheet-backdrop-in,
+  .animate-sheet-backdrop-out,
+  .animate-fav-row,
+  .animate-fav-star-pop,
+  .animate-fav-empty {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+  .animate-fav-row {
+    opacity: 1;
+    transform: none;
+  }
+}
 
 /* Digit-strip "push": the live pointer lands on a digit and springs its ring,
    as if the moving marker pressed it. Re-runs each time a digit becomes active. */
