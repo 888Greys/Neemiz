@@ -156,9 +156,9 @@ function drawSunburst(
     // Fade each ray out toward its far edge so the rotation reads clearly
     // without a hard band at the rim.
     const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-    grad.addColorStop(0,   `rgba(150,180,255,${0.16 * intensity})`);
-    grad.addColorStop(0.7, `rgba(120,150,230,${0.09 * intensity})`);
-    grad.addColorStop(1,   "rgba(120,150,230,0)");
+    grad.addColorStop(0,   `rgba(255,255,255,${0.05 * intensity})`);
+    grad.addColorStop(0.7, `rgba(255,255,255,${0.02 * intensity})`);
+    grad.addColorStop(1,   "rgba(255,255,255,0)");
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.arc(0, 0, radius, a0, a1);
@@ -168,10 +168,10 @@ function drawSunburst(
   }
   ctx.restore();
 
-  // Soft warm core glow at the origin so the rays read as light from a source.
-  const glow = ctx.createRadialGradient(ox, oy, 0, ox, oy, Math.min(w, h) * 0.5);
-  glow.addColorStop(0, `rgba(255,90,120,${0.10 * intensity})`);
-  glow.addColorStop(1, "rgba(255,90,120,0)");
+  // Soft core glow at the origin — kept quiet so it matches the wallet surface.
+  const glow = ctx.createRadialGradient(ox, oy, 0, ox, oy, Math.min(w, h) * 0.45);
+  glow.addColorStop(0, `rgba(255,255,255,${0.04 * intensity})`);
+  glow.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, w, h);
 }
@@ -202,26 +202,22 @@ function draw(
 
   const isFlying = state === "FLYING";
 
-  // Background — deep navy radial glow (brighter toward the flight origin)
-  ctx.fillStyle = "#05070f";
+  // Background — wallet-aligned #151518 surface with a soft lift near the origin
+  ctx.fillStyle = "#151518";
   ctx.fillRect(0, 0, w, h);
 
-  const bg = ctx.createRadialGradient(w * 0.30, h * 0.62, 0, w * 0.30, h * 0.62, Math.max(w, h) * 1.05);
-  bg.addColorStop(0,    "#152449");
-  bg.addColorStop(0.45, "#0b1330");
-  bg.addColorStop(1,    "#04060e");
+  const bg = ctx.createRadialGradient(w * 0.28, h * 0.68, 0, w * 0.28, h * 0.68, Math.max(w, h) * 1.05);
+  bg.addColorStop(0,    "#1c1d22");
+  bg.addColorStop(0.5,  "#17181c");
+  bg.addColorStop(1,    "#151518");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
-  // Rotating sunburst SVG — the signature radial rays sweeping from the origin.
-  // Spins steadily while idle/betting and faster while flying.
+  // Rotating sunburst — dim so it reads as atmosphere, not a bright wash.
   const ox0 = compact ? 8 : 6;
   const oy0 = h - (compact ? 12 : 10);
-  // Positive angle = clockwise. Spin is clearly
-  // visible and speeds up while the plane is in the air.
   const spin = timeSec * (isFlying ? 0.4 : 0.18);
 
-  // Diagnostic logger to verify rotation calculations inside the browser console
   if (typeof window !== "undefined" && (window as any).debugAviator) {
     if (Math.random() < 0.01) {
       console.log(`[aviator-canvas] state: ${state}, spin: ${spin.toFixed(3)}, timeSec: ${timeSec.toFixed(2)}, sunLoaded: ${!!sunImg}`);
@@ -229,26 +225,23 @@ function draw(
   }
 
   if (sunImg) {
-    const size = Math.hypot(w, h) * 2.2; // large enough that rays always cover the canvas
+    const size = Math.hypot(w, h) * 2.2;
     ctx.save();
-    // "lighten" so the rays only brighten the navy backdrop — the recolored
-    // light-periwinkle wedges read as visible sweeping light, making the spin
-    // obvious instead of the near-black wedges that were invisible before.
-    ctx.globalCompositeOperation = "lighten";
-    ctx.globalAlpha = isCrashed ? 0.16 : isFlying ? 0.38 : 0.28;
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = isCrashed ? 0.04 : isFlying ? 0.10 : 0.07;
     ctx.translate(ox0, oy0);
     ctx.rotate(spin);
     ctx.drawImage(sunImg, -size / 2, -size / 2, size, size);
     ctx.restore();
   } else {
-    drawSunburst(ctx, w, h, ox0, oy0, spin, isCrashed ? 0.35 : isFlying ? 1 : 0.7);
+    drawSunburst(ctx, w, h, ox0, oy0, spin, isCrashed ? 0.2 : isFlying ? 0.45 : 0.3);
   }
 
   // Vignette
   const vig = ctx.createLinearGradient(0, 0, 0, h);
-  vig.addColorStop(0, "rgba(0,0,0,0.4)");
-  vig.addColorStop(0.35, "rgba(0,0,0,0)");
-  vig.addColorStop(1, "rgba(0,0,0,0.55)");
+  vig.addColorStop(0, "rgba(0,0,0,0.28)");
+  vig.addColorStop(0.4, "rgba(0,0,0,0)");
+  vig.addColorStop(1, "rgba(0,0,0,0.35)");
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, w, h);
 
