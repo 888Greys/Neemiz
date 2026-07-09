@@ -23,9 +23,10 @@ import {
 } from "@/lib/sport-nav";
 import Image from "next/image";
 import Link from "next/link";
+import { SportsLiveRefresh } from "@/components/sports-live-refresh";
 
 type Props = {
-  searchParams: { sport?: string; league?: string; q?: string };
+  searchParams: { sport?: string; league?: string; q?: string; tab?: string };
 };
 
 const LEAGUE_PRIORITY = [
@@ -139,14 +140,19 @@ function enrichLogos(oddsMatches: Match[], display: Match[]): Match[] {
   });
 }
 
-function hrefSports(opts: { sport?: string; league?: string; q?: string }) {
+function hrefSports(opts: { sport?: string; league?: string; q?: string; tab?: string }) {
   const p = new URLSearchParams();
   if (opts.sport && opts.sport !== DEFAULT_SPORT_SLUG) p.set("sport", opts.sport);
   if (opts.sport === "all") p.set("sport", "all");
   if (opts.league) p.set("league", opts.league);
   if (opts.q) p.set("q", opts.q);
+  if (opts.tab === "live" || opts.tab === "Live") p.set("tab", "live");
   const qs = p.toString();
   return qs ? `/sports?${qs}` : "/sports";
+}
+
+function isLiveTab(tab?: string) {
+  return (tab ?? "").toLowerCase() === "live";
 }
 
 export default async function SportsPage({ searchParams }: Props) {
@@ -155,6 +161,7 @@ export default async function SportsPage({ searchParams }: Props) {
     sportSlug === "all" ? null : sportNavFromSlug(sportSlug) ?? sportNavFromSlug(DEFAULT_SPORT_SLUG);
   const leagueFilter = searchParams.league ?? "";
   const q = (searchParams.q ?? "").trim();
+  const liveOnly = isLiveTab(searchParams.tab);
 
   const [display, cachedLive, cachedUpcoming, apiLeagues] = await Promise.all([
     getDisplaySportsbookFeed({ liveLimit: 40, upcomingLimit: 80 }),
@@ -209,9 +216,10 @@ export default async function SportsPage({ searchParams }: Props) {
 
   let scopedLive = filterLeague(filterSport(liveMatches, sportFilter));
   let scopedUpcoming = filterLeague(filterSport(upcomingMatches, sportFilter));
+  if (liveOnly) scopedUpcoming = [];
 
   const filteredLive = filterQ(scopedLive, q);
-  const filteredUpcoming = filterQ(scopedUpcoming, q);
+  const filteredUpcoming = liveOnly ? [] : filterQ(scopedUpcoming, q);
 
   const liveGroups = orderedLeagueGroups(filteredLive);
   const upcomingGroups = orderedLeagueGroups(filteredUpcoming);
@@ -242,11 +250,12 @@ export default async function SportsPage({ searchParams }: Props) {
 
   return (
     <AppShell rightPanel={<SportsBetSlip />}>
+      <SportsLiveRefresh active={displayLive.length > 0 || liveOnly} />
       {/* Sticky: sports strip + professional search */}
       <div className="sticky top-0 z-30 border-b border-white/10 bg-[#0e0f14]/95 backdrop-blur-md">
         <div className="flex gap-2 overflow-x-auto no-scrollbar px-3 pt-2.5">
           <Link
-            href={hrefSports({ sport: "all", q: q || undefined })}
+            href={hrefSports({ sport: "all", q: q || undefined, tab: liveOnly ? "live" : undefined })}
             prefetch={false}
             className={`flex shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-0.5 transition ${
               sportSlug === "all" ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
@@ -276,7 +285,7 @@ export default async function SportsPage({ searchParams }: Props) {
             return (
               <Link
                 key={s.slug}
-                href={hrefSports({ sport: s.slug, q: q || undefined })}
+                href={hrefSports({ sport: s.slug, q: q || undefined, tab: liveOnly ? "live" : undefined })}
                 prefetch={false}
                 className={`flex shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-0.5 transition ${
                   active ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
@@ -312,6 +321,7 @@ export default async function SportsPage({ searchParams }: Props) {
           )}
           {currentSportParam === "all" && <input type="hidden" name="sport" value="all" />}
           {leagueFilter && <input type="hidden" name="league" value={leagueFilter} />}
+          {liveOnly && <input type="hidden" name="tab" value="live" />}
           <label className="flex h-10 w-full items-center gap-2.5 rounded-xl bg-[#1a1d27] px-3.5 ring-1 ring-white/[0.08] transition focus-within:ring-[#087cff]/50">
             <Icon name="search" className="shrink-0 text-[20px] text-slate-500" />
             <input
@@ -325,6 +335,7 @@ export default async function SportsPage({ searchParams }: Props) {
                 href={hrefSports({
                   sport: currentSportParam === DEFAULT_SPORT_SLUG ? undefined : currentSportParam,
                   league: leagueFilter || undefined,
+                  tab: liveOnly ? "live" : undefined,
                 })}
                 prefetch={false}
                 className="shrink-0 text-[11px] font-black text-slate-400 transition hover:text-white"
@@ -350,6 +361,7 @@ export default async function SportsPage({ searchParams }: Props) {
                 sport: sportFilter.slug,
                 league: isAll || isActive ? undefined : item.label,
                 q: q || undefined,
+                tab: liveOnly ? "live" : undefined,
               });
               return (
                 <Link
@@ -399,6 +411,38 @@ export default async function SportsPage({ searchParams }: Props) {
       )}
 
       <div className="min-h-screen bg-background pb-28">
+        {/* Live / All mode chip */}
+        <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2 sm:px-4">
+          <Link
+            href={hrefSports({
+              sport: currentSportParam === DEFAULT_SPORT_SLUG ? undefined : currentSportParam,
+              league: leagueFilter || undefined,
+              q: q || undefined,
+            })}
+            prefetch={false}
+            className={`rounded-lg px-3 py-1.5 text-[11px] font-black transition ${
+              !liveOnly ? "bg-[#087cff] text-white" : "bg-[#1c2433] text-slate-400 hover:text-white"
+            }`}
+          >
+            All
+          </Link>
+          <Link
+            href={hrefSports({
+              sport: currentSportParam === DEFAULT_SPORT_SLUG ? undefined : currentSportParam,
+              league: leagueFilter || undefined,
+              q: q || undefined,
+              tab: "live",
+            })}
+            prefetch={false}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-black transition ${
+              liveOnly ? "bg-[#ff1979]/20 text-[#ff1979]" : "bg-[#1c2433] text-slate-400 hover:text-white"
+            }`}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+            Live
+          </Link>
+        </div>
+
         {displayLive.length > 0 && (
           <section className="pt-1">
             <div className="flex items-center gap-2 px-3 py-2.5 sm:px-4">
@@ -408,6 +452,7 @@ export default async function SportsPage({ searchParams }: Props) {
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff1979]" />
                 </span>
                 Live
+                <span className="text-[12px] font-bold text-slate-500">{displayLive.length}</span>
               </h2>
             </div>
             {liveGroups.map(({ league, meta, fixtures }) => (
@@ -455,20 +500,26 @@ export default async function SportsPage({ searchParams }: Props) {
               <CircleDot size={36} className="text-slate-500" />
             </span>
             <p className="text-sm font-black text-white">
-              {q || leagueFilter ? "No events match" : "No fixtures right now"}
+              {liveOnly
+                ? "No live events right now"
+                : q || leagueFilter
+                  ? "No events match"
+                  : "No fixtures right now"}
             </p>
             <p className="mt-1 max-w-sm text-[13px] text-slate-500">
-              {q || leagueFilter
-                ? "Try another league or clear search"
-                : "Check another sport or come back when games are listed."}
+              {liveOnly
+                ? "Check back soon, or browse upcoming fixtures."
+                : q || leagueFilter
+                  ? "Try another league or clear search"
+                  : "Check another sport or come back when games are listed."}
             </p>
-            {(q || leagueFilter) && (
+            {(q || leagueFilter || liveOnly) && (
               <Link
                 href={hrefSports({ sport: sportFilter?.slug ?? DEFAULT_SPORT_SLUG })}
                 prefetch={false}
                 className="mt-5 rounded-2xl bg-[#087cff] px-5 py-2.5 text-[13px] font-black text-white"
               >
-                Clear filters
+                {liveOnly ? "Show all fixtures" : "Clear filters"}
               </Link>
             )}
           </div>

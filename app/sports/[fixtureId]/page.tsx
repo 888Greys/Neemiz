@@ -5,6 +5,7 @@ import { readFixtureDetail } from "@/lib/fixtures-cache";
 import { getDisplayFixture } from "@/lib/apisports";
 import { MarketsSection } from "@/components/markets-section";
 import { FixtureExtras } from "@/components/fixture-extras";
+import { LiveFixtureRefresh } from "@/components/live-fixture-refresh";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -83,10 +84,11 @@ export default async function FixtureDetailPage({ params }: Props) {
 
   return (
     <AppShell rightPanel={<SportsBetSlip />}>
+      <LiveFixtureRefresh active={m.isLive} />
       {/* Sticky header */}
       <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-[#0e0f14]/95 px-3 py-2.5 backdrop-blur-md">
         <Link
-          href="/sports"
+          href={m.isLive ? "/sports?tab=live" : "/sports"}
           prefetch={false}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.07] text-slate-300 transition hover:bg-white/[0.12]"
         >
@@ -116,9 +118,11 @@ export default async function FixtureDetailPage({ params }: Props) {
           <div className="min-w-0">
             <p className="truncate text-[13px] font-black text-white">{m.league}</p>
             <p className="truncate text-[10px] font-bold text-slate-500">
-              {m.isLive ? m.period : kickoff}
-              <span className="text-slate-700"> · </span>
-              ID {String(m.id).slice(-4)}
+              {m.isLive
+                ? m.period && m.period.toLowerCase() !== "live"
+                  ? m.period
+                  : "Live"
+                : kickoff}
             </p>
           </div>
         </div>
@@ -141,7 +145,7 @@ export default async function FixtureDetailPage({ params }: Props) {
             {m.isLive ? (
               <span className="inline-flex items-center gap-1 rounded bg-[#ff1979]/15 px-1.5 py-0.5 text-[9px] font-black uppercase text-[#ff1979]">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#ff1979]" />
-                {m.period}
+                {m.period && m.period.toLowerCase() !== "live" ? m.period : "Live"}
               </span>
             ) : m.home.score !== null ? (
               <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">FT</span>
@@ -178,8 +182,8 @@ export default async function FixtureDetailPage({ params }: Props) {
       <div className="mx-auto w-full max-w-3xl pb-28">
         {displayOnly && (
           <div className="mx-3 mt-3 rounded-xl bg-amber-500/10 px-4 py-3 text-[12px] font-medium text-amber-200/90 ring-1 ring-amber-400/20">
-            Live score from free feed. Betting markets appear when this fixture is in the odds cache.
-            <Link href="/sports?tab=Live" prefetch={false} className="mt-1 block font-black text-[#6eb6ff]">
+            Score is from the free live feed. Betting markets for this fixture aren’t available yet — try another live match.
+            <Link href="/sports?tab=live" prefetch={false} className="mt-1.5 block font-black text-[#6eb6ff]">
               Browse live markets →
             </Link>
           </div>
@@ -195,14 +199,17 @@ export default async function FixtureDetailPage({ params }: Props) {
           />
         ) : (
           !displayOnly && (
-            <div className="mx-3 mt-6 rounded-xl bg-[#1c2433] py-12 text-center">
-              <p className="text-[13px] font-bold text-slate-400">Markets unavailable for this fixture</p>
+            <div className="mx-3 mt-6 rounded-xl bg-[#1c2433] px-4 py-12 text-center">
+              <p className="text-[14px] font-black text-white">No markets on this fixture</p>
+              <p className="mx-auto mt-2 max-w-sm text-[12px] font-medium leading-relaxed text-slate-400">
+                Odds may still be loading, or this match isn’t priced yet. Jump into live games that already have markets.
+              </p>
               <Link
-                href="/sports"
+                href="/sports?tab=live"
                 prefetch={false}
-                className="mt-3 inline-block text-[12px] font-black text-[#087cff]"
+                className="mt-4 inline-block rounded-lg bg-[#087cff] px-4 py-2.5 text-[12px] font-black text-white transition hover:bg-[#0a6ef0]"
               >
-                Back to sports
+                Browse live markets
               </Link>
             </div>
           )

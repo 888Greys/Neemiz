@@ -223,19 +223,22 @@ function TopPicks() {
 
         const next: LivePick[] = data.slice(0, 3).map((m) => {
           const odd = m.odds?.[0];
+          const hasOdds = Boolean(odd);
           return {
-            id: `pick-${m.id}-${odd?.label ?? "open"}`,
+            id: hasOdds
+              ? `${m.id}-3 Way-${odd!.label}`.replace(/\s+/g, "_")
+              : `pick-${m.id}-open`,
             league: m.league,
             home: m.home.name,
             away: m.away.name,
             homeLogo: m.home.logo ?? getTeamLogo(m.home.name),
             awayLogo: m.away.logo ?? getTeamLogo(m.away.name),
-            market: odd ? "Match result" : "Kickoff",
+            market: hasOdds ? "3 Way" : "Kickoff",
             label: odd?.label ?? "Open",
             value: odd?.value ?? m.period,
             tip: m.isLive ? `Live · ${m.period}` : `Starts ${m.period}`,
             badge: m.isLive ? "LIVE" : "UP NEXT",
-            href: "/sports",
+            href: hasOdds ? `/sports/${m.id}` : "/sports",
           };
         });
         setPicks(next);
@@ -277,91 +280,88 @@ function TopPicks() {
           return (
             <div
               key={p.id}
-              className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 ring-1 ring-white/[0.08]"
+              className="rounded-xl border border-white/[0.06] bg-[#141820] p-4"
             >
-              <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-orange-500/10 blur-2xl" />
-              <div className="relative">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-white/40">
-                    {p.league}
-                  </span>
-                  <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${
-                      p.badge === "LIVE"
-                        ? "bg-[#ff1979]/15 text-[#ff1979] ring-[#ff1979]/25"
-                        : "bg-sky-500/15 text-sky-300 ring-sky-400/20"
-                    }`}
-                  >
-                    {p.badge}
-                  </span>
-                </div>
-
-                <div className="mt-3 flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-black/30 ring-1 ring-white/10">
-                    {p.homeLogo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.homeLogo} alt="" className="h-7 w-7 object-contain" />
-                    ) : (
-                      <Icon name="sports_soccer" className="text-[16px] text-white/30" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-black text-white">
-                      {p.home} <span className="text-white/30">vs</span> {p.away}
-                    </p>
-                    <p className="mt-0.5 text-[11px] font-medium text-white/40">
-                      {p.market} · {p.tip}
-                    </p>
-                  </div>
-                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-black/30 ring-1 ring-white/10">
-                    {p.awayLogo ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.awayLogo} alt="" className="h-7 w-7 object-contain" />
-                    ) : (
-                      <Icon name="sports_soccer" className="text-[16px] text-white/30" />
-                    )}
-                  </span>
-                </div>
-
-                {canBet ? (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      toggleBet({
-                        id: p.id,
-                        matchName: `${p.home} vs ${p.away}`,
-                        market: p.market,
-                        label: p.label,
-                        value: p.value,
-                      })
-                    }
-                    className={`mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-3 transition active:scale-[0.98] ${
-                      selected
-                        ? "bg-[#087cff]/25 ring-1 ring-[#087cff]/50"
-                        : "bg-white/[0.06] ring-1 ring-white/[0.08] hover:bg-white/[0.1]"
-                    }`}
-                  >
-                    <span className="text-[12px] font-bold text-white/50">
-                      Selection <span className="text-white">{p.label}</span>
-                    </span>
-                    <span className={`text-lg font-black tabular-nums ${selected ? "text-[#6eb6ff]" : "text-white"}`}>
-                      {p.value}
-                    </span>
-                  </button>
-                ) : (
-                  <Link
-                    href={p.href}
-                    prefetch={false}
-                    className="mt-4 flex w-full items-center justify-between rounded-2xl bg-white/[0.06] px-4 py-3 ring-1 ring-white/[0.08] transition hover:bg-white/[0.1]"
-                  >
-                    <span className="text-[12px] font-bold text-white/50">{p.tip}</span>
-                    <span className="inline-flex items-center gap-1 text-[12px] font-black text-white">
-                      Open sports
-                      <Icon name="arrow_forward" className="text-[14px]" />
-                    </span>
-                  </Link>
-                )}
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-white/40">
+                  {p.league}
+                </span>
+                <span
+                  className={`shrink-0 rounded px-2 py-0.5 text-[10px] font-black ${
+                    p.badge === "LIVE"
+                      ? "bg-[#ff1979]/15 text-[#ff1979]"
+                      : "bg-sky-500/15 text-sky-300"
+                  }`}
+                >
+                  {p.badge}
+                </span>
               </div>
+
+              <div className="mt-3 flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1c2433]">
+                  {p.homeLogo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.homeLogo} alt="" className="h-7 w-7 object-contain" />
+                  ) : (
+                    <Icon name="sports_soccer" className="text-[16px] text-white/30" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-black text-white">
+                    {p.home} <span className="text-white/30">vs</span> {p.away}
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium text-white/40">
+                    {p.market} · {p.tip}
+                  </p>
+                </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#1c2433]">
+                  {p.awayLogo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={p.awayLogo} alt="" className="h-7 w-7 object-contain" />
+                  ) : (
+                    <Icon name="sports_soccer" className="text-[16px] text-white/30" />
+                  )}
+                </span>
+              </div>
+
+              {canBet ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    toggleBet({
+                      id: p.id,
+                      matchName: `${p.home} vs ${p.away}`,
+                      market: p.market,
+                      label: p.label,
+                      value: p.value,
+                    })
+                  }
+                  className={`mt-4 flex w-full items-center justify-between rounded-lg px-4 py-3 transition active:scale-[0.98] ${
+                    selected
+                      ? "bg-[#087cff] text-white shadow-md shadow-[#087cff]/25"
+                      : "bg-[#1c2433] text-white hover:bg-[#243044]"
+                  }`}
+                >
+                  <span className={`text-[12px] font-bold ${selected ? "text-white/80" : "text-slate-400"}`}>
+                    Selection <span className="text-white">{p.label}</span>
+                  </span>
+                  <span className="text-lg font-black tabular-nums text-white">
+                    {p.value}
+                  </span>
+                </button>
+              ) : (
+                <Link
+                  href={p.href}
+                  prefetch={false}
+                  className="mt-4 flex w-full items-center justify-between rounded-lg bg-[#1c2433] px-4 py-3 transition hover:bg-[#243044]"
+                >
+                  <span className="text-[12px] font-bold text-slate-400">{p.tip}</span>
+                  <span className="inline-flex items-center gap-1 text-[12px] font-black text-white">
+                    Open sports
+                    <Icon name="arrow_forward" className="text-[14px]" />
+                  </span>
+                </Link>
+              )}
             </div>
           );
         })}
