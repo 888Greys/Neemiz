@@ -26,7 +26,7 @@ export function dailyLimitKes(): number {
 
 /**
  * Total KES an ADMIN may send via wallet transfers per rolling 24h window,
- * summed across ALL recipients (default 500). Admins are exempt from the
+ * summed across ALL recipients (default 200,000). Admins are exempt from the
  * withdrawal/cash-out cap (owner treasury), and the per-recipient once-per-day
  * rule doesn't bound the recipient COUNT — so without this a compromised (or
  * misused) admin can spray the KSh-50 per-transfer cap across unlimited distinct
@@ -34,8 +34,8 @@ export function dailyLimitKes(): number {
  * ~520 accounts seeded KSh 50 each.)
  */
 export function transferDailyLimitKes(): number {
-  const parsed = Number(process.env.ADMIN_TRANSFER_DAILY_LIMIT_KES ?? "500");
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 500;
+  const parsed = Number(process.env.ADMIN_TRANSFER_DAILY_LIMIT_KES ?? "200000");
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 200000;
 }
 
 /**

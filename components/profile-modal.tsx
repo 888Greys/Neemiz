@@ -9,6 +9,8 @@ import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { AvatarUploader } from "@/components/avatar-uploader";
+import { CurrencySwitcher } from "@/components/currency-switcher";
+import { useCurrency } from "@/lib/currency-context";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 export type ProfileView =
@@ -22,6 +24,7 @@ export type ProfileView =
   | "notifications"
   | "security"
   | "language"
+  | "currency"
   | "support";
 
 type Props = { onClose: () => void; onOpenWallet: (tab?: "deposit" | "send" | "withdraw" | "history") => void; initialView?: ProfileView };
@@ -1249,13 +1252,17 @@ function LanguageView() {
           <span className="text-xl">🇰🇪</span>
           <div className="flex-1">
             <p className="text-[13px] font-black text-white">Kenya</p>
-            <p className="text-[11px] text-slate-500">Currency: KES · Timezone: EAT (UTC+3)</p>
+            <p className="text-[11px] text-slate-500">Ledger: KES · Timezone: EAT (UTC+3)</p>
           </div>
           <Icon name="check_circle" fill className="text-[18px] text-[#087cff]" />
         </div>
       </div>
     </div>
   );
+}
+
+function CurrencyView() {
+  return <CurrencySwitcher variant="sheet" />;
 }
 
 // ── Sub-view: Help & Support ─────────────────────────────────────────────────
@@ -1328,6 +1335,7 @@ const VIEW_TITLES: Record<ProfileView, string> = {
   notifications: "Notifications",
   security: "Security",
   language: "Language & Region",
+  currency: "Display currency",
   support: "Help & Support",
 };
 
@@ -1355,7 +1363,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const memberId    = user?.id?.slice(-8).toUpperCase() ?? "—";
 
   const back = useCallback(() => {
-    if (view === "notifications" || view === "security" || view === "language" || view === "support") {
+    if (view === "notifications" || view === "security" || view === "language" || view === "currency" || view === "support") {
       setView("settings");
     } else {
       setView("main");
@@ -1402,6 +1410,8 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
     }
   }
 
+  const { code: displayCode, currency: displayCurrency } = useCurrency();
+
   const MENU = [
     { icon: "redeem",              label: "Bonuses",             sub: "Free spins and other offers",     action: () => setView("bonuses") },
     { icon: "confirmation_number", label: "Bonus codes",         sub: "Code activation",                 action: () => setView("bonus-codes") },
@@ -1412,6 +1422,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const SETTINGS_ITEMS = [
     { icon: "notifications", label: "Notifications",     sub: "Push & email alerts",       action: () => setView("notifications") },
     { icon: "security",      label: "Security & 2FA",    sub: "Password, two-factor auth", action: () => setView("security") },
+    { icon: "payments",      label: "Display currency",  sub: `${displayCode} · ${displayCurrency.name}`, action: () => setView("currency") },
     { icon: "language",      label: "Language & Region", sub: "English · Kenya",           action: () => setView("language") },
   ];
 
@@ -1707,6 +1718,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
           {view === "notifications"&& <NotificationsView />}
           {view === "security"     && <SecurityView email={email} />}
           {view === "language"     && <LanguageView />}
+          {view === "currency"     && <CurrencyView />}
           {view === "support"      && <SupportView />}
         </div>
       </div>

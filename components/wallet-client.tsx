@@ -16,6 +16,7 @@ import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown
 import { cachedFetch, getCached } from "@/lib/client-cache";
 import { CURRENCY_SYMBOL, MONEY_LOCALE, WITHDRAWAL_FEE_RATE, WITHDRAWAL_FEE_PCT } from "@/lib/currency";
 import { useCurrency } from "@/lib/currency-context";
+import { CurrencySwitcher } from "@/components/currency-switcher";
 import {
   CRYPTO_DEPOSIT_ASSETS,
   DEPOSIT_METHOD_ROWS,
@@ -1460,18 +1461,21 @@ function WalletHome({
   onOpen: (tab: WalletTab) => void;
 }) {
   const actions: Array<{ tab: WalletTab; label: string; icon: string }> = [
-    { tab: "deposit", label: "Deposit", icon: "add" },
+    { tab: "deposit", label: "Deposit", icon: "arrow_downward" },
     { tab: "send", label: "Send", icon: "send" },
     { tab: "withdraw", label: "Withdraw", icon: "arrow_upward" },
-    { tab: "history", label: "History", icon: "receipt_long" },
+    { tab: "history", label: "History", icon: "history" },
   ];
 
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8 sm:max-w-2xl sm:pb-10 sm:pt-10">
       <section className="animate-in fade-in duration-300">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Available balance
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Available balance
+          </p>
+          <CurrencySwitcher />
+        </div>
         <p className={`mt-2 text-[2.35rem] font-black leading-none tracking-tight sm:text-5xl ${isSignedIn ? "text-white" : "text-slate-600"}`}>
           {balance}
         </p>

@@ -11,6 +11,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { paymentMethodsForFiat, paymentMethodLabel, ALL_PAYMENT_CODES, GLOBAL_PAYMENT_METHODS } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
+import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -282,13 +283,15 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
           {/* ── Identity ── */}
           <div className="shrink-0 px-4 sm:px-5">
             <div className="mt-2 flex items-end justify-between">
-              {source.avatarUrl ? (
-                <img src={source.avatarUrl} alt={source.displayName} className="h-16 w-16 rounded-full border-[3px] border-[#0b0b11] object-cover ring-1 ring-black/10" />
-              ) : (
-                <div className="grid h-16 w-16 place-items-center rounded-full border-[3px] border-[#0b0b11] bg-white text-2xl font-black text-slate-700 ring-1 ring-black/10">
-                  {(source.displayName || "?").charAt(0).toUpperCase()}
-                </div>
-              )}
+              <MerchantAvatar
+                id={source.id ?? source.displayName}
+                name={source.displayName}
+                avatarUrl={source.avatarUrl}
+                size={64}
+                className="border-[3px] border-[#0b0b11]"
+                online={source.isOnline}
+                onlineRingClass="border-[#0b0b11]"
+              />
               <button
                 type="button"
                 onClick={() => setFollowing((f) => !f)}
@@ -434,13 +437,12 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
                   {feedback.map((item) => (
                     <div key={item.id} className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
                       <div className="flex items-center gap-2">
-                        {item.fromUser.imageUrl ? (
-                          <img src={item.fromUser.imageUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
-                        ) : (
-                          <div className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.08] text-[12px] font-black text-white">
-                            {item.fromUser.displayName.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        <MerchantAvatar
+                          id={item.fromUser.displayName}
+                          name={item.fromUser.displayName}
+                          avatarUrl={item.fromUser.imageUrl}
+                          size={32}
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-black text-white">{item.fromUser.displayName}</p>
                           <p className="text-[11px] font-bold text-[#05b957]">{"★".repeat(item.rating)}{"☆".repeat(5 - item.rating)}</p>
@@ -509,13 +511,14 @@ function OfferDetailsModal({
                 onClick={() => onMerchantClick(ad.merchant)}
                 className="flex w-full items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 text-left transition hover:border-[#087cff]/30 hover:bg-[#087cff]/5"
               >
-                {ad.merchant.avatarUrl ? (
-                  <img src={ad.merchant.avatarUrl} alt={ad.merchant.displayName} className="h-12 w-12 rounded-2xl object-cover" />
-                ) : (
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#087cff] text-lg font-black">
-                    {(ad.merchant.displayName || "?").charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <MerchantAvatar
+                  id={ad.merchant.id ?? ad.merchant.displayName}
+                  name={ad.merchant.displayName}
+                  avatarUrl={ad.merchant.avatarUrl}
+                  size={48}
+                  rounded="2xl"
+                  online={ad.merchant.isOnline}
+                />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <h3 className="truncate text-base font-black">{ad.merchant.displayName}</h3>
@@ -1424,14 +1427,6 @@ function PaymentSelect({ value, fiat, onChange }: { value: string; fiat: string;
 
 // ─── Ad Row ──────────────────────────────────────────────────────────────────
 
-const CRYPTO_COLOR: Record<string, string> = {
-  USDT: "#26a17b",
-  BTC:  "#f7931a",
-  ETH:  "#627eea",
-  BNB:  "#f0b90b",
-  KES:  "#0a7e3f",
-};
-
 const AD_COLS = "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_120px]";
 const AD_GRID = `lg:grid ${AD_COLS} lg:items-center lg:gap-4`;
 
@@ -1445,7 +1440,6 @@ function AdCard({
   onMerchantClick: (merchant: AdMerchant) => void;
 }) {
   const isMerchantSelling = ad.side === "SELL";
-  const color   = CRYPTO_COLOR[ad.crypto] ?? "#087cff";
   const actionLabel = isMerchantSelling ? "Buy" : "Sell";
   const totalTrades = ad.merchant.totalTrades ?? 0;
   const completionRate = totalTrades > 0 ? (ad.merchant.completedTrades / totalTrades) * 100 : 0;
@@ -1473,18 +1467,14 @@ function AdCard({
         className="col-span-2 lg:col-span-1 flex min-w-0 items-center gap-2 rounded-lg text-left transition hover:bg-white/[0.04] focus:outline-none focus:ring-2 focus:ring-[#087cff]/40"
         title={`View ${ad.merchant.displayName}`}
       >
-        <div className="relative shrink-0">
-          {ad.merchant.avatarUrl ? (
-            <img src={ad.merchant.avatarUrl} alt={ad.merchant.displayName} className="h-7 w-7 rounded-full object-cover" />
-          ) : (
-            <div className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black text-black" style={{ backgroundColor: color }}>
-              {(ad.merchant.displayName || "?").charAt(0).toUpperCase()}
-            </div>
-          )}
-          {ad.merchant.isOnline && (
-            <span className="absolute -bottom-0 -right-0 h-2 w-2 rounded-full border-2 border-[#0e0e14] bg-[#05b957]" />
-          )}
-        </div>
+        <MerchantAvatar
+          id={ad.merchant.id ?? ad.merchant.displayName}
+          name={ad.merchant.displayName}
+          avatarUrl={ad.merchant.avatarUrl}
+          size={28}
+          online={ad.merchant.isOnline}
+          onlineRingClass="border-[#151518]"
+        />
         <div className="min-w-0">
           <div className="flex items-center gap-1">
             <span className="truncate text-[12px] font-black text-white">{ad.merchant.displayName}</span>
@@ -1765,10 +1755,11 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const pathname         = usePathname();
   const searchParams     = useSearchParams();
 
-  // Initialise from URL params — falls back to safe defaults
+  // Initialise from URL params — falls back to Sell (usually has inventory).
+  // Buy is only the default when the URL explicitly asks for it.
   const initTab     = (VALID_SIDES as readonly string[]).includes(searchParams?.get("side") ?? "")
     ? (searchParams?.get("side") as "BUY" | "SELL")
-    : "BUY";
+    : "SELL";
   const initCrypto  = VALID_CRYPTOS_SET.has(searchParams?.get("crypto") ?? "")
     ? searchParams?.get("crypto")!
     : "USDT";
@@ -1790,7 +1781,8 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   // Sync state to URL whenever filters change
   const pushUrl = useCallback((newTab: string, newCrypto: string, newPayment: string, newFiat: string) => {
     const p = new URLSearchParams();
-    if (newTab !== "BUY")     p.set("side",    newTab);
+    // Default market side is Sell — only write side when it differs.
+    if (newTab !== "SELL")    p.set("side",    newTab);
     if (newCrypto !== "ALL")  p.set("crypto",  newCrypto);
     if (newPayment)           p.set("payment", newPayment);
     if (newFiat !== "KES")    p.set("fiat",    newFiat);
@@ -1855,29 +1847,70 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   useEffect(() => { fetchAds(true); }, [fetchAds]);
 
-  // On first load, if the user didn't pick a crypto via URL and the default
-  // filter has no offers, auto-switch to whichever crypto has the most ads — so
-  // they never land on a blank list. Runs once.
+  // On first load: if Buy has no ads, flip to Sell; also auto-pick the crypto
+  // with the most inventory so the list isn't blank.
   const autoPickedRef = useRef(false);
   useEffect(() => {
     if (autoPickedRef.current) return;
-    if (VALID_CRYPTOS_SET.has(searchParams?.get("crypto") ?? "")) return; // explicit choice
+    const explicitSide = (VALID_SIDES as readonly string[]).includes(searchParams?.get("side") ?? "");
+    const explicitCrypto = VALID_CRYPTOS_SET.has(searchParams?.get("crypto") ?? "");
     autoPickedRef.current = true;
-    const params = new URLSearchParams({ side: tab === "BUY" ? "SELL" : "BUY", fiat });
-    fetch(`/api/p2p/ads?${params}`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((all: Ad[]) => {
+
+    async function bootstrap() {
+      // Prefer Sell inventory when Buy is empty (unless user forced Buy via URL).
+      if (!explicitSide && tab === "BUY") {
+        try {
+          const buyRes = await fetch(`/api/p2p/ads?${new URLSearchParams({ side: "SELL", fiat, crypto })}`);
+          const buyAds = buyRes.ok ? await buyRes.json() : [];
+          if (!Array.isArray(buyAds) || buyAds.length === 0) {
+            setTab("SELL");
+            return; // setTab triggers a fresh fetch; crypto bootstrap can wait
+          }
+        } catch { /* keep Buy */ }
+      }
+
+      if (explicitCrypto) return;
+      const merchantSide = tab === "BUY" ? "SELL" : "BUY";
+      try {
+        const res = await fetch(`/api/p2p/ads?${new URLSearchParams({ side: merchantSide, fiat })}`);
+        const all: Ad[] = res.ok ? await res.json() : [];
         if (!Array.isArray(all) || all.length === 0) return;
         const counts = all.reduce<Record<string, number>>((acc, a) => {
           acc[a.crypto] = (acc[a.crypto] ?? 0) + 1;
           return acc;
         }, {});
-        if ((counts[crypto] ?? 0) > 0) return; // current default already has ads
+        if ((counts[crypto] ?? 0) > 0) return;
         const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
         if (best && best !== crypto) setCrypto(best);
-      })
-      .catch(() => { /* ignore — keep default */ });
+      } catch { /* keep default */ }
+    }
+
+    void bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Platform stats for the quiet intro strip above Buy/Sell.
+  const [stats, setStats] = useState<{
+    onlineMerchants: number;
+    activeOffers: number;
+    trades24h: number;
+    avgReleaseMin: number;
+  } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/p2p/stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d || d.error) return;
+        setStats({
+          onlineMerchants: Number(d.onlineMerchants) || 0,
+          activeOffers: Number(d.activeOffers) || 0,
+          trades24h: Number(d.trades24h) || 0,
+          avgReleaseMin: Number(d.avgReleaseMin) || 0,
+        });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   // Deep-link from "Order again": open the merchant's profile modal once ads load.
@@ -1959,13 +1992,62 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
       <div className="mx-auto w-full max-w-6xl px-3 py-2 sm:px-4 lg:px-3">
 
-        {/* Workspace header */}
+        {/* Quiet intro — land here before Buy/Sell controls */}
+        <div className="mb-3 border-b border-white/[0.06] pb-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Peer-to-peer
+              </p>
+              <h1 className="mt-1 text-[20px] font-black tracking-tight text-white sm:text-[22px]">
+                Trade crypto with people
+              </h1>
+              <p className="mt-1 max-w-lg text-[13px] font-medium leading-relaxed text-slate-500">
+                Escrow-protected orders, local payments, verified merchants.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href="/p2p/express"
+                className="rounded-xl bg-[#087cff] px-3.5 py-2 text-[12px] font-black text-white transition hover:bg-[#0570e8]"
+              >
+                Direct buy
+              </Link>
+              <Link
+                href="/p2p/merchant"
+                className="rounded-xl bg-white/[0.04] px-3.5 py-2 text-[12px] font-black text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.07] hover:text-white"
+              >
+                Become a merchant
+              </Link>
+            </div>
+          </div>
+          {stats && (
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] font-semibold text-slate-500">
+              <span>
+                <span className="tabular-nums text-white">{stats.onlineMerchants}</span> online
+              </span>
+              <span>
+                <span className="tabular-nums text-white">{stats.activeOffers}</span> offers
+              </span>
+              <span>
+                <span className="tabular-nums text-white">{stats.trades24h}</span> trades · 24h
+              </span>
+              {stats.avgReleaseMin > 0 && (
+                <span>
+                  ~<span className="tabular-nums text-white">{stats.avgReleaseMin}</span> min avg release
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Market workspace */}
         <div className="mb-2 min-w-0">
-          <div className="min-w-0 rounded-lg border border-[#1e1e30] bg-[#111118] px-3 py-2">
+          <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
             <div className="mb-2 flex min-w-0 items-center justify-between gap-3 lg:mb-1.5">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">Nezeem P2P</p>
-                <h1 className="text-[15px] font-black leading-tight text-white">{tab === "BUY" ? "Buy" : "Sell"} {crypto === "ALL" ? "Crypto" : crypto}</h1>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">Market</p>
+                <h2 className="text-[15px] font-black leading-tight text-white">{tab === "BUY" ? "Buy" : "Sell"} {crypto === "ALL" ? "Crypto" : crypto}</h2>
                 {marketRef > 0 && crypto !== "ALL" ? (
                   <p className="mt-0.5 flex items-center gap-1.5 text-xs font-bold text-slate-400">
                     <img src={CRYPTO_ICONS[crypto]} alt={crypto} width={14} height={14} className="h-3.5 w-3.5 rounded-full" />
@@ -1974,7 +2056,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
                   </p>
                 ) : (
                   <p className="max-w-md text-xs font-semibold leading-5 text-slate-500 lg:leading-4">
-                    Verified merchants, local payments, escrow-protected orders.
+                    Pick Buy or Sell, then choose an offer below.
                   </p>
                 )}
               </div>

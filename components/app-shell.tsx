@@ -792,13 +792,6 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile 
           <div className="my-4 border-t border-white/[0.06]" />
 
           <MobileDrawerLink href="/my-bets" icon="receipt_long" label="My Bets" active={isActive("/my-bets")} onClick={onClose} />
-
-          <div className="mt-4 rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/[0.06]">
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Display currency
-            </p>
-            <CurrencySwitcher inline />
-          </div>
         </div>
 
         <div className="border-t border-white/[0.06] px-5 py-3">
