@@ -115,6 +115,49 @@ export interface ApiSportsRefreshResult {
   upserted: number;
 }
 
+/** Competitions we surface first on the home trending card (free-tier display). */
+const PRIORITY_LEAGUE = /world cup|fifa|champions league|europa|premier league|la liga|bundesliga|serie a|ligue 1|copa|nations|afcon|euro/i;
+
+function fixtureRank(f: ApiFixture): number {
+  const short = f.fixture.status.short;
+  let score = 0;
+  if (/world cup/i.test(f.league.name)) score += 2000; // WC always leads home feed
+  if (LIVE_CODES.has(short)) score += 1000;
+  if (short === "NS") score += 400;
+  if (PRIORITY_LEAGUE.test(f.league.name)) score += 300;
+  // Prefer kickoff soonest among not-started.
+  if (short === "NS") {
+    const mins = (new Date(f.fixture.date).getTime() - Date.now()) / 60_000;
+    if (mins >= 0 && mins < 12 * 60) score += Math.max(0, 200 - mins);
+  }
+  return score;
+}
+
+/**
+ * Free-tier home feed: live soccer + today's notable fixtures (World Cup first).
+ * No DB writes — safe for every page load within the 100 req/day budget when
+ * cached by the route (`revalidate`).
+ */
+export async function getDisplayLiveMatches(limit = 8): Promise<Match[]> {
+  const today = isoDate(new Date());
+  const [live, day] = await Promise.all([
+    apiGet<ApiFixture>(FOOTBALL, `/fixtures?live=all`),
+    apiGet<ApiFixture>(FOOTBALL, `/fixtures?date=${today}`),
+  ]);
+
+  const byId = new Map<number, ApiFixture>();
+  for (const f of [...live.data, ...day.data]) {
+    byId.set(f.fixture.id, f);
+  }
+
+  const ranked = [...byId.values()]
+    .filter((f) => LIVE_CODES.has(f.fixture.status.short) || f.fixture.status.short === "NS")
+    .sort((a, b) => fixtureRank(b) - fixtureRank(a))
+    .slice(0, limit);
+
+  return ranked.map((f) => normalize(f));
+}
+
 /**
  * Frugal soccer refresh: live games + tomorrow's fixtures + a page of odds,
  * upserted into the same fixtures_cache the UI reads.

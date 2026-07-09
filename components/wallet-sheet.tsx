@@ -14,15 +14,15 @@ export function WalletSheet({ onClose, initialTab = "home" }: { onClose: () => v
       onClick={onClose}
     >
       <div
-        className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-[#0e0e14] shadow-2xl ring-1 ring-white/10 no-scrollbar sm:rounded-3xl lg:max-w-4xl"
+        className="relative max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-[1.5rem] bg-[#151518] shadow-2xl ring-1 ring-white/[0.08] no-scrollbar sm:rounded-2xl lg:max-w-4xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-white/10 sm:hidden" />
+        <div className="mx-auto mt-3 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
         <button
           type="button"
           onClick={onClose}
           aria-label="Close wallet"
-          className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full bg-black/40 text-slate-300 transition hover:bg-black/60 hover:text-white"
+          className="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
         >
           <Icon name="close" className="text-[18px]" />
         </button>

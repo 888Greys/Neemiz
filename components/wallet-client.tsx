@@ -725,7 +725,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   const activeTitle = tab.charAt(0).toUpperCase() + tab.slice(1);
 
   return (
-    <div className={`w-full bg-[#151518] text-white ${wide ? "lg:min-h-[560px]" : "min-h-[calc(100dvh-8rem)]"}`}>
+    <div className={`w-full bg-[#151518] text-white ${wide ? "lg:min-h-[520px]" : "min-h-[calc(100dvh-8rem)]"}`}>
       {tab === "home" ? (
         <WalletHome
           balance={isSignedIn ? fmtBalance : "—"}
@@ -749,18 +749,18 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
         {tab === "deposit" && (
           <>
             {deposit.step === "confirmed" ? (
-              <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-emerald-500/25 text-center animate-in fade-in zoom-in-95 duration-300">
-                <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/12 ring-1 ring-emerald-500/20">
-                  <Icon name="check_circle" fill className="text-[44px] text-emerald-400" />
+              <div className={STATUS_PANEL}>
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/12">
+                  <Icon name="check_circle" fill className="text-[32px] text-emerald-400" />
                 </div>
-                <h2 className="text-2xl font-black text-white">Payment Received!</h2>
+                <h2 className="text-xl font-black text-white">Payment received</h2>
                 <p className="mt-2 text-sm text-slate-400">
                   <span className="font-bold text-emerald-400">{CURRENCY_SYMBOL} {deposit.amount.toLocaleString()}</span>{" "}
-                  has been added to your wallet
+                  added to your wallet
                 </p>
-                <div className="my-5 rounded-2xl bg-white/[0.04] px-5 py-4">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">New Balance</p>
-                  <p className="mt-1 text-3xl font-black text-white">
+                <div className="my-5 border-y border-white/[0.06] py-4">
+                  <p className={FIELD_LABEL}>New balance</p>
+                  <p className="mt-1 text-2xl font-black text-white">
                     {CURRENCY_SYMBOL} {deposit.newBalance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}
                   </p>
                 </div>
@@ -769,58 +769,51 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                     M-Pesa ref: <span className="font-bold text-slate-300">{deposit.receipt}</span>
                   </p>
                 )}
-                <Button onClick={reset} className="h-12 w-full rounded-2xl text-sm shadow-lg shadow-blue-500/20">
-                  Deposit More
+                <Button onClick={reset} className="h-12 w-full rounded-xl text-sm">
+                  Deposit more
                 </Button>
               </div>
             ) : deposit.step === "failed" ? (
-              <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-red-500/25 text-center animate-in fade-in zoom-in-95 duration-300">
-                <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-red-500/12 ring-1 ring-red-500/20">
-                  <Icon name="cancel" fill className="text-[44px] text-red-400" />
+              <div className={STATUS_PANEL}>
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-500/12">
+                  <Icon name="cancel" fill className="text-[32px] text-red-400" />
                 </div>
-                <h2 className="text-2xl font-black text-white">Payment Failed</h2>
+                <h2 className="text-xl font-black text-white">Payment failed</h2>
                 <p className="mt-2 text-sm text-slate-400">{deposit.message}</p>
-                <button
-                  type="button"
-                  onClick={reset}
-                  className="mt-6 w-full rounded-2xl bg-white/[0.07] py-3.5 text-sm font-black text-white ring-1 ring-white/[0.10] transition hover:bg-white/[0.11]"
-                >
-                  Try Again
-                </button>
+                <Button onClick={reset} variant="secondary" className="mt-6 h-12 w-full rounded-xl text-sm">
+                  Try again
+                </Button>
               </div>
             ) : deposit.step === "pending" ? (
-              <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-[#087cff]/25 text-center animate-in fade-in zoom-in-95 duration-300">
-                <div className="relative mx-auto mb-5 flex h-20 w-20 items-center justify-center">
-                  <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-[#087cff]/60" />
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#087cff]/12 ring-1 ring-[#087cff]/20">
-                    <Icon name={deposit.via === "pesapal" ? "credit_card" : "phone_iphone"} fill className="text-[30px] text-[#087cff]" />
-                  </div>
+              <div className={STATUS_PANEL}>
+                <div className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center">
+                  <div className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-[#087cff]/70" />
+                  <Icon name={deposit.via === "pesapal" ? "credit_card" : "phone_iphone"} fill className="text-[28px] text-[#087cff]" />
                 </div>
-                <h2 className="text-2xl font-black text-white">
-                  {deposit.via === "pesapal" ? "Verifying Payment" : "Check Your Phone"}
+                <h2 className="text-xl font-black text-white">
+                  {deposit.via === "pesapal" ? "Verifying payment" : "Check your phone"}
                 </h2>
                 <p className="mt-2 text-sm text-slate-400">
                   {deposit.via === "pesapal" ? (
-                    <>Confirming your payment with Pesapal.<br />This only takes a few seconds.</>
+                    <>Confirming your payment with Pesapal. This only takes a few seconds.</>
                   ) : (
-                    <>An <span className="font-bold text-white">M-Pesa STK push</span> has been sent.<br />
-                    Enter your PIN to complete the payment.</>
+                    <>An <span className="font-bold text-white">M-Pesa STK push</span> has been sent. Enter your PIN to complete.</>
                   )}
                 </p>
                 {deposit.amount > 0 && (
-                  <div className="my-5 rounded-2xl bg-white/[0.04] px-5 py-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Amount</p>
-                    <p className="mt-1 text-3xl font-black text-white">{CURRENCY_SYMBOL} {deposit.amount.toLocaleString()}</p>
+                  <div className="my-5 border-y border-white/[0.06] py-4">
+                    <p className={FIELD_LABEL}>Amount</p>
+                    <p className="mt-1 text-2xl font-black text-white">{CURRENCY_SYMBOL} {deposit.amount.toLocaleString()}</p>
                   </div>
                 )}
-                <div className={`flex items-center justify-center gap-2 rounded-xl bg-amber-400/8 px-4 py-2.5 text-xs font-bold text-amber-400 ${deposit.amount > 0 ? "" : "mt-5"}`}>
+                <div className={`flex items-center justify-center gap-2 text-xs font-bold text-amber-400 ${deposit.amount > 0 ? "" : "mt-5"}`}>
                   <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-amber-400" />
                   {deposit.via === "pesapal" ? "Checking with Pesapal…" : "Checking payment status…"}
                 </div>
                 <button
                   type="button"
                   onClick={reset}
-                  className="mt-4 text-xs text-slate-600 transition hover:text-slate-400"
+                  className="mt-5 text-xs font-semibold text-slate-500 transition hover:text-slate-300"
                 >
                   Cancel
                 </button>
@@ -843,15 +836,15 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
                 {depositMethod === "pesapal" && (
                   <div className="space-y-5">
-                    <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3 ring-1 ring-amber-400/20">
+                    <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3">
                       <Icon name="science" fill className="mt-0.5 shrink-0 text-[16px] text-amber-400" />
                       <p className="text-xs font-bold text-amber-400">
                         Card payments are in <span className="uppercase">test mode</span> — max <span className="font-black">KSh 50</span> for now while we finish setup.
                       </p>
                     </div>
                     <div>
-                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount (KSh)</p>
-                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#05b957]/50 transition">
+                      <p className={FIELD_LABEL}>Amount (KSh)</p>
+                      <div className={`${FIELD} focus-within:ring-[#05b957]/50`}>
                         <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                         <input
                           type="number"
@@ -862,7 +855,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                           onChange={(e) => setAmount(e.target.value)}
                           placeholder="10 – 50"
                           required
-                          className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
+                          className="flex-1 bg-transparent py-3.5 text-base font-black text-white outline-none placeholder:text-slate-700"
                         />
                         {amount && (
                           <button type="button" onClick={() => setAmount("")} className="text-slate-600 hover:text-slate-400">
@@ -870,11 +863,11 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                           </button>
                         )}
                       </div>
-                      <p className="mt-2 text-[11px] font-bold text-slate-600">Test mode · KSh 10–50</p>
+                      <p className="mt-2 text-[11px] font-medium text-slate-600">Test mode · KSh 10–50</p>
                     </div>
 
                     {error && (
-                      <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20">
+                      <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 px-4 py-3">
                         <Icon name="error" fill className="mt-0.5 shrink-0 text-[16px] text-red-400" />
                         <p className="text-xs font-bold text-red-400">{error}</p>
                       </div>
@@ -883,7 +876,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                     <Button
                       onClick={() => void handlePesapalDeposit()}
                       disabled={loading || !amount}
-                      className="h-14 w-full rounded-2xl text-base shadow-lg shadow-emerald-500/20"
+                      className="h-12 w-full rounded-xl text-sm"
                     >
                       {loading ? (
                         <LoadingDots label="Opening secure checkout" />
@@ -892,7 +885,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       )}
                     </Button>
 
-                    <p className="text-center text-[11px] text-slate-700">
+                    <p className="text-center text-[11px] text-slate-600">
                       Secure checkout by Pesapal · Visa, Mastercard &amp; Amex accepted
                     </p>
                   </div>
@@ -900,10 +893,10 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
                 {depositMethod === "mpesa" && (<>
                 <div>
-                  <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
+                  <p className={FIELD_LABEL}>
                     Amount (KSh)
                   </p>
-                  <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50 transition">
+                  <div className={FIELD}>
                     <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                     <input
                       type="number"
@@ -913,7 +906,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="Enter amount"
                       required
-                      className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
+                      className="flex-1 bg-transparent py-3.5 text-base font-black text-white outline-none placeholder:text-slate-700"
                     />
                     {amount && (
                       <button type="button" onClick={() => setAmount("")} className="text-slate-600 hover:text-slate-400">
@@ -921,15 +914,15 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       </button>
                     )}
                   </div>
-                  <p className="mt-2 text-[11px] font-bold text-slate-600">Minimum deposit: KSh 100</p>
+                  <p className="mt-2 text-[11px] font-medium text-slate-600">Minimum deposit: KSh 100</p>
                 </div>
 
                 {depositMethod === "mpesa" && (
                   <div>
-                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
+                    <p className={FIELD_LABEL}>
                       Safaricom Number
                     </p>
-                    <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50 transition">
+                    <div className={FIELD}>
                       <span className="shrink-0 text-base">🇰🇪</span>
                       <input
                         type="tel"
@@ -937,14 +930,14 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                         onChange={(e) => setPhone(e.target.value)}
                         placeholder="07XXXXXXXX or 01XXXXXXXX"
                         required
-                        className="flex-1 bg-transparent py-4 text-sm font-bold text-white outline-none placeholder:text-slate-700"
+                        className="flex-1 bg-transparent py-3.5 text-sm font-bold text-white outline-none placeholder:text-slate-700"
                       />
                     </div>
                   </div>
                 )}
 
                 {error && (
-                  <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20">
+                  <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 px-4 py-3">
                     <Icon name="error" fill className="mt-0.5 shrink-0 text-[16px] text-red-400" />
                     <p className="text-xs font-bold text-red-400">{error}</p>
                   </div>
@@ -953,7 +946,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                 <Button
                   onClick={(e) => handleDeposit(e as unknown as React.FormEvent)}
                   disabled={loading || !amount || !phone}
-                  className="h-14 w-full rounded-2xl text-base shadow-lg shadow-blue-500/20"
+                  className="h-12 w-full rounded-xl text-sm"
                 >
                   {loading ? (
                     <LoadingDots label="Sending prompt" />
@@ -962,7 +955,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                   )}
                 </Button>
 
-                <p className="text-center text-[11px] text-slate-700">
+                <p className="text-center text-[11px] text-slate-600">
                   Powered by Safaricom M-Pesa · Instant credit to your account
                 </p>
                 </>)}
@@ -991,34 +984,30 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
         {tab === "withdraw" && (
           <div className="space-y-5">
             {/* Method toggle */}
-            <div className="grid grid-cols-2 rounded-2xl bg-white/[0.045] p-1 ring-1 ring-white/[0.07]">
+            <div className="flex gap-6 border-b border-white/[0.06]">
               <button
                 type="button"
                 onClick={() => setWithdrawMode("crypto")}
-                className={`flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-black transition ${
-                  withdrawMode === "crypto"
-                    ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20"
-                    : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
+                className={`relative pb-3 text-[14px] font-bold transition ${
+                  withdrawMode === "crypto" ? "text-white" : "text-slate-500 hover:text-slate-300"
                 }`}
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff9811] text-[11px] font-black text-white">
-                  ₿
-                </span>
                 Crypto
+                {withdrawMode === "crypto" && (
+                  <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[#087cff]" />
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => setWithdrawMode("fiat")}
-                className={`flex h-10 items-center justify-center gap-2 rounded-xl text-sm font-black transition ${
-                  withdrawMode === "fiat"
-                    ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20"
-                    : "text-slate-400 hover:bg-white/[0.04] hover:text-white"
+                className={`relative pb-3 text-[14px] font-bold transition ${
+                  withdrawMode === "fiat" ? "text-white" : "text-slate-500 hover:text-slate-300"
                 }`}
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#087cff] text-[11px] font-black text-white">
-                  M
-                </span>
                 M-Pesa
+                {withdrawMode === "fiat" && (
+                  <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[#087cff]" />
+                )}
               </button>
             </div>
 
@@ -1026,40 +1015,35 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
             {withdrawMode === "crypto" && (
               <>
                 {cwState.step === "success" ? (
-                  <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-emerald-500/25 text-center animate-in fade-in zoom-in-95 duration-300">
-                    <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/12 ring-1 ring-emerald-500/20">
-                      <Icon name="check_circle" fill className="text-[44px] text-emerald-400" />
-                    </div>
-                    <h2 className="text-2xl font-black text-white">Withdrawal Submitted</h2>
-                    <p className="mt-2 text-sm text-slate-400">
-                      Your withdrawal is being processed. You will be notified once it is sent on-chain.
+                  <div className="animate-in fade-in duration-300 text-center">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-emerald-400">Submitted</p>
+                    <h2 className="mt-3 text-xl font-black text-white">Withdrawal in progress</h2>
+                    <p className="mt-2 text-[13px] text-slate-400">
+                      You&rsquo;ll be notified once it&rsquo;s sent on-chain.
                     </p>
-                    <p className="mt-3 font-mono text-[11px] text-slate-600">
+                    <p className="mt-4 font-mono text-[11px] text-slate-600">
                       TX: {cwState.txId}
                     </p>
                     <Button
                       onClick={() => { setCwState({ step: "idle" }); setCwAmount(""); setCwAddress(""); }}
-                      className="mt-6 h-12 w-full rounded-2xl text-sm shadow-lg shadow-blue-500/20"
+                      className="mt-8 h-11 w-full rounded-xl text-sm"
                     >
-                      New Withdrawal
+                      New withdrawal
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {/* Coin selector */}
-                    <div>
-                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-                        Crypto Asset
-                      </p>
+                  <div className="space-y-7">
+                    <section>
+                      <p className="mb-3 text-[13px] font-black text-white">Asset</p>
                       <div className="relative">
-                        {/* Trigger */}
                         <button
                           type="button"
                           onClick={() => setCwOpen((o) => !o)}
-                          className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] transition hover:bg-white/[0.06]"
+                          className="flex w-full items-center justify-between border-b border-white/[0.08] py-3 text-left transition hover:border-white/[0.14]"
                         >
                           <span className="flex items-center gap-3">
                             {COIN_ICON_URL[cwAsset.code] && (
+                              // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={COIN_ICON_URL[cwAsset.code]}
                                 alt={cwAsset.code}
@@ -1069,18 +1053,15 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                               />
                             )}
                             <span>
-                              <span className="block text-sm font-black text-white">
-                                {cwAsset.code}
-                                <span className="ml-2 text-[11px] font-bold text-slate-500">{cwAsset.displayNet}</span>
-                              </span>
+                              <span className="block text-[15px] font-bold text-white">{cwAsset.code}</span>
+                              <span className="block text-[12px] font-medium text-slate-500">{cwAsset.displayNet}</span>
                             </span>
                           </span>
                           <Icon name={cwOpen ? "expand_less" : "expand_more"} className="text-[22px] text-slate-500" />
                         </button>
 
-                        {/* Dropdown */}
                         {cwOpen && (
-                          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl bg-[#121824] shadow-2xl shadow-black/40 ring-1 ring-white/[0.09]">
+                          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-xl bg-[#1a1b22] shadow-2xl ring-1 ring-white/[0.08]">
                             {CRYPTO_WITHDRAW_ASSETS.map((a) => (
                               <button
                                 key={`${a.code}:${a.network}`}
@@ -1090,9 +1071,10 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                                   setCwOpen(false);
                                   setCwState({ step: "idle" });
                                 }}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.06]"
+                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.05]"
                               >
                                 {COIN_ICON_URL[a.code] && (
+                                  // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={COIN_ICON_URL[a.code]}
                                     alt={a.code}
@@ -1102,95 +1084,71 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                                   />
                                 )}
                                 <span className="flex-1">
-                                  <span className="block text-sm font-black text-white">
+                                  <span className="block text-[14px] font-bold text-white">
                                     {a.code}
-                                    <span className="ml-2 text-[11px] font-bold text-slate-500">{a.displayNet}</span>
+                                    <span className="ml-2 text-[12px] font-medium text-slate-500">{a.displayNet}</span>
                                   </span>
-                                  <span className="text-[10px] text-slate-600">min {a.min} {a.code}</span>
+                                  <span className="text-[11px] text-slate-600">min {a.min} {a.code}</span>
                                 </span>
                                 {cwAsset.code === a.code && cwAsset.network === a.network && (
-                                  <Icon name="check_circle" fill className="text-[18px] text-[#087cff]" />
+                                  <Icon name="check" className="text-[18px] text-[#087cff]" />
                                 )}
                               </button>
                             ))}
                           </div>
                         )}
                       </div>
-
-                      {/* Balance hint */}
                       {cwBalance ? (
-                        <p className="mt-1.5 px-1 text-xs font-bold text-slate-500">
-                          Available:{" "}
-                          <span
-                            className="cursor-pointer font-black text-white transition hover:text-[#75b8ff]"
-                            onClick={() =>
-                              setCwAmount(cwBalance.available.toFixed(6))
-                            }
+                        <p className="mt-2 text-[12px] font-medium text-slate-500">
+                          Available{" "}
+                          <button
+                            type="button"
+                            className="font-bold text-white transition hover:text-[#75b8ff]"
+                            onClick={() => setCwAmount(cwBalance.available.toFixed(6))}
                           >
-                            {cwBalance.available.toFixed(6)}{" "}
-                            {cwAsset.code}
-                          </span>
-                          <span className="ml-1 text-slate-700">(tap to fill)</span>
+                            {cwBalance.available.toFixed(6)} {cwAsset.code}
+                          </button>
                         </p>
                       ) : (
-                        <p className="mt-1.5 px-1 text-xs font-bold text-slate-600">
-                          No {cwAsset.code} ({cwAsset.displayNet}) balance
+                        <p className="mt-2 text-[12px] font-medium text-slate-600">
+                          No {cwAsset.code} balance on {cwAsset.displayNet}
                         </p>
                       )}
-                    </div>
+                    </section>
 
-                    {/* Amount */}
-                    <div>
-                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-                        Amount ({cwAsset.code})
-                      </p>
-                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50 transition">
+                    <section>
+                      <p className="mb-2 text-[13px] font-black text-white">Amount</p>
+                      <div className="flex items-center gap-2 border-b border-white/[0.08] focus-within:border-[#087cff]/60">
                         <input
                           type="number"
                           min={cwAsset.min}
                           step="any"
                           value={cwAmount}
                           onChange={(e) => { setCwAmount(e.target.value); setCwState({ step: "idle" }); }}
-                          placeholder={`Min. ${cwAsset.min}`}
-                          className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
+                          placeholder="0"
+                          className="min-w-0 flex-1 bg-transparent py-3 text-[2rem] font-black tracking-tight text-white outline-none placeholder:text-slate-700"
                         />
-                        <span className="shrink-0 text-sm font-black text-slate-500">{cwAsset.code}</span>
+                        <span className="shrink-0 text-[15px] font-bold text-slate-500">{cwAsset.code}</span>
                       </div>
-                    </div>
+                      <p className="mt-2 text-[12px] font-medium text-slate-600">Min {cwAsset.min} {cwAsset.code}</p>
+                    </section>
 
-                    {/* Destination address */}
-                    <div>
-                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-                        Destination wallet address
+                    <section>
+                      <p className="mb-2 text-[13px] font-black text-white">To address</p>
+                      <input
+                        type="text"
+                        value={cwAddress}
+                        onChange={(e) => { setCwAddress(e.target.value); setCwState({ step: "idle" }); }}
+                        placeholder={`${cwAsset.displayNet} address`}
+                        className="w-full border-b border-white/[0.08] bg-transparent py-3 font-mono text-[13px] text-white outline-none placeholder:font-sans placeholder:text-slate-600 focus:border-[#087cff]/60"
+                      />
+                      <p className="mt-2 text-[12px] font-medium text-slate-600">
+                        Only {cwAsset.code} on {cwAsset.displayNet}. Wrong network = permanent loss.
                       </p>
-                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50 transition">
-                        <input
-                          type="text"
-                          value={cwAddress}
-                          onChange={(e) => { setCwAddress(e.target.value); setCwState({ step: "idle" }); }}
-                          placeholder={`${cwAsset.displayNet} address`}
-                          className="flex-1 bg-transparent py-4 font-mono text-sm text-white outline-none placeholder:font-sans placeholder:text-slate-700"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Network warning */}
-                    <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3 ring-1 ring-amber-400/15">
-                      <Icon name="info" fill className="mt-0.5 shrink-0 text-[15px] text-amber-400" />
-                      <p className="text-[11px] font-bold text-amber-300/80">
-                        Ensure the address supports{" "}
-                        <strong>
-                          {cwAsset.code} on {cwAsset.displayNet}
-                        </strong>
-                        . Sending to the wrong network is unrecoverable.
-                      </p>
-                    </div>
+                    </section>
 
                     {cwState.step === "error" && (
-                      <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20">
-                        <Icon name="error" fill className="mt-0.5 shrink-0 text-[16px] text-red-400" />
-                        <p className="text-xs font-bold text-red-400">{cwState.message}</p>
-                      </div>
+                      <p className="text-[13px] font-semibold text-red-400">{cwState.message}</p>
                     )}
 
                     <Button
@@ -1201,12 +1159,12 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                         !cwAddress.trim() ||
                         !isSignedIn
                       }
-                      className="h-14 w-full rounded-2xl text-base shadow-lg shadow-blue-500/20"
+                      className="h-12 w-full rounded-xl text-sm"
                     >
                       {cwState.step === "loading" ? (
-                        <LoadingDots label="Submitting withdrawal" />
+                        <LoadingDots label="Submitting" />
                       ) : (
-                        `Withdraw ${cwAmount ? `${cwAmount} ` : ""}${cwAsset.code}`
+                        `Withdraw${cwAmount ? ` ${cwAmount}` : ""} ${cwAsset.code}`
                       )}
                     </Button>
                   </div>
@@ -1220,17 +1178,17 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
             {/* ── M-Pesa withdraw — paused while Lipa B2C is down (see MPESA_WITHDRAWALS_ENABLED) ── */}
             {withdrawMode === "fiat" && !MPESA_WITHDRAWALS_ENABLED && (
               <div className="space-y-5">
-                <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-white/[0.07] text-center space-y-3">
-                  <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/15">
-                    <Icon name="warning" className="text-[30px] text-amber-400" />
+                <div className={STATUS_PANEL}>
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-400/15">
+                    <Icon name="warning" className="text-[26px] text-amber-400" />
                   </div>
-                  <h3 className="text-lg font-black text-white">M-Pesa withdrawals temporarily unavailable</h3>
-                  <p className="text-sm leading-relaxed text-slate-400">
+                  <h3 className="mt-4 text-lg font-black text-white">M-Pesa withdrawals temporarily unavailable</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-400">
                     We&rsquo;re experiencing a problem with M-Pesa payouts and are working to
                     restore them. Your balance is safe.
                   </p>
                   {notifyState === "subscribed" ? (
-                    <p className="flex items-center justify-center gap-1.5 text-sm font-bold text-[#05b957]">
+                    <p className="mt-4 flex items-center justify-center gap-1.5 text-sm font-bold text-[#05b957]">
                       <Icon name="check_circle" className="text-[16px]" />
                       You&rsquo;re on the list — we&rsquo;ll email you when withdrawals reopen.
                     </p>
@@ -1239,7 +1197,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       type="button"
                       onClick={handleNotifyMe}
                       disabled={notifyState === "loading"}
-                      className="mx-auto mt-1 flex items-center gap-2 rounded-xl bg-white/[0.08] px-5 py-2.5 text-sm font-black text-white ring-1 ring-white/[0.08] transition hover:bg-white/[0.12] disabled:opacity-50"
+                      className="mx-auto mt-4 flex items-center gap-2 rounded-xl bg-white/[0.06] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-white/[0.1] disabled:opacity-50"
                     >
                       {notifyState === "loading" ? (
                         <LoadingDots label="Saving" />
@@ -1248,7 +1206,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       )}
                     </button>
                   )}
-                  <p className="text-xs text-slate-600 pt-1">
+                  <p className="pt-3 text-xs text-slate-600">
                     Need crypto instead? Switch to the <span className="font-bold text-slate-400">Crypto</span> tab above — those withdrawals are working normally.
                   </p>
                 </div>
@@ -1257,130 +1215,111 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
             {/* ── M-Pesa withdraw ── */}
             {withdrawMode === "fiat" && MPESA_WITHDRAWALS_ENABLED && (
-              <div className="space-y-5">
+              <div className="space-y-7">
                 {wdDone ? (
-                  <div className="rounded-3xl bg-[#16171d] p-7 ring-1 ring-white/[0.07] text-center space-y-3">
-                    <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${wdDone.queued ? "bg-[#087cff]/15" : "bg-[#05b957]/15"}`}>
-                      <Icon name={wdDone.queued ? "schedule" : "check_circle"} className={`text-[32px] ${wdDone.queued ? "text-[#087cff]" : "text-[#05b957]"}`} />
-                    </div>
-                    <h3 className="text-lg font-black text-white">{wdDone.queued ? "Withdrawal is processing" : "Withdrawal Submitted"}</h3>
-                    <p className="text-sm leading-relaxed text-slate-400">
+                  <div className="animate-in fade-in duration-300 text-center">
+                    <p className={`text-[12px] font-semibold uppercase tracking-[0.16em] ${wdDone.queued ? "text-[#75b8ff]" : "text-emerald-400"}`}>
+                      {wdDone.queued ? "Processing" : "Submitted"}
+                    </p>
+                    <p className="mt-3 text-[2.1rem] font-black leading-none tracking-tight text-white">
+                      {CURRENCY_SYMBOL} {wdDone.payout.toLocaleString()}
+                    </p>
+                    <p className="mt-3 text-[13px] leading-relaxed text-slate-400">
                       {wdDone.message ? (
                         wdDone.message
                       ) : (
-                        <>
-                          <span className="text-white font-bold">{CURRENCY_SYMBOL} {wdDone.payout.toLocaleString()}</span> is being sent to your M-Pesa.
-                          <br />Fee: {CURRENCY_SYMBOL} {wdDone.fee.toLocaleString()}
-                        </>
+                        <>Sending to your M-Pesa · fee {CURRENCY_SYMBOL} {wdDone.fee.toLocaleString()}</>
                       )}
                     </p>
                     {wdDone.queued && (
-                      <p className="text-xs text-slate-600">You&rsquo;ll get a notification the moment it&rsquo;s on its way. No need to resubmit.</p>
+                      <p className="mt-2 text-[12px] text-slate-600">You&rsquo;ll get a notification when it&rsquo;s on its way.</p>
                     )}
                     <button
                       type="button"
                       onClick={() => { setWdDone(null); setWdAmount(""); setWdPhone(""); }}
-                      className="mt-2 text-xs font-bold text-slate-500 hover:text-white transition-colors"
+                      className="mt-8 text-[13px] font-semibold text-[#75b8ff] transition hover:text-white"
                     >
-                      New Withdrawal
+                      New withdrawal
                     </button>
                   </div>
                 ) : (
                   <>
-                    <div className="rounded-2xl bg-[#16171d]/60 px-4 py-3 ring-1 ring-white/[0.05]">
-                      <p className="text-xs text-slate-500">
-                        <span className="font-bold text-slate-300">Fee:</span> a {WITHDRAWAL_FEE_PCT} withdrawal fee applies. Min KSh 100 · Max {CURRENCY_SYMBOL} {(wdLimit?.limit ?? 500).toLocaleString()} per day.
-                        Money arrives within 1–5 minutes via Safaricom M-Pesa.
+                    <section>
+                      <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">Daily left</p>
+                      <p className={`mt-1 text-2xl font-black tracking-tight ${!wdLimit || wdLimit.remaining > 0 ? "text-white" : "text-amber-400"}`}>
+                        {CURRENCY_SYMBOL} {(wdLimit?.remaining ?? wdLimit?.limit ?? 500).toLocaleString()}
                       </p>
-                    </div>
+                      <p className="mt-1 text-[12px] font-medium text-slate-600">
+                        of {CURRENCY_SYMBOL} {(wdLimit?.limit ?? 500).toLocaleString()} · {WITHDRAWAL_FEE_PCT} fee · min KSh 100
+                      </p>
+                    </section>
 
-                    {/* Daily allowance — remaining + reset */}
-                    {wdLimit && (
-                      <div className="rounded-2xl bg-[#16171d] px-4 py-3 ring-1 ring-white/[0.07]">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Daily limit left</span>
-                          <span className={`text-sm font-black ${wdLimit.remaining > 0 ? "text-[#05b957]" : "text-amber-400"}`}>
-                            {CURRENCY_SYMBOL} {wdLimit.remaining.toLocaleString()} <span className="text-[11px] font-bold text-slate-600">/ {wdLimit.limit.toLocaleString()}</span>
-                          </span>
-                        </div>
-                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                          <div
-                            className="h-full rounded-full bg-[#05b957] transition-all"
-                            style={{ width: `${Math.min(100, (wdLimit.remaining / wdLimit.limit) * 100)}%` }}
-                          />
-                        </div>
-                        <p className="mt-1.5 text-[10px] text-slate-600">
-                          {wdLimit.used > 0 ? `${CURRENCY_SYMBOL} ${wdLimit.used.toLocaleString()} used · ` : ""}Limit is per rolling 24 hours
-                        </p>
-                      </div>
-                    )}
-
-                    <div>
-                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount (KSh)</p>
-                      <div className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/40 transition">
-                        <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
+                    <section>
+                      <p className="mb-2 text-[13px] font-black text-white">Amount</p>
+                      <div className="flex items-center gap-2 border-b border-white/[0.08] focus-within:border-[#087cff]/60">
+                        <span className="text-2xl font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                         <input
                           type="number"
                           min="100"
                           max="500"
                           value={wdAmount}
                           onChange={(e) => { setWdAmount(e.target.value); setWdError(""); }}
-                          placeholder="Min KSh 100"
-                          className="flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
+                          placeholder="0"
+                          className="min-w-0 flex-1 bg-transparent py-3 text-[2rem] font-black tracking-tight text-white outline-none placeholder:text-slate-700"
                         />
-                        {wdAmount && Number(wdAmount) >= 100 && (
-                          <span className="shrink-0 text-right text-xs text-slate-600">
-                            you get → <span className="font-bold text-slate-400">{CURRENCY_SYMBOL} {Math.floor(Number(wdAmount) * (1 - WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE)}</span>
-                            <br />after {WITHDRAWAL_FEE_PCT} fee
-                          </span>
-                        )}
                       </div>
-                    </div>
+                      {wdAmount && Number(wdAmount) >= 100 && (
+                        <p className="mt-2 text-[12px] font-medium text-slate-500">
+                          You receive{" "}
+                          <span className="font-bold text-white">
+                            {CURRENCY_SYMBOL} {Math.floor(Number(wdAmount) * (1 - WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE)}
+                          </span>
+                          {" "}after fee
+                        </p>
+                      )}
+                    </section>
 
-                    <div>
-                      <p className="mb-2 flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-                        M-Pesa Number
-                        {phoneLocked && <Icon name="lock" fill className="text-[12px] text-[#05b957]" />}
+                    <section>
+                      <p className="mb-2 flex items-center gap-1.5 text-[13px] font-black text-white">
+                        M-Pesa number
+                        {phoneLocked && <Icon name="lock" fill className="text-[13px] text-[#05b957]" />}
                       </p>
-                      <div className={`flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.07] transition ${phoneLocked ? "opacity-90" : "focus-within:ring-[#087cff]/40"}`}>
-                        <span className="shrink-0 text-base">🇰🇪</span>
+                      <div className={`flex items-center gap-2 border-b border-white/[0.08] ${phoneLocked ? "opacity-90" : "focus-within:border-[#087cff]/60"}`}>
+                        <span className="text-base">🇰🇪</span>
                         <input
                           type="tel"
                           value={wdPhone}
                           onChange={(e) => { setWdPhone(e.target.value); setWdError(""); }}
                           placeholder="07XXXXXXXX"
                           readOnly={phoneLocked}
-                          className="flex-1 bg-transparent py-4 text-sm font-bold text-white outline-none placeholder:text-slate-700 read-only:cursor-not-allowed"
+                          className="flex-1 bg-transparent py-3 text-[15px] font-semibold text-white outline-none placeholder:text-slate-600 read-only:cursor-not-allowed"
                         />
                         {phoneLocked && <Icon name="verified" fill className="shrink-0 text-[16px] text-[#05b957]" />}
                       </div>
                       {phoneLocked && (
-                        <p className="mt-1.5 text-[11px] text-slate-600">
+                        <p className="mt-2 text-[12px] font-medium text-slate-600">
                           Locked to your account. Contact support to change it.
                         </p>
                       )}
-                    </div>
+                    </section>
 
                     {wdError && (
-                      <p className="flex items-center gap-1.5 text-xs font-bold text-red-400">
-                        <Icon name="error" className="text-[13px]" />
-                        {wdError}
-                      </p>
+                      <p className="text-[13px] font-semibold text-red-400">{wdError}</p>
                     )}
 
                     <Button
                       onClick={requestMpesaWithdraw}
                       disabled={wdLoading || !wdAmount || Number(wdAmount) < 100 || !wdPhone.trim()}
-                      className="h-14 w-full rounded-2xl text-base shadow-lg shadow-blue-500/20"
+                      className="h-12 w-full rounded-xl text-sm"
                     >
                       {wdLoading ? (
                         <LoadingDots label="Processing" />
                       ) : (
-                        `Withdraw${wdAmount && Number(wdAmount) >= 100 ? ` ${CURRENCY_SYMBOL} ${Number(wdAmount).toLocaleString()}` : ""} via M-Pesa`
+                        `Withdraw${wdAmount && Number(wdAmount) >= 100 ? ` ${CURRENCY_SYMBOL} ${Number(wdAmount).toLocaleString()}` : ""}`
                       )}
                     </Button>
-                    <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
-                      <Icon name="lock" fill className="text-[13px]" /> You&rsquo;ll confirm with your password or passkey
+                    <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
+                      <Icon name="lock" fill className="text-[13px]" /> Confirm with password or passkey
                     </p>
                   </>
                 )}
@@ -1490,6 +1429,21 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
 /* ────────────────────────────────────────────────────────── */
 
+const NETWORK_LABEL: Record<string, string> = {
+  POLYGON: "Polygon",
+  BITCOIN: "Bitcoin",
+  ETHEREUM: "Ethereum",
+  BSC: "BNB Chain",
+  TRON: "Tron",
+};
+
+/** Shared quiet field chrome for wallet forms. */
+const FIELD =
+  "flex items-center gap-3 rounded-xl bg-white/[0.04] px-4 ring-1 ring-white/[0.06] transition focus-within:ring-[#087cff]/45";
+const FIELD_LABEL = "mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500";
+const STATUS_PANEL =
+  "rounded-2xl bg-white/[0.03] px-6 py-8 text-center ring-1 ring-white/[0.06] animate-in fade-in duration-300";
+
 function WalletHome({
   balance,
   cryptoBalances,
@@ -1505,94 +1459,112 @@ function WalletHome({
   onLogin: () => void;
   onOpen: (tab: WalletTab) => void;
 }) {
-  const actions: Array<{ tab: WalletTab; label: string; icon: string; tone: string }> = [
-    { tab: "deposit", label: "Deposit", icon: "add", tone: "bg-emerald-500/15 text-emerald-300" },
-    { tab: "send", label: "Send", icon: "send", tone: "bg-blue-500/15 text-blue-300" },
-    { tab: "withdraw", label: "Withdraw", icon: "arrow_upward", tone: "bg-amber-500/15 text-amber-300" },
-    { tab: "history", label: "History", icon: "receipt_long", tone: "bg-slate-500/15 text-slate-300" },
+  const actions: Array<{ tab: WalletTab; label: string; icon: string }> = [
+    { tab: "deposit", label: "Deposit", icon: "add" },
+    { tab: "send", label: "Send", icon: "send" },
+    { tab: "withdraw", label: "Withdraw", icon: "arrow_upward" },
+    { tab: "history", label: "History", icon: "receipt_long" },
   ];
 
   return (
-    <main className="mx-auto max-w-md px-4 pb-24 pt-5 sm:max-w-2xl sm:pb-10">
-      <section className="rounded-[1.35rem] bg-[#222327] p-5 shadow-[0_18px_45px_rgba(0,0,0,.28)] ring-1 ring-white/[0.06]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[12px] font-black uppercase tracking-wide text-slate-400">Main wallet</p>
-            <p className="mt-1 text-3xl font-black tracking-tight text-white">{balance}</p>
-          </div>
-          <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#087cff]/15 text-[#62a9ff]">
-            <Icon name="account_balance_wallet" className="text-[24px]" />
-          </span>
-        </div>
+    <main className="mx-auto max-w-md px-5 pb-24 pt-8 sm:max-w-2xl sm:pb-10 sm:pt-10">
+      <section className="animate-in fade-in duration-300">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Available balance
+        </p>
+        <p className={`mt-2 text-[2.35rem] font-black leading-none tracking-tight sm:text-5xl ${isSignedIn ? "text-white" : "text-slate-600"}`}>
+          {balance}
+        </p>
         {!isSignedIn && (
-          <button
-            type="button"
-            onClick={onLogin}
-            className="mt-5 h-11 w-full rounded-full bg-[#087cff] text-sm font-black text-white"
-          >
-            Log in to see wallet
-          </button>
+          <Button onClick={onLogin} className="mt-6 h-11 w-full max-w-xs rounded-xl text-sm">
+            Log in
+          </Button>
         )}
       </section>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="mt-8 grid grid-cols-4 gap-2">
         {actions.map((action) => (
           <button
             key={action.tab}
             type="button"
             onClick={() => onOpen(action.tab)}
-            className="flex min-h-24 flex-col items-start justify-between rounded-[1.1rem] bg-[#202126] p-4 text-left ring-1 ring-white/[0.06] transition active:scale-[0.98]"
+            className="flex flex-col items-center gap-2 rounded-xl px-1 py-2 text-center transition active:scale-[0.96] hover:bg-white/[0.04]"
           >
-            <span className={`grid h-10 w-10 place-items-center rounded-xl ${action.tone}`}>
-              <Icon name={action.icon} className="text-[21px]" />
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-white/[0.06] text-white ring-1 ring-white/[0.06]">
+              <Icon name={action.icon} className="text-[20px]" />
             </span>
-            <span className="text-[15px] font-black text-white">{action.label}</span>
+            <span className="text-[11px] font-bold text-slate-300">{action.label}</span>
           </button>
         ))}
       </div>
 
-      <section className="mt-4 rounded-[1.1rem] bg-[#202126] p-4 ring-1 ring-white/[0.06]">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-black text-white">Crypto wallet</h2>
-          <span className="text-[11px] font-bold text-slate-500">{cryptoBalances.length ? `${cryptoBalances.length} assets` : "No assets"}</span>
+      <div className="mt-8 border-t border-white/[0.06] pt-6">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-[13px] font-black text-white">Assets</h2>
+          {cryptoBalances.length > 0 && (
+            <span className="text-[11px] font-semibold text-slate-500">
+              {cryptoBalances.length} {cryptoBalances.length === 1 ? "asset" : "assets"}
+            </span>
+          )}
         </div>
         {cryptoBalances.length ? (
-          <div className="mt-3 space-y-2">
-            {cryptoBalances.slice(0, 4).map((item) => (
-              <div key={`${item.crypto}-${item.network}`} className="flex items-center justify-between rounded-xl bg-black/20 px-3 py-2">
-                <span className="flex items-center gap-2">
+          <ul className="divide-y divide-white/[0.05]">
+            {cryptoBalances.slice(0, 6).map((item) => (
+              <li
+                key={`${item.crypto}-${item.network}`}
+                className="flex items-center justify-between gap-3 py-3.5 first:pt-1"
+              >
+                <span className="flex min-w-0 items-center gap-3">
                   {COIN_ICON_URL[item.crypto] ? (
-                    <img src={COIN_ICON_URL[item.crypto]} alt={item.crypto} width={24} height={24} className="h-6 w-6 rounded-full" />
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={COIN_ICON_URL[item.crypto]}
+                      alt={item.crypto}
+                      width={32}
+                      height={32}
+                      className="h-8 w-8 shrink-0 rounded-full"
+                    />
                   ) : (
-                    <span className="grid h-6 w-6 place-items-center rounded-full bg-white/[0.08] text-[10px] font-black">{item.crypto.slice(0, 2)}</span>
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[0.08] text-[10px] font-black">
+                      {item.crypto.slice(0, 2)}
+                    </span>
                   )}
-                  <span className="text-xs font-black text-slate-200">{item.crypto}</span>
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-black text-white">{item.crypto}</span>
+                    <span className="block text-[11px] font-medium text-slate-500">
+                      {NETWORK_LABEL[item.network] ?? item.network}
+                    </span>
+                  </span>
                 </span>
-                <span className="font-mono text-xs font-black text-white">{formatCryptoAmount(item)}</span>
-              </div>
+                <span className="shrink-0 font-mono text-[13px] font-bold tabular-nums text-white">
+                  {formatCryptoAmount(item)}
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         ) : (
-          <p className="mt-3 text-[12px] font-bold text-slate-500">Deposit crypto to see balances here.</p>
+          <p className="py-2 text-[13px] font-medium text-slate-500">
+            Deposit crypto to see balances here.
+          </p>
         )}
-      </section>
+      </div>
     </main>
   );
 }
 
 function WalletPageFrame({ children, onBack, title }: { children: ReactNode; onBack: () => void; title: string }) {
   return (
-    <main className="mx-auto max-w-md px-4 pb-24 pt-4 sm:max-w-2xl sm:pb-10">
-      <div className="mb-4 grid grid-cols-[2.75rem_1fr_2.75rem] items-center">
+    <main className="mx-auto max-w-md px-5 pb-24 pt-5 sm:max-w-2xl sm:pb-10 animate-in fade-in duration-200">
+      <div className="mb-6 grid grid-cols-[2.5rem_1fr_2.5rem] items-center">
         <button
           type="button"
           onClick={onBack}
           aria-label="Back to wallet"
-          className="grid h-10 w-10 place-items-center rounded-full bg-white/[0.06] text-slate-300 active:scale-95"
+          className="grid h-9 w-9 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-95"
         >
           <Icon name="arrow_back" className="text-[20px]" />
         </button>
-        <h1 className="text-center text-base font-black text-white">{title}</h1>
+        <h1 className="text-center text-[15px] font-black tracking-tight text-white">{title}</h1>
       </div>
       {children}
     </main>
@@ -1617,10 +1589,11 @@ function DepositMethodStep({
   const selected = rows.find((r) => r.id === selectedId && r.enabled && r.selection);
 
   return (
-    <section className="space-y-4">
-      <div className="rounded-[1.15rem] bg-[#1f2024] px-3 pb-1 pt-4 ring-1 ring-white/[0.06]">
-        <h2 className="mb-2 text-center text-base font-black text-white">Choose Payment Method</h2>
-        <div className="space-y-0">
+    <section className="space-y-5">
+      <div>
+        <h2 className="mb-1 text-[15px] font-black text-white">Payment method</h2>
+        <p className="mb-4 text-[12px] font-medium text-slate-500">Choose how you want to add funds</p>
+        <div className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
           {rows.map((row) => {
             const active = row.id === selectedId;
             return (
@@ -1629,8 +1602,8 @@ function DepositMethodStep({
                 type="button"
                 disabled={!row.enabled}
                 onClick={() => setSelectedId(row.id)}
-                className={`flex w-full items-center gap-3 border-b border-white/[0.08] py-3 text-left last:border-0 transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                  active ? "opacity-100" : "hover:opacity-90"
+                className={`flex w-full items-center gap-3 py-3.5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  active ? "bg-[#087cff]/[0.06]" : "hover:bg-white/[0.02]"
                 }`}
               >
                 <span
@@ -1640,9 +1613,9 @@ function DepositMethodStep({
                 >
                   {active && <span className="h-2.5 w-2.5 rounded-full bg-[#087cff]" />}
                 </span>
-                <span className="min-w-0 flex-1 text-[15px] font-black text-slate-200">{row.label}</span>
+                <span className="min-w-0 flex-1 text-[14px] font-bold text-slate-100">{row.label}</span>
                 {!row.enabled && row.soon && (
-                  <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-500">
+                  <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
                     Soon
                   </span>
                 )}
@@ -1660,7 +1633,7 @@ function DepositMethodStep({
       <Button
         onClick={() => selected?.selection && onContinue(selected.selection)}
         disabled={!selected}
-        className="h-14 w-full rounded-full text-base shadow-lg shadow-blue-500/20"
+        className="h-12 w-full rounded-xl text-sm"
       >
         Continue
       </Button>
@@ -1750,31 +1723,23 @@ function WalletTransferPanel({
 
   if (receipt) {
     return (
-      <div className="overflow-hidden rounded-3xl bg-[radial-gradient(circle_at_top,#123c35_0%,#11161b_48%,#101116_100%)] p-6 text-center ring-1 ring-emerald-400/20">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-400/10 ring-1 ring-emerald-400/30">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-400 text-[#07251b] shadow-[0_0_40px_rgba(52,211,153,0.35)]">
-            <Icon name="check" className="text-[32px] font-black" />
-          </div>
-        </div>
-        <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-emerald-400">Transfer successful</p>
-        <h2 className="mt-2 text-4xl font-black tracking-tight text-white">
+      <div className="animate-in fade-in duration-300 text-center">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-emerald-400">Sent</p>
+        <p className="mt-3 text-[2.35rem] font-black leading-none tracking-tight text-white">
           {CURRENCY_SYMBOL} {receipt.amount.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}
-        </h2>
-
-        <div className="mx-auto mt-6 flex max-w-sm items-center gap-3 rounded-2xl bg-white/[0.05] p-4 text-left ring-1 ring-white/[0.08]">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#087cff]/20 font-black text-[#75b8ff]">
+        </p>
+        <div className="mx-auto mt-8 flex max-w-sm items-center gap-3 border-t border-white/[0.06] pt-5 text-left">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/[0.06] text-sm font-black text-white">
             {receipt.recipient.imageUrl
               ? <img src={receipt.recipient.imageUrl} alt="" className="h-full w-full object-cover" />
               : receipt.recipient.displayName.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-black text-white">{receipt.recipient.displayName}</p>
-            <p className="truncate text-xs font-bold text-slate-400">@{receipt.recipient.username}</p>
+            <p className="truncate text-[14px] font-bold text-white">{receipt.recipient.displayName}</p>
+            <p className="truncate text-[12px] font-medium text-slate-500">@{receipt.recipient.username}</p>
           </div>
-          <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-[10px] font-black uppercase text-emerald-400">Completed</span>
         </div>
-
-        <p className="mt-4 text-xs font-medium text-slate-500">The recipient&apos;s Nezeem wallet was credited instantly.</p>
+        <p className="mt-4 text-[13px] font-medium text-slate-500">Credited instantly to their Nezeem wallet.</p>
         <Button
           onClick={() => {
             onClearReceipt();
@@ -1782,9 +1747,9 @@ function WalletTransferPanel({
             setRecipient(null);
             setAmount("");
           }}
-          className="mt-6 h-14 w-full rounded-2xl text-sm"
+          className="mt-8 h-11 w-full rounded-xl text-sm"
         >
-          Send to someone else
+          Send again
         </Button>
       </div>
     );
@@ -1799,28 +1764,22 @@ function WalletTransferPanel({
         })
       : null;
     return (
-      <div className="overflow-hidden rounded-3xl bg-[radial-gradient(circle_at_top,#1a2438_0%,#11161b_48%,#101116_100%)] p-6 text-center ring-1 ring-blue-400/20">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-blue-400/10 ring-1 ring-blue-400/25">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#087cff]/20 text-[#75b8ff]">
-            <Icon name="verified" fill className="text-[32px]" />
-          </div>
-        </div>
-        <p className="mt-5 text-xs font-black uppercase tracking-[0.22em] text-[#75b8ff]">Already completed</p>
-        <h2 className="mt-2 text-2xl font-black tracking-tight text-white">
-          @{alreadySent.recipient} already received an admin transfer
+      <div className="animate-in fade-in duration-300 text-center">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">Already sent</p>
+        <h2 className="mt-3 text-xl font-black tracking-tight text-white">
+          @{alreadySent.recipient}
         </h2>
-        <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-slate-400">
-          Each account can receive from an admin only once. This protects the platform from repeat seeding.
+        <p className="mx-auto mt-3 max-w-sm text-[13px] leading-6 text-slate-400">
+          This account already received an admin transfer
           {alreadySent.priorAmount != null && (
             <>
-              {" "}A prior transfer of{" "}
-              <span className="font-black text-slate-200">
+              {" "}of{" "}
+              <span className="font-bold text-slate-200">
                 {CURRENCY_SYMBOL} {alreadySent.priorAmount.toLocaleString(MONEY_LOCALE)}
               </span>
-              {alreadySent.from !== "an admin" ? <> from {alreadySent.from}</> : null}
-              {when ? <> on {when}</> : null} is already on record.
             </>
           )}
+          {when ? <> on {when}</> : null}. Each account can receive from an admin only once.
         </p>
         <Button
           onClick={() => {
@@ -1829,7 +1788,8 @@ function WalletTransferPanel({
             setRecipient(null);
             setAmount("");
           }}
-          className="mt-6 h-14 w-full rounded-2xl text-sm"
+          variant="secondary"
+          className="mt-8 h-11 w-full rounded-xl text-sm"
         >
           Choose another recipient
         </Button>
@@ -1838,55 +1798,61 @@ function WalletTransferPanel({
   }
 
   return (
-    <div className="space-y-5">
-      <div>
-        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-          Find recipient
-        </p>
+    <div className="space-y-8">
+      <section>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">Available</p>
+        <p className="mt-1 text-2xl font-black tracking-tight text-white">{formatDisplay(balance)}</p>
+      </section>
+
+      <section>
+        <p className="mb-3 text-[13px] font-black text-white">To</p>
         {recipient ? (
           <button
             type="button"
             onClick={() => { setRecipient(null); setQuery(""); onClearAlreadySent(); }}
-            className="flex w-full items-center gap-3 rounded-2xl bg-[#16171d] p-4 text-left ring-1 ring-[#087cff]/40"
+            className="flex w-full items-center gap-3 border-y border-white/[0.06] py-3.5 text-left transition hover:bg-white/[0.02]"
           >
-            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-[#087cff]/20 font-black text-[#75b8ff]">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white/[0.06] text-sm font-black text-white">
               {recipient.imageUrl
                 ? <img src={recipient.imageUrl} alt="" className="h-full w-full object-cover" />
                 : (recipient.displayName || recipient.username || "U").charAt(0).toUpperCase()}
             </div>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-black text-white">{recipient.displayName}</span>
-              <span className="block truncate text-xs font-bold text-[#75b8ff]">@{recipient.username}</span>
+              <span className="block truncate text-[14px] font-bold text-white">{recipient.displayName}</span>
+              <span className="block truncate text-[12px] font-medium text-slate-500">@{recipient.username}</span>
             </span>
-            <span className="text-xs font-bold text-slate-500">Change</span>
+            <span className="text-[12px] font-semibold text-[#75b8ff]">Change</span>
           </button>
         ) : (
           <div className="relative">
-            <input
-              value={query}
-              onChange={(event) => { setQuery(event.target.value); }}
-              placeholder="Username, email or phone — including admin accounts"
-              className="w-full rounded-2xl bg-[#16171d] px-4 py-4 text-sm font-bold text-white outline-none ring-1 ring-white/[0.07] placeholder:text-slate-700 focus:ring-[#087cff]/50"
-            />
+            <div className="flex items-center gap-3 border-b border-white/[0.08] focus-within:border-[#087cff]/60">
+              <Icon name="search" className="text-[18px] text-slate-600" />
+              <input
+                value={query}
+                onChange={(event) => { setQuery(event.target.value); }}
+                placeholder="Username, email or phone"
+                className="w-full bg-transparent py-3 text-[15px] font-semibold text-white outline-none placeholder:text-slate-600"
+              />
+            </div>
             {(searching || results.length > 0) && (
-              <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl bg-[#1a1b22] shadow-2xl ring-1 ring-white/[0.1]">
+              <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl bg-[#1a1b22] shadow-2xl ring-1 ring-white/[0.08]">
                 {searching ? (
-                  <p className="px-4 py-3 text-xs font-bold text-slate-500">Searching...</p>
+                  <p className="px-4 py-3 text-[12px] font-medium text-slate-500">Searching…</p>
                 ) : results.map((user) => (
                   <button
                     key={user.id}
                     type="button"
                     onClick={() => { setRecipient(user); setQuery(`@${user.username}`); setResults([]); onClearAlreadySent(); }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.06]"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.05]"
                   >
-                    <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white/[0.07] text-sm font-black text-white">
+                    <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white/[0.06] text-sm font-black text-white">
                       {user.imageUrl
                         ? <img src={user.imageUrl} alt="" className="h-full w-full object-cover" />
                         : (user.displayName || user.username || "U").charAt(0).toUpperCase()}
                     </div>
                     <span>
-                      <span className="block text-sm font-black text-white">{user.displayName}</span>
-                      <span className="block text-xs font-bold text-slate-500">@{user.username}</span>
+                      <span className="block text-[14px] font-bold text-white">{user.displayName}</span>
+                      <span className="block text-[12px] font-medium text-slate-500">@{user.username}</span>
                     </span>
                   </button>
                 ))}
@@ -1894,69 +1860,48 @@ function WalletTransferPanel({
             )}
           </div>
         )}
-      </div>
+      </section>
 
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Amount</p>
-          <p className="text-xs font-bold text-slate-500">Balance: {formatDisplay(balance)}</p>
+      <section>
+        <div className="mb-2 flex items-baseline justify-between">
+          <p className="text-[13px] font-black text-white">Amount</p>
+          <button
+            type="button"
+            onClick={() => setAmount(String(maxSendable))}
+            disabled={maxSendable <= 0}
+            className="text-[12px] font-semibold text-[#75b8ff] transition hover:text-white disabled:opacity-40"
+          >
+            Max {CURRENCY_SYMBOL} {maxSendable.toLocaleString()}
+          </button>
         </div>
-        <div className="flex items-center gap-2 rounded-2xl bg-[#16171d] pl-4 pr-2 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
-          <span className="text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
+        <div className="flex items-center gap-2 border-b border-white/[0.08] focus-within:border-[#087cff]/60">
+          <span className="text-2xl font-black text-slate-500">{CURRENCY_SYMBOL}</span>
           <input
             type="number"
             min="1"
             max={maxSendable || undefined}
             value={amount}
             onChange={(event) => { setAmount(event.target.value); }}
-            placeholder="0.00"
-            className="min-w-0 flex-1 bg-transparent py-4 text-base font-black text-white outline-none placeholder:text-slate-700"
+            placeholder="0"
+            className="min-w-0 flex-1 bg-transparent py-3 text-[2rem] font-black tracking-tight text-white outline-none placeholder:text-slate-700"
           />
-          <button
-            type="button"
-            onClick={() => setAmount(String(maxSendable))}
-            disabled={maxSendable <= 0}
-            className="shrink-0 rounded-xl bg-[#087cff]/15 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-[#75b8ff] transition hover:bg-[#087cff]/25 disabled:opacity-40"
-          >
-            Max
-          </button>
         </div>
-        <p className="mt-2 text-[10px] font-bold text-slate-600">
-          Max per transfer {CURRENCY_SYMBOL} {MAX_TRANSFER_KES}
-          {maxSendable > 0 ? ` · available now ${CURRENCY_SYMBOL} ${maxSendable.toLocaleString()}` : ""}
+        <p className="mt-2 text-[12px] font-medium text-slate-600">
+          Up to {CURRENCY_SYMBOL} {MAX_TRANSFER_KES} per transfer
+          {wdLimit ? ` · ${CURRENCY_SYMBOL} ${wdLimit.remaining.toLocaleString()} left today` : ""}
         </p>
-      </div>
+      </section>
 
-      {wdLimit && (
-        <div className="rounded-2xl bg-white/[0.03] p-4.5 ring-1 ring-white/[0.06]">
-          <div className="flex items-center justify-between text-xs mb-2">
-            <span className="font-bold text-slate-500">24h Cash-out Limit</span>
-            <span className={`text-sm font-black ${wdLimit.remaining > 0 ? "text-[#05b957]" : "text-amber-400"}`}>
-              {CURRENCY_SYMBOL} {wdLimit.remaining.toLocaleString()} <span className="text-[11px] font-bold text-slate-600">/ {wdLimit.limit.toLocaleString()}</span>
-            </span>
-          </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-900 ring-1 ring-white/[0.04]">
-            <div
-              className="h-full rounded-full bg-[#087cff]"
-              style={{ width: `${Math.min(100, (wdLimit.remaining / wdLimit.limit) * 100)}%` }}
-            />
-          </div>
-          <p className="mt-2.5 text-[10px] font-bold leading-normal text-slate-700">
-            {wdLimit.used > 0 ? `${CURRENCY_SYMBOL} ${wdLimit.used.toLocaleString()} used · ` : ""}Limit is shared across sends and withdrawals
-          </p>
-        </div>
-      )}
-
-      {error && <p className="text-xs font-bold text-red-400">{error}</p>}
+      {error && <p className="text-[13px] font-semibold text-red-400">{error}</p>}
       <Button
         onClick={sendMoney}
         disabled={sending || !recipient || !amount || Number(amount) <= 0 || maxSendable <= 0}
-        className="h-14 w-full rounded-2xl text-base"
+        className="h-12 w-full rounded-xl text-sm"
       >
-        {sending ? <LoadingDots label="Sending" /> : "Send Money"}
+        {sending ? <LoadingDots label="Sending" /> : "Send"}
       </Button>
       <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
-        <Icon name="lock" fill className="text-[13px]" /> You&rsquo;ll confirm with your password or passkey
+        <Icon name="lock" fill className="text-[13px]" /> Confirm with password or passkey
       </p>
     </div>
   );
@@ -1980,17 +1925,14 @@ function CryptoWithdrawalHistory({ isSignedIn }: { isSignedIn: boolean }) {
   if (!isSignedIn || (!loading && !items.length)) return null;
 
   return (
-    <div>
-      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">
-        Recent Crypto Withdrawals
-      </p>
+    <div className="mt-8 border-t border-white/[0.06] pt-6">
+      <p className="mb-1 text-[13px] font-black text-white">Recent</p>
       {loading ? (
-        <div className="space-y-2">
+        <div className="divide-y divide-white/[0.05]">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-2xl bg-[#16171d] p-4">
-              <div className="h-10 w-10 shrink-0 rounded-xl skeleton" />
+            <div key={i} className="flex items-center gap-3 py-4">
               <div className="flex-1 space-y-2">
-                <div className="h-3 w-32 rounded skeleton" />
+                <div className="h-3.5 w-28 rounded skeleton" />
                 <div className="h-2.5 w-20 rounded skeleton" />
               </div>
               <div className="h-4 w-16 rounded skeleton" />
@@ -1998,47 +1940,35 @@ function CryptoWithdrawalHistory({ isSignedIn }: { isSignedIn: boolean }) {
           ))}
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-white/[0.05]">
           {items.map((w) => (
-            <div
-              key={w.id}
-              className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 py-3.5 ring-1 ring-white/[0.06]"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05]">
-                <Icon name="remove_circle" fill className="text-[18px] text-red-400" />
-              </div>
+            <div key={w.id} className="flex items-center gap-3 py-4">
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-black text-white">
+                <p className="text-[14px] font-bold text-white">
                   {w.crypto} · {w.network ?? ""}
                 </p>
-                <p className="truncate text-[10px] font-mono text-slate-600">
-                  → {w.address ?? ""}
-                </p>
-                <p className="text-[10px] text-slate-600">
+                <p className="mt-0.5 truncate text-[12px] font-medium text-slate-500">
                   {new Date(w.createdAt).toLocaleDateString("en-KE", {
-                    day:    "numeric",
-                    month:  "short",
-                    hour:   "2-digit",
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
                     minute: "2-digit",
                   })}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-[14px] font-black text-red-400">
-                  -{w.amount} {w.crypto}
-                </p>
-                <p
-                  className={`text-[10px] font-black uppercase ${
+                  <span className="mx-1.5 text-slate-700">·</span>
+                  <span className={
                     w.status === "COMPLETED"
-                      ? "text-emerald-500/70"
+                      ? "text-emerald-500/80"
                       : w.status === "FAILED"
-                        ? "text-red-400/70"
-                        : "text-amber-400/70"
-                  }`}
-                >
-                  {w.status}
+                        ? "text-red-400/80"
+                        : "text-amber-400/80"
+                  }>
+                    {w.status}
+                  </span>
                 </p>
               </div>
+              <p className="shrink-0 text-[14px] font-black tabular-nums text-red-400">
+                -{w.amount} {w.crypto}
+              </p>
             </div>
           ))}
         </div>
@@ -2123,21 +2053,20 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
 
   if (!isSignedIn) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-center">
-        <Icon name="lock" fill className="text-[36px] text-slate-700" />
-        <p className="text-sm font-bold text-slate-500">Log in to see your transactions</p>
+      <div className="flex flex-col items-center gap-2 py-20 text-center">
+        <p className="text-[15px] font-bold text-white">Log in to see history</p>
+        <p className="text-[13px] font-medium text-slate-500">Deposits, sends, and withdrawals show up here</p>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="space-y-2.5">
+      <div className="divide-y divide-white/[0.05]">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-2xl bg-[#16171d] p-4">
-            <div className="h-10 w-10 shrink-0 rounded-xl skeleton" />
+          <div key={i} className="flex items-center gap-3 py-4">
             <div className="flex-1 space-y-2">
-              <div className="h-3 w-32 rounded skeleton" />
+              <div className="h-3.5 w-28 rounded skeleton" />
               <div className="h-2.5 w-20 rounded skeleton" />
             </div>
             <div className="h-4 w-16 rounded skeleton" />
@@ -2149,14 +2078,9 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
 
   if (!txns.length) {
     return (
-      <div className="flex flex-col items-center gap-4 py-16 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.05]">
-          <Icon name="receipt_long" fill className="text-[32px] text-slate-600" />
-        </div>
-        <div>
-          <p className="font-black text-white">No transactions yet</p>
-          <p className="mt-1 text-sm text-slate-500">Your deposit and bet history will appear here</p>
-        </div>
+      <div className="flex flex-col items-center gap-2 py-20 text-center">
+        <p className="text-[15px] font-bold text-white">No transactions yet</p>
+        <p className="text-[13px] font-medium text-slate-500">Your activity will appear here</p>
       </div>
     );
   }
@@ -2165,56 +2089,51 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
     const meta = TXN_META[selected.type] ?? { label: selected.type, icon: "swap_horiz", color: "text-white", sign: "+" as const };
     const context = transactionContext(selected);
     return (
-      <div className="animate-in slide-in-from-right-4 fade-in duration-300">
+      <div className="animate-in fade-in duration-200">
         <button
           type="button"
           onClick={() => setSelected(null)}
-          className="mb-4 flex items-center gap-2 text-sm font-black text-slate-400 transition hover:text-white"
+          className="mb-8 flex items-center gap-1.5 text-[13px] font-semibold text-slate-500 transition hover:text-white"
         >
-          <Icon name="arrow_back" className="text-[18px]" />
-          Transaction history
+          <Icon name="arrow_back" className="text-[16px]" />
+          Back
         </button>
 
-        <div className="overflow-hidden rounded-3xl bg-[#14161c] ring-1 ring-white/[0.08]">
-          <div className="bg-[radial-gradient(circle_at_top,rgba(8,124,255,0.18),transparent_65%)] px-5 py-7 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.06] ring-1 ring-white/[0.08]">
-              <Icon name={meta.icon} fill className={`text-[30px] ${meta.color}`} />
-            </div>
-            <p className="mt-4 text-xs font-black uppercase tracking-[0.18em] text-slate-500">{meta.label}</p>
-            <p className={`mt-2 text-3xl font-black ${meta.color}`}>
-              {meta.sign}{fmtTxAmount(selected.amount, selected.currency)}
-            </p>
-            <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-[10px] font-black uppercase ${
-              selected.status === "COMPLETED"
-                ? "bg-emerald-400/10 text-emerald-400"
-                : selected.status === "FAILED"
-                  ? "bg-red-400/10 text-red-400"
-                  : "bg-amber-400/10 text-amber-400"
-            }`}>
-              {txStatusLabel(selected)}
-            </span>
-          </div>
+        <div className="text-center">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">{meta.label}</p>
+          <p className={`mt-3 text-[2.35rem] font-black leading-none tracking-tight ${meta.color}`}>
+            {meta.sign}{fmtTxAmount(selected.amount, selected.currency)}
+          </p>
+          <p className={`mt-3 text-[12px] font-semibold ${
+            selected.status === "COMPLETED"
+              ? "text-emerald-400"
+              : selected.status === "FAILED"
+                ? "text-red-400"
+                : "text-amber-400"
+          }`}>
+            {txStatusLabel(selected)}
+          </p>
+        </div>
 
-          <div className="space-y-0 border-t border-white/[0.06] px-5 py-2">
-            {[
-              { label: "Date and time", value: new Date(selected.createdAt).toLocaleString(MONEY_LOCALE, { dateStyle: "medium", timeStyle: "short" }) },
-              { label: "Payment method", value: selected.provider ? selected.provider.replace(/_/g, " ").toUpperCase() : "Nezeem wallet" },
-              ...context,
-              { label: "Reference", value: selected.reference ?? selected.id },
-            ].map((row) => (
-              <div key={row.label} className="flex items-start justify-between gap-4 border-b border-white/[0.05] py-3.5 last:border-0">
-                <span className="text-xs font-bold text-slate-500">{row.label}</span>
-                <span className="max-w-[65%] break-all text-right text-xs font-black text-slate-200">{row.value}</span>
-              </div>
-            ))}
-          </div>
+        <div className="mt-8 divide-y divide-white/[0.05] border-t border-white/[0.06]">
+          {[
+            { label: "Date", value: new Date(selected.createdAt).toLocaleString(MONEY_LOCALE, { dateStyle: "medium", timeStyle: "short" }) },
+            { label: "Method", value: selected.provider ? selected.provider.replace(/_/g, " ").toUpperCase() : "Nezeem wallet" },
+            ...context,
+            { label: "Reference", value: selected.reference ?? selected.id },
+          ].map((row) => (
+            <div key={row.label} className="flex items-start justify-between gap-4 py-3.5">
+              <span className="text-[12px] font-medium text-slate-500">{row.label}</span>
+              <span className="max-w-[65%] break-all text-right text-[12px] font-semibold text-slate-200">{row.value}</span>
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="animate-in slide-in-from-left-2 fade-in space-y-2 duration-200">
+    <div className="animate-in fade-in divide-y divide-white/[0.05] duration-200">
       {txns.map((t) => {
         const meta = TXN_META[t.type] ?? { label: t.type, icon: "swap_horiz", color: "text-white", sign: "+" as const };
         return (
@@ -2222,39 +2141,32 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
             type="button"
             key={t.id}
             onClick={() => setSelected(t)}
-            className="flex w-full items-center gap-3 rounded-2xl bg-[#16171d] px-4 py-3.5 text-left ring-1 ring-white/[0.06] transition hover:bg-[#1b1d24] hover:ring-white/[0.12] active:scale-[0.99]"
+            className="flex w-full items-center gap-3 py-4 text-left transition hover:bg-white/[0.02] active:scale-[0.99]"
           >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05]">
-              <Icon name={meta.icon} fill className={`text-[18px] ${meta.color}`} />
-            </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-black text-white">{meta.label}</p>
-              <p className="text-[10px] text-slate-600">
+              <p className="text-[14px] font-bold text-white">{meta.label}</p>
+              <p className="mt-0.5 text-[12px] font-medium text-slate-500">
                 {new Date(t.createdAt).toLocaleDateString("en-KE", {
                   day:    "numeric",
                   month:  "short",
                   hour:   "2-digit",
                   minute: "2-digit",
                 })}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className={`text-[14px] font-black ${meta.color}`}>
-                {meta.sign}{fmtTxAmount(t.amount, t.currency)}
-              </p>
-              <p
-                className={`text-[10px] font-black uppercase ${
+                <span className="mx-1.5 text-slate-700">·</span>
+                <span className={
                   t.status === "COMPLETED"
-                    ? "text-emerald-500/70"
+                    ? "text-emerald-500/80"
                     : t.status === "FAILED"
-                      ? "text-red-400/70"
-                      : "text-amber-400/70"
-                }`}
-              >
-                {txStatusLabel(t)}
+                      ? "text-red-400/80"
+                      : "text-amber-400/80"
+                }>
+                  {txStatusLabel(t)}
+                </span>
               </p>
             </div>
-            <Icon name="chevron_right" className="text-[18px] text-slate-700" />
+            <p className={`shrink-0 text-[15px] font-black tabular-nums ${meta.color}`}>
+              {meta.sign}{fmtTxAmount(t.amount, t.currency)}
+            </p>
           </button>
         );
       })}
@@ -2364,8 +2276,8 @@ function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
                 key={code}
                 type="button"
                 onClick={() => setSel(first)}
-                className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-black transition ring-1 ${
-                  active ? "bg-[#087cff]/15 text-white ring-[#087cff]/50" : "bg-[#16171d] text-slate-300 ring-white/[0.07]"
+                className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ring-1 ${
+                  active ? "bg-[#087cff]/15 text-white ring-[#087cff]/50" : "bg-white/[0.04] text-slate-300 ring-white/[0.06]"
                 }`}
               >
                 <PaymentIcon badge={code} />
@@ -2377,9 +2289,9 @@ function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
       )}
 
       {/* Deposit network — single-select radio cards */}
-      <div className="rounded-2xl bg-[#16171d] p-3 ring-1 ring-white/[0.07]">
-        <p className="text-center text-[13px] font-black text-white">Deposit Network</p>
-        <p className="mx-auto mb-3 mt-0.5 max-w-[16rem] text-center text-[11px] font-bold leading-snug text-slate-500">
+      <div className="border-y border-white/[0.06] py-4">
+        <p className="text-center text-[13px] font-black text-white">Deposit network</p>
+        <p className="mx-auto mb-3 mt-0.5 max-w-[16rem] text-center text-[11px] font-medium leading-snug text-slate-500">
           Choose the correct network, otherwise you will lose your deposit.
         </p>
         <div className={`grid gap-2 ${networks.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
@@ -2394,10 +2306,10 @@ function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
                 onClick={() => { if (n.enabled) setSel(i); }}
                 className={`flex items-center gap-2.5 rounded-xl px-3 py-3 text-left transition ring-1 ${
                   !n.enabled
-                    ? "cursor-not-allowed bg-[#0f1319] opacity-45 ring-white/[0.07]"
+                    ? "cursor-not-allowed bg-white/[0.02] opacity-45 ring-white/[0.06]"
                     : active
                       ? "bg-[#087cff]/12 ring-[#087cff]/60"
-                      : "bg-[#0f1319] ring-white/[0.07]"
+                      : "bg-white/[0.03] ring-white/[0.06]"
                 }`}
               >
                 <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${active ? "border-[#087cff]" : "border-slate-600"}`}>
@@ -2438,7 +2350,7 @@ function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
             type="button"
             onClick={() => load(asset.code, asset.network)}
             disabled={addr.phase === "generating"}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#f59e0b] text-sm font-black text-black transition hover:bg-[#f7af2e] disabled:opacity-60"
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-sm font-bold text-white transition hover:bg-[#1a8cff] disabled:opacity-60"
           >
             {addr.phase === "generating"
               ? <LoadingDots label="Generating" />
@@ -2446,7 +2358,7 @@ function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
           </button>
         </div>
       ) : (
-        <div className="flex flex-col gap-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/[0.08] sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 rounded-xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06] sm:flex-row sm:items-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(addr.address)}&bgcolor=ffffff&color=000000&margin=8&qzone=1`}
@@ -2462,14 +2374,14 @@ function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
               {addr.address.slice(6, -5)}
               <span className="font-black text-white">{addr.address.slice(-5)}</span>
             </p>
-            <p className="mt-1 flex items-center justify-center gap-1 text-[10px] font-bold text-emerald-400/70 sm:justify-start">
+            <p className="mt-1 flex items-center justify-center gap-1 text-[10px] font-medium text-emerald-400/70 sm:justify-start">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               Detected automatically · credited within 1–5 min
             </p>
             <button
               type="button"
               onClick={copy}
-              className="mt-2.5 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#f59e0b] px-4 text-xs font-black text-black transition hover:bg-[#f7af2e]"
+              className="mt-2.5 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#087cff] px-4 text-xs font-bold text-white transition hover:bg-[#1a8cff]"
             >
               <Icon name={copied ? "check" : "content_copy"} className="text-[16px]" />
               {copied ? "Copied!" : "Copy address"}
@@ -2479,9 +2391,9 @@ function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
       )}
 
       {addr.phase === "ready" && (
-        <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3 ring-1 ring-amber-400/15">
+        <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3">
           <Icon name="info" fill className="mt-0.5 shrink-0 text-[16px] text-amber-400" />
-          <p className="text-xs font-bold text-amber-300/80">
+          <p className="text-xs font-medium text-amber-300/80">
             Send only <strong>{asset.code}</strong> on the <strong>{asset.displayNet}</strong> network to this address. Sending other assets may result in permanent loss.
           </p>
         </div>
