@@ -151,8 +151,8 @@ export function AdminUserDetailClient({ userId }: { userId: string }) {
             failed payments, and pending payouts are excluded. A ledger difference is a review signal, not proof of fraud.
           </p>
           <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden border border-white/[0.06] bg-white/[0.06]">
-            <div className="bg-[#121419] p-3"><p className="text-lg font-black text-white">{user.transactions.length}</p><p className="text-[9px] font-black uppercase tracking-wider text-slate-600">Recent ledger rows</p></div>
-            <div className="bg-[#121419] p-3"><p className="text-lg font-black text-white">{user.bets.length}</p><p className="text-[9px] font-black uppercase tracking-wider text-slate-600">Recent sports bets</p></div>
+            <div className="bg-white/[0.03] p-3"><p className="text-lg font-black text-white">{user.transactions.length}</p><p className="text-[9px] font-black uppercase tracking-wider text-slate-600">Recent ledger rows</p></div>
+            <div className="bg-white/[0.03] p-3"><p className="text-lg font-black text-white">{user.bets.length}</p><p className="text-[9px] font-black uppercase tracking-wider text-slate-600">Recent sports bets</p></div>
           </div>
         </section>
       </div>

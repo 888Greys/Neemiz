@@ -10,7 +10,7 @@ export function LuckySpinView() {
 
   return (
     <div className="mx-auto max-w-lg">
-      <div className="sticky top-0 z-20 border-b border-white/10 bg-[#0e0f14]/95 backdrop-blur-md">
+      <div className="sticky top-0 z-20 border-b border-white/[0.06] bg-[#151518]/95 backdrop-blur-md">
         <div className="flex items-center gap-3 px-3 py-3 sm:px-4">
           <button
             type="button"
@@ -34,7 +34,7 @@ export function LuckySpinView() {
         </div>
       </div>
 
-      <div className="min-h-[60vh] bg-[#0d0e11] pb-28 pt-2">
+      <div className="min-h-[60vh] bg-[#151518] pb-28 pt-2">
         <LuckySpinWheel />
       </div>
     </div>

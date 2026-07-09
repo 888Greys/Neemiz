@@ -199,9 +199,9 @@ export function SportsBetSlip() {
 
   return (
     <>
-      <div className="flex h-full min-h-0 w-full flex-col bg-[#0d0e11]">
+      <div className="flex h-full min-h-0 w-full flex-col bg-[#151518]">
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#141820] px-3 py-2.5">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/10 bg-[#151518] px-3 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-[14px] font-black text-white">Betslip</span>
             {bets.length > 0 && (
@@ -214,7 +214,7 @@ export function SportsBetSlip() {
             {isSignedIn && (
               <Link
                 href="/wallet"
-                className="flex items-center gap-1 rounded-full bg-[#1c2433] px-2.5 py-1.5 transition hover:bg-[#243044]"
+                className="flex items-center gap-1 rounded-full bg-white/[0.04] px-2.5 py-1.5 transition hover:bg-white/[0.07]"
               >
                 <Icon name="account_balance_wallet" className="h-3 w-3 text-slate-500" />
                 <span className="text-[11px] font-black tabular-nums text-slate-300">{fmtBalance}</span>
@@ -224,7 +224,7 @@ export function SportsBetSlip() {
               <button
                 type="button"
                 onClick={clearBets}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1c2433] text-slate-500 transition hover:bg-red-500/15 hover:text-red-400"
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.04] text-slate-500 transition hover:bg-red-500/15 hover:text-red-400"
                 aria-label="Clear betslip"
               >
                 <Icon name="delete_outline" className="h-4 w-4" />
@@ -302,7 +302,7 @@ export function SportsBetSlip() {
                   return (
                     <div
                       key={bet.id}
-                      className={`border-b border-white/[0.06] ${isOpen ? "bg-[#141820]" : ""}`}
+                      className={`border-b border-white/[0.06] ${isOpen ? "bg-[#151518]" : ""}`}
                     >
                       <button
                         type="button"
@@ -358,7 +358,7 @@ export function SportsBetSlip() {
                               )}
                             </div>
                             <div className="flex shrink-0 flex-col items-end gap-0.5">
-                              <span className="rounded-lg bg-[#1c2433] px-1.5 py-0.5 text-[11px] font-black tabular-nums text-white">
+                              <span className="rounded-lg bg-white/[0.04] px-1.5 py-0.5 text-[11px] font-black tabular-nums text-white">
                                 {s.odds.toFixed(2)}
                               </span>
                               {s.result !== "PENDING" && (
@@ -391,7 +391,7 @@ export function SportsBetSlip() {
                         )}
                       </div>
                       {isOpen && (
-                        <div className="space-y-1.5 border-t border-white/[0.04] bg-[#0a0b0e] px-3 py-2.5 text-[11px]">
+                        <div className="space-y-1.5 border-t border-white/[0.04] bg-white/[0.02] px-3 py-2.5 text-[11px]">
                           <div className="flex justify-between">
                             <span className="text-slate-500">Total odds</span>
                             <span className="font-black tabular-nums text-white">{bet.totalOdds.toFixed(2)}</span>
@@ -422,7 +422,7 @@ export function SportsBetSlip() {
             </div>
           ) : bets.length === 0 ? (
             <div className="flex flex-col items-center px-5 py-10 text-center">
-              <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1c2433] text-[#087cff]">
+              <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.04] text-[#087cff]">
                 <Icon name="receipt_long" className="h-6 w-6" />
               </span>
               <p className="text-[14px] font-black text-white">Your betslip is empty</p>
@@ -459,14 +459,14 @@ export function SportsBetSlip() {
                         <button
                           type="button"
                           onClick={() => removeBet(bet.id)}
-                          className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1c2433] text-slate-500 transition hover:bg-red-500/15 hover:text-red-400"
+                          className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.04] text-slate-500 transition hover:bg-red-500/15 hover:text-red-400"
                           aria-label="Remove selection"
                         >
                           <Icon name="close" className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 rounded-xl bg-[#1c2433] px-3 py-2 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
+                    <div className="flex items-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
                       <span className="shrink-0 text-[11px] font-black text-slate-500">{dispCur.symbol}</span>
                       <input
                         type="number"
@@ -499,7 +499,7 @@ export function SportsBetSlip() {
                                 [bet.id]: String(parseFloat(a[bet.id] || "0") + qd),
                               }))
                             }
-                            className="flex-1 rounded-lg bg-[#141820] py-1.5 text-[10px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/20 hover:text-[#75b8ff]"
+                            className="flex-1 rounded-lg bg-white/[0.04] py-1.5 text-[10px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/20 hover:text-[#75b8ff]"
                           >
                             +{qd.toLocaleString(dispCur.locale)}
                           </button>
@@ -528,13 +528,13 @@ export function SportsBetSlip() {
                     <div className="truncate text-[12px] font-black text-white">{bet.label}</div>
                   </div>
                   <div className="ml-2 flex shrink-0 items-center gap-1.5">
-                    <span className="rounded-lg bg-[#1c2433] px-1.5 py-0.5 text-[12px] font-black tabular-nums text-white">
+                    <span className="rounded-lg bg-white/[0.04] px-1.5 py-0.5 text-[12px] font-black tabular-nums text-white">
                       {bet.value}
                     </span>
                     <button
                       type="button"
                       onClick={() => removeBet(bet.id)}
-                      className="flex h-6 w-6 items-center justify-center rounded-full bg-[#141820] text-slate-500 hover:text-red-400"
+                      className="flex h-6 w-6 items-center justify-center rounded-full bg-white/[0.04] text-slate-500 hover:text-red-400"
                       aria-label="Remove selection"
                     >
                       <Icon name="close" className="h-3 w-3" />
@@ -547,7 +547,7 @@ export function SportsBetSlip() {
                   <span className="font-bold text-slate-400">Total odds</span>
                   <span className="font-black tabular-nums text-white">{totalOdds.toFixed(2)}</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-xl bg-[#1c2433] px-3 py-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
+                <div className="flex items-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
                   <span className="shrink-0 text-[11px] font-black text-slate-500">{dispCur.symbol}</span>
                   <input
                     type="number"
@@ -580,7 +580,7 @@ export function SportsBetSlip() {
                             __multi__: String(parseFloat(a["__multi__"] || "0") + qd),
                           }))
                         }
-                        className="flex-1 rounded-lg bg-[#141820] py-1.5 text-[10px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/20 hover:text-[#75b8ff]"
+                        className="flex-1 rounded-lg bg-white/[0.04] py-1.5 text-[10px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/20 hover:text-[#75b8ff]"
                       >
                         +{qd.toLocaleString(dispCur.locale)}
                       </button>
@@ -601,9 +601,9 @@ export function SportsBetSlip() {
         </div>
 
         {bets.length > 0 && tab !== "mybets" && (
-          <div className="sticky bottom-0 z-10 shrink-0 border-t border-white/10 bg-[#141820] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="sticky bottom-0 z-10 shrink-0 border-t border-white/10 bg-[#151518] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             {notEnoughFunds ? (
-              <div className="mb-2 flex flex-col items-center gap-2 rounded-xl bg-[#0d0e11] px-3 py-4 text-center ring-1 ring-white/10">
+              <div className="mb-2 flex flex-col items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-4 text-center ring-1 ring-white/[0.06]">
                 <Icon name="warning" fill className="h-5 w-5 text-amber-400" />
                 <p className="text-[13px] font-black text-white">Not enough funds</p>
                 <p className="text-[11px] text-slate-500">Top up to place this bet</p>

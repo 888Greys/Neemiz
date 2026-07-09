@@ -134,7 +134,7 @@ function BetTicket({ bet }: { bet: Bet }) {
                 )}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-0.5">
-                <span className="rounded-lg bg-[#1c2433] px-2 py-1 text-[12px] font-black tabular-nums text-white">
+                <span className="rounded-lg bg-white/[0.04] px-2 py-1 text-[12px] font-black tabular-nums text-white">
                   {s.odds.toFixed(2)}
                 </span>
                 {s.result !== "PENDING" && (
@@ -167,7 +167,7 @@ function BetTicket({ bet }: { bet: Bet }) {
       </button>
 
       {open && (
-        <div className="border-t border-white/[0.04] bg-[#0a0b0e] px-3 py-2.5 sm:px-4">
+        <div className="border-t border-white/[0.04] bg-white/[0.02] px-3 py-2.5 sm:px-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-500">
             <span>
               Bet ID <span className="font-mono text-slate-400">#{bet.id.slice(-8).toUpperCase()}</span>
@@ -256,7 +256,7 @@ export function MyBetsClient() {
   return (
     <div className="mx-auto max-w-2xl">
       {/* Sticky chrome — matches sports page */}
-      <div className="sticky top-0 z-20 border-b border-white/10 bg-[#0e0f14]/95 backdrop-blur-md">
+      <div className="sticky top-0 z-20 border-b border-white/[0.06] bg-[#151518]/95 backdrop-blur-md">
         <div className="flex items-center gap-3 px-3 py-3 sm:px-4">
           <button
             type="button"
@@ -308,7 +308,7 @@ export function MyBetsClient() {
                 className={`shrink-0 rounded-lg px-3 py-1.5 text-[11px] font-black transition ${
                   active
                     ? "bg-[#087cff] text-white"
-                    : "bg-[#1c2433] text-slate-400 hover:text-white"
+                    : "bg-white/[0.04] text-slate-400 hover:text-white"
                 }`}
               >
                 {label}
@@ -323,7 +323,7 @@ export function MyBetsClient() {
 
       {/* Summary strip — one line, not a card grid */}
       {(stats.won > 0 || stats.totalWon > 0) && (
-        <div className="flex items-center justify-between border-b border-white/[0.06] bg-[#141820] px-3 py-2 text-[11px] sm:px-4">
+        <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-3 py-2 text-[11px] sm:px-4">
           <span className="text-slate-500">
             Won <span className="font-black text-emerald-400">{stats.won}</span>
           </span>
@@ -351,7 +351,7 @@ export function MyBetsClient() {
           </Link>
         </div>
       ) : (
-        <div className="bg-[#0d0e11]">
+        <div className="bg-[#151518]">
           {filtered.map((bet) => (
             <BetTicket key={bet.id} bet={bet} />
           ))}

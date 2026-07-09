@@ -80,7 +80,7 @@ export function AdminCryptoClient() {
           { label: "Deposit addresses", value: (data?.summary.addresses ?? 0).toLocaleString(), color: "#64748b", icon: "qr_code" },
           { label: "Total KES deposited", value: kes(data?.summary.totalKesDeposited ?? 0), color: "#22c55e", icon: "south_america" },
         ].map((s) => (
-          <div key={s.label} className="rounded-2xl border border-white/[0.07] bg-[#121419] p-4">
+          <div key={s.label} className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ backgroundColor: `${s.color}1f`, color: s.color }}>
               <Icon name={s.icon} fill className="text-[16px]" />
             </span>

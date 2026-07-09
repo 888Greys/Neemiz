@@ -84,7 +84,7 @@ export function TrendingMatchCarousel() {
 
       <div
         key={index}
-        className="group relative animate-in fade-in slide-in-from-bottom-1 cursor-pointer overflow-hidden border-b border-white/[0.06] bg-[#141820] duration-300"
+        className="group relative animate-in fade-in slide-in-from-bottom-1 cursor-pointer overflow-hidden border-b border-white/[0.06] duration-300"
         onClick={() =>
           // Free-tier display fixtures may not exist in the Odds API cache —
           // send users to the sportsbook hub instead of a dead detail page.
@@ -140,7 +140,7 @@ export function TrendingMatchCarousel() {
 
             {/* Score */}
             <div className="flex shrink-0 flex-col items-center gap-1">
-              <div className="flex items-center gap-2 rounded-xl bg-[#1c2433] px-4 py-2.5 md:gap-3 md:px-5 md:py-3">
+              <div className="flex items-center gap-2 rounded-xl bg-white/[0.04] px-4 py-2.5 md:gap-3 md:px-5 md:py-3">
                 <span className="font-mono text-3xl font-black tabular-nums text-white md:text-4xl">
                   {homeScore}
                 </span>
@@ -193,7 +193,7 @@ export function TrendingMatchCarousel() {
                     className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-3 transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/50 md:py-3.5 ${
                       selected
                         ? "bg-[#087cff] text-white shadow-md shadow-[#087cff]/25"
-                        : "bg-[#1c2433] text-white hover:bg-[#243044]"
+                        : "bg-white/[0.04] text-white hover:bg-white/[0.07]"
                     }`}
                   >
                     <span

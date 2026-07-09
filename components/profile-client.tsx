@@ -64,7 +64,7 @@ export function ProfileClient() {
   return (
     <div className="w-full">
       {/* ── Hero banner ── */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-[#0a1628] via-[#111420] to-[#0d0e11] px-6 pb-8 pt-10">
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#0a1628] via-[#111420] to-[#151518] px-6 pb-8 pt-10">
         {/* Decorative blobs */}
         <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-[#087cff]/10 blur-3xl" />
         <div className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-[#05b957]/8 blur-2xl" />
@@ -105,7 +105,7 @@ export function ProfileClient() {
         {/* ── Account Info ── */}
         <section>
           <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Account Info</p>
-          <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+          <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
             {/* User ID */}
             <div className="flex items-center gap-3 px-4 py-3.5">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
@@ -178,7 +178,7 @@ export function ProfileClient() {
               <Link
                 key={item.label}
                 href={item.href}
-                className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 py-3.5 ring-1 ring-white/[0.07] transition hover:bg-[#1e1f27] hover:ring-white/[0.12] active:scale-[0.99]"
+                className="flex items-center gap-3 rounded-2xl bg-white/[0.03] px-4 py-3.5 ring-1 ring-white/[0.07] transition hover:bg-[#1e1f27] hover:ring-white/[0.12] active:scale-[0.99]"
               >
                 <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${item.bg}`}>
                   <Icon name={item.icon} fill className={`text-[18px] ${item.color}`} />
@@ -196,7 +196,7 @@ export function ProfileClient() {
         {/* ── Settings ── */}
         <section>
           <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Settings</p>
-          <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+          <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
             {SETTINGS.map((item, i) => (
               <div key={item.label}>
                 <button
