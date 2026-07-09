@@ -12,6 +12,7 @@ import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, methodAllowedForFiat, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
 import { PaymentLogo } from "@/components/p2p/payment-logo";
 import { LoadingDots } from "@/components/loading-dots";
+import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
 
@@ -2349,13 +2350,12 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                 {profileFeedback.map((item) => (
                   <div key={item.id} className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
                     <div className="flex items-center gap-2">
-                      {item.fromUser.imageUrl ? (
-                        <img src={item.fromUser.imageUrl} alt="" className="h-8 w-8 rounded-full object-cover" />
-                      ) : (
-                        <div className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.08] text-[12px] font-black text-white">
-                          {item.fromUser.displayName.charAt(0).toUpperCase()}
-                        </div>
-                      )}
+                      <MerchantAvatar
+                        id={item.fromUser.displayName}
+                        name={item.fromUser.displayName}
+                        avatarUrl={item.fromUser.imageUrl}
+                        size={32}
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-black text-white">{item.fromUser.displayName}</p>
                         <p className="text-[11px] font-bold text-[#05b957]">{"★".repeat(item.rating)}{"☆".repeat(5 - item.rating)}</p>
