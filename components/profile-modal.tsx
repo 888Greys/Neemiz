@@ -317,9 +317,14 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
     if (mode !== "crypto") return;
     setCryptoLoading(true);
     fetch("/api/crypto/balance")
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => (r.ok ? r.json() : null))
       .then((data: unknown) => {
-        const bals = Array.isArray(data) ? (data as CryptoBal[]).filter((b) => b.available > 0) : [];
+        const rows = Array.isArray(data)
+          ? data
+          : (data && typeof data === "object" && Array.isArray((data as { balances?: unknown }).balances)
+            ? (data as { balances: CryptoBal[] }).balances
+            : []);
+        const bals = (rows as CryptoBal[]).filter((b) => b.available > 0);
         setCryptoBalances(bals);
         if (bals.length && !selectedBal) setSelectedBal(bals[0]);
       })
