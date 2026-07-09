@@ -88,10 +88,10 @@ export function AvatarUploader({
           src={currentUrl}
           alt="Profile photo"
           referrerPolicy="no-referrer"
-          className={cn("rounded-full object-cover shadow-[0_0_30px_rgba(8,124,255,0.24)] ring-2 ring-white/[0.08]", sizeClass)}
+          className={cn("rounded-full object-cover ring-2 ring-white/[0.08]", sizeClass)}
         />
       ) : (
-        <div className={cn("flex items-center justify-center rounded-full bg-gradient-to-br from-[#087cff] to-[#0556c8] text-xl font-black text-white shadow-[0_0_30px_rgba(8,124,255,0.4)]", sizeClass)}>
+        <div className={cn("flex items-center justify-center rounded-full bg-[#087cff] text-xl font-black text-white ring-2 ring-white/[0.08]", sizeClass)}>
           {initials}
         </div>
       )}
