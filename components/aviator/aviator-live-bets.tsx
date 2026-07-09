@@ -48,9 +48,9 @@ export function AviatorLiveBets({ liveBets, prevBets = [], myHistory, myCurrentB
     .slice(0, 20);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-[#141414]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-[#151518]">
       {/* Tab bar */}
-      <div className="flex shrink-0 gap-1 border-b border-white/[0.07] bg-[#101010] p-2">
+      <div className="flex shrink-0 gap-1 border-b border-white/[0.06] bg-[#18191f] p-2">
         {([
           { id: "live" as const, label: "All Bets",  count: liveBets.length },
           { id: "prev" as const, label: "Previous",  count: prevBets.length },

@@ -505,7 +505,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full w-full flex-col bg-[#101112] lg:overflow-hidden">
+    <div className="flex h-full w-full flex-col bg-[#151518] lg:overflow-hidden">
       <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-3 lg:p-3">
         <section className="flex min-h-0 min-w-0 flex-col">
           <AviatorTicker liveBets={liveBets} />
@@ -514,14 +514,14 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             <div className="min-w-0 flex-1 overflow-hidden">
               <AviatorHistory rounds={history} onVerify={setVerifyRound} />
             </div>
-            <button className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#1f2022] text-white/75" type="button">
+            <button className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/75 ring-1 ring-white/[0.06]" type="button">
               <Icon name="history" className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={() => setSoundEnabled((v) => !v)}
-              className={`grid h-7 w-7 shrink-0 place-items-center rounded-full transition-colors ${
-                soundEnabled ? "bg-[#1f2022] text-[#31c45d]" : "bg-[#1f2022] text-white/35"
+              className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ring-1 ring-white/[0.06] transition-colors ${
+                soundEnabled ? "bg-white/[0.06] text-[#31c45d]" : "bg-white/[0.06] text-white/35"
               }`}
               aria-label={soundEnabled ? "Mute Aviator sounds" : "Enable Aviator sounds"}
               title={soundEnabled ? "Sound on" : "Sound off"}
@@ -530,7 +530,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             </button>
           </div>
 
-          <div className="mx-2 overflow-hidden rounded-[10px] border border-[#2a2a2a] bg-[#080808] lg:mx-0 lg:min-h-0 lg:flex-1">
+          <div className="mx-2 overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#151518] lg:mx-0 lg:min-h-0 lg:flex-1">
             <div className="h-[260px] lg:h-full">
               <AviatorCanvas
                 state={round?.state ?? "WAITING"}
@@ -589,7 +589,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           </div>
         </section>
 
-        <aside className="min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-[#2a2a2a] lg:bg-[#171819]">
+        <aside className="min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-white/[0.06] lg:bg-[#18191f]">
           {/* Mobile: collapsible players section */}
           <MobilePlayersCollapsible
             liveBets={liveBets}
@@ -666,7 +666,7 @@ function AviatorPlayersTable({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* Tab bar */}
-      <div className="grid shrink-0 grid-cols-3 border-b border-[#2a2a2a]">
+      <div className="grid shrink-0 grid-cols-3 border-b border-white/[0.06]">
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -760,7 +760,7 @@ function MobilePlayersCollapsible({ liveBets, prevRoundBets, myHistory, myCurren
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="lg:hidden border-t border-[#2a2a2a]">
+    <div className="lg:hidden border-t border-white/[0.06]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -775,7 +775,7 @@ function MobilePlayersCollapsible({ liveBets, prevRoundBets, myHistory, myCurren
         <Icon name={open ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[18px]" />
       </button>
       {open && (
-        <div className="flex max-h-[280px] flex-col overflow-hidden border-t border-[#2a2a2a]/50">
+        <div className="flex max-h-[280px] flex-col overflow-hidden border-t border-white/[0.06]">
           <AviatorPlayersTable
             liveBets={liveBets}
             prevRoundBets={prevRoundBets}

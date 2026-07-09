@@ -171,7 +171,7 @@ export function AviatorBetPanel({
 
   // ── Betika-style pill tab bar ──────────────────────────────────────────────
   const TabBar = (
-    <div className="mx-auto mb-1 flex w-[170px] shrink-0 rounded-full bg-[#171819] p-[2px]">
+    <div className="mx-auto mb-1 flex w-[170px] shrink-0 rounded-full bg-[#18191f] p-[2px]">
       {(["bet", "auto"] as const).map((t) => (
         <button
           key={t}
@@ -312,7 +312,7 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (state === "WAITING" || (isCrashed && !myBet)) {
     return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-[#0d0e12] sm:rounded-2xl">
+      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-[#151518] sm:rounded-2xl">
         {TabBar}
         <div className="flex flex-col items-center gap-1.5 p-2.5 text-center sm:gap-2.5 sm:p-5">
           {state === "WAITING" && <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-white/50 sm:h-8 sm:w-8" />}
@@ -341,7 +341,7 @@ export function AviatorBetPanel({
   };
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-[#2a2b2c] p-2">
+    <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#18191f] p-2">
       {TabBar}
 
       {/* Betting countdown banner */}
@@ -366,7 +366,7 @@ export function AviatorBetPanel({
             {/* Left column */}
             <div className="flex min-w-0 flex-col gap-1">
               {/* Amount row: ⊖  value  ⊕ */}
-              <div className="flex h-[35px] items-center rounded-md bg-[#171819]">
+              <div className="flex h-[35px] items-center rounded-md bg-[#151518]">
                 <button
                   onClick={() => { adj(-snapStep(amount)); setError(null); }}
                   className="flex h-full w-9 shrink-0 items-center justify-center text-xl font-black text-white/55 transition-colors hover:text-white active:scale-90"
@@ -394,8 +394,8 @@ export function AviatorBetPanel({
                     onClick={() => { setAmount(v); setError(null); }}
                     className={`rounded-md py-1 text-[10px] font-bold transition-colors ${
                       amount === v
-                        ? "bg-[#171819] text-white"
-                        : "bg-[#171819] text-white/45 hover:text-white"
+                        ? "bg-[#151518] text-white"
+                        : "bg-[#151518] text-white/45 hover:text-white"
                     }`}
                   >
                     {convert(v).toLocaleString(currency.locale, { maximumFractionDigits: currency.decimals })}
