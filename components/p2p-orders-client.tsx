@@ -201,7 +201,7 @@ export function P2POrdersClient() {
       ) : orders.length === 0 ? (
         <OrdersLaunchpad />
       ) : filtered.length === 0 ? (
-        <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-6 py-8 text-center">
+        <div className="flex min-h-[190px] flex-col items-center justify-center rounded-2xl border border-white/[0.06] bg-[#151518] px-6 py-8 text-center">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
             <Icon name="receipt_long" className="text-xl text-slate-500" />
           </div>
@@ -275,7 +275,7 @@ export function P2POrdersClient() {
 
 function OrdersLoginState({ openLogin }: { openLogin: () => void }) {
   return (
-    <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-[#1e1e30] bg-[#0e0e14] px-6 py-8 text-center">
+    <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-white/[0.06] bg-[#151518] px-6 py-8 text-center">
       <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
         <Icon name="lock" className="text-xl text-slate-400" />
       </div>
@@ -342,7 +342,7 @@ function OrdersLaunchpad() {
   return (
     <div className="space-y-4">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl border border-[#1e1e30] bg-[radial-gradient(circle_at_top_right,rgba(8,124,255,.10),transparent_45%),#0e0e14] px-6 py-7 text-center">
+      <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[radial-gradient(circle_at_top_right,rgba(8,124,255,.10),transparent_45%),#151518] px-6 py-7 text-center">
         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
           <Icon name="receipt_long" className="text-xl text-slate-400" />
         </div>
@@ -359,7 +359,7 @@ function OrdersLaunchpad() {
             key={a.href}
             href={a.href}
             prefetch={false}
-            className={`group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-br ${a.tone} bg-[#111118] p-5 ring-1 ring-inset ${a.ring} transition hover:-translate-y-0.5 hover:border-white/15`}
+            className={`group relative overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-br ${a.tone} bg-[#18191f] p-5 ring-1 ring-inset ${a.ring} transition hover:-translate-y-0.5 hover:border-white/15`}
           >
             <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${a.iconBg}`}>
               <Icon name={a.icon} fill className="text-[20px]" />
@@ -375,13 +375,13 @@ function OrdersLaunchpad() {
       </div>
 
       {/* How it works */}
-      <div className="rounded-2xl border border-white/[0.06] bg-[#0e0e14] p-5">
+      <div className="rounded-2xl border border-white/[0.06] bg-[#151518] p-5">
         <p className="mb-4 text-center text-[11px] font-black uppercase tracking-widest text-slate-600">
           How P2P trading works
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
           {steps.map((s, i) => (
-            <div key={i} className="relative rounded-xl border border-white/[0.06] bg-[#111118] p-4">
+            <div key={i} className="relative rounded-xl border border-white/[0.06] bg-[#18191f] p-4">
               {i < 2 && <div className="absolute -right-1.5 top-1/2 z-10 hidden h-px w-3 bg-white/[0.08] sm:block" />}
               <div className="mb-2 flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#087cff]/20 bg-[#087cff]/10">

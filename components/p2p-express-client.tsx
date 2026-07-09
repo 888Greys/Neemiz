@@ -134,7 +134,7 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
     <>
       <P2PSubNav />
       <div className="mx-auto w-full max-w-6xl px-3 pt-2 sm:px-4 lg:px-3">
-        <div className="flex items-center justify-between rounded-lg border border-[#1e1e30] bg-[#111118] px-4 py-3">
+        <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#18191f] px-4 py-3">
           <div>
             <p className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-400">Instant settlement</p>
             <h1 className="mt-0.5 text-lg font-black tracking-tight text-white">Express exchange</h1>
@@ -162,7 +162,7 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
             ))}
           </div>
         </section>
-        <div className="rounded-2xl border border-[#1e1e30] bg-[#111118] p-4 shadow-[0_24px_70px_rgba(0,0,0,.24)]">
+        <div className="rounded-2xl border border-white/[0.06] bg-[#18191f] p-4 shadow-[0_24px_70px_rgba(0,0,0,.24)]">
           {/* Header */}
           <div className="mb-3 flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#087cff]/12 ring-1 ring-[#087cff]/25">

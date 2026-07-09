@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
@@ -665,7 +665,7 @@ function DetailTradeTicket({
           )}
 
           {receipt ? (
-            <div className="rounded-2xl border border-[#31c45d]/25 bg-[#082414] p-4">
+            <div className="rounded-2xl border border-[#31c45d]/25 bg-[#0f1a14] p-4">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[12px] font-black uppercase tracking-wide text-[#31c45d]">Position opened</p>
@@ -828,7 +828,7 @@ function PositionCard({ bet, onOpen }: { bet: MyBet; onOpen: (bet: MyBet) => voi
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onOpen(bet);
       }}
-      className="cursor-pointer rounded-2xl border border-white/[0.07] bg-[#171820] p-4 transition hover:border-white/[0.13] hover:bg-[#1b1c25] sm:p-5"
+      className="cursor-pointer rounded-2xl border border-white/[0.07] bg-[#18191f] p-4 transition hover:border-white/[0.13] hover:bg-[#1c1d24] sm:p-5"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
@@ -1032,7 +1032,7 @@ function MarketDetailView({
           </div>
         </div>
 
-        <section className="mb-6 rounded-2xl border border-white/[0.06] bg-[#15191f] p-4 sm:p-5">
+        <section className="mb-6 rounded-2xl border border-white/[0.06] bg-[#18191f] p-4 sm:p-5">
           {market.clobTokenIds.length > 0 ? (
             <ProbabilityChart tokenIds={market.clobTokenIds} outcomes={market.outcomes} />
           ) : (
@@ -1166,7 +1166,7 @@ function MarketDetailView({
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-14 z-40 border-t border-white/[0.08] bg-[#090a0d]/95 px-3 pt-2 shadow-2xl shadow-black/60 backdrop-blur lg:hidden">
+      <div className="fixed inset-x-0 bottom-14 z-40 border-t border-white/[0.08] bg-[#151518]/95 px-3 pt-2 shadow-2xl shadow-black/60 backdrop-blur lg:hidden">
         {mobileTradeOpen ? (
           <>
             <button
@@ -1328,7 +1328,7 @@ function CommentsPanel({ comments, onAddComment }: { comments: DetailComment[]; 
 
   return (
     <>
-      <div className="mb-4 rounded-xl border border-white/[0.08] bg-[#15191f] p-3">
+      <div className="mb-4 rounded-xl border border-white/[0.08] bg-[#18191f] p-3">
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -1907,15 +1907,15 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
           ) : (
             <div className="space-y-5">
               <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4">
+                <div className="rounded-2xl border border-white/[0.07] bg-[#18191f] p-4">
                   <p className="text-[11px] font-black uppercase tracking-wide text-white/35">Open positions</p>
                   <p className="mt-2 text-2xl font-black text-white">{openBets.length}</p>
                 </div>
-                <div className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4">
+                <div className="rounded-2xl border border-white/[0.07] bg-[#18191f] p-4">
                   <p className="text-[11px] font-black uppercase tracking-wide text-white/35">Capital at risk</p>
                   <p className="mt-2 text-2xl font-black text-white">{format(openStake)}</p>
                 </div>
-                <div className="rounded-2xl border border-white/[0.07] bg-[#171820] p-4">
+                <div className="rounded-2xl border border-white/[0.07] bg-[#18191f] p-4">
                   <p className="text-[11px] font-black uppercase tracking-wide text-white/35">Open payout</p>
                   <p className="mt-2 text-2xl font-black text-[#31c45d]">{format(openToWin)}</p>
                 </div>
@@ -1926,7 +1926,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
                   <h2 className="text-xl font-black text-white">My positions</h2>
                   <p className="mt-1 text-sm text-white/35">Track pending bets, entry price, stake, and potential payout.</p>
                 </div>
-                <div className="grid grid-cols-3 rounded-xl border border-white/[0.08] bg-[#171820] p-1">
+                <div className="grid grid-cols-3 rounded-xl border border-white/[0.08] bg-[#18191f] p-1">
                   {([
                     ["open", `Open ${openBets.length}`],
                     ["resolved", `Resolved ${resolvedBets.length}`],
@@ -1944,7 +1944,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
               </div>
 
               {visibleBets.length === 0 ? (
-                <div className="rounded-2xl border border-white/[0.06] bg-[#171820] py-14 text-center">
+                <div className="rounded-2xl border border-white/[0.06] bg-[#18191f] py-14 text-center">
                   <p className="text-sm text-white/30">No positions in this view</p>
                 </div>
               ) : (

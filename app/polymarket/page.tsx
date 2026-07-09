@@ -23,7 +23,7 @@ export default async function PolymarketPage() {
 
   return (
     <AppShell>
-      <div className="w-full px-3 py-3 sm:px-4 lg:px-5">
+      <div className="min-h-full w-full bg-[#151518] px-3 py-3 sm:px-4 lg:px-5">
         <PolymarketClient userId={userId} balance={balance} initialMarkets={initialMarkets} />
       </div>
     </AppShell>
