@@ -70,6 +70,31 @@ function normalize(f: ApiFixture, odds?: { home?: string; draw?: string; away?: 
   if (odds?.draw) o.push({ label: "X", value: Number(odds.draw).toFixed(2) });
   if (odds?.away) o.push({ label: "2", value: Number(odds.away).toFixed(2) });
 
+  const o1 = odds?.home ? Number(odds.home) : 0;
+  const ox = odds?.draw ? Number(odds.draw) : 0;
+  const o2 = odds?.away ? Number(odds.away) : 0;
+  const threeWay = o.map((x) => ({
+    key: x.label,
+    label: x.label === "1" ? f.teams.home.name : x.label === "2" ? f.teams.away.name : "DRAW",
+    value: x.value,
+  }));
+  let doubleChance: { key: string; label: string; value: string }[] = [];
+  if (o1 > 1 && ox > 1 && o2 > 1) {
+    const p1 = 1 / o1;
+    const px = 1 / ox;
+    const p2 = 1 / o2;
+    const sum = p1 + px + p2;
+    const n1 = p1 / sum;
+    const nx = px / sum;
+    const n2 = p2 / sum;
+    const fprice = (p: number) => Math.max(1.01, 1 / p).toFixed(2);
+    doubleChance = [
+      { key: "1X", label: "1 OR X", value: fprice(n1 + nx) },
+      { key: "X2", label: "X OR 2", value: fprice(nx + n2) },
+      { key: "12", label: "1 OR 2", value: fprice(n1 + n2) },
+    ];
+  }
+
   return {
     id: f.fixture.id,
     eventId: String(f.fixture.id),
@@ -84,7 +109,11 @@ function normalize(f: ApiFixture, odds?: { home?: string; draw?: string; away?: 
     isLive,
     startingAt: f.fixture.date,
     odds: o,
+    // Display feed has 1X2 only; +N filled when Odds cache overlays richer markets.
     extraMarkets: 0,
+    listMarkets: threeWay.length
+      ? { threeWay, doubleChance, overUnder: [], btts: [] }
+      : undefined,
   };
 }
 
@@ -139,6 +168,21 @@ function fixtureRank(f: ApiFixture): number {
  * cached by the route (`revalidate`).
  */
 export async function getDisplayLiveMatches(limit = 8): Promise<Match[]> {
+  const feed = await getDisplaySportsbookFeed({ liveLimit: limit, upcomingLimit: 0 });
+  return feed.live;
+}
+
+/**
+ * Free-tier sportsbook feed for /sports: live + today's not-started,
+ * World Cup / major leagues ranked first. Optional odds overlay from
+ * The Odds API cache (matched by team names).
+ */
+export async function getDisplaySportsbookFeed(opts?: {
+  liveLimit?: number;
+  upcomingLimit?: number;
+}): Promise<{ live: Match[]; upcoming: Match[] }> {
+  const liveLimit = opts?.liveLimit ?? 40;
+  const upcomingLimit = opts?.upcomingLimit ?? 60;
   const today = isoDate(new Date());
   const [live, day] = await Promise.all([
     apiGet<ApiFixture>(FOOTBALL, `/fixtures?live=all`),
@@ -150,12 +194,54 @@ export async function getDisplayLiveMatches(limit = 8): Promise<Match[]> {
     byId.set(f.fixture.id, f);
   }
 
-  const ranked = [...byId.values()]
-    .filter((f) => LIVE_CODES.has(f.fixture.status.short) || f.fixture.status.short === "NS")
-    .sort((a, b) => fixtureRank(b) - fixtureRank(a))
-    .slice(0, limit);
+  const all = [...byId.values()].sort((a, b) => fixtureRank(b) - fixtureRank(a));
+  const liveMatches = all
+    .filter((f) => LIVE_CODES.has(f.fixture.status.short))
+    .slice(0, liveLimit)
+    .map((f) => normalize(f));
+  const upcomingMatches = all
+    .filter((f) => f.fixture.status.short === "NS")
+    .slice(0, upcomingLimit)
+    .map((f) => normalize(f));
 
-  return ranked.map((f) => normalize(f));
+  return { live: liveMatches, upcoming: upcomingMatches };
+}
+
+/** Single fixture for detail pages when Odds cache miss (display-only). */
+export async function getDisplayFixture(id: number): Promise<Match | null> {
+  const res = await apiGet<ApiFixture>(FOOTBALL, `/fixtures?id=${id}`);
+  const f = res.data[0];
+  return f ? normalize(f) : null;
+}
+
+/** Overlay Odds-API markets onto display fixtures by team names (logos stay from API-Football). */
+export function mergeOddsOntoDisplay(display: Match[], withOdds: Match[]): Match[] {
+  if (withOdds.length === 0) return display;
+  const key = (m: Match) =>
+    `${m.home.name.trim().toLowerCase()}|${m.away.name.trim().toLowerCase()}`;
+  const oddsByTeams = new Map(withOdds.filter((m) => m.odds.length > 0).map((m) => [key(m), m]));
+  return display.map((m) => {
+    const hit =
+      oddsByTeams.get(key(m)) ??
+      oddsByTeams.get(`${m.away.name.trim().toLowerCase()}|${m.home.name.trim().toLowerCase()}`);
+    if (!hit) return m;
+    return {
+      ...m,
+      odds: hit.odds,
+      extraMarkets: hit.extraMarkets > 0 ? hit.extraMarkets : m.extraMarkets,
+      listMarkets: hit.listMarkets ?? m.listMarkets,
+      home: {
+        ...m.home,
+        logo: m.home.logo ?? hit.home.logo,
+        score: m.home.score ?? hit.home.score,
+      },
+      away: {
+        ...m.away,
+        logo: m.away.logo ?? hit.away.logo,
+        score: m.away.score ?? hit.away.score,
+      },
+    };
+  });
 }
 
 /**

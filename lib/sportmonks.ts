@@ -422,8 +422,6 @@ export async function getFixtureDetail(id: number): Promise<MatchDetail | null> 
 
 const FLAG = (code: string) => `https://flagcdn.com/w40/${code}.png`;
 
-import { getTeamLogo } from "@/lib/team-logos";
-
 function withLogos(m: Match): Match {
   return {
     ...m,

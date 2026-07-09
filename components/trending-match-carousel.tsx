@@ -5,12 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/icon";
 import { useBetslip } from "@/lib/betslip-context";
-import { MOCK_LIVE } from "@/lib/theoddsapi";
 import type { Match } from "@/lib/theoddsapi";
 import { getTeamLogo } from "@/lib/team-logos";
 
 export function TrendingMatchCarousel() {
-  const [matches, setMatches] = useState<Match[]>(MOCK_LIVE.slice(0, 8));
+  const [matches, setMatches] = useState<Match[]>([]);
   const [index, setIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
   const { toggleBet, hasBet } = useBetslip();
@@ -21,7 +20,7 @@ export function TrendingMatchCarousel() {
       const res = await fetch("/api/sports/live");
       if (res.ok) {
         const data: Match[] = await res.json();
-        if (data.length > 0) setMatches(data);
+        setMatches(Array.isArray(data) ? data : []);
       }
     } catch { /* ignore */ }
   }, []);
