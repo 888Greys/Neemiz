@@ -12,6 +12,7 @@ import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { P2PStatusBadge } from "@/components/p2p/status-badge";
 import { LoadingDots } from "@/components/loading-dots";
 import { paymentMethodLabel } from "@/lib/p2p/payment-methods";
+import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1986,12 +1987,17 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
         <div className="flex min-h-[620px] flex-col overflow-hidden rounded-[20px] border border-white/[0.07] bg-[linear-gradient(180deg,rgba(19,21,29,.96),rgba(10,11,16,.96))] shadow-[0_24px_70px_rgba(0,0,0,.2)] lg:sticky lg:top-4 lg:h-[calc(100vh-9.75rem)]">
           <div className="px-4 py-3 border-b border-white/[0.06] flex items-center gap-3 bg-white/[0.02]">
             <div className="relative">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#05b957] to-[#039648] flex items-center justify-center text-white font-black text-sm">
-                {((order.isBuyer ? order.seller.displayName : (order.buyer.firstName || order.buyer.username)) || "?").charAt(0).toUpperCase()}
-              </div>
-              {!isClosed && (
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#05b957] border-2 border-[#111118]" title="Live" />
-              )}
+              <MerchantAvatar
+                id={order.isBuyer ? order.seller.userId : order.buyer.id}
+                name={
+                  order.isBuyer
+                    ? order.seller.displayName
+                    : (order.buyer.firstName || order.buyer.username || "Buyer")
+                }
+                size={32}
+                online={!isClosed}
+                onlineRingClass="border-[#111118]"
+              />
             </div>
             <div className="min-w-0">
               <p className="text-white font-bold text-sm leading-tight truncate">
