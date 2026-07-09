@@ -107,7 +107,7 @@ const MERCHANT_STEPS = [
 function MerchantProgress({ current, failed = false }: { current: number; failed?: boolean }) {
   const pct = MERCHANT_STEPS.length > 1 ? (current / (MERCHANT_STEPS.length - 1)) * 100 : 0;
   return (
-    <div className="mb-3 rounded-lg border border-white/[0.06] bg-[#111118] p-4 sm:p-5">
+    <div className="mb-3 rounded-lg border border-white/[0.06] bg-[#18191f] p-4 sm:p-5">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-base font-black text-white">Your merchant journey</h2>
         <span className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
@@ -192,7 +192,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
   return (
     <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
       {/* Hero */}
-      <div className="relative mb-3 overflow-hidden rounded-lg border border-[#1e1e30] bg-[#111118] p-4 sm:p-5 lg:p-4">
+      <div className="relative mb-3 overflow-hidden rounded-lg border border-white/[0.06] bg-[#18191f] p-4 sm:p-5 lg:p-4">
         <div className="relative flex items-center gap-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#087cff]/25 bg-[#087cff]/15 shadow-xl shadow-[#087cff]/10">
             <Icon name="storefront" className="text-2xl text-[#087cff]" />
@@ -215,7 +215,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
           { icon: "verified",       label: "Trust Badge",     desc: "Verified badge builds buyer confidence" },
           { icon: "payments",       label: "Local Payments",  desc: "M-Pesa and bank transfers supported" },
         ].map(({ icon, label, desc }) => (
-          <div key={label} className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-[#087cff]/20">
+          <div key={label} className="rounded-lg border border-white/[0.06] bg-[#18191f] p-3 transition-colors hover:border-[#087cff]/20">
             <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-[#087cff]/10">
               <Icon name={icon} className="text-[#087cff] text-sm" />
             </div>
@@ -230,7 +230,7 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
 
       {/* Application form */}
       <div className="max-w-lg">
-        <div className="rounded-lg border border-white/[0.07] bg-[#111118] p-4">
+        <div className="rounded-lg border border-white/[0.07] bg-[#18191f] p-4">
           <h2 className="mb-1 text-lg font-black text-white">Start your application</h2>
           <p className="mb-4 text-sm text-slate-500">Takes less than a minute. Verification usually completes within the hour.</p>
 
@@ -321,7 +321,7 @@ function ApplicationStatus({ status, onRefresh }: { status: MerchantStatus; onRe
         </div>
 
         {isRejected && (
-          <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-5">
+          <div className="bg-[#18191f] border border-white/[0.06] rounded-2xl p-5">
             <p className="text-slate-400 text-sm mb-4">
               You can re-apply with updated information. Make sure your display name follows our guidelines.
             </p>
@@ -426,7 +426,7 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
   return (
     <div ref={ref} className="relative col-span-2">
       <button type="button" onClick={() => setOpen((v) => !v)}
-        className="flex h-9 w-full items-center gap-2 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] font-bold text-white outline-none">
+        className="flex h-9 w-full items-center gap-2 rounded-lg border border-white/[0.08] bg-[#151518] px-2.5 text-[13px] font-bold text-white outline-none">
         <PaymentLogo code={value} size={20} />
         <span className="truncate">{paymentMethodLabel(value)}</span>
         <Icon name="expand_more" className={`ml-auto shrink-0 text-lg text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
@@ -517,7 +517,7 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
   const showForm = formOpen || (!loading && methods.length === 0);
 
   return (
-    <div id="merchant-payment-methods" className="mb-3 scroll-mt-24 overflow-hidden rounded-lg border border-white/[0.06] bg-[#111118]">
+    <div id="merchant-payment-methods" className="mb-3 scroll-mt-24 overflow-hidden rounded-lg border border-white/[0.06] bg-[#18191f]">
       <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-3 py-3">
         <div className="min-w-0">
           <h2 className="text-sm font-black text-white">Payment Methods</h2>
@@ -560,12 +560,12 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
         <div className="grid grid-cols-2 gap-2 border-t border-white/[0.05] px-3 py-3">
           <MethodPicker value={method} onChange={setMethod} />
           <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
-            className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
+            className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#151518] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
           <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={accountIdentifierLabel(method)}
-            className={`${isBank ? "" : "col-span-2"} h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600`} />
+            className={`${isBank ? "" : "col-span-2"} h-9 rounded-lg border border-white/[0.08] bg-[#151518] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600`} />
           {isBank && (
             <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
-              className="h-9 rounded-lg border border-white/[0.08] bg-[#0e0e14] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
+              className="h-9 rounded-lg border border-white/[0.08] bg-[#151518] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
           )}
           <button type="button" onClick={add} disabled={saving}
             className="col-span-2 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#087cff] text-[13px] font-black text-white transition hover:bg-[#0570e8] disabled:opacity-50">
@@ -799,7 +799,7 @@ function DepositSection() {
     : null;
 
   return (
-    <div className="mb-3 overflow-hidden rounded-lg border border-white/[0.06] bg-[#111118]">
+    <div className="mb-3 overflow-hidden rounded-lg border border-white/[0.06] bg-[#18191f]">
       {/* Header */}
       <div className="flex flex-col gap-3 border-b border-white/[0.06] px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:py-2.5">
         <div className="min-w-0">
@@ -1076,10 +1076,10 @@ function DepositSection() {
           <select
             value={selectedMobileBalance?.crypto ?? mobileBalanceCrypto}
             onChange={(event) => setMobileBalanceCrypto(event.target.value)}
-            className="h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-[#171820] pl-12 pr-10 text-sm font-black text-white outline-none focus:border-[#087cff]/50"
+            className="h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-[#18191f] pl-12 pr-10 text-sm font-black text-white outline-none focus:border-[#087cff]/50"
           >
             {mobileSelectableBalances.map((row) => (
-              <option key={row.crypto} value={row.crypto} style={{ background: "#171820", color: "#fff" }}>
+              <option key={row.crypto} value={row.crypto} style={{ background: "#18191f", color: "#fff" }}>
                 {row.crypto} · {P2P_CRYPTOS.find((coin) => coin.symbol === row.crypto)?.name ?? "Crypto"}
               </option>
             ))}
@@ -1492,9 +1492,9 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/90 backdrop-blur-md p-0 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden border border-white/10 bg-[#0b0b11] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden border border-white/10 bg-[#151518] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
         {/* ── Header + stepper ── */}
-        <div className="shrink-0 border-b border-white/[0.07] bg-[#0b0b11] px-4 pb-5 pt-[calc(1.1rem+env(safe-area-inset-top))]">
+        <div className="shrink-0 border-b border-white/[0.07] bg-[#151518] px-4 pb-5 pt-[calc(1.1rem+env(safe-area-inset-top))]">
           <div className="mb-6 flex items-center justify-between">
             <button onClick={step === 0 ? onClose : () => setStep((s) => s - 1)} className="flex h-9 w-9 items-center justify-center rounded-full text-slate-200 transition hover:bg-white/[0.06]">
               <Icon name="arrow_back" className="text-[20px]" />
@@ -1532,7 +1532,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           {/* Side selector */}
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">I want to</label>
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#08080c]/60 p-1">
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#151518]/60 p-1">
               {["BUY","SELL"].map((s) => (
                 <button key={s} onClick={() => !isEditing && f("side", s)}
                   disabled={isEditing}
@@ -1566,7 +1566,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               {cryptoOpen && !isEditing && (
                 <>
                   <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setCryptoOpen(false)} />
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] p-1 shadow-2xl shadow-black/60">
                     {P2P_CRYPTOS.map((c) => (
                       <button
                         key={c.symbol}
@@ -1613,7 +1613,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               {fiatOpen && (
                 <>
                   <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setFiatOpen(false)} />
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#111118] shadow-2xl shadow-black/60">
+                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] shadow-2xl shadow-black/60">
                     <div className="p-2">
                       <div className="flex items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
                         <Icon name="search" className="text-[16px] text-slate-500" />
@@ -1894,7 +1894,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
             <label className="text-[11px] font-black text-slate-400 mb-2 block uppercase tracking-wide">Payment window</label>
             <select value={form.paymentWindow} onChange={(e) => f("paymentWindow", e.target.value)}
               className="h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-sm font-bold text-white outline-none transition-colors hover:border-white/20 focus:border-[#087cff]/40">
-              {[10,15,20,30].map((w) => <option key={w} value={w} style={{ background: "#111118", color: "#fff" }}>{w} minutes</option>)}
+              {[10,15,20,30].map((w) => <option key={w} value={w} style={{ background: "#18191f", color: "#fff" }}>{w} minutes</option>)}
             </select>
             <p className="mt-1.5 text-[10px] font-semibold text-slate-500">Buyers must complete payment within this window or the order expires.</p>
           </div>
@@ -1922,7 +1922,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
         </div>
 
         {/* ── Footer ── */}
-        <div className="shrink-0 border-t border-white/[0.07] bg-[#0b0b11]/95 px-4 py-3 pb-[calc(1.1rem+env(safe-area-inset-bottom))]">
+        <div className="shrink-0 border-t border-white/[0.07] bg-[#151518]/95 px-4 py-3 pb-[calc(1.1rem+env(safe-area-inset-bottom))]">
           <div className="flex gap-2.5">
             {step > 0 && (
               <button type="button" onClick={() => setStep((s) => s - 1)}
@@ -2168,7 +2168,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                     onChange={(e) => setNameInput(e.target.value)}
                     autoFocus
                     maxLength={30}
-                    className="h-7 w-40 rounded-md border border-white/[0.12] bg-[#0e0e14] px-2 text-base font-black text-white outline-none focus:border-[#087cff]/50"
+                    className="h-7 w-40 rounded-md border border-white/[0.12] bg-[#151518] px-2 text-base font-black text-white outline-none focus:border-[#087cff]/50"
                   />
                   <button type="button" onClick={saveName} disabled={savingName} className="grid h-7 w-7 place-items-center rounded-md bg-[#05b957]/15 text-[#05b957] hover:bg-[#05b957]/25 disabled:opacity-50" aria-label="Save">
                     <Icon name="check" className="text-[16px]" />
@@ -2234,7 +2234,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         <>
           <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
             {/* Active Ads */}
-            <div className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-[#087cff]/20">
+            <div className="rounded-lg border border-white/[0.06] bg-[#18191f] p-3 transition-colors hover:border-[#087cff]/20">
               <div className="mb-1 flex items-center justify-between">
                 <p className="text-slate-500 text-xs">Active Ads</p>
                 <Icon name="campaign" className="text-[#087cff] text-sm opacity-60" />
@@ -2244,7 +2244,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </div>
 
             {/* Listed crypto */}
-            <div className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-[#05b957]/20">
+            <div className="rounded-lg border border-white/[0.06] bg-[#18191f] p-3 transition-colors hover:border-[#05b957]/20">
               <div className="mb-1 flex items-center justify-between">
                 <p className="text-slate-500 text-xs">Listed Crypto</p>
                 <Icon name="currency_bitcoin" className="text-[#05b957] text-sm opacity-60" />
@@ -2254,7 +2254,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </div>
 
             {/* KES value */}
-            <div className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-amber-500/20">
+            <div className="rounded-lg border border-white/[0.06] bg-[#18191f] p-3 transition-colors hover:border-amber-500/20">
               <div className="mb-1 flex items-center justify-between">
                 <p className="text-slate-500 text-xs">Est. KES Value</p>
                 <Icon name="payments" className="text-amber-400 text-sm opacity-60" />
@@ -2268,7 +2268,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </div>
 
             {/* Account */}
-            <div className="rounded-lg border border-white/[0.06] bg-[#111118] p-3 transition-colors hover:border-[#05b957]/20">
+            <div className="rounded-lg border border-white/[0.06] bg-[#18191f] p-3 transition-colors hover:border-[#05b957]/20">
               <div className="mb-1 flex items-center justify-between">
                 <p className="text-slate-500 text-xs">Account</p>
                 <Icon name="shield" className="text-[#05b957] text-sm opacity-60" />
@@ -2283,17 +2283,17 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </div>
           </div>
           <div className="grid gap-3 lg:grid-cols-3">
-            <button onClick={() => setSection("wallet")} className="rounded-xl border border-white/[0.07] bg-[#111118] p-4 text-left transition hover:border-[#05b957]/25 hover:bg-[#151720]">
+            <button onClick={() => setSection("wallet")} className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4 text-left transition hover:border-[#05b957]/25 hover:bg-[#18191f]">
               <Icon name="account_balance_wallet" className="text-xl text-[#05b957]" />
               <p className="mt-3 text-sm font-black text-white">Manage liquidity</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">Fund escrow, withdraw to wallet, receive crypto and review movements.</p>
             </button>
-            <button onClick={() => setSection("ads")} className="rounded-xl border border-white/[0.07] bg-[#111118] p-4 text-left transition hover:border-[#087cff]/25 hover:bg-[#151720]">
+            <button onClick={() => setSection("ads")} className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4 text-left transition hover:border-[#087cff]/25 hover:bg-[#18191f]">
               <Icon name="campaign" className="text-xl text-[#087cff]" />
               <p className="mt-3 text-sm font-black text-white">Manage ads</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">{activeAds.length} active, {exhaustedAds.length} exhausted or needing attention.</p>
             </button>
-            <button onClick={() => setSection("payments")} className="rounded-xl border border-white/[0.07] bg-[#111118] p-4 text-left transition hover:border-amber-400/25 hover:bg-[#151720]">
+            <button onClick={() => setSection("payments")} className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4 text-left transition hover:border-amber-400/25 hover:bg-[#18191f]">
               <Icon name="payments" className="text-xl text-amber-400" />
               <p className="mt-3 text-sm font-black text-white">Payment rails</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">Control the M-Pesa, Airtel Money and bank accounts shown in orders.</p>
@@ -2304,7 +2304,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
       {section === "profile" && (
         <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="rounded-xl border border-white/[0.07] bg-[#111118] p-4">
+          <div className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4">
             <p className="mb-4 text-xs font-black uppercase tracking-wide text-slate-500">Public profile stats</p>
 
             <div className="divide-y divide-white/[0.06]">
@@ -2325,7 +2325,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/[0.07] bg-[#111118] p-4">
+          <div className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4">
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <h2 className="text-base font-black text-white">Received Feedback</h2>
@@ -2576,7 +2576,7 @@ export function P2PMerchantClient() {
     <>
       <P2PSubNav />
       <div className="mx-auto w-full max-w-6xl px-3 pt-2 sm:px-4 lg:px-3">
-        <div className="flex items-center justify-between rounded-lg border border-[#1e1e30] bg-[#111118] px-4 py-3">
+        <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#18191f] px-4 py-3">
           <div>
             <p className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-400">Liquidity operations</p>
             <h1 className="mt-0.5 text-lg font-black tracking-tight text-white">Merchant command</h1>

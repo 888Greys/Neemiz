@@ -23,7 +23,7 @@ export default function P2PPage() {
 
   return (
     <AppShell rightPanel={<P2PMarketPanel />} hideFooter>
-      <div>
+      <div className="min-h-full bg-[#151518]">
         <Suspense>
           <P2PBrowseClient defaultFiat={defaultFiat} />
         </Suspense>

@@ -116,17 +116,17 @@ export function LuckySpinWheel() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-center px-4 pb-8 pt-4">
-      <div className="relative mb-5" style={{ width: 240, height: 240 }}>
+    <div className="mx-auto flex h-full w-full max-w-md flex-col items-center justify-between overflow-hidden px-4 py-3">
+      <div className="relative shrink-0" style={{ width: 200, height: 200 }}>
         <div className="absolute left-1/2 -top-1 z-10 -translate-x-1/2 drop-shadow-[0_2px_4px_rgba(0,0,0,.8)]">
-          <svg width="18" height="20" viewBox="0 0 16 18">
+          <svg width="16" height="18" viewBox="0 0 16 18">
             <path d="M8 18 L0 0 L16 0 Z" fill="white" />
           </svg>
         </div>
 
         <svg
-          width="240"
-          height="240"
+          width="200"
+          height="200"
           viewBox="0 0 200 200"
           style={{
             transform: `rotate(${rotation}deg)`,
@@ -170,148 +170,150 @@ export function LuckySpinWheel() {
         </svg>
       </div>
 
-      {isSignedIn && (
-        <div className="mb-4 flex w-full items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.06]">
-          <span className="text-[11px] font-bold text-slate-500">Balance</span>
-          <Link href="/wallet" className="text-[13px] font-black tabular-nums text-white hover:text-[#75b8ff]">
-            {format(balance)}
+      <div className="mt-3 flex w-full min-h-0 flex-1 flex-col justify-end gap-2 overflow-hidden">
+        {isSignedIn && (
+          <div className="flex w-full items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2 ring-1 ring-white/[0.06]">
+            <span className="text-[11px] font-bold text-slate-500">Balance</span>
+            <Link href="/wallet" className="text-[13px] font-black tabular-nums text-white hover:text-[#75b8ff]">
+              {format(balance)}
+            </Link>
+          </div>
+        )}
+
+        {error && (
+          <div className="w-full rounded-xl bg-red-500/10 px-4 py-2 text-center ring-1 ring-red-500/20">
+            <p className="text-[12px] font-bold text-red-400">{error}</p>
+          </div>
+        )}
+
+        {result && (
+          <div
+            className={`w-full rounded-xl px-4 py-2.5 text-center ring-1 transition-all ${
+              result.netChange < 0
+                ? "bg-red-500/10 ring-red-500/20"
+                : result.multiplier >= 5
+                  ? "bg-amber-500/10 ring-amber-500/20"
+                  : "bg-emerald-500/10 ring-emerald-500/20"
+            }`}
+          >
+            <p
+              className={`mb-0.5 text-[11px] font-bold ${
+                result.netChange < 0
+                  ? "text-red-400"
+                  : result.multiplier >= 5
+                    ? "text-amber-400"
+                    : "text-emerald-400"
+              }`}
+            >
+              {result.multiplier === 0
+                ? "No win"
+                : result.netChange < 0
+                  ? "Partial return"
+                  : result.multiplier >= 5
+                    ? "Big win!"
+                    : "You won!"}
+            </p>
+            <p
+              className={`text-lg font-black tabular-nums ${
+                result.netChange < 0
+                  ? "text-red-400"
+                  : result.multiplier >= 5
+                    ? "text-amber-400"
+                    : "text-emerald-400"
+              }`}
+            >
+              {result.multiplier === 0
+                ? `${format(result.stake)} lost`
+                : result.netChange < 0
+                  ? `${format(result.winAmount)} returned`
+                  : `+${format(result.netChange)} profit`}
+            </p>
+          </div>
+        )}
+
+        <div className="w-full rounded-xl bg-white/[0.04] px-3 py-2 ring-1 ring-white/[0.06]">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-slate-500">Win</span>
+            <span
+              className={`font-black tabular-nums ${
+                result ? (result.netChange < 0 ? "text-red-400" : "text-emerald-400") : "text-slate-300"
+              }`}
+            >
+              {result ? format(result.winAmount) : "—"}
+            </span>
+          </div>
+        </div>
+
+        <div className="w-full">
+          <div
+            className={`flex items-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 transition ${
+              notEnoughFunds ? "ring-red-500/40" : "ring-white/[0.06] focus-within:ring-[#087cff]/50"
+            }`}
+          >
+            <span className="shrink-0 text-[11px] font-black text-slate-500">{currency.symbol}</span>
+            <input
+              type="number"
+              min={convert(MIN_PLAY_AMOUNT)}
+              placeholder="Spin amount"
+              value={amount}
+              onChange={(e) => {
+                setAmount(e.target.value);
+                setError(null);
+              }}
+              className="min-w-0 flex-1 bg-transparent text-[13px] font-black tabular-nums text-white outline-none placeholder:text-slate-600"
+            />
+          </div>
+          {notEnoughFunds && (
+            <p className="mt-1 text-[10px] font-bold text-red-400">
+              Insufficient balance — {format(balance)} available
+            </p>
+          )}
+        </div>
+
+        <p className="self-start text-[10px] text-slate-600">
+          from {format(MIN_PLAY_AMOUNT)} to {balance > 0 ? format(balance) : "—"}
+        </p>
+
+        <div className="flex w-full gap-1.5">
+          {([1.5, 2, 3] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setAmount((v) => (parseFloat(v || "0") * m).toFixed(2))}
+              className="flex-1 rounded-lg bg-white/[0.04] py-1.5 text-[11px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/15 hover:text-[#75b8ff]"
+            >
+              ×{m}
+            </button>
+          ))}
+        </div>
+
+        {!isSignedIn ? (
+          <button
+            type="button"
+            onClick={openLogin}
+            className="w-full rounded-xl bg-[#087cff] py-3 text-sm font-black text-white transition hover:bg-[#0570e8] active:scale-[.99]"
+          >
+            Log in to Spin
+          </button>
+        ) : notEnoughFunds ? (
+          <Link
+            href="/wallet"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#06c96e] py-3 text-sm font-black text-white transition hover:bg-[#05b85f] active:scale-[.99]"
+          >
+            <Icon name="account_balance_wallet" className="h-4 w-4" />
+            Deposit to Spin
           </Link>
-        </div>
-      )}
-
-      {error && (
-        <div className="mb-3 w-full rounded-xl bg-red-500/10 px-4 py-2.5 text-center ring-1 ring-red-500/20">
-          <p className="text-[12px] font-bold text-red-400">{error}</p>
-        </div>
-      )}
-
-      {result && (
-        <div
-          className={`mb-3 w-full rounded-xl px-4 py-3 text-center ring-1 transition-all ${
-            result.netChange < 0
-              ? "bg-red-500/10 ring-red-500/20"
-              : result.multiplier >= 5
-                ? "bg-amber-500/10 ring-amber-500/20"
-                : "bg-emerald-500/10 ring-emerald-500/20"
-          }`}
-        >
-          <p
-            className={`mb-0.5 text-[11px] font-bold ${
-              result.netChange < 0
-                ? "text-red-400"
-                : result.multiplier >= 5
-                  ? "text-amber-400"
-                  : "text-emerald-400"
-            }`}
+        ) : (
+          <button
+            type="button"
+            onClick={spin}
+            disabled={spinning || loading || !amt || amtKes < MIN_PLAY_AMOUNT}
+            className="w-full rounded-xl bg-[#087cff] py-3 text-sm font-black text-white transition hover:bg-[#0570e8] active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {result.multiplier === 0
-              ? "No win"
-              : result.netChange < 0
-                ? "Partial return"
-                : result.multiplier >= 5
-                  ? "Big win!"
-                  : "You won!"}
-          </p>
-          <p
-            className={`text-xl font-black tabular-nums ${
-              result.netChange < 0
-                ? "text-red-400"
-                : result.multiplier >= 5
-                  ? "text-amber-400"
-                  : "text-emerald-400"
-            }`}
-          >
-            {result.multiplier === 0
-              ? `${format(result.stake)} lost`
-              : result.netChange < 0
-                ? `${format(result.winAmount)} returned`
-                : `+${format(result.netChange)} profit`}
-          </p>
-        </div>
-      )}
-
-      <div className="mb-3 w-full rounded-xl bg-white/[0.04] px-3 py-2 ring-1 ring-white/[0.06]">
-        <div className="flex items-center justify-between text-[11px]">
-          <span className="text-slate-500">Win</span>
-          <span
-            className={`font-black tabular-nums ${
-              result ? (result.netChange < 0 ? "text-red-400" : "text-emerald-400") : "text-slate-300"
-            }`}
-          >
-            {result ? format(result.winAmount) : "—"}
-          </span>
-        </div>
-      </div>
-
-      <div className="mb-2 w-full">
-        <div
-          className={`flex items-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 transition ${
-            notEnoughFunds ? "ring-red-500/40" : "ring-white/[0.06] focus-within:ring-[#087cff]/50"
-          }`}
-        >
-          <span className="shrink-0 text-[11px] font-black text-slate-500">{currency.symbol}</span>
-          <input
-            type="number"
-            min={convert(MIN_PLAY_AMOUNT)}
-            placeholder="Spin amount"
-            value={amount}
-            onChange={(e) => {
-              setAmount(e.target.value);
-              setError(null);
-            }}
-            className="min-w-0 flex-1 bg-transparent text-[13px] font-black tabular-nums text-white outline-none placeholder:text-slate-600"
-          />
-        </div>
-        {notEnoughFunds && (
-          <p className="mt-1 text-[10px] font-bold text-red-400">
-            Insufficient balance — {format(balance)} available
-          </p>
+            {spinning || loading ? <LoadingDots label={loading ? "Placing" : "Spinning"} /> : "Spin"}
+          </button>
         )}
       </div>
-
-      <p className="mb-2.5 self-start text-[10px] text-slate-600">
-        from {format(MIN_PLAY_AMOUNT)} to {balance > 0 ? format(balance) : "—"}
-      </p>
-
-      <div className="mb-4 flex w-full gap-1.5">
-        {([1.5, 2, 3] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setAmount((v) => (parseFloat(v || "0") * m).toFixed(2))}
-            className="flex-1 rounded-lg bg-white/[0.04] py-1.5 text-[11px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/15 hover:text-[#75b8ff]"
-          >
-            ×{m}
-          </button>
-        ))}
-      </div>
-
-      {!isSignedIn ? (
-        <button
-          type="button"
-          onClick={openLogin}
-          className="w-full rounded-xl bg-[#087cff] py-3.5 text-sm font-black text-white transition hover:bg-[#0570e8] active:scale-[.99]"
-        >
-          Log in to Spin
-        </button>
-      ) : notEnoughFunds ? (
-        <Link
-          href="/wallet"
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#06c96e] py-3.5 text-sm font-black text-white transition hover:bg-[#05b85f] active:scale-[.99]"
-        >
-          <Icon name="account_balance_wallet" className="h-4 w-4" />
-          Deposit to Spin
-        </Link>
-      ) : (
-        <button
-          type="button"
-          onClick={spin}
-          disabled={spinning || loading || !amt || amtKes < MIN_PLAY_AMOUNT}
-          className="w-full rounded-xl bg-[#087cff] py-3.5 text-sm font-black text-white transition hover:bg-[#0570e8] active:scale-[.99] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {spinning || loading ? <LoadingDots label={loading ? "Placing" : "Spinning"} /> : "Spin"}
-        </button>
-      )}
     </div>
   );
 }

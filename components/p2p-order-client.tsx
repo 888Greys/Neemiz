@@ -310,7 +310,7 @@ function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; cur
   return (
     <div className="flex flex-col h-full">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0 bg-[#0c0c12]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0 bg-[#151518]">
         <div className="mb-3 flex items-center gap-2 rounded-xl border border-[#087cff]/15 bg-[#087cff]/5 px-3 py-2 text-[10px] font-bold text-slate-500">
           <Icon name="lock" className="text-[13px] text-[#087cff]" />
           Messages and images are attached to this order for dispute evidence.
@@ -371,7 +371,7 @@ function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; cur
 
       {/* Input */}
       {!readOnly && (
-        <div className="shrink-0 border-t border-white/[0.1] bg-[#151720] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,.28)]">
+        <div className="shrink-0 border-t border-white/[0.1] bg-[#18191f] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-18px_40px_rgba(0,0,0,.28)]">
           {pendingImage && (
             <div className="relative mb-2 inline-block overflow-hidden rounded-xl border border-white/10">
               <img src={pendingImage} alt="Image ready to send" className="h-24 w-32 object-cover" />
@@ -398,7 +398,7 @@ function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; cur
               onBlur={() => channelRef.current?.send({ type: "broadcast", event: "typing", payload: { userId: currentUserId, active: false } })}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send()}
               placeholder="Type a message…"
-              className="h-11 flex-1 rounded-xl border border-white/[0.1] bg-[#090b10] px-4 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-[#05b957]/60 focus:ring-2 focus:ring-[#05b957]/10"
+              className="h-11 flex-1 rounded-xl border border-white/[0.1] bg-[#151518] px-4 text-sm text-white outline-none transition-colors placeholder:text-slate-500 focus:border-[#05b957]/60 focus:ring-2 focus:ring-[#05b957]/10"
             />
             <button
               onClick={send}
@@ -480,9 +480,9 @@ function MobileP2POrderView({
   // ── Chat overlay ──────────────────────────────────────────────────────────
   if (showChat) {
     return (
-      <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#08080c] text-white">
+      <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#151518] text-white">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-[#1e1e30] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
             type="button"
             onClick={() => setShowChat(false)}
@@ -506,9 +506,9 @@ function MobileP2POrderView({
   // ── Cancel confirmation screen ────────────────────────────────────────────
   if (showCancelForm) {
     return (
-      <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#08080c] text-white">
+      <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#151518] text-white">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-[#1e1e30] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
             type="button"
             onClick={() => setShowCancelForm(false)}
@@ -532,12 +532,12 @@ function MobileP2POrderView({
             onChange={(e) => setMobileCancelReason(e.target.value)}
             placeholder="e.g. Payment method not supported, changed my mind…"
             rows={4}
-            className="w-full rounded-xl border border-white/[0.08] bg-[#16161f] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-700 resize-none"
+            className="w-full rounded-xl border border-white/[0.08] bg-[#18191f] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-700 resize-none"
           />
         </div>
 
         {/* Footer action */}
-        <div className="border-t border-[#1e1e30] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="border-t border-white/[0.06] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button
             type="button"
             disabled={!!actionLoading || !mobileCancelReason.trim()}
@@ -558,9 +558,9 @@ function MobileP2POrderView({
   // ── Dispute screen ───────────────────────────────────────────────────────
   if (showDisputeScreen) {
     return (
-      <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#08080c] text-white">
+      <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#151518] text-white">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-[#1e1e30] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
             type="button"
             onClick={() => setShowDisputeScreen(false)}
@@ -585,12 +585,12 @@ function MobileP2POrderView({
             onChange={(e) => setMobileDisputeReason(e.target.value)}
             placeholder="e.g. I paid KSh 5,000 via M-Pesa (ref: QHJ2K3L) 30 minutes ago but merchant has not released…"
             rows={6}
-            className="w-full rounded-xl border border-white/[0.08] bg-[#16161f] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-700 resize-none"
+            className="w-full rounded-xl border border-white/[0.08] bg-[#18191f] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-700 resize-none"
           />
         </div>
 
         {/* Footer action */}
-        <div className="border-t border-[#1e1e30] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <div className="border-t border-white/[0.06] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button
             type="button"
             disabled={!mobileDisputeReason.trim() || !!actionLoading}
@@ -620,7 +620,7 @@ function MobileP2POrderView({
     const copy = (t: string) => { navigator.clipboard?.writeText(t).then(() => toast.success("Copied")).catch(() => {}); };
 
     return (
-      <div className="lg:hidden flex flex-col min-h-[calc(100dvh-7rem)] bg-[#08080c] text-white">
+      <div className="lg:hidden flex flex-col min-h-[calc(100dvh-7rem)] bg-[#151518] text-white">
         {/* Top bar */}
         <div className="grid grid-cols-[36px_1fr_36px] items-center border-b border-white/[0.08] px-4 pb-3 pt-3">
           <button type="button" onClick={onBack} className="grid h-9 w-9 place-items-center rounded-full text-white">
@@ -642,7 +642,7 @@ function MobileP2POrderView({
           </div>
 
           {/* Summary card */}
-          <div className="mb-5 rounded-2xl border border-white/[0.08] bg-[#111118] px-4 py-4">
+          <div className="mb-5 rounded-2xl border border-white/[0.08] bg-[#18191f] px-4 py-4">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm font-black">
                 <span className={received ? "text-[#05b957]" : "text-red-500"}>{sideLabel}</span> {order.crypto}
@@ -726,7 +726,7 @@ function MobileP2POrderView({
         </div>
 
         {/* Bottom: Order again → merchant profile */}
-        <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-[#1e1e30] bg-[#08080c] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+        <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-white/[0.06] bg-[#151518] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
           <button
             type="button"
             onClick={() => router.push(`/p2p?merchant=${order.merchantId}&crypto=${order.crypto}`)}
@@ -756,7 +756,7 @@ function MobileP2POrderView({
       : "Your order has expired";
 
     return (
-      <div className="lg:hidden flex flex-col min-h-[calc(100dvh-7rem)] bg-[#08080c] text-white">
+      <div className="lg:hidden flex flex-col min-h-[calc(100dvh-7rem)] bg-[#151518] text-white">
         {/* Top bar */}
         <div className="grid grid-cols-[36px_1fr_36px] items-center border-b border-white/[0.08] px-4 pb-3 pt-3">
           <button type="button" onClick={onBack} className="grid h-9 w-9 place-items-center rounded-full text-white">
@@ -778,7 +778,7 @@ function MobileP2POrderView({
           </div>
 
           {/* Summary card */}
-          <div className="mb-5 rounded-2xl border border-white/[0.08] bg-[#111118] px-4 py-4">
+          <div className="mb-5 rounded-2xl border border-white/[0.08] bg-[#18191f] px-4 py-4">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm font-black">
                 <span className={received ? "text-[#05b957]" : "text-red-500"}>{sideLabel}</span> {order.crypto}
@@ -825,7 +825,7 @@ function MobileP2POrderView({
         </div>
 
         {/* Bottom: find better offers + rate experience */}
-        <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-[#1e1e30] bg-[#08080c] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+        <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-white/[0.06] bg-[#151518] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
           <button
             type="button"
             onClick={() => router.push(`/p2p?crypto=${order.crypto}`)}
@@ -843,7 +843,7 @@ function MobileP2POrderView({
 
   // ── Main view ─────────────────────────────────────────────────────────────
   return (
-    <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-[#08080c] px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
+    <div className="lg:hidden min-h-[calc(100dvh-7rem)] bg-[#151518] px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-3 text-white">
       <div className="mb-4 grid grid-cols-[36px_minmax(0,1fr)_auto] items-center border-b border-white/[0.08] pb-3">
         <button type="button" onClick={onBack} className="grid h-9 w-9 place-items-center rounded-full text-white">
           <Icon name="arrow_back" className="text-[21px]" />
@@ -917,7 +917,7 @@ function MobileP2POrderView({
       )}
 
       {!(order.status === "PENDING" && isReleaseActor(order)) && (
-        <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3">
+        <div className="mb-5 flex items-center justify-between rounded-2xl bg-[#18191f] px-4 py-3">
           <button type="button" className="flex items-center gap-1 text-sm font-bold text-white">
             {counterpartyName(order)}
             <Icon name="chevron_right" className="text-[16px] text-slate-500" />
@@ -984,14 +984,14 @@ function MobileP2POrderView({
             <button
               type="button"
               onClick={() => setShowChat(true)}
-              className="fixed bottom-32 right-3 z-40 flex flex-col items-center gap-0.5 rounded-xl border border-white/10 bg-[#16161f] px-3 py-2 text-[10px] font-bold text-slate-300 shadow-lg transition hover:bg-[#1e1e2a]"
+              className="fixed bottom-32 right-3 z-40 flex flex-col items-center gap-0.5 rounded-xl border border-white/10 bg-[#18191f] px-3 py-2 text-[10px] font-bold text-slate-300 shadow-lg transition hover:bg-[#1c1d24]"
             >
               <Icon name="support_agent" className="text-[18px] text-[#8bc3ff]" />
               Help
             </button>
           </section>
         ) : (
-          <section className="mb-5 rounded-2xl border border-white/[0.08] bg-[#111118] px-4 py-4">
+          <section className="mb-5 rounded-2xl border border-white/[0.08] bg-[#18191f] px-4 py-4">
             <div className="flex items-start gap-3">
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#f59e0b]/15 text-[#f59e0b]">
                 <Icon name="schedule" className="text-[18px]" />
@@ -1010,7 +1010,7 @@ function MobileP2POrderView({
         <section className="mb-5 space-y-5">
           <div className="space-y-4">
             <div className="flex gap-3">
-              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-[#111118]">1</span>
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-[#18191f]">1</span>
               <div>
                 <h2 className="text-sm font-black text-white">Open {paymentName}</h2>
                 <p className="mt-1 text-[11px] leading-4 text-slate-500">Log in to your receiving account and check the latest incoming payment.</p>
@@ -1018,7 +1018,7 @@ function MobileP2POrderView({
             </div>
             <div className="ml-2 border-l border-white/[0.12] pl-5">
               <div className="flex gap-3">
-                <span className="-ml-[31px] grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-[#111118]">2</span>
+                <span className="-ml-[31px] grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-[#18191f]">2</span>
                 <div className="min-w-0 flex-1">
                   <h2 className="text-sm font-black text-white">Confirm Receipt of Payment</h2>
                   <div className="mt-4 space-y-3">
@@ -1031,7 +1031,7 @@ function MobileP2POrderView({
               </div>
             </div>
             <div className="flex gap-3">
-              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-[#111118]">3</span>
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-[#18191f]">3</span>
               <div>
                 <h2 className="text-sm font-black text-white">Tap button below to release crypto</h2>
                 <p className="mt-1 text-[11px] leading-4 text-slate-500">If the sender name or amount does not match, do not release. Use chat or open a dispute.</p>
@@ -1048,7 +1048,7 @@ function MobileP2POrderView({
             value={paidRef}
             onChange={(e) => setPaidRef(e.target.value)}
             placeholder="M-Pesa confirmation code"
-            className="h-11 w-full rounded-xl border border-white/[0.08] bg-[#16161f] px-3 text-sm text-white outline-none placeholder:text-slate-700"
+            className="h-11 w-full rounded-xl border border-white/[0.08] bg-[#18191f] px-3 text-sm text-white outline-none placeholder:text-slate-700"
           />
         </div>
       )}
@@ -1068,7 +1068,7 @@ function MobileP2POrderView({
       )}
 
       {order.status === "PENDING" && (
-        <button type="button" className="mb-5 flex w-full items-center justify-between rounded-2xl bg-[#16161f] px-4 py-3 text-left">
+        <button type="button" className="mb-5 flex w-full items-center justify-between rounded-2xl bg-[#18191f] px-4 py-3 text-left">
           <span className="flex items-center gap-2 text-xs text-white">
             <Icon name="tips_and_updates" className="text-[16px] text-[#f59e0b]" />
             Encountered an issue?
@@ -1078,7 +1078,7 @@ function MobileP2POrderView({
       )}
 
       {(canMarkPaid || canRelease || (order.status === "PENDING" && isReleaseActor(order))) && (
-      <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-[#1e1e30] bg-[#08080c] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+      <div className="fixed bottom-14 left-0 right-0 z-40 border-t border-white/[0.06] bg-[#151518] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
         {canMarkPaid && (
           <button
             type="button"
@@ -1258,7 +1258,7 @@ function DesktopPaymentInstructions({ order, paymentName }: { order: OrderData; 
 
 function StepDot({ n }: { n: number }) {
   return (
-    <span className="relative z-10 grid h-[21px] w-[21px] shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-[#0b0b11]">
+    <span className="relative z-10 grid h-[21px] w-[21px] shrink-0 place-items-center rounded-full bg-white text-[11px] font-black text-[#151518]">
       {n}
     </span>
   );
@@ -1684,7 +1684,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
 
           {/* Instructions card */}
           {!isClosed && (
-            <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-5">
+            <div className="bg-[#18191f] border border-white/[0.06] rounded-2xl p-5">
               <h2 className="text-white font-black mb-3">
                 {order.status === "PENDING" && currentUserIsBuyingCrypto && "Make your payment"}
                 {order.status === "PENDING" && order.isBuyer && !merchantIsSelling && "Waiting for merchant payment"}
@@ -1831,7 +1831,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
 
           {/* Action buttons */}
           {!isClosed && (
-            <div className="bg-[#111118] border border-white/[0.06] rounded-2xl p-5 space-y-4">
+            <div className="bg-[#18191f] border border-white/[0.06] rounded-2xl p-5 space-y-4">
 
               {/* Payer: payment completed */}
               {order.isBuyer && order.status === "PENDING" && merchantIsSelling && (
@@ -1998,7 +1998,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                 avatarUrl={order.isBuyer ? order.seller.avatarUrl : order.buyer.imageUrl}
                 size={32}
                 online={!isClosed}
-                onlineRingClass="border-[#111118]"
+                onlineRingClass="border-[#18191f]"
               />
             </div>
             <div className="min-w-0">
