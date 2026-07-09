@@ -104,7 +104,7 @@ function BetsView() {
   return (
     <div className="space-y-2 px-4 py-3">
       {bets.map((bet) => (
-        <div key={bet.id} className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+        <div key={bet.id} className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
           <button
             type="button"
             onClick={() => setExpanded(expanded === bet.id ? null : bet.id)}
@@ -227,7 +227,7 @@ function TransactionsView() {
         return (
           <div
             key={t.id}
-            className="flex items-center gap-3 rounded-2xl bg-white/[0.03] px-4 py-3.5 ring-1 ring-white/[0.07]"
+            className="flex items-center gap-3 rounded-2xl bg-[#18191f] px-4 py-3.5 ring-1 ring-white/[0.06]"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
               <Icon name={meta.icon} fill className={`text-[18px] ${meta.color}`} />
@@ -388,11 +388,11 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
     <div className="space-y-2.5 px-4 py-2">
 
       {/* ── Mode tabs ── */}
-      <div className="grid grid-cols-2 rounded-xl bg-white/[0.04] p-1 ring-1 ring-white/[0.07]">
+      <div className="grid grid-cols-2 rounded-xl bg-[#151518] p-1 ring-1 ring-white/[0.06]">
         <button
           type="button"
           onClick={() => { setMode("fiat"); setDone(false); setError(""); }}
-          className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-[12px] font-black transition ${mode === "fiat" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:text-white"}`}
+          className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-[12px] font-black transition ${mode === "fiat" ? "bg-[#087cff] text-white" : "text-slate-400 hover:text-white"}`}
         >
           <Icon name="phone_iphone" fill className="text-[15px]" />
           M-Pesa
@@ -400,7 +400,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
         <button
           type="button"
           onClick={() => { setMode("crypto"); setCwDone(false); setCwError(""); }}
-          className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-[12px] font-black transition ${mode === "crypto" ? "bg-[#087cff] text-white shadow-lg shadow-blue-500/20" : "text-slate-400 hover:text-white"}`}
+          className={`flex h-8 items-center justify-center gap-1.5 rounded-lg text-[12px] font-black transition ${mode === "crypto" ? "bg-[#087cff] text-white" : "text-slate-400 hover:text-white"}`}
         >
           <Icon name="currency_bitcoin" fill className="text-[15px]" />
           Crypto
@@ -417,7 +417,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
           </div>
         ) : (
           <>
-            <div className="rounded-xl bg-white/[0.03] px-3 py-2 ring-1 ring-white/[0.07]">
+            <div className="rounded-xl bg-[#18191f] px-3 py-2 ring-1 ring-white/[0.06]">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Available</p>
               <p className="text-xl font-black text-white">{fmtBal}</p>
             </div>
@@ -427,7 +427,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="M-Pesa number (07XX or 01XX)"
-              className="h-11 w-full rounded-xl bg-white/[0.03] px-4 text-[13px] font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
+              className="h-11 w-full rounded-xl bg-[#18191f] px-4 text-[13px] font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
             />
 
             <div className="relative">
@@ -438,13 +438,13 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
-                className="h-11 w-full rounded-xl bg-white/[0.03] px-4 pt-3 text-[13px] font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
+                className="h-11 w-full rounded-xl bg-[#18191f] px-4 pt-3 text-[13px] font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
               />
             </div>
 
             <p className="text-[11px] text-slate-600">Test mode: no fee · Min {CURRENCY_SYMBOL} {MPESA_MIN_WITHDRAWAL} · Max KSh 150,000</p>
             {Number(amount) > 0 && (
-              <div className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-2.5 ring-1 ring-white/[0.06]">
+              <div className="flex items-center justify-between rounded-xl bg-[#151518] px-4 py-2.5 ring-1 ring-white/[0.06]">
                 <span className="text-[11px] text-slate-500">You will receive</span>
                 <span className="text-[13px] font-black text-emerald-400">{CURRENCY_SYMBOL} {(Number(amount) * (1 - MPESA_WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}</span>
               </div>
@@ -458,7 +458,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               type="button"
               onClick={submitFiat}
               disabled={loading || !amount || !phone}
-              className="h-14 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-14 w-full rounded-xl bg-[#087cff] text-sm font-black text-white transition hover:bg-[#1990ff] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? "Submitting…" : "Withdraw via M-Pesa"}
             </button>
@@ -491,7 +491,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               <button
                 type="button"
                 onClick={() => setCwOpen((v) => !v)}
-                className="flex h-14 w-full items-center justify-between rounded-2xl bg-white/[0.03] px-4 ring-1 ring-white/[0.08] transition hover:bg-white/[0.06]"
+                className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.08] transition hover:bg-white/[0.06]"
               >
                 <span className="flex items-center gap-3">
                   {selectedBal && COIN_ICONS[selectedBal.crypto] ? (
@@ -511,7 +511,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               </button>
 
               {cwOpen && (
-                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl bg-[#111316] shadow-2xl shadow-black/50 ring-1 ring-white/[0.09]">
+                <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-2xl bg-[#151518] shadow-2xl shadow-black/50 ring-1 ring-white/[0.09]">
                   {cryptoBalances.map((b) => {
                     const p = b.crypto === "BTC" || b.crypto === "ETH" ? 8 : 6;
                     return (
@@ -547,7 +547,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
                 value={cwAmount}
                 onChange={(e) => { setCwAmount(e.target.value); setCwError(""); }}
                 placeholder="0"
-                className="h-14 w-full rounded-2xl bg-white/[0.03] px-5 pt-4 pr-16 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
+                className="h-14 w-full rounded-2xl bg-[#18191f] px-5 pt-4 pr-16 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
               />
               <button
                 type="button"
@@ -564,14 +564,14 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               value={cwAddress}
               onChange={(e) => { setCwAddress(e.target.value); setCwError(""); }}
               placeholder={`Destination ${NET_LABEL[selectedBal?.network ?? ""] ?? selectedBal?.network} address`}
-              className="h-14 w-full rounded-2xl bg-white/[0.03] px-5 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
+              className="h-14 w-full rounded-2xl bg-[#18191f] px-5 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
             />
 
             <p className="text-[11px] text-slate-600">
               Min {MIN_CRYPTO[selectedBal?.crypto ?? ""] ?? 0} {selectedBal?.crypto} · 5% fee applies
             </p>
             {Number(cwAmount) > 0 && (
-              <div className="flex items-center justify-between rounded-xl bg-white/[0.04] px-4 py-2.5 ring-1 ring-white/[0.06]">
+              <div className="flex items-center justify-between rounded-xl bg-[#151518] px-4 py-2.5 ring-1 ring-white/[0.06]">
                 <span className="text-[11px] text-slate-500">You will receive</span>
                 <span className="text-[13px] font-black text-emerald-400">{(Number(cwAmount) * 0.95).toFixed(cwPrec)} {selectedBal?.crypto}</span>
               </div>
@@ -585,7 +585,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               type="button"
               onClick={submitCrypto}
               disabled={cwLoading || !cwAmount || !cwAddress.trim()}
-              className="h-14 w-full rounded-xl bg-[#087cff] text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-14 w-full rounded-xl bg-[#087cff] text-sm font-black text-white transition hover:bg-[#1990ff] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {cwLoading ? "Submitting…" : `Withdraw ${selectedBal?.crypto ?? "Crypto"}`}
             </button>
@@ -601,19 +601,21 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
 function BonusesView() {
   return (
     <div className="space-y-3 px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#11365b] via-[#087cff]/40 to-[#05b957]/20 p-5 ring-1 ring-[#087cff]/30">
-        <p className="text-xs font-black uppercase tracking-widest text-[#5ea9ff]">Welcome Offer</p>
-        <p className="mt-1 text-xl font-black text-white">+130% First Deposit</p>
-        <p className="mt-1 text-xs font-bold text-slate-300">Deposit at least KSh 150 and receive a 130% bonus on your first deposit.</p>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-[10px] font-black text-white/70">
-          <Icon name="info" fill className="text-[13px]" /> Wagering requirement: 5x
+      <div className="overflow-hidden rounded-2xl bg-[#18191f] p-5 ring-1 ring-white/[0.06]">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#75b8ff]">Welcome offer</p>
+        <p className="mt-1.5 text-lg font-black text-white">+130% First Deposit</p>
+        <p className="mt-1.5 text-[12px] font-semibold leading-relaxed text-slate-400">
+          Deposit at least KSh 150 and receive a 130% bonus on your first deposit.
+        </p>
+        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#151518] px-2.5 py-1 text-[10px] font-black text-slate-400 ring-1 ring-white/[0.06]">
+          <Icon name="info" fill className="text-[12px]" /> Wagering requirement: 5x
         </div>
       </div>
 
-      <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/[0.03] py-10 text-center ring-1 ring-white/[0.07]">
+      <div className="flex flex-col items-center gap-3 rounded-2xl bg-[#18191f] py-10 text-center ring-1 ring-white/[0.06]">
         <Icon name="redeem" fill className="text-[42px] text-slate-700" />
         <p className="text-sm font-black text-slate-400">No active bonuses</p>
-        <p className="text-xs text-slate-600">Make your first deposit to claim your welcome bonus.</p>
+        <p className="text-xs font-semibold text-slate-600">Make your first deposit to claim your welcome bonus.</p>
       </div>
     </div>
   );
@@ -638,7 +640,7 @@ function BonusCodesView() {
 
   return (
     <div className="space-y-4 px-4 py-3">
-      <div className="rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
+      <div className="rounded-2xl bg-[#18191f] p-4 ring-1 ring-white/[0.06]">
         <p className="text-[11px] font-bold text-slate-500">Enter a promo or referral code to unlock rewards.</p>
       </div>
       <input
@@ -646,7 +648,7 @@ function BonusCodesView() {
         value={code}
         onChange={(e) => setCode(e.target.value.toUpperCase())}
         placeholder="BONUS CODE"
-        className="h-14 w-full rounded-2xl bg-white/[0.03] px-5 text-center text-base font-black tracking-widest text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
+        className="h-14 w-full rounded-2xl bg-[#18191f] px-5 text-center text-base font-black tracking-widest text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
       />
       {result && (
         <p className={`rounded-xl px-4 py-3 text-sm font-bold ring-1 ${result.ok ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/20" : "bg-red-500/10 text-red-300 ring-red-500/20"}`}>
@@ -692,7 +694,7 @@ function NotificationsView() {
 
   return (
     <div className="px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
         {NOTIF_KEYS.map((item, i) => (
           <div key={item.key}>
             <div className="flex items-center gap-3 px-4 py-3.5">
@@ -884,7 +886,7 @@ function SecurityView({ email }: { email: string | undefined }) {
 
       {/* Password reset */}
       {email && (
-        <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+        <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
           <div className="px-4 py-3.5">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Email</p>
             <p className="mt-0.5 text-[13px] font-black text-white">{email}</p>
@@ -904,7 +906,7 @@ function SecurityView({ email }: { email: string | undefined }) {
       )}
 
       {/* ── 2FA card ── */}
-      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="security" fill className="text-[16px] text-slate-400" />
@@ -984,7 +986,7 @@ function SecurityView({ email }: { email: string | undefined }) {
           <div className="space-y-2 border-t border-white/[0.05] px-4 py-3.5">
             <p className="text-[11px] font-bold text-slate-500">Choose only one method:</p>
             <button type="button" onClick={startSetup}
-              className="flex w-full items-center justify-between rounded-xl bg-white/[0.04] px-3 py-3 text-left ring-1 ring-white/[0.06] transition hover:bg-white/[0.07]">
+              className="flex w-full items-center justify-between rounded-xl bg-[#151518] px-3 py-3 text-left ring-1 ring-white/[0.06] transition hover:bg-white/[0.07]">
               <span>
                 <span className="block text-[12px] font-black text-white">Authenticator app</span>
                 <span className="block text-[10px] font-bold text-slate-500">Google Authenticator / Authy</span>
@@ -1010,7 +1012,7 @@ function SecurityView({ email }: { email: string | undefined }) {
                   setEmailOtpBusy(false);
                 }
               }}
-              className="flex w-full items-center justify-between rounded-xl bg-white/[0.04] px-3 py-3 text-left ring-1 ring-white/[0.06] transition hover:bg-white/[0.07] disabled:opacity-50"
+              className="flex w-full items-center justify-between rounded-xl bg-[#151518] px-3 py-3 text-left ring-1 ring-white/[0.06] transition hover:bg-white/[0.07] disabled:opacity-50"
             >
               <span>
                 <span className="block text-[12px] font-black text-white">Email code</span>
@@ -1109,7 +1111,7 @@ function SecurityView({ email }: { email: string | undefined }) {
               </div>
             </div>
 
-            <div className="rounded-xl bg-white/[0.04] px-3 py-2.5 ring-1 ring-white/[0.07]">
+            <div className="rounded-xl bg-[#151518] px-3 py-2.5 ring-1 ring-white/[0.06]">
               <p className="text-[10px] font-bold text-slate-500 mb-1 text-center">Manual key</p>
               <div className="flex items-center gap-2">
                 <p className="min-w-0 flex-1 break-all text-center font-mono text-[12px] font-black tracking-wider text-white">{setupState.secret}</p>
@@ -1146,7 +1148,7 @@ function SecurityView({ email }: { email: string | undefined }) {
 
             <div className="flex gap-2">
               <button type="button" onClick={confirmEnable} disabled={codeLoading || codeInput.length !== 6}
-                className="flex-1 rounded-xl bg-[#087cff] py-2.5 text-[13px] font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1990ff] disabled:opacity-50">
+                className="flex-1 rounded-xl bg-[#087cff] py-2.5 text-[13px] font-black text-white transition hover:bg-[#1990ff] disabled:opacity-50">
                 {codeLoading ? "Verifying…" : "Activate 2FA"}
               </button>
               <button type="button" onClick={() => { setSetupState({ phase: "idle" }); setCodeInput(""); setCodeError(""); }}
@@ -1166,7 +1168,7 @@ function SecurityView({ email }: { email: string | undefined }) {
       </div>
 
       {/* ── Sign-in passkeys card (passwordless login) ── */}
-      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="passkey" fill className="text-[16px] text-[#5ea9ff]" />
@@ -1204,7 +1206,7 @@ function SecurityView({ email }: { email: string | undefined }) {
       </div>
 
       {/* KYC card */}
-      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="verified_user" fill className="text-[16px] text-slate-400" />
@@ -1233,14 +1235,14 @@ function LanguageView() {
 
   return (
     <div className="space-y-3 px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
         <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">Language</p>
         {LANGUAGES.map((l, i) => (
           <div key={l.code}>
             <button
               type="button"
               onClick={() => { setLang(l.code); toast.info("Language updated", `${l.label} selected.`); }}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.04]"
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#151518]"
             >
               <span className="text-xl">{l.flag}</span>
               <span className="flex-1 text-[13px] font-black text-white">{l.label}</span>
@@ -1251,7 +1253,7 @@ function LanguageView() {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
         <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">Region</p>
         <div className="flex items-center gap-3 px-4 py-3">
           <span className="text-xl">🇰🇪</span>
@@ -1281,7 +1283,7 @@ const SUPPORT_CHANNELS = [
 function SupportView() {
   return (
     <div className="space-y-3 px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.05]">
           <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
           <p className="text-[12px] font-black text-white">Support is online · 24/7</p>
@@ -1292,7 +1294,7 @@ function SupportView() {
               href={ch.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.04]"
+              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-[#151518]"
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
                 <Icon name={ch.icon} fill className={`text-[16px] ${ch.color}`} />
@@ -1308,7 +1310,7 @@ function SupportView() {
         ))}
       </div>
 
-      <div className="rounded-2xl bg-white/[0.03] px-4 py-3.5 ring-1 ring-white/[0.07]">
+      <div className="rounded-2xl bg-[#18191f] px-4 py-3.5 ring-1 ring-white/[0.06]">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">FAQ</p>
         {["How do I deposit?", "How long do withdrawals take?", "How do I place a bet?"].map((q, i) => (
           <div key={i} className={`py-2.5 ${i > 0 ? "border-t border-white/[0.05]" : ""}`}>
@@ -1437,7 +1439,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
       onClick={onClose}
     >
       <div
-        className="relative flex w-full flex-col overflow-hidden rounded-t-3xl bg-[#111316] shadow-2xl ring-1 ring-white/[0.08] sm:rounded-3xl animate-in fade-in slide-in-from-bottom-4 duration-300 sm:max-w-sm lg:max-w-3xl"
+        className="relative flex w-full flex-col overflow-hidden rounded-t-3xl bg-[#151518] shadow-2xl ring-1 ring-white/[0.08] sm:rounded-3xl animate-in fade-in slide-in-from-bottom-4 duration-300 sm:max-w-sm lg:max-w-3xl"
         style={{ maxHeight: "90dvh" }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1445,273 +1447,286 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
         <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-white/10 sm:hidden" />
 
         {/* Header */}
-        <div className="flex shrink-0 items-center justify-between px-5 pt-4 pb-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-3 sm:px-5">
           <div className="flex items-center gap-2">
             {view !== "main" && (
               <button
                 type="button"
                 onClick={back}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.06] text-slate-400 transition hover:bg-white/10 hover:text-white"
+                className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
+                aria-label="Back"
               >
                 <Icon name="arrow_back" className="text-[16px]" />
               </button>
             )}
-            <h2 className="text-lg font-black text-white">{VIEW_TITLES[view]}</h2>
+            <h2 className="text-[15px] font-black text-white sm:text-base">{VIEW_TITLES[view]}</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.06] text-slate-400 transition hover:bg-white/10 hover:text-white"
+            className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
+            aria-label="Close"
           >
             <Icon name="close" className="text-[18px]" />
           </button>
         </div>
 
         {/* Scrollable body */}
-        <div className="no-scrollbar flex-1 overflow-y-auto">
+        <div className="no-scrollbar flex-1 overflow-y-auto bg-[#151518]">
 
           {/* ── MAIN ── */}
           {view === "main" && (
-            <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-2 lg:px-2 lg:pt-1">
-            <div>{/* ── LEFT column (identity + balance) ── */}
-              <div className="hidden flex-col items-center gap-1.5 px-5 pb-3 pt-1 text-center lg:flex">
-                <AvatarUploader currentUrl={avatarUrl} initials={initials} onUploaded={setAvatarOverride} />
-                <div>
-                  <p className="text-base font-black text-white">{displayName}</p>
-                  <p className="font-mono text-[10px] text-slate-500">ID {memberId}</p>
-                </div>
-              </div>
-
-              {/* ── Username editor ── */}
-              <div className="mx-4 mb-1.5 overflow-hidden rounded-xl bg-white/[0.03] ring-1 ring-white/[0.07]">
-                <p className="px-3 pt-2 pb-0.5 text-[9px] font-black uppercase tracking-widest text-slate-600">Username</p>
-                {editingUsername ? (
-                  <div className="px-4 pb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-500 text-sm font-black">@</span>
-                      <input
-                        autoFocus
-                        value={usernameInput}
-                        onChange={(e) => setUsernameInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") setEditingUsername(false); }}
-                        maxLength={20}
-                        placeholder="your_username"
-                        className="min-w-0 flex-1 rounded-xl bg-white/[0.07] px-3 py-2 text-[13px] font-black text-white outline-none ring-1 ring-white/[0.08] focus:ring-[#087cff]/60"
-                      />
-                    </div>
-                    {usernameError && <p className="mt-1.5 text-[11px] font-bold text-red-400">{usernameError}</p>}
-                    <div className="mt-2.5 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={saveUsername}
-                        disabled={usernameSaving}
-                        className="flex-1 rounded-xl bg-[#087cff] py-2 text-[12px] font-black text-white transition hover:bg-[#0970e8] disabled:opacity-50"
-                      >
-                        {usernameSaving ? "Saving…" : "Save"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingUsername(false)}
-                        className="flex-1 rounded-xl bg-white/[0.06] py-2 text-[12px] font-black text-slate-300 transition hover:bg-white/[0.1]"
-                      >
-                        Cancel
-                      </button>
+            <div className="space-y-3 px-4 py-4 sm:px-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0">
+              <div className="space-y-3">
+                {/* Identity */}
+                <div className="rounded-2xl bg-[#18191f] p-4 ring-1 ring-white/[0.06]">
+                  <div className="flex items-center gap-3">
+                    <AvatarUploader
+                      currentUrl={avatarUrl}
+                      initials={initials}
+                      onUploaded={setAvatarOverride}
+                      sizeClass="h-14 w-14"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15px] font-black text-white">{displayName}</p>
+                      <p className="mt-0.5 font-mono text-[11px] font-semibold text-slate-500">ID {memberId}</p>
+                      {isVerified && (
+                        <span className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-[#087cff]/12 px-1.5 py-0.5 text-[10px] font-black text-[#75b8ff]">
+                          <Icon name="verified" fill className="text-[11px]" />
+                          Verified
+                        </span>
+                      )}
                     </div>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-between px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <Icon name="alternate_email" fill className="text-[15px] text-slate-500" />
-                      <p className="text-[13px] font-black text-white">@{displayName}</p>
-                    </div>
+
+                  <div className="mt-3 border-t border-white/[0.06] pt-3">
+                    {editingUsername ? (
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-slate-500">@</span>
+                          <input
+                            autoFocus
+                            value={usernameInput}
+                            onChange={(e) => setUsernameInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") setEditingUsername(false); }}
+                            maxLength={20}
+                            placeholder="your_username"
+                            className="min-w-0 flex-1 rounded-xl bg-[#151518] px-3 py-2 text-[13px] font-black text-white outline-none ring-1 ring-white/[0.08] focus:ring-[#087cff]/60"
+                          />
+                        </div>
+                        {usernameError && <p className="mt-1.5 text-[11px] font-bold text-red-400">{usernameError}</p>}
+                        <div className="mt-2.5 flex gap-2">
+                          <button
+                            type="button"
+                            onClick={saveUsername}
+                            disabled={usernameSaving}
+                            className="flex-1 rounded-xl bg-[#087cff] py-2 text-[12px] font-black text-white transition hover:bg-[#0970e8] disabled:opacity-50"
+                          >
+                            {usernameSaving ? "Saving…" : "Save"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingUsername(false)}
+                            className="flex-1 rounded-xl bg-white/[0.06] py-2 text-[12px] font-black text-slate-300 transition hover:bg-white/[0.1]"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <Icon name="alternate_email" fill className="shrink-0 text-[14px] text-slate-500" />
+                          <p className="truncate text-[13px] font-black text-white">@{displayName}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={startEditUsername}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-white/[0.06] px-2.5 py-1 text-[10px] font-black text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
+                        >
+                          <Icon name="edit" className="text-[12px]" />
+                          Edit
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Balance */}
+                <div className="rounded-2xl bg-[#18191f] p-4 ring-1 ring-white/[0.06]">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Account balance</p>
+                  <p className="mt-1 font-mono text-[22px] font-black tabular-nums text-white">{fmtBalance}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={startEditUsername}
-                      className="flex items-center gap-1 rounded-lg bg-white/[0.06] px-2 py-1 text-[10px] font-black text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
+                      onClick={() => { onClose(); onOpenWallet(); }}
+                      className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#05b957] text-[12px] font-black text-white transition hover:bg-[#07cc63] active:scale-[0.98]"
                     >
-                      <Icon name="edit" className="text-[12px]" />
-                      Edit
+                      <Icon name="add_circle" fill className="text-[16px]" />
+                      Deposit
                     </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="mx-4 mb-1.5 overflow-hidden rounded-xl bg-white/[0.03] ring-1 ring-white/[0.08]">
-                <div className="px-3 pt-2 pb-1">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Account Balance</p>
-                  <p className="mt-0.5 text-xl font-black text-white">{fmtBalance}</p>
-                </div>
-                <div className="flex gap-1.5 px-3 pb-2">
-                  <button
-                    type="button"
-                    onClick={() => { onClose(); onOpenWallet(); }}
-                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#05b957] py-1.5 text-[12px] font-black text-white transition hover:bg-[#07cc63] active:scale-[0.98]"
-                  >
-                    <Icon name="add_circle" fill className="text-[16px]" />
-                    Deposit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { onClose(); onOpenWallet("withdraw"); }}
-                    className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-white/[0.07] py-1.5 text-[12px] font-black text-slate-300 ring-1 ring-white/[0.09] transition hover:bg-white/[0.11] active:scale-[0.98]"
-                  >
-                    <Icon name="remove_circle" fill className="text-[16px] text-slate-400" />
-                    Withdraw
-                  </button>
-                </div>
-              </div>
-            </div>{/* ── end LEFT column ── */}
-
-            <div>{/* ── RIGHT column (menu + settings + sign out) ── */}
-              <div className="mx-4 mb-2 overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
-                {MENU.map((item, i) => (
-                  <div key={item.label}>
                     <button
                       type="button"
-                      onClick={item.action}
-                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition hover:bg-white/[0.04] active:scale-[0.99]"
+                      onClick={() => { onClose(); onOpenWallet("withdraw"); }}
+                      className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#151518] text-[12px] font-black text-slate-200 ring-1 ring-white/[0.08] transition hover:bg-white/[0.06] active:scale-[0.98]"
                     >
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
-                        <Icon name={item.icon} fill className="text-[15px] text-slate-400" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-black text-white">{item.label}</p>
-                        <p className="text-[10px] text-slate-500">{item.sub}</p>
-                      </div>
-                      <Icon name="chevron_right" className="text-[16px] text-slate-600" />
+                      <Icon name="remove_circle" fill className="text-[16px] text-slate-400" />
+                      Withdraw
                     </button>
-                    {i < MENU.length - 1 && <div className="mx-4 h-px bg-white/[0.05]" />}
                   </div>
-                ))}
+                </div>
               </div>
 
-              <div className="mx-4 mb-2.5 overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
-                <button
-                  type="button"
-                  onClick={() => setView("support")}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/[0.04]"
-                >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
-                    <Icon name="support_agent" fill className="text-[15px] text-slate-400" />
-                  </div>
-                  <span className="flex-1 text-[13px] font-black text-white">Support</span>
-                  <span className="rounded-full bg-[#087cff] px-2 py-0.5 text-[10px] font-black text-white">24/7</span>
-                  <Icon name="chevron_right" className="text-[16px] text-slate-600" />
-                </button>
-                <div className="mx-4 h-px bg-white/[0.05]" />
-                <button
-                  type="button"
-                  onClick={() => setView("settings")}
-                  className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-white/[0.04]"
-                >
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
-                    <Icon name="settings" fill className="text-[15px] text-slate-400" />
-                  </div>
-                  <span className="flex-1 text-[13px] font-black text-white">Settings</span>
-                  <Icon name="chevron_right" className="text-[16px] text-slate-600" />
-                </button>
-              </div>
+              <div className="space-y-3">
+                <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
+                  {MENU.map((item, i) => (
+                    <div key={item.label}>
+                      <button
+                        type="button"
+                        onClick={item.action}
+                        className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-white/[0.03] active:scale-[0.99]"
+                      >
+                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
+                          <Icon name={item.icon} fill className="text-[15px] text-slate-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-black text-white">{item.label}</p>
+                          <p className="text-[10px] font-semibold text-slate-500">{item.sub}</p>
+                        </div>
+                        <Icon name="chevron_right" className="text-[16px] text-slate-600" />
+                      </button>
+                      {i < MENU.length - 1 && <div className="mx-3.5 h-px bg-white/[0.05]" />}
+                    </div>
+                  ))}
+                </div>
 
-              <div className="px-4 pb-4">
+                <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
+                  <button
+                    type="button"
+                    onClick={() => setView("support")}
+                    className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-white/[0.03]"
+                  >
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
+                      <Icon name="support_agent" fill className="text-[15px] text-slate-400" />
+                    </div>
+                    <span className="flex-1 text-[13px] font-black text-white">Support</span>
+                    <span className="rounded-md bg-[#087cff]/15 px-1.5 py-0.5 text-[10px] font-black text-[#75b8ff]">24/7</span>
+                    <Icon name="chevron_right" className="text-[16px] text-slate-600" />
+                  </button>
+                  <div className="mx-3.5 h-px bg-white/[0.05]" />
+                  <button
+                    type="button"
+                    onClick={() => setView("settings")}
+                    className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-white/[0.03]"
+                  >
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
+                      <Icon name="settings" fill className="text-[15px] text-slate-400" />
+                    </div>
+                    <span className="flex-1 text-[13px] font-black text-white">Settings</span>
+                    <Icon name="chevron_right" className="text-[16px] text-slate-600" />
+                  </button>
+                </div>
+
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.07] py-2.5 text-sm font-black text-red-400 ring-1 ring-red-500/[0.12] transition hover:bg-red-500/[0.12] hover:ring-red-500/30"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.08] py-2.5 text-[13px] font-black text-red-400 ring-1 ring-red-500/15 transition hover:bg-red-500/[0.12]"
                 >
                   <Icon name="logout" className="text-[16px]" />
                   Sign Out
                 </button>
               </div>
-            </div>{/* ── end RIGHT column ── */}
             </div>
           )}
 
           {/* ── SETTINGS ── */}
           {view === "settings" && (
-            <>
+            <div className="space-y-3 px-4 py-4 sm:px-5">
               {(email || phone) && (
-                <div className="mx-4 mb-3 overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
-                  <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">Contact Info</p>
+                <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
+                  <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Contact info</p>
                   {email && (
-                    <div className="flex items-center justify-between px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <Icon name="mail" fill className="text-[15px] text-slate-500" />
-                        <div>
-                          <p className="text-[12px] font-black text-white">{email}</p>
-                          <p className="text-[10px] text-slate-600">Email address</p>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
+                          <Icon name="mail" fill className="text-[15px] text-slate-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-[12px] font-black text-white">{email}</p>
+                          <p className="text-[10px] font-semibold text-slate-600">Email address</p>
                         </div>
                       </div>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${isVerified ? "bg-emerald-500/12 text-emerald-400" : "bg-amber-500/12 text-amber-400"}`}>
+                      <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-black ${isVerified ? "bg-emerald-500/12 text-emerald-400" : "bg-white/[0.06] text-slate-400"}`}>
                         {isVerified ? "Verified" : "Unverified"}
                       </span>
                     </div>
                   )}
                   {email && phone && <div className="mx-4 h-px bg-white/[0.05]" />}
                   {phone && (
-                    <div className="flex items-center justify-between px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <Icon name="phone" fill className="text-[15px] text-slate-500" />
-                        <div>
-                          <p className="text-[12px] font-black text-white">{phone}</p>
-                          <p className="text-[10px] text-slate-600">Phone number</p>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
+                          <Icon name="phone" fill className="text-[15px] text-slate-400" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-[12px] font-black text-white">{phone}</p>
+                          <p className="text-[10px] font-semibold text-slate-600">Phone number</p>
                         </div>
                       </div>
-                      <span className="rounded-full bg-emerald-500/12 px-2 py-0.5 text-[10px] font-black text-emerald-400">Verified</span>
+                      <span className="shrink-0 rounded-md bg-emerald-500/12 px-2 py-0.5 text-[10px] font-black text-emerald-400">Verified</span>
                     </div>
                   )}
                 </div>
               )}
 
-              <div className="mx-4 mb-3 overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+              <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
                 {SETTINGS_ITEMS.map((item, i) => (
                   <div key={item.label}>
-                    <button type="button" onClick={item.action} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.04] active:scale-[0.99]">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
+                    <button type="button" onClick={item.action} className="flex w-full items-center gap-3 px-3.5 py-3.5 text-left transition hover:bg-white/[0.03] active:scale-[0.99]">
+                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
                         <Icon name={item.icon} fill className="text-[16px] text-slate-400" />
                       </div>
-                      <div className="flex-1">
+                      <div className="min-w-0 flex-1">
                         <p className="text-[13px] font-black text-white">{item.label}</p>
-                        <p className="text-[11px] text-slate-500">{item.sub}</p>
+                        <p className="text-[11px] font-semibold text-slate-500">{item.sub}</p>
                       </div>
                       <Icon name="chevron_right" className="text-[16px] text-slate-600" />
                     </button>
-                    {i < SETTINGS_ITEMS.length - 1 && <div className="mx-4 h-px bg-white/[0.05]" />}
+                    {i < SETTINGS_ITEMS.length - 1 && <div className="mx-3.5 h-px bg-white/[0.05]" />}
                   </div>
                 ))}
               </div>
 
-              <div className="mx-4 mb-4 overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
-                <div className="flex items-center justify-between px-4 py-3.5">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
+              <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
+                <div className="flex items-center justify-between gap-3 px-3.5 py-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
                       <Icon name="devices" fill className="text-[16px] text-slate-400" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-[13px] font-black text-white">Active sessions</p>
-                      <p className="text-[11px] text-slate-500">This device · {new Date().toLocaleDateString("en-KE", { day: "numeric", month: "short" })}</p>
+                      <p className="text-[11px] font-semibold text-slate-500">This device · {new Date().toLocaleDateString("en-KE", { day: "numeric", month: "short" })}</p>
                     </div>
                   </div>
                   <button
                     type="button"
                     onClick={handleSignOut}
-                    className="text-xs font-black text-red-400 transition hover:text-red-300"
+                    className="shrink-0 text-xs font-black text-red-400 transition hover:text-red-300"
                   >
                     End all
                   </button>
                 </div>
               </div>
 
-              <div className="px-4 pb-6">
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.07] py-3 text-sm font-black text-red-400 ring-1 ring-red-500/[0.12] transition hover:bg-red-500/[0.12] hover:ring-red-500/30"
-                >
-                  <Icon name="logout" className="text-[16px]" />
-                  Sign Out
-                </button>
-              </div>
-            </>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.08] py-3 text-sm font-black text-red-400 ring-1 ring-red-500/15 transition hover:bg-red-500/[0.12]"
+              >
+                <Icon name="logout" className="text-[16px]" />
+                Sign Out
+              </button>
+            </div>
           )}
 
           {/* ── SUB-VIEWS ── */}
