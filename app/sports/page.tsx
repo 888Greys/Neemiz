@@ -252,18 +252,18 @@ export default async function SportsPage({ searchParams }: Props) {
     <AppShell rightPanel={<SportsBetSlip />}>
       <SportsLiveRefresh active={displayLive.length > 0 || liveOnly} />
       {/* Sticky: sports strip + professional search */}
-      <div className="sticky top-0 z-30 border-b border-white/10 bg-[#0e0f14]/95 backdrop-blur-md">
+      <div className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#151518]/95 backdrop-blur-md">
         <div className="flex gap-2 overflow-x-auto no-scrollbar px-3 pt-2.5">
           <Link
             href={hrefSports({ sport: "all", q: q || undefined, tab: liveOnly ? "live" : undefined })}
             prefetch={false}
             className={`flex shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-0.5 transition ${
-              sportSlug === "all" ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
+              sportSlug === "all" ? "bg-white/[0.04]" : "hover:bg-white/[0.04]"
             }`}
           >
             <span
               className={`flex h-9 w-9 items-center justify-center rounded-full ring-1 ${
-                sportSlug === "all" ? "ring-[#087cff] bg-[#087cff]/10" : "ring-white/[0.1] bg-white/[0.06]"
+                sportSlug === "all" ? "ring-[#087cff] bg-[#087cff]/10" : "ring-white/[0.06] bg-white/[0.06]"
               }`}
             >
               <Icon
@@ -288,14 +288,14 @@ export default async function SportsPage({ searchParams }: Props) {
                 href={hrefSports({ sport: s.slug, q: q || undefined, tab: liveOnly ? "live" : undefined })}
                 prefetch={false}
                 className={`flex shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-0.5 transition ${
-                  active ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
+                  active ? "bg-white/[0.04]" : "hover:bg-white/[0.04]"
                 }`}
               >
                 <span
                   className={`flex h-9 w-9 items-center justify-center rounded-full ring-1 ${
                     active
                       ? "ring-[#087cff] bg-[#087cff]/10"
-                      : "ring-white/[0.1] bg-white/[0.06]"
+                      : "ring-white/[0.06] bg-white/[0.06]"
                   }`}
                 >
                   <span className="text-[20px] leading-none" aria-hidden>
@@ -322,7 +322,7 @@ export default async function SportsPage({ searchParams }: Props) {
           {currentSportParam === "all" && <input type="hidden" name="sport" value="all" />}
           {leagueFilter && <input type="hidden" name="league" value={leagueFilter} />}
           {liveOnly && <input type="hidden" name="tab" value="live" />}
-          <label className="flex h-10 w-full items-center gap-2.5 rounded-xl bg-[#1a1d27] px-3.5 ring-1 ring-white/[0.08] transition focus-within:ring-[#087cff]/50">
+          <label className="flex h-10 w-full items-center gap-2.5 rounded-xl bg-white/[0.04] px-3.5 ring-1 ring-white/[0.06] transition focus-within:ring-[#087cff]/45">
             <Icon name="search" className="shrink-0 text-[20px] text-slate-500" />
             <input
               name="q"
@@ -349,7 +349,7 @@ export default async function SportsPage({ searchParams }: Props) {
 
       {/* Leagues for selected sport */}
       {sportFilter && leagueStrip.length > 0 && (
-        <div className="border-b border-white/10 px-3 py-2.5">
+        <div className="border-b border-white/[0.06] bg-[#151518] px-3 py-2.5">
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
             {leagueStrip.map((item) => {
               const isAll = item.label === "All leagues";
@@ -369,12 +369,12 @@ export default async function SportsPage({ searchParams }: Props) {
                   href={href}
                   prefetch={false}
                   className={`flex shrink-0 flex-col items-center gap-1 rounded-xl px-1.5 py-1 transition ${
-                    isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"
+                    isActive ? "bg-white/[0.04]" : "hover:bg-white/[0.04]"
                   }`}
                 >
                   <span
                     className={`flex h-9 w-9 items-center justify-center overflow-hidden rounded-full p-1.5 ring-1 ${
-                      isActive ? "ring-[#087cff] bg-[#087cff]/10" : "ring-white/[0.1] bg-white/[0.06]"
+                      isActive ? "ring-[#087cff] bg-[#087cff]/10" : "ring-white/[0.06] bg-white/[0.06]"
                     }`}
                   >
                     {isAll ? (
@@ -410,9 +410,9 @@ export default async function SportsPage({ searchParams }: Props) {
         </div>
       )}
 
-      <div className="min-h-screen bg-background pb-28">
-        {/* Live / All mode chip */}
-        <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2 sm:px-4">
+      <div className="min-h-screen bg-[#151518] pb-28">
+        {/* All / Live — wallet-style underline tabs */}
+        <div className="flex items-center gap-6 border-b border-white/[0.06] px-3 sm:px-4">
           <Link
             href={hrefSports({
               sport: currentSportParam === DEFAULT_SPORT_SLUG ? undefined : currentSportParam,
@@ -420,11 +420,14 @@ export default async function SportsPage({ searchParams }: Props) {
               q: q || undefined,
             })}
             prefetch={false}
-            className={`rounded-lg px-3 py-1.5 text-[11px] font-black transition ${
-              !liveOnly ? "bg-[#087cff] text-white" : "bg-[#1c2433] text-slate-400 hover:text-white"
+            className={`relative py-2.5 text-[12px] font-black transition ${
+              !liveOnly ? "text-white" : "text-slate-500 hover:text-white"
             }`}
           >
             All
+            {!liveOnly && (
+              <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[#087cff]" />
+            )}
           </Link>
           <Link
             href={hrefSports({
@@ -434,25 +437,28 @@ export default async function SportsPage({ searchParams }: Props) {
               tab: "live",
             })}
             prefetch={false}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-black transition ${
-              liveOnly ? "bg-[#ff1979]/20 text-[#ff1979]" : "bg-[#1c2433] text-slate-400 hover:text-white"
+            className={`relative inline-flex items-center gap-1.5 py-2.5 text-[12px] font-black transition ${
+              liveOnly ? "text-[#ff1979]" : "text-slate-500 hover:text-white"
             }`}
           >
             <span className="h-1.5 w-1.5 rounded-full bg-current" />
             Live
+            {liveOnly && (
+              <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[#ff1979]" />
+            )}
           </Link>
         </div>
 
         {displayLive.length > 0 && (
           <section className="pt-1">
             <div className="flex items-center gap-2 px-3 py-2.5 sm:px-4">
-              <h2 className="flex items-center gap-2 text-[14px] font-black text-white">
+              <h2 className="flex items-center gap-2 text-[13px] font-black text-white">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#ff1979] opacity-75" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-[#ff1979]" />
                 </span>
                 Live
-                <span className="text-[12px] font-bold text-slate-500">{displayLive.length}</span>
+                <span className="text-[11px] font-semibold text-slate-500">{displayLive.length}</span>
               </h2>
             </div>
             {liveGroups.map(({ league, meta, fixtures }) => (
@@ -475,7 +481,7 @@ export default async function SportsPage({ searchParams }: Props) {
         {displayUpcoming.length > 0 && (
           <section className={displayLive.length > 0 ? "mt-2" : "pt-1"}>
             <div className="px-3 py-2.5 sm:px-4">
-              <h2 className="text-[14px] font-black text-white">Upcoming</h2>
+              <h2 className="text-[13px] font-black text-white">Upcoming</h2>
             </div>
             {upcomingGroups.map(({ league, meta, fixtures }) => (
               <div key={`up-${league}`}>
@@ -517,7 +523,7 @@ export default async function SportsPage({ searchParams }: Props) {
               <Link
                 href={hrefSports({ sport: sportFilter?.slug ?? DEFAULT_SPORT_SLUG })}
                 prefetch={false}
-                className="mt-5 rounded-2xl bg-[#087cff] px-5 py-2.5 text-[13px] font-black text-white"
+                className="mt-5 rounded-xl bg-[#087cff] px-5 py-2.5 text-[13px] font-black text-white"
               >
                 {liveOnly ? "Show all fixtures" : "Clear filters"}
               </Link>

@@ -10,7 +10,7 @@ html {
 
 body {
   min-height: 100vh;
-  background: #050506;
+  background: #151518;
   color: #f1f0ff;
   font-family: var(--font-jakarta), sans-serif;
   overflow-x: hidden;
@@ -406,7 +406,7 @@ input[type="email"]:focus {
 
 /* Admin command center */
 .admin-root {
-  background: #0a0b0e;
+  background: #151518;
 }
 
 .admin-sidebar {
@@ -416,7 +416,7 @@ input[type="email"]:focus {
 
 .admin-main {
   min-height: 100vh;
-  background: #0a0b0e;
+  background: #151518;
 }
 
 .admin-page {

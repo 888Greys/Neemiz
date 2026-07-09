@@ -440,7 +440,7 @@ export function NotificationsBell() {
       >
         <Icon name="notifications" fill={open} className="text-[20px]" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#ff1979] px-1 text-[9px] font-black text-white ring-2 ring-[#111113]">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#ff1979] px-1 text-[9px] font-black text-white ring-2 ring-[#151518]">
             {unread}
           </span>
         )}

@@ -32,7 +32,7 @@ export function DevLoginClient({ accounts }: { accounts: DevAccountInfo[] }) {
   }
 
   return (
-    <div className="grid min-h-screen place-items-center bg-[#050506] p-4 text-white">
+    <div className="grid min-h-screen place-items-center bg-[#151518] p-4 text-white">
       <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0f1218] p-6">
         <div className="mb-1 text-lg font-black">Dev Login</div>
         <div className="mb-5 text-xs font-bold text-amber-400">Local development only — not present in production.</div>

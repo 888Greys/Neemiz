@@ -51,8 +51,8 @@ export function CurrencySwitcher({ className = "", inline = false }: { className
       </button>
 
       {open && (
-        <div className={`${inline ? "relative mt-1.5 flex max-h-64 w-full flex-col" : "absolute right-0 z-50 mt-1 flex max-h-80 w-60 flex-col"} rounded-xl border border-white/10 bg-[#121419] shadow-2xl`}>
-          <div className="sticky top-0 border-b border-white/[0.06] bg-[#121419] p-2">
+        <div className={`${inline ? "relative mt-1.5 flex max-h-64 w-full flex-col" : "absolute right-0 z-50 mt-1 flex max-h-80 w-60 flex-col"} rounded-xl border border-white/10 bg-[#18191f] shadow-2xl`}>
+          <div className="sticky top-0 border-b border-white/[0.06] bg-[#18191f] p-2">
             <input
               autoFocus
               value={query}

@@ -1627,7 +1627,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#050506] text-white sm:block sm:h-auto sm:min-h-full sm:overflow-visible sm:pb-16 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#151518] text-white sm:block sm:h-auto sm:min-h-full sm:overflow-visible sm:pb-16 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       <div data-binary-grid="true" className={`relative flex min-h-0 flex-1 flex-col min-w-0 gap-0 overflow-hidden px-0 py-0 sm:grid sm:flex-none sm:overflow-visible sm:px-2 sm:py-2 xl:grid xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         {pickerOpen && (
           <TradeTypePicker value={tradeType} onSelect={selectTradeType} onClose={() => setPickerOpen(false)} allowed={new Set(liveTypes)} />
@@ -2026,7 +2026,7 @@ function MarketsSheet({
         className={`absolute inset-0 bg-black/60 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
       />
       <div
-        className={`relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#0d0e11] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/10 ${
+        className={`relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.06] ${
           closing ? "animate-sheet-out" : "animate-sheet-in"
         }`}
       >
@@ -2112,7 +2112,7 @@ function MarketsSheet({
                       }`}
                     >
                       <MarketIcon symbol={m.symbol} size={36} />
-                      <span className={`min-w-0 flex-1 truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>
+                      <span className={`min-w-0 flex-1 truncate text-[14px] font-black ${active ? "text-[#151518]" : "text-white"}`}>
                         {m.symbol}
                       </span>
                       <span

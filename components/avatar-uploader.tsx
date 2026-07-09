@@ -101,7 +101,7 @@ export function AvatarUploader({
         onClick={() => inputRef.current?.click()}
         disabled={uploading}
         aria-label="Change profile photo"
-        className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-on-primary shadow-md outline-none ring-2 ring-[#111113] transition hover:bg-primary-container focus-visible:ring-2 focus-visible:ring-primary-fixed/70 disabled:opacity-70"
+        className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-on-primary shadow-md outline-none ring-2 ring-[#151518] transition hover:bg-primary-container focus-visible:ring-2 focus-visible:ring-primary-fixed/70 disabled:opacity-70"
       >
         {uploading ? (
           <span className="h-3 w-3 animate-spin rounded-full border-2 border-current/40 border-t-current motion-reduce:animate-none" />

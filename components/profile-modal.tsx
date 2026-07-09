@@ -101,7 +101,7 @@ function BetsView() {
   return (
     <div className="space-y-2 px-4 py-3">
       {bets.map((bet) => (
-        <div key={bet.id} className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+        <div key={bet.id} className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
           <button
             type="button"
             onClick={() => setExpanded(expanded === bet.id ? null : bet.id)}
@@ -224,7 +224,7 @@ function TransactionsView() {
         return (
           <div
             key={t.id}
-            className="flex items-center gap-3 rounded-2xl bg-[#16171d] px-4 py-3.5 ring-1 ring-white/[0.07]"
+            className="flex items-center gap-3 rounded-2xl bg-white/[0.03] px-4 py-3.5 ring-1 ring-white/[0.07]"
           >
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
               <Icon name={meta.icon} fill className={`text-[18px] ${meta.color}`} />
@@ -409,7 +409,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
           </div>
         ) : (
           <>
-            <div className="rounded-xl bg-[#16171d] px-3 py-2 ring-1 ring-white/[0.07]">
+            <div className="rounded-xl bg-white/[0.03] px-3 py-2 ring-1 ring-white/[0.07]">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Available</p>
               <p className="text-xl font-black text-white">{fmtBal}</p>
             </div>
@@ -419,7 +419,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="M-Pesa number (07XX or 01XX)"
-              className="h-11 w-full rounded-xl bg-[#16171d] px-4 text-[13px] font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
+              className="h-11 w-full rounded-xl bg-white/[0.03] px-4 text-[13px] font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
             />
 
             <div className="relative">
@@ -430,7 +430,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
-                className="h-11 w-full rounded-xl bg-[#16171d] px-4 pt-3 text-[13px] font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
+                className="h-11 w-full rounded-xl bg-white/[0.03] px-4 pt-3 text-[13px] font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
               />
             </div>
 
@@ -483,7 +483,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               <button
                 type="button"
                 onClick={() => setCwOpen((v) => !v)}
-                className="flex h-14 w-full items-center justify-between rounded-2xl bg-[#16171d] px-4 ring-1 ring-white/[0.08] transition hover:bg-white/[0.06]"
+                className="flex h-14 w-full items-center justify-between rounded-2xl bg-white/[0.03] px-4 ring-1 ring-white/[0.08] transition hover:bg-white/[0.06]"
               >
                 <span className="flex items-center gap-3">
                   {selectedBal && COIN_ICONS[selectedBal.crypto] ? (
@@ -539,7 +539,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
                 value={cwAmount}
                 onChange={(e) => { setCwAmount(e.target.value); setCwError(""); }}
                 placeholder="0"
-                className="h-14 w-full rounded-2xl bg-[#16171d] px-5 pt-4 pr-16 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
+                className="h-14 w-full rounded-2xl bg-white/[0.03] px-5 pt-4 pr-16 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] focus:ring-2 focus:ring-[#087cff]/50"
               />
               <button
                 type="button"
@@ -556,7 +556,7 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
               value={cwAddress}
               onChange={(e) => { setCwAddress(e.target.value); setCwError(""); }}
               placeholder={`Destination ${NET_LABEL[selectedBal?.network ?? ""] ?? selectedBal?.network} address`}
-              className="h-14 w-full rounded-2xl bg-[#16171d] px-5 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
+              className="h-14 w-full rounded-2xl bg-white/[0.03] px-5 text-sm font-bold text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
             />
 
             <p className="text-[11px] text-slate-600">
@@ -602,7 +602,7 @@ function BonusesView() {
         </div>
       </div>
 
-      <div className="flex flex-col items-center gap-3 rounded-2xl bg-[#16171d] py-10 text-center ring-1 ring-white/[0.07]">
+      <div className="flex flex-col items-center gap-3 rounded-2xl bg-white/[0.03] py-10 text-center ring-1 ring-white/[0.07]">
         <Icon name="redeem" fill className="text-[42px] text-slate-700" />
         <p className="text-sm font-black text-slate-400">No active bonuses</p>
         <p className="text-xs text-slate-600">Make your first deposit to claim your welcome bonus.</p>
@@ -630,7 +630,7 @@ function BonusCodesView() {
 
   return (
     <div className="space-y-4 px-4 py-3">
-      <div className="rounded-2xl bg-[#16171d] p-4 ring-1 ring-white/[0.07]">
+      <div className="rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
         <p className="text-[11px] font-bold text-slate-500">Enter a promo or referral code to unlock rewards.</p>
       </div>
       <input
@@ -638,7 +638,7 @@ function BonusCodesView() {
         value={code}
         onChange={(e) => setCode(e.target.value.toUpperCase())}
         placeholder="BONUS CODE"
-        className="h-14 w-full rounded-2xl bg-[#16171d] px-5 text-center text-base font-black tracking-widest text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
+        className="h-14 w-full rounded-2xl bg-white/[0.03] px-5 text-center text-base font-black tracking-widest text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
       />
       {result && (
         <p className={`rounded-xl px-4 py-3 text-sm font-bold ring-1 ${result.ok ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/20" : "bg-red-500/10 text-red-300 ring-red-500/20"}`}>
@@ -684,7 +684,7 @@ function NotificationsView() {
 
   return (
     <div className="px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
         {NOTIF_KEYS.map((item, i) => (
           <div key={item.key}>
             <div className="flex items-center gap-3 px-4 py-3.5">
@@ -876,7 +876,7 @@ function SecurityView({ email }: { email: string | undefined }) {
 
       {/* Password reset */}
       {email && (
-        <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+        <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
           <div className="px-4 py-3.5">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">Email</p>
             <p className="mt-0.5 text-[13px] font-black text-white">{email}</p>
@@ -896,7 +896,7 @@ function SecurityView({ email }: { email: string | undefined }) {
       )}
 
       {/* ── 2FA card ── */}
-      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="security" fill className="text-[16px] text-slate-400" />
@@ -1158,7 +1158,7 @@ function SecurityView({ email }: { email: string | undefined }) {
       </div>
 
       {/* ── Sign-in passkeys card (passwordless login) ── */}
-      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="passkey" fill className="text-[16px] text-[#5ea9ff]" />
@@ -1196,7 +1196,7 @@ function SecurityView({ email }: { email: string | undefined }) {
       </div>
 
       {/* KYC card */}
-      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
             <Icon name="verified_user" fill className="text-[16px] text-slate-400" />
@@ -1225,7 +1225,7 @@ function LanguageView() {
 
   return (
     <div className="space-y-3 px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
         <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">Language</p>
         {LANGUAGES.map((l, i) => (
           <div key={l.code}>
@@ -1243,7 +1243,7 @@ function LanguageView() {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
         <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">Region</p>
         <div className="flex items-center gap-3 px-4 py-3">
           <span className="text-xl">🇰🇪</span>
@@ -1269,7 +1269,7 @@ const SUPPORT_CHANNELS = [
 function SupportView() {
   return (
     <div className="space-y-3 px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+      <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
         <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.05]">
           <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
           <p className="text-[12px] font-black text-white">Support is online · 24/7</p>
@@ -1296,7 +1296,7 @@ function SupportView() {
         ))}
       </div>
 
-      <div className="rounded-2xl bg-[#16171d] px-4 py-3.5 ring-1 ring-white/[0.07]">
+      <div className="rounded-2xl bg-white/[0.03] px-4 py-3.5 ring-1 ring-white/[0.07]">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">FAQ</p>
         {["How do I deposit?", "How long do withdrawals take?", "How do I place a bet?"].map((q, i) => (
           <div key={i} className={`py-2.5 ${i > 0 ? "border-t border-white/[0.05]" : ""}`}>
@@ -1467,7 +1467,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
               </div>
 
               {/* ── Username editor ── */}
-              <div className="mx-4 mb-1.5 overflow-hidden rounded-xl bg-[#16171d] ring-1 ring-white/[0.07]">
+              <div className="mx-4 mb-1.5 overflow-hidden rounded-xl bg-white/[0.03] ring-1 ring-white/[0.07]">
                 <p className="px-3 pt-2 pb-0.5 text-[9px] font-black uppercase tracking-widest text-slate-600">Username</p>
                 {editingUsername ? (
                   <div className="px-4 pb-4">
@@ -1520,7 +1520,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                 )}
               </div>
 
-              <div className="mx-4 mb-1.5 overflow-hidden rounded-xl bg-[#16171d] ring-1 ring-white/[0.08]">
+              <div className="mx-4 mb-1.5 overflow-hidden rounded-xl bg-white/[0.03] ring-1 ring-white/[0.08]">
                 <div className="px-3 pt-2 pb-1">
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Account Balance</p>
                   <p className="mt-0.5 text-xl font-black text-white">{fmtBalance}</p>
@@ -1547,7 +1547,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
             </div>{/* ── end LEFT column ── */}
 
             <div>{/* ── RIGHT column (menu + settings + sign out) ── */}
-              <div className="mx-4 mb-2 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+              <div className="mx-4 mb-2 overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
                 {MENU.map((item, i) => (
                   <div key={item.label}>
                     <button
@@ -1569,7 +1569,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                 ))}
               </div>
 
-              <div className="mx-4 mb-2.5 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+              <div className="mx-4 mb-2.5 overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
                 <button
                   type="button"
                   onClick={() => setView("support")}
@@ -1614,7 +1614,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
           {view === "settings" && (
             <>
               {(email || phone) && (
-                <div className="mx-4 mb-3 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+                <div className="mx-4 mb-3 overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
                   <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">Contact Info</p>
                   {email && (
                     <div className="flex items-center justify-between px-4 py-3">
@@ -1646,7 +1646,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                 </div>
               )}
 
-              <div className="mx-4 mb-3 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+              <div className="mx-4 mb-3 overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
                 {SETTINGS_ITEMS.map((item, i) => (
                   <div key={item.label}>
                     <button type="button" onClick={item.action} className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.04] active:scale-[0.99]">
@@ -1664,7 +1664,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                 ))}
               </div>
 
-              <div className="mx-4 mb-4 overflow-hidden rounded-2xl bg-[#16171d] ring-1 ring-white/[0.07]">
+              <div className="mx-4 mb-4 overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
                 <div className="flex items-center justify-between px-4 py-3.5">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
