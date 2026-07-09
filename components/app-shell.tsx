@@ -60,6 +60,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   // `currentPanel` drives active-state for same-route panel tabs.
   const mobileNav = getMobileNav(pathname);
   const currentPanel = searchParams.get("panel") ?? "";
+  const currentTab = searchParams.get("tab") ?? "";
   const isLogin = pathname === "/login";
   const isSportsPage = pathname.startsWith("/sports");
   const { isSignedIn, user } = useSupabaseAuth();
@@ -327,7 +328,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
       {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={(tab) => { setProfileOpen(false); openWallet(tab); }} initialView={profileInitialView} />}
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} initialTab={walletInitialTab} />}
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileInitialView(undefined); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); openWallet(); }} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileInitialView(undefined); setProfileOpen(true); }} />}
       {missingPhone && <PhonePromptModal onComplete={handlePhoneComplete} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
@@ -337,11 +338,15 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           // Panel tabs (binary's Markets/Trade/Positions) share one route and are
           // distinguished by the `?panel=` value, so match on panel rather than
           // path — otherwise every same-route tab would light up at once.
+          // Tab tabs (Sports / Live) work the same way via `?tab=`.
           const isPanelTab = item.panel !== undefined;
+          const isQueryTab = item.tab !== undefined;
           const active = isPanelTab
             ? pathname.startsWith(activePath) && currentPanel === item.panel
-            : activePath === (pendingPath ?? pathname);
-          const navigating = !isPanelTab && pendingPath === activePath && pathname !== activePath;
+            : isQueryTab
+              ? pathname.startsWith(activePath) && currentTab === item.tab
+              : activePath === (pendingPath ?? pathname);
+          const navigating = !isPanelTab && !isQueryTab && pendingPath === activePath && pathname !== activePath;
           if (item.label === "Menu") {
             return (
               <button key={item.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset" onClick={() => setMobileMenuOpen(true)} type="button">
@@ -444,6 +449,9 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenProfi
 
         {/* Aviator */}
         <StandaloneSidebarItem collapsed={collapsed} href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} badge="HOT" />
+
+        {/* Lucky Spin */}
+        <StandaloneSidebarItem collapsed={collapsed} href="/lucky-spin" icon="casino" label="Lucky Spin" pathname={pathname} />
 
         {/* Polymarket */}
         <StandaloneSidebarItem collapsed={collapsed} href="/polymarket" icon="online_prediction" label="Polymarket" pathname={pathname} />
@@ -706,7 +714,7 @@ function TelegramIcon() {
   );
 }
 
-function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile, onOpenWallet }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void; onOpenWallet: () => void }) {
+function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void }) {
   const { isSignedIn, signOut } = useSupabaseAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -758,33 +766,6 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
             </section>
           )}
 
-          <section className="mb-6">
-            <p className="mb-3 text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Jump in
-            </p>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { href: "/aviator", label: "Aviator", icon: "rocket_launch", hint: "Crash" },
-                { href: "/binary", label: "Binary", icon: "candlestick_chart", hint: "Trade" },
-                { href: "/sports?tab=live", label: "Live", icon: "sensors", hint: "Sports" },
-              ].map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  prefetch={false}
-                  onClick={onClose}
-                  className="flex flex-col items-start gap-2 rounded-xl bg-white/[0.04] px-3 py-3 ring-1 ring-white/[0.05] transition active:scale-[0.97] hover:bg-white/[0.06]"
-                >
-                  <Icon name={item.icon} className="text-[20px] text-slate-300" />
-                  <span>
-                    <span className="block text-[12px] font-bold text-white">{item.label}</span>
-                    <span className="block text-[10px] font-medium text-slate-500">{item.hint}</span>
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </section>
-
           <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
             Explore
           </p>
@@ -792,10 +773,10 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
             <MobileDrawerGroup icon="sports_soccer" isOpen={openGroups.sports} label="Sports" onToggle={() => setOpenGroups((v) => ({ ...v, sports: !v.sports }))}>
               <MobileDrawerLink nested href="/sports" icon="sports_soccer" label="Sports" onClick={onClose} />
               <MobileDrawerLink nested href="/sports?tab=live" icon="sensors" label="Live" onClick={onClose} />
-              <MobileDrawerLink nested href="/my-bets" icon="receipt_long" label="My Bets" active={isActive("/my-bets")} onClick={onClose} />
             </MobileDrawerGroup>
 
             <MobileDrawerLink href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" active={isActive("/aviator")} onClick={onClose} />
+            <MobileDrawerLink href="/lucky-spin" icon="casino" label="Lucky Spin" active={isActive("/lucky-spin")} onClick={onClose} />
             <MobileDrawerLink href="/predictions" icon="online_prediction" label="Polymarket" active={isActive("/predictions")} onClick={onClose} />
             <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary" active={isActive("/binary")} onClick={onClose} />
 
@@ -810,7 +791,6 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile,
 
           <div className="my-4 border-t border-white/[0.06]" />
 
-          <MobileDrawerLink icon="account_balance_wallet" label="Wallet" onClick={onOpenWallet} />
           <MobileDrawerLink href="/my-bets" icon="receipt_long" label="My Bets" active={isActive("/my-bets")} onClick={onClose} />
 
           <div className="mt-4 rounded-xl bg-white/[0.03] p-3 ring-1 ring-white/[0.06]">
@@ -1029,6 +1009,7 @@ function AppFooter() {
   const products = [
     { label: "Sports Betting", href: "/sports" },
     { label: "Aviator", href: "/aviator" },
+    { label: "Lucky Spin", href: "/lucky-spin" },
     { label: "Predictions", href: "/predictions" },
     { label: "P2P Trading", href: "/p2p" },
     { label: "Binary", href: "/binary" },

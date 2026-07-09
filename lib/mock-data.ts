@@ -24,6 +24,9 @@ export type MobileNavItem = {
   // Path used for active-state matching when it differs from `href` (e.g. a tab
   // whose href carries a query string). Defaults to href's pathname.
   activePath?: string;
+  // Section tabs that share one route but switch via `?tab=` (e.g. Sports / Live).
+  // When set, active state keys off the tab value so sibling tabs don't all light up.
+  tab?: string;
 };
 
 // Default cross-product switcher — shown on the dashboard and any section that
@@ -62,8 +65,8 @@ export const forexMobileNav: MobileNavItem[] = [
 // `?tab=` the sports client already reads, so `activePath` keys off the pathname.
 export const sportsMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
-  { href: "/sports",            label: "Sports",  icon: "sports_soccer", activePath: "/sports" },
-  { href: "/sports?tab=live",   label: "Live",    icon: "sensors",       activePath: "/sports" },
+  { href: "/sports",            label: "Sports",  icon: "sports_soccer", activePath: "/sports", tab: "" },
+  { href: "/sports?tab=live",   label: "Live",    icon: "sensors",       activePath: "/sports", tab: "live" },
   { href: "/my-bets",           label: "My Bets", icon: "receipt_long" },
 ];
 
