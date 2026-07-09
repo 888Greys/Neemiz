@@ -60,14 +60,14 @@ export const forexMobileNav: MobileNavItem[] = [
   { href: "/forex?panel=positions", label: "Positions", icon: "schedule",               panel: "positions", activePath: "/forex" },
 ];
 
-// Sports is its own destination: Sports / Live event streams plus a My Bets escape,
-// with Menu as the constant hatch back to the rest of the platform. Tabs carry a
-// `?tab=` the sports client already reads, so `activePath` keys off the pathname.
+// Sports is its own destination: Sports / Live / My Bets, with Menu as the
+// escape hatch. My Bets lives on /my-bets but keeps this same bottom nav so
+// users don't fall back to the global Menu/Sports/Aviator/P2P/Binary bar.
 export const sportsMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
   { href: "/sports",            label: "Sports",  icon: "sports_soccer", activePath: "/sports", tab: "" },
   { href: "/sports?tab=live",   label: "Live",    icon: "sensors",       activePath: "/sports", tab: "live" },
-  { href: "/my-bets",           label: "My Bets", icon: "receipt_long" },
+  { href: "/my-bets",           label: "My Bets", icon: "receipt_long",  activePath: "/my-bets" },
 ];
 
 // P2P is a self-contained marketplace: Browse ads / Merchant center / My orders,
@@ -79,20 +79,22 @@ export const p2pMobileNav: MobileNavItem[] = [
   { href: "/p2p/orders",   label: "Orders",   icon: "receipt_long" },
 ];
 
-// Polymarket predictions: Markets browser / My Bets portfolio, with Menu as the
-// escape hatch. The client reads `?tab=` to switch its in-page view.
+// Polymarket: Markets / Trending / My Bets — same 4-slot shape as Sports/P2P.
+// Client reads `?tab=` and `?tag=` for in-page view.
 export const predictionsMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
-  { href: "/polymarket",             label: "Markets", icon: "online_prediction", activePath: "/polymarket" },
-  { href: "/polymarket?tab=my-bets", label: "My Bets", icon: "receipt_long",      activePath: "/polymarket" },
+  { href: "/polymarket",              label: "Markets",  icon: "online_prediction", activePath: "/polymarket", tab: "" },
+  { href: "/polymarket?tab=trending", label: "Trending", icon: "local_fire_department", activePath: "/polymarket", tab: "trending" },
+  { href: "/polymarket?tab=my-bets",  label: "My Bets",  icon: "receipt_long",      activePath: "/polymarket", tab: "my-bets" },
 ];
 
-// Aviator is a single fullscreen game, so its nav is a lightweight escape hatch
-// (Menu) plus a quick jump to the player's aviator bet history.
+// Aviator: Play / Players / My Bets — stays inside the game; My Bets opens the
+// in-page Mine list (not the sports /my-bets route).
 export const aviatorMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
-  { href: "/aviator",  label: "Aviator", icon: "rocket_launch" },
-  { href: "/my-bets",  label: "My Bets", icon: "receipt_long" },
+  { href: "/aviator",            label: "Play",    icon: "rocket_launch", activePath: "/aviator", tab: "" },
+  { href: "/aviator?tab=players", label: "Players", icon: "groups",        activePath: "/aviator", tab: "players" },
+  { href: "/aviator?tab=mine",   label: "My Bets", icon: "receipt_long",  activePath: "/aviator", tab: "mine" },
 ];
 
 // Resolve the bottom-nav tab set for the current route. Section-native navs win
@@ -100,7 +102,8 @@ export const aviatorMobileNav: MobileNavItem[] = [
 export function getMobileNav(pathname: string): MobileNavItem[] {
   if (pathname.startsWith("/binary")) return binaryMobileNav;
   if (pathname.startsWith("/forex")) return forexMobileNav;
-  if (pathname.startsWith("/sports")) return sportsMobileNav;
+  // Sports My Bets is a sibling route — keep the sports bottom nav there.
+  if (pathname.startsWith("/sports") || pathname.startsWith("/my-bets")) return sportsMobileNav;
   if (pathname.startsWith("/p2p")) return p2pMobileNav;
   if (pathname.startsWith("/polymarket") || pathname.startsWith("/predictions")) return predictionsMobileNav;
   if (pathname.startsWith("/aviator")) return aviatorMobileNav;
