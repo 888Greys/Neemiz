@@ -1124,7 +1124,7 @@ export function AdminP2PClient() {
         <h1 className="mt-1 text-2xl font-black tracking-tight text-white">P2P control desk</h1>
         <p className="mt-1 text-[11px] text-slate-500">Review identities, resolve order disputes, approve deposits and manage settlement wallets.</p>
         </div>
-        <div className="border border-white/[0.07] bg-[#121419] px-3 py-2 text-right">
+        <div className="border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-right">
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Queue requiring review</p>
           <p className="mt-1 font-mono text-lg font-black text-white">{counts.kyc + counts.disputes + counts.deposits}</p>
         </div>

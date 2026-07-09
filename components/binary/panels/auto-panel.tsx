@@ -127,7 +127,7 @@ export function AutoPanel({ currency }: { currency: string }) {
           </span>
         </div>
 
-        <div className="rounded-2xl bg-[#16171d] p-4 ring-1 ring-white/[0.07]">
+        <div className="rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
           <div className="flex items-end justify-between">
             <span className="text-xs font-bold text-slate-500">Net P&amp;L</span>
             <span className={`text-2xl font-black ${pnlPos ? "text-[#05b957]" : "text-red-400"}`}>
@@ -162,7 +162,7 @@ export function AutoPanel({ currency }: { currency: string }) {
         )}
 
         {trades.length > 0 && (
-          <div className="rounded-2xl bg-[#16171d]/60 ring-1 ring-white/[0.05]">
+          <div className="rounded-2xl bg-white/[0.03]/60 ring-1 ring-white/[0.05]">
             <p className="px-3 pt-2 text-[10px] font-black uppercase tracking-[0.15em] text-slate-600">Run log</p>
             <div className="max-h-44 overflow-y-auto px-3 pb-2">
               {trades.map((t) => (
@@ -265,8 +265,8 @@ export function AutoPanel({ currency }: { currency: string }) {
   );
 }
 
-const selectCls = "h-11 w-full rounded-xl bg-[#16171d] px-3 text-sm font-bold text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/40";
-const inputCls = "h-11 w-full rounded-xl bg-[#16171d] px-3 text-sm font-black text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/40";
+const selectCls = "h-11 w-full rounded-xl bg-white/[0.03] px-3 text-sm font-bold text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/40";
+const inputCls = "h-11 w-full rounded-xl bg-white/[0.03] px-3 text-sm font-black text-white outline-none ring-1 ring-white/[0.07] focus:ring-[#087cff]/40";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

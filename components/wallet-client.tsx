@@ -1061,7 +1061,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                         </button>
 
                         {cwOpen && (
-                          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-xl bg-[#1a1b22] shadow-2xl ring-1 ring-white/[0.08]">
+                          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-xl bg-[#18191f] shadow-2xl ring-1 ring-white/[0.08]">
                             {CRYPTO_WITHDRAW_ASSETS.map((a) => (
                               <button
                                 key={`${a.code}:${a.network}`}
@@ -1835,7 +1835,7 @@ function WalletTransferPanel({
               />
             </div>
             {(searching || results.length > 0) && (
-              <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl bg-[#1a1b22] shadow-2xl ring-1 ring-white/[0.08]">
+              <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-xl bg-[#18191f] shadow-2xl ring-1 ring-white/[0.08]">
                 {searching ? (
                   <p className="px-4 py-3 text-[12px] font-medium text-slate-500">Searching…</p>
                 ) : results.map((user) => (

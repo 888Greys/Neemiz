@@ -38,7 +38,7 @@ const compactMoney = (n: number) => `${CURRENCY_SYMBOL} ${compact(n)}`;
 
 function SummaryCard({ icon, label, value, sub, accent }: { icon: string; label: string; value: string; sub?: string; accent: string }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-[#121419] p-4">
+    <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4">
       <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl" style={{ backgroundColor: `${accent}22` }} />
       <span className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ backgroundColor: `${accent}1f`, color: accent }}>
         <Icon name={icon} fill className="text-[18px]" />
@@ -175,7 +175,7 @@ export function AdminUsersClient() {
         ))}
       </div>
 
-      <div className="mb-4 grid grid-cols-2 border border-white/[0.07] bg-[#121419] sm:max-w-2xl sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 border border-white/[0.07] bg-white/[0.03] sm:max-w-2xl sm:grid-cols-4">
         <div className="border-r border-white/[0.06] px-4 py-3"><p className="text-lg font-black text-white">{total.toLocaleString()}</p><p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Matched accounts</p></div>
         <div className="border-r border-white/[0.06] px-4 py-3"><p className="font-mono text-lg font-black text-emerald-400">{money(String(totalBalance))}</p><p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Total held</p></div>
         <div className="border-r border-white/[0.06] px-4 py-3"><p className="text-lg font-black text-sky-400">{users.filter((user) => user.isActive && !user.isAdmin).length}</p><p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Active on page</p></div>

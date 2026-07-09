@@ -160,7 +160,7 @@ function HeroCard({ market, allMarkets, onBet, onOpen }: { market: PolymarketMar
   const noMult  = noP  > 0 ? (1 / noP).toFixed(2)  : "—";
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a1b22]">
+    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
       {/* ── Top header row ── */}
       <div
         onClick={() => onOpen(market)}
@@ -357,7 +357,7 @@ function BreakingNews({ markets, onOpen }: { markets: PolymarketMarket[]; onOpen
   if (markets.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-[#1a1b22] p-5">
+    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[15px] font-black text-white">Breaking news</span>
         <button className="flex items-center gap-0.5 text-[12px] text-white/35 hover:text-white/60">
@@ -405,7 +405,7 @@ function HotTopics({ markets, onTagClick }: { markets: PolymarketMarket[]; onTag
   if (topics.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-[#1a1b22] p-5">
+    <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5">
       <div className="mb-4 flex items-center justify-between">
         <span className="text-[15px] font-black text-white">Hot topics</span>
         <button className="flex items-center gap-0.5 text-[12px] text-white/35 hover:text-white/60">
@@ -455,7 +455,7 @@ function CompactCard({ market, onBet, onOpen }: { market: PolymarketMarket; onBe
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onOpen(market);
       }}
-      className="flex min-h-[216px] cursor-pointer flex-col rounded-2xl border border-white/[0.07] bg-[#1a1b22] p-4 text-left transition hover:border-white/[0.14] hover:bg-[#1f2029]"
+      className="flex min-h-[216px] cursor-pointer flex-col rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 text-left transition hover:border-white/[0.14] hover:bg-white/[0.05]"
     >
       <div className="mb-4 flex items-start gap-3">
         {market.image ? (
@@ -621,7 +621,7 @@ function DetailTradeTicket({
 
   return (
     <aside className={compact ? "" : "lg:sticky lg:top-24 lg:self-start"}>
-      <div className={`overflow-hidden border border-white/[0.08] bg-[#1a1b22] shadow-2xl shadow-black/25 ${compact ? "rounded-t-3xl" : "rounded-2xl"}`}>
+      <div className={`overflow-hidden border border-white/[0.08] bg-white/[0.03] shadow-2xl shadow-black/25 ${compact ? "rounded-t-3xl" : "rounded-2xl"}`}>
         {!compact && <div className="flex items-center gap-3 border-b border-white/[0.06] p-4">
           {market.image ? (
             <Image src={market.image} alt="" width={44} height={44} unoptimized className="h-11 w-11 shrink-0 rounded-xl object-cover" />
@@ -893,7 +893,7 @@ function DetailMyBets({ bets }: { bets: MyBet[] }) {
   const openToWin = bets.filter((b) => b.status === "PENDING").reduce((s, b) => s + b.potentialWin, 0);
 
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a1b22]">
+    <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03]">
       <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
         <span className="text-[13px] font-black text-white">My Bets</span>
         <div className="flex items-center gap-2">
@@ -908,11 +908,11 @@ function DetailMyBets({ bets }: { bets: MyBet[] }) {
 
       {bets.length > 1 && (
         <div className="grid grid-cols-2 gap-px border-b border-white/[0.06] bg-white/[0.06]">
-          <div className="bg-[#1a1b22] px-4 py-2.5">
+          <div className="bg-white/[0.03] px-4 py-2.5">
             <p className="text-[10px] font-black uppercase tracking-wide text-white/30">Staked</p>
             <p className="mt-0.5 font-mono text-[13px] font-black text-white">{format(totalStake)}</p>
           </div>
-          <div className="bg-[#1a1b22] px-4 py-2.5">
+          <div className="bg-white/[0.03] px-4 py-2.5">
             <p className="text-[10px] font-black uppercase tracking-wide text-white/30">To win</p>
             <p className="mt-0.5 font-mono text-[13px] font-black text-[#31c45d]">{format(openToWin)}</p>
           </div>
@@ -1446,7 +1446,7 @@ function TradeSheet({
         onClick={(e) => e.stopPropagation()}
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        <div className="flex flex-col items-center bg-[#1a1b22] pt-3 pb-1 rounded-t-3xl">
+        <div className="flex flex-col items-center bg-white/[0.03] pt-3 pb-1 rounded-t-3xl">
           <div className="h-1 w-10 rounded-full bg-white/20 mb-2" />
           <button
             onClick={onClose}
@@ -1735,7 +1735,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
 
       {/* ── Search + balance bar ─────────────────────────────────────────── */}
       {!selectedMarket && <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.08] bg-[#1a1b22] px-4">
+        <div className="flex h-10 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4">
           <Search className="h-4 w-4 shrink-0 text-white/25" />
           <input
             value={search}
@@ -1745,14 +1745,14 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
           />
           {search && <button onClick={() => setSearch("")} className="text-[11px] text-white/30 hover:text-white/60">✕</button>}
         </div>
-        <div className="hidden h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-[#1a1b22] px-4 sm:flex">
+        <div className="hidden h-10 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 sm:flex">
           <span className="text-[11px] font-black uppercase tracking-widest text-white/25">Balance</span>
           <span className="font-black text-white">{format(balance)}</span>
         </div>
         <button
           onClick={() => tab === "my-bets" ? goBackToMarkets() : viewMyBets()}
           className={`h-10 rounded-xl px-4 text-[13px] font-black transition ${
-            tab === "my-bets" ? "bg-[#087cff] text-white" : "border border-white/[0.08] bg-[#1a1b22] text-white/50 hover:text-white"
+            tab === "my-bets" ? "bg-[#087cff] text-white" : "border border-white/[0.08] bg-white/[0.03] text-white/50 hover:text-white"
           }`}
         >
           My Bets
@@ -1812,7 +1812,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
                 ))}
               </div>
             ) : filtered.length === 0 ? (
-              <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] py-20 text-center">
                 <p className="text-sm text-white/25">No markets found</p>
               </div>
             ) : (
@@ -1865,7 +1865,7 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
                   ))}
                 </div>
               ) : gridMarkets.length === 0 ? (
-                <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] py-20 text-center">
                   <p className="text-sm text-white/25">No markets found</p>
                 </div>
               ) : (
@@ -1891,11 +1891,11 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
           </button>
 
           {!userId ? (
-            <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] py-20 text-center">
               <p className="text-sm text-white/30">Sign in to see your bets</p>
             </div>
           ) : myBets.length === 0 ? (
-            <div className="rounded-2xl border border-white/[0.06] bg-[#1a1b22] py-20 text-center">
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] py-20 text-center">
               <p className="text-sm text-white/30">No bets yet</p>
               <button
                 onClick={goBackToMarkets}

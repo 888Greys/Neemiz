@@ -24,7 +24,7 @@ function TeamCrest({ name, logo }: { name: string; logo?: string }) {
   }
   // Soft monogram — not a loud letter circle
   return (
-    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-[10px] font-black tracking-wide text-white/55 ring-1 ring-white/10">
+    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-[10px] font-black tracking-wide text-white/55 ring-1 ring-white/[0.06]">
       {name
         .split(/\s+/)
         .slice(0, 2)
@@ -59,8 +59,8 @@ function MarketOddBtn({
       }}
       className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2.5 transition active:scale-[0.97] ${
         active
-          ? "bg-[#087cff] text-white shadow-md shadow-[#087cff]/25"
-          : "bg-[#1c2433] text-white hover:bg-[#243044]"
+          ? "bg-[#087cff] text-white"
+          : "bg-white/[0.04] text-white hover:bg-white/[0.07]"
       }`}
     >
       <span className={`max-w-full truncate text-[9px] font-bold uppercase tracking-wide ${active ? "text-white/80" : "text-slate-400"}`}>
@@ -197,7 +197,7 @@ export function MatchRow({ match: m }: { match: Match }) {
     : m.period;
 
   return (
-    <article className="border-b border-white/[0.06] bg-[#141820] px-3 py-3 sm:px-4">
+    <article className="border-b border-white/[0.06] px-3 py-3 sm:px-4">
       {/* Meta row */}
       <div className="mb-2.5 flex items-center gap-2 text-[11px]">
         {m.isLive ? (
@@ -263,7 +263,7 @@ export function MatchRow({ match: m }: { match: Match }) {
         <Link
           href={detailHref}
           prefetch={false}
-          className="flex w-full items-center justify-center rounded-xl bg-[#1c2433] py-3 text-[12px] font-black text-slate-300 transition hover:bg-[#243044]"
+          className="flex w-full items-center justify-center rounded-xl bg-white/[0.04] py-3 text-[12px] font-black text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.07] hover:text-white"
         >
           Open markets
         </Link>
@@ -287,7 +287,7 @@ export function LeagueGroupHeader({
 }) {
   const crest = leagueLogo || getLeagueLogo(league);
   return (
-    <div className="sticky top-[108px] z-20 flex items-center gap-2 border-b border-white/[0.06] bg-[#0e0f14]/95 px-3 py-2.5 backdrop-blur-sm sm:px-4">
+    <div className="sticky top-[108px] z-20 flex items-center gap-2 border-b border-white/[0.06] bg-[#151518]/95 px-3 py-2.5 backdrop-blur-sm sm:px-4">
       {crest ? (
         <Image src={crest} alt="" width={20} height={20} className="h-5 w-5 object-contain" unoptimized />
       ) : countryFlag ? (

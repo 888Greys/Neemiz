@@ -86,7 +86,7 @@ export default async function FixtureDetailPage({ params }: Props) {
     <AppShell rightPanel={<SportsBetSlip />}>
       <LiveFixtureRefresh active={m.isLive} />
       {/* Sticky header */}
-      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/10 bg-[#0e0f14]/95 px-3 py-2.5 backdrop-blur-md">
+      <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/[0.06] bg-[#151518]/95 px-3 py-2.5 backdrop-blur-md">
         <Link
           href={m.isLive ? "/sports?tab=live" : "/sports"}
           prefetch={false}
@@ -129,7 +129,7 @@ export default async function FixtureDetailPage({ params }: Props) {
       </div>
 
       {/* Compact scoreboard — same language as list cards */}
-      <div className="sticky top-[52px] z-20 border-b border-white/[0.06] bg-[#141820]/95 px-4 py-3.5 backdrop-blur-md">
+      <div className="sticky top-[52px] z-20 border-b border-white/[0.06] bg-[#151518]/95 px-4 py-3.5 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center gap-3">
           <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <TeamCrest name={m.home.name} logo={homeLogo} size={36} />
@@ -199,7 +199,7 @@ export default async function FixtureDetailPage({ params }: Props) {
           />
         ) : (
           !displayOnly && (
-            <div className="mx-3 mt-6 rounded-xl bg-[#1c2433] px-4 py-12 text-center">
+            <div className="mx-3 mt-6 rounded-xl bg-white/[0.04] px-4 py-12 text-center ring-1 ring-white/[0.06]">
               <p className="text-[14px] font-black text-white">No markets on this fixture</p>
               <p className="mx-auto mt-2 max-w-sm text-[12px] font-medium leading-relaxed text-slate-400">
                 Odds may still be loading, or this match isn’t priced yet. Jump into live games that already have markets.

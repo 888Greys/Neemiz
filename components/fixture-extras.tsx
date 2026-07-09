@@ -53,7 +53,7 @@ export function FixtureExtras({
   if (!hasAny) return null;
 
   return (
-    <div className="overflow-hidden rounded-xl bg-[#141820] ring-1 ring-white/[0.06]">
+    <div className="overflow-hidden rounded-xl bg-white/[0.03] ring-1 ring-white/[0.06]">
       <div className="flex gap-1 border-b border-white/[0.06] px-2 py-2">
         {TABS.map((t) => {
           const empty =

@@ -84,7 +84,7 @@ function WithdrawalsHistory() {
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border border-white/[0.07] bg-[#121419] px-4 py-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border border-white/[0.07] bg-white/[0.03] px-4 py-3">
         <div className="flex flex-wrap gap-1.5">
           {HISTORY_FILTERS.map((f) => (
             <button
@@ -158,7 +158,7 @@ function WithdrawalsHistory() {
       )}
 
       {!loading && total > 0 && (
-        <div className="mt-3 flex items-center justify-between border border-white/[0.07] bg-[#121419] px-4 py-3">
+        <div className="mt-3 flex items-center justify-between border border-white/[0.07] bg-white/[0.03] px-4 py-3">
           <p className="text-[11px] text-slate-500">
             Showing <span className="font-black text-slate-300">{from}–{to}</span> of <span className="font-black text-slate-300">{total}</span>
           </p>
@@ -271,7 +271,7 @@ export function AdminWithdrawalsClient() {
         </div>
       ) : (
         <div>
-          <div className="mb-3 flex items-center justify-between border border-white/[0.07] bg-[#121419] px-4 py-3">
+          <div className="mb-3 flex items-center justify-between border border-white/[0.07] bg-white/[0.03] px-4 py-3">
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Queue</p>
             <p className="font-mono text-sm font-black text-amber-300">{items.length} pending decision{items.length === 1 ? "" : "s"}</p>
           </div>
@@ -388,7 +388,7 @@ export function AdminWithdrawalsClient() {
         const isCryptoSale = withdrawal.provider === "crypto_sell";
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-md border border-white/[0.1] bg-[#121419] p-5 shadow-2xl">
+            <div className="w-full max-w-md border border-white/[0.1] bg-white/[0.03] p-5 shadow-2xl">
               <p className={`text-[10px] font-black uppercase tracking-[0.18em] ${isApproval ? "text-emerald-400" : "text-red-400"}`}>Confirm financial action</p>
               <h2 className="mt-2 text-lg font-black text-white">{isApproval ? (isCryptoSale ? "Mark crypto payout sent?" : "Approve and send payout?") : "Reject and refund payout?"}</h2>
               <p className="mt-3 text-sm leading-6 text-slate-400">This will {isApproval ? "finalize the withdrawal" : "return funds to the customer wallet"} for <strong className="text-white">{CURRENCY_SYMBOL} {Number(withdrawal.amount).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}</strong>. Verify the account, destination, and payment evidence before continuing.</p>
