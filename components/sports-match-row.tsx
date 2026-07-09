@@ -143,12 +143,14 @@ function pickVisibleBlocks(markets: ReturnType<typeof ensureListMarkets>): {
   shown: number;
   hiddenOdds: number;
 } {
-  const queue: VisibleBlock[] = [
-    { title: "3 Way", market: "3 Way", odds: markets.threeWay, cols: 3 },
-    { title: "Double Chance", market: "Double Chance", odds: markets.doubleChance, cols: 3 },
-    { title: "Over/Under", market: "Over/Under", odds: markets.overUnder, cols: 2 },
-    { title: "Both Teams Score", market: "BTTS", odds: markets.btts, cols: 2 },
-  ].filter((b) => b.odds.length > 0);
+  const queue: VisibleBlock[] = (
+    [
+      { title: "3 Way", market: "3 Way", odds: markets.threeWay, cols: 3 as const },
+      { title: "Double Chance", market: "Double Chance", odds: markets.doubleChance, cols: 3 as const },
+      { title: "Over/Under", market: "Over/Under", odds: markets.overUnder, cols: 2 as const },
+      { title: "Both Teams Score", market: "BTTS", odds: markets.btts, cols: 2 as const },
+    ] satisfies VisibleBlock[]
+  ).filter((b) => b.odds.length > 0);
 
   const totalOdds = queue.reduce((n, b) => n + b.odds.length, 0);
   const blocks: VisibleBlock[] = [];
@@ -158,7 +160,8 @@ function pickVisibleBlocks(markets: ReturnType<typeof ensureListMarkets>): {
     if (budget <= 0) break;
     const take = b.odds.slice(0, budget);
     if (take.length === 0) continue;
-    blocks.push({ ...b, odds: take, cols: take.length === 2 ? 2 : 3 });
+    const cols: 2 | 3 = take.length === 2 ? 2 : 3;
+    blocks.push({ ...b, odds: take, cols });
     budget -= take.length;
   }
 
