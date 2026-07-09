@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
@@ -1483,13 +1483,20 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   const [myBets,   setMyBets]   = useState<MyBet[]>([]);
   const [loading,  setLoading]  = useState(initialMarkets.length === 0);
   const [tab,      setTab]      = useState<"browse" | "my-bets">("browse");
-  // The mobile bottom-nav "My Bets" tab drives the in-page view via `?tab=`.
+  const [tag,      setTag]      = useState("Trending");
+  // The mobile bottom-nav tabs drive the in-page view via `?tab=`.
   const searchParams = useSearchParams();
   const urlTab = searchParams.get("tab");
   useEffect(() => {
-    if (urlTab === "my-bets" || urlTab === "browse") setTab(urlTab);
+    if (urlTab === "my-bets") {
+      setTab("my-bets");
+    } else if (urlTab === "trending") {
+      setTab("browse");
+      setTag("Trending");
+    } else if (urlTab === "browse" || !urlTab) {
+      setTab("browse");
+    }
   }, [urlTab]);
-  const [tag,      setTag]      = useState("Trending");
   const [ticket,   setTicket]   = useState<{ market: PolymarketMarket; outcome?: string; amount?: number } | null>(null);
   const [balance,  setBalance]  = useState(initialBalance);
   const [search,   setSearch]   = useState("");
