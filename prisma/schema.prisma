@@ -20,21 +20,11 @@ model User {
   imageUrl          String?   @map("image_url")
   displayCurrency   String?   @map("display_currency")
   walletBalance     Decimal   @default(0.00) @map("wallet_balance") @db.Decimal(18, 2)
-  // Non-withdrawable, non-transferable promo credit. Kept STRICTLY separate from
-  // walletBalance (real cash) so the two can never mix: withdrawals, transfers,
-  // and P2P debit walletBalance only — never this. Playable via spendForPlay()
-  // (bonus-first). Replaces the old "admin sends KSh 50 from his wallet" promo
-  // hack that let promo credit be withdrawn/laundered.
+  // Legacy promo-credit columns retained for backward-compatible deployments and
+  // audit history. Active bonus grants are folded into walletBalance so users
+  // see and spend one KES wallet.
   bonusBalance      Decimal   @default(0.00) @map("bonus_balance") @db.Decimal(18, 2)
-  // Wagering cycle for the bonus above (set when a grant starts a cycle):
-  //   bonusWagerRemaining — stake turnover still required before the bonus
-  //                         converts to real; every stake (bonus or real)
-  //                         counts down while a cycle is active.
-  //   bonusCashoutCap     — max amount converted to real when wagering
-  //                         completes; anything above it is forfeited.
-  //   bonusExpiresAt      — cycle deadline; at expiry the bonus is forfeited.
-  //                         NULL = no active cycle (legacy bonus stays playable
-  //                         but never converts).
+  // Legacy wagering-cycle fields. New grants leave these empty/zero.
   bonusWagerRemaining Decimal  @default(0.00) @map("bonus_wager_remaining") @db.Decimal(18, 2)
   bonusCashoutCap     Decimal  @default(0.00) @map("bonus_cashout_cap") @db.Decimal(18, 2)
   bonusExpiresAt      DateTime? @map("bonus_expires_at")
