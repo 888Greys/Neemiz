@@ -13,83 +13,172 @@ export interface DisplayCurrency {
   symbol: string;   // display symbol/prefix
   locale: string;   // Intl locale for grouping
   name: string;     // human label
-  cc: string;       // ISO-3166 alpha-2 for the flag image ("" for crypto)
+  cc: string;       // ISO-3166 alpha-2 for the flag image ("" for crypto / unknown)
   kind: CurrencyKind;
   decimals: number; // typical display precision
 }
 
-// Ordered for the picker: KES (home) + USDT (borderless) first, then a broad
-// world list. FX for every code comes live from getFxRatesToKES (passes through
-// ~160 provider currencies); anything without a rate gracefully shows the KES
-// value. `decimals: 0` marks ISO-4217 zero-minor-unit currencies.
-export const CURRENCIES: DisplayCurrency[] = [
-  { code: "KES",  symbol: "KSh",  locale: "en-KE", name: "Kenyan Shilling",        cc: "ke", kind: "fiat",   decimals: 2 },
-  { code: "USDT", symbol: "USDT", locale: "en-US", name: "Tether (USDT)",          cc: "",   kind: "crypto", decimals: 2 },
-  // ── Africa ──
-  { code: "NGN",  symbol: "₦",    locale: "en-NG", name: "Nigerian Naira",         cc: "ng", kind: "fiat", decimals: 2 },
-  { code: "ZAR",  symbol: "R",    locale: "en-ZA", name: "South African Rand",     cc: "za", kind: "fiat", decimals: 2 },
-  { code: "GHS",  symbol: "GH₵",  locale: "en-GH", name: "Ghanaian Cedi",          cc: "gh", kind: "fiat", decimals: 2 },
-  { code: "TZS",  symbol: "TSh",  locale: "en-TZ", name: "Tanzanian Shilling",     cc: "tz", kind: "fiat", decimals: 0 },
-  { code: "UGX",  symbol: "USh",  locale: "en-UG", name: "Ugandan Shilling",       cc: "ug", kind: "fiat", decimals: 0 },
-  { code: "RWF",  symbol: "FRw",  locale: "en-RW", name: "Rwandan Franc",          cc: "rw", kind: "fiat", decimals: 0 },
-  { code: "ETB",  symbol: "Br",   locale: "en",    name: "Ethiopian Birr",         cc: "et", kind: "fiat", decimals: 2 },
-  { code: "EGP",  symbol: "E£",   locale: "ar-EG", name: "Egyptian Pound",         cc: "eg", kind: "fiat", decimals: 2 },
-  { code: "MAD",  symbol: "DH",   locale: "ar-MA", name: "Moroccan Dirham",        cc: "ma", kind: "fiat", decimals: 2 },
-  { code: "XOF",  symbol: "CFA",  locale: "fr",    name: "West African CFA Franc", cc: "sn", kind: "fiat", decimals: 0 },
-  { code: "XAF",  symbol: "FCFA", locale: "fr",    name: "Central African CFA",    cc: "cm", kind: "fiat", decimals: 0 },
-  { code: "ZMW",  symbol: "ZK",   locale: "en-ZM", name: "Zambian Kwacha",         cc: "zm", kind: "fiat", decimals: 2 },
-  { code: "BWP",  symbol: "P",    locale: "en-BW", name: "Botswana Pula",          cc: "bw", kind: "fiat", decimals: 2 },
-  { code: "MUR",  symbol: "₨",    locale: "en-MU", name: "Mauritian Rupee",        cc: "mu", kind: "fiat", decimals: 2 },
-  { code: "DZD",  symbol: "DA",   locale: "ar",    name: "Algerian Dinar",         cc: "dz", kind: "fiat", decimals: 2 },
-  { code: "TND",  symbol: "DT",   locale: "ar-TN", name: "Tunisian Dinar",         cc: "tn", kind: "fiat", decimals: 2 },
-  { code: "MWK",  symbol: "MK",   locale: "en",    name: "Malawian Kwacha",        cc: "mw", kind: "fiat", decimals: 2 },
-  { code: "MZN",  symbol: "MT",   locale: "pt",    name: "Mozambican Metical",     cc: "mz", kind: "fiat", decimals: 2 },
-  { code: "AOA",  symbol: "Kz",   locale: "pt",    name: "Angolan Kwanza",         cc: "ao", kind: "fiat", decimals: 2 },
-  // ── Americas ──
-  { code: "USD",  symbol: "$",    locale: "en-US", name: "US Dollar",              cc: "us", kind: "fiat", decimals: 2 },
-  { code: "CAD",  symbol: "C$",   locale: "en-CA", name: "Canadian Dollar",        cc: "ca", kind: "fiat", decimals: 2 },
-  { code: "BRL",  symbol: "R$",   locale: "pt-BR", name: "Brazilian Real",         cc: "br", kind: "fiat", decimals: 2 },
-  { code: "MXN",  symbol: "Mex$", locale: "es-MX", name: "Mexican Peso",           cc: "mx", kind: "fiat", decimals: 2 },
-  { code: "ARS",  symbol: "$",    locale: "es-AR", name: "Argentine Peso",         cc: "ar", kind: "fiat", decimals: 2 },
-  { code: "COP",  symbol: "$",    locale: "es-CO", name: "Colombian Peso",         cc: "co", kind: "fiat", decimals: 2 },
-  { code: "CLP",  symbol: "$",    locale: "es-CL", name: "Chilean Peso",           cc: "cl", kind: "fiat", decimals: 0 },
-  { code: "PEN",  symbol: "S/",   locale: "es-PE", name: "Peruvian Sol",           cc: "pe", kind: "fiat", decimals: 2 },
-  // ── Europe ──
-  { code: "EUR",  symbol: "€",    locale: "en-IE", name: "Euro",                   cc: "eu", kind: "fiat", decimals: 2 },
-  { code: "GBP",  symbol: "£",    locale: "en-GB", name: "British Pound",          cc: "gb", kind: "fiat", decimals: 2 },
-  { code: "CHF",  symbol: "CHF",  locale: "de-CH", name: "Swiss Franc",            cc: "ch", kind: "fiat", decimals: 2 },
-  { code: "RUB",  symbol: "₽",    locale: "ru-RU", name: "Russian Ruble",          cc: "ru", kind: "fiat", decimals: 2 },
-  { code: "TRY",  symbol: "₺",    locale: "tr-TR", name: "Turkish Lira",           cc: "tr", kind: "fiat", decimals: 2 },
-  { code: "PLN",  symbol: "zł",   locale: "pl-PL", name: "Polish Zloty",           cc: "pl", kind: "fiat", decimals: 2 },
-  { code: "SEK",  symbol: "kr",   locale: "sv-SE", name: "Swedish Krona",          cc: "se", kind: "fiat", decimals: 2 },
-  { code: "NOK",  symbol: "kr",   locale: "nb-NO", name: "Norwegian Krone",        cc: "no", kind: "fiat", decimals: 2 },
-  { code: "DKK",  symbol: "kr",   locale: "da-DK", name: "Danish Krone",           cc: "dk", kind: "fiat", decimals: 2 },
-  { code: "CZK",  symbol: "Kč",   locale: "cs-CZ", name: "Czech Koruna",           cc: "cz", kind: "fiat", decimals: 2 },
-  { code: "HUF",  symbol: "Ft",   locale: "hu-HU", name: "Hungarian Forint",       cc: "hu", kind: "fiat", decimals: 0 },
-  { code: "RON",  symbol: "lei",  locale: "ro-RO", name: "Romanian Leu",           cc: "ro", kind: "fiat", decimals: 2 },
-  { code: "UAH",  symbol: "₴",    locale: "uk-UA", name: "Ukrainian Hryvnia",      cc: "ua", kind: "fiat", decimals: 2 },
-  // ── Middle East ──
-  { code: "AED",  symbol: "د.إ",  locale: "ar-AE", name: "UAE Dirham",             cc: "ae", kind: "fiat", decimals: 2 },
-  { code: "SAR",  symbol: "﷼",    locale: "ar-SA", name: "Saudi Riyal",            cc: "sa", kind: "fiat", decimals: 2 },
-  { code: "QAR",  symbol: "﷼",    locale: "ar-QA", name: "Qatari Riyal",           cc: "qa", kind: "fiat", decimals: 2 },
-  { code: "ILS",  symbol: "₪",    locale: "he-IL", name: "Israeli Shekel",         cc: "il", kind: "fiat", decimals: 2 },
-  // ── Asia / Pacific ──
-  { code: "INR",  symbol: "₹",    locale: "en-IN", name: "Indian Rupee",           cc: "in", kind: "fiat", decimals: 2 },
-  { code: "CNY",  symbol: "¥",    locale: "zh-CN", name: "Chinese Yuan",           cc: "cn", kind: "fiat", decimals: 2 },
-  { code: "JPY",  symbol: "¥",    locale: "ja-JP", name: "Japanese Yen",           cc: "jp", kind: "fiat", decimals: 0 },
-  { code: "KRW",  symbol: "₩",    locale: "ko-KR", name: "South Korean Won",       cc: "kr", kind: "fiat", decimals: 0 },
-  { code: "IDR",  symbol: "Rp",   locale: "id-ID", name: "Indonesian Rupiah",      cc: "id", kind: "fiat", decimals: 0 },
-  { code: "PHP",  symbol: "₱",    locale: "en-PH", name: "Philippine Peso",        cc: "ph", kind: "fiat", decimals: 2 },
-  { code: "PKR",  symbol: "₨",    locale: "en-PK", name: "Pakistani Rupee",        cc: "pk", kind: "fiat", decimals: 2 },
-  { code: "BDT",  symbol: "৳",    locale: "bn-BD", name: "Bangladeshi Taka",       cc: "bd", kind: "fiat", decimals: 2 },
-  { code: "VND",  symbol: "₫",    locale: "vi-VN", name: "Vietnamese Dong",        cc: "vn", kind: "fiat", decimals: 0 },
-  { code: "THB",  symbol: "฿",    locale: "th-TH", name: "Thai Baht",              cc: "th", kind: "fiat", decimals: 2 },
-  { code: "MYR",  symbol: "RM",   locale: "ms-MY", name: "Malaysian Ringgit",      cc: "my", kind: "fiat", decimals: 2 },
-  { code: "SGD",  symbol: "S$",   locale: "en-SG", name: "Singapore Dollar",       cc: "sg", kind: "fiat", decimals: 2 },
-  { code: "HKD",  symbol: "HK$",  locale: "en-HK", name: "Hong Kong Dollar",       cc: "hk", kind: "fiat", decimals: 2 },
-  { code: "AUD",  symbol: "A$",   locale: "en-AU", name: "Australian Dollar",      cc: "au", kind: "fiat", decimals: 2 },
-  { code: "NZD",  symbol: "NZ$",  locale: "en-NZ", name: "New Zealand Dollar",     cc: "nz", kind: "fiat", decimals: 2 },
-];
+/** Pinned at the top of the picker (home + borderless + majors). */
+export const PINNED_CURRENCY_CODES = [
+  "KES", "USDT", "USD", "EUR", "GBP", "NGN", "ZAR", "GHS", "TZS", "UGX",
+] as const;
+
+// ISO-4217 currencies with zero minor units (common subset).
+const ZERO_DECIMAL = new Set([
+  "BIF", "CLP", "DJF", "GNF", "ISK", "JPY", "KMF", "KRW", "PYG", "RWF",
+  "UGX", "UYI", "VND", "VUV", "XAF", "XOF", "XPF", "HUF", "IDR", "TWD",
+]);
+
+/** Curated overrides: better symbols, locales, and flag countries. */
+const CURATED: Record<string, Partial<DisplayCurrency>> = {
+  KES:  { symbol: "KSh",  locale: "en-KE", name: "Kenyan Shilling",        cc: "ke" },
+  USDT: { symbol: "USDT", locale: "en-US", name: "Tether (USDT)",          cc: "", kind: "crypto", decimals: 2 },
+  NGN:  { symbol: "₦",    locale: "en-NG", name: "Nigerian Naira",         cc: "ng" },
+  ZAR:  { symbol: "R",    locale: "en-ZA", name: "South African Rand",     cc: "za" },
+  GHS:  { symbol: "GH₵",  locale: "en-GH", name: "Ghanaian Cedi",          cc: "gh" },
+  TZS:  { symbol: "TSh",  locale: "en-TZ", name: "Tanzanian Shilling",     cc: "tz", decimals: 0 },
+  UGX:  { symbol: "USh",  locale: "en-UG", name: "Ugandan Shilling",       cc: "ug", decimals: 0 },
+  RWF:  { symbol: "FRw",  locale: "en-RW", name: "Rwandan Franc",          cc: "rw", decimals: 0 },
+  ETB:  { symbol: "Br",   locale: "en",    name: "Ethiopian Birr",         cc: "et" },
+  EGP:  { symbol: "E£",   locale: "ar-EG", name: "Egyptian Pound",         cc: "eg" },
+  MAD:  { symbol: "DH",   locale: "ar-MA", name: "Moroccan Dirham",        cc: "ma" },
+  XOF:  { symbol: "CFA",  locale: "fr",    name: "West African CFA Franc", cc: "sn", decimals: 0 },
+  XAF:  { symbol: "FCFA", locale: "fr",    name: "Central African CFA",    cc: "cm", decimals: 0 },
+  ZMW:  { symbol: "ZK",   locale: "en-ZM", name: "Zambian Kwacha",         cc: "zm" },
+  BWP:  { symbol: "P",    locale: "en-BW", name: "Botswana Pula",          cc: "bw" },
+  MUR:  { symbol: "₨",    locale: "en-MU", name: "Mauritian Rupee",        cc: "mu" },
+  DZD:  { symbol: "DA",   locale: "ar",    name: "Algerian Dinar",         cc: "dz" },
+  TND:  { symbol: "DT",   locale: "ar-TN", name: "Tunisian Dinar",         cc: "tn" },
+  MWK:  { symbol: "MK",   locale: "en",    name: "Malawian Kwacha",        cc: "mw" },
+  MZN:  { symbol: "MT",   locale: "pt",    name: "Mozambican Metical",     cc: "mz" },
+  AOA:  { symbol: "Kz",   locale: "pt",    name: "Angolan Kwanza",         cc: "ao" },
+  USD:  { symbol: "$",    locale: "en-US", name: "US Dollar",              cc: "us" },
+  CAD:  { symbol: "C$",   locale: "en-CA", name: "Canadian Dollar",        cc: "ca" },
+  BRL:  { symbol: "R$",   locale: "pt-BR", name: "Brazilian Real",         cc: "br" },
+  MXN:  { symbol: "Mex$", locale: "es-MX", name: "Mexican Peso",           cc: "mx" },
+  ARS:  { symbol: "$",    locale: "es-AR", name: "Argentine Peso",         cc: "ar" },
+  COP:  { symbol: "$",    locale: "es-CO", name: "Colombian Peso",         cc: "co" },
+  CLP:  { symbol: "$",    locale: "es-CL", name: "Chilean Peso",           cc: "cl", decimals: 0 },
+  PEN:  { symbol: "S/",   locale: "es-PE", name: "Peruvian Sol",           cc: "pe" },
+  EUR:  { symbol: "€",    locale: "en-IE", name: "Euro",                   cc: "eu" },
+  GBP:  { symbol: "£",    locale: "en-GB", name: "British Pound",          cc: "gb" },
+  CHF:  { symbol: "CHF",  locale: "de-CH", name: "Swiss Franc",            cc: "ch" },
+  RUB:  { symbol: "₽",    locale: "ru-RU", name: "Russian Ruble",          cc: "ru" },
+  TRY:  { symbol: "₺",    locale: "tr-TR", name: "Turkish Lira",           cc: "tr" },
+  PLN:  { symbol: "zł",   locale: "pl-PL", name: "Polish Zloty",           cc: "pl" },
+  SEK:  { symbol: "kr",   locale: "sv-SE", name: "Swedish Krona",          cc: "se" },
+  NOK:  { symbol: "kr",   locale: "nb-NO", name: "Norwegian Krone",        cc: "no" },
+  DKK:  { symbol: "kr",   locale: "da-DK", name: "Danish Krone",           cc: "dk" },
+  CZK:  { symbol: "Kč",   locale: "cs-CZ", name: "Czech Koruna",           cc: "cz" },
+  HUF:  { symbol: "Ft",   locale: "hu-HU", name: "Hungarian Forint",       cc: "hu", decimals: 0 },
+  RON:  { symbol: "lei",  locale: "ro-RO", name: "Romanian Leu",           cc: "ro" },
+  UAH:  { symbol: "₴",    locale: "uk-UA", name: "Ukrainian Hryvnia",      cc: "ua" },
+  AED:  { symbol: "د.إ",  locale: "ar-AE", name: "UAE Dirham",             cc: "ae" },
+  SAR:  { symbol: "﷼",    locale: "ar-SA", name: "Saudi Riyal",            cc: "sa" },
+  QAR:  { symbol: "﷼",    locale: "ar-QA", name: "Qatari Riyal",           cc: "qa" },
+  ILS:  { symbol: "₪",    locale: "he-IL", name: "Israeli Shekel",         cc: "il" },
+  INR:  { symbol: "₹",    locale: "en-IN", name: "Indian Rupee",           cc: "in" },
+  CNY:  { symbol: "¥",    locale: "zh-CN", name: "Chinese Yuan",           cc: "cn" },
+  JPY:  { symbol: "¥",    locale: "ja-JP", name: "Japanese Yen",           cc: "jp", decimals: 0 },
+  KRW:  { symbol: "₩",    locale: "ko-KR", name: "South Korean Won",       cc: "kr", decimals: 0 },
+  IDR:  { symbol: "Rp",   locale: "id-ID", name: "Indonesian Rupiah",      cc: "id", decimals: 0 },
+  PHP:  { symbol: "₱",    locale: "en-PH", name: "Philippine Peso",        cc: "ph" },
+  PKR:  { symbol: "₨",    locale: "en-PK", name: "Pakistani Rupee",        cc: "pk" },
+  BDT:  { symbol: "৳",    locale: "bn-BD", name: "Bangladeshi Taka",       cc: "bd" },
+  VND:  { symbol: "₫",    locale: "vi-VN", name: "Vietnamese Dong",        cc: "vn", decimals: 0 },
+  THB:  { symbol: "฿",    locale: "th-TH", name: "Thai Baht",              cc: "th" },
+  MYR:  { symbol: "RM",   locale: "ms-MY", name: "Malaysian Ringgit",      cc: "my" },
+  SGD:  { symbol: "S$",   locale: "en-SG", name: "Singapore Dollar",       cc: "sg" },
+  HKD:  { symbol: "HK$",  locale: "en-HK", name: "Hong Kong Dollar",       cc: "hk" },
+  AUD:  { symbol: "A$",   locale: "en-AU", name: "Australian Dollar",      cc: "au" },
+  NZD:  { symbol: "NZ$",  locale: "en-NZ", name: "New Zealand Dollar",     cc: "nz" },
+};
+
+function intlSymbol(code: string): string {
+  try {
+    const part = new Intl.NumberFormat("en", {
+      style: "currency",
+      currency: code,
+      currencyDisplay: "narrowSymbol",
+    })
+      .formatToParts(0)
+      .find((p) => p.type === "currency");
+    return part?.value ?? code;
+  } catch {
+    return code;
+  }
+}
+
+function intlName(code: string): string {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "currency" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+function buildWorldCurrencies(): DisplayCurrency[] {
+  const names =
+    typeof Intl !== "undefined" && "supportedValuesOf" in Intl
+      ? (Intl as typeof Intl & { supportedValuesOf(k: string): string[] }).supportedValuesOf("currency")
+      : Object.keys(CURATED).filter((c) => c !== "USDT");
+
+  const byCode = new Map<string, DisplayCurrency>();
+
+  for (const code of names) {
+    const override = CURATED[code] ?? {};
+    byCode.set(code, {
+      code,
+      symbol: override.symbol ?? intlSymbol(code),
+      locale: override.locale ?? "en",
+      name: override.name ?? intlName(code),
+      cc: override.cc ?? "",
+      kind: "fiat",
+      decimals: override.decimals ?? (ZERO_DECIMAL.has(code) ? 0 : 2),
+    });
+  }
+
+  // Always include USDT (not ISO-4217).
+  byCode.set("USDT", {
+    code: "USDT",
+    symbol: "USDT",
+    locale: "en-US",
+    name: "Tether (USDT)",
+    cc: "",
+    kind: "crypto",
+    decimals: 2,
+  });
+
+  // Ensure every curated override exists even if Intl omitted it.
+  for (const [code, override] of Object.entries(CURATED)) {
+    if (byCode.has(code)) continue;
+    byCode.set(code, {
+      code,
+      symbol: override.symbol ?? code,
+      locale: override.locale ?? "en",
+      name: override.name ?? code,
+      cc: override.cc ?? "",
+      kind: override.kind ?? "fiat",
+      decimals: override.decimals ?? 2,
+    });
+  }
+
+  const pinned = PINNED_CURRENCY_CODES
+    .map((c) => byCode.get(c))
+    .filter((c): c is DisplayCurrency => !!c);
+
+  const pinnedSet = new Set(PINNED_CURRENCY_CODES);
+  const rest = [...byCode.values()]
+    .filter((c) => !pinnedSet.has(c.code as (typeof PINNED_CURRENCY_CODES)[number]))
+    .sort((a, b) => a.code.localeCompare(b.code));
+
+  return [...pinned, ...rest];
+}
+
+// Ordered for the picker: pinned majors first, then every ISO currency Intl
+// knows (~160). FX comes live from getFxRatesToKES; missing rates fall back
+// to showing the KES figure.
+export const CURRENCIES: DisplayCurrency[] = buildWorldCurrencies();
 
 export const CURRENCY_BY_CODE: Record<string, DisplayCurrency> =
   Object.fromEntries(CURRENCIES.map((c) => [c.code, c]));

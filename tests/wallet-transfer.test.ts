@@ -122,8 +122,8 @@ describe("Wallet Transfer Rules", () => {
 
     // Mock successful debit
     mockTx.user.updateMany.mockResolvedValue({ count: 1 });
-    // Admin transfer cap: nothing sent yet in the window, so 40 is well under it
-    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
+    // Admin transfer cap: 500 already sent in the window is still under the default 200,000 cap
+    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 500 } });
     // Mock prior transfers to this recipient: none
     mockTx.transaction.findFirst.mockResolvedValue(null);
     mockTx.user.findUnique.mockResolvedValue({ walletBalance: 100 } as any);
@@ -138,10 +138,10 @@ describe("Wallet Transfer Rules", () => {
     vi.mocked(getOrCreateUser).mockResolvedValue({ id: "admin_123", isAdmin: true, username: "admin" } as any);
     vi.mocked(db.user.findFirst).mockResolvedValue({ id: "rec_456", username: "recipient" } as any);
 
-    // Debit succeeds, but the admin has already transferred 480 in the window;
-    // sending another 40 would exceed the default 500 cap.
+    // Debit succeeds, but the admin has already transferred 199,980 in the window;
+    // sending another 40 would exceed the default 200,000 cap.
     mockTx.user.updateMany.mockResolvedValue({ count: 1 });
-    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 480 } });
+    mockTx.transaction.aggregate.mockResolvedValue({ _sum: { amount: 199_980 } });
 
     const res = await POST(makeRequest({ recipientId: "rec_456", amount: 40 }));
     expect(res.status).toBe(400);
