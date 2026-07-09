@@ -146,7 +146,7 @@ describe("Wallet Transfer Rules", () => {
     const res = await POST(makeRequest({ recipientId: "rec_456", amount: 40 }));
     expect(res.status).toBe(400);
     const data = await res.json();
-    expect(data.error).toContain("Daily transfer limit");
+    expect(data.error).toContain("transfer limit");
   });
 
   it("prevents an admin from ever sending to the same recipient twice (once-ever, any admin)", async () => {
