@@ -254,7 +254,7 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
       onClick={onClose}
     >
       <div
-        className="flex h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
+        className="flex h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#151518] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -288,9 +288,9 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
                 name={source.displayName}
                 avatarUrl={source.avatarUrl}
                 size={64}
-                className="border-[3px] border-[#0b0b11]"
+                className="border-[3px] border-[#151518]"
                 online={source.isOnline}
-                onlineRingClass="border-[#0b0b11]"
+                onlineRingClass="border-[#151518]"
               />
               <button
                 type="button"
@@ -485,7 +485,7 @@ function OfferDetailsModal({
       onClick={onClose}
     >
       <div
-        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
+        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#151518] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3 sm:px-5">
@@ -597,7 +597,7 @@ function OfferDetailsModal({
             </div>
 
             <aside className="space-y-3 lg:sticky lg:top-0 lg:self-start">
-              <div className="rounded-2xl border border-white/[0.08] bg-[#12121a] p-4 shadow-xl shadow-black/20">
+              <div className="rounded-2xl border border-white/[0.08] bg-[#18191f] p-4 shadow-xl shadow-black/20">
                 <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">Offer price</p>
                 <div className="mt-2 flex items-end gap-2">
                   <p className="text-3xl font-black tabular-nums">{formatFiat(ad.pricePerUnit, ad.fiat)}</p>
@@ -635,7 +635,7 @@ function OfferDetailsModal({
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/[0.07] bg-[#0b0b11]/95 p-3 sm:hidden">
+        <div className="shrink-0 border-t border-white/[0.07] bg-[#151518]/95 p-3 sm:hidden">
           <button
             type="button"
             onClick={() => onTrade(ad)}
@@ -859,7 +859,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
         onClick={onClose}
       >
         <div
-          className="flex h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-[720px] sm:rounded-2xl"
+          className="flex h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#151518] text-white shadow-2xl sm:h-[720px] sm:rounded-2xl"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] items-center px-4 py-4">
@@ -953,7 +953,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
         onClick={onClose}
       >
         <div
-          className="flex h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-[720px] sm:rounded-2xl"
+          className="flex h-[calc(100dvh-3.5rem)] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#151518] text-white shadow-2xl sm:h-[720px] sm:rounded-2xl"
           onClick={(event) => event.stopPropagation()}
         >
           <div className="grid grid-cols-[36px_minmax(0,1fr)_36px] items-center px-4 py-4">
@@ -1022,7 +1022,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
       onClick={onClose}
     >
       <div
-        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#0b0b11] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
+        className="flex h-[calc(100dvh-3.5rem)] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#151518] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 border-b border-white/[0.07] px-4 py-3 sm:px-5">
@@ -1190,7 +1190,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
           </section>
         </div>
 
-        <div className="shrink-0 border-t border-white/[0.07] bg-[#0b0b11]/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-5">
+        <div className="shrink-0 border-t border-white/[0.07] bg-[#151518]/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-5">
           <button
             onClick={submit}
             disabled={!valid || submitting}
@@ -1245,7 +1245,7 @@ function FiatSelect({ value, onChange, inline = false }: { value: string; onChan
           onClick={() => setOpen(false)}
         >
           <div
-            className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-[#111118] shadow-2xl ring-1 ring-white/10"
+            className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-[#18191f] shadow-2xl ring-1 ring-white/10"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3">
@@ -1312,7 +1312,7 @@ function CryptoSelect({ value, onChange }: { value: string; onChange: (c: string
         <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#111118] p-1 shadow-2xl shadow-black/60">
+        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] p-1 shadow-2xl shadow-black/60">
           {CRYPTOS.map((c) => (
             <button
               key={c}
@@ -1392,7 +1392,7 @@ function PaymentSelect({ value, fiat, onChange }: { value: string; fiat: string;
         <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-60 overflow-hidden rounded-xl border border-white/10 bg-[#111118] shadow-2xl shadow-black/60">
+        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-60 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] shadow-2xl shadow-black/60">
           <div className="border-b border-white/[0.06] p-2">
             <div className="flex h-9 items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
               <Icon name="search" className="text-[16px] text-slate-500" />
@@ -1561,7 +1561,7 @@ function AdCard({
 
 function DirectBuyBanner() {
   return (
-    <div className="relative flex items-center justify-between gap-4 overflow-hidden rounded-lg border border-[#05b957]/20 bg-gradient-to-r from-[#0c2a1d] via-[#0e1a16] to-[#0e0e14] px-3 py-2.5 sm:px-4">
+    <div className="relative flex items-center justify-between gap-4 overflow-hidden rounded-lg border border-[#05b957]/20 bg-gradient-to-r from-[#0c2a1d] via-[#0e1a16] to-[#151518] px-3 py-2.5 sm:px-4">
       <div className="min-w-0">
         <p className="text-[13px] font-black text-white sm:text-sm">Need crypto <span className="text-[#05b957]">right now?</span></p>
         <p className="mt-0.5 text-[10px] font-semibold text-slate-400 sm:text-[11px]">No time to chat? Top up instantly with M-Pesa or crypto.</p>
@@ -1590,7 +1590,7 @@ function OffersTable({
 }) {
   if (ads.length === 0) return null;
   return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-[#0e0e14]">
+    <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-[#151518]">
       <div className="flex items-center justify-between border-b border-white/[0.07] px-3 py-1.5">
         <span className="flex items-center gap-1.5 text-[11px] font-black text-white">
           {promoted && <Icon name="bolt" fill className="text-[12px] text-[#f59e0b]" />}
@@ -1636,7 +1636,7 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
   return (
     <div className="py-2">
       {/* No ads message */}
-      <div className="mb-5 rounded-2xl border border-white/[0.06] bg-[#0e0e14] px-5 py-5 text-center">
+      <div className="mb-5 rounded-2xl border border-white/[0.06] bg-[#151518] px-5 py-5 text-center">
         <div className="mx-auto mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.04]">
           <Icon name="swap_horiz" className="text-xl text-slate-500" />
         </div>
@@ -1667,7 +1667,7 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
           {steps.map((step, i) => (
             <div
               key={i}
-              className="relative rounded-xl border border-white/[0.06] bg-[#111118] p-4 text-center"
+              className="relative rounded-xl border border-white/[0.06] bg-[#18191f] p-4 text-center"
             >
               {/* Connector line */}
               {i < 2 && (
@@ -1696,7 +1696,7 @@ function MerchantPromoBanner({ isSignedIn }: { isSignedIn: boolean }) {
     <Link
       href="/p2p/merchant"
       prefetch={false}
-      className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-[#111118] px-4 py-3 hover:bg-[#16161f] transition-colors"
+      className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-[#18191f] px-4 py-3 hover:bg-[#18191f] transition-colors"
     >
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#087cff]/15 border border-[#087cff]/25 shrink-0">
@@ -2074,7 +2074,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
             {/* Controls */}
             <div className="grid min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-              <div className="grid grid-cols-2 gap-1 rounded-lg bg-[#08080c]/60 p-1 sm:flex sm:items-center">
+              <div className="grid grid-cols-2 gap-1 rounded-lg bg-[#151518]/60 p-1 sm:flex sm:items-center">
                 {(["BUY", "SELL"] as const).map((t) => (
                   <button
                     key={t}

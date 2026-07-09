@@ -47,7 +47,7 @@ export function P2PSubNav() {
     // Hidden on mobile/tablet — the section bottom-nav covers these tabs there;
     // shown on desktop (lg+) where there is no bottom nav.
     <div className="mx-auto hidden w-full max-w-6xl px-3 pt-2 sm:px-4 lg:block lg:px-3">
-      <div className="flex w-full items-center justify-between rounded-lg border border-[#1e1e30] bg-[#111118] px-1.5 py-1">
+      <div className="flex w-full items-center justify-between rounded-lg border border-white/[0.06] bg-[#18191f] px-1.5 py-1">
         <div className="no-scrollbar flex items-center overflow-x-auto">
           {TABS.map((t) => {
             const active = t.href === "/p2p"
@@ -67,7 +67,7 @@ export function P2PSubNav() {
                 <Icon name={t.icon} fill={active} className="text-[16px]" />
                 <span className="hidden sm:inline">{t.label}</span>
                 {t.href === "/p2p/orders" && orderCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-[13px] min-w-[13px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[8px] font-black leading-none text-white ring-1 ring-[#111118]">
+                  <span className="absolute -right-0.5 -top-0.5 flex h-[13px] min-w-[13px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[8px] font-black leading-none text-white ring-1 ring-[#18191f]">
                     {orderCount > 9 ? "9+" : orderCount}
                   </span>
                 )}
