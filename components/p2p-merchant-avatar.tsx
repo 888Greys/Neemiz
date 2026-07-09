@@ -14,8 +14,8 @@ type Props = {
 };
 
 /**
- * Merchant profile image: uploaded photo when present, else DiceBear Notionists
- * seeded by merchant id (stable, professional illustrated face).
+ * Merchant / trader face: Google/email/uploaded photo when present,
+ * else DiceBear Personas (business-style people) seeded by id.
  */
 export function MerchantAvatar({
   id,

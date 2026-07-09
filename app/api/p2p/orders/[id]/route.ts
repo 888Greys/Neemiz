@@ -28,6 +28,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         select: {
           displayName: true,
           userId: true,
+          avatarUrl: true,
+          user: { select: { imageUrl: true } },
           paymentMethods: {
             where: { isActive: true },
             select: { type: true, accountName: true, accountNo: true, bankName: true, name: true },
@@ -40,6 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           firstName: true,
           lastName: true,
           username: true,
+          imageUrl: true,
           merchantProfile: {
             select: {
               displayName: true,
@@ -103,6 +106,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     firstName: order.buyer.firstName,
     lastName: order.buyer.lastName,
     username: order.buyer.username,
+    imageUrl: order.buyer.imageUrl,
   };
   const takerDisplayName = order.buyer.firstName
     ? `${order.buyer.firstName} ${order.buyer.lastName ?? ""}`.trim()
@@ -147,6 +151,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     seller: {
       displayName: order.seller.displayName,
       userId:      order.seller.userId,
+      avatarUrl:   order.seller.avatarUrl ?? order.seller.user.imageUrl,
       paymentMethod: merchantPaymentMethod,
     },
     paymentRecipient,

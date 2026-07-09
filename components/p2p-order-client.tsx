@@ -32,10 +32,11 @@ interface OrderData {
   releasedAt: string | null;
   cancelReason: string | null;
   merchantId: string;
-  buyer: { id: string; firstName: string | null; lastName: string | null; username: string | null };
+  buyer: { id: string; firstName: string | null; lastName: string | null; username: string | null; imageUrl?: string | null };
   seller: {
     displayName: string;
     userId: string;
+    avatarUrl?: string | null;
     paymentMethod: { type: string; accountName: string; accountNo: string; bankName: string | null; name: string } | null;
   };
   paymentRecipient: {
@@ -1994,6 +1995,7 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
                     ? order.seller.displayName
                     : (order.buyer.firstName || order.buyer.username || "Buyer")
                 }
+                avatarUrl={order.isBuyer ? order.seller.avatarUrl : order.buyer.imageUrl}
                 size={32}
                 online={!isClosed}
                 onlineRingClass="border-[#111118]"
