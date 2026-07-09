@@ -124,6 +124,7 @@ ssh nez 'set -a; . /opt/neemiz/settle.env; set +a; \
 | Var | Where | Purpose |
 |---|---|---|
 | `ODDS_API_KEY` | Vercel | The Odds API key (100K plan) |
+| `ODDS_HOURLY_BUDGET` | Vercel (optional) | Max credits per refresh-fixtures run (default 220). All active leagues are wired; hot leagues every run, others rotate so the monthly cap is not blown. |
 | `THESPORTSDB_KEY` | Vercel (optional) | TheSportsDB key; defaults to free `"3"` |
 | `APISPORTS_KEY` | Vercel (optional) | API-Sports key for the dormant eval adapter |
 | `CRON_SECRET` | Vercel + VPS `settle.env` | authorizes the cron endpoints |
@@ -131,12 +132,16 @@ ssh nez 'set -a; . /opt/neemiz/settle.env; set +a; \
 
 ## Credit budget (The Odds API)
 
-Cost = **1 credit per market × per region, per request**. The 100K/mo plan ≈ 3,300/day. With the cache layer the only ongoing spend is the **refresh cron**; user browsing is free. Tune the refresh interval to the plan:
+Cost = **1 credit per market × per region, per request**. Scores cost 1 (live) or 2 (`daysFrom`). The 100K/mo plan ≈ 3,300/day.
 
-- 100K plan → hourly (or finer) refresh is comfortable.
-- 20K plan → ~2-hourly refresh; rely on `fixture_results` so settlement adds little.
+**User traffic never spends Odds credits** — `/sports`, fixture detail, and bet placement read `fixtures_cache` only.
 
-A consistent `apiHealthy:false` with `resultsRecorded:0` usually means **the key is out of credits** — check usage on the-odds-api dashboard.
+**Refresh cron** wires **all** active match leagues under `ODDS_HOURLY_BUDGET` (default 220/run):
+- Hot (World Cup, top soccer, NFL/NBA/MLB/NHL when active): full `h2h,totals,spreads` + scores every run
+- Warm (rotating chunk): `h2h` + scores
+- Cold (rest of budget): `h2h` only, no scores this hour
+
+Naïve “full markets for all 50 leagues every hour” ≈ 250 credits/run → ~180K/mo and **would exhaust** the plan. The rotation keeps coverage of every league while staying under budget. Tune interval / `ODDS_HOURLY_BUDGET` if usage climbs.
 
 ## Monitoring & troubleshooting
 

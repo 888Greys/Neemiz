@@ -73,6 +73,10 @@ const nextConfig = {
       { protocol: "https", hostname: "v3.bundlecdn.com" },
       { protocol: "https", hostname: "cdn.worldvectorlogo.com" },
       { protocol: "https", hostname: "pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev" },
+      { protocol: "https", hostname: "media.api-sports.io" },
+      { protocol: "https", hostname: "a.espncdn.com" },
+      { protocol: "https", hostname: "r2.thesportsdb.com" },
+      { protocol: "https", hostname: "www.thesportsdb.com" },
     ],
   },
 };

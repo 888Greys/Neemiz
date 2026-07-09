@@ -1964,7 +1964,11 @@ function MarketsSheet({
   const [q, setQ] = useState("");
   const [tab, setTab] = useState<"favourites" | "all">("all");
   const [favs, setFavs] = useState<Set<string>>(new Set());
-  // Persist favourites across reloads.
+  const [closing, setClosing] = useState(false);
+  const [starPop, setStarPop] = useState<string | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const starTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("binary-fav-markets") ?? "[]");
@@ -1974,30 +1978,63 @@ function MarketsSheet({
   useEffect(() => {
     try { localStorage.setItem("binary-fav-markets", JSON.stringify([...favs])); } catch { /* ignore */ }
   }, [favs]);
-  const term = q.trim().toLowerCase();
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    if (starTimer.current) clearTimeout(starTimer.current);
+  }, []);
 
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      onClose();
+      closeTimer.current = null;
+    }, 220);
+  }, [closing, onClose]);
+
+  const term = q.trim().toLowerCase();
   const base = tab === "favourites" ? markets.filter((m) => favs.has(m.symbol)) : markets;
   const filtered = base.filter(
     (m) => term === "" || m.symbol.toLowerCase().includes(term) || m.name.toLowerCase().includes(term),
   );
-  // Group by index family for Deriv-style section headings.
   const groups: { heading: string; items: BinaryMarket[] }[] = [];
   for (const m of filtered) {
     const heading = m.symbol.startsWith("Jump") ? "Jump indices" : "Volatility indices";
     const g = groups.find((x) => x.heading === heading);
     if (g) g.items.push(m); else groups.push({ heading, items: [m] });
   }
-  const toggleFav = (symbol: string) =>
-    setFavs((s) => { const n = new Set(s); n.has(symbol) ? n.delete(symbol) : n.add(symbol); return n; });
+
+  const toggleFav = (symbol: string) => {
+    setFavs((s) => {
+      const n = new Set(s);
+      if (n.has(symbol)) n.delete(symbol);
+      else n.add(symbol);
+      return n;
+    });
+    setStarPop(symbol);
+    if (starTimer.current) clearTimeout(starTimer.current);
+    starTimer.current = setTimeout(() => setStarPop(null), 280);
+  };
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
-      <div className="animate-sheet-in relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#0d0e11] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/10">
-        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={requestClose}
+        className={`absolute inset-0 bg-black/60 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
+      />
+      <div
+        className={`relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#0d0e11] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/10 ${
+          closing ? "animate-sheet-out" : "animate-sheet-in"
+        }`}
+      >
+        <button type="button" onClick={requestClose} className="flex w-full justify-center pt-2.5 pb-1" aria-label="Close sheet">
+          <span className="h-1 w-9 rounded-full bg-white/20" />
+        </button>
 
-        {/* Search */}
-        <div className="flex items-center gap-2 px-4 pb-3 pt-2.5">
+        <div className="flex items-center gap-2 px-4 pb-3 pt-1.5">
           <div className="flex flex-1 items-center gap-2 rounded-xl bg-white/[0.05] px-3 ring-1 ring-white/[0.07] focus-within:ring-sky-500/50">
             <Icon name="search" className="text-[18px] text-slate-500" />
             <input
@@ -2007,17 +2044,30 @@ function MarketsSheet({
               className="h-9 flex-1 bg-transparent text-[13px] text-white outline-none placeholder:text-slate-600"
             />
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-400 active:scale-95">
-            <Icon name="close" className="text-[13px]" />
+          <button
+            type="button"
+            onClick={requestClose}
+            aria-label="Close"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-400 transition-[transform] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.97]"
+          >
+            <Icon name="close" className="text-[14px]" />
           </button>
         </div>
 
-        {/* Favourites / All tabs */}
         <div className="flex items-stretch gap-5 border-b border-white/[0.07] px-4 text-[13px] font-black">
           {(["favourites", "all"] as const).map((t) => (
-            <button key={t} type="button" onClick={() => setTab(t)}
-              className={`-mb-px border-b-2 py-2.5 capitalize transition ${tab === t ? "border-white text-white" : "border-transparent text-slate-500"}`}>
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTab(t)}
+              className={`-mb-px border-b-2 py-2.5 capitalize transition-[color,border-color] duration-150 [transition-timing-function:var(--ease-out)] ${
+                tab === t ? "border-white text-white" : "border-transparent text-slate-500"
+              }`}
+            >
               {t}
+              {t === "favourites" && favs.size > 0 && (
+                <span className="ml-1.5 tabular-nums text-[11px] text-slate-500">{favs.size}</span>
+              )}
             </button>
           ))}
         </div>
@@ -2030,10 +2080,17 @@ function MarketsSheet({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-1">
           {tab === "favourites" && filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
+            <div className="animate-fav-empty flex flex-col items-center justify-center px-8 py-16 text-center">
               <Icon name="star" className="text-[56px] text-slate-700" />
               <div className="mt-3 text-[14px] font-black text-slate-400">No favourites</div>
               <div className="mt-1 text-[12px] font-bold text-slate-600">Tap the star on a market to add it here.</div>
+              <button
+                type="button"
+                onClick={() => setTab("all")}
+                className="mt-5 rounded-xl bg-[#087cff] px-4 py-2.5 text-[12px] font-black text-white transition-[transform] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.97]"
+              >
+                Browse markets
+              </button>
             </div>
           ) : groups.length === 0 ? (
             <p className="py-10 text-center text-[12px] font-bold text-slate-600">No markets match “{q}”.</p>
@@ -2050,19 +2107,29 @@ function MarketsSheet({
                       type="button"
                       disabled={locked}
                       onClick={() => onSelect(m.symbol)}
-                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition active:scale-[0.99] disabled:opacity-40 ${
+                      className={`animate-fav-row flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-[transform,background-color] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.97] disabled:opacity-40 ${
                         active ? "bg-white" : "hover:bg-white/[0.04]"
                       }`}
                     >
                       <MarketIcon symbol={m.symbol} size={36} />
-                      <span className={`min-w-0 flex-1 truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>{m.symbol}</span>
+                      <span className={`min-w-0 flex-1 truncate text-[14px] font-black ${active ? "text-[#0d0e11]" : "text-white"}`}>
+                        {m.symbol}
+                      </span>
                       <span
                         role="button"
                         tabIndex={-1}
-                        onClick={(e) => { e.stopPropagation(); toggleFav(m.symbol); }}
-                        className="shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFav(m.symbol);
+                        }}
+                        className={`shrink-0 transition-[transform] duration-150 [transition-timing-function:var(--ease-out)] active:scale-[0.92] ${
+                          starPop === m.symbol ? "animate-fav-star-pop" : ""
+                        }`}
                       >
-                        <Icon name="star" className={`text-[20px] ${starred ? "fill-current text-amber-400" : active ? "text-slate-500" : "text-slate-600"}`} />
+                        <Icon
+                          name="star"
+                          className={`text-[20px] ${starred ? "fill-current text-amber-400" : active ? "text-slate-500" : "text-slate-600"}`}
+                        />
                       </span>
                     </button>
                   );

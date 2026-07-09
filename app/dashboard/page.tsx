@@ -1,113 +1,148 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { Icon } from "@/components/icon";
 import Link from "next/link";
-import { MobileHeroCarousel } from "@/components/mobile-hero-carousel";
 import { HeroSection } from "@/components/hero-section";
 import { TrendingMatchCarousel } from "@/components/trending-match-carousel";
 import { useAuthModal } from "@/lib/auth-modal-context";
-
-const AVIATOR_BANNER =
-  "https://v3.bundlecdn.com/b02632/plain/casino/game-of-the-week.1/mobile.png";
-
-const BG_IMAGES = [
-  "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg1.avif",
-  "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg2.avif",
-  "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg3.avif",
-  "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg4.avif",
-  "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg5.avif",
-  "https://pub-5677b2f8e2e544688a1b6e1d1071f970.r2.dev/hero/bg6.avif",
-];
+import { getTeamLogo } from "@/lib/team-logos";
+import { useBetslip } from "@/lib/betslip-context";
 
 export default function DashboardPage() {
   return (
     <AppShell hideSidebar={false}>
       <div className="md:hidden">
-        <MobileDashboard />
+        <HeroSection compact />
       </div>
 
       <div className="hidden md:block">
         <HeroSection />
       </div>
 
-      <div className="mx-auto w-full max-w-[1600px] px-3 pb-8 md:px-6 md:pb-14">
-        <div className="hidden md:block md:pt-8">
-          <LivePulseBar />
+      <div className="mx-auto w-full max-w-[1600px] px-3 pb-8 pt-5 md:px-6 md:pb-14 md:pt-8">
+        <TrendingMatchCarousel />
+        <div className="mt-6 md:mt-8">
+          <LeagueStrip />
         </div>
-        <FeaturedArena />
+        <div className="mt-6 md:mt-8">
+          <FeaturedArena />
+        </div>
+        <div className="mt-6 md:mt-10">
+          <TopPicks />
+        </div>
         <ProductMosaic />
         <div className="mt-6 md:mt-10">
-          <TrendingMatchCarousel />
+          <HowItFlows />
         </div>
         <TradeRail />
+        <div className="mt-6 md:mt-10">
+          <PromoStrip />
+        </div>
       </div>
     </AppShell>
   );
 }
 
-/* ── Shared: live pulse ───────────────────────────────── */
+/* ── Popular leagues (Fortuna-style quick nav) ────────── */
 
-function LivePulseBar() {
+const LEAGUES = [
+  { href: "/sports", flag: "un", label: "World Cup", sub: "FIFA 2026" },
+  { href: "/sports", flag: "gb-eng", label: "EPL", sub: "England" },
+  { href: "/sports", flag: "es", label: "La Liga", sub: "Spain" },
+  { href: "/sports", flag: "de", label: "Bundesliga", sub: "Germany" },
+  { href: "/sports", flag: "it", label: "Serie A", sub: "Italy" },
+  { href: "/sports", flag: "fr", label: "Ligue 1", sub: "France" },
+  { href: "/sports", flag: "eu", label: "UCL", sub: "Europe" },
+  { href: "/sports", flag: "ke", label: "KPL", sub: "Kenya" },
+] as const;
+
+function LeagueStrip() {
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-white/[0.06] bg-gradient-to-r from-white/[0.04] via-violet-500/[0.06] to-amber-500/[0.04] px-4 py-3">
-      <span className="relative flex h-2 w-2">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
-      </span>
-      <p className="text-[12px] font-black uppercase tracking-[0.18em] text-white/70">
-        Live now
-      </p>
-      <span className="hidden h-3 w-px bg-white/10 sm:block" />
-      <p className="text-[13px] font-semibold text-white/45">
-        Sports · Aviator · Binary · Forex · Predictions · P2P — all open
-      </p>
-    </div>
+    <section>
+      <div className="mb-3 flex items-end justify-between gap-3 px-0.5">
+        <div>
+          <h2 className="text-base font-black text-white md:text-xl">Popular leagues</h2>
+          <p className="mt-0.5 text-[12px] font-medium text-white/40">
+            Jump straight into the markets people bet most
+          </p>
+        </div>
+        <Link
+          href="/sports"
+          prefetch={false}
+          className="mb-0.5 flex shrink-0 items-center gap-0.5 text-[12px] font-black text-white/45 transition hover:text-white"
+        >
+          All sports
+          <Icon name="chevron_right" className="text-[14px]" />
+        </Link>
+      </div>
+
+      <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+        {LEAGUES.map((l) => (
+          <Link
+            key={l.label}
+            href={l.href}
+            prefetch={false}
+            className="group flex w-[88px] shrink-0 flex-col items-center gap-2 rounded-[22px] bg-white/[0.03] px-2 py-3.5 ring-1 ring-white/[0.07] transition hover:-translate-y-0.5 hover:bg-white/[0.06] hover:ring-white/15 active:scale-[0.98]"
+          >
+            <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-black/30 ring-1 ring-white/10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://flagcdn.com/w80/${l.flag}.png`}
+                alt=""
+                className="h-7 w-7 object-contain"
+              />
+            </span>
+            <span className="text-center">
+              <span className="block text-[12px] font-black text-white">{l.label}</span>
+              <span className="mt-0.5 block text-[10px] font-medium text-white/35">{l.sub}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
-/* ── Featured arena: Aviator + Sports ─────────────────── */
+/* ── Featured arena: Binary + Sports ──────────────────── */
 
 function FeaturedArena() {
   return (
-    <section className="mt-5 grid gap-3 md:mt-0 md:grid-cols-5 md:gap-4">
+    <section className="grid gap-3 md:grid-cols-5 md:gap-4">
       <Link
-        href="/aviator"
+        href="/binary"
         prefetch={false}
-        className="group relative min-h-[210px] overflow-hidden rounded-[28px] md:col-span-3 md:min-h-[280px]"
+        className="group relative min-h-[210px] overflow-hidden rounded-[28px] bg-[#0a1218] ring-1 ring-sky-400/15 md:col-span-3 md:min-h-[280px]"
       >
-        <div
-          className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-105"
-          style={{
-            backgroundImage: `linear-gradient(125deg, rgba(18,6,2,.96) 0%, rgba(40,12,4,.72) 45%, rgba(12,8,4,.35) 100%), url(${AVIATOR_BANNER})`,
-          }}
-        />
-        <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-orange-500/20 blur-3xl transition group-hover:bg-orange-400/30" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(14,165,233,0.32),transparent_55%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(6,182,212,0.14),transparent_50%)]" />
+        <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-sky-500/20 blur-3xl transition group-hover:bg-sky-400/30" />
         <div className="relative flex h-full flex-col justify-between p-5 md:p-7">
           <div className="flex items-center gap-2">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-[#ff1979] motion-reduce:animate-none" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ff1979]">
-              Crash · Live
+            <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400 motion-reduce:animate-none" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300">
+              Trade · Digits
             </span>
           </div>
           <div>
             <div className="flex items-end justify-between gap-4">
               <div>
                 <h2 className="text-[40px] font-black leading-none tracking-tight text-white md:text-5xl">
-                  Aviator
+                  Binary
                 </h2>
-                <p className="mt-2 max-w-[240px] text-[13px] font-medium text-white/55">
-                  Ride the multiplier. Cash out before it flies away.
+                <p className="mt-2 max-w-[260px] text-[13px] font-medium text-white/55">
+                  Digit contracts and live charts — call the next tick.
                 </p>
               </div>
               <Icon
-                name="rocket_launch"
+                name="candlestick_chart"
                 fill
-                className="text-[72px] text-orange-400/70 drop-shadow-lg transition duration-500 group-hover:-translate-y-2 group-hover:translate-x-1 md:text-[96px]"
+                className="text-[72px] text-sky-400/70 drop-shadow-lg transition duration-500 group-hover:-translate-y-2 group-hover:translate-x-1 md:text-[96px]"
               />
             </div>
-            <span className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-[#ff1979] px-5 py-2.5 text-[12px] font-black text-white shadow-lg shadow-[#ff1979]/30 transition group-hover:bg-[#ff3a8d]">
-              Play now
+            <span className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-2.5 text-[12px] font-black text-white shadow-lg shadow-sky-500/30 transition group-hover:bg-sky-400">
+              Start trading
               <Icon name="arrow_forward" className="text-[16px]" />
             </span>
           </div>
@@ -148,18 +183,205 @@ function FeaturedArena() {
   );
 }
 
+/* ── Top picks from real live / upcoming fixtures ─────── */
+
+type LivePick = {
+  id: string;
+  league: string;
+  home: string;
+  away: string;
+  homeLogo?: string;
+  awayLogo?: string;
+  market: string;
+  label: string;
+  value: string;
+  tip: string;
+  badge: string;
+  href: string;
+};
+
+function TopPicks() {
+  const { toggleBet, hasBet } = useBetslip();
+  const [picks, setPicks] = useState<LivePick[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/sports/live");
+        if (!res.ok) return;
+        const data: Array<{
+          id: number;
+          league: string;
+          isLive: boolean;
+          period: string;
+          home: { name: string; logo?: string };
+          away: { name: string; logo?: string };
+          odds?: { label: string; value: string }[];
+        }> = await res.json();
+        if (cancelled || !Array.isArray(data)) return;
+
+        const next: LivePick[] = data.slice(0, 3).map((m) => {
+          const odd = m.odds?.[0];
+          return {
+            id: `pick-${m.id}-${odd?.label ?? "open"}`,
+            league: m.league,
+            home: m.home.name,
+            away: m.away.name,
+            homeLogo: m.home.logo ?? getTeamLogo(m.home.name),
+            awayLogo: m.away.logo ?? getTeamLogo(m.away.name),
+            market: odd ? "Match result" : "Kickoff",
+            label: odd?.label ?? "Open",
+            value: odd?.value ?? m.period,
+            tip: m.isLive ? `Live · ${m.period}` : `Starts ${m.period}`,
+            badge: m.isLive ? "LIVE" : "UP NEXT",
+            href: "/sports",
+          };
+        });
+        setPicks(next);
+      } catch { /* ignore */ }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (picks.length === 0) return null;
+
+  return (
+    <section>
+      <div className="mb-3 flex items-end justify-between gap-3 px-0.5">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-black text-white md:text-xl">
+            <Icon name="local_fire_department" fill className="text-[18px] text-orange-400" />
+            Top picks
+          </h2>
+          <p className="mt-0.5 text-[12px] font-medium text-white/40">
+            Real fixtures from today — World Cup first when live
+          </p>
+        </div>
+        <Link
+          href="/sports"
+          prefetch={false}
+          className="mb-0.5 flex shrink-0 items-center gap-0.5 text-[12px] font-black text-white/45 transition hover:text-white"
+        >
+          More markets
+          <Icon name="chevron_right" className="text-[14px]" />
+        </Link>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        {picks.map((p) => {
+          const selected = hasBet(p.id);
+          const canBet = p.label !== "Open" && /^\d/.test(p.value);
+          return (
+            <div
+              key={p.id}
+              className="relative overflow-hidden rounded-[24px] bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-4 ring-1 ring-white/[0.08]"
+            >
+              <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-orange-500/10 blur-2xl" />
+              <div className="relative">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-white/40">
+                    {p.league}
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${
+                      p.badge === "LIVE"
+                        ? "bg-[#ff1979]/15 text-[#ff1979] ring-[#ff1979]/25"
+                        : "bg-sky-500/15 text-sky-300 ring-sky-400/20"
+                    }`}
+                  >
+                    {p.badge}
+                  </span>
+                </div>
+
+                <div className="mt-3 flex items-center gap-3">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-black/30 ring-1 ring-white/10">
+                    {p.homeLogo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.homeLogo} alt="" className="h-7 w-7 object-contain" />
+                    ) : (
+                      <Icon name="sports_soccer" className="text-[16px] text-white/30" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-black text-white">
+                      {p.home} <span className="text-white/30">vs</span> {p.away}
+                    </p>
+                    <p className="mt-0.5 text-[11px] font-medium text-white/40">
+                      {p.market} · {p.tip}
+                    </p>
+                  </div>
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-black/30 ring-1 ring-white/10">
+                    {p.awayLogo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.awayLogo} alt="" className="h-7 w-7 object-contain" />
+                    ) : (
+                      <Icon name="sports_soccer" className="text-[16px] text-white/30" />
+                    )}
+                  </span>
+                </div>
+
+                {canBet ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      toggleBet({
+                        id: p.id,
+                        matchName: `${p.home} vs ${p.away}`,
+                        market: p.market,
+                        label: p.label,
+                        value: p.value,
+                      })
+                    }
+                    className={`mt-4 flex w-full items-center justify-between rounded-2xl px-4 py-3 transition active:scale-[0.98] ${
+                      selected
+                        ? "bg-[#087cff]/25 ring-1 ring-[#087cff]/50"
+                        : "bg-white/[0.06] ring-1 ring-white/[0.08] hover:bg-white/[0.1]"
+                    }`}
+                  >
+                    <span className="text-[12px] font-bold text-white/50">
+                      Selection <span className="text-white">{p.label}</span>
+                    </span>
+                    <span className={`text-lg font-black tabular-nums ${selected ? "text-[#6eb6ff]" : "text-white"}`}>
+                      {p.value}
+                    </span>
+                  </button>
+                ) : (
+                  <Link
+                    href={p.href}
+                    prefetch={false}
+                    className="mt-4 flex w-full items-center justify-between rounded-2xl bg-white/[0.06] px-4 py-3 ring-1 ring-white/[0.08] transition hover:bg-white/[0.1]"
+                  >
+                    <span className="text-[12px] font-bold text-white/50">{p.tip}</span>
+                    <span className="inline-flex items-center gap-1 text-[12px] font-black text-white">
+                      Open sports
+                      <Icon name="arrow_forward" className="text-[14px]" />
+                    </span>
+                  </Link>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 /* ── Product mosaic ───────────────────────────────────── */
 
 const PRODUCTS = [
   {
-    href: "/binary",
-    icon: "candlestick_chart",
-    label: "Binary",
-    blurb: "Digit contracts & live charts",
-    accent: "from-sky-500/25 to-cyan-500/5",
-    iconColor: "text-sky-300",
-    ring: "ring-sky-400/15",
-    chip: "Trade",
+    href: "/aviator",
+    icon: "rocket_launch",
+    label: "Aviator",
+    blurb: "Crash multipliers, cash out fast",
+    accent: "from-orange-500/25 to-rose-500/5",
+    iconColor: "text-orange-300",
+    ring: "ring-orange-400/15",
+    chip: "Crash",
   },
   {
     href: "/forex",
@@ -241,6 +463,61 @@ function ProductMosaic() {
   );
 }
 
+/* ── How it flows ─────────────────────────────────────── */
+
+const STEPS = [
+  {
+    n: "01",
+    icon: "account_balance_wallet",
+    title: "Fund wallet",
+    blurb: "M-Pesa or crypto — balance ready in seconds.",
+    color: "text-amber-300 bg-amber-500/15 ring-amber-400/20",
+  },
+  {
+    n: "02",
+    icon: "bolt",
+    title: "Pick a market",
+    blurb: "Sports, Aviator, Binary, Forex, Predictions, P2P.",
+    color: "text-sky-300 bg-sky-500/15 ring-sky-400/20",
+  },
+  {
+    n: "03",
+    icon: "emoji_events",
+    title: "Cash out",
+    blurb: "Winnings land in the same Smart Wallet.",
+    color: "text-emerald-300 bg-emerald-500/15 ring-emerald-400/20",
+  },
+] as const;
+
+function HowItFlows() {
+  return (
+    <section className="overflow-hidden rounded-[28px] bg-gradient-to-br from-[#14161d] via-[#12141a] to-[#0e1015] p-5 ring-1 ring-white/[0.07] md:p-7">
+      <div className="mb-5 flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-base font-black text-white md:text-xl">From deposit to payout</h2>
+          <p className="mt-0.5 text-[12px] font-medium text-white/40">
+            One wallet across every product on Nezeem
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-3 md:gap-4">
+        {STEPS.map((s) => (
+          <div key={s.n} className="relative rounded-[22px] bg-white/[0.03] p-4 ring-1 ring-white/[0.06]">
+            <span className="absolute right-4 top-3 text-[28px] font-black leading-none text-white/[0.06]">
+              {s.n}
+            </span>
+            <span className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ring-1 ${s.color}`}>
+              <Icon name={s.icon} fill className="text-[22px]" />
+            </span>
+            <h3 className="text-[15px] font-black text-white">{s.title}</h3>
+            <p className="mt-1 text-[12px] font-medium leading-5 text-white/45">{s.blurb}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /* ── Trade rail: wallet + my bets ─────────────────────── */
 
 function TradeRail() {
@@ -285,58 +562,47 @@ function TradeRail() {
   );
 }
 
-/* ── Mobile top ───────────────────────────────────────── */
+/* ── Closing promo before footer ──────────────────────── */
 
-const QUICK_NAV = [
-  { href: "/sports", action: null as null | "wallet", icon: "sports_soccer", label: "Sports", color: "bg-violet-500/20 text-violet-300" },
-  { href: "/aviator", action: null, icon: "rocket_launch", label: "Aviator", color: "bg-orange-500/20 text-orange-300" },
-  { href: "/binary", action: null, icon: "candlestick_chart", label: "Binary", color: "bg-sky-500/20 text-sky-300" },
-  { href: "/predictions", action: null, icon: "online_prediction", label: "Predict", color: "bg-fuchsia-500/20 text-fuchsia-300" },
-  { href: "/p2p", action: null, icon: "swap_horiz", label: "P2P", color: "bg-emerald-500/20 text-emerald-300" },
-  { href: "/forex", action: null, icon: "currency_exchange", label: "Forex", color: "bg-teal-500/20 text-teal-300" },
-  { href: null, action: "wallet" as const, icon: "account_balance_wallet", label: "Wallet", color: "bg-amber-500/20 text-amber-300" },
-];
-
-function MobileDashboard() {
+function PromoStrip() {
   const { openWallet } = useAuthModal();
 
   return (
-    <div className="md:hidden">
-      <MobileHeroCarousel slides={BG_IMAGES} />
-
-      <div className="flex gap-2.5 overflow-x-auto no-scrollbar px-4 py-4">
-        {QUICK_NAV.map((item) => {
-          const tile =
-            "group flex shrink-0 flex-col items-center gap-1.5 rounded-2xl outline-none " +
-            "focus-visible:ring-2 focus-visible:ring-primary-fixed/70 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-          const inner = (
-            <>
-              <span
-                className={`flex h-12 w-12 items-center justify-center rounded-2xl ${item.color} ring-1 ring-white/10 transition-transform duration-fast group-hover:scale-105 group-active:scale-95`}
-              >
-                <Icon name={item.icon} fill className="text-[22px]" />
-              </span>
-              <span className="text-[10px] font-black text-white/60">{item.label}</span>
-            </>
-          );
-          if (item.action === "wallet") {
-            return (
-              <button key={item.label} type="button" onClick={openWallet} aria-label={item.label} className={tile}>
-                {inner}
-              </button>
-            );
-          }
-          return (
-            <Link key={item.label} href={item.href!} prefetch={false} aria-label={item.label} className={tile}>
-              {inner}
-            </Link>
-          );
-        })}
+    <section className="relative overflow-hidden rounded-[28px] bg-[#0f1117] ring-1 ring-white/[0.08]">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,rgba(5,185,87,0.18),transparent_55%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_right,rgba(8,124,255,0.14),transparent_50%)]" />
+      <div className="relative flex flex-col gap-5 p-5 md:flex-row md:items-center md:justify-between md:p-7">
+        <div className="max-w-xl">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
+            Ready when you are
+          </p>
+          <h2 className="mt-2 text-[26px] font-black leading-none tracking-tight text-white md:text-[34px]">
+            One balance.
+            <br />
+            Every market.
+          </h2>
+          <p className="mt-3 text-[13px] font-medium text-white/50">
+            Deposit once, then move between sports, crash, trade, and P2P without switching wallets.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            onClick={openWallet}
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#05b957] px-5 py-3 text-[13px] font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#06c960] active:scale-[0.98]"
+          >
+            Deposit now
+            <Icon name="arrow_forward" className="text-[16px]" />
+          </button>
+          <Link
+            href="/sports"
+            prefetch={false}
+            className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-[13px] font-black text-white/85 backdrop-blur-sm transition hover:bg-white/10"
+          >
+            Browse sports
+          </Link>
+        </div>
       </div>
-
-      <div className="px-4 pb-1">
-        <LivePulseBar />
-      </div>
-    </div>
+    </section>
   );
 }
