@@ -60,10 +60,10 @@ function fmtDate(iso: string) {
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  WON:     "bg-emerald-500/15 text-emerald-400",
-  LOST:    "bg-red-500/15 text-red-400",
-  VOID:    "bg-slate-500/15 text-slate-400",
-  PENDING: "bg-amber-500/15 text-amber-400",
+  WON:     "text-emerald-400",
+  LOST:    "text-red-400",
+  VOID:    "text-slate-500",
+  PENDING: "text-amber-400",
 };
 
 // ── Sub-view: Bet History ────────────────────────────────────────────────────
@@ -83,9 +83,9 @@ function BetsView() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-3 px-4 py-6">
+      <div className="flex flex-col gap-0 px-5 py-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/[0.05]" />
+          <div key={i} className="h-14 animate-pulse border-b border-white/[0.05] bg-white/[0.02]" />
         ))}
       </div>
     );
@@ -93,64 +93,60 @@ function BetsView() {
 
   if (!bets.length) {
     return (
-      <div className="flex flex-col items-center gap-3 py-16 text-center">
-        <Icon name="receipt_long" className="text-[48px] text-slate-700" />
-        <p className="text-sm font-black text-slate-400">No bets yet</p>
-        <p className="text-xs text-slate-600">Place your first bet to see it here.</p>
+      <div className="px-5 py-16 text-center">
+        <p className="text-[14px] font-bold text-slate-400">No bets yet</p>
+        <p className="mt-1 text-[12px] font-medium text-slate-600">Place your first bet to see it here.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 px-4 py-3">
+    <div className="animate-in fade-in divide-y divide-white/[0.05] border-y border-white/[0.06] duration-200">
       {bets.map((bet) => (
-        <div key={bet.id} className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
+        <div key={bet.id}>
           <button
             type="button"
             onClick={() => setExpanded(expanded === bet.id ? null : bet.id)}
-            className="flex w-full items-center gap-3 px-4 py-3 text-left"
+            className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-white/[0.02] active:scale-[0.99]"
           >
-            <Icon
-              name={bet.type === "MULTI" ? "dynamic_feed" : "sports_soccer"}
-              fill
-              className="text-[18px] text-slate-500 shrink-0"
-            />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-black text-white">
+              <p className="truncate text-[14px] font-bold text-white">
                 {bet.selections.length === 1
                   ? bet.selections[0].matchName
                   : `${bet.type} · ${bet.selections.length} selections`}
               </p>
-              <p className="text-[10px] text-slate-500">{fmtDate(bet.createdAt)} · {CURRENCY_SYMBOL} {bet.stake.toLocaleString()}</p>
+              <p className="mt-0.5 text-[12px] font-medium text-slate-500">
+                {fmtDate(bet.createdAt)} · {CURRENCY_SYMBOL} {bet.stake.toLocaleString()}
+              </p>
             </div>
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${STATUS_STYLE[bet.status] ?? STATUS_STYLE.PENDING}`}>
+            <span className={`shrink-0 text-[12px] font-black ${STATUS_STYLE[bet.status] ?? STATUS_STYLE.PENDING}`}>
               {bet.status}
             </span>
           </button>
 
           {expanded === bet.id && (
-            <div className="border-t border-white/[0.06] px-4 pb-3 pt-2 space-y-2">
+            <div className="space-y-2 border-t border-white/[0.05] bg-white/[0.015] px-5 py-3">
               {bet.selections.map((s, i) => (
                 <div key={i} className="flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[11px] font-black text-white">{s.matchName}</p>
-                    <p className="text-[10px] text-slate-500">{s.market} · {s.label}</p>
+                    <p className="truncate text-[12px] font-bold text-white">{s.matchName}</p>
+                    <p className="text-[11px] font-medium text-slate-500">{s.market} · {s.label}</p>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[11px] font-black text-[#087cff]">{Number(s.odds).toFixed(2)}</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-[12px] font-black text-[#087cff]">{Number(s.odds).toFixed(2)}</span>
                     {s.result !== "PENDING" && (
-                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${STATUS_STYLE[s.result] ?? STATUS_STYLE.PENDING}`}>
+                      <span className={`text-[11px] font-black ${STATUS_STYLE[s.result] ?? STATUS_STYLE.PENDING}`}>
                         {s.result}
                       </span>
                     )}
                   </div>
                 </div>
               ))}
-              <div className="mt-2 flex items-center justify-between border-t border-white/[0.05] pt-2">
-                <span className="text-[10px] text-slate-500">
+              <div className="mt-1 flex items-center justify-between border-t border-white/[0.05] pt-2">
+                <span className="text-[11px] font-medium text-slate-500">
                   {bet.status === "WON" ? "Won" : "Potential"}: {CURRENCY_SYMBOL} {(bet.winAmount ?? bet.potentialWin).toLocaleString()}
                 </span>
-                <span className="text-[10px] text-slate-500">Odds: {Number(bet.totalOdds).toFixed(2)}</span>
+                <span className="text-[11px] font-medium text-slate-500">Odds: {Number(bet.totalOdds).toFixed(2)}</span>
               </div>
             </div>
           )}
@@ -192,9 +188,9 @@ function TransactionsView() {
 
   if (loading) {
     return (
-      <div className="flex flex-col gap-3 px-4 py-6">
+      <div className="flex flex-col px-5 py-2">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/[0.05]" />
+          <div key={i} className="h-14 animate-pulse border-b border-white/[0.05] bg-white/[0.02]" />
         ))}
       </div>
     );
@@ -202,58 +198,49 @@ function TransactionsView() {
 
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
-        <Icon name="error" fill className="text-[40px] text-red-400/70" />
-        <p className="text-sm font-black text-slate-400">Could not load transactions</p>
-        <p className="text-xs text-slate-600">{error}</p>
+      <div className="px-5 py-16 text-center">
+        <p className="text-[14px] font-bold text-slate-400">Could not load transactions</p>
+        <p className="mt-1 text-[12px] font-medium text-slate-600">{error}</p>
       </div>
     );
   }
 
   if (!txns.length) {
     return (
-      <div className="flex flex-col items-center gap-3 px-4 py-16 text-center">
-        <Icon name="receipt_long" fill className="text-[48px] text-slate-700" />
-        <p className="text-sm font-black text-slate-400">No transactions yet</p>
-        <p className="text-xs text-slate-600">Your deposits and withdrawals will appear here.</p>
+      <div className="px-5 py-16 text-center">
+        <p className="text-[14px] font-bold text-slate-400">No transactions yet</p>
+        <p className="mt-1 text-[12px] font-medium text-slate-600">Your deposits and withdrawals will appear here.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 px-4 py-3">
+    <div className="animate-in fade-in divide-y divide-white/[0.05] border-y border-white/[0.06] duration-200">
       {txns.map((t) => {
         const meta = TXN_META[t.type] ?? { label: t.type, icon: "swap_horiz", color: "text-white", sign: "+" as const };
         return (
-          <div
-            key={t.id}
-            className="flex items-center gap-3 rounded-2xl bg-[#18191f] px-4 py-3.5 ring-1 ring-white/[0.06]"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
-              <Icon name={meta.icon} fill className={`text-[18px] ${meta.color}`} />
-            </div>
+          <div key={t.id} className="flex items-center gap-3 px-5 py-4 transition hover:bg-white/[0.02]">
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-black text-white">{meta.label}</p>
-              <p className="text-[10px] text-slate-600">
+              <p className="text-[14px] font-bold text-white">{meta.label}</p>
+              <p className="mt-0.5 text-[12px] font-medium text-slate-500">
                 {new Date(t.createdAt).toLocaleDateString("en-KE", {
                   day: "numeric", month: "short", year: "numeric",
                   hour: "2-digit", minute: "2-digit",
                 })}
                 {t.provider ? ` · ${t.provider}` : ""}
+                {" · "}
+                <span className={
+                  t.status === "COMPLETED" ? "text-emerald-500/80"
+                  : t.status === "FAILED"  ? "text-red-400/80"
+                  : "text-amber-400/80"
+                }>
+                  {t.status}
+                </span>
               </p>
             </div>
-            <div className="text-right">
-              <p className={`text-[14px] font-black ${meta.color}`}>
-                {meta.sign}{CURRENCY_SYMBOL} {Number(t.amount).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}
-              </p>
-              <p className={`text-[10px] font-black uppercase ${
-                t.status === "COMPLETED" ? "text-emerald-500/70"
-                : t.status === "FAILED"  ? "text-red-400/70"
-                : "text-amber-400/70"
-              }`}>
-                {t.status}
-              </p>
-            </div>
+            <p className={`shrink-0 text-[15px] font-black tabular-nums ${meta.color}`}>
+              {meta.sign}{CURRENCY_SYMBOL} {Number(t.amount).toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}
+            </p>
           </div>
         );
       })}
@@ -600,22 +587,18 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
 
 function BonusesView() {
   return (
-    <div className="space-y-3 px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-[#18191f] p-5 ring-1 ring-white/[0.06]">
-        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#75b8ff]">Welcome offer</p>
-        <p className="mt-1.5 text-lg font-black text-white">+130% First Deposit</p>
-        <p className="mt-1.5 text-[12px] font-semibold leading-relaxed text-slate-400">
+    <div className="px-5 pb-8 pt-2">
+      <div className="border-b border-white/[0.06] pb-6">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">Welcome offer</p>
+        <p className="mt-2 text-[1.35rem] font-black tracking-tight text-white">+130% First Deposit</p>
+        <p className="mt-2 text-[13px] font-medium leading-relaxed text-slate-400">
           Deposit at least KSh 150 and receive a 130% bonus on your first deposit.
         </p>
-        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#151518] px-2.5 py-1 text-[10px] font-black text-slate-400 ring-1 ring-white/[0.06]">
-          <Icon name="info" fill className="text-[12px]" /> Wagering requirement: 5x
-        </div>
+        <p className="mt-3 text-[12px] font-semibold text-slate-500">Wagering requirement: 5x</p>
       </div>
-
-      <div className="flex flex-col items-center gap-3 rounded-2xl bg-[#18191f] py-10 text-center ring-1 ring-white/[0.06]">
-        <Icon name="redeem" fill className="text-[42px] text-slate-700" />
-        <p className="text-sm font-black text-slate-400">No active bonuses</p>
-        <p className="text-xs font-semibold text-slate-600">Make your first deposit to claim your welcome bonus.</p>
+      <div className="py-10 text-center">
+        <p className="text-[14px] font-bold text-slate-400">No active bonuses</p>
+        <p className="mt-1 text-[12px] font-medium text-slate-600">Make your first deposit to claim your welcome bonus.</p>
       </div>
     </div>
   );
@@ -661,19 +644,23 @@ function BonusCodesView() {
   }
 
   return (
-    <div className="space-y-4 px-4 py-3">
-      <div className="rounded-2xl bg-[#18191f] p-4 ring-1 ring-white/[0.06]">
-        <p className="text-[11px] font-bold text-slate-500">Enter a promo or referral code to unlock rewards.</p>
+    <div className="space-y-5 px-5 pb-8 pt-2">
+      <div>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Promo code</p>
+        <div className="flex items-center border-b border-white/[0.08] focus-within:border-[#087cff]/60">
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            placeholder="NEZEEM400"
+            autoComplete="off"
+            className="w-full bg-transparent py-3 text-center text-[1.35rem] font-black tracking-[0.2em] text-white outline-none placeholder:text-slate-700"
+          />
+        </div>
+        <p className="mt-2 text-[12px] font-medium text-slate-500">Enter a promo or referral code to unlock rewards.</p>
       </div>
-      <input
-        type="text"
-        value={code}
-        onChange={(e) => setCode(e.target.value.toUpperCase())}
-        placeholder="BONUS CODE"
-        className="h-14 w-full rounded-2xl bg-[#18191f] px-5 text-center text-base font-black tracking-widest text-white outline-none ring-1 ring-white/[0.08] placeholder:text-slate-600 focus:ring-2 focus:ring-[#087cff]/50"
-      />
       {result && (
-        <p className={`rounded-xl px-4 py-3 text-sm font-bold ring-1 ${result.ok ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/20" : "bg-red-500/10 text-red-300 ring-red-500/20"}`}>
+        <p className={`text-[13px] font-bold ${result.ok ? "text-emerald-400" : "text-red-400"}`}>
           {result.message}
         </p>
       )}
@@ -681,7 +668,7 @@ function BonusCodesView() {
         type="button"
         onClick={apply}
         disabled={loading || !code.trim()}
-        className="h-14 w-full rounded-xl bg-[#087cff] text-sm font-black text-white transition hover:bg-[#1990ff] disabled:opacity-50"
+        className="h-12 w-full rounded-xl bg-[#087cff] text-sm font-black text-white transition hover:bg-[#1990ff] active:scale-[0.98] disabled:opacity-50"
       >
         {loading ? "Checking…" : "Apply Code"}
       </button>
@@ -715,27 +702,22 @@ function NotificationsView() {
   }
 
   return (
-    <div className="px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
-        {NOTIF_KEYS.map((item, i) => (
-          <div key={item.key}>
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex-1">
-                <p className="text-[13px] font-black text-white">{item.label}</p>
-                <p className="text-[11px] text-slate-500">{item.sub}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => toggle(item.key)}
-                className={`flex h-7 w-12 items-center rounded-full p-1 transition-colors ${toggles[item.key] ? "bg-[#087cff]" : "bg-white/[0.10]"}`}
-              >
-                <span className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${toggles[item.key] ? "translate-x-5" : "translate-x-0"}`} />
-              </button>
-            </div>
-            {i < NOTIF_KEYS.length - 1 && <div className="mx-4 h-px bg-white/[0.05]" />}
+    <div className="divide-y divide-white/[0.05] border-y border-white/[0.06]">
+      {NOTIF_KEYS.map((item) => (
+        <div key={item.key} className="flex items-center gap-3 px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-bold text-white">{item.label}</p>
+            <p className="mt-0.5 text-[12px] font-medium text-slate-500">{item.sub}</p>
           </div>
-        ))}
-      </div>
+          <button
+            type="button"
+            onClick={() => toggle(item.key)}
+            className={`flex h-7 w-12 shrink-0 items-center rounded-full p-1 transition-colors ${toggles[item.key] ? "bg-[#087cff]" : "bg-white/[0.10]"}`}
+          >
+            <span className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${toggles[item.key] ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        </div>
+      ))}
     </div>
   );
 }
@@ -1256,35 +1238,31 @@ function LanguageView() {
   const [lang, setLang] = useState("en");
 
   return (
-    <div className="space-y-3 px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
-        <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">Language</p>
-        {LANGUAGES.map((l, i) => (
-          <div key={l.code}>
-            <button
-              type="button"
-              onClick={() => { setLang(l.code); toast.info("Language updated", `${l.label} selected.`); }}
-              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-[#151518]"
-            >
-              <span className="text-xl">{l.flag}</span>
-              <span className="flex-1 text-[13px] font-black text-white">{l.label}</span>
-              {lang === l.code && <Icon name="check_circle" fill className="text-[18px] text-[#087cff]" />}
-            </button>
-            {i < LANGUAGES.length - 1 && <div className="mx-4 h-px bg-white/[0.05]" />}
-          </div>
+    <div className="px-5 pb-8 pt-2">
+      <h3 className="mb-1 text-[13px] font-black text-white">Language</h3>
+      <div className="divide-y divide-white/[0.05] border-y border-white/[0.06]">
+        {LANGUAGES.map((l) => (
+          <button
+            key={l.code}
+            type="button"
+            onClick={() => { setLang(l.code); toast.info("Language updated", `${l.label} selected.`); }}
+            className="flex w-full items-center gap-3 py-3.5 text-left transition hover:bg-white/[0.02]"
+          >
+            <span className="text-xl">{l.flag}</span>
+            <span className="flex-1 text-[14px] font-bold text-white">{l.label}</span>
+            {lang === l.code && <Icon name="check_circle" fill className="text-[18px] text-[#087cff]" />}
+          </button>
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
-        <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600">Region</p>
-        <div className="flex items-center gap-3 px-4 py-3">
-          <span className="text-xl">🇰🇪</span>
-          <div className="flex-1">
-            <p className="text-[13px] font-black text-white">Kenya</p>
-            <p className="text-[11px] text-slate-500">Ledger: KES · Timezone: EAT (UTC+3)</p>
-          </div>
-          <Icon name="check_circle" fill className="text-[18px] text-[#087cff]" />
+      <h3 className="mb-1 mt-8 text-[13px] font-black text-white">Region</h3>
+      <div className="flex items-center gap-3 border-y border-white/[0.06] py-3.5">
+        <span className="text-xl">🇰🇪</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-bold text-white">Kenya</p>
+          <p className="text-[12px] font-medium text-slate-500">Ledger: KES · Timezone: EAT (UTC+3)</p>
         </div>
+        <Icon name="check_circle" fill className="text-[18px] text-[#087cff]" />
       </div>
     </div>
   );
@@ -1304,47 +1282,42 @@ const SUPPORT_CHANNELS = [
 
 function SupportView() {
   return (
-    <div className="space-y-3 px-4 py-3">
-      <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.05]">
-          <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
-          <p className="text-[12px] font-black text-white">Support is online · 24/7</p>
-        </div>
-        {SUPPORT_CHANNELS.map((ch, i) => (
-          <div key={ch.label}>
-            <a
-              href={ch.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-[#151518]"
-            >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/[0.06]">
-                <Icon name={ch.icon} fill className={`text-[16px] ${ch.color}`} />
-              </div>
-              <div className="flex-1">
-                <p className="text-[13px] font-black text-white">{ch.label}</p>
-                <p className="text-[11px] text-slate-500">{ch.sub}</p>
-              </div>
-              <Icon name="open_in_new" className="text-[14px] text-slate-600" />
-            </a>
-            {i < SUPPORT_CHANNELS.length - 1 && <div className="mx-4 h-px bg-white/[0.05]" />}
-          </div>
+    <div className="px-5 pb-8 pt-2">
+      <div className="mb-4 flex items-center gap-2">
+        <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
+        <p className="text-[13px] font-bold text-white">Support is online · 24/7</p>
+      </div>
+      <div className="divide-y divide-white/[0.05] border-y border-white/[0.06]">
+        {SUPPORT_CHANNELS.map((ch) => (
+          <a
+            key={ch.label}
+            href={ch.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 py-3.5 transition hover:bg-white/[0.02]"
+          >
+            <Icon name={ch.icon} fill className={`text-[18px] ${ch.color}`} />
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-bold text-white">{ch.label}</p>
+              <p className="text-[12px] font-medium text-slate-500">{ch.sub}</p>
+            </div>
+            <Icon name="open_in_new" className="text-[14px] text-slate-600" />
+          </a>
         ))}
       </div>
 
-      <div className="rounded-2xl bg-[#18191f] px-4 py-3.5 ring-1 ring-white/[0.06]">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-600">FAQ</p>
-        {["How do I deposit?", "How long do withdrawals take?", "How do I place a bet?"].map((q, i) => (
-          <div key={i} className={`py-2.5 ${i > 0 ? "border-t border-white/[0.05]" : ""}`}>
-            <button
-              type="button"
-              onClick={() => toast.info(q, "Visit our full FAQ page for detailed answers.")}
-              className="flex w-full items-center justify-between text-left"
-            >
-              <span className="text-[12px] font-bold text-slate-300">{q}</span>
-              <Icon name="chevron_right" className="text-[14px] text-slate-600 shrink-0" />
-            </button>
-          </div>
+      <h3 className="mb-1 mt-8 text-[13px] font-black text-white">FAQ</h3>
+      <div className="divide-y divide-white/[0.05] border-y border-white/[0.06]">
+        {["How do I deposit?", "How long do withdrawals take?", "How do I place a bet?"].map((q) => (
+          <button
+            key={q}
+            type="button"
+            onClick={() => toast.info(q, "Visit our full FAQ page for detailed answers.")}
+            className="flex w-full items-center justify-between gap-3 py-3.5 text-left transition hover:bg-white/[0.02]"
+          >
+            <span className="text-[13px] font-bold text-slate-300">{q}</span>
+            <Icon name="chevron_right" className="shrink-0 text-[16px] text-slate-600" />
+          </button>
         ))}
       </div>
     </div>
@@ -1457,36 +1430,36 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-[200] flex items-end justify-center bg-black/80 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="relative flex w-full flex-col overflow-hidden rounded-t-3xl bg-[#151518] shadow-2xl ring-1 ring-white/[0.08] sm:rounded-3xl animate-in fade-in slide-in-from-bottom-4 duration-300 sm:max-w-sm lg:max-w-3xl"
+        className="relative flex w-full flex-col overflow-hidden rounded-t-[1.5rem] bg-[#151518] shadow-2xl ring-1 ring-white/[0.08] sm:rounded-2xl animate-in fade-in slide-in-from-bottom-4 duration-300 sm:max-w-md lg:max-w-3xl"
         style={{ maxHeight: "90dvh" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag handle mobile */}
-        <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-white/10 sm:hidden" />
+        <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-white/15 sm:hidden" />
 
-        {/* Header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-3 sm:px-5">
-          <div className="flex items-center gap-2">
-            {view !== "main" && (
-              <button
-                type="button"
-                onClick={back}
-                className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
-                aria-label="Back"
-              >
-                <Icon name="arrow_back" className="text-[16px]" />
-              </button>
-            )}
-            <h2 className="text-[15px] font-black text-white sm:text-base">{VIEW_TITLES[view]}</h2>
-          </div>
+        {/* Header — wallet-style centered title + ghost circular controls */}
+        <div className="grid shrink-0 grid-cols-[2.5rem_1fr_2.5rem] items-center px-4 pb-2 pt-3 sm:px-5">
+          {view !== "main" ? (
+            <button
+              type="button"
+              onClick={back}
+              className="grid h-9 w-9 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-95"
+              aria-label="Back"
+            >
+              <Icon name="arrow_back" className="text-[20px]" />
+            </button>
+          ) : (
+            <span />
+          )}
+          <h2 className="text-center text-[15px] font-black tracking-tight text-white">{VIEW_TITLES[view]}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-xl bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
+            className="grid h-9 w-9 place-items-center justify-self-end rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-95"
             aria-label="Close"
           >
             <Icon name="close" className="text-[18px]" />
@@ -1498,153 +1471,154 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
 
           {/* ── MAIN ── */}
           {view === "main" && (
-            <div className="space-y-3 px-4 py-4 sm:px-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0">
-              <div className="space-y-3">
-                {/* Identity */}
-                <div className="rounded-2xl bg-[#18191f] p-4 ring-1 ring-white/[0.06]">
-                  <div className="flex items-center gap-3">
-                    <AvatarUploader
-                      currentUrl={avatarUrl}
-                      initials={initials}
-                      onUploaded={setAvatarOverride}
-                      sizeClass="h-14 w-14"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-black text-white">{displayName}</p>
-                      <p className="mt-0.5 font-mono text-[11px] font-semibold text-slate-500">ID {memberId}</p>
-                      {isVerified && (
-                        <span className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-[#087cff]/12 px-1.5 py-0.5 text-[10px] font-black text-[#75b8ff]">
-                          <Icon name="verified" fill className="text-[11px]" />
-                          Verified
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-3 border-t border-white/[0.06] pt-3">
-                    {editingUsername ? (
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-black text-slate-500">@</span>
-                          <input
-                            autoFocus
-                            value={usernameInput}
-                            onChange={(e) => setUsernameInput(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") setEditingUsername(false); }}
-                            maxLength={20}
-                            placeholder="your_username"
-                            className="min-w-0 flex-1 rounded-xl bg-[#151518] px-3 py-2 text-[13px] font-black text-white outline-none ring-1 ring-white/[0.08] focus:ring-[#087cff]/60"
-                          />
-                        </div>
-                        {usernameError && <p className="mt-1.5 text-[11px] font-bold text-red-400">{usernameError}</p>}
-                        <div className="mt-2.5 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={saveUsername}
-                            disabled={usernameSaving}
-                            className="flex-1 rounded-xl bg-[#087cff] py-2 text-[12px] font-black text-white transition hover:bg-[#0970e8] disabled:opacity-50"
-                          >
-                            {usernameSaving ? "Saving…" : "Save"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingUsername(false)}
-                            className="flex-1 rounded-xl bg-white/[0.06] py-2 text-[12px] font-black text-slate-300 transition hover:bg-white/[0.1]"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <Icon name="alternate_email" fill className="shrink-0 text-[14px] text-slate-500" />
-                          <p className="truncate text-[13px] font-black text-white">@{displayName}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={startEditUsername}
-                          className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-white/[0.06] px-2.5 py-1 text-[10px] font-black text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
-                        >
-                          <Icon name="edit" className="text-[12px]" />
-                          Edit
-                        </button>
-                      </div>
+            <div className="mx-auto max-w-md px-5 pb-10 pt-4 sm:max-w-2xl lg:grid lg:max-w-none lg:grid-cols-2 lg:items-start lg:gap-10 lg:px-8">
+              <div>
+                {/* Identity — flat, no card */}
+                <div className="flex items-center gap-3">
+                  <AvatarUploader
+                    currentUrl={avatarUrl}
+                    initials={initials}
+                    onUploaded={setAvatarOverride}
+                    sizeClass="h-14 w-14"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-black tracking-tight text-white">{displayName}</p>
+                    <p className="mt-0.5 font-mono text-[11px] font-semibold text-slate-500">ID {memberId}</p>
+                    {isVerified && (
+                      <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-[#75b8ff]">
+                        <Icon name="verified" fill className="text-[12px]" />
+                        Verified
+                      </span>
                     )}
                   </div>
                 </div>
 
-                {/* Balance */}
-                <div className="rounded-2xl bg-[#18191f] p-4 ring-1 ring-white/[0.06]">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Account balance</p>
-                  <p className="mt-1 font-mono text-[22px] font-black tabular-nums text-white">{fmtBalance}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { onClose(); onOpenWallet(); }}
-                      className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#05b957] text-[12px] font-black text-white transition hover:bg-[#07cc63] active:scale-[0.98]"
-                    >
-                      <Icon name="add_circle" fill className="text-[16px]" />
-                      Deposit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { onClose(); onOpenWallet("withdraw"); }}
-                      className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#151518] text-[12px] font-black text-slate-200 ring-1 ring-white/[0.08] transition hover:bg-white/[0.06] active:scale-[0.98]"
-                    >
-                      <Icon name="remove_circle" fill className="text-[16px] text-slate-400" />
-                      Withdraw
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
-                  {MENU.map((item, i) => (
-                    <div key={item.label}>
+                {/* Username edit */}
+                <div className="mt-5 border-t border-white/[0.06] pt-4">
+                  {editingUsername ? (
+                    <div>
+                      <div className="flex items-center gap-2 border-b border-white/[0.08] focus-within:border-[#087cff]/60">
+                        <span className="text-sm font-black text-slate-500">@</span>
+                        <input
+                          autoFocus
+                          value={usernameInput}
+                          onChange={(e) => setUsernameInput(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveUsername(); if (e.key === "Escape") setEditingUsername(false); }}
+                          maxLength={20}
+                          placeholder="your_username"
+                          className="min-w-0 flex-1 bg-transparent py-2.5 text-[14px] font-bold text-white outline-none"
+                        />
+                      </div>
+                      {usernameError && <p className="mt-1.5 text-[12px] font-bold text-red-400">{usernameError}</p>}
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          onClick={saveUsername}
+                          disabled={usernameSaving}
+                          className="flex-1 rounded-xl bg-[#087cff] py-2.5 text-[12px] font-black text-white transition hover:bg-[#0970e8] disabled:opacity-50"
+                        >
+                          {usernameSaving ? "Saving…" : "Save"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingUsername(false)}
+                          className="flex-1 rounded-xl py-2.5 text-[12px] font-black text-slate-300 transition hover:bg-white/[0.06]"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <Icon name="alternate_email" fill className="shrink-0 text-[14px] text-slate-500" />
+                        <p className="truncate text-[14px] font-bold text-white">@{displayName}</p>
+                      </div>
                       <button
                         type="button"
-                        onClick={item.action}
-                        className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-white/[0.03] active:scale-[0.99]"
+                        onClick={startEditUsername}
+                        className="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
                       >
-                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
-                          <Icon name={item.icon} fill className="text-[15px] text-slate-400" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[13px] font-black text-white">{item.label}</p>
-                          <p className="text-[10px] font-semibold text-slate-500">{item.sub}</p>
-                        </div>
-                        <Icon name="chevron_right" className="text-[16px] text-slate-600" />
+                        <Icon name="edit" className="text-[12px]" />
+                        Edit
                       </button>
-                      {i < MENU.length - 1 && <div className="mx-3.5 h-px bg-white/[0.05]" />}
                     </div>
+                  )}
+                </div>
+
+                {/* Balance — bare like wallet */}
+                <section className="mt-8">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Account balance
+                    </p>
+                    <CurrencySwitcher />
+                  </div>
+                  <p className="mt-2 text-[1.75rem] font-black leading-none tracking-tight text-white sm:text-[2rem]">
+                    {fmtBalance}
+                  </p>
+                  <div className="mt-8 grid grid-cols-4 gap-2">
+                    {[
+                      { label: "Deposit", icon: "arrow_downward", action: () => { onClose(); onOpenWallet("deposit"); } },
+                      { label: "Send", icon: "send", action: () => { onClose(); onOpenWallet("send"); } },
+                      { label: "Withdraw", icon: "arrow_upward", action: () => { onClose(); onOpenWallet("withdraw"); } },
+                      { label: "History", icon: "history", action: () => setView("transactions") },
+                    ].map((action) => (
+                      <button
+                        key={action.label}
+                        type="button"
+                        onClick={action.action}
+                        className="flex flex-col items-center gap-2 rounded-xl px-1 py-2 text-center transition hover:bg-white/[0.04] active:scale-[0.96]"
+                      >
+                        <span className="grid h-11 w-11 place-items-center rounded-full bg-white/[0.06] text-white ring-1 ring-white/[0.06]">
+                          <Icon name={action.icon} className="text-[20px]" />
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-300">{action.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              <div className="mt-8 lg:mt-0">
+                <h3 className="mb-1 text-[13px] font-black text-white">Account</h3>
+                <div className="divide-y divide-white/[0.05] border-y border-white/[0.06]">
+                  {MENU.map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={item.action}
+                      className="flex w-full items-center gap-3 py-3.5 text-left transition hover:bg-white/[0.02] active:scale-[0.99]"
+                    >
+                      <Icon name={item.icon} fill className="shrink-0 text-[18px] text-slate-400" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14px] font-bold text-white">{item.label}</p>
+                        <p className="text-[12px] font-medium text-slate-500">{item.sub}</p>
+                      </div>
+                      <Icon name="chevron_right" className="text-[16px] text-slate-600" />
+                    </button>
                   ))}
                 </div>
 
-                <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
+                <h3 className="mb-1 mt-8 text-[13px] font-black text-white">More</h3>
+                <div className="divide-y divide-white/[0.05] border-y border-white/[0.06]">
                   <button
                     type="button"
                     onClick={() => setView("support")}
-                    className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-white/[0.03]"
+                    className="flex w-full items-center gap-3 py-3.5 text-left transition hover:bg-white/[0.02]"
                   >
-                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
-                      <Icon name="support_agent" fill className="text-[15px] text-slate-400" />
-                    </div>
-                    <span className="flex-1 text-[13px] font-black text-white">Support</span>
-                    <span className="rounded-md bg-[#087cff]/15 px-1.5 py-0.5 text-[10px] font-black text-[#75b8ff]">24/7</span>
+                    <Icon name="support_agent" fill className="shrink-0 text-[18px] text-slate-400" />
+                    <span className="flex-1 text-[14px] font-bold text-white">Support</span>
+                    <span className="text-[11px] font-bold text-[#75b8ff]">24/7</span>
                     <Icon name="chevron_right" className="text-[16px] text-slate-600" />
                   </button>
-                  <div className="mx-3.5 h-px bg-white/[0.05]" />
                   <button
                     type="button"
                     onClick={() => setView("settings")}
-                    className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-white/[0.03]"
+                    className="flex w-full items-center gap-3 py-3.5 text-left transition hover:bg-white/[0.02]"
                   >
-                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
-                      <Icon name="settings" fill className="text-[15px] text-slate-400" />
-                    </div>
-                    <span className="flex-1 text-[13px] font-black text-white">Settings</span>
+                    <Icon name="settings" fill className="shrink-0 text-[18px] text-slate-400" />
+                    <span className="flex-1 text-[14px] font-bold text-white">Settings</span>
                     <Icon name="chevron_right" className="text-[16px] text-slate-600" />
                   </button>
                 </div>
@@ -1652,7 +1626,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.08] py-2.5 text-[13px] font-black text-red-400 ring-1 ring-red-500/15 transition hover:bg-red-500/[0.12]"
+                  className="mt-8 flex w-full items-center justify-center gap-2 py-3 text-[13px] font-bold text-red-400 transition hover:text-red-300"
                 >
                   <Icon name="logout" className="text-[16px]" />
                   Sign Out
@@ -1663,87 +1637,73 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
 
           {/* ── SETTINGS ── */}
           {view === "settings" && (
-            <div className="space-y-3 px-4 py-4 sm:px-5">
+            <div className="mx-auto max-w-md px-5 pb-10 pt-2">
               {(email || phone) && (
-                <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
-                  <p className="px-4 pt-3 pb-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">Contact info</p>
-                  {email && (
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
-                          <Icon name="mail" fill className="text-[15px] text-slate-400" />
-                        </div>
+                <>
+                  <h3 className="mb-1 text-[13px] font-black text-white">Contact info</h3>
+                  <div className="divide-y divide-white/[0.05] border-y border-white/[0.06]">
+                    {email && (
+                      <div className="flex items-center justify-between gap-3 py-3.5">
                         <div className="min-w-0">
-                          <p className="truncate text-[12px] font-black text-white">{email}</p>
-                          <p className="text-[10px] font-semibold text-slate-600">Email address</p>
+                          <p className="truncate text-[14px] font-bold text-white">{email}</p>
+                          <p className="text-[12px] font-medium text-slate-500">Email address</p>
                         </div>
+                        <span className={`shrink-0 text-[11px] font-bold ${isVerified ? "text-emerald-400" : "text-slate-500"}`}>
+                          {isVerified ? "Verified" : "Unverified"}
+                        </span>
                       </div>
-                      <span className={`shrink-0 rounded-md px-2 py-0.5 text-[10px] font-black ${isVerified ? "bg-emerald-500/12 text-emerald-400" : "bg-white/[0.06] text-slate-400"}`}>
-                        {isVerified ? "Verified" : "Unverified"}
-                      </span>
-                    </div>
-                  )}
-                  {email && phone && <div className="mx-4 h-px bg-white/[0.05]" />}
-                  {phone && (
-                    <div className="flex items-center justify-between gap-3 px-4 py-3">
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
-                          <Icon name="phone" fill className="text-[15px] text-slate-400" />
-                        </div>
+                    )}
+                    {phone && (
+                      <div className="flex items-center justify-between gap-3 py-3.5">
                         <div className="min-w-0">
-                          <p className="truncate text-[12px] font-black text-white">{phone}</p>
-                          <p className="text-[10px] font-semibold text-slate-600">Phone number</p>
+                          <p className="truncate text-[14px] font-bold text-white">{phone}</p>
+                          <p className="text-[12px] font-medium text-slate-500">Phone number</p>
                         </div>
+                        <span className="shrink-0 text-[11px] font-bold text-emerald-400">Verified</span>
                       </div>
-                      <span className="shrink-0 rounded-md bg-emerald-500/12 px-2 py-0.5 text-[10px] font-black text-emerald-400">Verified</span>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                </>
               )}
 
-              <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
-                {SETTINGS_ITEMS.map((item, i) => (
-                  <div key={item.label}>
-                    <button type="button" onClick={item.action} className="flex w-full items-center gap-3 px-3.5 py-3.5 text-left transition hover:bg-white/[0.03] active:scale-[0.99]">
-                      <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
-                        <Icon name={item.icon} fill className="text-[16px] text-slate-400" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[13px] font-black text-white">{item.label}</p>
-                        <p className="text-[11px] font-semibold text-slate-500">{item.sub}</p>
-                      </div>
-                      <Icon name="chevron_right" className="text-[16px] text-slate-600" />
-                    </button>
-                    {i < SETTINGS_ITEMS.length - 1 && <div className="mx-3.5 h-px bg-white/[0.05]" />}
-                  </div>
+              <h3 className={`mb-1 text-[13px] font-black text-white ${(email || phone) ? "mt-8" : ""}`}>Preferences</h3>
+              <div className="divide-y divide-white/[0.05] border-y border-white/[0.06]">
+                {SETTINGS_ITEMS.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={item.action}
+                    className="flex w-full items-center gap-3 py-3.5 text-left transition hover:bg-white/[0.02] active:scale-[0.99]"
+                  >
+                    <Icon name={item.icon} fill className="shrink-0 text-[18px] text-slate-400" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-bold text-white">{item.label}</p>
+                      <p className="text-[12px] font-medium text-slate-500">{item.sub}</p>
+                    </div>
+                    <Icon name="chevron_right" className="text-[16px] text-slate-600" />
+                  </button>
                 ))}
               </div>
 
-              <div className="overflow-hidden rounded-2xl bg-[#18191f] ring-1 ring-white/[0.06]">
-                <div className="flex items-center justify-between gap-3 px-3.5 py-3.5">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-[#151518] ring-1 ring-white/[0.06]">
-                      <Icon name="devices" fill className="text-[16px] text-slate-400" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-black text-white">Active sessions</p>
-                      <p className="text-[11px] font-semibold text-slate-500">This device · {new Date().toLocaleDateString("en-KE", { day: "numeric", month: "short" })}</p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="shrink-0 text-xs font-black text-red-400 transition hover:text-red-300"
-                  >
-                    End all
-                  </button>
+              <h3 className="mb-1 mt-8 text-[13px] font-black text-white">Sessions</h3>
+              <div className="flex items-center justify-between gap-3 border-y border-white/[0.06] py-3.5">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-bold text-white">Active sessions</p>
+                  <p className="text-[12px] font-medium text-slate-500">This device · {new Date().toLocaleDateString("en-KE", { day: "numeric", month: "short" })}</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  className="shrink-0 text-[12px] font-bold text-red-400 transition hover:text-red-300"
+                >
+                  End all
+                </button>
               </div>
 
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-red-500/[0.08] py-3 text-sm font-black text-red-400 ring-1 ring-red-500/15 transition hover:bg-red-500/[0.12]"
+                className="mt-8 flex w-full items-center justify-center gap-2 py-3 text-[13px] font-bold text-red-400 transition hover:text-red-300"
               >
                 <Icon name="logout" className="text-[16px]" />
                 Sign Out
