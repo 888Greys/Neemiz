@@ -1,19 +1,16 @@
-import { createHash, randomUUID } from "crypto";
+import { randomUUID } from "crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { sendNewLoginEmail } from "@/lib/brevo";
+import { checkDeviceGate, hashDeviceId } from "@/lib/device-gate";
 
 export const dynamic = "force-dynamic";
 
 const DEVICE_COOKIE = "nezeem-device";
 const DEVICE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
-
-function deviceHash(deviceId: string) {
-  return createHash("sha256").update(deviceId).digest("hex");
-}
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (c) =>
@@ -42,6 +39,10 @@ function describeDevice(ua: string): string {
 // Records a "new login detected" alert only for a previously unseen browser
 // device. Country is shown for context but not used as a trigger: mobile IPs,
 // VPNs, and carriers can change location during normal use.
+//
+// Also enforces DEVICE_MAX_ACCOUNTS: a brand-new account that would be the
+// N+1st user on this device fingerprint is frozen (isActive=false) so promo
+// farming can't bypass the pre-signup gate by clearing localStorage mid-flow.
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
     ?? request.headers.get("x-real-ip")
     ?? "unknown";
   const countryRaw = request.headers.get("cf-ipcountry") ?? "";
-  const location = countryRaw && countryRaw !== "XX" ? countryRaw : undefined;
+  const location = countryRaw && countryRaw !== "XX" && countryRaw !== "T1" ? countryRaw : undefined;
   const device = describeDevice(ua);
   const when = new Date().toUTCString();
 
@@ -69,38 +70,75 @@ export async function POST(request: Request) {
   } catch { /* no/invalid body — fall back to cookie */ }
   const cookieDeviceId = cookieStore.get(DEVICE_COOKIE)?.value;
   const rawDeviceId = bodyDeviceId || cookieDeviceId || randomUUID();
+  const hash = hashDeviceId(rawDeviceId);
   const knownDevice = await db.loginDevice.findUnique({
-    where: { userId_deviceHash: { userId: appUser.id, deviceHash: deviceHash(rawDeviceId) } },
+    where: { userId_deviceHash: { userId: appUser.id, deviceHash: hash } },
     select: { id: true },
   });
 
-  const response = NextResponse.json({ ok: true, newDevice: !knownDevice });
-  if (!cookieDeviceId) {
-    response.cookies.set(DEVICE_COOKIE, rawDeviceId, {
-      httpOnly: true,
-      maxAge: DEVICE_COOKIE_MAX_AGE,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-    });
-  }
+  const setDeviceCookie = (res: NextResponse) => {
+    if (!cookieDeviceId) {
+      res.cookies.set(DEVICE_COOKIE, rawDeviceId, {
+        httpOnly: true,
+        maxAge: DEVICE_COOKIE_MAX_AGE,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        path: "/",
+      });
+    }
+  };
 
   if (knownDevice) {
     await db.loginDevice.update({
       where: { id: knownDevice.id },
       data: { lastSeenAt: new Date(), userAgent: ua || null, lastLocation: location ?? null },
     });
+    const response = NextResponse.json({ ok: true, newDevice: false });
+    setDeviceCookie(response);
+    return response;
+  }
+
+  // New user↔device link — enforce per-device account cap + Tor block.
+  const gate = await checkDeviceGate(rawDeviceId, {
+    excludeUserId: appUser.id,
+    req: request,
+  });
+  if (!gate.ok) {
+    const priorDevices = await db.loginDevice.count({ where: { userId: appUser.id } });
+    const accountAgeMs = Date.now() - new Date(appUser.createdAt).getTime();
+    const isFreshSignup = priorDevices === 0 && accountAgeMs < 15 * 60_000;
+
+    if (isFreshSignup || gate.code === "TOR_BLOCKED") {
+      await db.user.update({
+        where: { id: appUser.id },
+        data: { isActive: false },
+      });
+    }
+
+    const response = NextResponse.json(
+      {
+        ok: false,
+        code: gate.code,
+        error: gate.error,
+        suspended: isFreshSignup || gate.code === "TOR_BLOCKED",
+      },
+      { status: 403 },
+    );
+    setDeviceCookie(response);
     return response;
   }
 
   await db.loginDevice.create({
     data: {
       userId: appUser.id,
-      deviceHash: deviceHash(rawDeviceId),
+      deviceHash: hash,
       userAgent: ua || null,
       lastLocation: location ?? null,
     },
   });
+
+  const response = NextResponse.json({ ok: true, newDevice: true });
+  setDeviceCookie(response);
 
   await db.notification.create({
     data: {
