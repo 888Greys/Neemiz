@@ -167,10 +167,42 @@ async function sendTRXFromHotWallet(toTronAddress: string, sunAmount: number, ap
   await new Promise((r) => setTimeout(r, 3000));
 }
 
+/**
+ * Send native TRX (a TransferContract) from `fromTronAddress` to `to`, signed
+ * with `privKey`. Self-paying: the network fee (bandwidth, or a tiny TRX burn)
+ * comes out of the sender's own TRX — no separate gas token or hot-wallet
+ * top-up, unlike a TRC-20 token transfer. Same recipe as sendTRXFromHotWallet.
+ */
+async function sendNativeTRX(fromTronAddress: string, to: string, sunAmount: number, privKey: string, apiKey: string): Promise<string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...(apiKey ? { "TRON-PRO-API-KEY": apiKey } : {}) };
+  const fromHex = "41" + tronToHex(fromTronAddress).slice(2);
+  const toHex   = "41" + tronToHex(to).slice(2);
+
+  const body = { owner_address: fromHex, to_address: toHex, amount: sunAmount, visible: false };
+  const res  = await fetch(`${TRONGRID}/wallet/createtransaction`, { method: "POST", headers, body: JSON.stringify(body) });
+  const tx   = await res.json() as Record<string, unknown> & { Error?: string };
+  if (tx.Error) throw new Error(`TRX createtransaction failed: ${tx.Error}`);
+
+  const txID    = getTronTxId(tx);
+  const sig     = new ethers.SigningKey(privKey).sign("0x" + txID);
+  const tronSig = sig.r.slice(2) + sig.s.slice(2) + (sig.v - 27).toString(16).padStart(2, "0");
+
+  const signedTx      = { ...tx, signature: [tronSig] };
+  const broadcastRes  = await fetch(`${TRONGRID}/wallet/broadcasttransaction`, { method: "POST", headers, body: JSON.stringify(signedTx) });
+  const broadcastData = await broadcastRes.json() as { result?: boolean; txid?: string; message?: string; code?: string };
+  if (!broadcastData?.result) throw new Error(`Tron broadcast failed: ${broadcastData?.message ?? broadcastData?.code ?? "unknown"}`);
+  return broadcastData.txid ?? txID;
+}
+
 async function broadcastTron(fromTronAddress: string, to: string, crypto: string, amount: number, userPrivKey: string): Promise<string> {
+  const apiKey  = process.env.TRONGRID_API_KEY ?? "";
+
+  // Native TRX withdrawal — self-paying, no TRC-20 contract call, no gas top-up.
+  if (crypto === "TRX") {
+    return sendNativeTRX(fromTronAddress, to, Math.round(amount * 1_000_000), userPrivKey, apiKey);
+  }
   if (crypto !== "USDT") throw new Error(`TRC20 ${crypto} not yet supported`);
 
-  const apiKey  = process.env.TRONGRID_API_KEY ?? "";
   const headers: Record<string, string> = { "Content-Type": "application/json", ...(apiKey ? { "TRON-PRO-API-KEY": apiKey } : {}) };
 
   const trxBalance = await getTronNativeBalance(fromTronAddress, apiKey);
