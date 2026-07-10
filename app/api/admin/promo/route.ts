@@ -94,6 +94,89 @@ export async function POST(req: Request) {
 }
 
 /**
+ * PATCH /api/admin/promo
+ * Body: { id, isActive?, maxRedemptions?, expiresAt?, description? }
+ * Code and amount are immutable after create.
+ */
+export async function PATCH(req: Request) {
+  const admin = await requireAdmin();
+  if (!admin) return Response.json({ error: "Forbidden" }, { status: 403 });
+
+  let body: {
+    id?: string;
+    isActive?: boolean;
+    maxRedemptions?: number | null;
+    expiresAt?: string | null;
+    description?: string | null;
+  };
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "Invalid body" }, { status: 400 });
+  }
+
+  const id = typeof body.id === "string" ? body.id.trim() : "";
+  if (!id) return Response.json({ error: "id required" }, { status: 400 });
+
+  const data: {
+    isActive?: boolean;
+    maxRedemptions?: number | null;
+    expiresAt?: Date | null;
+    description?: string | null;
+  } = {};
+
+  if (typeof body.isActive === "boolean") data.isActive = body.isActive;
+
+  if ("maxRedemptions" in body) {
+    if (body.maxRedemptions == null) {
+      data.maxRedemptions = null;
+    } else {
+      const n = Number(body.maxRedemptions);
+      if (!Number.isInteger(n) || n < 1) {
+        return Response.json({ error: "maxRedemptions must be a positive integer or null" }, { status: 400 });
+      }
+      data.maxRedemptions = n;
+    }
+  }
+
+  if ("expiresAt" in body) {
+    if (body.expiresAt == null || body.expiresAt === "") {
+      data.expiresAt = null;
+    } else {
+      const d = new Date(body.expiresAt);
+      if (Number.isNaN(d.getTime())) {
+        return Response.json({ error: "Invalid expiresAt" }, { status: 400 });
+      }
+      data.expiresAt = d;
+    }
+  }
+
+  if ("description" in body) {
+    data.description = body.description?.trim() || null;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return Response.json({ error: "No fields to update" }, { status: 400 });
+  }
+
+  try {
+    const promo = await db.promoCode.update({ where: { id }, data });
+    await logAdminAction({
+      adminId: admin.id,
+      action: "promo_update",
+      targetId: promo.id,
+      metadata: data,
+    });
+    return Response.json({ ok: true, promo });
+  } catch (err) {
+    if (err && typeof err === "object" && "code" in err && (err as { code: string }).code === "P2025") {
+      return Response.json({ error: "Promo not found" }, { status: 404 });
+    }
+    throw err;
+  }
+}
+
+/**
  * GET /api/admin/promo
  * Lists codes + recent redemptions (who used what).
  * Query: ?code=KIP100 to filter redemptions to one code; ?limit=200
@@ -132,8 +215,33 @@ export async function GET(req: Request) {
     },
   });
 
+  const mappedPromos = promos.map((p) => {
+    const amountKes = Number(p.amountKes);
+    return {
+      id: p.id,
+      code: p.code,
+      amountKes,
+      redemptionCount: p.redemptionCount,
+      maxRedemptions: p.maxRedemptions,
+      isActive: p.isActive,
+      description: p.description,
+      startsAt: p.startsAt?.toISOString() ?? null,
+      expiresAt: p.expiresAt?.toISOString() ?? null,
+      createdAt: p.createdAt.toISOString(),
+      totalPaidKes: amountKes * p.redemptionCount,
+    };
+  });
+
+  const totals = {
+    codes: mappedPromos.length,
+    active: mappedPromos.filter((p) => p.isActive).length,
+    redemptions: mappedPromos.reduce((s, p) => s + p.redemptionCount, 0),
+    paidKes: mappedPromos.reduce((s, p) => s + p.totalPaidKes, 0),
+  };
+
   return Response.json({
-    promos,
+    promos: mappedPromos,
+    totals,
     redemptions: redemptions.map((r) => ({
       id: r.id,
       code: r.promoCode.code,
