@@ -14,6 +14,7 @@ import { exitDigitFromQuote, type DigitSide } from "@/lib/binary/kernel";
 import { payoutRate } from "@/lib/binary-settle";
 import { buildDigitProof, isProvablyFairConfigured, sha256 } from "@/lib/binary/provably-fair";
 import { applyProfitRetention } from "@/lib/house-retention";
+import { isBetTypeDisabled } from "@/lib/game-guard";
 import { nextStake, stopStatus, type AutoStrategy } from "@/lib/auto-trade";
 
 const n = (d: unknown) => Number(d);
@@ -128,6 +129,15 @@ export interface StepOutcome {
  */
 export async function stepSession(session: AutoTradeSession): Promise<StepOutcome> {
   if (session.status !== "RUNNING") return { sessionId: session.id, action: "waiting", detail: "not running" };
+
+  // Respect the per-type kill switch: if this session's bet type has been
+  // disabled (e.g. an exploit was contained) stop the session instead of
+  // placing more trades. Without this an already-RUNNING session would keep
+  // firing the disabled contract, bypassing the manual-route guard.
+  if (await isBetTypeDisabled("binary", session.side)) {
+    await halt(session.id, "STOPPED", "bet type disabled");
+    return { sessionId: session.id, action: "stopped", detail: "disabled" };
+  }
 
   // First trade of the session.
   if (!session.lastTradeId) {

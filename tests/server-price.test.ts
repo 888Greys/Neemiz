@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { makeRng, simulatePath } from "@/lib/binary/fairness";
-import { priceDirectionalServer, priceDigitServer, previewDigitPayout, resolveDigitEdgeFloor } from "@/lib/binary/server-price";
+import { priceDirectionalServer, priceDigitServer, previewDigitPayout, resolveDigitEdgeFloor, MIN_OVER_UNDER_TICKS } from "@/lib/binary/server-price";
 
 // The request-path pricing helper: turns a contract + real tick window into a
 // stored payout via the engine. Ticks are injected, so no feed is needed.
@@ -85,6 +85,20 @@ describe("priceDigitServer", () => {
     expect(resolveDigitEdgeFloor("Under", 5, 0.06)).toBe(0.18);
     expect(resolveDigitEdgeFloor("Under", 4, 0.09)).toBe(0.18);
     expect(resolveDigitEdgeFloor("Under", 3, 0.06)).toBe(0.10);
+  });
+
+  it("rejects too-short Over/Under (the R_50 1-tick autocorrelation exploit)", () => {
+    // Live evidence: 1-tick Over/Under on R_50 realized RTP ~1.5 by exploiting
+    // tick-to-tick digit autocorrelation the window-sampled price can't see.
+    for (const side of ["Over", "Under"] as const) {
+      for (let d = 1; d < MIN_OVER_UNDER_TICKS; d++) {
+        const r = priceDigitServer({ side, targetDigit: 5, durationTicks: d, stake: 100, ticks });
+        expect(r.accepted, `${side} @ ${d} ticks must be rejected`).toBe(false);
+      }
+      // At the minimum duration it prices normally again.
+      const ok = priceDigitServer({ side, targetDigit: 5, durationTicks: MIN_OVER_UNDER_TICKS, stake: 100, ticks });
+      expect(ok.accepted, `${side} @ ${MIN_OVER_UNDER_TICKS} ticks should price`).toBe(true);
+    }
   });
 
   it("prices Even/Odd/Matches/Differs contracts with sane payouts", () => {

@@ -3,7 +3,8 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateStart } from "@/lib/auto-trade";
 import { stepSession } from "@/lib/auto-trade-engine";
-import { isBinaryOptionsInMaintenance, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
+import { isBinaryOptionsInMaintenance, isBetTypeDisabled, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
+import { MIN_OVER_UNDER_TICKS } from "@/lib/binary/server-price";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,13 @@ export async function POST(req: Request) {
   let v;
   try { v = validateStart(body as Record<string, unknown>); }
   catch (e) { return Response.json({ error: e instanceof Error ? e.message : "Invalid input" }, { status: 400 }); }
+
+  // Same guards as the manual bet route — the auto-trader must not bypass the
+  // per-type kill switch or the Over/Under microstructure floor.
+  if (await isBetTypeDisabled("binary", v.side))
+    return Response.json({ error: "This bet type is temporarily unavailable while we complete maintenance." }, { status: 503 });
+  if ((v.side === "Over" || v.side === "Under") && v.durationTicks < MIN_OVER_UNDER_TICKS)
+    return Response.json({ error: `Over/Under needs at least ${MIN_OVER_UNDER_TICKS} ticks` }, { status: 400 });
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
