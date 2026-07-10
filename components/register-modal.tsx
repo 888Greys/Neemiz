@@ -9,6 +9,8 @@ import { CountryPicker } from "@/components/country-picker";
 import { COUNTRIES, type Country } from "@/lib/countries";
 import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
+import { stashPendingPromo, redeemPromoClient } from "@/lib/pending-promo";
+import { showPromoSuccess } from "@/components/promo-success";
 
 
 type Props = {
@@ -21,9 +23,9 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   const [country, setCountry]         = useState<Country>(COUNTRIES[0]);
   const [phone, setPhone]             = useState("");
   const [email, setEmail]             = useState("");
-  const [username, setUsername]       = useState("");
   const [password, setPassword]       = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [promoCode, setPromoCode]     = useState("");
   const [showPw, setShowPw]           = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [agreed, setAgreed]           = useState(false);
@@ -39,13 +41,24 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
 
   const router = useRouter();
 
+  async function finishSignup(welcomeMsg: string) {
+    stashPendingPromo(promoCode);
+    const promo = await redeemPromoClient(promoCode || undefined);
+    onClose();
+    toast.success(welcomeMsg, "Welcome to Nezeem 🎉");
+    if (promo.ok && promo.amount && promo.code) {
+      // Slight delay so the register sheet closes first, then celebrate.
+      setTimeout(() => showPromoSuccess({ amount: promo.amount!, code: promo.code! }), 350);
+    }
+    router.push("/dashboard");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!agreed) return;
 
     if (password !== confirmPassword) { setError("Passwords do not match"); return; }
     if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
-    if (username && username.length < 4) { setError("Username must be at least 4 characters"); return; }
 
     if (!phone) { setError("Phone number is required"); return; }
     const rawPhone = phone.trim().replace(/\s+/g, "").replace("+", "");
@@ -79,7 +92,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
           password,
           options: {
             data: {
-              username: username || null,
+              username: null,
               first_name: null,
               phone_number: normalized,
             },
@@ -93,6 +106,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         }
 
         // Show OTP screen — Supabase sends a 6-digit code to the email
+        stashPendingPromo(promoCode);
         setVerifyChannel("email");
         setPendingVerify(true);
         startResendCooldown();
@@ -106,7 +120,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
           password,
           options: {
             data: {
-              username: username || null,
+              username: null,
               phone_number: normalized,
             },
           },
@@ -121,9 +135,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         // exists now — no SMS OTP at signup. Phone verification is deferred to
         // the first withdrawal, where the number is verified once and then bound
         // to the account for life (see wallet-client / phone-verify-modal).
-        onClose();
-        toast.success("Account created!", "Welcome to Nezeem 🎉");
-        router.push("/dashboard");
+        await finishSignup("Account created!");
       }
     } catch {
       setError("Registration failed. Please try again.");
@@ -170,9 +182,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
         }
       }
 
-      onClose();
-      toast.success("Account verified!", "Welcome to Nezeem 🎉");
-      router.push("/dashboard");
+      await finishSignup("Account verified!");
     } catch {
       setCode("");
       setError("Verification failed. Please try again.");
@@ -233,6 +243,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
   async function handleOAuth(provider: "google" | "github") {
     setError("");
     setLoading(true);
+    stashPendingPromo(promoCode);
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider,
@@ -410,18 +421,6 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                   </div>
                 )}
 
-                {/* Username */}
-                <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
-                  <Icon name="person" fill className="text-[18px] shrink-0 text-slate-500" />
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Username (optional)"
-                    className="flex-1 bg-transparent py-3.5 text-sm text-white placeholder-slate-600 outline-none"
-                  />
-                </div>
-
                 {/* Password */}
                 <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
                   <Icon name="lock" fill className="text-[18px] shrink-0 text-slate-500" />
@@ -455,6 +454,19 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
                   <button type="button" onClick={() => setShowConfirmPw((v) => !v)} className="text-slate-500 transition hover:text-slate-300">
                     <Icon name={showConfirmPw ? "visibility_off" : "visibility"} className="text-[18px]" />
                   </button>
+                </div>
+
+                {/* Optional promo code */}
+                <div className="flex items-center gap-3 overflow-hidden rounded-2xl bg-[#18191f] px-4 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
+                  <Icon name="confirmation_number" fill className="text-[18px] shrink-0 text-slate-500" />
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                    placeholder="Promo code (optional)"
+                    autoComplete="off"
+                    className="flex-1 bg-transparent py-3.5 text-sm font-bold tracking-wider text-white placeholder-slate-600 outline-none"
+                  />
                 </div>
 
                 {error && <p className="rounded-xl bg-red-500/10 px-4 py-2 text-xs font-bold text-red-400">{error}</p>}

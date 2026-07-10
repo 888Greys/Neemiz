@@ -16,6 +16,17 @@ export type DirectionalPrice =
   | { accepted: false; reason: string }
   | { accepted: true; payout: number; multiplier: number };
 
+/** Minimum |barrier − spot| / spot for HIGHER_LOWER / TOUCH. Closer than this
+ *  was the live bleed (engine HIGHER <0.05% → RTP ~2.4 on small samples). */
+export const MIN_BARRIER_FRAC = 0.0005; // 0.05%
+
+/** Extra edge floor for short-duration Rise/Fall on 1Hz synthetics. */
+export const SHORT_1HZ_RISE_FALL_EDGE = 0.15;
+
+export function isOneHzMarket(market?: string | null): boolean {
+  return !!market && market.startsWith("1HZ");
+}
+
 /**
  * Price a fixed-payout directional contract off a real tick window. Returns the
  * total net payout on a win (stake × multiplier). The engine multiplier already
@@ -31,16 +42,35 @@ export function priceDirectionalServer(params: {
   durationTicks: number;
   stake: number;
   ticks: number[];
+  market?: string;          // Deriv symbol — used for 1Hz short-duration gates
   edgeFloor?: number;       // per-symbol edge (see measureSymbolEdge); overrides the default
   cfg?: PricingConfig;
 }): DirectionalPrice {
-  const { kind, side, entrySpot, barrier, durationTicks, stake, ticks } = params;
-  const cfg: PricingConfig = params.cfg ?? (params.edgeFloor != null
-    ? { ...DEFAULT_CONFIG, edgeFloor: params.edgeFloor }
-    : DEFAULT_CONFIG);
+  const { kind, side, entrySpot, barrier, durationTicks, stake, ticks, market } = params;
+
+  // 1-tick Rise/Fall on 1Hz was the live engine leak (1HZ10V RISE@1t → RTP ~134%).
+  // Microstructure at a single tick isn't covered by the 8-tick edge calibration.
+  if (kind === "RISE_FALL" && durationTicks < 2 && isOneHzMarket(market)) {
+    return { accepted: false, reason: "1-tick Rise/Fall is unavailable on 1Hz markets — pick 2+ ticks" };
+  }
+
   // The engine prices a RELATIVE barrier (fraction of entry); the trade's
   // absolute barrier is entrySpot·(1+frac), so frac = barrier/entrySpot − 1.
-  const barrierFrac = kind === "RISE_FALL" || barrier == null ? null : barrier / entrySpot - 1;
+  const barrierFrac = kind === "RISE_FALL" || barrier == null || !(entrySpot > 0)
+    ? null
+    : barrier / entrySpot - 1;
+
+  if ((kind === "HIGHER_LOWER" || kind === "TOUCH_NO_TOUCH") && barrierFrac != null
+      && Math.abs(barrierFrac) + 1e-10 < MIN_BARRIER_FRAC) {
+    return { accepted: false, reason: "barrier too close to spot — pick at least 0.05% away" };
+  }
+
+  let edgeFloor = params.edgeFloor ?? DEFAULT_CONFIG.edgeFloor;
+  if (kind === "RISE_FALL" && isOneHzMarket(market) && durationTicks <= 3) {
+    edgeFloor = Math.max(edgeFloor, SHORT_1HZ_RISE_FALL_EDGE);
+  }
+
+  const cfg: PricingConfig = params.cfg ?? { ...DEFAULT_CONFIG, edgeFloor };
   const q = priceDirectionalContract(kind, side, barrierFrac, durationTicks, ticks, cfg);
   if (!q.accepted) return { accepted: false, reason: q.reason };
   const payout = Number((stake * q.payoutMultiplier).toFixed(2));
@@ -61,6 +91,9 @@ export function resolveDigitEdgeFloor(side: DigitSide, targetDigit: number, edge
     productFloor = 0.03;  // 3% edge floor for Over 0 (90% win prob)
   } else if (side === "Under" && targetDigit === 9) {
     productFloor = 0.03;  // 3% edge floor for Under 9 (90% win prob)
+  } else if (side === "Under" && targetDigit >= 4 && targetDigit <= 6) {
+    // Mid Under (esp. R_50 Under 4/5) ran RTP 1.30–1.33 live — widen the floor.
+    productFloor = 0.18;
   }
   if (side === "Differs" || (side === "Over" && targetDigit === 0) || (side === "Under" && targetDigit === 9)) {
     return productFloor;

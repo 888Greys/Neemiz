@@ -197,6 +197,7 @@ function MarketBlock({
 
 function OddBtn({
   label,
+  settlementLabel,
   value,
   marketName,
   fixtureId,
@@ -204,6 +205,7 @@ function OddBtn({
   oddKey,
 }: {
   label: string;
+  settlementLabel?: string;
   value: string;
   marketName: string;
   fixtureId: number;
@@ -218,7 +220,7 @@ function OddBtn({
     <button
       type="button"
       onClick={() =>
-        toggleBet({ id, matchName, market: marketName, label, value })
+        toggleBet({ id, matchName, market: marketName, label: settlementLabel ?? label, value })
       }
       className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2.5 transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/50 ${
         active
@@ -273,6 +275,7 @@ function SimpleMarket({
           <OddBtn
             key={`${o.label}-${o.extra ?? i}`}
             label={display}
+            settlementLabel={o.extra ? `${o.label} ${o.extra}` : o.label}
             value={o.value}
             marketName={marketName}
             fixtureId={fixtureId}
@@ -319,6 +322,7 @@ function OUMarket({
           {over && (
             <OddBtn
               label={`OVER ${line}`}
+              settlementLabel={`Over ${line}`}
               value={over}
               marketName={marketName}
               fixtureId={fixtureId}
@@ -329,6 +333,7 @@ function OUMarket({
           {under && (
             <OddBtn
               label={`UNDER ${line}`}
+              settlementLabel={`Under ${line}`}
               value={under}
               marketName={marketName}
               fixtureId={fixtureId}

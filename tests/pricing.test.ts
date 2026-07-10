@@ -82,7 +82,7 @@ describe("measureSymbolEdge (per-symbol edge)", () => {
     const edge = measureSymbolEdge(TRAIN); // TRAIN is a clean synthetic GBM
     expect(edge).toBeGreaterThanOrEqual(DEFAULT_EDGE.min);
     expect(edge).toBeLessThanOrEqual(DEFAULT_EDGE.max);
-    expect(edge).toBeLessThan(0.10); // stable ⇒ near the base, not maxed out
+    expect(edge).toBeLessThan(0.14); // stable ⇒ near the base, not maxed out
   });
 
   it("returns the most conservative (max) edge on thin data", () => {

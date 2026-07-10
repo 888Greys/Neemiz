@@ -1501,7 +1501,7 @@ function WalletHome({
           </p>
           <CurrencySwitcher />
         </div>
-        <p className={`mt-2 text-[2.35rem] font-black leading-none tracking-tight sm:text-5xl ${isSignedIn ? "text-white" : "text-slate-600"}`}>
+        <p className={`mt-2 text-[1.75rem] font-black leading-none tracking-tight sm:text-[2rem] ${isSignedIn ? "text-white" : "text-slate-600"}`}>
           {balance}
         </p>
         {isSignedIn && cryptoBalances.length > 0 && (

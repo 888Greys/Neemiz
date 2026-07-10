@@ -174,7 +174,7 @@ export function TrendingMatchCarousel() {
           {(event.odds?.length ?? 0) > 0 && (
             <div className="mt-5 grid grid-cols-3 gap-1.5 md:mt-6 md:gap-2">
               {event.odds.slice(0, 3).map((odd) => {
-                const betId = `${event.id}-3 Way-${odd.label}`.replace(/\s+/g, "_");
+                const betId = `${event.id}-Full Time Result-${odd.label}`.replace(/\s+/g, "_");
                 const selected = hasBet(betId);
                 return (
                   <button
@@ -185,7 +185,7 @@ export function TrendingMatchCarousel() {
                       toggleBet({
                         id: betId,
                         matchName: `${event.home?.name ?? ""} vs ${event.away?.name ?? ""}`,
-                        market: "3 Way",
+                        market: "Full Time Result",
                         label: odd.label,
                         value: odd.value,
                       });
