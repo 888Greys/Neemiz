@@ -310,16 +310,12 @@ export function PaymentMethodsSheet({
     <button
       type="button"
       onClick={() => setDraft(code)}
-      className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03]"
+      className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
+        draft === code ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
+      }`}
     >
       <span className="flex-1 text-[14px] font-semibold text-white">{label}</span>
-      <span
-        className={`grid h-5 w-5 place-items-center rounded border ${
-          draft === code ? "border-[#087cff] bg-[#087cff]" : "border-white/30 bg-transparent"
-        }`}
-      >
-        {draft === code && <Icon name="check" className="text-[14px] text-white" />}
-      </span>
+      {draft === code && <Icon name="check" className="shrink-0 text-[20px] text-white" />}
     </button>
   );
 
