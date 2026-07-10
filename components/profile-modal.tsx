@@ -632,10 +632,32 @@ function BonusCodesView() {
     if (!code.trim()) return;
     setLoading(true);
     setResult(null);
-    await new Promise((r) => setTimeout(r, 800));
-    // Stub: no real backend for codes yet
-    setResult({ ok: false, message: "Invalid or expired bonus code." });
-    setLoading(false);
+    try {
+      const res = await fetch("/api/promo/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json().catch(() => ({})) as {
+        ok?: boolean;
+        amount?: number;
+        error?: string;
+      };
+      if (res.ok && data.ok) {
+        window.dispatchEvent(new Event("wallet-refresh"));
+        setResult({
+          ok: true,
+          message: `KSh ${Number(data.amount ?? 0).toLocaleString()} credited to your wallet.`,
+        });
+        setCode("");
+      } else {
+        setResult({ ok: false, message: data.error ?? "Invalid or expired bonus code." });
+      }
+    } catch {
+      setResult({ ok: false, message: "Network error — try again." });
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

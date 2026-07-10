@@ -18,6 +18,7 @@ import type { ProfileView } from "@/components/profile-modal";
 import { MONEY_LOCALE, CURRENCY_SYMBOL } from "@/lib/currency";
 import { useMoney } from "@/lib/currency-context";
 import { CurrencySwitcher } from "@/components/currency-switcher";
+import { peekPendingPromo, redeemPromoClient } from "@/lib/pending-promo";
 import { NavBadgeContext } from "@/lib/nav-badge-context";
 import { PhonePromptModal } from "@/components/phone-prompt-modal";
 
@@ -124,6 +125,19 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       setMissingPhone(false);
     }
   }, [isSignedIn, user]);
+
+  // Apply a promo code stashed at signup (e.g. OAuth redirect) once the session is live.
+  useEffect(() => {
+    if (!isSignedIn) return;
+    if (!peekPendingPromo()) return;
+    let cancelled = false;
+    void (async () => {
+      const result = await redeemPromoClient();
+      if (cancelled || !result.ok || !result.amount) return;
+      toast.success("Promo applied", `KSh ${result.amount.toLocaleString()} credited to your wallet.`);
+    })();
+    return () => { cancelled = true; };
+  }, [isSignedIn]);
 
   const handlePhoneComplete = useCallback((phone: string) => {
     setMissingPhone(false);

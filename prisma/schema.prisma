@@ -85,7 +85,43 @@ model User {
   // GoTrue MFA passkeys used for withdrawal step-up)
   passkeys Passkey[]
 
+  promoRedemptions PromoRedemption[]
+
   @@map("users")
+}
+
+// Redeemable promo / welcome codes. Credits land in the main KES wallet.
+model PromoCode {
+  id              String    @id @default(cuid())
+  code            String    @unique // stored uppercase
+  amountKes       Decimal   @map("amount_kes") @db.Decimal(18, 2)
+  maxRedemptions  Int?      @map("max_redemptions") // null = unlimited
+  redemptionCount Int       @default(0) @map("redemption_count")
+  startsAt        DateTime? @map("starts_at")
+  expiresAt       DateTime? @map("expires_at")
+  isActive        Boolean   @default(true) @map("is_active")
+  description     String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  redemptions PromoRedemption[]
+
+  @@map("promo_codes")
+}
+
+model PromoRedemption {
+  id          String   @id @default(cuid())
+  promoCodeId String   @map("promo_code_id")
+  userId      String   @map("user_id")
+  amountKes   Decimal  @map("amount_kes") @db.Decimal(18, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  promoCode PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([promoCodeId, userId])
+  @@index([userId])
+  @@map("promo_redemptions")
 }
 
 // A WebAuthn credential used for passwordless primary login. We store and
