@@ -16,7 +16,6 @@ import { NOTIFICATIONS_REFRESH_EVENT } from "@/components/notifications-dropdown
 import { cachedFetch, getCached } from "@/lib/client-cache";
 import { CURRENCY_SYMBOL, MONEY_LOCALE, WITHDRAWAL_FEE_RATE, WITHDRAWAL_FEE_PCT } from "@/lib/currency";
 import { useCurrency } from "@/lib/currency-context";
-import { CurrencySwitcher } from "@/components/currency-switcher";
 import {
   CRYPTO_DEPOSIT_ASSETS,
   depositRowsForCurrency,
@@ -1448,12 +1447,9 @@ function WalletHome({
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8 sm:max-w-2xl sm:pb-10 sm:pt-10">
       <section className="animate-in fade-in duration-300">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Available balance
-          </p>
-          <CurrencySwitcher />
-        </div>
+        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Available balance
+        </p>
         <p className={`mt-2 text-[1.75rem] font-black leading-none tracking-tight sm:text-[2rem] ${isSignedIn ? "text-white" : "text-slate-600"}`}>
           {balance}
         </p>
