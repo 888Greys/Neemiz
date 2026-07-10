@@ -11,6 +11,7 @@ interface Props {
   myBet:             AviatorBetPublic | undefined;
   currentMultiplier: number;
   balance:           number;
+  cashingOut?:       boolean;
   onBet:             (amount: number, panelIndex: 0 | 1, autoCashout?: number) => Promise<void>;
   onCashout:         (panelIndex: 0 | 1) => Promise<void>;
 }
@@ -42,7 +43,7 @@ function useBettingCountdown(bettingEndsAt: string | null | undefined): number {
 }
 
 export function AviatorBetPanel({
-  panelIndex, round, myBet, currentMultiplier, balance, onBet, onCashout,
+  panelIndex, round, myBet, currentMultiplier, balance, cashingOut = false, onBet, onCashout,
 }: Props) {
   // Stakes are stored internally in canonical KES (MIN_BET, balance, onBet are
   // all KES). The display currency only changes how amounts are shown and how a
@@ -195,6 +196,21 @@ export function AviatorBetPanel({
       ))}
     </div>
   );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Cashing out — button already gone; shimmer until server confirms
+  // ─────────────────────────────────────────────────────────────────────────
+  if (cashingOut) {
+    return (
+      <div className="flex min-h-[118px] min-w-0 flex-col overflow-hidden rounded-[10px] border border-[#f59e0b]/25 bg-[#1a1200] lg:min-h-0 lg:rounded-2xl">
+        {TabBar}
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 p-2 lg:p-3">
+          <div className="aviator-cashout-shimmer h-10 w-full max-w-[140px] rounded-xl" />
+          <p className="text-[11px] font-black text-[#f59e0b]/90">Cashing out…</p>
+        </div>
+      </div>
+    );
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // FLYING + active bet → CASHOUT button
