@@ -28,6 +28,10 @@ import { MarketCurrencyPicker } from "@/components/market-currency-picker";
 import { CurrencySwitcher } from "@/components/currency-switcher";
 import { CurrencyFlag } from "@/components/currency-flag";
 import {
+  CryptoWithdrawAssetSheet,
+  CryptoWithdrawAssetTrigger,
+} from "@/components/crypto-withdraw-asset-sheet";
+import {
   CRYPTO_WITHDRAW_ASSETS,
   type CryptoWithdrawAsset,
 } from "@/lib/wallet-withdraw-options";
@@ -1011,78 +1015,30 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                   <div className="space-y-7">
                     <section>
                       <p className="mb-3 text-[13px] font-black text-white">Asset</p>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setCwOpen((o) => !o)}
-                          className="flex w-full items-center justify-between border-b border-white/[0.08] py-3 text-left transition hover:border-white/[0.14]"
-                        >
-                          <span className="flex items-center gap-3">
-                            {COIN_ICON_URL[cwAsset.code] && (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={COIN_ICON_URL[cwAsset.code]}
-                                alt={cwAsset.code}
-                                width={28}
-                                height={28}
-                                className="h-7 w-7 rounded-full"
-                              />
-                            )}
-                            <span>
-                              <span className="block text-[15px] font-bold text-white">{cwAsset.code}</span>
-                              <span className="block text-[12px] font-medium text-slate-500">{cwAsset.displayNet}</span>
-                            </span>
-                          </span>
-                          <Icon name={cwOpen ? "expand_less" : "expand_more"} className="text-[22px] text-slate-500" />
-                        </button>
-
-                        {cwOpen && (
-                          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-xl bg-[#18191f] shadow-2xl ring-1 ring-white/[0.08]">
-                            {CRYPTO_WITHDRAW_ASSETS.map((a) => (
-                              <button
-                                key={`${a.code}:${a.network}`}
-                                type="button"
-                                onClick={() => {
-                                  setCwAsset(a);
-                                  setCwOpen(false);
-                                  setCwState({ step: "idle" });
-                                }}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.05]"
-                              >
-                                {COIN_ICON_URL[a.code] && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={COIN_ICON_URL[a.code]}
-                                    alt={a.code}
-                                    width={28}
-                                    height={28}
-                                    className="h-7 w-7 rounded-full"
-                                  />
-                                )}
-                                <span className="flex-1">
-                                  <span className="block text-[14px] font-bold text-white">
-                                    {a.code}
-                                    <span className="ml-2 text-[12px] font-medium text-slate-500">{a.displayNet}</span>
-                                  </span>
-                                  <span className="text-[11px] text-slate-600">min {a.min} {a.code}</span>
-                                </span>
-                                {cwAsset.code === a.code && cwAsset.network === a.network && (
-                                  <Icon name="check" className="text-[18px] text-[#087cff]" />
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      <CryptoWithdrawAssetTrigger
+                        asset={cwAsset}
+                        available={cwBalance?.available ?? null}
+                        onOpen={() => setCwOpen(true)}
+                      />
+                      <CryptoWithdrawAssetSheet
+                        open={cwOpen}
+                        value={cwAsset}
+                        balances={cryptoBalances}
+                        onClose={() => setCwOpen(false)}
+                        onChange={(a) => {
+                          setCwAsset(a);
+                          setCwState({ step: "idle" });
+                        }}
+                      />
                       {cwBalance ? (
                         <p className="mt-2 text-[12px] font-medium text-slate-500">
-                          Available{" "}
+                          Tap available to fill amount ·{" "}
                           <button
                             type="button"
                             className="font-bold text-white transition hover:text-[#75b8ff]"
                             onClick={() => setCwAmount(cwBalance.available.toFixed(6))}
                           >
-                            {cwBalance.available.toFixed(6)} {cwAsset.code}
+                            Max {cwBalance.available.toFixed(6)} {cwAsset.code}
                           </button>
                         </p>
                       ) : (
