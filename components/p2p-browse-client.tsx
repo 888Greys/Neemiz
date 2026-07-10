@@ -1135,7 +1135,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
                   <span className="h-3.5 w-0.5 rounded-full bg-[#05b957]" />
                   <span className="truncate">{p2pRailLabel(m, ad.fiat)}</span>
                 </span>
-                {selectedPayment === m && <Icon name="check" className="text-[18px] text-[#087cff]" />}
+                {selectedPayment === m && <Icon name="check" className="text-[18px] text-white" />}
               </button>
             )) : (
               <button

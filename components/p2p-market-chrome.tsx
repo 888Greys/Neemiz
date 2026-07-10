@@ -192,7 +192,7 @@ export function BuySellTabs({
   );
 }
 
-/** Full-screen Select Coin (search + checkmark). */
+/** Select Coin — bottom sheet (same chrome as Payment Methods; does not cover the full top). */
 export function SelectCoinSheet({
   open,
   value,
@@ -216,45 +216,49 @@ export function SelectCoinSheet({
   const filtered = term ? coins.filter((c) => c.toLowerCase().includes(term)) : coins;
 
   return (
-    <div className="fixed inset-0 z-[130] flex flex-col bg-black">
-      <div className="flex items-center justify-between px-3 py-3">
-        <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center text-white" aria-label="Back">
-          <Icon name="arrow_back" className="text-[22px]" />
-        </button>
-        <h2 className="text-[17px] font-bold text-white">Select Coin</h2>
-        <span className="w-9" />
-      </div>
-      <div className="px-4 pb-3">
-        <div className="flex items-center gap-2 rounded-xl bg-[#2c2c2e] px-3">
-          <Icon name="search" className="text-[18px] text-slate-500" />
-          <input
-            autoFocus
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search Coin"
-            className="h-11 flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-slate-500"
-          />
-        </div>
-      </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {filtered.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => { onChange(c); onClose(); }}
-            className={`flex w-full items-center gap-3 px-4 py-3.5 text-left ${
-              c === value ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
-            }`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={P2P_COIN_ICONS[c]} alt="" className="h-8 w-8 rounded-full" />
-            <span className="flex-1 text-[15px] font-bold text-white">{c}</span>
-            {c === value && <Icon name="check" className="text-[20px] text-white" />}
+    <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/65" onClick={onClose}>
+      <div
+        className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between px-4 py-3">
+          <h2 className="text-[17px] font-bold text-white">Select Coin</h2>
+          <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-white/[0.06]" aria-label="Close">
+            <Icon name="close" className="text-[18px]" />
           </button>
-        ))}
-        {filtered.length === 0 && (
-          <p className="py-12 text-center text-[13px] text-slate-500">No coins match “{q}”</p>
-        )}
+        </div>
+        <div className="shrink-0 px-4 pb-2">
+          <div className="flex items-center gap-2 rounded-xl bg-[#2c2c2e] px-3">
+            <Icon name="search" className="text-[18px] text-slate-500" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search Coin"
+              className="h-11 flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-slate-500"
+            />
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {filtered.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => { onChange(c); onClose(); }}
+              className={`flex w-full items-center gap-3 px-4 py-3.5 text-left ${
+                c === value ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={P2P_COIN_ICONS[c]} alt="" className="h-8 w-8 rounded-full" />
+              <span className="flex-1 text-[15px] font-bold text-white">{c}</span>
+              {c === value && <Icon name="check" className="text-[20px] text-white" />}
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <p className="py-12 text-center text-[13px] text-slate-500">No coins match “{q}”</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -306,16 +310,12 @@ export function PaymentMethodsSheet({
     <button
       type="button"
       onClick={() => setDraft(code)}
-      className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-white/[0.03]"
+      className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
+        draft === code ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
+      }`}
     >
       <span className="flex-1 text-[14px] font-semibold text-white">{label}</span>
-      <span
-        className={`grid h-5 w-5 place-items-center rounded border ${
-          draft === code ? "border-[#087cff] bg-[#087cff]" : "border-white/30 bg-transparent"
-        }`}
-      >
-        {draft === code && <Icon name="check" className="text-[14px] text-white" />}
-      </span>
+      {draft === code && <Icon name="check" className="shrink-0 text-[20px] text-white" />}
     </button>
   );
 

@@ -83,9 +83,36 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     setLoading(true);
     setError("");
 
-    const supabase = createClient();
+    // Stable browser fingerprint — same id login-alert uses — so we can refuse
+    // signup when this device already hosts DEVICE_MAX_ACCOUNTS accounts.
+    let deviceId = "";
+    try {
+      deviceId = localStorage.getItem("nezeem-device-id") ?? "";
+      if (!deviceId) {
+        deviceId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+        localStorage.setItem("nezeem-device-id", deviceId);
+      }
+    } catch { /* storage blocked — server still sees Tor / cookie on login-alert */ }
 
     try {
+      try {
+        const gateRes = await fetch("/api/auth/device-gate", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deviceId }),
+        });
+        const gate = await gateRes.json().catch(() => ({})) as { ok?: boolean; error?: string };
+        if (!gateRes.ok || gate.ok === false) {
+          setError(gate.error || "This device can't create another account.");
+          return;
+        }
+      } catch {
+        // Network blip — continue; login-alert still freezes fresh over-limit signups.
+      }
+
+      const supabase = createClient();
+
       if (tab === "email") {
         const { error: authError } = await supabase.auth.signUp({
           email,

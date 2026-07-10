@@ -13,10 +13,7 @@ import { NotificationsBell } from "@/components/notifications-dropdown";
 import { BroadcastBanner } from "@/components/broadcast-banner";
 import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
-import { useWalletBalance } from "@/lib/use-wallet-balance";
 import type { ProfileView } from "@/components/profile-modal";
-import { MONEY_LOCALE, CURRENCY_SYMBOL } from "@/lib/currency";
-import { useMoney } from "@/lib/currency-context";
 import { CurrencySwitcher } from "@/components/currency-switcher";
 import { peekPendingPromo, redeemPromoClient } from "@/lib/pending-promo";
 import { PromoSuccessHost, showPromoSuccess } from "@/components/promo-success";
@@ -71,15 +68,6 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const displayName = meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
   const initials = displayName.charAt(0).toUpperCase();
   const avatarUrl = typeof meta.avatar_url === "string" ? meta.avatar_url : typeof meta.picture === "string" ? meta.picture : null;
-  const { balance, currency } = useWalletBalance();
-  const money = useMoney();
-  // KES is the canonical ledger balance — convert it to the user's chosen
-  // display currency. Non-KES (crypto) balances are shown in their own unit.
-  const fmtBalance = isSignedIn
-    ? (currency === "KES"
-        ? money.format(balance)
-        : `${currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
-    : null;
   // Start collapsed on both server and first client render to avoid a hydration
   // mismatch, then sync the persisted preference from localStorage after mount.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
@@ -257,24 +245,10 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           </div>
           {isSignedIn ? (
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              {/* Wallet balance — desktop only; mobile uses sidebar / menu */}
-              <div className="hidden items-center rounded-2xl bg-[#18191d] ring-1 ring-white/[0.07] md:flex">
-                <button
-                  type="button"
-                  onClick={() => openWallet()}
-                  className="flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 sm:px-4 sm:py-2 transition hover:bg-[#22242a]"
-                >
-                  <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
-                  <span className="text-sm font-black text-white">{fmtBalance}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openWallet()}
-                  className="my-1 mr-1 hidden rounded-lg bg-emerald-800 px-2.5 py-1 text-xs font-black text-emerald-100 transition hover:bg-emerald-700 sm:inline"
-                >
-                  Deposit
-                </button>
-              </div>
+              <HeaderWalletChip
+                onOpen={() => openWallet()}
+                onDeposit={() => openWallet("deposit")}
+              />
               <div className="hidden md:block">
                 <CurrencySwitcher />
               </div>
@@ -438,6 +412,37 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     </NavBadgeContext.Provider>
     </AuthModalContext.Provider>
     </BetslipProvider>
+  );
+}
+
+function HeaderWalletChip({
+  onOpen,
+  onDeposit,
+}: {
+  onOpen: () => void;
+  onDeposit: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label="Open wallet"
+        title="Wallet"
+        className="grid h-8 w-8 place-items-center rounded-full bg-[#18191d] text-[#087cff] ring-1 ring-white/[0.08] transition-[background-color,transform] duration-100 ease-out hover:bg-[#22242a] active:scale-[0.97] sm:h-9 sm:w-9"
+      >
+        <Icon name="account_balance_wallet" fill className="text-[18px] sm:text-[20px]" />
+      </button>
+      <button
+        type="button"
+        onClick={onDeposit}
+        aria-label="Deposit"
+        title="Deposit"
+        className="grid h-8 w-8 place-items-center rounded-full bg-emerald-700 text-emerald-50 transition-[background-color,transform] duration-100 ease-out hover:bg-emerald-600 active:scale-[0.97] sm:h-9 sm:w-9"
+      >
+        <Icon name="add" className="text-[18px] sm:text-[20px]" />
+      </button>
+    </div>
   );
 }
 

@@ -65,7 +65,7 @@ export function PromoSuccessCard({
   );
 }
 
-export type PromoNoticeKind = "already_used" | "invalid" | "expired" | "exhausted" | "error";
+export type PromoNoticeKind = "already_used" | "invalid" | "expired" | "exhausted" | "device_claimed" | "error";
 
 const NOTICE: Record<PromoNoticeKind, { icon: string; tone: string; ring: string; title: string; body: string }> = {
   already_used: {
@@ -96,6 +96,13 @@ const NOTICE: Record<PromoNoticeKind, { icon: string; tone: string; ring: string
     title: "Fully claimed",
     body: "This promo has reached its limit. Keep an eye out for the next one.",
   },
+  device_claimed: {
+    icon: "phonelink_lock",
+    tone: "text-amber-300 bg-amber-500/15",
+    ring: "ring-amber-400/25",
+    title: "Already claimed on this device",
+    body: "A promo was already redeemed on this phone or browser. Each device can claim once.",
+  },
   error: {
     icon: "info",
     tone: "text-slate-300 bg-white/[0.06]",
@@ -109,6 +116,7 @@ export function promoNoticeFromStatus(status: number, message?: string): PromoNo
   if (status === 409) return "already_used";
   if (status === 410) return "exhausted";
   if (status === 404) return "invalid";
+  if (status === 429 || message?.toLowerCase().includes("device")) return "device_claimed";
   if (message?.toLowerCase().includes("expir")) return "expired";
   return "error";
 }
