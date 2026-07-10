@@ -326,7 +326,14 @@ export const GLOBAL_CRYPTO_METHODS: MethodCode[] = ["USDT", "BTC", "USDC", "CRYP
 
 export function marketForCurrency(currency: string | null | undefined): Market {
   if (currency && MARKET_BY_CURRENCY[currency]) return MARKET_BY_CURRENCY[currency];
-  return MARKET_BY_CURRENCY.USD;
+  const code = currency || "USD";
+  // Unknown ISO currencies still get a sensible international card/bank set + crypto.
+  return {
+    currency: code,
+    label: code,
+    region: "International",
+    methods: C("VISA", "MASTERCARD", "BANK", "APPLE_PAY", "GOOGLE_PAY", "PAYPAL", "WISE"),
+  };
 }
 
 export function methodsForCurrency(currency: string | null | undefined): MethodCode[] {

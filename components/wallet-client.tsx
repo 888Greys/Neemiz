@@ -23,7 +23,7 @@ import {
   type CryptoAssetGroup,
   type DepositSelection,
 } from "@/lib/wallet-deposit-options";
-import { MARKETS } from "@/lib/payments/country-methods";
+import { findCountryByCurrency } from "@/lib/payments/world-countries";
 import { PaymentBrandLogo } from "@/components/payment-brand-logo";
 import { MarketCurrencyPicker } from "@/components/market-currency-picker";
 import {
@@ -1551,7 +1551,7 @@ function WalletPageFrame({ children, onBack, title }: { children: ReactNode; onB
   );
 }
 
-// International payment-method picker: full-page market list, then methods.
+// International payment-method picker: full-screen country list, then methods.
 function DepositMethodStep({
   pesapalEnabled,
   displayCurrency,
@@ -1561,8 +1561,13 @@ function DepositMethodStep({
   displayCurrency: string;
   onContinue: (selection: DepositSelection) => void;
 }) {
-  const initial = MARKETS.some((m) => m.currency === displayCurrency) ? displayCurrency : "USD";
-  const [marketCurrency, setMarketCurrency] = useState(initial);
+  const initialCountry = findCountryByCurrency(displayCurrency)?.code
+    ?? findCountryByCurrency("USD")?.code
+    ?? "US";
+  const [countryCode, setCountryCode] = useState(initialCountry);
+  const [marketCurrency, setMarketCurrency] = useState(
+    () => findCountryByCurrency(displayCurrency)?.currency ?? "USD",
+  );
   const [pickingMarket, setPickingMarket] = useState(true);
   const rows = useMemo(
     () => depositRowsForCurrency(marketCurrency, { pesapalEnabled }),
@@ -1577,38 +1582,40 @@ function DepositMethodStep({
 
   if (pickingMarket) {
     return (
-      <section>
-        <MarketCurrencyPicker
-          value={marketCurrency}
-          open
-          onOpenChange={(open) => {
-            if (!open) setPickingMarket(false);
-          }}
-          onChange={(code) => {
-            setMarketCurrency(code);
-            setPickingMarket(false);
-          }}
-          title="Where are you depositing from?"
-        />
-      </section>
+      <MarketCurrencyPicker
+        countryCode={countryCode}
+        open
+        onOpenChange={(open) => {
+          if (!open) setPickingMarket(false);
+        }}
+        onChange={({ countryCode: cc, currency }) => {
+          setCountryCode(cc);
+          setMarketCurrency(currency);
+          setPickingMarket(false);
+        }}
+        title="Where are you depositing from?"
+      />
     );
   }
 
   return (
-    <section className="space-y-5">
+    <section className="space-y-4">
       <div>
-        <h2 className="mb-1 text-[15px] font-black text-white">Payment method</h2>
-        <p className="mb-3 text-[12px] font-medium text-slate-500">
-          Methods for your market — tap market to change
+        <h2 className="mb-0.5 text-[14px] font-black text-white">Payment method</h2>
+        <p className="mb-2.5 text-[11px] font-medium text-slate-500">
+          Tap country to change
         </p>
-        <div className="mb-4">
+        <div className="mb-3">
           <MarketCurrencyPicker
-            value={marketCurrency}
+            countryCode={countryCode}
             open={false}
             onOpenChange={(open) => {
               if (open) setPickingMarket(true);
             }}
-            onChange={setMarketCurrency}
+            onChange={({ countryCode: cc, currency }) => {
+              setCountryCode(cc);
+              setMarketCurrency(currency);
+            }}
           />
         </div>
         <div className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
@@ -1622,28 +1629,28 @@ function DepositMethodStep({
                 type="button"
                 disabled={!row.enabled}
                 onClick={() => setSelectedId(row.id)}
-                className={`flex w-full items-center gap-3 py-3.5 text-left transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 ${
+                className={`flex w-full items-center gap-2.5 py-2.5 text-left transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 ${
                   active ? "bg-[#087cff]/[0.06]" : "hover:bg-white/[0.02]"
                 }`}
               >
                 <span
-                  className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
+                  className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 transition ${
                     active ? "border-[#087cff]" : "border-slate-600"
                   }`}
                 >
-                  {active && <span className="h-2.5 w-2.5 rounded-full bg-[#087cff]" />}
+                  {active && <span className="h-2 w-2 rounded-full bg-[#087cff]" />}
                 </span>
-                <span className="flex shrink-0 items-center gap-1">
+                <span className="flex shrink-0 items-center gap-0.5">
                   {logos.map((code) => (
-                    <PaymentBrandLogo key={code} code={code} size={32} />
+                    <PaymentBrandLogo key={code} code={code} size={26} />
                   ))}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[14px] font-bold text-slate-100">{row.label}</span>
-                  <span className="block text-[11px] font-medium text-slate-500">{row.subtitle}</span>
+                  <span className="block text-[13px] font-bold text-slate-100">{row.label}</span>
+                  <span className="block text-[10px] font-medium text-slate-500">{row.subtitle}</span>
                 </span>
                 {!row.enabled && row.soon && (
-                  <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+                  <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-500">
                     Soon
                   </span>
                 )}
@@ -1656,7 +1663,7 @@ function DepositMethodStep({
       <Button
         onClick={() => selected?.selection && onContinue(selected.selection)}
         disabled={!selected}
-        className="h-12 w-full rounded-xl text-sm"
+        className="h-11 w-full rounded-xl text-sm"
       >
         Continue
       </Button>
