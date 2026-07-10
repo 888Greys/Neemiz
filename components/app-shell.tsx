@@ -257,24 +257,11 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           </div>
           {isSignedIn ? (
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              {/* Wallet balance — desktop only; mobile uses sidebar / menu */}
-              <div className="hidden items-center rounded-2xl bg-[#18191d] ring-1 ring-white/[0.07] md:flex">
-                <button
-                  type="button"
-                  onClick={() => openWallet()}
-                  className="flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 sm:px-4 sm:py-2 transition hover:bg-[#22242a]"
-                >
-                  <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
-                  <span className="text-sm font-black text-white">{fmtBalance}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openWallet()}
-                  className="my-1 mr-1 hidden rounded-lg bg-emerald-800 px-2.5 py-1 text-xs font-black text-emerald-100 transition hover:bg-emerald-700 sm:inline"
-                >
-                  Deposit
-                </button>
-              </div>
+              <HeaderWalletChip
+                balance={fmtBalance}
+                onOpen={() => openWallet()}
+                onDeposit={() => openWallet("deposit")}
+              />
               <div className="hidden md:block">
                 <CurrencySwitcher />
               </div>
@@ -438,6 +425,43 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     </NavBadgeContext.Provider>
     </AuthModalContext.Provider>
     </BetslipProvider>
+  );
+}
+
+function HeaderWalletChip({
+  balance,
+  onOpen,
+  onDeposit,
+}: {
+  balance: string | null;
+  onOpen: () => void;
+  onDeposit: () => void;
+}) {
+  return (
+    <div className="flex items-center rounded-full bg-[#18191d] p-0.5 ring-1 ring-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label="Open wallet"
+        className="flex min-w-0 items-center gap-1 rounded-full px-2 py-1 transition-[background-color,transform] duration-100 ease-out hover:bg-[#22242a] active:scale-[0.97] sm:gap-1.5 sm:px-3 sm:py-1.5 md:px-3.5 md:py-2"
+      >
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#087cff]/15 sm:h-6 sm:w-6">
+          <Icon name="account_balance_wallet" fill className="text-[12px] text-[#087cff] sm:text-[14px]" />
+        </span>
+        <span className="max-w-[42vw] truncate text-[12px] font-black tabular-nums tracking-tight text-white sm:max-w-none sm:text-[13px] md:text-sm">
+          {balance}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={onDeposit}
+        aria-label="Deposit"
+        className="my-0.5 mr-0.5 flex h-7 shrink-0 items-center justify-center gap-1 rounded-full bg-emerald-700 px-2 text-emerald-50 transition-[background-color,transform] duration-100 ease-out hover:bg-emerald-600 active:scale-[0.97] sm:h-8 sm:px-2.5 md:px-3"
+      >
+        <Icon name="add" className="text-[16px] sm:hidden" />
+        <span className="hidden text-[11px] font-black sm:inline md:text-xs">Deposit</span>
+      </button>
+    </div>
   );
 }
 
