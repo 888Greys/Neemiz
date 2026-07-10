@@ -22,6 +22,7 @@ import {
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { createClient } from "@/lib/supabase/client";
 import { quoteToDigit } from "@/lib/binary-digit";
 import {
   mergeClosedPositions,
@@ -1054,6 +1055,25 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
   // Real trades are settled by the server, which derives the exit digit from
   // the live Deriv feed (the client never gets to say whether it won). We just
   // reflect the authoritative result here.
+  const applyBinarySettled = useCallback((trade: BinaryTrade, data: { won: boolean; winAmount?: number; exitDigit: number }) => {
+    if (settledIds.current.has(trade.id)) return;
+    settledIds.current.add(trade.id);
+    const won = data.won;
+    const exitDigit = data.exitDigit;
+    setOpenTrades((cur) => cur.filter((t) => t.id !== trade.id));
+    setClosedTrades((cur) => [{ ...trade, exitDigit, status: won ? "won" as const : "lost" as const }, ...cur].slice(0, 20));
+    if (won && data.winAmount) {
+      setLiveBalance((b) => b + data.winAmount!);
+      window.dispatchEvent(new Event("wallet-refresh"));
+    }
+    if (won) {
+      toast.cashout(`+${money(data.winAmount ?? trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${exitDigit}`);
+    } else {
+      toast.error("Trade lost", `${trade.side} · Exit digit: ${exitDigit}`);
+    }
+    setTab("closed");
+  }, [money]);
+
   const settleReal = useCallback(async (trade: BinaryTrade) => {
     try {
       const res  = await fetch("/api/binary/settle", {
@@ -1068,47 +1088,32 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         if (res.status !== 503) console.error("binary settle failed:", data.error);
         return false;
       }
-      const won       = !!data.won;
-      const exitDigit = data.exitDigit ?? 0;
-      setOpenTrades((cur) => cur.filter((t) => t.id !== trade.id));
-      setClosedTrades((cur) => [{ ...trade, exitDigit, status: won ? "won" as const : "lost" as const }, ...cur].slice(0, 20));
-      if (won && data.winAmount) {
-        setLiveBalance((b) => b + data.winAmount!);
-        window.dispatchEvent(new Event("wallet-refresh"));
-      }
-      if (won) {
-        toast.cashout(`+${money(data.winAmount ?? trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${exitDigit}`);
-      } else {
-        toast.error("Trade lost", `${trade.side} · Exit digit: ${exitDigit}`);
-      }
-      setTab("closed");
+      applyBinarySettled(trade, {
+        won: !!data.won,
+        winAmount: data.winAmount,
+        exitDigit: data.exitDigit ?? 0,
+      });
       return true;
     } catch (err) {
       console.error("binary settle error:", err);
       return false;
     }
-  }, []);
+  }, [applyBinarySettled]);
 
-  // Settle expired trades every 500 ms — works even when the tick stream stalls.
-  // Demo trades settle client-side off the local feed; real trades delegate to
-  // the server. The settledIds / inFlightRef sets prevent double-settlement.
+  // Demo digit settle stays fast; live real trades rely on Realtime push with a
+  // long poll as fallback (cron is the abandoned-browser safety net).
   useEffect(() => {
     const id = setInterval(() => {
-      const now     = Date.now();
+      const now = Date.now();
       const pending = openTradesRef.current.filter((t) => t.settlesAt <= now);
       if (pending.length === 0) return;
 
       const demoPending: BinaryTrade[] = [];
       for (const trade of pending) {
-        if (isLive && trade.isReal) {
-          if (inFlightRef.current.has(trade.id)) continue;
-          inFlightRef.current.add(trade.id);
-          settleReal(trade).finally(() => inFlightRef.current.delete(trade.id));
-        } else {
-          if (settledIds.current.has(trade.id)) continue;
-          settledIds.current.add(trade.id);
-          demoPending.push(trade);
-        }
+        if (isLive && trade.isReal) continue; // handled by Realtime + live poll below
+        if (settledIds.current.has(trade.id)) continue;
+        settledIds.current.add(trade.id);
+        demoPending.push(trade);
       }
 
       if (demoPending.length === 0) return;
@@ -1136,6 +1141,20 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       setTab("closed");
     }, 500);
 
+    return () => clearInterval(id);
+  }, [isLive]);
+
+  useEffect(() => {
+    if (!isLive) return;
+    const id = setInterval(() => {
+      const now = Date.now();
+      const pending = openTradesRef.current.filter((t) => t.isReal && t.settlesAt <= now);
+      for (const trade of pending) {
+        if (inFlightRef.current.has(trade.id) || settledIds.current.has(trade.id)) continue;
+        inFlightRef.current.add(trade.id);
+        settleReal(trade).finally(() => inFlightRef.current.delete(trade.id));
+      }
+    }, 15_000);
     return () => clearInterval(id);
   }, [isLive, settleReal]);
 
@@ -1424,6 +1443,28 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
   }, [levPlacing, levPos, stake, balance, isLive, levKind, multiplier, barrierOffset, takeProfit, takeProfitOn, stopLoss, stopLossOn, market, ticks]);
 
   // Settle a real directional trade via the server (authoritative exit tick).
+  const applyDirSettled = useCallback((t: DirTrade, data: { won: boolean; winAmount?: number }) => {
+    if (dirSettled.current.has(t.id)) return;
+    dirSettled.current.add(t.id);
+    const won = data.won;
+    setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
+    setClosedPositions((cur) => mergeClosedPositions([
+      toDirectionalClosedPosition({
+        ...t,
+        payout: won ? data.winAmount ?? t.payout : 0,
+        status: won ? "WON" : "LOST",
+        settledAt: new Date(),
+      }),
+    ], cur).slice(0, 40));
+    if (won && data.winAmount) {
+      setLiveBalance((b) => b + data.winAmount!);
+      window.dispatchEvent(new Event("wallet-refresh"));
+      toast.cashout(`+${money(data.winAmount)} — ${t.side} won!`, t.market);
+    } else {
+      toast.error(`${t.side} lost`, t.market);
+    }
+  }, [money]);
+
   const settleDirReal = useCallback(async (t: DirTrade) => {
     try {
       const res  = await fetch("/api/directional/settle", {
@@ -1437,68 +1478,93 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         setDirTrades((cur) => cur.map((x) => x.id === t.id ? { ...x, settlesAt: Date.now() + (data.pending ? 2000 : 5000) } : x));
         return;
       }
-      const won = !!data.won;
-      setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
-      setClosedPositions((cur) => mergeClosedPositions([
-        toDirectionalClosedPosition({
-          ...t,
-          payout: won ? data.winAmount ?? t.payout : 0,
-          status: won ? "WON" : "LOST",
-          settledAt: new Date(),
-        }),
-      ], cur).slice(0, 40));
-      if (won && data.winAmount) {
-        setLiveBalance((b) => b + data.winAmount!);
-        window.dispatchEvent(new Event("wallet-refresh"));
-        toast.cashout(`+${money(data.winAmount)} — ${t.side} won!`, t.market);
-      } else {
-        toast.error(`${t.side} lost`, t.market);
-      }
+      applyDirSettled(t, { won: !!data.won, winAmount: data.winAmount });
     } catch {
       /* leave open; retried on the next interval */
     }
-  }, []);
+  }, [applyDirSettled]);
 
-  // Settle directional trades: demo locally off the tick buffer, real via server.
+  // Demo directional settle stays fast; live uses Realtime + 15s poll fallback.
   useEffect(() => {
     const id = setInterval(() => {
-      const open = dirTradesRef.current.filter((t) => t.status === "open");
+      const open = dirTradesRef.current.filter((t) => t.status === "open" && !t.isReal);
       if (open.length === 0) return;
-      const now = Date.now();
       for (const t of open) {
-        if (t.isReal) {
-          if (now < t.settlesAt || dirInFlight.current.has(t.id)) continue;
-          dirInFlight.current.add(t.id);
-          settleDirReal(t).finally(() => dirInFlight.current.delete(t.id));
-        } else {
-          if (dirSettled.current.has(t.id)) continue;
-          // Replay the post-entry path through the shared resolver so demo and
-          // server agree (Touch can resolve early; Vanilla pays proportionally).
-          const path = ticksRef.current
-            .filter((x) => (x.time as number) > t.entryEpoch)
-            .map((x) => ({ price: x.quote, epoch: x.time as number }));
-          const res = resolveContract({
-            kind: t.kind, side: t.side, entrySpot: t.entrySpot, barrier: t.barrier,
-            durationTicks: t.durationTicks, stake: t.stake, payout: t.payout, payoutPerPoint: t.payoutPerPoint,
-          }, path);
-          if (!res.ready) continue; // outcome not determined yet
-          dirSettled.current.add(t.id);
-          setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
-          setClosedPositions((cur) => mergeClosedPositions([
-            toDirectionalClosedPosition({
-              ...t,
-              payout: res.won ? res.credit : 0,
-              status: res.won ? "WON" : "LOST",
-              settledAt: new Date(),
-            }),
-          ], cur).slice(0, 40));
-          if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${money(res.credit)} — ${t.side} won!`, t.market); }
-          else { toast.error(`${t.side} lost`, t.market); }
-        }
+        if (dirSettled.current.has(t.id)) continue;
+        const path = ticksRef.current
+          .filter((x) => (x.time as number) > t.entryEpoch)
+          .map((x) => ({ price: x.quote, epoch: x.time as number }));
+        const res = resolveContract({
+          kind: t.kind, side: t.side, entrySpot: t.entrySpot, barrier: t.barrier,
+          durationTicks: t.durationTicks, stake: t.stake, payout: t.payout, payoutPerPoint: t.payoutPerPoint,
+        }, path);
+        if (!res.ready) continue;
+        dirSettled.current.add(t.id);
+        setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
+        setClosedPositions((cur) => mergeClosedPositions([
+          toDirectionalClosedPosition({
+            ...t,
+            payout: res.won ? res.credit : 0,
+            status: res.won ? "WON" : "LOST",
+            settledAt: new Date(),
+          }),
+        ], cur).slice(0, 40));
+        if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${money(res.credit)} — ${t.side} won!`, t.market); }
+        else { toast.error(`${t.side} lost`, t.market); }
       }
     }, 500);
     return () => clearInterval(id);
-  }, [settleDirReal]);
+  }, []);
+
+  useEffect(() => {
+    if (!isLive) return;
+    const id = setInterval(() => {
+      const open = dirTradesRef.current.filter((t) => t.status === "open" && t.isReal);
+      const now = Date.now();
+      for (const t of open) {
+        if (now < t.settlesAt || dirInFlight.current.has(t.id) || dirSettled.current.has(t.id)) continue;
+        dirInFlight.current.add(t.id);
+        settleDirReal(t).finally(() => dirInFlight.current.delete(t.id));
+      }
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [isLive, settleDirReal]);
+
+  // Server push: tick-driven settle broadcasts trade:settled on binary:${userId}.
+  useEffect(() => {
+    if (!userId || !isLive) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`binary:${userId}`)
+      .on("broadcast", { event: "trade:settled" }, ({ payload }: { payload: {
+        kind?: string;
+        tradeId?: string;
+        outcome?: string;
+        winAmount?: number;
+        exitDigit?: number;
+        status?: string;
+      } }) => {
+        if (!payload?.tradeId || payload.outcome === "already") return;
+        const won = payload.outcome === "won" || payload.status === "WON";
+        if (payload.kind === "directional") {
+          const t = dirTradesRef.current.find((x) => x.id === payload.tradeId);
+          if (!t) return;
+          applyDirSettled(t, { won, winAmount: payload.winAmount });
+          return;
+        }
+        const trade = openTradesRef.current.find((x) => x.id === payload.tradeId);
+        if (!trade) return;
+        applyBinarySettled(trade, {
+          won,
+          winAmount: payload.winAmount,
+          exitDigit: payload.exitDigit ?? 0,
+        });
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [userId, isLive, applyBinarySettled, applyDirSettled]);
 
   const placeDirectional = useCallback(async (side: DirectionalSide) => {
     if (dirPlacing || stake <= 0 || !dirKind) return;
