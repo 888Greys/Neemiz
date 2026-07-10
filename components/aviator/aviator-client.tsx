@@ -473,12 +473,13 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     setMyBets((prev) => { const n = { ...prev }; delete n[panelIndex]; return n; });
     setBalance((b) => b + pendingWin);
 
-    // ── Confirm with server ───────────────────────────────────────────────────
+    // ── Confirm with server (keepalive so the request isn't dropped on nav) ──
     try {
       const res = await fetch("/api/aviator/cashout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ panelIndex, betId: bet.id }),
+        keepalive: true,
       });
       const data = await res.json();
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Cashout failed");

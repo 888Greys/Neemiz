@@ -120,9 +120,11 @@ export function AviatorBetPanel({
     await placeBet(amount, acEnabled && autoCashout >= 1.01 ? autoCashout : undefined);
   }, [amount, balance, acEnabled, autoCashout, placeBet]);
 
-  const handleCashout = useCallback(async () => {
-    try   { await onCashout(panelIndex); }
-    catch (e: unknown) { setError((e as Error).message ?? "Cashout failed"); }
+  const handleCashout = useCallback(() => {
+    // Fire-and-forget — parent already optimistically clears the button.
+    void onCashout(panelIndex).catch((e: unknown) => {
+      setError((e as Error).message ?? "Cashout failed");
+    });
   }, [onCashout, panelIndex]);
 
   const placeAutoBet = useCallback(async () => {
