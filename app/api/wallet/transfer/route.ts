@@ -10,6 +10,7 @@ import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
 import { DEV_AUTH_ENABLED } from "@/lib/dev-auth";
 import { verifyStepUpToken, STEPUP_COOKIE } from "@/lib/step-up";
+import { assertNotPromoLocked, promoLockedHttpError } from "@/lib/promo-lock";
 
 /** Per-transfer cap (KES). Keep in sync with wallet Send Max button. */
 const MAX_TRANSFER_KES = 50;
@@ -121,6 +122,22 @@ export async function POST(req: Request) {
   const reference = `wallet-transfer-${crypto.randomUUID()}`;
   try {
     const result = await db.$transaction(async (tx) => {
+      const senderRow = await tx.user.findUnique({
+        where: { id: sender.id },
+        select: { walletBalance: true },
+      });
+      if (!senderRow) throw new Error("INSUFFICIENT_BALANCE");
+
+      // Promo credits cannot be transferred — only surplus above the lock.
+      const promoAgg = await tx.promoRedemption.aggregate({
+        where: { userId: sender.id },
+        _sum: { amountKes: true },
+      });
+      const locked = Number(promoAgg._sum.amountKes ?? 0);
+      const bal = Number(senderRow.walletBalance);
+      const transferable = Math.max(0, Math.round((bal - (Number.isFinite(locked) ? locked : 0)) * 100) / 100);
+      assertNotPromoLocked(amount, transferable, Number.isFinite(locked) ? locked : 0);
+
       // Race-safe debit FIRST: the conditional updateMany takes a row lock on
       // the sender, serializing concurrent cash-outs so the cap aggregate below
       // can't be raced (two sends both reading a stale "usedToday").
@@ -218,6 +235,10 @@ export async function POST(req: Request) {
 
     return Response.json({ ok: true, newBalance: result, to: recipient.username, reference });
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith("PROMO_LOCKED:")) {
+      const { status, body } = promoLockedHttpError(error.message);
+      return Response.json(body, { status });
+    }
     if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });
     }
