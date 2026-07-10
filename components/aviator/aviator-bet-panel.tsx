@@ -173,12 +173,12 @@ export function AviatorBetPanel({
 
   // ── Betika-style pill tab bar ──────────────────────────────────────────────
   const TabBar = (
-    <div className="mx-auto mb-1 flex w-[170px] shrink-0 rounded-full bg-[#18191f] p-[2px]">
+    <div className="mx-auto mb-0.5 flex w-full max-w-[140px] shrink-0 rounded-full bg-[#18191f] p-[2px] lg:mb-1 lg:max-w-[170px]">
       {(["bet", "auto"] as const).map((t) => (
         <button
           key={t}
           onClick={() => setTab(t)}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-full py-1.5 text-[10px] font-black transition-all ${
+          className={`flex flex-1 items-center justify-center gap-1 rounded-full py-1 text-[9px] font-black transition-[color,background-color,transform] duration-150 lg:gap-1.5 lg:py-1.5 lg:text-[10px] ${
             tab === t
               ? "bg-[#333435] text-white shadow-sm"
               : "text-white/45 hover:text-white/70"
@@ -186,7 +186,7 @@ export function AviatorBetPanel({
         >
           {t === "bet" ? "Bet" : "Auto"}
           {t === "auto" && autoBetOn && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#087cff]/30 px-1.5 py-px text-[8px] font-black text-[#087cff]">
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-[#087cff]/30 px-1 py-px text-[7px] font-black text-[#087cff] lg:px-1.5 lg:text-[8px]">
               <span className="h-1 w-1 animate-pulse rounded-full bg-[#087cff]" />
               ON
             </span>
@@ -201,44 +201,42 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (isFlying && myBet?.status === "ACTIVE") {
     return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12] sm:rounded-2xl">
+      <div className="flex min-h-[118px] min-w-0 flex-col overflow-hidden rounded-[10px] border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12] lg:min-h-0 lg:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col gap-2 p-2 sm:p-3">
+        <div className="flex flex-1 flex-col justify-center gap-1.5 p-1.5 lg:gap-2 lg:p-3">
           {myBet.autoCashout && (
-            <div className="flex items-center justify-between px-1 text-[11px]">
-              <span className="text-white/40">Auto cashout at</span>
+            <div className="flex items-center justify-between px-0.5 text-[10px] lg:px-1 lg:text-[11px]">
+              <span className="text-white/40">Auto @</span>
               <span className="font-black text-[#f59e0b]">{myBet.autoCashout.toFixed(2)}×</span>
             </div>
           )}
-          <div className="grid grid-cols-[1fr_auto] items-stretch gap-2">
-            {/* Left: bet info */}
-            <div className="flex flex-col justify-center gap-1.5 rounded-xl bg-white/[0.04] px-3 py-2">
-              <div className="flex items-baseline justify-between">
-                <span className="text-[10px] text-white/35">Staked</span>
-                <span className="font-black text-white">{money(myBet.betAmount)}</span>
+          <div className="grid grid-cols-[1fr_auto] items-stretch gap-1.5 lg:gap-2">
+            <div className="flex min-w-0 flex-col justify-center gap-1 rounded-lg bg-white/[0.04] px-2 py-1.5 lg:gap-1.5 lg:rounded-xl lg:px-3 lg:py-2">
+              <div className="flex items-baseline justify-between gap-1">
+                <span className="text-[9px] text-white/35 lg:text-[10px]">Staked</span>
+                <span className="truncate text-[11px] font-black text-white lg:text-sm">{money(myBet.betAmount)}</span>
               </div>
-              <div className="flex items-baseline justify-between">
-                <span className="text-[10px] text-white/35">Win now</span>
-                <span className="font-black text-[#31c45d]">
+              <div className="flex items-baseline justify-between gap-1">
+                <span className="text-[9px] text-white/35 lg:text-[10px]">Win</span>
+                <span className="truncate text-[11px] font-black text-[#31c45d] lg:text-sm">
                   {money(potWin, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
-            {/* Right: cashout button — tap = instant, no spinner */}
             <button
               onClick={handleCashout}
-              className="relative w-[120px] overflow-hidden rounded-xl text-black transition-all active:scale-[0.97]"
+              className="relative w-[72px] overflow-hidden rounded-lg text-black transition-transform active:scale-[0.97] lg:w-[120px] lg:rounded-xl"
               style={{ background: "linear-gradient(160deg, #f5b942, #e08200)" }}
             >
-              <p className="text-[11px] font-bold leading-none opacity-80">Cashout</p>
-              <p className="mt-0.5 text-[15px] font-black leading-tight">
+              <p className="text-[9px] font-bold leading-none opacity-80 lg:text-[11px]">Cashout</p>
+              <p className="mt-0.5 text-[12px] font-black leading-tight lg:text-[15px]">
                 {money(potWin, { maximumFractionDigits: 0 })}
               </p>
-              <span className="absolute inset-0 animate-ping rounded-xl bg-[#f59e0b] opacity-10" />
+              <span className="absolute inset-0 animate-ping rounded-lg bg-[#f59e0b] opacity-10 lg:rounded-xl" />
             </button>
           </div>
-          <p className="text-center text-[11px] font-black text-[#f59e0b]">{currentMultiplier.toFixed(2)}×</p>
-          {error && <p className="text-center text-xs text-red-400">{error}</p>}
+          <p className="text-center text-[10px] font-black text-[#f59e0b] lg:text-[11px]">{currentMultiplier.toFixed(2)}×</p>
+          {error && <p className="text-center text-[10px] text-red-400 lg:text-xs">{error}</p>}
         </div>
       </div>
     );
@@ -250,18 +248,18 @@ export function AviatorBetPanel({
   if (isCrashed && myBet) {
     const won = myBet.status === "CASHEDOUT";
     return (
-      <div className={`flex min-w-0 flex-col overflow-hidden rounded-xl border sm:rounded-2xl ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
+      <div className={`flex min-h-[118px] min-w-0 flex-col overflow-hidden rounded-[10px] border lg:min-h-0 lg:rounded-2xl ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
         {TabBar}
-        <div className="flex flex-col items-center gap-1 p-3 text-center">
-          <p className={`text-[13px] font-black ${won ? "text-[#31c45d]" : "text-red-400"}`}>
+        <div className="flex flex-1 flex-col items-center justify-center gap-0.5 p-2 text-center lg:gap-1 lg:p-3">
+          <p className={`text-[11px] font-black lg:text-[13px] ${won ? "text-[#31c45d]" : "text-red-400"}`}>
             {won ? "You won!" : "Flew away!"}
           </p>
-          <p className="text-lg font-black text-white">
+          <p className="text-base font-black text-white lg:text-lg">
             {won
               ? (myBet.winAmount != null ? money(myBet.winAmount, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—")
               : `-${money(myBet.betAmount)}`}
           </p>
-          {won && <p className="text-[11px] text-white/30">at {myBet.cashoutAt?.toFixed(2)}×</p>}
+          {won && <p className="text-[10px] text-white/30 lg:text-[11px]">at {myBet.cashoutAt?.toFixed(2)}×</p>}
         </div>
       </div>
     );
@@ -272,13 +270,13 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (bettingOpen && myBet?.status === "ACTIVE") {
     return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-yellow-500/20 bg-[#1a1500] sm:rounded-2xl">
+      <div className="flex min-h-[118px] min-w-0 flex-col overflow-hidden rounded-[10px] border border-yellow-500/20 bg-[#1a1500] lg:min-h-0 lg:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col items-center gap-0.5 p-2 text-center sm:gap-1 sm:p-3">
-          <p className="text-[12px] font-black text-yellow-400 sm:text-[13px]">Bet confirmed</p>
-          <p className="text-base font-black text-white sm:text-lg">{money(myBet.betAmount)}</p>
-          {myBet.autoCashout && <p className="text-[10px] text-white/40 sm:text-[11px]">Auto cashout at {myBet.autoCashout.toFixed(2)}×</p>}
-          <p className="text-[10px] text-white/25">Waiting for launch…</p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-0.5 p-2 text-center lg:gap-1 lg:p-3">
+          <p className="text-[11px] font-black text-yellow-400 lg:text-[13px]">Bet confirmed</p>
+          <p className="text-base font-black text-white lg:text-lg">{money(myBet.betAmount)}</p>
+          {myBet.autoCashout && <p className="text-[9px] text-white/40 lg:text-[11px]">Auto @ {myBet.autoCashout.toFixed(2)}×</p>}
+          <p className="text-[9px] text-white/25 lg:text-[10px]">Waiting for launch…</p>
         </div>
       </div>
     );
@@ -289,18 +287,17 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (isFlying && !myBet && nextBet) {
     return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#087cff]/30 bg-[#060d1c] sm:rounded-2xl">
+      <div className="flex min-h-[118px] min-w-0 flex-col overflow-hidden rounded-[10px] border border-[#087cff]/30 bg-[#060d1c] lg:min-h-0 lg:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col items-center gap-0.5 p-2 text-center sm:gap-1.5 sm:p-3">
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#087cff]/15 text-sm sm:h-8 sm:w-8 sm:text-base">⏳</div>
-          <p className="text-[12px] font-black text-[#087cff] sm:text-[13px]">Queued for next round</p>
-          <p className="text-base font-black text-white sm:text-lg">{money(nextBet.amount)}</p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-0.5 p-2 text-center lg:gap-1.5 lg:p-3">
+          <p className="text-[11px] font-black text-[#087cff] lg:text-[13px]">Queued next</p>
+          <p className="text-base font-black text-white lg:text-lg">{money(nextBet.amount)}</p>
           {nextBet.autoCashout && (
-            <p className="text-[10px] text-white/40 sm:text-[11px]">Auto cashout at {nextBet.autoCashout.toFixed(2)}×</p>
+            <p className="text-[9px] text-white/40 lg:text-[11px]">Auto @ {nextBet.autoCashout.toFixed(2)}×</p>
           )}
           <button
             onClick={() => setNextBet(null)}
-            className="mt-0.5 rounded-lg border border-white/10 px-5 py-0.5 text-[11px] font-black text-white/40 transition-colors hover:border-white/25 hover:text-white/70 sm:py-1"
+            className="mt-0.5 rounded-lg border border-white/10 px-4 py-0.5 text-[10px] font-black text-white/40 transition-colors hover:border-white/25 hover:text-white/70 lg:px-5 lg:text-[11px]"
           >
             Cancel
           </button>
@@ -314,20 +311,14 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (state === "WAITING" || (isCrashed && !myBet)) {
     return (
-      <div className="flex min-w-0 flex-col overflow-hidden rounded-xl border border-white/[0.06] bg-[#151518] sm:rounded-2xl">
+      <div className="flex min-h-[118px] min-w-0 flex-col overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#151518] lg:min-h-0 lg:rounded-2xl">
         {TabBar}
-        <div className="flex flex-col items-center gap-1.5 p-2.5 text-center sm:gap-2.5 sm:p-5">
-          {state === "WAITING" && <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-white/50 sm:h-8 sm:w-8" />}
-          <p className="text-sm text-white/40">
+        <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-2 text-center lg:gap-2.5 lg:p-5">
+          {state === "WAITING" && <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-white/50 lg:h-8 lg:w-8" />}
+          <p className="text-[11px] text-white/40 lg:text-sm">
             {state === "WAITING" ? "Next round loading…" : `Ended at ${round?.crashPoint?.toFixed(2)}×`}
           </p>
         </div>
-        <AutoBetSection
-          autoBetOn={autoBetOn} setAutoBetOn={setAutoBetOn}
-          stopOnWin={stopOnWin} setStopOnWin={setStopOnWin}
-          stopOnLoss={stopOnLoss} setStopOnLoss={setStopOnLoss}
-          autoBetRounds={autoBetRounds}
-        />
       </div>
     );
   }
@@ -343,12 +334,12 @@ export function AviatorBetPanel({
   };
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#18191f] p-2">
+    <div className="flex min-h-[118px] min-w-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#18191f] p-1.5 lg:min-h-0 lg:p-2">
       {TabBar}
 
-      {/* Betting countdown banner */}
+      {/* Countdown is already on the BET button — skip duplicate banner on narrow dual panels */}
       {bettingOpen && bettingSecsLeft > 0 && (
-        <div className={`mb-1.5 flex items-center justify-between rounded-lg px-3 py-1.5 ${bettingSecsLeft <= 2 ? "bg-red-500/20 ring-1 ring-red-500/40" : "bg-[#1dbb08]/15 ring-1 ring-[#1dbb08]/30"}`}>
+        <div className={`mb-1.5 hidden items-center justify-between rounded-lg px-3 py-1.5 lg:flex ${bettingSecsLeft <= 2 ? "bg-red-500/20 ring-1 ring-red-500/40" : "bg-[#1dbb08]/15 ring-1 ring-[#1dbb08]/30"}`}>
           <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Closing bets in</span>
           <span className={`text-[15px] font-black tabular-nums ${bettingSecsLeft <= 2 ? "text-red-400" : "text-[#1dbb08]"}`}>
             {bettingSecsLeft}s
@@ -357,21 +348,17 @@ export function AviatorBetPanel({
       )}
 
       {tab === "bet" ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-1 flex-col justify-center gap-1.5 lg:gap-2">
           {error && (
-            <p className="rounded-lg bg-red-900/30 px-3 py-1.5 text-[11px] text-red-400">{error}</p>
+            <p className="rounded-lg bg-red-900/30 px-2 py-1 text-[10px] text-red-400 lg:px-3 lg:py-1.5 lg:text-[11px]">{error}</p>
           )}
 
-          {/* ── Two-column layout: [amount+chips] | [BET button] ── */}
-          <div className="grid h-[90px] grid-cols-[1fr_1.1fr] items-stretch gap-2">
-
-            {/* Left column */}
+          <div className="grid h-[78px] grid-cols-[1fr_1fr] items-stretch gap-1.5 lg:h-[90px] lg:grid-cols-[1fr_1.1fr] lg:gap-2">
             <div className="flex min-w-0 flex-col gap-1">
-              {/* Amount row: ⊖  value  ⊕ */}
-              <div className="flex h-[35px] items-center rounded-md bg-[#151518]">
+              <div className="flex h-[30px] items-center rounded-md bg-[#151518] lg:h-[35px]">
                 <button
                   onClick={() => { adj(-snapStep(amount)); setError(null); }}
-                  className="flex h-full w-9 shrink-0 items-center justify-center text-xl font-black text-white/55 transition-colors hover:text-white active:scale-90"
+                  className="flex h-full w-7 shrink-0 items-center justify-center text-lg font-black text-white/55 transition-colors hover:text-white active:scale-90 lg:w-9 lg:text-xl"
                 >−</button>
 
                 <input
@@ -379,22 +366,21 @@ export function AviatorBetPanel({
                   value={Number(convert(amount).toFixed(currency.decimals))}
                   min={convert(MIN_BET)} max={convert(50000)}
                   onChange={(e) => { setAmount(clampAmt(toKes(Number(e.target.value)))); setError(null); }}
-                  className="min-w-0 flex-1 bg-transparent text-center text-[16px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="min-w-0 flex-1 bg-transparent text-center text-[13px] font-black text-white outline-none [appearance:textfield] lg:text-[16px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
 
                 <button
                   onClick={() => { adj(snapStep(amount)); setError(null); }}
-                  className="flex h-full w-9 shrink-0 items-center justify-center text-xl font-black text-white/55 transition-colors hover:text-white active:scale-90"
+                  className="flex h-full w-7 shrink-0 items-center justify-center text-lg font-black text-white/55 transition-colors hover:text-white active:scale-90 lg:w-9 lg:text-xl"
                 >+</button>
               </div>
 
-              {/* Quick chips */}
-              <div className="grid flex-1 grid-cols-2 gap-1">
+              <div className="grid flex-1 grid-cols-2 gap-0.5 lg:gap-1">
                 {QUICK_AMOUNTS.map((v) => (
                   <button
                     key={v}
                     onClick={() => { setAmount(v); setError(null); }}
-                    className={`rounded-md py-1 text-[10px] font-bold transition-colors ${
+                    className={`rounded-md py-0.5 text-[9px] font-bold transition-colors lg:py-1 lg:text-[10px] ${
                       amount === v
                         ? "bg-[#151518] text-white"
                         : "bg-[#151518] text-white/45 hover:text-white"
@@ -406,45 +392,43 @@ export function AviatorBetPanel({
               </div>
             </div>
 
-            {/* Right column: BET / NEXT ROUND button */}
             <button
               onClick={isFlying ? queueForNext : handleBet}
               disabled={loading}
-              className="flex min-w-0 flex-col items-center justify-center rounded-[10px] px-2 py-3 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,.2)] transition-all active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex min-w-0 flex-col items-center justify-center rounded-[8px] px-1 py-2 text-white shadow-[inset_0_-2px_0_rgba(0,0,0,.2)] transition-transform active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 lg:rounded-[10px] lg:px-2 lg:py-3"
               style={{ background: (bettingOpen || isFlying) ? "#1dbb08" : "#1f2937" }}
             >
-              <span className="text-[24px] font-black uppercase leading-none">
-                {loading ? <LoadingDots /> : isFlying ? "Next Round" : "BET"}
+              <span className="text-[14px] font-black uppercase leading-none lg:text-[24px]">
+                {loading ? <LoadingDots /> : isFlying ? "Next" : "BET"}
               </span>
-              <span className="mt-0.5 text-[12px] font-semibold leading-tight">
+              <span className="mt-0.5 max-w-full truncate text-[9px] font-semibold leading-tight lg:text-[12px]">
                 {bettingOpen && bettingSecsLeft > 0
-                  ? `${money(amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · ${bettingSecsLeft}s`
-                  : money(amount, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  ? `${money(amount, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} · ${bettingSecsLeft}s`
+                  : money(amount, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </span>
             </button>
           </div>
         </div>
       ) : (
-        /* ── Auto tab ──────────────────────────────────────────────────── */
-        <div className="flex flex-col gap-3 p-3">
+        <div className="flex flex-col gap-2 overflow-y-auto p-1.5 lg:gap-3 lg:p-3">
           <div>
-            <p className="mb-1.5 text-[9px] font-black uppercase tracking-widest text-white/30">Auto Cashout at (×)</p>
-            <div className="flex items-center gap-2">
+            <p className="mb-1 text-[8px] font-black uppercase tracking-widest text-white/30 lg:mb-1.5 lg:text-[9px]">Auto Cashout (×)</p>
+            <div className="flex items-center gap-1.5 lg:gap-2">
               <input
                 type="number"
                 value={autoCashout}
                 min="1.01" step="0.01"
                 onChange={(e) => setAutoCashout(parseFloat(e.target.value) || 1.01)}
-                className="flex-1 rounded-xl border border-white/[0.08] bg-black/30 py-2.5 text-center font-mono text-base font-black text-white outline-none focus:border-[#087cff]/50"
+                className="flex-1 rounded-lg border border-white/[0.08] bg-black/30 py-1.5 text-center font-mono text-sm font-black text-white outline-none focus:border-[#087cff]/50 lg:rounded-xl lg:py-2.5 lg:text-base"
               />
-              <span className="text-lg text-white/30">×</span>
+              <span className="text-sm text-white/30 lg:text-lg">×</span>
             </div>
-            <div className="mt-2 flex gap-1.5">
+            <div className="mt-1.5 flex gap-1 lg:mt-2 lg:gap-1.5">
               {[1.5, 2, 3, 5, 10].map((v) => (
                 <button
                   key={v}
                   onClick={() => { setAutoCashout(v); setAcEnabled(true); }}
-                  className={`flex-1 rounded-lg border py-1.5 text-[10px] font-black transition-colors ${
+                  className={`flex-1 rounded-md border py-1 text-[8px] font-black transition-colors lg:rounded-lg lg:py-1.5 lg:text-[10px] ${
                     autoCashout === v && acEnabled
                       ? "border-[#087cff]/50 bg-[#087cff]/10 text-[#087cff]"
                       : "border-white/[0.07] bg-white/[0.04] text-white/40 hover:text-white"
@@ -462,10 +446,6 @@ export function AviatorBetPanel({
             stopOnLoss={stopOnLoss} setStopOnLoss={setStopOnLoss}
             autoBetRounds={autoBetRounds}
           />
-
-          <p className="text-center text-[10px] leading-relaxed text-white/20">
-            Auto-bet places a bet every round using your current amount &amp; cashout settings.
-          </p>
         </div>
       )}
     </div>
@@ -483,15 +463,14 @@ function AutoBetSection({
   autoBetRounds: number;
 }) {
   return (
-    <div className={`mx-3 mb-3 rounded-xl border px-3 py-3 transition-colors ${autoBetOn ? "border-[#087cff]/30 bg-[#087cff]/5" : "border-white/[0.05] bg-white/[0.02]"}`}>
+    <div className={`rounded-lg border px-2 py-2 transition-colors lg:mx-0 lg:mb-0 lg:rounded-xl lg:px-3 lg:py-3 ${autoBetOn ? "border-[#087cff]/30 bg-[#087cff]/5" : "border-white/[0.05] bg-white/[0.02]"}`}>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-sm">🤖</span>
-          <span className="text-[11px] font-black text-white/60">Auto Bet</span>
+        <div className="flex min-w-0 items-center gap-1.5 lg:gap-2">
+          <span className="text-[11px] font-black text-white/60 lg:text-[11px]">Auto Bet</span>
           {autoBetOn && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#087cff]/20 px-2 py-px text-[9px] font-black text-[#087cff]">
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#087cff]/20 px-1.5 py-px text-[8px] font-black text-[#087cff] lg:px-2 lg:text-[9px]">
               <span className="h-1 w-1 animate-pulse rounded-full bg-[#087cff]" />
-              {autoBetRounds} round{autoBetRounds !== 1 ? "s" : ""}
+              {autoBetRounds}
             </span>
           )}
         </div>
@@ -502,12 +481,12 @@ function AutoBetSection({
           <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${autoBetOn ? "translate-x-4" : "translate-x-0.5"}`} />
         </button>
       </div>
-      <div className="mt-2.5 flex gap-4">
-        <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-white/40">
+      <div className="mt-2 flex flex-col gap-1.5 lg:mt-2.5 lg:flex-row lg:gap-4">
+        <label className="flex cursor-pointer select-none items-center gap-1.5 text-[10px] text-white/40 lg:text-[11px]">
           <input type="checkbox" checked={stopOnWin} onChange={(e) => setStopOnWin(e.target.checked)} className="h-3 w-3 cursor-pointer accent-green-500" />
           Stop on win
         </label>
-        <label className="flex cursor-pointer select-none items-center gap-1.5 text-[11px] text-white/40">
+        <label className="flex cursor-pointer select-none items-center gap-1.5 text-[10px] text-white/40 lg:text-[11px]">
           <input type="checkbox" checked={stopOnLoss} onChange={(e) => setStopOnLoss(e.target.checked)} className="h-3 w-3 cursor-pointer accent-red-500" />
           Stop on loss
         </label>
