@@ -905,6 +905,12 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     const frac = (clientSigma ?? 0.003) * Math.sqrt(Math.max(1, duration)) * BARRIER_BAND_SIGMAS;
     return Math.max(0.02, Math.round(latest.quote * frac * 100) / 100);
   }, [clientSigma, duration, latest.quote]);
+  // Server rejects barriers closer than 0.05% of spot — keep the picker outside that dead zone.
+  const minBarrierOffset = useMemo(
+    () => Math.max(0.01, Math.round(latest.quote * 0.0005 * 100) / 100),
+    [latest.quote],
+  );
+  const minDurationTicks = dirKind === "RISE_FALL" && market.derivSymbol.startsWith("1HZ") ? 2 : 1;
   // Fixed-payout preview (Rise/Fall, Higher/Lower, Touch/No-Touch).
   const dirPayoutFor = (side: DirectionalSide): number => {
     let rate = 1.90;
@@ -1867,6 +1873,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                 secPerTick={Math.max(1, Math.round(market.speedMs / 1000))}
                 barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
                 maxBarrierOffset={maxBarrierOffset}
+                minBarrierOffset={minBarrierOffset}
+                minDuration={minDurationTicks}
                 latestSpot={latest.quote}
                 stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
                 minStake={isLive ? 10 : 1}

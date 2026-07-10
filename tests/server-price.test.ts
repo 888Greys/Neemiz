@@ -37,6 +37,43 @@ describe("priceDirectionalServer", () => {
     const r = priceDirectionalServer({ kind: "RISE_FALL", side: "RISE", entrySpot: START, barrier: null, durationTicks: 8, stake: 100, ticks: ticks.slice(0, 100) });
     expect(r.accepted).toBe(false);
   });
+
+  it("rejects 1-tick Rise/Fall on 1Hz markets (live RTP leak)", () => {
+    const r = priceDirectionalServer({
+      kind: "RISE_FALL", side: "RISE", entrySpot: START, barrier: null,
+      durationTicks: 1, stake: 100, ticks, market: "1HZ10V",
+    });
+    expect(r.accepted).toBe(false);
+    if (!r.accepted) expect(r.reason).toMatch(/1-tick/i);
+  });
+
+  it("still allows 1-tick Rise/Fall on non-1Hz markets", () => {
+    const r = priceDirectionalServer({
+      kind: "RISE_FALL", side: "RISE", entrySpot: START, barrier: null,
+      durationTicks: 1, stake: 100, ticks, market: "R_100",
+    });
+    expect(r.accepted).toBe(true);
+  });
+
+  it("rejects HIGHER_LOWER barriers closer than 0.05% of spot", () => {
+    const barrier = START * (1 + 0.0002); // 0.02%
+    const r = priceDirectionalServer({
+      kind: "HIGHER_LOWER", side: "HIGHER", entrySpot: START, barrier,
+      durationTicks: 8, stake: 100, ticks, market: "1HZ10V",
+    });
+    expect(r.accepted).toBe(false);
+    if (!r.accepted) expect(r.reason).toMatch(/too close/i);
+  });
+
+  it("accepts HIGHER_LOWER at exactly the 0.05% minimum distance", () => {
+    const barrier = START * (1 + 0.0005);
+    const r = priceDirectionalServer({
+      kind: "HIGHER_LOWER", side: "HIGHER", entrySpot: START, barrier,
+      durationTicks: 8, stake: 100, ticks, market: "1HZ25V",
+    });
+    // May still reject for other reasons (near-certain / thin), but not the distance gate.
+    if (!r.accepted) expect(r.reason).not.toMatch(/too close/i);
+  });
 });
 
 describe("priceDigitServer", () => {
@@ -45,6 +82,9 @@ describe("priceDigitServer", () => {
     expect(resolveDigitEdgeFloor("Matches", 5, 0.06)).toBe(0.15);
     expect(resolveDigitEdgeFloor("Odd", 0, 0.12)).toBe(0.12);
     expect(resolveDigitEdgeFloor("Matches", 5, 0.18)).toBe(0.18);
+    expect(resolveDigitEdgeFloor("Under", 5, 0.06)).toBe(0.18);
+    expect(resolveDigitEdgeFloor("Under", 4, 0.09)).toBe(0.18);
+    expect(resolveDigitEdgeFloor("Under", 3, 0.06)).toBe(0.10);
   });
 
   it("prices Even/Odd/Matches/Differs contracts with sane payouts", () => {
@@ -81,7 +121,8 @@ describe("priceDigitServer", () => {
     expect(previewDigitPayout(1000, "Matches", 5)).toBe(8500);
     expect(previewDigitPayout(1000, "Differs", 5)).toBe(1080);
     expect(previewDigitPayout(1000, "Over", 5)).toBe(2250);
-    expect(previewDigitPayout(1000, "Under", 5)).toBe(1800);
+    // Under 5: winProb 0.5, edge 0.18 → floor((0.82/0.5)*100)/100 = 1.64
+    expect(previewDigitPayout(1000, "Under", 5)).toBe(1640);
   });
 
   it("rejects Matches when the digit distribution is highly skewed (stability gate)", () => {
