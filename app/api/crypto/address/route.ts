@@ -66,8 +66,11 @@ export async function POST(req: Request) {
     const network = (body.network ?? defaultNetwork(crypto)).toUpperCase();
 
     if (!VALID[crypto] || !VALID[crypto].includes(network)) {
-      const supported = Object.entries(VALID).map(([c, nets]) => `${c}(${nets.join("/")})`).join(", ");
-      return Response.json({ error: `Invalid crypto/network. Supported: ${supported}` }, { status: 400 });
+      console.warn("crypto/address rejected pair", { crypto, network });
+      return Response.json(
+        { error: "This asset or network isn't available for deposits. Please choose another option." },
+        { status: 400 },
+      );
     }
 
     const address = await getOrCreateDepositAddress(dbUser.id, crypto, network);

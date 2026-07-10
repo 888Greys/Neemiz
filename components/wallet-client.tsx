@@ -19,11 +19,10 @@ import { useCurrency } from "@/lib/currency-context";
 import {
   CRYPTO_DEPOSIT_ASSETS,
   depositRowsForCurrency,
-  type CryptoAssetGroup,
   type DepositSelection,
 } from "@/lib/wallet-deposit-options";
 import { findCountryByCurrency } from "@/lib/payments/world-countries";
-import { PaymentBrandLogo } from "@/components/payment-brand-logo";
+import { PaymentBrandLogo, COIN_URL } from "@/components/payment-brand-logo";
 import { MarketCurrencyPicker } from "@/components/market-currency-picker";
 import { CurrencySwitcher } from "@/components/currency-switcher";
 import { CurrencyFlag } from "@/components/currency-flag";
@@ -58,25 +57,7 @@ type TransferReceipt = {
 // currency code map to the country flag for most local currencies.
 const flagUrl = (code: string) => `https://flagcdn.com/w40/${code.slice(0, 2).toLowerCase()}.png`;
 
-const COIN_ICON_URL: Record<string, string> = {
-  USDT:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
-  USDC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
-  BTC:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
-  ETH:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
-  BNB:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
-  MATIC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/matic.svg",
-  TRX:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/trx.svg",
-  DAI:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/dai.svg",
-  BUSD:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/busd.svg",
-  WBTC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/wbtc.svg",
-  LINK:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/link.svg",
-};
-
-// Real brand + coin logos for the payment-method list. Coins reuse the
-// cryptocurrency-icons set for coin marks used in withdraw / history rows.
-const BRAND_ICON_URL: Record<string, string> = {
-  ...COIN_ICON_URL,
-};
+const COIN_ICON_URL = COIN_URL;
 
 /** Thin wrapper kept for withdraw/history rows that still pass badge codes. */
 function PaymentIcon({ badge }: { badge: string }) {
@@ -170,7 +151,6 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto" | "pesapal">(displayCurrency === "KES" ? "mpesa" : "crypto");
   // Deposit is a two-step flow: pick a method, press Continue, then fill details.
   const [depositStep, setDepositStep]     = useState<"method" | "detail">("method");
-  const [depositAssetGroup, setDepositAssetGroup] = useState<CryptoAssetGroup>("USDT");
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
   const [loading, setLoading]             = useState(false);
@@ -803,7 +783,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                 pesapalEnabled={PESAPAL_ENABLED}
                 displayCurrency={displayCurrency}
                 onContinue={(sel) => {
-                  if (sel.kind === "crypto") { setDepositMethod("crypto"); setDepositAssetGroup(sel.assetGroup); }
+                  if (sel.kind === "crypto") setDepositMethod("crypto");
                   else setDepositMethod(sel.kind);
                   setError("");
                   setDepositStep("detail");
@@ -812,7 +792,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
             ) : (
               <div className="space-y-5">
                 {/* ── Step 2: method-specific details ── */}
-                {depositMethod === "crypto" && <CryptoDepositPanel group={depositAssetGroup} />}
+                {depositMethod === "crypto" && <CryptoDepositPanel />}
 
                 {depositMethod === "pesapal" && (
                   <div className="space-y-5">
@@ -2257,10 +2237,8 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
 
 // ─── Crypto deposit panel (wallet page) ───────────────────────────────────────
 
-// USDT/BTC/ETH map to their own coin; OTHER holds everything else (USDC, BNB).
-function groupMatches(group: CryptoAssetGroup, code: string): boolean {
-  return group === "OTHER" ? code !== "USDT" && code !== "BTC" && code !== "ETH" : code === group;
-}
+type CryptoDepositAsset = (typeof CRYPTO_DEPOSIT_ASSETS)[number];
+type CryptoDepositStep = "asset" | "network" | "address";
 
 type CryptoAddrPhase =
   | { phase: "checking" }
@@ -2298,34 +2276,62 @@ function prefetchDepositAddress(code: string, net: string) {
   resolveDepositAddress(code, net).catch(() => { /* surfaced later on view */ });
 }
 
-function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
-  const assets = useMemo(() => CRYPTO_DEPOSIT_ASSETS.filter((a) => groupMatches(group, a.code)), [group]);
-  const codes  = useMemo(() => Array.from(new Set(assets.map((a) => a.code))), [assets]);
-  const [sel, setSel]       = useState(0);
-  // Seed instantly from the session cache (warmed by the deposit-open prefetch)
-  // so the address + QR render with no spinner on the common path.
-  const [addr, setAddr]     = useState<CryptoAddrPhase>(() => {
-    const first  = assets[0];
-    const cached = first && depositAddrCache.get(addrKey(first.code, first.network));
-    return cached ? { phase: "ready", address: cached } : { phase: "checking" };
-  });
-  const [copied, setCopied] = useState(false);
-  useEffect(() => { setSel(0); }, [group]);       // reset when the chosen coin group changes
-  const asset    = assets[sel] ?? assets[0];
-  const networks = assets.filter((a) => a.code === asset.code);
+/** Unique coins for the asset step (live first), one row per code. */
+function cryptoDepositCoinRows(): Array<{
+  code: string;
+  name: string;
+  enabled: boolean;
+  soon: boolean;
+}> {
+  const seen = new Set<string>();
+  const rows: Array<{ code: string; name: string; enabled: boolean; soon: boolean }> = [];
+  for (const a of CRYPTO_DEPOSIT_ASSETS) {
+    if (seen.has(a.code)) continue;
+    seen.add(a.code);
+    const variants = CRYPTO_DEPOSIT_ASSETS.filter((x) => x.code === a.code);
+    const enabled = variants.some((x) => x.enabled);
+    rows.push({
+      code: a.code,
+      name: a.name,
+      enabled,
+      soon: !enabled && variants.every((x) => x.soon),
+    });
+  }
+  return rows.sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.code.localeCompare(b.code));
+}
 
-  const load = useCallback(async (code: string, net: string) => {
-    const cached = depositAddrCache.get(addrKey(code, net));
+function CryptoDepositPanel() {
+  const coins = useMemo(() => cryptoDepositCoinRows(), []);
+  const [step, setStep] = useState<CryptoDepositStep>("asset");
+  const [code, setCode] = useState<string | null>(null);
+  const [network, setNetwork] = useState<string | null>(null);
+  const [addr, setAddr] = useState<CryptoAddrPhase>({ phase: "checking" });
+  const [copied, setCopied] = useState(false);
+
+  const networks = useMemo(
+    () => (code ? CRYPTO_DEPOSIT_ASSETS.filter((a) => a.code === code) : []),
+    [code],
+  );
+  const asset: CryptoDepositAsset | undefined = useMemo(() => {
+    if (!code || !network) return undefined;
+    return CRYPTO_DEPOSIT_ASSETS.find((a) => a.code === code && a.network === network);
+  }, [code, network]);
+
+  const load = useCallback(async (c: string, net: string) => {
+    const cached = depositAddrCache.get(addrKey(c, net));
     if (cached) { setAddr({ phase: "ready", address: cached }); return; }
     setAddr({ phase: "checking" });
     try {
-      setAddr({ phase: "ready", address: await resolveDepositAddress(code, net) });
+      setAddr({ phase: "ready", address: await resolveDepositAddress(c, net) });
     } catch (e: unknown) {
       setAddr({ phase: "form", error: e instanceof Error ? e.message : "Failed to generate address" });
     }
   }, []);
 
-  useEffect(() => { load(asset.code, asset.network); }, [asset.code, asset.network, load]);
+  useEffect(() => {
+    if (step !== "address" || !asset?.enabled) return;
+    void load(asset.code, asset.network);
+  }, [step, asset?.code, asset?.network, asset?.enabled, load]);
 
   async function copy() {
     if (addr.phase !== "ready") return;
@@ -2336,146 +2342,236 @@ function CryptoDepositPanel({ group }: { group: CryptoAssetGroup }) {
     } catch { /* clipboard blocked */ }
   }
 
+  const selectedCoinLive = code != null && coins.some((c) => c.code === code && c.enabled);
+  const selectedNetLive = asset?.enabled === true;
+
   return (
-    <div className="space-y-4">
-      {/* Selected coin header */}
-      <div className="flex items-center justify-center gap-2">
-        <PaymentIcon badge={asset.code} />
-        <span className="text-lg font-black text-white">{asset.name}</span>
-        <span className="text-sm font-black text-slate-500">{asset.code}</span>
-      </div>
-
-      {/* Coin sub-picker — only when the group holds more than one coin (Other Crypto) */}
-      {codes.length > 1 && (
-        <div className="grid grid-cols-2 gap-2">
-          {codes.map((code) => {
-            const first  = assets.findIndex((a) => a.code === code);
-            const active = asset.code === code;
-            return (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setSel(first)}
-                className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition ring-1 ${
-                  active ? "bg-[#087cff]/15 text-white ring-[#087cff]/50" : "bg-white/[0.04] text-slate-300 ring-white/[0.06]"
-                }`}
-              >
-                <PaymentIcon badge={code} />
-                {code}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Deposit network — single-select radio cards */}
-      <div className="border-y border-white/[0.06] py-4">
-        <p className="text-center text-[13px] font-black text-white">Deposit network</p>
-        <p className="mx-auto mb-3 mt-0.5 max-w-[16rem] text-center text-[11px] font-medium leading-snug text-slate-500">
-          Choose the correct network, otherwise you will lose your deposit.
-        </p>
-        <div className={`grid gap-2 ${networks.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
-          {networks.map((n) => {
-            const i      = assets.indexOf(n);
-            const active = asset.network === n.network;
-            return (
-              <button
-                key={n.network}
-                type="button"
-                disabled={!n.enabled}
-                onClick={() => { if (n.enabled) setSel(i); }}
-                className={`flex items-center gap-2.5 rounded-xl px-3 py-3 text-left transition ring-1 ${
-                  !n.enabled
-                    ? "cursor-not-allowed bg-white/[0.02] opacity-45 ring-white/[0.06]"
-                    : active
-                      ? "bg-[#087cff]/12 ring-[#087cff]/60"
-                      : "bg-white/[0.03] ring-white/[0.06]"
-                }`}
-              >
-                <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${active ? "border-[#087cff]" : "border-slate-600"}`}>
-                  {active && <span className="h-2.5 w-2.5 rounded-full bg-[#087cff]" />}
-                </span>
-                <span className="min-w-0">
-                  <span className="flex items-center gap-2 text-[13px] font-black text-white">
-                    {n.network}
-                    {n.soon && (
-                      <span className="rounded-full bg-white/[0.06] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-slate-500">
+    <div className="relative flex flex-col">
+      <div className={step === "address" ? "pb-2" : "pb-20"}>
+        {step === "asset" && (
+          <div>
+            <h2 className="mb-0.5 text-[14px] font-black text-white">Select crypto</h2>
+            <p className="mb-3 text-[11px] font-medium text-slate-500">
+              Choose the asset you want to deposit
+            </p>
+            <div className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
+              {coins.map((coin) => {
+                const active = code === coin.code;
+                return (
+                  <button
+                    key={coin.code}
+                    type="button"
+                    disabled={!coin.enabled}
+                    onClick={() => setCode(coin.code)}
+                    className={`flex w-full items-center gap-2.5 py-2.5 text-left transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 ${
+                      active ? "bg-[#087cff]/[0.06]" : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    <span
+                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 transition ${
+                        active ? "border-[#087cff]" : "border-slate-600"
+                      }`}
+                    >
+                      {active && <span className="h-2 w-2 rounded-full bg-[#087cff]" />}
+                    </span>
+                    <PaymentBrandLogo code={coin.code} size={28} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px] font-bold text-slate-100">{coin.name}</span>
+                      <span className="block text-[10px] font-medium text-slate-500">{coin.code}</span>
+                    </span>
+                    {!coin.enabled && coin.soon && (
+                      <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-500">
                         Soon
                       </span>
                     )}
-                  </span>
-                  <span className="block truncate text-[10px] font-bold text-slate-500">{n.displayNet}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
-      <p className="text-xs font-bold text-slate-500">
-        Minimum deposit: <span className="text-white">{asset.min} {asset.code}</span>
-        <span className="ml-1 text-slate-600">· amounts below will not be credited</span>
-      </p>
-
-      {/* Address */}
-      {addr.phase === "checking" ? (
-        <div className="flex items-center justify-center gap-3 rounded-2xl bg-white/[0.06] py-6 ring-1 ring-white/[0.08]">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-[#f59e0b]" />
-          <span className="text-xs font-bold text-slate-500">Checking for your address…</span>
-        </div>
-      ) : addr.phase === "form" || addr.phase === "generating" ? (
-        <div className="space-y-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/[0.08]">
-          {addr.phase === "form" && addr.error && <p className="text-xs font-bold text-red-400">{addr.error}</p>}
-          <button
-            type="button"
-            onClick={() => load(asset.code, asset.network)}
-            disabled={addr.phase === "generating"}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-sm font-bold text-white transition hover:bg-[#1a8cff] disabled:opacity-60"
-          >
-            {addr.phase === "generating"
-              ? <LoadingDots label="Generating" />
-              : <><Icon name="qr_code" className="text-[16px]" /> Get deposit address</>}
-          </button>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3 rounded-xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06] sm:flex-row sm:items-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(addr.address)}&bgcolor=ffffff&color=000000&margin=8&qzone=1`}
-            alt="Deposit QR code"
-            width={88}
-            height={88}
-            className="h-[88px] w-[88px] shrink-0 self-center rounded-lg"
-          />
-          <div className="min-w-0 flex-1 text-center sm:text-left">
-            <p className="text-sm font-black text-white">Deposit address</p>
-            <p className="mt-1.5 break-all font-mono text-[11px] leading-relaxed text-slate-400">
-              <span className="font-black text-white">{addr.address.slice(0, 6)}</span>
-              {addr.address.slice(6, -5)}
-              <span className="font-black text-white">{addr.address.slice(-5)}</span>
-            </p>
-            <p className="mt-1 flex items-center justify-center gap-1 text-[10px] font-medium text-emerald-400/70 sm:justify-start">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              Detected automatically · credited within 1–5 min
-            </p>
+        {step === "network" && code && (
+          <div>
             <button
               type="button"
-              onClick={copy}
-              className="mt-2.5 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#087cff] px-4 text-xs font-bold text-white transition hover:bg-[#1a8cff]"
+              onClick={() => { setStep("asset"); setNetwork(null); }}
+              className="mb-3 flex items-center gap-1 text-[11px] font-bold text-slate-500 transition hover:text-slate-300"
             >
-              <Icon name={copied ? "check" : "content_copy"} className="text-[16px]" />
-              {copied ? "Copied!" : "Copy address"}
+              <Icon name="arrow_back" className="text-[14px]" />
+              Change asset
             </button>
+            <div className="mb-3 flex items-center gap-2">
+              <PaymentBrandLogo code={code} size={28} />
+              <div>
+                <p className="text-[14px] font-black text-white">{code}</p>
+                <p className="text-[10px] font-medium text-slate-500">
+                  {coins.find((c) => c.code === code)?.name}
+                </p>
+              </div>
+            </div>
+            <h2 className="mb-0.5 text-[14px] font-black text-white">Deposit network</h2>
+            <p className="mb-3 text-[11px] font-medium leading-snug text-slate-500">
+              Choose the correct network, otherwise you will lose your deposit.
+            </p>
+            <div className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
+              {networks.map((n) => {
+                const active = network === n.network;
+                return (
+                  <button
+                    key={n.network}
+                    type="button"
+                    disabled={!n.enabled}
+                    onClick={() => { if (n.enabled) setNetwork(n.network); }}
+                    className={`flex w-full items-center gap-2.5 py-3 text-left transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 ${
+                      active ? "bg-[#087cff]/[0.06]" : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    <span
+                      className={`grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 transition ${
+                        active ? "border-[#087cff]" : "border-slate-600"
+                      }`}
+                    >
+                      {active && <span className="h-2 w-2 rounded-full bg-[#087cff]" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2 text-[13px] font-bold text-slate-100">
+                        {n.displayNet}
+                        {n.soon && (
+                          <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-slate-500">
+                            Soon
+                          </span>
+                        )}
+                      </span>
+                      <span className="block text-[10px] font-medium text-slate-500">{n.network}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        )}
+
+        {step === "address" && asset && (
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => setStep("network")}
+              className="flex items-center gap-1 text-[11px] font-bold text-slate-500 transition hover:text-slate-300"
+            >
+              <Icon name="arrow_back" className="text-[14px]" />
+              Change network
+            </button>
+
+            <div className="flex items-center justify-center gap-2">
+              <PaymentBrandLogo code={asset.code} size={32} />
+              <span className="text-lg font-black text-white">{asset.name}</span>
+              <span className="text-sm font-black text-slate-500">{asset.code}</span>
+            </div>
+            <p className="text-center text-[11px] font-medium text-slate-500">
+              {asset.displayNet}
+            </p>
+
+            <p className="text-xs font-bold text-slate-500">
+              Minimum deposit: <span className="text-white">{asset.min} {asset.code}</span>
+              <span className="ml-1 text-slate-600">· amounts below will not be credited</span>
+            </p>
+
+            {addr.phase === "checking" ? (
+              <div className="flex items-center justify-center gap-3 rounded-2xl bg-white/[0.06] py-6 ring-1 ring-white/[0.08]">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-[#f59e0b]" />
+                <span className="text-xs font-bold text-slate-500">Checking for your address…</span>
+              </div>
+            ) : addr.phase === "form" || addr.phase === "generating" ? (
+              <div className="space-y-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/[0.08]">
+                {addr.phase === "form" && addr.error && (
+                  <p className="text-xs font-bold text-red-400">{addr.error}</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => load(asset.code, asset.network)}
+                  disabled={addr.phase === "generating"}
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-sm font-bold text-white transition hover:bg-[#1a8cff] disabled:opacity-60"
+                >
+                  {addr.phase === "generating"
+                    ? <LoadingDots label="Generating" />
+                    : <><Icon name="qr_code" className="text-[16px]" /> Get deposit address</>}
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 rounded-xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06] sm:flex-row sm:items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(addr.address)}&bgcolor=ffffff&color=000000&margin=8&qzone=1`}
+                  alt="Deposit QR code"
+                  width={88}
+                  height={88}
+                  className="h-[88px] w-[88px] shrink-0 self-center rounded-lg"
+                />
+                <div className="min-w-0 flex-1 text-center sm:text-left">
+                  <p className="text-sm font-black text-white">Deposit address</p>
+                  <p className="mt-1.5 break-all font-mono text-[11px] leading-relaxed text-slate-400">
+                    <span className="font-black text-white">{addr.address.slice(0, 6)}</span>
+                    {addr.address.slice(6, -5)}
+                    <span className="font-black text-white">{addr.address.slice(-5)}</span>
+                  </p>
+                  <p className="mt-1 flex items-center justify-center gap-1 text-[10px] font-medium text-emerald-400/70 sm:justify-start">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                    Detected automatically · credited within 1–5 min
+                  </p>
+                  <button
+                    type="button"
+                    onClick={copy}
+                    className="mt-2.5 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#087cff] px-4 text-xs font-bold text-white transition hover:bg-[#1a8cff]"
+                  >
+                    <Icon name={copied ? "check" : "content_copy"} className="text-[16px]" />
+                    {copied ? "Copied!" : "Copy address"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {addr.phase === "ready" && (
+              <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3">
+                <Icon name="info" fill className="mt-0.5 shrink-0 text-[16px] text-amber-400" />
+                <p className="text-xs font-medium text-amber-300/80">
+                  Send only <strong>{asset.code}</strong> on the <strong>{asset.displayNet}</strong> network to this address. Sending other assets may result in permanent loss.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {step === "asset" && (
+        <div className="sticky bottom-0 z-30 -mx-5 border-t border-white/[0.08] bg-[#151518]/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-[#151518]/80">
+          <Button
+            onClick={() => {
+              if (!code || !selectedCoinLive) return;
+              const firstLive = CRYPTO_DEPOSIT_ASSETS.find((a) => a.code === code && a.enabled);
+              setNetwork(firstLive?.network ?? null);
+              setStep("network");
+            }}
+            disabled={!selectedCoinLive}
+            className="h-11 w-full rounded-xl text-sm"
+          >
+            Continue
+          </Button>
         </div>
       )}
 
-      {addr.phase === "ready" && (
-        <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3">
-          <Icon name="info" fill className="mt-0.5 shrink-0 text-[16px] text-amber-400" />
-          <p className="text-xs font-medium text-amber-300/80">
-            Send only <strong>{asset.code}</strong> on the <strong>{asset.displayNet}</strong> network to this address. Sending other assets may result in permanent loss.
-          </p>
+      {step === "network" && (
+        <div className="sticky bottom-0 z-30 -mx-5 border-t border-white/[0.08] bg-[#151518]/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-[#151518]/80">
+          <Button
+            onClick={() => {
+              if (!selectedNetLive) return;
+              setStep("address");
+            }}
+            disabled={!selectedNetLive}
+            className="h-11 w-full rounded-xl text-sm"
+          >
+            Continue
+          </Button>
         </div>
       )}
     </div>
