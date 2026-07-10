@@ -23,8 +23,14 @@
 // scripts/pricing-proof.ts.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { resolveContract, digitWonFromQuote, type DigitSide, type DirectionalKind, type DirectionalSide, type ResolveParams } from "@/lib/binary/kernel";
+import { resolveContract, digitWonFromQuote, exitDigitFromQuote, type DigitSide, type DirectionalKind, type DirectionalSide, type ResolveParams } from "@/lib/binary/kernel";
 import { makeRng } from "@/lib/binary/fairness";
+
+/** Minimum matching-entry windows required to price a digit contract
+ *  CONDITIONALLY. Below this the conditional estimate is too thin to trust, so
+ *  we fail closed. ~10% of a 3000-tick calibration window per digit ⇒ ~300, so
+ *  100 is a comfortable floor. */
+export const MIN_CONDITIONAL_WINDOWS = 100;
 
 export type PricingConfig = {
   edgeFloor: number;      // minimum house edge baked into every price (e.g. 0.06)
@@ -85,6 +91,25 @@ export function sampleWindows(ticks: number[], duration: number, count: number, 
   return out;
 }
 
+/** EXHAUSTIVE contiguous windows whose ENTRY tick has `entryDigit`. Used to
+ *  price a digit contract CONDITIONALLY on the live entry digit. R_50-style
+ *  synthetics have a highly autocorrelated last digit (a sticky entry stays
+ *  sticky), so pricing off the unconditional win frequency underprices a bet
+ *  placed at a known entry digit — the "priced unconditionally, played
+ *  conditionally" exploit. Measuring P(win | entry digit) removes that edge:
+ *  the payout scales with the conditional win chance, so realized RTP ≤ 1 at any
+ *  duration. Exhaustive (not random) to maximise the conditional sample. */
+export function conditionalWindows(ticks: number[], duration: number, entryDigit: number): Window[] {
+  const maxStart = ticks.length - duration - 1;
+  const out: Window[] = [];
+  for (let s = 0; s <= maxStart; s++) {
+    if (exitDigitFromQuote(ticks[s]) === entryDigit) {
+      out.push({ entry: ticks[s], forward: ticks.slice(s + 1, s + 1 + duration) });
+    }
+  }
+  return out;
+}
+
 const toPath = (forward: number[]) => forward.map((price, k) => ({ price, epoch: k + 1 }));
 
 /** Estimate the player's win probability by running the kernel over windows. */
@@ -122,9 +147,19 @@ function quoteFromWinFrequency(wins: number, n: number, cfg: PricingConfig): Quo
 
 export function priceDigitContract(
   side: DigitSide, targetDigit: number, duration: number, ticks: number[], cfg: PricingConfig = DEFAULT_CONFIG, seed = 1,
+  entryDigit?: number,
 ): Quote {
   if (ticks.length < cfg.minTicks) return { accepted: false, reason: "insufficient market data" };
-  const windows = sampleWindows(ticks, duration, cfg.samples, makeRng(seed));
+  // When the live entry digit is supplied, price CONDITIONALLY on it (see
+  // conditionalWindows) so an autocorrelated last digit can't be farmed. Fail
+  // closed if too few matching windows to estimate the conditional win rate.
+  let windows: Window[];
+  if (entryDigit != null) {
+    windows = conditionalWindows(ticks, duration, entryDigit);
+    if (windows.length < MIN_CONDITIONAL_WINDOWS) return { accepted: false, reason: "insufficient conditional data" };
+  } else {
+    windows = sampleWindows(ticks, duration, cfg.samples, makeRng(seed));
+  }
   const { wins, n } = winFrequency(windows, (w) => digitWonFromQuote(side, targetDigit, w.forward[w.forward.length - 1]));
   return quoteFromWinFrequency(wins, n, cfg);
 }

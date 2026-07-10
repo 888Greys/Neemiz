@@ -79,6 +79,8 @@ export async function POST(req: Request) {
     stake: stakeVal,
     ticks: marketPrices,
     edgeFloor: digitEdgeFloor,
+    // Price Over/Under conditionally on the live entry digit (sticky-digit fix).
+    entryDigit,
   });
 
   if (!priced.accepted) {
