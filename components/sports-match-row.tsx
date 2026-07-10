@@ -47,6 +47,10 @@ function MarketOddBtn({
   market: string;
 }) {
   const { toggleBet, hasBet } = useBetslip();
+  // Prefer settlement keys (1/X/2, Over, …) so /api/bets can match the cache.
+  const settlementLabel = odd.key === "1" || odd.key === "X" || odd.key === "2" || odd.key === "1X" || odd.key === "X2" || odd.key === "12"
+    ? (odd.key === "1X" ? "1 OR X" : odd.key === "X2" ? "X OR 2" : odd.key === "12" ? "1 OR 2" : odd.key)
+    : odd.label;
   const id = `${matchId}-${market}-${odd.key}`.replace(/\s+/g, "_");
   const active = hasBet(id);
 
@@ -55,7 +59,7 @@ function MarketOddBtn({
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        toggleBet({ id, matchName, market, label: odd.label, value: odd.value });
+        toggleBet({ id, matchName, market, label: settlementLabel, value: odd.value });
       }}
       className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2.5 transition active:scale-[0.97] ${
         active
@@ -145,10 +149,10 @@ function pickVisibleBlocks(markets: ReturnType<typeof ensureListMarkets>): {
 } {
   const queue: VisibleBlock[] = (
     [
-      { title: "3 Way", market: "3 Way", odds: markets.threeWay, cols: 3 as const },
+      { title: "3 Way", market: "Full Time Result", odds: markets.threeWay, cols: 3 as const },
       { title: "Double Chance", market: "Double Chance", odds: markets.doubleChance, cols: 3 as const },
       { title: "Over/Under", market: "Over/Under", odds: markets.overUnder, cols: 2 as const },
-      { title: "Both Teams Score", market: "BTTS", odds: markets.btts, cols: 2 as const },
+      { title: "Both Teams Score", market: "Both Teams To Score", odds: markets.btts, cols: 2 as const },
     ] satisfies VisibleBlock[]
   ).filter((b) => b.odds.length > 0);
 

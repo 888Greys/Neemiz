@@ -26,6 +26,8 @@ export function DirectionalPanel({
   duration, setDuration,
   durationUnit, setDurationUnit, secPerTick,
   barrierOffset, setBarrierOffset, maxBarrierOffset,
+  minBarrierOffset = 0.01,
+  minDuration = 1,
   latestSpot,
   stakePresets, minStake,
   payoutFor, format, formatSpot,
@@ -40,6 +42,8 @@ export function DirectionalPanel({
   secPerTick: number;
   barrierOffset: number; setBarrierOffset: (v: number) => void;
   maxBarrierOffset: number;
+  minBarrierOffset?: number;
+  minDuration?: number;
   latestSpot: number;
   stakePresets: number[];
   minStake: number;
@@ -54,12 +58,29 @@ export function DirectionalPanel({
   const stakeDisplay = Number(convert(stake).toFixed(cc.decimals));
   const setStakeDisplay = (shown: number) => setStake(Math.max(minStake, Math.round(toKes(shown))));
   const needsBarrier = kind !== "RISE_FALL";
-  const offsetStep = Math.max(0.01, Math.round(latestSpot * 0.0003 * 100) / 100);
+  const offsetStep = Math.max(minBarrierOffset, Math.round(latestSpot * 0.0003 * 100) / 100);
   // Keep the barrier inside the fair band (see maxBarrierOffset). Anything past
   // it prices out of range and the server rejects it, so we never let the UI go there.
-  const clampOffset = (v: number) =>
-    Math.max(-maxBarrierOffset, Math.min(maxBarrierOffset, Math.round((v || 0) * 100) / 100));
+  // Also enforce the server min distance (0.05% of spot) so Buy never hits the gate.
+  const clampOffset = (v: number) => {
+    const capped = Math.max(-maxBarrierOffset, Math.min(maxBarrierOffset, Math.round((v || 0) * 100) / 100));
+    if (capped === 0) return minBarrierOffset;
+    if (Math.abs(capped) < minBarrierOffset) return capped < 0 ? -minBarrierOffset : minBarrierOffset;
+    return capped;
+  };
   const barrier = latestSpot + barrierOffset;
+
+  useEffect(() => {
+    if (duration < minDuration) setDuration(minDuration);
+  }, [duration, minDuration, setDuration]);
+
+  useEffect(() => {
+    if (!needsBarrier) return;
+    if (barrierOffset === 0 || Math.abs(barrierOffset) < minBarrierOffset) {
+      setBarrierOffset(clampOffset(barrierOffset || minBarrierOffset));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsBarrier, minBarrierOffset, latestSpot]);
 
   // Mobile uses Deriv's single-CTA model: a side toggle + one Buy button.
   const [armedSide, setArmedSide] = useState<DirSide>(sides[0]);
@@ -78,6 +99,8 @@ export function DirectionalPanel({
         durationUnit={durationUnit} setDurationUnit={setDurationUnit} secPerTick={secPerTick}
         barrierOffset={barrierOffset} setBarrierOffset={setBarrierOffset}
         maxBarrierOffset={maxBarrierOffset}
+        minBarrierOffset={minBarrierOffset}
+        minDuration={minDuration}
         needsBarrier={needsBarrier}
         barrier={barrier}
         latestSpot={latestSpot}
@@ -123,12 +146,12 @@ export function DirectionalPanel({
         <div className={`${CARD} flex items-center gap-2 sm:block`}>
           <div className="flex w-[58px] shrink-0 items-center justify-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:w-auto sm:text-[13px]">Duration</div>
           <div className={`min-w-0 flex-1 ${FIELD}`}>
-            <button type="button" onClick={() => setDuration(Math.max(1, duration - 1))}
+            <button type="button" onClick={() => setDuration(Math.max(minDuration, duration - 1))}
               className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
               <Icon name="remove" className="text-[14px] sm:text-[18px]" />
             </button>
             <input type="number" value={duration}
-              onChange={(e) => setDuration(Math.min(30, Math.max(1, Number(e.target.value) || 1)))}
+              onChange={(e) => setDuration(Math.min(30, Math.max(minDuration, Number(e.target.value) || minDuration)))}
               className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
             <button type="button" onClick={() => setDuration(Math.min(30, duration + 1))}
               className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
@@ -216,7 +239,8 @@ function MobileDirectional({
   currency, sides, selectedSide, onArmSide,
   stake, setStake, duration, setDuration,
   durationUnit, setDurationUnit, secPerTick,
-  barrierOffset, setBarrierOffset, maxBarrierOffset, needsBarrier, barrier, latestSpot, offsetStep,
+  barrierOffset, setBarrierOffset, maxBarrierOffset, minBarrierOffset = 0.01, minDuration = 1,
+  needsBarrier, barrier, latestSpot, offsetStep,
   stakePresets, minStake, payoutFor, format, formatSpot,
   onTrade, placing, openPositions,
 }: {
@@ -230,6 +254,8 @@ function MobileDirectional({
   secPerTick: number;
   barrierOffset: number; setBarrierOffset: (v: number) => void;
   maxBarrierOffset: number;
+  minBarrierOffset?: number;
+  minDuration?: number;
   needsBarrier: boolean;
   barrier: number;
   latestSpot: number;
@@ -322,7 +348,7 @@ function MobileDirectional({
       {picker === "duration" && (
         <DurationPickerSheet
           ticks={duration} secPerTick={secPerTick} unit={durationUnit}
-          onChange={(t, u) => { setDuration(t); setDurationUnit(u); }}
+          onChange={(t, u) => { setDuration(Math.max(minDuration, t)); setDurationUnit(u); }}
           onClose={() => setPicker(null)}
         />
       )}
@@ -338,6 +364,7 @@ function MobileDirectional({
         <BarrierSheet
           latestSpot={latestSpot} offset={barrierOffset} setOffset={setBarrierOffset}
           maxOffset={maxBarrierOffset}
+          minOffset={minBarrierOffset}
           offsetStep={offsetStep} formatSpot={formatSpot} onClose={() => setPicker(null)}
         />
       )}
@@ -368,12 +395,13 @@ function MobileDirectional({
 // a signed offset (target = spot + offset), so callers are unchanged. Exported so
 // the Vanilla panel reuses it for its Strike (same signed-offset model).
 export function BarrierSheet({
-  title = "Barrier", latestSpot, offset, setOffset, maxOffset, offsetStep, formatSpot, onClose,
+  title = "Barrier", latestSpot, offset, setOffset, maxOffset, minOffset = 0, offsetStep, formatSpot, onClose,
 }: {
   title?: string;
   latestSpot: number;
   offset: number; setOffset: (v: number) => void;
   maxOffset?: number;   // fair-band cap on |offset| (see DirectionalPanel). Omitted = no cap.
+  minOffset?: number;   // server min |offset| (0.05% of spot for HL/Touch)
   offsetStep: number;
   formatSpot: (v: number) => string;
   onClose: () => void;
@@ -381,7 +409,7 @@ export function BarrierSheet({
   type Mode = "above" | "below" | "fixed";
   const [mode, setMode] = useState<Mode>(offset < 0 ? "below" : "above");
   // `amount` means: offset magnitude for above/below, absolute price for fixed.
-  const [amount, setAmount] = useState(() => Math.abs(offset) || offsetStep);
+  const [amount, setAmount] = useState(() => Math.max(minOffset, Math.abs(offset) || offsetStep));
 
   const round = (v: number) => Number(v.toFixed(2));
   const switchMode = (m: Mode) => {
@@ -390,12 +418,12 @@ export function BarrierSheet({
       const signed = mode === "below" ? -amount : amount;
       setAmount(round(latestSpot + signed));
     } else if (mode === "fixed") {
-      setAmount(round(Math.abs(amount - latestSpot)));
+      setAmount(round(Math.max(minOffset, Math.abs(amount - latestSpot))));
     }
     setMode(m);
   };
 
-  const min = 0;
+  const min = mode === "fixed" ? 0 : minOffset;
   // Upper bound on the entered magnitude: for above/below it's the fair band;
   // for a fixed absolute price it's spot ± band.
   const amountMax = maxOffset == null ? Infinity : mode === "fixed" ? latestSpot + maxOffset : maxOffset;
@@ -405,6 +433,7 @@ export function BarrierSheet({
   const save = () => {
     let signed = mode === "fixed" ? amount - latestSpot : mode === "below" ? -Math.abs(amount) : Math.abs(amount);
     if (maxOffset != null) signed = Math.max(-maxOffset, Math.min(maxOffset, signed));
+    if (minOffset > 0 && Math.abs(signed) < minOffset) signed = signed < 0 ? -minOffset : minOffset;
     setOffset(round(signed));
     onClose();
   };

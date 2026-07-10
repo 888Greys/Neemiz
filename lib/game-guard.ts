@@ -43,6 +43,9 @@ export async function disabledBetTypes(): Promise<Set<string>> {
 }
 
 export async function isBetTypeDisabled(game: string, type: string): Promise<boolean> {
+  // Explicitly re-enabled families (binary_live_families) win over the kill
+  // switch — otherwise the UI can list a "live" type that every bet rejects.
+  if (await isBinaryFamilyLive(game, type)) return false;
   return (await disabledBetTypes()).has(`${game}:${type}`);
 }
 
@@ -132,6 +135,29 @@ export async function binaryLiveFamilies(): Promise<Set<string>> {
 
 export async function isBinaryFamilyLive(game: string, type: string): Promise<boolean> {
   return (await binaryLiveFamilies()).has(`${game}:${type}`);
+}
+
+/**
+ * Trade-type ids the Binary UI may offer right now. During suite maintenance
+ * this is the live-families allowlist; otherwise every catalogue type whose
+ * primary token is not kill-switched (live families still override).
+ */
+export async function bettableBinaryTradeTypeIds(
+  allIds: string[],
+  tokenById: Record<string, string>,
+): Promise<string[]> {
+  const maint = await isBinaryOptionsInMaintenance();
+  const live = await binaryLiveFamilies();
+  if (maint) {
+    return allIds.filter((id) => live.has(tokenById[id] ?? ""));
+  }
+  const disabled = await disabledBetTypes();
+  return allIds.filter((id) => {
+    const token = tokenById[id] ?? "";
+    if (!token) return false;
+    if (live.has(token)) return true;
+    return !disabled.has(token);
+  });
 }
 
 /**

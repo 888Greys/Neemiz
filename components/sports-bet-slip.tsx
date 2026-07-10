@@ -609,7 +609,7 @@ export function SportsBetSlip() {
                 <p className="text-[11px] text-slate-500">Top up to place this bet</p>
                 <Link
                   href="/wallet"
-                  className="mt-1 w-full rounded-xl bg-[#05b957] py-2.5 text-center text-[13px] font-black text-white transition hover:bg-[#07cc63]"
+                  className="mt-1 w-full rounded-xl bg-emerald-800 py-2.5 text-center text-[13px] font-black text-emerald-50 transition hover:bg-emerald-700"
                 >
                   Deposit
                 </Link>
@@ -644,7 +644,7 @@ export function SportsBetSlip() {
                   type="button"
                   onClick={placeBets}
                   disabled={placing}
-                  className="w-full rounded-xl bg-[#06c96e] py-3.5 text-sm font-black text-white transition hover:bg-[#05b85f] active:scale-[.99] disabled:opacity-60"
+                  className="w-full rounded-xl bg-emerald-800 py-3.5 text-sm font-black text-emerald-50 transition hover:bg-emerald-700 active:scale-[.99] disabled:opacity-60"
                 >
                   {placing ? (
                     <LoadingDots label="Placing" />

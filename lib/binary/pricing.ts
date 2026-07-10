@@ -147,7 +147,9 @@ export function priceDirectionalContract(
 // ─── Per-symbol edge (measure, don't assume) ─────────────────────────────────
 
 export type EdgeConfig = { base: number; min: number; max: number; dur: number; samples: number };
-export const DEFAULT_EDGE: EdgeConfig = { base: 0.06, min: 0.06, max: 0.15, dur: 8, samples: 3000 };
+// Floors raised after live autopsy: 1HZ10V still drifted past a 6–9% cushion on
+// short Rise/Fall; keep the measured edge in a wider [9%, 18%] band.
+export const DEFAULT_EDGE: EdgeConfig = { base: 0.09, min: 0.09, max: 0.18, dur: 8, samples: 3000 };
 
 /**
  * Data-driven house edge for a symbol. A flat edge is wasteful: stable indices
