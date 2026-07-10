@@ -54,6 +54,7 @@ describe("promo codes", () => {
     expect(lock).toContain("PROMO_LOCKED");
     const transfer = readFileSync("app/api/wallet/transfer/route.ts", "utf8");
     expect(transfer).toContain("promo-lock");
-    expect(transfer).toContain("assertNotPromoLocked");
+    expect(transfer).toContain("PROMO_LOCKED");
+    expect(transfer).toContain("promoRedemption");
   });
 });

@@ -47,7 +47,7 @@ export function promoLockedHttpError(message: string) {
     return {
       status: 400 as const,
       body: {
-        error: `Promo credit (${lockLabel}) can't be transferred or withdrawn. Deposit or win more first — only surplus above the promo lock can leave.`,
+        error: `Promo credit can't be transferred. Welcome/promo balances stay on your account — deposit your own funds to send money.`,
         code: "PROMO_LOCKED",
         promoLocked: locked,
         transferable: 0,
