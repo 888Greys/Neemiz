@@ -1,0 +1,85 @@
+/*
+ * Design tokens for the redesigned admin console ("Owner Cockpit" Stitch design).
+ * Scoped under .admin-v2 so nothing here can leak into the current admin shell.
+ * Palette + card elevations come straight from the Stitch export
+ * (project "Nezeem Admin Owner Cockpit"). Colours are applied inline via
+ * arbitrary Tailwind values in the components; this file only carries the few
+ * things Tailwind utilities can't express cleanly.
+ */
+
+.admin-v2 {
+  background-color: #0a0a0b;
+  color: #e5e2e3;
+  --av2-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Elevation surfaces from the Stitch <style> block. */
+.admin-v2 .av2-card {
+  background-color: #161618;
+  border: 1px solid #27272a;
+}
+.admin-v2 .av2-card-2 {
+  background-color: #222226;
+  border: 1px solid #3f3f46;
+}
+
+/* Monospace for numeric/data readouts (font-data-mono in the design). */
+.admin-v2 .av2-mono {
+  font-family: var(--av2-mono);
+  font-feature-settings: "tnum" 1;
+}
+
+/* Dark-theme scrollbars, matching the export. */
+.admin-v2 ::-webkit-scrollbar { width: 8px; height: 8px; }
+.admin-v2 ::-webkit-scrollbar-track { background: #131314; }
+.admin-v2 ::-webkit-scrollbar-thumb { background: #353436; border-radius: 4px; }
+.admin-v2 ::-webkit-scrollbar-thumb:hover { background: #424754; }
+
+/* ── Theme bridge ────────────────────────────────────────────────────────────
+ * The screens that haven't been hand-ported yet (P2P, Money, Crypto, Risk, Ops,
+ * Markets, Broadcast) still use the original admin class vocabulary. Scoped here
+ * under .admin-v2, we remap those classes onto the Material palette so every
+ * screen reads as one system without rewriting each client. Descendant
+ * selectors (0,2,0 specificity) win over Tailwind's single-class utilities.
+ * ---------------------------------------------------------------------------- */
+
+/* Layout wrappers: the new shell already provides scroll + padding. */
+.admin-v2 .admin-page { min-height: 0; max-width: none; padding: 0; margin: 0; }
+.admin-v2 .admin-main { min-height: 0; background: transparent; }
+.admin-v2 .admin-root { background: transparent; }
+
+/* Surfaces. */
+.admin-v2 .admin-panel { background: #161618; border-color: #27272a; }
+.admin-v2 .admin-panel-soft { background: #1c1b1c; border-color: #424754; }
+.admin-v2 .admin-table-row:hover { background: #1c1b1c; }
+
+/* Neutral fills (arbitrary white/opacity utilities). */
+.admin-v2 .bg-white\/\[0\.02\],
+.admin-v2 .bg-white\/\[0\.025\],
+.admin-v2 .bg-white\/\[0\.03\] { background-color: #161618 !important; }
+.admin-v2 .bg-white\/\[0\.04\],
+.admin-v2 .bg-white\/\[0\.05\],
+.admin-v2 .bg-white\/\[0\.07\] { background-color: #222226 !important; }
+
+/* Neutral borders. */
+.admin-v2 .border-white\/\[0\.04\],
+.admin-v2 .border-white\/\[0\.05\],
+.admin-v2 .border-white\/\[0\.06\],
+.admin-v2 .border-white\/\[0\.065\],
+.admin-v2 .border-white\/\[0\.07\],
+.admin-v2 .border-white\/\[0\.075\],
+.admin-v2 .border-white\/\[0\.08\],
+.admin-v2 .border-white\/\[0\.1\] { border-color: #27272a !important; }
+
+/* Slate text scale → Material on-surface scale. */
+.admin-v2 .text-slate-200 { color: #e5e2e3; }
+.admin-v2 .text-slate-300 { color: #e5e2e3; }
+.admin-v2 .text-slate-400 { color: #c2c6d6; }
+.admin-v2 .text-slate-500 { color: #c2c6d6; }
+.admin-v2 .text-slate-600 { color: #8c909f; }
+.admin-v2 .text-slate-700 { color: #6b7280; }
+
+/* Primary accent (old bright blue) → Material primary. */
+.admin-v2 .bg-\[\#087cff\] { background-color: #4d8eff !important; }
+.admin-v2 .text-blue-300,
+.admin-v2 .text-blue-400 { color: #adc6ff; }
