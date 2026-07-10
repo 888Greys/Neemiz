@@ -27,10 +27,9 @@ describe("methodAllowedForFiat", () => {
     expect(methodAllowedForFiat("MPESA", undefined)).toBe(true);
   });
 
-  it("restricts a selected-but-unmapped currency (CAD/CNY) to universal rails", () => {
-    // Regression for "picked Canada dollar, still shows M-Pesa": a real currency
-    // we have no local rails for must only offer the country-agnostic methods.
-    for (const fiat of ["CAD", "CNY", "JPY", "AUD"]) {
+  it("restricts a selected-but-unmapped currency to universal rails", () => {
+    // Currencies not in the international catalogue must not leak local rails like M-Pesa.
+    for (const fiat of ["AFN", "XYZ", "FOO"]) {
       expect(methodAllowedForFiat("MPESA", fiat)).toBe(false);
       expect(methodAllowedForFiat("AIRTEL", fiat)).toBe(false);
       expect(methodAllowedForFiat("BANK", fiat)).toBe(true);
@@ -39,7 +38,7 @@ describe("methodAllowedForFiat", () => {
   });
 
   it("every fiat's own listed methods pass its own filter", () => {
-    for (const fiat of ["KES", "NGN", "GHS", "ZAR", "TZS", "UGX", "USD", "EUR", "GBP", "INR"]) {
+    for (const fiat of ["KES", "NGN", "GHS", "ZAR", "TZS", "UGX", "USD", "EUR", "GBP", "INR", "BRL", "CAD"]) {
       for (const m of paymentMethodsForFiat(fiat)) {
         expect(methodAllowedForFiat(m.value, fiat)).toBe(true);
       }

@@ -2,28 +2,30 @@ import { describe, expect, it } from "vitest";
 import {
   CRYPTO_DEPOSIT_ASSETS,
   DEPOSIT_METHOD_ROWS,
+  depositRowsForCurrency,
   VALID_CRYPTO_DEPOSIT_NETWORKS,
 } from "@/lib/wallet-deposit-options";
+import { MARKETS, methodsForCurrency } from "@/lib/payments/country-methods";
 
 describe("wallet deposit options", () => {
-  it("keeps only gas-covered crypto payment methods available", () => {
-    const cryptoRows = DEPOSIT_METHOD_ROWS.filter((row) =>
-      ["usdt", "btc", "eth", "other"].includes(row.id),
-    );
-
-    expect(cryptoRows).toEqual([
-      expect.objectContaining({ id: "usdt", enabled: true, soon: false }),
-      // BTC pays its miner fee out of the deposited coins (no gas top-up needed).
-      expect.objectContaining({ id: "btc", enabled: true, soon: false }),
-      expect.objectContaining({ id: "eth", enabled: false, soon: true }),
-      expect.objectContaining({ id: "other", enabled: true, soon: false }),
-    ]);
+  it("keeps gas-covered crypto methods available internationally", () => {
+    const rows = depositRowsForCurrency("USD", { pesapalEnabled: false });
+    const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
+    expect(byId["crypto-USDT"]).toMatchObject({ enabled: true, soon: false });
+    expect(byId["crypto-BTC"]).toMatchObject({ enabled: true, soon: false });
+    expect(byId["crypto-ETH"]).toMatchObject({ enabled: false, soon: true });
+    expect(byId["crypto-USDC"]).toMatchObject({ enabled: true, soon: false });
   });
 
-  it("hides unavailable partner payment methods from the deposit picker", () => {
-    expect(DEPOSIT_METHOD_ROWS.map((row) => row.id)).not.toEqual(
-      expect.arrayContaining(["binance", "skrill", "neteller"]),
-    );
+  it("shows Kenya MoMo live and Brazil Pix as soon", () => {
+    const kes = depositRowsForCurrency("KES", { pesapalEnabled: true });
+    expect(kes.find((r) => r.id === "mpesa")).toMatchObject({ enabled: true });
+    const brl = depositRowsForCurrency("BRL", { pesapalEnabled: false });
+    expect(brl.find((r) => r.code === "PIX")).toMatchObject({ enabled: false, soon: true });
+  });
+
+  it("keeps legacy DEPOSIT_METHOD_ROWS export usable", () => {
+    expect(DEPOSIT_METHOD_ROWS.some((r) => r.id === "mpesa")).toBe(true);
   });
 
   it("offers Polygon USDT first because POL gas funds those withdrawals", () => {
@@ -46,5 +48,20 @@ describe("wallet deposit options", () => {
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).not.toContain("BEP20");
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDC).toEqual(["POLYGON"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BTC).toEqual(["BITCOIN"]);
+  });
+});
+
+describe("international payment catalogue", () => {
+  it("covers major markets from the reference survey", () => {
+    const codes = new Set(MARKETS.map((m) => m.currency));
+    for (const c of ["USD", "EUR", "KES", "NGN", "BRL", "INR", "CNY", "JPY", "CAD", "GBP"]) {
+      expect(codes.has(c)).toBe(true);
+    }
+  });
+
+  it("maps Kenya to M-Pesa and Brazil to Pix", () => {
+    expect(methodsForCurrency("KES")).toContain("MPESA");
+    expect(methodsForCurrency("BRL")).toContain("PIX");
+    expect(methodsForCurrency("INR")).toContain("UPI");
   });
 });
