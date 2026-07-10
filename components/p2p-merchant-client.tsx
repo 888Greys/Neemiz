@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
@@ -16,6 +17,11 @@ import { PaymentLogo } from "@/components/p2p/payment-logo";
 import { LoadingDots } from "@/components/loading-dots";
 import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
 import { currencyFlagUrl } from "@/components/market-currency-picker";
+import {
+  WORLD_COUNTRIES,
+  findCountryByCurrency,
+  countryFlagUrl,
+} from "@/lib/payments/world-countries";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
 
@@ -1732,14 +1738,50 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(0); // 0=Type & Price · 1=Amount & Method · 2=Conditions
   const [cryptoOpen, setCryptoOpen] = useState(false);
+  const [cryptoQuery, setCryptoQuery] = useState("");
   const [fiatOpen, setFiatOpen] = useState(false);
   const [fiatQuery, setFiatQuery] = useState("");
+  const [pickerMounted, setPickerMounted] = useState(false);
   const [spotRate, setSpotRate] = useState<number | null>(null);
   const [savedPaymentMethods, setSavedPaymentMethods] = useState<PayMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
   const [escrowBalances, setEscrowBalances] = useState<CryptoBalance[]>([]);
   const [balancesLoading, setBalancesLoading] = useState(true);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
+
+  useEffect(() => { setPickerMounted(true); }, []);
+
+  useEffect(() => {
+    if (!cryptoOpen && !fiatOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [cryptoOpen, fiatOpen]);
+
+  const fiatCountry = useMemo(
+    () => findCountryByCurrency(form.fiat) ?? WORLD_COUNTRIES.find((c) => c.currency === form.fiat),
+    [form.fiat],
+  );
+
+  const filteredCountries = useMemo(() => {
+    const q = fiatQuery.trim().toLowerCase();
+    if (!q) return WORLD_COUNTRIES;
+    return WORLD_COUNTRIES.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.currency.toLowerCase().includes(q) ||
+        c.currencyName.toLowerCase().includes(q) ||
+        c.code.toLowerCase().includes(q),
+    );
+  }, [fiatQuery]);
+
+  const filteredCryptos = useMemo(() => {
+    const q = cryptoQuery.trim().toLowerCase();
+    if (!q) return P2P_CRYPTOS;
+    return P2P_CRYPTOS.filter(
+      (c) => c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q),
+    );
+  }, [cryptoQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2020,59 +2062,33 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           </div>
 
           <div className="grid grid-cols-2 gap-2.5">
-          {/* Crypto dropdown */}
+          {/* Crypto — full-page picker (same pattern as fiat) */}
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Asset</label>
-            <div className="relative">
-              <button
-                type="button"
-                disabled={isEditing}
-                onClick={() => !isEditing && setCryptoOpen((v) => !v)}
-                className="flex h-12 w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-black text-white transition-colors hover:border-white/20 disabled:opacity-60"
-              >
-                {(() => { const m = P2P_CRYPTOS.find((c) => c.symbol === form.crypto); return m ? (
+            <button
+              type="button"
+              disabled={isEditing}
+              onClick={() => { if (!isEditing) { setCryptoOpen(true); setCryptoQuery(""); } }}
+              className="flex h-12 w-full items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-black text-white transition-colors hover:border-white/20 active:scale-[0.99] disabled:opacity-60"
+            >
+              {(() => {
+                const m = P2P_CRYPTOS.find((c) => c.symbol === form.crypto);
+                return m ? (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={m.icon} alt={m.symbol} className="h-5 w-5 rounded-full" />
-                    <span className="font-black">{m.symbol}</span>
+                    <img src={m.icon} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
+                    <span className="min-w-0 flex-1 truncate text-left">
+                      <span className="block font-black">{m.symbol}</span>
+                      <span className="block truncate text-[11px] font-semibold text-slate-500">{m.name}</span>
+                    </span>
                   </>
-                ) : <span>{form.crypto}</span>; })()}
-                {!isEditing && <Icon name="arrow_drop_down" className={`ml-auto text-[22px] text-slate-500 transition-transform ${cryptoOpen ? "rotate-180" : ""}`} />}
-              </button>
-              {cryptoOpen && !isEditing && (
-                <>
-                  <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setCryptoOpen(false)} />
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] p-1 shadow-2xl shadow-black/60">
-                    {P2P_CRYPTOS.map((c) => (
-                      <button
-                        key={c.symbol}
-                        type="button"
-                        onClick={() => {
-                          setForm((p) => ({
-                            ...p,
-                            crypto: c.symbol,
-                            // Reset price so the spot-rate effect prefills the new asset's market price.
-                            pricePerUnit: c.symbol === "KES" ? "1" : "",
-                            profitMarginPct: c.symbol === "KES" ? "0" : "",
-                          }));
-                          setCryptoOpen(false);
-                        }}
-                        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${form.crypto === c.symbol ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={c.icon} alt={c.symbol} className="h-5 w-5 rounded-full" />
-                        <span className="text-sm font-black text-white">{c.symbol}</span>
-                        <span className="truncate text-xs font-semibold text-slate-500">{c.name}</span>
-                        {form.crypto === c.symbol && <Icon name="check" className="ml-auto shrink-0 text-[16px] text-[#55aaff]" />}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+                ) : <span>{form.crypto}</span>;
+              })()}
+              {!isEditing && <Icon name="expand_more" className="ml-auto shrink-0 text-[22px] text-slate-500" />}
+            </button>
           </div>
 
-          {/* Fiat currency — full-page picker */}
+          {/* Fiat — full-page country picker */}
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">With Fiat</label>
             <button
@@ -2081,77 +2097,146 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               className="flex h-12 w-full items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-black text-white transition-colors hover:border-white/20 active:scale-[0.99]"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={flagUrl(form.fiat)} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
-              <span className="font-black">{form.fiat}</span>
-              <span className="truncate text-[12px] font-semibold text-slate-500">
-                {FIAT_CURRENCIES.find((c) => c.code === form.fiat)?.name}
+              <img
+                src={fiatCountry ? countryFlagUrl(fiatCountry.code) : flagUrl(form.fiat)}
+                alt=""
+                className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-white/10"
+              />
+              <span className="min-w-0 flex-1 truncate text-left">
+                <span className="block font-black">{form.fiat}</span>
+                <span className="block truncate text-[11px] font-semibold text-slate-500">
+                  {fiatCountry?.name ?? FIAT_CURRENCIES.find((c) => c.code === form.fiat)?.name}
+                </span>
               </span>
-              <Icon name="expand_more" className="ml-auto text-[22px] text-slate-500" />
+              <Icon name="expand_more" className="ml-auto shrink-0 text-[22px] text-slate-500" />
             </button>
-            {fiatOpen && (
-              <div className="fixed inset-0 z-[90] flex flex-col bg-[#0b0c10]">
-                <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
-                  <button
-                    type="button"
-                    onClick={() => setFiatOpen(false)}
-                    className="grid h-10 w-10 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-95"
-                    aria-label="Close"
-                  >
-                    <Icon name="close" className="text-[22px]" />
-                  </button>
-                  <h3 className="text-[15px] font-black text-white">Choose fiat</h3>
-                </div>
-                <div className="border-b border-white/[0.06] px-3 py-3">
-                  <div className="flex h-11 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 focus-within:border-[#087cff]/50">
-                    <Icon name="search" className="text-[18px] text-slate-500" />
-                    <input
-                      autoFocus
-                      value={fiatQuery}
-                      onChange={(e) => setFiatQuery(e.target.value)}
-                      placeholder="Search currency"
-                      className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-white outline-none placeholder:text-slate-600"
-                    />
-                  </div>
-                </div>
-                <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-[env(safe-area-inset-bottom)]">
-                  {FIAT_CURRENCIES
-                    .filter((c) => {
-                      const q = fiatQuery.trim().toLowerCase();
-                      return !q || c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q);
-                    })
-                    .map((c) => (
-                      <button
-                        key={c.code}
-                        type="button"
-                        onClick={() => {
-                          const allowed = new Set(savedPaymentMethods.map((m) => m.name));
-                          setForm((p) => ({
-                            ...p,
-                            fiat: c.code,
-                            paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)),
-                            pricePerUnit: p.crypto === "KES" ? p.pricePerUnit : "",
-                            profitMarginPct: p.crypto === "KES" ? p.profitMarginPct : "",
-                          }));
-                          setFiatOpen(false);
-                        }}
-                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition active:scale-[0.99] ${
-                          form.fiat === c.code ? "bg-[#087cff]/12" : "hover:bg-white/[0.04]"
-                        }`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={flagUrl(c.code)} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[14px] font-black text-white">{c.code}</span>
-                          <span className="block truncate text-[12px] font-semibold text-slate-500">{c.name}</span>
-                        </span>
-                        {form.fiat === c.code && <Icon name="check_circle" className="shrink-0 text-[20px] text-[#087cff]" />}
-                      </button>
-                    ))}
+          </div>
+          </div>
+
+          {pickerMounted && cryptoOpen && !isEditing && createPortal(
+            <div className="fixed inset-0 z-[120] flex flex-col bg-[#0b0c10]">
+              <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+                <button
+                  type="button"
+                  onClick={() => setCryptoOpen(false)}
+                  className="grid h-10 w-10 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-95"
+                  aria-label="Close"
+                >
+                  <Icon name="close" className="text-[22px]" />
+                </button>
+                <h3 className="text-[15px] font-black text-white">Select Coin</h3>
+                <span className="ml-auto pr-1 text-[12px] font-semibold text-slate-500">{filteredCryptos.length}</span>
+              </div>
+              <div className="border-b border-white/[0.06] px-3 py-3">
+                <div className="flex h-11 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 focus-within:border-[#087cff]/50">
+                  <Icon name="search" className="text-[18px] text-slate-500" />
+                  <input
+                    autoFocus
+                    value={cryptoQuery}
+                    onChange={(e) => setCryptoQuery(e.target.value)}
+                    placeholder="Search Coin"
+                    className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-white outline-none placeholder:text-slate-600"
+                  />
                 </div>
               </div>
-            )}
-          </div>
-          </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 pb-[env(safe-area-inset-bottom)]">
+                {filteredCryptos.length === 0 && (
+                  <p className="py-12 text-center text-[13px] font-semibold text-slate-500">No coins match</p>
+                )}
+                {filteredCryptos.map((c) => (
+                  <button
+                    key={c.symbol}
+                    type="button"
+                    onClick={() => {
+                      setForm((p) => ({
+                        ...p,
+                        crypto: c.symbol,
+                        pricePerUnit: c.symbol === "KES" ? "1" : "",
+                        profitMarginPct: c.symbol === "KES" ? "0" : "",
+                      }));
+                      setCryptoOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition active:scale-[0.99] ${
+                      form.crypto === c.symbol ? "bg-[#087cff]/12" : "hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={c.icon} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-black text-white">{c.symbol}</span>
+                      <span className="block truncate text-[12px] font-semibold text-slate-500">{c.name}</span>
+                    </span>
+                    {form.crypto === c.symbol && <Icon name="check_circle" className="shrink-0 text-[20px] text-[#087cff]" />}
+                  </button>
+                ))}
+              </div>
+            </div>,
+            document.body,
+          )}
+
+          {pickerMounted && fiatOpen && createPortal(
+            <div className="fixed inset-0 z-[120] flex flex-col bg-[#0b0c10]">
+              <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+                <button
+                  type="button"
+                  onClick={() => setFiatOpen(false)}
+                  className="grid h-10 w-10 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-95"
+                  aria-label="Close"
+                >
+                  <Icon name="close" className="text-[22px]" />
+                </button>
+                <h3 className="text-[15px] font-black text-white">Choose country</h3>
+                <span className="ml-auto pr-1 text-[12px] font-semibold text-slate-500">{filteredCountries.length}</span>
+              </div>
+              <div className="border-b border-white/[0.06] px-3 py-3">
+                <div className="flex h-11 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 focus-within:border-[#087cff]/50">
+                  <Icon name="search" className="text-[18px] text-slate-500" />
+                  <input
+                    autoFocus
+                    value={fiatQuery}
+                    onChange={(e) => setFiatQuery(e.target.value)}
+                    placeholder="Search country or currency"
+                    className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-white outline-none placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 pb-[env(safe-area-inset-bottom)]">
+                {filteredCountries.length === 0 && (
+                  <p className="py-12 text-center text-[13px] font-semibold text-slate-500">No countries found</p>
+                )}
+                {filteredCountries.map((c) => (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        const allowed = new Set(savedPaymentMethods.map((m) => m.name));
+                        setForm((p) => ({
+                          ...p,
+                          fiat: c.currency,
+                          paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)),
+                          pricePerUnit: p.crypto === "KES" ? p.pricePerUnit : "",
+                          profitMarginPct: p.crypto === "KES" ? p.profitMarginPct : "",
+                        }));
+                        setFiatOpen(false);
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition active:scale-[0.99] ${
+                        form.fiat === c.currency ? "bg-[#087cff]/12" : "hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={countryFlagUrl(c.code)} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[14px] font-black text-white">{c.name}</span>
+                        <span className="block truncate text-[12px] font-semibold text-slate-500">{c.currencyName}</span>
+                      </span>
+                      <span className="shrink-0 text-[12px] font-bold text-slate-500">{c.currency}</span>
+                      {form.fiat === c.currency && <Icon name="check_circle" className="shrink-0 text-[20px] text-[#087cff]" />}
+                    </button>
+                  ))}
+              </div>
+            </div>,
+            document.body,
+          )}
 
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price type</label>
