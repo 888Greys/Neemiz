@@ -178,42 +178,88 @@ export async function PATCH(req: Request) {
 
 /**
  * GET /api/admin/promo
- * Lists codes + recent redemptions (who used what).
- * Query: ?code=KIP100 to filter redemptions to one code; ?limit=200
+ * Query:
+ *   q            — search promo code / description
+ *   player       — search redemption by username / email / phone
+ *   status       — all | active | off  (promo codes)
+ *   code         — filter redemptions to one promo code
+ *   page         — promo codes page (1-based)
+ *   pageSize     — promo codes page size (default 20, max 100)
+ *   rPage        — redemptions page
+ *   rPageSize    — redemptions page size (default 25, max 100)
  */
 export async function GET(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return Response.json({ error: "Forbidden" }, { status: 403 });
 
   const url = new URL(req.url);
+  const q = (url.searchParams.get("q") ?? "").trim();
+  const playerQ = (url.searchParams.get("player") ?? "").trim();
+  const status = (url.searchParams.get("status") ?? "all").toLowerCase();
   const codeFilter = normalizePromoCode(url.searchParams.get("code") ?? "");
-  const limit = Math.min(500, Math.max(20, Number(url.searchParams.get("limit") ?? 200) || 200));
+  const page = Math.max(1, Number(url.searchParams.get("page") ?? 1) || 1);
+  const pageSize = Math.min(100, Math.max(5, Number(url.searchParams.get("pageSize") ?? 20) || 20));
+  const rPage = Math.max(1, Number(url.searchParams.get("rPage") ?? 1) || 1);
+  const rPageSize = Math.min(100, Math.max(5, Number(url.searchParams.get("rPageSize") ?? 25) || 25));
 
-  const promos = await db.promoCode.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
+  const promoAnd: Array<Record<string, unknown>> = [];
+  if (status === "active") promoAnd.push({ isActive: true });
+  if (status === "off") promoAnd.push({ isActive: false });
+  if (q) {
+    promoAnd.push({
+      OR: [
+        { code: { contains: q.toUpperCase(), mode: "insensitive" } },
+        { description: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  const promoWhere = promoAnd.length ? { AND: promoAnd } : {};
 
-  const redemptions = await db.promoRedemption.findMany({
-    where: codeFilter
-      ? { promoCode: { code: codeFilter } }
-      : undefined,
-    orderBy: { createdAt: "desc" },
-    take: limit,
-    include: {
-      promoCode: { select: { code: true, amountKes: true } },
-      user: {
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          phone: true,
-          walletBalance: true,
-          createdAt: true,
+  const redemptionAnd: Array<Record<string, unknown>> = [];
+  if (codeFilter) redemptionAnd.push({ promoCode: { code: codeFilter } });
+  if (playerQ) {
+    redemptionAnd.push({
+      OR: [
+        { user: { username: { contains: playerQ, mode: "insensitive" } } },
+        { user: { email: { contains: playerQ, mode: "insensitive" } } },
+        { user: { phone: { contains: playerQ, mode: "insensitive" } } },
+      ],
+    });
+  }
+  const redemptionWhere = redemptionAnd.length ? { AND: redemptionAnd } : {};
+
+  const [promoTotal, promoAgg, promos, redemptionTotal, redemptions] = await Promise.all([
+    db.promoCode.count({ where: promoWhere }),
+    db.promoCode.findMany({
+      select: { amountKes: true, redemptionCount: true, isActive: true },
+    }),
+    db.promoCode.findMany({
+      where: promoWhere,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    db.promoRedemption.count({ where: redemptionWhere }),
+    db.promoRedemption.findMany({
+      where: redemptionWhere,
+      orderBy: { createdAt: "desc" },
+      skip: (rPage - 1) * rPageSize,
+      take: rPageSize,
+      include: {
+        promoCode: { select: { code: true, amountKes: true } },
+        user: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            phone: true,
+            walletBalance: true,
+            createdAt: true,
+          },
         },
       },
-    },
-  });
+    }),
+  ]);
 
   const mappedPromos = promos.map((p) => {
     const amountKes = Number(p.amountKes);
@@ -232,16 +278,23 @@ export async function GET(req: Request) {
     };
   });
 
+  // Global KPIs (unfiltered) so the strip stays meaningful while browsing pages.
   const totals = {
-    codes: mappedPromos.length,
-    active: mappedPromos.filter((p) => p.isActive).length,
-    redemptions: mappedPromos.reduce((s, p) => s + p.redemptionCount, 0),
-    paidKes: mappedPromos.reduce((s, p) => s + p.totalPaidKes, 0),
+    codes: promoAgg.length,
+    active: promoAgg.filter((p) => p.isActive).length,
+    redemptions: promoAgg.reduce((s, p) => s + p.redemptionCount, 0),
+    paidKes: promoAgg.reduce((s, p) => s + Number(p.amountKes) * p.redemptionCount, 0),
   };
 
   return Response.json({
     promos: mappedPromos,
     totals,
+    pagination: {
+      page,
+      pageSize,
+      total: promoTotal,
+      pages: Math.max(1, Math.ceil(promoTotal / pageSize)),
+    },
     redemptions: redemptions.map((r) => ({
       id: r.id,
       code: r.promoCode.code,
@@ -256,5 +309,11 @@ export async function GET(req: Request) {
         joinedAt: r.user.createdAt.toISOString(),
       },
     })),
+    redemptionPagination: {
+      page: rPage,
+      pageSize: rPageSize,
+      total: redemptionTotal,
+      pages: Math.max(1, Math.ceil(redemptionTotal / rPageSize)),
+    },
   });
 }
