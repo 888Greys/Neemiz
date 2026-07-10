@@ -1728,6 +1728,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     paymentWindow: ad ? String(ad.paymentWindow) : "15",
     terms: ad?.terms ?? "",
   });
+  const [priceMode, setPriceMode] = useState<"MARKET" | "FIXED">(ad ? "FIXED" : "MARKET");
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(0); // 0=Type & Price · 1=Amount & Method · 2=Conditions
   const [cryptoOpen, setCryptoOpen] = useState(false);
@@ -1791,6 +1792,32 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
         pricePerUnit: formatPriceInput(spotRate * (1 + pct / 100), p.fiat),
       };
     });
+  }
+
+  function setFixedPrice(value: string) {
+    setForm((p) => {
+      const price = Number(value);
+      if (!spotRate || !Number.isFinite(price) || price <= 0) {
+        return { ...p, pricePerUnit: value, profitMarginPct: value === "" ? "" : p.profitMarginPct };
+      }
+      return {
+        ...p,
+        pricePerUnit: value,
+        profitMarginPct: (((price / spotRate) - 1) * 100).toFixed(2),
+      };
+    });
+  }
+
+  function switchPriceMode(mode: "MARKET" | "FIXED") {
+    setPriceMode(mode);
+    if (mode === "MARKET" && spotRate) {
+      const pct = Number(form.profitMarginPct);
+      if (Number.isFinite(pct) && pct > -100) {
+        setPriceFromMargin(form.profitMarginPct || "0");
+      } else {
+        setPriceFromMargin("0");
+      }
+    }
   }
 
 
@@ -1878,7 +1905,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     const minLimit = Number(form.minLimit);
     const maxLimit = Number(form.maxLimit);
     const profitMarginPct = Number(form.profitMarginPct);
-    if (canUseMarginPricing && (!Number.isFinite(profitMarginPct) || profitMarginPct <= -100)) {
+    if (priceMode === "MARKET" && canUseMarginPricing && (!Number.isFinite(profitMarginPct) || profitMarginPct <= -100)) {
       return toast.error("Margin must be greater than -100%");
     }
     if (needsKesBacking) {
@@ -1922,7 +1949,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   function goNext() {
     if (step === 0) {
       if (priceNum <= 0) return toast.error("Enter a valid price first");
-      if (canUseMarginPricing) {
+      if (priceMode === "MARKET" && canUseMarginPricing) {
         const pct = Number(form.profitMarginPct);
         if (Number.isFinite(pct) && pct <= -100) return toast.error("Margin must be greater than -100%");
       }
@@ -2127,9 +2154,33 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           </div>
 
           <div>
-            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price</label>
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price type</label>
+            <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-[#2c2c2e] p-1">
+              {([
+                { id: "MARKET" as const, label: "Market", hint: "Track spot + margin %" },
+                { id: "FIXED" as const, label: "Fixed", hint: "Set your own price" },
+              ]).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => switchPriceMode(opt.id)}
+                  className={`rounded-lg px-3 py-2.5 text-left transition ${
+                    priceMode === opt.id
+                      ? "bg-[#3a3a3c] text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  <span className="block text-[13px] font-bold">{opt.label}</span>
+                  <span className={`block text-[10px] font-medium ${priceMode === opt.id ? "text-slate-400" : "text-slate-600"}`}>
+                    {opt.hint}
+                  </span>
+                </button>
+              ))}
+            </div>
             <p className="text-[11px] font-semibold leading-4 text-slate-500">
-              Your price tracks the live market by the margin you set below — you pick your %.
+              {priceMode === "MARKET"
+                ? "Your price tracks the live market by the margin you set below."
+                : "Enter the exact unit price buyers/sellers will see on your ad."}
             </p>
           </div>
 
@@ -2157,6 +2208,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
             ) : null}
           </div>
 
+          {priceMode === "MARKET" ? (
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">
               {isKesCoinForm ? "Spread margin (%)" : "Your margin (%)"}
@@ -2177,7 +2229,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 onClick={() => setPriceFromMargin("0")}
                 className="h-12 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-xs font-black text-slate-300 transition-colors hover:border-white/20 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Market
+                0%
               </button>
             </div>
             {!canUseMarginPricing ? (
@@ -2194,6 +2246,31 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               </p>
             )}
           </div>
+          ) : (
+          <div>
+            <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">
+              Fixed price ({form.fiat})
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={form.pricePerUnit}
+              onChange={(e) => setFixedPrice(e.target.value)}
+              placeholder={spotRate ? formatPriceInput(spotRate, form.fiat) : "0.00"}
+              className="h-12 w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-bold text-white placeholder:text-slate-600 outline-none transition-colors focus:border-[#087cff]/40"
+            />
+            {spotRate ? (
+              <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
+                Spot {formatFiat(spotRate, form.fiat)}/{form.crypto}
+                {marginPct != null ? ` · your price is ${marginPct >= 0 ? "+" : ""}${marginPct.toFixed(2)}% vs market` : ""}
+              </p>
+            ) : (
+              <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
+                Enter the unit price for this ad.
+              </p>
+            )}
+          </div>
+          )}
           </div>
           )}
 
