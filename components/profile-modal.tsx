@@ -20,8 +20,7 @@ export type ProfileView =
   | "bets"
   | "transactions"
   | "withdraw"
-  | "bonuses"
-  | "bonus-codes"
+  | "promotion-codes"
   | "notifications"
   | "security"
   | "language"
@@ -584,30 +583,9 @@ function WithdrawView({ balance, currency, onSuccess }: { balance: number; curre
   );
 }
 
-// ── Sub-view: Bonuses ────────────────────────────────────────────────────────
+// ── Sub-view: Promotion codes ────────────────────────────────────────────────
 
-function BonusesView() {
-  return (
-    <div className="px-5 pb-8 pt-2">
-      <div className="border-b border-white/[0.06] pb-6">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">Welcome offer</p>
-        <p className="mt-2 text-[1.35rem] font-black tracking-tight text-white">+130% First Deposit</p>
-        <p className="mt-2 text-[13px] font-medium leading-relaxed text-slate-400">
-          Deposit at least KSh 150 and receive a 130% bonus on your first deposit.
-        </p>
-        <p className="mt-3 text-[12px] font-semibold text-slate-500">Wagering requirement: 5x</p>
-      </div>
-      <div className="py-10 text-center">
-        <p className="text-[14px] font-bold text-slate-400">No active bonuses</p>
-        <p className="mt-1 text-[12px] font-medium text-slate-600">Make your first deposit to claim your welcome bonus.</p>
-      </div>
-    </div>
-  );
-}
-
-// ── Sub-view: Bonus codes ────────────────────────────────────────────────────
-
-function BonusCodesView() {
+function PromotionCodesView() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<{ amount: number; code: string } | null>(null);
@@ -679,18 +657,18 @@ function BonusCodesView() {
   return (
     <div className="space-y-5 px-5 pb-8 pt-2">
       <div>
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Promo code</p>
+        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Promotion code</p>
         <div className="flex items-center border-b border-white/[0.08] focus-within:border-[#087cff]/60">
           <input
             type="text"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="NEZEEM400"
+            placeholder="PROMOCODE"
             autoComplete="off"
             className="w-full bg-transparent py-3 text-center text-[1.35rem] font-black tracking-[0.2em] text-white outline-none placeholder:text-slate-700"
           />
         </div>
-        <p className="mt-2 text-[12px] font-medium text-slate-500">Enter a promo or referral code to unlock rewards.</p>
+        <p className="mt-2 text-[12px] font-medium text-slate-500">Enter a promotion code to unlock rewards.</p>
       </div>
       <button
         type="button"
@@ -1360,8 +1338,7 @@ const VIEW_TITLES: Record<ProfileView, string> = {
   bets: "Bet History",
   transactions: "Transaction History",
   withdraw: "Withdraw",
-  bonuses: "Bonuses",
-  "bonus-codes": "Bonus Codes",
+  "promotion-codes": "Promotion code",
   notifications: "Notifications",
   security: "Security",
   language: "Language & Region",
@@ -1443,9 +1420,8 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const { code: displayCode, currency: displayCurrency } = useCurrency();
 
   const MENU = [
-    { icon: "redeem",              label: "Bonuses",             sub: "Free spins and other offers",     action: () => setView("bonuses") },
-    { icon: "confirmation_number", label: "Bonus codes",         sub: "Code activation",                 action: () => setView("bonus-codes") },
-    { icon: "history",             label: "Bet history",         sub: "Open and settled bets",           action: () => setView("bets") },
+    { icon: "confirmation_number", label: "Promotion code",  sub: "Code activation",                 action: () => setView("promotion-codes") },
+    { icon: "history",             label: "Bet history",     sub: "Open and settled bets",           action: () => setView("bets") },
     { icon: "receipt_long",        label: "Transaction history", sub: "Deposit and withdrawal statuses", action: () => setView("transactions") },
   ];
 
@@ -1743,8 +1719,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
           {view === "bets"         && <BetsView />}
           {view === "transactions" && <TransactionsView />}
           {view === "withdraw"     && <WithdrawView balance={balance} currency={currency} onSuccess={(nb) => { refreshBalance(); }} />}
-          {view === "bonuses"      && <BonusesView />}
-          {view === "bonus-codes"  && <BonusCodesView />}
+          {view === "promotion-codes" && <PromotionCodesView />}
           {view === "notifications"&& <NotificationsView />}
           {view === "security"     && <SecurityView email={email} />}
           {view === "language"     && <LanguageView />}
