@@ -316,7 +316,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             sidebarCollapsed ? "w-[78px]" : "w-[280px]"
           }`}
         >
-          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => openWallet()} onOpenBonuses={() => openProfile("bonuses")} onOpenProfile={() => { setProfileInitialView(undefined); setProfileOpen(true); }} />
+          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => openWallet()} onOpenPromotionCodes={() => openProfile("promotion-codes")} onOpenProfile={() => { setProfileInitialView(undefined); setProfileOpen(true); }} />
         </aside>
         )}
 
@@ -456,7 +456,7 @@ function UserAvatar({ src, initials, className }: { src?: string | null; initial
   );
 }
 
-function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenProfile, pathname }: { collapsed: boolean; onToggle: () => void; onOpenWallet: () => void; onOpenBonuses: () => void; onOpenProfile: () => void; pathname: string }) {
+function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenPromotionCodes, onOpenProfile, pathname }: { collapsed: boolean; onToggle: () => void; onOpenWallet: () => void; onOpenPromotionCodes: () => void; onOpenProfile: () => void; pathname: string }) {
   const [openGroups, setOpenGroups] = useState({
     sports: true,
     p2p: false,
@@ -502,7 +502,7 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenBonuses, onOpenProfi
         {/* Utility */}
         <div className="space-y-1">
           <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="account_balance_wallet" label="Wallet" pathname={pathname} onClick={onOpenWallet} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="redeem" label="Bonuses" pathname={pathname} badge="1" onClick={onOpenBonuses} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="confirmation_number" label="Promotion code" pathname={pathname} onClick={onOpenPromotionCodes} />
           <StandaloneSidebarItem collapsed={collapsed} href="/dashboard" icon="campaign" label="Promotions" pathname={pathname} onClick={() => toast.info("Promotions", "Seasonal promotions and free bets are launching soon!")} />
         </div>
       </div>

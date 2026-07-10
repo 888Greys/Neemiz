@@ -10,7 +10,7 @@ import { MONEY_LOCALE, CURRENCY_SYMBOL } from "@/lib/currency";
 const QUICK_LINKS = [
   { href: "/wallet", icon: "account_balance_wallet", label: "Wallet & Deposits", sub: "Manage your funds" },
   { href: "/sports", icon: "sports_soccer", label: "My Bets", sub: "View betting history" },
-  { href: "/wallet", icon: "redeem", label: "Bonuses & Rewards", sub: "Your active promotions" },
+  { href: "/wallet", icon: "confirmation_number", label: "Promotion code", sub: "Code activation" },
 ];
 
 const SETTINGS = [
