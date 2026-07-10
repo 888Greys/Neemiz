@@ -131,11 +131,12 @@ export const CRYPTO_DEPOSIT_ASSETS = [
   { name: "Tether USD", code: "USDT", network: "BEP20", displayNet: "BEP-20 (BSC)", min: 1, enabled: false, soon: true },
   { name: "USD Coin", code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 1, enabled: true, soon: false },
   { name: "Bitcoin", code: "BTC", network: "BITCOIN", displayNet: "Bitcoin", min: 0.0001, enabled: true, soon: false },
-  // Native coins — coming soon (fees paid in the coin itself).
+  // Native coins — fees paid in the coin itself.
   // TRX uses the shared Tron network id "TRC20" (same Tron address family as
   // USDT-TRC20) so it reuses the existing derivation / deposit-checker / signer
   // routing; displayNet keeps it visually distinct from the USDT-TRC20 token.
-  { name: "Tron", code: "TRX", network: "TRC20", displayNet: "Tron (native TRX)", min: 10, enabled: false, soon: true },
+  // LIVE: native-TRX signer deployed to soi 2026-07-10 (self-paying withdrawals).
+  { name: "Tron", code: "TRX", network: "TRC20", displayNet: "Tron (native TRX)", min: 10, enabled: true, soon: false },
   { name: "Ethereum", code: "ETH", network: "ETHEREUM", displayNet: "Ethereum", min: 0.001, enabled: false, soon: true },
   { name: "BNB", code: "BNB", network: "BEP20", displayNet: "BNB Smart Chain", min: 0.005, enabled: false, soon: true },
   { name: "Polygon", code: "POL", network: "POLYGON", displayNet: "Polygon (native POL)", min: 1, enabled: false, soon: true },
@@ -150,4 +151,5 @@ export const VALID_CRYPTO_DEPOSIT_NETWORKS: Record<string, string[]> = {
   USDT: ["POLYGON"],
   USDC: ["POLYGON"],
   BTC: ["BITCOIN"],
+  TRX: ["TRC20"], // native TRX on Tron (self-paying)
 };
