@@ -123,7 +123,7 @@ export const METHOD_REGISTRY: Record<string, MethodDef> = {
   BTC:         { code: "BTC",         label: "Bitcoin",           category: "Crypto", walletLive: true, walletRail: "crypto", cryptoGroup: "BTC" },
   ETH:         { code: "ETH",         label: "Ethereum",          category: "Crypto", walletRail: "crypto", cryptoGroup: "ETH" },
   USDC:        { code: "USDC",        label: "USDC",              category: "Crypto", walletLive: true, walletRail: "crypto", cryptoGroup: "OTHER" },
-  CRYPTO:      { code: "CRYPTO",      label: "Other Crypto",      category: "Crypto", walletLive: true, walletRail: "crypto", cryptoGroup: "OTHER" },
+  CRYPTO:      { code: "CRYPTO",      label: "Crypto",            category: "Crypto", walletLive: true, walletRail: "crypto", cryptoGroup: "OTHER" },
 
   // Cash
   CASH_DEPOSIT:{ code: "CASH_DEPOSIT",label: "Cash Deposit",      category: "Cash" },

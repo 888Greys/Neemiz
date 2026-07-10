@@ -10,12 +10,27 @@ import { Icon } from "@/components/icon";
 import { methodCategory, methodLabel } from "@/lib/payments/method-registry";
 import { badgeColor } from "@/lib/p2p/payment-methods";
 
-const COIN_URL: Record<string, string> = {
-  USDT: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
-  USDC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
-  BTC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
-  ETH:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
-  CRYPTO: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/generic.svg",
+const CDN = "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color";
+
+/** Official coin marks (cryptocurrency-icons). */
+export const COIN_URL: Record<string, string> = {
+  USDT: `${CDN}/usdt.svg`,
+  USDC: `${CDN}/usdc.svg`,
+  BTC:  `${CDN}/btc.svg`,
+  ETH:  `${CDN}/eth.svg`,
+  BNB:  `${CDN}/bnb.svg`,
+  TRX:  `${CDN}/trx.svg`,
+  POL:  `${CDN}/matic.svg`,
+  MATIC: `${CDN}/matic.svg`,
+  SOL:  `${CDN}/sol.svg`,
+  LTC:  `${CDN}/ltc.svg`,
+  XRP:  `${CDN}/xrp.svg`,
+  DOGE: `${CDN}/doge.svg`,
+  BCH:  `${CDN}/bch.svg`,
+  DAI:  `${CDN}/dai.svg`,
+  LINK: `${CDN}/link.svg`,
+  WBTC: `${CDN}/wbtc.svg`,
+  BUSD: `${CDN}/busd.svg`,
 };
 
 /** Simple Icons brands we ship as authentic marks. */
@@ -84,6 +99,40 @@ type Props = {
   className?: string;
 };
 
+/** Stack of live coin marks for the single "Crypto" payment method row. */
+function CryptoMethodMark({ size, className }: { size: number; className: string }) {
+  const stack = ["USDT", "BTC", "TRX"] as const;
+  const icon = Math.round(size * 0.72);
+  const overlap = Math.round(icon * 0.38);
+  const width = icon + overlap * (stack.length - 1);
+  return (
+    <span
+      className={`relative shrink-0 ${className}`}
+      style={{ width, height: size }}
+      title="Crypto"
+    >
+      {stack.map((code, i) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={code}
+          src={COIN_URL[code]}
+          alt=""
+          width={icon}
+          height={icon}
+          className="absolute top-1/2 rounded-full bg-[#151518] object-contain ring-1 ring-[#151518]"
+          style={{
+            width: icon,
+            height: icon,
+            left: i * overlap,
+            transform: "translateY(-50%)",
+            zIndex: stack.length - i,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
+
 /**
  * Professional payment-brand mark for wallet + P2P.
  * Priority: coin CDN → local SVG → Simple Icons → coloured category tile.
@@ -91,6 +140,10 @@ type Props = {
 export function PaymentBrandLogo({ code, size = 32, className = "" }: Props) {
   const key = code === "MC" ? "MASTERCARD" : code;
   const title = methodLabel(key);
+
+  if (key === "CRYPTO") {
+    return <CryptoMethodMark size={size} className={className} />;
+  }
 
   const coin = COIN_URL[key];
   if (coin) {
