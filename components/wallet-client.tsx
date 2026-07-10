@@ -72,14 +72,9 @@ const BRAND_ICON_URL: Record<string, string> = {
   ...COIN_ICON_URL,
 };
 
-const BRAND_LABEL: Record<string, string> = {
-  VISA: "VISA", MC: "MC", AIRTEL: "Airtel", MPESA: "M-Pesa",
-  SKRILL: "Skrill", NETELLER: "Neteller", BINANCE: "BNB", BANK: "Bank",
-};
-
-/** @deprecated Prefer PaymentBrandLogo */
+/** Thin wrapper kept for withdraw/history rows that still pass badge codes. */
 function PaymentIcon({ badge }: { badge: string }) {
-  return <PaymentBrandLogo code={badge === "MC" ? "MASTERCARD" : badge} size={32} />;
+  return <PaymentBrandLogo code={badge === "MC" ? "MASTERCARD" : badge === "BINANCE" ? "CRYPTO" : badge} size={32} />;
 }
 
 type CryptoBalance = { crypto: string; network: string; available: number; locked: number; usdtValue?: number | null };
