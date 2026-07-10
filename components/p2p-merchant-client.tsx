@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
@@ -13,6 +13,7 @@ import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, m
 import { PaymentLogo } from "@/components/p2p/payment-logo";
 import { LoadingDots } from "@/components/loading-dots";
 import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
+import { currencyFlagUrl } from "@/components/market-currency-picker";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
 
@@ -27,8 +28,7 @@ const P2P_CRYPTOS: Array<{ symbol: string; name: string; icon: string; color: st
 
 const P2P_SYMBOLS = P2P_CRYPTOS.map((c) => c.symbol);
 
-const flagUrl = (currencyCode: string) =>
-  `https://flagcdn.com/w40/${currencyCode.slice(0, 2).toLowerCase()}.png`;
+const flagUrl = (currencyCode: string) => currencyFlagUrl(currencyCode);
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -401,21 +401,11 @@ const PAY_RAILS = GLOBAL_PAYMENT_METHODS;                 // full world catalogu
 const PAY_RAILS_BY_CATEGORY = paymentMethodsByCategory(); // grouped for the picker
 const BANKISH = new Set(["BANK", "KUDA", "FNB", "CAPITEC"]);
 
-// Custom, searchable payment-method picker — replaces the native <select> whose
-// OS dropdown rendered as a bare radio list. Shows a real brand logo per method,
-// grouped by category. The open panel is in-flow (pushes content) so it can
-// never be clipped by an overflow-hidden ancestor and scrolls with the page.
+// Full-screen searchable payment-method picker (collapses after pick).
 function MethodPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
   useEffect(() => { if (!open) setQuery(""); }, [open]);
 
   const q = query.trim().toLowerCase();
@@ -424,33 +414,66 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
     .filter(([, list]) => list.length > 0);
 
   return (
-    <div ref={ref} className="relative col-span-2">
-      <button type="button" onClick={() => setOpen((v) => !v)}
-        className="flex h-9 w-full items-center gap-2 rounded-lg border border-white/[0.08] bg-[#151518] px-2.5 text-[13px] font-bold text-white outline-none">
-        <PaymentLogo code={value} size={20} />
-        <span className="truncate">{paymentMethodLabel(value)}</span>
-        <Icon name="expand_more" className={`ml-auto shrink-0 text-lg text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="col-span-2 flex h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 text-left transition hover:border-white/15 active:scale-[0.99]"
+      >
+        <PaymentLogo code={value} size={28} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">Method</span>
+          <span className="block truncate text-[14px] font-black text-white">{paymentMethodLabel(value)}</span>
+        </span>
+        <Icon name="expand_more" className="shrink-0 text-[22px] text-slate-500" />
       </button>
+
       {open && (
-        <div className="mt-1.5 w-full overflow-hidden rounded-xl border border-white/10 bg-[#15151d] shadow-2xl shadow-black/60">
-          <div className="border-b border-white/[0.06] p-2">
-            <div className="flex h-9 items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
-              <Icon name="search" className="text-[16px] text-slate-500" />
-              <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search payment methods"
-                className="min-w-0 flex-1 bg-transparent text-[13px] font-bold text-white outline-none placeholder:text-slate-600" />
+        <div className="fixed inset-0 z-[80] flex flex-col bg-[#0b0c10]">
+          <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="grid h-10 w-10 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-95"
+              aria-label="Close"
+            >
+              <Icon name="close" className="text-[22px]" />
+            </button>
+            <h3 className="text-[15px] font-black text-white">Payment method</h3>
+          </div>
+          <div className="border-b border-white/[0.06] px-3 py-3">
+            <div className="flex h-11 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 focus-within:border-[#087cff]/50">
+              <Icon name="search" className="text-[18px] text-slate-500" />
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search M-Pesa, Pix, PayPal…"
+                className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-white outline-none placeholder:text-slate-600"
+              />
             </div>
           </div>
-          <div className="max-h-56 overflow-y-auto p-1 [scrollbar-width:thin]">
-            {groups.length === 0 && <p className="px-2.5 py-6 text-center text-xs font-bold text-slate-600">No methods found</p>}
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-[env(safe-area-inset-bottom)]">
+            {groups.length === 0 && (
+              <p className="px-3 py-16 text-center text-[13px] font-semibold text-slate-500">No methods found</p>
+            )}
             {groups.map(([cat, list]) => (
-              <div key={cat}>
-                <p className="px-2.5 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-slate-600">{cat}</p>
+              <div key={cat} className="mb-2">
+                <p className="sticky top-0 z-[1] bg-[#0b0c10]/95 px-3 pb-1.5 pt-3 text-[10px] font-black uppercase tracking-widest text-slate-500 backdrop-blur">
+                  {cat}
+                </p>
                 {list.map((r) => (
-                  <button key={r.value} type="button" onClick={() => { onChange(r.value); setOpen(false); }}
-                    className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors ${r.value === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}>
-                    <PaymentLogo code={r.value} />
-                    <span className="text-[13px] font-bold text-white">{r.label}</span>
-                    {r.value === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => { onChange(r.value); setOpen(false); }}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition active:scale-[0.99] ${
+                      r.value === value ? "bg-[#087cff]/12" : "hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <PaymentLogo code={r.value} size={32} />
+                    <span className="min-w-0 flex-1 text-[14px] font-bold text-white">{r.label}</span>
+                    {r.value === value && <Icon name="check_circle" className="shrink-0 text-[20px] text-[#087cff]" />}
                   </button>
                 ))}
               </div>
@@ -458,7 +481,7 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -517,17 +540,17 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
   const showForm = formOpen || (!loading && methods.length === 0);
 
   return (
-    <div id="merchant-payment-methods" className="mb-3 scroll-mt-24 overflow-hidden rounded-lg border border-white/[0.06] bg-[#18191f]">
-      <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-3 py-3">
+    <div id="merchant-payment-methods" className="mb-4 scroll-mt-24 overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-[#1a1b22] to-[#14151a]">
+      <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-4">
         <div className="min-w-0">
-          <h2 className="text-sm font-black text-white">Payment Methods</h2>
-          <p className="mt-0.5 text-[11px] leading-4 text-slate-500">Where buyers send fiat after opening an order.</p>
+          <h2 className="text-[15px] font-black tracking-tight text-white">Payment methods</h2>
+          <p className="mt-1 text-[12px] leading-5 text-slate-500">Where buyers send fiat after opening an order.</p>
         </div>
         {methods.length > 0 && (
           <button
             type="button"
             onClick={() => setFormOpen((v) => !v)}
-            className="flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-[#087cff] px-3 text-[11px] font-black text-white transition hover:bg-[#0570e8]"
+            className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#087cff] px-3.5 text-[12px] font-black text-white transition hover:bg-[#0570e8] active:scale-95"
           >
             <Icon name={formOpen ? "close" : "add"} className="text-sm" />
             {formOpen ? "Close" : "Add"}
@@ -535,41 +558,39 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
         )}
       </div>
 
-      {/* Saved methods */}
       {!loading && methods.length > 0 && (
-        <div className="space-y-1.5 px-3 py-3">
+        <div className="space-y-2 px-3 py-3">
           {methods.map((m) => (
-            <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg bg-white/[0.03] px-3 py-2 ring-1 ring-white/[0.06]">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <PaymentLogo code={m.name} size={26} />
+            <div key={m.id} className="flex items-center justify-between gap-2 rounded-2xl bg-white/[0.03] px-3.5 py-3 ring-1 ring-white/[0.06]">
+              <div className="flex min-w-0 items-center gap-3">
+                <PaymentLogo code={m.name} size={32} />
                 <div className="min-w-0">
-                  <p className="text-[12px] font-black text-white">{paymentMethodLabel(m.name)}{m.bankName ? ` · ${m.bankName}` : ""}</p>
-                  <p className="text-[11px] text-slate-400 truncate">{m.accountName} · <span className="font-mono">{m.accountNo}</span></p>
+                  <p className="text-[13px] font-black text-white">{paymentMethodLabel(m.name)}{m.bankName ? ` · ${m.bankName}` : ""}</p>
+                  <p className="truncate text-[12px] text-slate-400">{m.accountName} · <span className="font-mono">{m.accountNo}</span></p>
                 </div>
               </div>
-              <button type="button" onClick={() => del(m.id)} className="shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-400 transition" aria-label="Delete">
-                <Icon name="delete" className="text-[16px]" />
+              <button type="button" onClick={() => del(m.id)} className="shrink-0 rounded-xl p-2 text-slate-500 transition hover:bg-red-500/10 hover:text-red-400 active:scale-95" aria-label="Delete">
+                <Icon name="delete" className="text-[18px]" />
               </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* Add form */}
       {showForm && (
-        <div className="grid grid-cols-2 gap-2 border-t border-white/[0.05] px-3 py-3">
+        <div className="grid grid-cols-2 gap-2.5 border-t border-white/[0.05] px-3 py-4">
           <MethodPicker value={method} onChange={setMethod} />
           <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
-            className="col-span-2 h-9 rounded-lg border border-white/[0.08] bg-[#151518] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
+            className="col-span-2 h-12 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-600 focus:border-[#087cff]/50" />
           <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={accountIdentifierLabel(method)}
-            className={`${isBank ? "" : "col-span-2"} h-9 rounded-lg border border-white/[0.08] bg-[#151518] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600`} />
+            className={`${isBank ? "" : "col-span-2"} h-12 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-600 focus:border-[#087cff]/50`} />
           {isBank && (
             <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
-              className="h-9 rounded-lg border border-white/[0.08] bg-[#151518] px-2.5 text-[13px] text-white outline-none placeholder:text-slate-600" />
+              className="h-12 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-600 focus:border-[#087cff]/50" />
           )}
           <button type="button" onClick={add} disabled={saving}
-            className="col-span-2 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#087cff] text-[13px] font-black text-white transition hover:bg-[#0570e8] disabled:opacity-50">
-            <Icon name="add" className="text-base" /> {saving ? "Saving..." : "Add payment method"}
+            className="col-span-2 flex h-12 items-center justify-center gap-1.5 rounded-2xl bg-[#087cff] text-[14px] font-black text-white transition hover:bg-[#0570e8] active:scale-[0.99] disabled:opacity-50">
+            <Icon name="add" className="text-base" /> {saving ? "Saving..." : "Save payment method"}
           </button>
         </div>
       )}
@@ -1498,15 +1519,15 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/90 backdrop-blur-md p-0 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden border border-white/10 bg-[#151518] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[440px] flex-col overflow-hidden border-white/10 bg-[#0f1015] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl sm:border" onClick={(e) => e.stopPropagation()}>
         {/* ── Header + stepper ── */}
-        <div className="shrink-0 border-b border-white/[0.07] bg-[#151518] px-4 pb-5 pt-[calc(1.1rem+env(safe-area-inset-top))]">
+        <div className="shrink-0 border-b border-white/[0.07] bg-[#0f1015] px-4 pb-5 pt-[calc(1.1rem+env(safe-area-inset-top))]">
           <div className="mb-6 flex items-center justify-between">
-            <button onClick={step === 0 ? onClose : () => setStep((s) => s - 1)} className="flex h-9 w-9 items-center justify-center rounded-full text-slate-200 transition hover:bg-white/[0.06]">
+            <button onClick={step === 0 ? onClose : () => setStep((s) => s - 1)} className="flex h-10 w-10 items-center justify-center rounded-full text-slate-200 transition hover:bg-white/[0.06] active:scale-95">
               <Icon name="arrow_back" className="text-[20px]" />
             </button>
-            <h3 className="text-[15px] font-black tracking-wide text-white">{isEditing ? "Edit Ad" : "Post Normal Ad"}</h3>
-            <span className="h-9 w-9" aria-hidden />
+            <h3 className="text-[15px] font-black tracking-wide text-white">{isEditing ? "Edit ad" : "Post ad"}</h3>
+            <span className="h-10 w-10" aria-hidden />
           </div>
 
           <div className="relative grid grid-cols-3 text-center">
@@ -1602,73 +1623,84 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
             </div>
           </div>
 
-          {/* Fiat currency selector — real flags */}
+          {/* Fiat currency — full-page picker */}
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">With Fiat</label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => { setFiatOpen((v) => !v); setFiatQuery(""); }}
-                className="flex h-12 w-full items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-black text-white transition-colors hover:border-white/20"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={flagUrl(form.fiat)} alt="" className="h-4 w-6 shrink-0 rounded-[3px] object-cover" />
-                <span className="font-black">{form.fiat}</span>
-                <Icon name="arrow_drop_down" className={`ml-auto text-[22px] text-slate-500 transition-transform ${fiatOpen ? "rotate-180" : ""}`} />
-              </button>
-              {fiatOpen && (
-                <>
-                  <button type="button" aria-hidden className="fixed inset-0 z-40 cursor-default" onClick={() => setFiatOpen(false)} />
-                  <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] shadow-2xl shadow-black/60">
-                    <div className="p-2">
-                      <div className="flex items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
-                        <Icon name="search" className="text-[16px] text-slate-500" />
-                        <input
-                          autoFocus
-                          value={fiatQuery}
-                          onChange={(e) => setFiatQuery(e.target.value)}
-                          placeholder="Search currency"
-                          className="h-9 flex-1 bg-transparent text-xs font-semibold text-white outline-none placeholder:text-slate-600"
-                        />
-                      </div>
-                    </div>
-                    <div className="max-h-56 overflow-y-auto px-1 pb-2 [scrollbar-width:thin]">
-                      {FIAT_CURRENCIES
-                        .filter((c) => { const q = fiatQuery.trim().toLowerCase(); return !q || c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q); })
-                        .map((c) => (
-                          <button
-                            key={c.code}
-                            type="button"
-                            onClick={() => {
-                              // Keep selections that the merchant actually has
-                              // configured — payment methods are NOT restricted
-                              // by the ad's fiat (a merchant may accept PayPal,
-                              // Wise, etc. for any currency).
-                              const allowed = new Set(savedPaymentMethods.map((m) => m.name));
-                              setForm((p) => ({
-                                ...p,
-                                fiat: c.code,
-                                paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)),
-                                // Reset price so it refills with the live rate in the new currency.
-                                pricePerUnit: p.crypto === "KES" ? p.pricePerUnit : "",
-                                profitMarginPct: p.crypto === "KES" ? p.profitMarginPct : "",
-                              }));
-                              setFiatOpen(false);
-                            }}
-                            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${form.fiat === c.code ? "bg-white/[0.08]" : "hover:bg-white/[0.05]"}`}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={flagUrl(c.code)} alt="" className="h-4 w-6 shrink-0 rounded-[3px] object-cover" />
-                            <span className="text-sm font-black text-white">{c.code}</span>
-                            <span className="truncate text-xs font-semibold text-slate-500">{c.name}</span>
-                            {form.fiat === c.code && <Icon name="check" className="ml-auto shrink-0 text-[16px] text-[#55aaff]" />}
-                          </button>
-                        ))}
-                    </div>
+            <button
+              type="button"
+              onClick={() => { setFiatOpen(true); setFiatQuery(""); }}
+              className="flex h-12 w-full items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 text-[14px] font-black text-white transition-colors hover:border-white/20 active:scale-[0.99]"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={flagUrl(form.fiat)} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
+              <span className="font-black">{form.fiat}</span>
+              <span className="truncate text-[12px] font-semibold text-slate-500">
+                {FIAT_CURRENCIES.find((c) => c.code === form.fiat)?.name}
+              </span>
+              <Icon name="expand_more" className="ml-auto text-[22px] text-slate-500" />
+            </button>
+            {fiatOpen && (
+              <div className="fixed inset-0 z-[90] flex flex-col bg-[#0b0c10]">
+                <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+                  <button
+                    type="button"
+                    onClick={() => setFiatOpen(false)}
+                    className="grid h-10 w-10 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-95"
+                    aria-label="Close"
+                  >
+                    <Icon name="close" className="text-[22px]" />
+                  </button>
+                  <h3 className="text-[15px] font-black text-white">Choose fiat</h3>
+                </div>
+                <div className="border-b border-white/[0.06] px-3 py-3">
+                  <div className="flex h-11 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 focus-within:border-[#087cff]/50">
+                    <Icon name="search" className="text-[18px] text-slate-500" />
+                    <input
+                      autoFocus
+                      value={fiatQuery}
+                      onChange={(e) => setFiatQuery(e.target.value)}
+                      placeholder="Search currency"
+                      className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-white outline-none placeholder:text-slate-600"
+                    />
                   </div>
-                </>
-              )}
-            </div>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-[env(safe-area-inset-bottom)]">
+                  {FIAT_CURRENCIES
+                    .filter((c) => {
+                      const q = fiatQuery.trim().toLowerCase();
+                      return !q || c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q);
+                    })
+                    .map((c) => (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() => {
+                          const allowed = new Set(savedPaymentMethods.map((m) => m.name));
+                          setForm((p) => ({
+                            ...p,
+                            fiat: c.code,
+                            paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)),
+                            pricePerUnit: p.crypto === "KES" ? p.pricePerUnit : "",
+                            profitMarginPct: p.crypto === "KES" ? p.profitMarginPct : "",
+                          }));
+                          setFiatOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3.5 text-left transition active:scale-[0.99] ${
+                          form.fiat === c.code ? "bg-[#087cff]/12" : "hover:bg-white/[0.04]"
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={flagUrl(c.code)} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[14px] font-black text-white">{c.code}</span>
+                          <span className="block truncate text-[12px] font-semibold text-slate-500">{c.name}</span>
+                        </span>
+                        {form.fiat === c.code && <Icon name="check_circle" className="shrink-0 text-[20px] text-[#087cff]" />}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
           </div>
 
@@ -2134,15 +2166,15 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const profileReleaseLabel = profileRelease > 0 ? `${profileRelease.toFixed(2)} Minute(s)` : "—";
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4">
+    <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-4">
       {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
       {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
 
       {/* Merchant header */}
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <label
-            className="group relative h-12 w-12 shrink-0 cursor-pointer lg:h-10 lg:w-10"
+            className="group relative h-12 w-12 shrink-0 cursor-pointer"
             title="Change profile picture"
           >
             <input
@@ -2158,7 +2190,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               avatarUrl={user?.user_metadata?.avatar_url || status.avatarUrl}
               size={48}
               rounded="xl"
-              className="pointer-events-none h-12 w-12 lg:h-10 lg:w-10 [&_img]:shadow-lg [&_img]:shadow-black/30 lg:[&_img]:rounded-lg"
+              className="pointer-events-none h-12 w-12 [&_img]:shadow-lg [&_img]:shadow-black/30"
             />
             {/* Hover / uploading overlay */}
             <div className={`absolute inset-0 flex items-center justify-center rounded-xl bg-black/55 transition-opacity lg:rounded-lg ${avatarUploading ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
@@ -2204,34 +2236,33 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             </p>
           </div>
         </div>
-        {/* Post Ad — icon-only on mobile, full button on sm+ */}
         <button
           onClick={() => setCreate(true)}
-          className="flex shrink-0 items-center gap-2 rounded-lg bg-[#087cff] p-2.5 text-sm font-black text-white shadow-lg shadow-[#087cff]/20 transition-colors hover:bg-[#0570e8] sm:px-4 sm:py-2 lg:h-9"
+          className="flex h-11 shrink-0 items-center gap-2 rounded-2xl bg-[#087cff] px-4 text-[13px] font-black text-white shadow-lg shadow-[#087cff]/25 transition hover:bg-[#0570e8] active:scale-95"
         >
           <Icon name="add" className="text-base" />
-          <span className="hidden sm:inline">Post Ad</span>
+          <span>Post ad</span>
         </button>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-white/[0.07] bg-[#101118] p-1 sm:flex sm:overflow-x-auto">
+      <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl border border-white/[0.07] bg-[#101118] p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {([
           ["overview", "Overview", "dashboard"],
           ["profile", "Profile", "person"],
-          ["wallet", "Wallet & Escrow", "account_balance_wallet"],
-          ["payments", "Payment Methods", "payments"],
-          ["ads", `Ads ${ads.length}`, "campaign"],
+          ["wallet", "Escrow", "account_balance_wallet"],
+          ["payments", "Payments", "payments"],
+          ["ads", `Ads · ${ads.length}`, "campaign"],
         ] as const).map(([id, label, icon]) => (
           <button
             key={id}
             type="button"
             onClick={() => setSection(id)}
-            className={`flex h-10 min-w-0 items-center justify-center gap-2 rounded-lg px-3 text-xs font-black transition sm:shrink-0 sm:justify-start sm:px-4 ${
-              section === id ? "bg-[#087cff] text-white shadow-lg shadow-[#087cff]/15" : "text-slate-500 hover:bg-white/[0.05] hover:text-white"
+            className={`flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl px-3.5 text-[12px] font-black transition active:scale-95 ${
+              section === id ? "bg-[#087cff] text-white shadow-md shadow-[#087cff]/20" : "text-slate-500 hover:bg-white/[0.05] hover:text-white"
             }`}
           >
             <Icon name={icon} className="shrink-0 text-base" />
-            <span className="truncate">{label}</span>
+            <span>{label}</span>
           </button>
         ))}
       </div>
