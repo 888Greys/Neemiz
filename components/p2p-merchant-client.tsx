@@ -800,6 +800,12 @@ const PAY_RAILS = GLOBAL_PAYMENT_METHODS;                 // full world catalogu
 const PAY_RAILS_BY_CATEGORY = paymentMethodsByCategory(); // grouped for the picker
 const BANKISH = new Set(["BANK", "KUDA", "FNB", "CAPITEC"]);
 
+function fmtEscrowAmt(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return "0";
+  const s = n.toLocaleString("en-US", { maximumFractionDigits: 8, minimumFractionDigits: 0 });
+  return s;
+}
+
 // Searchable payment-method picker — bottom sheet (same chrome as P2P Payment Methods).
 function MethodPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
@@ -2101,7 +2107,11 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
       return toast.error(`Top up your fiat wallet first. This KES Coin sell ad needs KSh ${requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee.`);
     }
     if (exceedsSellableBalance) {
-      return toast.error(`You can sell up to ${sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto} from escrow.`);
+      return toast.error(
+        sellableBalance > 0
+          ? `You can sell up to ${fmtEscrowAmt(sellableBalance)} ${form.crypto}`
+          : `No ${form.crypto} in escrow yet`,
+      );
     }
 
     setSubmitting(true);
@@ -2560,12 +2570,21 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               {form.side === "SELL" && !balancesLoading && (
                 <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold">
                   <span className={sellableBalance > 0 ? "text-[#05b957]" : "text-amber-300"}>
-                    {sellableBalance > 0 ? "Ready in merchant escrow" : "No sellable balance in escrow"}
+                    {sellableBalance > 0
+                      ? `${fmtEscrowAmt(sellableBalance)} ${form.crypto} ready in escrow`
+                      : `No ${form.crypto} in escrow yet`}
                   </span>
                   {Number(selectedEscrow?.locked ?? 0) > 0 && (
-                    <span className="text-right text-amber-300">{Number(selectedEscrow?.locked).toLocaleString()} locked in orders</span>
+                    <span className="text-right text-amber-300">{fmtEscrowAmt(Number(selectedEscrow?.locked))} locked in orders</span>
                   )}
                 </div>
+              )}
+              {exceedsSellableBalance && !needsKesBacking && (
+                <p className="mt-1.5 text-[11px] font-semibold leading-snug text-amber-300/90">
+                  {sellableBalance > 0
+                    ? `That’s more than you can sell — max is ${fmtEscrowAmt(sellableBalance)} ${form.crypto}.`
+                    : `Fund escrow with ${form.crypto} before setting an amount.`}
+                </p>
               )}
             </div>
           )}
@@ -2573,11 +2592,6 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           {needsKesBacking && (
             <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[12px] font-bold text-amber-300 lg:col-span-2">
               Top up your fiat wallet first. This KES Coin sell ad needs KSh {requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee; you have KSh {fiatBalance.toLocaleString("en-KE")}.
-            </div>
-          )}
-          {exceedsSellableBalance && !needsKesBacking && (
-            <div className="rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-[12px] font-bold text-red-300 lg:col-span-2">
-              Amount exceeds your available escrow balance of {sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} {form.crypto}.
             </div>
           )}
 
