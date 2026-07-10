@@ -1599,8 +1599,8 @@ function DepositMethodStep({
   }
 
   return (
-    <section className="space-y-4">
-      <div>
+    <section className="relative flex flex-col">
+      <div className="pb-20">
         <h2 className="mb-0.5 text-[14px] font-black text-white">Payment method</h2>
         <p className="mb-2.5 text-[11px] font-medium text-slate-500">
           Tap country to change
@@ -1660,13 +1660,15 @@ function DepositMethodStep({
         </div>
       </div>
 
-      <Button
-        onClick={() => selected?.selection && onContinue(selected.selection)}
-        disabled={!selected}
-        className="h-11 w-full rounded-xl text-sm"
-      >
-        Continue
-      </Button>
+      <div className="sticky bottom-0 z-30 -mx-5 border-t border-white/[0.08] bg-[#151518]/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-[#151518]/80">
+        <Button
+          onClick={() => selected?.selection && onContinue(selected.selection)}
+          disabled={!selected}
+          className="h-11 w-full rounded-xl text-sm"
+        >
+          Continue
+        </Button>
+      </div>
     </section>
   );
 }
