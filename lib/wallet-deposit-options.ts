@@ -132,7 +132,10 @@ export const CRYPTO_DEPOSIT_ASSETS = [
   { name: "USD Coin", code: "USDC", network: "POLYGON", displayNet: "Polygon", min: 1, enabled: true, soon: false },
   { name: "Bitcoin", code: "BTC", network: "BITCOIN", displayNet: "Bitcoin", min: 0.0001, enabled: true, soon: false },
   // Native coins — coming soon (fees paid in the coin itself).
-  { name: "Tron", code: "TRX", network: "TRON", displayNet: "Tron (native TRX)", min: 10, enabled: false, soon: true },
+  // TRX uses the shared Tron network id "TRC20" (same Tron address family as
+  // USDT-TRC20) so it reuses the existing derivation / deposit-checker / signer
+  // routing; displayNet keeps it visually distinct from the USDT-TRC20 token.
+  { name: "Tron", code: "TRX", network: "TRC20", displayNet: "Tron (native TRX)", min: 10, enabled: false, soon: true },
   { name: "Ethereum", code: "ETH", network: "ETHEREUM", displayNet: "Ethereum", min: 0.001, enabled: false, soon: true },
   { name: "BNB", code: "BNB", network: "BEP20", displayNet: "BNB Smart Chain", min: 0.005, enabled: false, soon: true },
   { name: "Polygon", code: "POL", network: "POLYGON", displayNet: "Polygon (native POL)", min: 1, enabled: false, soon: true },
