@@ -5,7 +5,7 @@ import {
 } from "@/lib/wallet-withdraw-options";
 
 describe("wallet withdraw options", () => {
-  it("lists the Polygon stablecoins plus native Bitcoin", () => {
+  it("lists the Polygon stablecoins plus native Bitcoin and TRX", () => {
     expect(CRYPTO_WITHDRAW_ASSETS).toEqual([
       expect.objectContaining({
         code: "USDT",
@@ -20,6 +20,11 @@ describe("wallet withdraw options", () => {
       expect.objectContaining({
         code: "BTC",
         network: "BITCOIN",
+      }),
+      expect.objectContaining({
+        code: "TRX",
+        network: "TRC20",
+        min: 10,
       }),
     ]);
   });
@@ -36,11 +41,12 @@ describe("wallet withdraw options", () => {
     );
   });
 
-  it("blocks withdrawal networks that are not currently deposit-enabled", () => {
+  it("allows withdrawal only on deposit-enabled networks", () => {
     expect(VALID_CRYPTO_WITHDRAW_NETWORKS).toEqual({
       USDT: ["POLYGON"],
       USDC: ["POLYGON"],
       BTC:  ["BITCOIN"],
+      TRX:  ["TRC20"],
     });
   });
 });
