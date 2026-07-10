@@ -25,6 +25,7 @@ import {
 } from "@/lib/wallet-deposit-options";
 import { MARKETS } from "@/lib/payments/country-methods";
 import { PaymentBrandLogo } from "@/components/payment-brand-logo";
+import { MarketCurrencyPicker } from "@/components/market-currency-picker";
 import {
   CRYPTO_WITHDRAW_ASSETS,
   type CryptoWithdrawAsset,
@@ -1550,7 +1551,7 @@ function WalletPageFrame({ children, onBack, title }: { children: ReactNode; onB
   );
 }
 
-// International payment-method picker: market currency → local rails + global crypto.
+// International payment-method picker: full-page market list, then methods.
 function DepositMethodStep({
   pesapalEnabled,
   displayCurrency,
@@ -1560,45 +1561,56 @@ function DepositMethodStep({
   displayCurrency: string;
   onContinue: (selection: DepositSelection) => void;
 }) {
-  const [marketCurrency, setMarketCurrency] = useState(
-    () => MARKETS.some((m) => m.currency === displayCurrency) ? displayCurrency : "USD",
-  );
+  const initial = MARKETS.some((m) => m.currency === displayCurrency) ? displayCurrency : "USD";
+  const [marketCurrency, setMarketCurrency] = useState(initial);
+  const [pickingMarket, setPickingMarket] = useState(true);
   const rows = useMemo(
     () => depositRowsForCurrency(marketCurrency, { pesapalEnabled }),
     [marketCurrency, pesapalEnabled],
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = rows.find((r) => r.id === selectedId && r.enabled && r.selection);
-  const market = MARKETS.find((m) => m.currency === marketCurrency) ?? MARKETS[0];
 
   useEffect(() => {
     setSelectedId(null);
   }, [marketCurrency]);
+
+  if (pickingMarket) {
+    return (
+      <section>
+        <MarketCurrencyPicker
+          value={marketCurrency}
+          open
+          onOpenChange={(open) => {
+            if (!open) setPickingMarket(false);
+          }}
+          onChange={(code) => {
+            setMarketCurrency(code);
+            setPickingMarket(false);
+          }}
+          title="Where are you depositing from?"
+        />
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-5">
       <div>
         <h2 className="mb-1 text-[15px] font-black text-white">Payment method</h2>
         <p className="mb-3 text-[12px] font-medium text-slate-500">
-          International deposits — pick your market, then a method
+          Methods for your market — tap market to change
         </p>
-        <label className="mb-4 block">
-          <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
-            Market / currency
-          </span>
-          <select
+        <div className="mb-4">
+          <MarketCurrencyPicker
             value={marketCurrency}
-            onChange={(e) => setMarketCurrency(e.target.value)}
-            className="h-11 w-full rounded-xl border border-white/[0.08] bg-[#0d1117] px-3 text-[13px] font-semibold text-white outline-none focus:border-[#087cff]/60"
-          >
-            {MARKETS.map((m) => (
-              <option key={m.currency} value={m.currency}>
-                {m.currency} — {m.label} ({m.region})
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="mb-2 text-[11px] text-slate-500">{market.region}</p>
+            open={false}
+            onOpenChange={(open) => {
+              if (open) setPickingMarket(true);
+            }}
+            onChange={setMarketCurrency}
+          />
+        </div>
         <div className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
           {rows.map((row) => {
             const active = row.id === selectedId;
@@ -1610,7 +1622,7 @@ function DepositMethodStep({
                 type="button"
                 disabled={!row.enabled}
                 onClick={() => setSelectedId(row.id)}
-                className={`flex w-full items-center gap-3 py-3.5 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                className={`flex w-full items-center gap-3 py-3.5 text-left transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 ${
                   active ? "bg-[#087cff]/[0.06]" : "hover:bg-white/[0.02]"
                 }`}
               >
