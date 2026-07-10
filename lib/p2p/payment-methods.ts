@@ -4,6 +4,9 @@
 // Binance P2P. `value` is the code stored on P2PAd.paymentMethods; `label` is
 // what users see.
 
+import { MARKETS } from "@/lib/payments/country-methods";
+import { methodLabel } from "@/lib/payments/method-registry";
+
 export interface PaymentMethod {
   value: string;
   label: string;
@@ -26,12 +29,18 @@ export const GLOBAL_PAYMENT_METHODS: PaymentMethod[] = [
   { value: "WAVE",         label: "Wave",              category: "Mobile Money" },
   { value: "ECOCASH",      label: "EcoCash",           category: "Mobile Money" },
   { value: "MPAMBA",       label: "Airtel/Mpamba",     category: "Mobile Money" },
+  { value: "TELEBIRR",     label: "Telebirr",          category: "Mobile Money" },
+  { value: "TELECEL",      label: "Telecel Cash",      category: "Mobile Money" },
+  { value: "MOBILE_MONEY", label: "Mobile Money",      category: "Mobile Money" },
   { value: "GCASH",        label: "GCash",             category: "Mobile Money" },
   { value: "MAYA",         label: "Maya (PayMaya)",    category: "Mobile Money" },
   { value: "JAZZCASH",     label: "JazzCash",          category: "Mobile Money" },
   { value: "EASYPAISA",    label: "Easypaisa",         category: "Mobile Money" },
   { value: "BKASH",        label: "bKash",             category: "Mobile Money" },
   { value: "NAGAD",        label: "Nagad",             category: "Mobile Money" },
+  { value: "ROCKET",       label: "Rocket",            category: "Mobile Money" },
+  { value: "FAWRY",        label: "Fawry",             category: "Mobile Money" },
+  { value: "MOBILEPAY",    label: "MobilePay",         category: "Mobile Money" },
   // Nigeria neobanks/wallets
   { value: "OPAY",         label: "Opay",              category: "Wallets & Neobanks" },
   { value: "PALMPAY",      label: "PalmPay",           category: "Wallets & Neobanks" },
@@ -44,6 +53,8 @@ export const GLOBAL_PAYMENT_METHODS: PaymentMethod[] = [
   { value: "SKRILL",       label: "Skrill",            category: "Online Wallets" },
   { value: "NETELLER",     label: "Neteller",          category: "Online Wallets" },
   { value: "PAYONEER",     label: "Payoneer",          category: "Online Wallets" },
+  { value: "APPLE_PAY",    label: "Apple Pay",         category: "Online Wallets" },
+  { value: "GOOGLE_PAY",   label: "Google Pay",        category: "Online Wallets" },
   { value: "ZELLE",        label: "Zelle",             category: "Online Wallets" },
   { value: "CASHAPP",      label: "Cash App",          category: "Online Wallets" },
   { value: "VENMO",        label: "Venmo",             category: "Online Wallets" },
@@ -55,6 +66,22 @@ export const GLOBAL_PAYMENT_METHODS: PaymentMethod[] = [
   { value: "TRUEMONEY",    label: "TrueMoney",         category: "Online Wallets" },
   { value: "DANA",         label: "DANA",              category: "Online Wallets" },
   { value: "OVO",          label: "OVO",               category: "Online Wallets" },
+  { value: "GOPAY",        label: "GoPay",             category: "Online Wallets" },
+  { value: "GRABPAY",      label: "GrabPay",           category: "Online Wallets" },
+  { value: "TNG",          label: "Touch 'n Go",       category: "Online Wallets" },
+  { value: "MERCADOPAGO",  label: "Mercado Pago",      category: "Online Wallets" },
+  { value: "NEQUI",        label: "Nequi",             category: "Online Wallets" },
+  { value: "DAVIPLATA",    label: "Daviplata",         category: "Online Wallets" },
+  { value: "KASPI",        label: "Kaspi Pay",         category: "Online Wallets" },
+  { value: "PAYPAY",       label: "PayPay",            category: "Online Wallets" },
+  { value: "LINE_PAY",     label: "LINE Pay",          category: "Online Wallets" },
+  // Cards (P2P peer rails)
+  { value: "VISA",         label: "Visa",              category: "Cards" },
+  { value: "MASTERCARD",   label: "Mastercard",        category: "Cards" },
+  { value: "AMEX",         label: "American Express",  category: "Cards" },
+  { value: "UNIONPAY",     label: "UnionPay",          category: "Cards" },
+  { value: "RUPAY",        label: "RuPay",             category: "Cards" },
+  { value: "MEEZA",        label: "Meeza",             category: "Cards" },
   // Bank rails
   { value: "BANK",         label: "Bank Transfer",     category: "Bank" },
   { value: "SEPA",         label: "SEPA",              category: "Bank" },
@@ -62,6 +89,16 @@ export const GLOBAL_PAYMENT_METHODS: PaymentMethod[] = [
   { value: "UPI",          label: "UPI",               category: "Bank" },
   { value: "IMPS",         label: "IMPS",              category: "Bank" },
   { value: "PIX",          label: "Pix",               category: "Bank" },
+  { value: "SPEI",         label: "SPEI",              category: "Bank" },
+  { value: "FPX",          label: "FPX",               category: "Bank" },
+  { value: "DUITNOW",      label: "DuitNow",           category: "Bank" },
+  { value: "QRIS",         label: "QRIS",              category: "Bank" },
+  { value: "PSE",          label: "PSE",               category: "Bank" },
+  { value: "INTERAC",      label: "Interac",           category: "Bank" },
+  { value: "BANCONTACT",   label: "Bancontact",        category: "Bank" },
+  { value: "IDEAL",        label: "iDEAL",             category: "Bank" },
+  { value: "KNET",         label: "KNET",              category: "Bank" },
+  { value: "CLIQ",         label: "CliQ",              category: "Bank" },
   { value: "FNB",          label: "FNB",               category: "Bank" },
   { value: "CAPITEC",      label: "Capitec",           category: "Bank" },
   { value: "SBERBANK",     label: "Sberbank",          category: "Bank" },
@@ -71,62 +108,15 @@ export const GLOBAL_PAYMENT_METHODS: PaymentMethod[] = [
   { value: "CASH_PERSON",  label: "Cash in Person",    category: "Cash" },
 ];
 
-export const PAYMENT_METHODS_BY_FIAT: Record<string, PaymentMethod[]> = {
-  KES: [
-    { value: "MPESA",         label: "M-Pesa" },
-    { value: "AIRTEL",        label: "Airtel Money" },
-    { value: "BANK",          label: "Bank Transfer" },
-  ],
-  NGN: [
-    { value: "OPAY",          label: "Opay" },
-    { value: "PALMPAY",       label: "PalmPay" },
-    { value: "KUDA",          label: "Kuda Bank" },
-    { value: "MONIEPOINT",    label: "Moniepoint" },
-    { value: "BANK",          label: "Bank Transfer" },
-  ],
-  GHS: [
-    { value: "MTN_MOMO",      label: "MTN MoMo" },
-    { value: "VODAFONE_CASH", label: "Vodafone Cash" },
-    { value: "BANK",          label: "Bank Transfer" },
-  ],
-  ZAR: [
-    { value: "FNB",           label: "FNB" },
-    { value: "CAPITEC",       label: "Capitec" },
-    { value: "BANK",          label: "Bank Transfer" },
-  ],
-  TZS: [
-    { value: "MPESA",         label: "M-Pesa" },
-    { value: "AIRTEL",        label: "Airtel Money" },
-    { value: "TIGO_PESA",     label: "Tigo Pesa" },
-    { value: "BANK",          label: "Bank Transfer" },
-  ],
-  UGX: [
-    { value: "MTN_MOMO",      label: "MTN MoMo" },
-    { value: "AIRTEL",        label: "Airtel Money" },
-    { value: "BANK",          label: "Bank Transfer" },
-  ],
-  USD: [
-    { value: "BANK",          label: "Bank Transfer" },
-    { value: "WISE",          label: "Wise" },
-    { value: "PAYPAL",        label: "PayPal" },
-  ],
-  EUR: [
-    { value: "SEPA",          label: "SEPA" },
-    { value: "REVOLUT",       label: "Revolut" },
-    { value: "WISE",          label: "Wise" },
-    { value: "BANK",          label: "Bank Transfer" },
-  ],
-  GBP: [
-    { value: "BANK",          label: "Bank Transfer" },
-    { value: "REVOLUT",       label: "Revolut" },
-    { value: "WISE",          label: "Wise" },
-  ],
-  INR: [
-    { value: "UPI",           label: "UPI" },
-    { value: "IMPS",          label: "IMPS" },
-    { value: "BANK",          label: "Bank Transfer" },
-  ],
-};
+/** P2P local rails by fiat — seeded from the international market catalogue. */
+export const PAYMENT_METHODS_BY_FIAT: Record<string, PaymentMethod[]> = Object.fromEntries(
+  MARKETS.map((m) => [
+    m.currency,
+    m.methods
+      .filter((code) => !["USDT", "BTC", "ETH", "USDC", "CRYPTO"].includes(code))
+      .map((code) => ({ value: code, label: methodLabel(code) })),
+  ]),
+);
 
 const FALLBACK: PaymentMethod[] = [{ value: "BANK", label: "Bank Transfer" }];
 
@@ -202,14 +192,22 @@ export function accountIdentifierLabel(code: string): string {
 const BRAND_COLORS: Record<string, string> = {
   MPESA: "#43b02a", AIRTEL: "#e40000", MTN_MOMO: "#ffcb05", VODAFONE_CASH: "#e60000",
   TIGO_PESA: "#00a1e0", ORANGE_MONEY: "#ff7900", WAVE: "#1dc4ff", MPAMBA: "#e40000",
+  TELEBIRR: "#00833e", TELECEL: "#e30613", MOBILE_MONEY: "#0ea5e9",
   GCASH: "#0057ff", MAYA: "#28e07b", JAZZCASH: "#b01e2e", EASYPAISA: "#00b04f",
-  BKASH: "#e2136e", NAGAD: "#f6921e", OPAY: "#1dd05d", PALMPAY: "#6c2bd9",
-  KUDA: "#40196d", MONIEPOINT: "#0357ee", PAYPAL: "#0070ba", WISE: "#9fe870",
-  REVOLUT: "#0666eb", SKRILL: "#862165", NETELLER: "#83ba3b", PAYONEER: "#ff4800",
+  BKASH: "#e2136e", NAGAD: "#f6921e", ROCKET: "#8c1d40", FAWRY: "#e30613",
+  OPAY: "#1dd05d", PALMPAY: "#6c2bd9", KUDA: "#40196d", MONIEPOINT: "#0357ee",
+  PAYPAL: "#0070ba", WISE: "#9fe870", REVOLUT: "#0666eb", SKRILL: "#862165",
+  NETELLER: "#83ba3b", PAYONEER: "#ff4800", APPLE_PAY: "#000000", GOOGLE_PAY: "#4285f4",
   ZELLE: "#6d1ed4", CASHAPP: "#00d64f", VENMO: "#008cff", ALIPAY: "#1677ff",
-  WECHAT: "#07c160", PAYTM: "#00baf2", PHONEPE: "#5f259f", GRAB: "#00b14f",
+  WECHAT: "#07c160", PAYTM: "#00baf2", PHONEPE: "#5f259f", GRABPAY: "#00b14f",
+  MERCADOPAGO: "#009ee3", NEQUI: "#200020", KASPI: "#f14635",
+  VISA: "#1a1f71", MASTERCARD: "#eb001b", AMEX: "#2e77bc", UNIONPAY: "#e21836",
+  RUPAY: "#097939", MEEZA: "#c8102e",
   BANK: "#64748b", SEPA: "#0b57d0", SWIFT: "#334155", UPI: "#097939",
-  IMPS: "#0b57d0", PIX: "#32bcad", FNB: "#00a2a4", CAPITEC: "#004b8d",
+  IMPS: "#0b57d0", PIX: "#32bcad", SPEI: "#006847", FPX: "#ed1c24",
+  DUITNOW: "#ed1c24", QRIS: "#ed1c24", PSE: "#00a859", INTERAC: "#fdb913",
+  BANCONTACT: "#005498", IDEAL: "#cc0066", KNET: "#007a3d", CLIQ: "#c8102e",
+  FNB: "#00a2a4", CAPITEC: "#004b8d",
   CASH_DEPOSIT: "#f59e0b", CASH_PERSON: "#f59e0b",
 };
 

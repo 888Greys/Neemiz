@@ -19,10 +19,12 @@ import { useCurrency } from "@/lib/currency-context";
 import { CurrencySwitcher } from "@/components/currency-switcher";
 import {
   CRYPTO_DEPOSIT_ASSETS,
-  DEPOSIT_METHOD_ROWS,
+  depositRowsForCurrency,
   type CryptoAssetGroup,
   type DepositSelection,
 } from "@/lib/wallet-deposit-options";
+import { MARKETS } from "@/lib/payments/country-methods";
+import { PaymentBrandLogo } from "@/components/payment-brand-logo";
 import {
   CRYPTO_WITHDRAW_ASSETS,
   type CryptoWithdrawAsset,
@@ -65,18 +67,9 @@ const COIN_ICON_URL: Record<string, string> = {
 };
 
 // Real brand + coin logos for the payment-method list. Coins reuse the
-// cryptocurrency-icons set; card/wallet brands come from Simple Icons. Every
-// entry is optional at render time — <PaymentIcon> falls back to a clean
-// monogram chip if a logo is missing or fails to load, so nothing ever breaks.
-// Real brand logos we've confirmed resolve on Simple Icons. M-Pesa / Skrill /
-// Neteller aren't in the set, so they intentionally fall through to an on-brand
-// coloured chip below (see BRAND_FALLBACK) instead of a broken image request.
+// cryptocurrency-icons set for coin marks used in withdraw / history rows.
 const BRAND_ICON_URL: Record<string, string> = {
   ...COIN_ICON_URL,
-  VISA:     "https://cdn.simpleicons.org/visa/1434CB",
-  MC:       "https://cdn.simpleicons.org/mastercard/EB001B",
-  AIRTEL:   "https://cdn.simpleicons.org/airtel/E40000",
-  BINANCE:  "https://cdn.simpleicons.org/binance/F0B90B",
 };
 
 const BRAND_LABEL: Record<string, string> = {
@@ -84,46 +77,9 @@ const BRAND_LABEL: Record<string, string> = {
   SKRILL: "Skrill", NETELLER: "Neteller", BINANCE: "BNB", BANK: "Bank",
 };
 
-// On-brand fallback chip colours for brands with no CDN logo — a coloured badge
-// reads as intentional, not broken. Anything not listed uses a neutral chip.
-const BRAND_FALLBACK: Record<string, { bg: string; fg: string }> = {
-  MPESA:    { bg: "bg-[#43a047]", fg: "text-white" },
-  SKRILL:   { bg: "bg-[#7b2c6f]", fg: "text-white" },
-  NETELLER: { bg: "bg-[#83ba3b]", fg: "text-white" },
-};
-
-/** A payment-brand / coin logo with a graceful fallback. Renders the real logo
- *  when available; on a missing or broken URL it shows a tidy monogram chip so
- *  the row still looks intentional. Bank has no logo → a wallet glyph. */
+/** @deprecated Prefer PaymentBrandLogo */
 function PaymentIcon({ badge }: { badge: string }) {
-  const [failed, setFailed] = useState(false);
-  const url = BRAND_ICON_URL[badge];
-  if (badge === "BANK") {
-    return (
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/[0.08] text-slate-200">
-        <Icon name="account_balance" className="text-[17px]" />
-      </span>
-    );
-  }
-  if (url && !failed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={url}
-        alt={BRAND_LABEL[badge] ?? badge}
-        width={22}
-        height={22}
-        onError={() => setFailed(true)}
-        className="h-8 w-8 shrink-0 rounded-lg bg-white/[0.06] object-contain p-1"
-      />
-    );
-  }
-  const fb = BRAND_FALLBACK[badge];
-  return (
-    <span className={`grid h-8 min-w-8 shrink-0 place-items-center rounded-lg px-1.5 text-[10px] font-black ${fb ? `${fb.bg} ${fb.fg}` : "bg-white/[0.10] text-slate-100"}`}>
-      {BRAND_LABEL[badge] ?? badge}
-    </span>
-  );
+  return <PaymentBrandLogo code={badge === "MC" ? "MASTERCARD" : badge} size={32} />;
 }
 
 type CryptoBalance = { crypto: string; network: string; available: number; locked: number; usdtValue?: number | null };
@@ -844,6 +800,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
               /* ── Step 1: choose a payment method, then Continue ── */
               <DepositMethodStep
                 pesapalEnabled={PESAPAL_ENABLED}
+                displayCurrency={displayCurrency}
                 onContinue={(sel) => {
                   if (sel.kind === "crypto") { setDepositMethod("crypto"); setDepositAssetGroup(sel.assetGroup); }
                   else setDepositMethod(sel.kind);
@@ -1598,38 +1555,67 @@ function WalletPageFrame({ children, onBack, title }: { children: ReactNode; onB
   );
 }
 
-// Single-select payment-method picker. Highlights one row at a time (a radio),
-// shows real brand logos, and only advances when Continue is pressed — so the
-// choice is deliberate and the details view opens with a clean slate.
+// International payment-method picker: market currency → local rails + global crypto.
 function DepositMethodStep({
   pesapalEnabled,
+  displayCurrency,
   onContinue,
 }: {
   pesapalEnabled: boolean;
+  displayCurrency: string;
   onContinue: (selection: DepositSelection) => void;
 }) {
-  const rows = DEPOSIT_METHOD_ROWS.map((row) =>
-    row.id === "card" ? { ...row, enabled: pesapalEnabled } : row,
+  const [marketCurrency, setMarketCurrency] = useState(
+    () => MARKETS.some((m) => m.currency === displayCurrency) ? displayCurrency : "USD",
   );
-
+  const rows = useMemo(
+    () => depositRowsForCurrency(marketCurrency, { pesapalEnabled }),
+    [marketCurrency, pesapalEnabled],
+  );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = rows.find((r) => r.id === selectedId && r.enabled && r.selection);
+  const market = MARKETS.find((m) => m.currency === marketCurrency) ?? MARKETS[0];
+
+  useEffect(() => {
+    setSelectedId(null);
+  }, [marketCurrency]);
 
   return (
     <section className="space-y-5">
       <div>
         <h2 className="mb-1 text-[15px] font-black text-white">Payment method</h2>
-        <p className="mb-4 text-[12px] font-medium text-slate-500">Choose how you want to add funds</p>
+        <p className="mb-3 text-[12px] font-medium text-slate-500">
+          International deposits — pick your market, then a method
+        </p>
+        <label className="mb-4 block">
+          <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
+            Market / currency
+          </span>
+          <select
+            value={marketCurrency}
+            onChange={(e) => setMarketCurrency(e.target.value)}
+            className="h-11 w-full rounded-xl border border-white/[0.08] bg-[#0d1117] px-3 text-[13px] font-semibold text-white outline-none focus:border-[#087cff]/60"
+          >
+            {MARKETS.map((m) => (
+              <option key={m.currency} value={m.currency}>
+                {m.currency} — {m.label} ({m.region})
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="mb-2 text-[11px] text-slate-500">{market.region}</p>
         <div className="divide-y divide-white/[0.06] border-y border-white/[0.06]">
           {rows.map((row) => {
             const active = row.id === selectedId;
+            const logos =
+              row.id === "card" ? (["VISA", "MASTERCARD"] as const) : ([row.code] as const);
             return (
               <button
                 key={row.id}
                 type="button"
                 disabled={!row.enabled}
                 onClick={() => setSelectedId(row.id)}
-                className={`flex w-full items-center gap-3 py-3.5 text-left transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                className={`flex w-full items-center gap-3 py-3.5 text-left transition disabled:cursor-not-allowed disabled:opacity-45 ${
                   active ? "bg-[#087cff]/[0.06]" : "hover:bg-white/[0.02]"
                 }`}
               >
@@ -1640,17 +1626,20 @@ function DepositMethodStep({
                 >
                   {active && <span className="h-2.5 w-2.5 rounded-full bg-[#087cff]" />}
                 </span>
-                <span className="min-w-0 flex-1 text-[14px] font-bold text-slate-100">{row.label}</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  {logos.map((code) => (
+                    <PaymentBrandLogo key={code} code={code} size={32} />
+                  ))}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-bold text-slate-100">{row.label}</span>
+                  <span className="block text-[11px] font-medium text-slate-500">{row.subtitle}</span>
+                </span>
                 {!row.enabled && row.soon && (
                   <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
                     Soon
                   </span>
                 )}
-                <span className="flex max-w-[7rem] flex-wrap items-center justify-end gap-1">
-                  {row.badges.map((badge) => (
-                    <PaymentIcon key={badge} badge={badge} />
-                  ))}
-                </span>
               </button>
             );
           })}
