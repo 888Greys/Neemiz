@@ -1,6 +1,26 @@
 import { db } from "@/lib/db";
 import { sendSuspiciousNumberAlertEmail, sendReconMismatchEmail, sendBotSignupAlertEmail } from "@/lib/brevo";
+import { sendTelegram, isTelegramConfigured } from "@/lib/telegram";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
+
+/**
+ * Deliver an admin alert to the owner's Telegram (primary channel). Email is
+ * kept only as a FALLBACK for when Telegram isn't configured, so a security
+ * alert is never silently dropped. The same title/body already power the
+ * in-app notification, so we just reuse them.
+ */
+async function deliverAdminAlert(title: string, body: string, emailFallback: () => Promise<unknown>) {
+  if (isTelegramConfigured()) {
+    try {
+      await sendTelegram(`${title}\n${body}`);
+      return;
+    } catch (e) {
+      console.error("[admin-alert] telegram failed, falling back to email", e);
+    }
+  }
+  try { await emailFallback(); }
+  catch (e) { console.error("[admin-alert] email fallback failed", e); }
+}
 
 export interface BotSignupReport {
   windowMinutes: number;
@@ -53,8 +73,7 @@ export async function notifyAdminsSuspiciousNumber(info: { msisdn: string; count
     });
   }
 
-  try { await sendSuspiciousNumberAlertEmail(info); }
-  catch (e) { console.error("[admin-alert] suspicious-number email failed", e); }
+  await deliverAdminAlert(title, body, () => sendSuspiciousNumberAlertEmail(info));
 }
 
 /**
@@ -93,8 +112,7 @@ export async function notifyAdminsReconMismatch(
     });
   }
 
-  try { await sendReconMismatchEmail(findings, total); }
-  catch (e) { console.error("[admin-alert] recon email failed", e); }
+  await deliverAdminAlert("🚨 Unexplained balances detected (possible re-breach)", body, () => sendReconMismatchEmail(findings, total));
 }
 
 /**
@@ -132,6 +150,5 @@ export async function notifyAdminsBotSignups(report: BotSignupReport) {
     });
   }
 
-  try { await sendBotSignupAlertEmail(report); }
-  catch (e) { console.error("[admin-alert] bot-signup email failed", e); }
+  await deliverAdminAlert("🤖 Possible bot signups detected", body, () => sendBotSignupAlertEmail(report));
 }
