@@ -23,6 +23,16 @@ export const MIN_BARRIER_FRAC = 0.0005; // 0.05%
 /** Extra edge floor for short-duration Rise/Fall on 1Hz synthetics. */
 export const SHORT_1HZ_RISE_FALL_EDGE = 0.15;
 
+/**
+ * Minimum duration (ticks) for digit Over/Under. Very short Over/Under bets are
+ * priced from window-sampled win frequency (unconditional) but PLAYED at a
+ * chosen instant, so they exploit tick-to-tick digit autocorrelation the price
+ * can't see. Live R_50 evidence: 1-tick RTP ~1.54, 3-tick ~1.31, decaying with
+ * duration (both sides won ~79% at 1 tick). Requiring more ticks lets the
+ * microstructure edge wash out. Mirrors the 1-tick Rise/Fall guard above.
+ */
+export const MIN_OVER_UNDER_TICKS = 5;
+
 export function isOneHzMarket(market?: string | null): boolean {
   return !!market && market.startsWith("1HZ");
 }
@@ -128,6 +138,11 @@ export function priceDigitServer(params: {
   cfg?: PricingConfig;
 }): DigitPrice {
   const { side, targetDigit, durationTicks, stake, ticks } = params;
+
+  // 0. Microstructure gate: reject too-short Over/Under (autocorrelation exploit).
+  if ((side === "Over" || side === "Under") && durationTicks < MIN_OVER_UNDER_TICKS) {
+    return { accepted: false, reason: `Over/Under needs at least ${MIN_OVER_UNDER_TICKS} ticks` };
+  }
 
   // 1. Stability Gate (Matches only): check if the target digit distribution
   // in the calibration ticks is skewed (expected ~10%, reject if <7% or >13%)
