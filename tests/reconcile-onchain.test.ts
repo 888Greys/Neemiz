@@ -9,5 +9,8 @@ describe("crypto on-chain reconcile", () => {
     expect(src).toContain("clamp_ledger_to_current_deposit_address");
     expect(src).toContain("getOnChainBalance");
     expect(src).toContain("Never raise a balance");
+    expect(src).toContain("round8NonNeg");
+    // Negative deltas must survive rounding (phantom clawbacks).
+    expect(src).toMatch(/const delta = round8\(newAvailable - ledgerAvailable\)/);
   });
 });

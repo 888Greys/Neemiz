@@ -35,6 +35,10 @@ export type ReconcileResult = {
 };
 
 function round8(n: number): number {
+  return Math.round(n * 1e8) / 1e8;
+}
+
+function round8NonNeg(n: number): number {
   return Math.round(Math.max(0, n) * 1e8) / 1e8;
 }
 
@@ -91,7 +95,10 @@ export async function reconcileCryptoToOnChain(opts: {
     }
 
     // Spendable cannot exceed what's on the current address after locks.
-    const newAvailable = round8(Math.min(ledgerAvailable, Math.max(0, onChain - ledgerLocked)));
+    const newAvailable = round8NonNeg(
+      Math.min(ledgerAvailable, Math.max(0, onChain - ledgerLocked)),
+    );
+    // delta is negative when clawing back — do not clamp through round8NonNeg
     const delta = round8(newAvailable - ledgerAvailable);
 
     return {
@@ -103,7 +110,7 @@ export async function reconcileCryptoToOnChain(opts: {
       address,
       ledgerAvailable,
       ledgerLocked,
-      onChain: round8(onChain),
+      onChain: round8NonNeg(onChain),
       newAvailable,
       delta,
     } satisfies ReconcileRow;
@@ -112,7 +119,7 @@ export async function reconcileCryptoToOnChain(opts: {
   const rows = planned.filter((r) => r.delta < -1e-12); // only reductions
   if (!dryRun && rows.length) {
     for (const r of rows) {
-      const claw = round8(-r.delta);
+      const claw = round8NonNeg(-r.delta);
       await db.$transaction(async (tx) => {
         await tx.userCryptoBalance.update({
           where: {
