@@ -12,7 +12,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, methodAllowedForFiat, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
+import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
 import { PaymentLogo } from "@/components/p2p/payment-logo";
 import { LoadingDots } from "@/components/loading-dots";
 import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
@@ -889,6 +889,160 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
+/** Multi-select world payment catalogue for create-ad — same sheet chrome as MethodPicker. */
+function AdPaymentMethodsSheet({
+  open,
+  value,
+  savedCodes,
+  onClose,
+  onConfirm,
+  onAddMethod,
+}: {
+  open: boolean;
+  value: string[];
+  savedCodes: Set<string>;
+  onClose: () => void;
+  onConfirm: (codes: string[]) => void;
+  onAddMethod?: () => void;
+}) {
+  const [q, setQ] = useState("");
+  const [draft, setDraft] = useState<string[]>(value);
+
+  useEffect(() => {
+    if (open) {
+      setDraft(value);
+      setQ("");
+    }
+  }, [open, value]);
+
+  if (!open) return null;
+
+  const term = q.trim().toLowerCase();
+  const groups = Object.entries(paymentMethodsByCategory())
+    .map(([cat, list]) => [
+      cat,
+      list.filter(
+        (r) =>
+          !term
+          || r.label.toLowerCase().includes(term)
+          || r.value.toLowerCase().includes(term),
+      ),
+    ] as const)
+    .filter(([, list]) => list.length > 0);
+
+  function toggle(code: string) {
+    if (!savedCodes.has(code)) {
+      toast.info(
+        paymentMethodLabel(code),
+        "Save this method under Payment methods first, then select it on the ad.",
+      );
+      return;
+    }
+    setDraft((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code],
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/65" onClick={onClose}>
+      <div
+        className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between px-4 py-3">
+          <h2 className="text-[17px] font-bold text-white">Payment Methods</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-white/[0.06]"
+            aria-label="Close"
+          >
+            <Icon name="close" className="text-[18px]" />
+          </button>
+        </div>
+        <div className="shrink-0 px-4 pb-2">
+          <div className="flex items-center gap-2 rounded-xl bg-[#2c2c2e] px-3">
+            <Icon name="search" className="text-[18px] text-slate-500" />
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search M-Pesa, Pix, PayPal…"
+              className="h-11 min-w-0 flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-slate-500"
+            />
+          </div>
+          <p className="mt-2 text-[11px] font-medium text-slate-500">
+            All world methods. Only ones you’ve saved can be selected for this ad.
+          </p>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {groups.length === 0 && (
+            <p className="px-3 py-16 text-center text-[13px] font-semibold text-slate-500">No methods found</p>
+          )}
+          {groups.map(([cat, list]) => (
+            <div key={cat} className="mb-2">
+              <p className="sticky top-0 z-[1] bg-[#1c1c1e]/95 px-4 pb-1.5 pt-3 text-[12px] font-semibold text-slate-500 backdrop-blur">
+                {cat}
+              </p>
+              {list.map((r) => {
+                const saved = savedCodes.has(r.value);
+                const selected = draft.includes(r.value);
+                return (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => toggle(r.value)}
+                    className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
+                      selected ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
+                    } ${saved ? "" : "opacity-55"}`}
+                  >
+                    <PaymentLogo code={r.value} size={32} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[14px] font-semibold text-white">{r.label}</span>
+                      {!saved && (
+                        <span className="block text-[11px] font-medium text-amber-400/90">
+                          Not saved — tap to add
+                        </span>
+                      )}
+                    </span>
+                    {selected && <Icon name="check" className="shrink-0 text-[20px] text-white" />}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3 border-t border-white/[0.06] px-4 py-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (onAddMethod) {
+                onClose();
+                onAddMethod();
+              } else {
+                setDraft([]);
+              }
+            }}
+            className="h-12 rounded-full border border-white/25 text-[14px] font-bold text-white transition hover:bg-white/[0.04]"
+          >
+            {onAddMethod ? "Add method" : "Reset"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onConfirm(draft);
+              onClose();
+            }}
+            className="h-12 rounded-full bg-[#087cff] text-[14px] font-bold text-white transition hover:bg-[#0570e8]"
+          >
+            Confirm{draft.length ? ` (${draft.length})` : ""}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
   const [methods, setMethods] = useState<PayMethod[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1750,6 +1904,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const [spotRate, setSpotRate] = useState<number | null>(null);
   const [savedPaymentMethods, setSavedPaymentMethods] = useState<PayMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
+  const [payMethodsOpen, setPayMethodsOpen] = useState(false);
   const [escrowBalances, setEscrowBalances] = useState<CryptoBalance[]>([]);
   const [balancesLoading, setBalancesLoading] = useState(true);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
@@ -1918,23 +2073,10 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const priceRangeMax = spotRate ? spotRate * 2 : priceNum > 0 ? priceNum * 2 : null;
   const highestOrderPrice = spotRate ? spotRate * 1.1 : priceNum > 0 ? priceNum * 1.1 : null;
 
-  function togglePm(m: string) {
-    setForm((p) => ({ ...p, paymentMethods: p.paymentMethods.includes(m) ? p.paymentMethods.filter((x) => x !== m) : [...p.paymentMethods, m] }));
-  }
-
-  // Only offer saved methods that make sense for the selected fiat — a KES-only
-  // merchant picking NGN shouldn't see M-Pesa; universal rails (Bank, PayPal…)
-  // stay available for every currency.
-  const fiatSavedMethods = savedPaymentMethods.filter((m) => methodAllowedForFiat(m.name, form.fiat));
-
-  // When the fiat changes, drop any already-selected methods that no longer
-  // apply so an ad never ships with a currency-mismatched payment method.
-  useEffect(() => {
-    setForm((p) => {
-      const kept = p.paymentMethods.filter((code) => methodAllowedForFiat(code, p.fiat));
-      return kept.length === p.paymentMethods.length ? p : { ...p, paymentMethods: kept };
-    });
-  }, [form.fiat]);
+  const savedPaymentCodes = useMemo(
+    () => new Set(savedPaymentMethods.map((m) => m.name).filter(Boolean)),
+    [savedPaymentMethods],
+  );
 
   async function submit() {
     if (savedPaymentMethods.length === 0) {
@@ -2496,33 +2638,42 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                   Add payment method
                 </button>
               </div>
-            ) : fiatSavedMethods.length === 0 ? (
-              <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-3">
-                <p className="text-xs font-black text-amber-300">No {form.fiat} payment method</p>
-                <p className="mt-1 text-[11px] leading-4 text-slate-400">
-                  None of your saved payment methods work for {form.fiat}. Add a method buyers can use to pay in {form.fiat}.
-                </p>
+            ) : (
+              <>
                 <button
                   type="button"
-                  onClick={() => (onSetupPayments ?? onClose)()}
-                  className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-300 px-3 text-xs font-black text-black"
+                  onClick={() => setPayMethodsOpen(true)}
+                  className="flex w-full items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-left transition hover:border-white/15 active:scale-[0.99]"
                 >
-                  <Icon name="add" className="text-sm" />
-                  Add a {form.fiat} method
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/[0.06]">
+                    <Icon name="payments" className="text-[18px] text-slate-300" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      {form.paymentMethods.length
+                        ? `${form.paymentMethods.length} selected`
+                        : "Choose methods"}
+                    </span>
+                    <span className="block truncate text-[13px] font-bold text-white">
+                      {form.paymentMethods.length
+                        ? form.paymentMethods.map((m) => paymentMethodLabel(m)).join(", ")
+                        : "Browse all world payment methods"}
+                    </span>
+                  </span>
+                  <Icon name="expand_more" className="shrink-0 text-[22px] text-slate-500" />
                 </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {fiatSavedMethods.map((method) => {
-                  const value = method.name;
-                  return (
-                    <button key={value} type="button" onClick={() => togglePm(value)}
-                      className={`rounded-xl border py-2 text-xs font-bold transition-all ${form.paymentMethods.includes(value) ? "bg-[#087cff]/20 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"}`}>
-                      {paymentMethodLabel(value)}{method.bankName ? ` · ${method.bankName}` : ""}
-                    </button>
-                  );
-                })}
-              </div>
+                <AdPaymentMethodsSheet
+                  open={payMethodsOpen}
+                  value={form.paymentMethods}
+                  savedCodes={savedPaymentCodes}
+                  onClose={() => setPayMethodsOpen(false)}
+                  onConfirm={(codes) => f("paymentMethods", codes)}
+                  onAddMethod={() => {
+                    setPayMethodsOpen(false);
+                    (onSetupPayments ?? onClose)();
+                  }}
+                />
+              </>
             )}
           </div>
           </div>
