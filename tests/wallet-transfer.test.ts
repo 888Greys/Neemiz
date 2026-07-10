@@ -48,6 +48,11 @@ const mockTx = {
   notification: {
     createMany: vi.fn(),
   },
+  // The route reads promo-redemption totals inside the tx to block promo farmers
+  // from transferring. Stubbed here so every transfer test can reach the body.
+  promoRedemption: {
+    aggregate: vi.fn(),
+  },
 };
 
 vi.mock("@/lib/db", () => ({
@@ -67,6 +72,11 @@ describe("Wallet Transfer Rules", () => {
     vi.mocked(db.$transaction).mockImplementation(async (callback) => {
       return callback(mockTx as any);
     });
+
+    // Sensible defaults so tests reach the rule under test: sender has a balance,
+    // and no promo credit locks transfers. Individual tests override as needed.
+    mockTx.user.findUnique.mockResolvedValue({ walletBalance: 100_000 } as any);
+    mockTx.promoRedemption.aggregate.mockResolvedValue({ _sum: { amountKes: 0 } } as any);
 
     // Default Supabase mock user
     vi.mocked(createClient).mockResolvedValue({
