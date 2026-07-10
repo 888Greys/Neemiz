@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
@@ -12,24 +12,32 @@ const TABS = [
     href: "/p2p",
     label: "P2P",
     icon: "storefront",
-    match: (p: string) => p === "/p2p" || p.startsWith("/p2p/express"),
+    match: (p: string, _tab: string) => p === "/p2p" || p.startsWith("/p2p/express"),
   },
   {
     href: "/p2p/orders",
     label: "Orders",
     icon: "receipt_long",
-    match: (p: string) => p.startsWith("/p2p/orders") || p.startsWith("/p2p/order/"),
+    match: (p: string, _tab: string) => p.startsWith("/p2p/orders") || p.startsWith("/p2p/order/"),
   },
   {
     href: "/p2p/merchant?tab=ads",
     label: "Ads",
     icon: "campaign",
-    match: (p: string) => p.startsWith("/p2p/merchant"),
+    match: (p: string, tab: string) => p.startsWith("/p2p/merchant") && tab !== "profile",
+  },
+  {
+    href: "/p2p/merchant?tab=profile",
+    label: "Profile",
+    icon: "person",
+    match: (p: string, tab: string) => p.startsWith("/p2p/merchant") && tab === "profile",
   },
 ];
 
 export function P2PSubNav() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") ?? "";
   const { isSignedIn } = useSupabaseAuth();
   const navBadge = useNavBadge();
   const [orderCount, setOrderCount] = useState(0);
@@ -71,13 +79,13 @@ export function P2PSubNav() {
       <div className="flex w-full items-center justify-between rounded-lg border border-white/[0.06] bg-[#18191f] px-1.5 py-1">
         <div className="no-scrollbar flex items-center overflow-x-auto">
           {TABS.map((t) => {
-            const active = t.match(pathname);
+            const active = t.match(pathname, tab);
             return (
               <Link
                 key={t.href}
                 href={t.href}
                 prefetch={false}
-                className={`relative flex h-9 items-center gap-2 rounded-md px-3 text-sm font-black transition-all lg:h-8 lg:px-3 lg:text-[13px] ${
+                className={`relative flex h-9 items-center gap-2 rounded-md px-3 text-[13px] font-bold transition-all lg:h-8 lg:px-3 ${
                   active
                     ? "bg-[#087cff] text-white shadow-lg shadow-[#087cff]/20"
                     : "text-slate-500 hover:bg-white/[0.04] hover:text-slate-300"

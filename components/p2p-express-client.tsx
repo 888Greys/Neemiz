@@ -133,17 +133,16 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
   return (
     <>
       <P2PSubNav />
-      <div className="mx-auto w-full max-w-6xl px-3 pt-2 sm:px-4 lg:px-3">
-        <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#18191f] px-4 py-3">
+      <div className="mx-auto w-full max-w-lg px-3 pt-2 sm:max-w-xl sm:px-4 lg:max-w-6xl lg:px-3">
+        <div className="mb-1 flex items-center justify-between py-2">
           <div>
-            <p className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-400">Instant settlement</p>
-            <h1 className="mt-0.5 text-lg font-black tracking-tight text-white">Express exchange</h1>
-            <p className="text-[9px] text-slate-600">Auto-match against the best fully backed merchant offer.</p>
+            <h1 className="text-[17px] font-bold text-white">Express</h1>
+            <p className="mt-0.5 text-[12px] font-medium text-slate-500">Auto-match the best backed offer.</p>
           </div>
-          <div className="hidden items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-3 py-1.5 text-[9px] font-black text-slate-500 sm:flex">
-            <Icon name="shield" className="text-[13px] text-emerald-400" />
-            LIVE RISK CHECKS
-          </div>
+          <span className="hidden items-center gap-1.5 rounded-full bg-[#05b957]/10 px-2.5 py-1 text-[12px] font-semibold text-[#05b957] sm:inline-flex">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#05b957]" />
+            Escrow active
+          </span>
         </div>
       </div>
       <div className="mx-auto grid w-full max-w-6xl gap-5 px-3 py-5 sm:px-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-3">

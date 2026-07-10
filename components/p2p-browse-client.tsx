@@ -1607,77 +1607,24 @@ function OffersTable({
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
-function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: boolean }) {
-  const steps = [
-    {
-      icon: "manage_search",
-      title: "Browse ads",
-      desc: "Find verified merchants with the best rates for your currency",
-    },
-    {
-      icon: "payments",
-      title: "Pay the merchant",
-      desc: "Send via M-Pesa or bank transfer within the payment window",
-    },
-    {
-      icon: "account_balance_wallet",
-      title: "Receive crypto",
-      desc: "Crypto releases from escrow instantly once payment is confirmed",
-    },
-  ];
-
+function EmptyAds({ side }: { side: "BUY" | "SELL"; isSignedIn: boolean }) {
   return (
-    <div className="py-2">
-      {/* No ads message */}
-      <div className="mb-5 rounded-2xl border border-white/[0.06] bg-[#151518] px-5 py-5 text-center">
-        <div className="mx-auto mb-3 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.04]">
-          <Icon name="swap_horiz" className="text-xl text-slate-500" />
-        </div>
-        <p className="mb-1 text-lg font-black text-white">
-          No {side === "SELL" ? "sell" : "buy"} offers available
-        </p>
-        <p className="text-sm text-slate-500">
-          Try a different crypto or payment filter — or be the first to post.
-        </p>
-        {isSignedIn && (
-          <Link
-            href="/p2p/merchant"
-            prefetch={false}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#087cff]/20 bg-[#087cff]/10 px-5 py-2.5 text-sm font-black text-[#087cff] transition-colors hover:bg-[#087cff]/20"
-          >
-            <Icon name="add_business" className="text-base" />
-            Post an ad
-          </Link>
-        )}
-      </div>
-
-      {/* How it works */}
-      <div>
-        <p className="mb-3 text-center text-xs font-black uppercase tracking-widest text-slate-600">
-          How P2P trading works
-        </p>
-        <div className="mx-auto grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
-          {steps.map((step, i) => (
-            <div
-              key={i}
-              className="relative rounded-xl border border-white/[0.06] bg-[#18191f] p-4 text-center"
-            >
-              {/* Connector line */}
-              {i < 2 && (
-                <div className="hidden sm:block absolute top-1/2 -right-1.5 w-3 h-px bg-white/[0.08] z-10" />
-              )}
-              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-lg border border-[#087cff]/20 bg-[#087cff]/10">
-                <Icon name={step.icon} className="text-base text-[#087cff]" />
-              </div>
-              <div className="mb-1.5 inline-flex items-center gap-1 rounded-full bg-white/[0.04] px-2 py-0.5">
-                <span className="text-[10px] font-black text-slate-500">Step {i + 1}</span>
-              </div>
-              <p className="mb-1 text-sm font-black text-white">{step.title}</p>
-              <p className="text-xs leading-5 text-slate-600">{step.desc}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+    <div className="flex min-h-[280px] flex-col items-center justify-center px-4 py-14 text-center">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden className="mb-4 text-slate-600">
+        <path d="M18 14h28l10 10v34a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+        <path d="M46 14v10h10" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+        <path d="M24 34h24M24 42h18M24 50h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      </svg>
+      <p className="text-[14px] font-medium text-slate-400">
+        Oops, no {side === "SELL" ? "sell" : "buy"} offers right now.
+      </p>
+      <Link
+        href="/p2p/merchant?tab=ads"
+        prefetch={false}
+        className="mt-6 rounded-full border border-dashed border-white/35 px-8 py-2.5 text-[14px] font-bold text-white transition hover:border-white/55 hover:bg-white/[0.04] active:scale-[0.98]"
+      >
+        Post Now
+      </Link>
     </div>
   );
 }
@@ -1687,19 +1634,17 @@ function EmptyAds({ side, isSignedIn }: { side: "BUY" | "SELL"; isSignedIn: bool
 function MerchantPromoBanner({ isSignedIn }: { isSignedIn: boolean }) {
   return (
     <Link
-      href="/p2p/merchant"
+      href="/p2p/merchant?tab=ads"
       prefetch={false}
-      className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-[#18191f] px-4 py-3 hover:bg-[#18191f] transition-colors"
+      className="flex items-center justify-between gap-3 rounded-xl bg-[#1c1c1e] px-4 py-3.5 transition hover:bg-[#222226]"
     >
-      <div className="flex items-center gap-3 min-w-0">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#087cff]/15 border border-[#087cff]/25 shrink-0">
-          <Icon name="storefront" className="text-[#087cff] text-base" />
-        </div>
-        <span className="text-sm font-semibold text-slate-400">
-          {isSignedIn ? "Apply to be a merchant" : "Become a merchant"}
+      <div className="flex min-w-0 items-center gap-3">
+        <Icon name="campaign" className="shrink-0 text-[20px] text-slate-300" />
+        <span className="text-[14px] font-semibold text-white">
+          {isSignedIn ? "Post your own ad" : "Post an ad"}
         </span>
       </div>
-      <Icon name="chevron_right" className="text-lg text-white/25 shrink-0" />
+      <span className="text-[13px] font-bold text-[#087cff]">Post Now &gt;</span>
     </Link>
   );
 }
@@ -1989,11 +1934,8 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
         <div className="mb-3 border-b border-white/[0.06] pb-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Peer-to-peer
-              </p>
-              <h1 className="mt-1 text-[20px] font-black tracking-tight text-white sm:text-[22px]">
-                Trade crypto with people
+              <h1 className="text-[17px] font-bold tracking-tight text-white sm:text-[20px]">
+                P2P Trading
               </h1>
               <p className="mt-1 max-w-lg text-[13px] font-medium leading-relaxed text-slate-500">
                 Escrow-protected orders, local payments, verified merchants.
@@ -2002,20 +1944,20 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <div className="flex flex-wrap items-center gap-2">
               <Link
                 href="/p2p/express"
-                className="rounded-xl bg-[#087cff] px-3.5 py-2 text-[12px] font-black text-white transition hover:bg-[#0570e8]"
+                className="rounded-full bg-[#087cff] px-4 py-2 text-[13px] font-bold text-white transition hover:bg-[#0570e8]"
               >
                 Direct buy
               </Link>
               <Link
-                href="/p2p/merchant"
-                className="rounded-xl bg-white/[0.04] px-3.5 py-2 text-[12px] font-black text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.07] hover:text-white"
+                href="/p2p/merchant?tab=ads"
+                className="rounded-full border border-dashed border-white/35 px-4 py-2 text-[13px] font-bold text-white transition hover:border-white/55 hover:bg-white/[0.04]"
               >
-                Become a merchant
+                Post Now
               </Link>
             </div>
           </div>
           {stats && (
-            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] font-semibold text-slate-500">
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] font-medium text-slate-500">
               <span>
                 <span className="tabular-nums text-white">{stats.onlineMerchants}</span> online
               </span>
@@ -2036,53 +1978,52 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
         {/* Market workspace */}
         <div className="mb-2 min-w-0">
-          <div className="min-w-0 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+          <div className="min-w-0 rounded-xl bg-[#1c1c1e] px-3 py-2.5">
             <div className="mb-2 flex min-w-0 items-center justify-between gap-3 lg:mb-1.5">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-600">Market</p>
-                <h2 className="text-[15px] font-black leading-tight text-white">{tab === "BUY" ? "Buy" : "Sell"} {crypto === "ALL" ? "Crypto" : crypto}</h2>
+                <h2 className="text-[15px] font-bold leading-tight text-white">{tab === "BUY" ? "Buy" : "Sell"} {crypto === "ALL" ? "Crypto" : crypto}</h2>
                 {marketRef > 0 && crypto !== "ALL" ? (
-                  <p className="mt-0.5 flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                  <p className="mt-0.5 flex items-center gap-1.5 text-[12px] font-medium text-slate-400">
                     <img src={CRYPTO_ICONS[crypto]} alt={crypto} width={14} height={14} className="h-3.5 w-3.5 rounded-full" />
                     1 {crypto} ≈ <span className="text-white">{formatFiat(marketRef, fiat)}</span>
                     <span className="hidden text-slate-600 sm:inline">· {rateIsLive ? "live market price" : "median of offers"}</span>
                   </p>
                 ) : (
-                  <p className="max-w-md text-xs font-semibold leading-5 text-slate-500 lg:leading-4">
+                  <p className="max-w-md text-[12px] font-medium leading-5 text-slate-500 lg:leading-4">
                     Pick Buy or Sell, then choose an offer below.
                   </p>
                 )}
               </div>
-              <div className="hidden shrink-0 items-center gap-2 text-xs text-slate-500 sm:flex">
-                <span className="flex items-center gap-1.5 rounded-full bg-[#05b957]/10 px-2.5 py-1 text-[#05b957]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#05b957] animate-pulse" />
+              <div className="hidden shrink-0 items-center gap-2 text-[12px] text-slate-500 sm:flex">
+                <span className="flex items-center gap-1.5 rounded-full bg-[#05b957]/10 px-2.5 py-1 font-semibold text-[#05b957]">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#05b957]" />
                   Escrow active
-                </span>
-                <span className="flex items-center gap-1 rounded-full bg-white/[0.05] px-2.5 py-1">
-                  <Icon name="shield" className="text-[#8bc3ff] text-xs" />
-                  0% fees
                 </span>
               </div>
             </div>
 
             {/* Controls */}
             <div className="grid min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-              <div className="grid grid-cols-2 gap-1 rounded-lg bg-[#151518]/60 p-1 sm:flex sm:items-center">
-                {(["BUY", "SELL"] as const).map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setTab(t)}
-                    className={`h-8 rounded-md px-3 text-xs font-black transition-all sm:px-5 ${
-                      tab === t
-                        ? t === "BUY"
-                          ? "bg-[#05b957] text-white shadow shadow-[#05b957]/20"
-                          : "bg-red-500 text-white shadow shadow-red-500/20"
-                        : "text-slate-400 hover:text-white"
+              <div className="flex items-center gap-3 rounded-xl bg-black/25 px-3 py-2 sm:gap-2">
+                <span className="shrink-0 text-[13px] font-semibold text-white">Side</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={tab === "BUY"}
+                  onClick={() => setTab(tab === "BUY" ? "SELL" : "BUY")}
+                  className={`relative h-[22px] w-[40px] shrink-0 rounded-full transition ${
+                    tab === "BUY" ? "bg-[#05b957]" : "bg-red-500/80"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition ${
+                      tab === "BUY" ? "left-[20px]" : "left-[2px]"
                     }`}
-                  >
-                    {t === "BUY" ? "Buy" : "Sell"}
-                  </button>
-                ))}
+                  />
+                </button>
+                <span className={`min-w-0 flex-1 text-right text-[12px] font-semibold sm:flex-none ${tab === "BUY" ? "text-[#05b957]" : "text-red-400"}`}>
+                  {tab === "BUY" ? "Buy" : "Sell"}
+                </span>
               </div>
 
               {/* Crypto dropdown + USING */}

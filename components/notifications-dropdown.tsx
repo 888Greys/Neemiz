@@ -433,14 +433,14 @@ export function NotificationsBell() {
           notificationCache = null;
           refreshUnread();
         }}
-        className={`relative flex h-9 w-9 items-center justify-center rounded-xl transition ${
-          open ? "bg-[#087cff]/20 text-[#087cff]" : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.10] hover:text-white"
+        className={`relative flex h-8 w-8 items-center justify-center rounded-full transition ${
+          open ? "bg-[#087cff]/20 text-[#087cff]" : "text-slate-400 hover:bg-white/[0.08] hover:text-white"
         }`}
         aria-label="Notifications"
       >
-        <Icon name="notifications" fill={open} className="text-[20px]" />
+        <Icon name="notifications" fill={open} className="text-[18px]" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#ff1979] px-1 text-[9px] font-black text-white ring-2 ring-[#151518]">
+          <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[#ff1979] px-0.5 text-[8px] font-black text-white ring-2 ring-[#151518]">
             {unread}
           </span>
         )}
