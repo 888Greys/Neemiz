@@ -23,9 +23,22 @@ describe("promo codes", () => {
     expect(existsSync(path)).toBe(true);
     const sql = readFileSync(path, "utf8");
     expect(sql).toContain("KIP100");
-    expect(sql).toContain("100.00");
     expect(sql).toContain("SILAS50");
     expect(sql).toContain("50.00");
+  });
+
+  it("sets both KIP100 and SILAS50 to KSh 50", () => {
+    const path = "prisma/migrations/20260710170000_promo_kip_silas_50/migration.sql";
+    expect(existsSync(path)).toBe(true);
+    const sql = readFileSync(path, "utf8");
+    expect(sql).toContain("KIP100");
+    expect(sql).toContain("SILAS50");
+    expect(sql).toContain("50.00");
+  });
+
+  it("accepts Kip100 / Silas50 casing", () => {
+    expect(normalizePromoCode("Kip100")).toBe("KIP100");
+    expect(normalizePromoCode("Silas50")).toBe("SILAS50");
   });
 
   it("exposes redeem + admin create routes", () => {
