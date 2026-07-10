@@ -8,9 +8,10 @@
  *   - available := max(0, onChain − locked)
  *   - If available drops, write a REFUND row for the delta (audit trail).
  *   - No deposit address + ledger > 0 → available := 0 (can't withdraw anyway).
+ *   - RPC failure → skip that row (never claw to 0 on an outage).
  */
 import { db } from "@/lib/db";
-import { getOnChainBalance } from "@/lib/crypto/deposit-checker";
+import { tryGetOnChainBalance } from "@/lib/crypto/deposit-checker";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 
 export type ReconcileRow = {
@@ -25,12 +26,15 @@ export type ReconcileRow = {
   onChain: number;
   newAvailable: number;
   delta: number; // negative = clawed back
+  skipped?: boolean;
+  skipReason?: string;
 };
 
 export type ReconcileResult = {
   dryRun: boolean;
   checked: number;
   changed: number;
+  skipped: number;
   rows: ReconcileRow[];
 };
 
@@ -90,8 +94,25 @@ export async function reconcileCryptoToOnChain(opts: {
 
     let onChain = 0;
     if (address) {
-      onChain = await getOnChainBalance(address, b.crypto, b.network);
-      if (!Number.isFinite(onChain) || onChain < 0) onChain = 0;
+      const fetched = await tryGetOnChainBalance(address, b.crypto, b.network);
+      if (fetched === null) {
+        return {
+          userId: b.userId,
+          username: b.user.username,
+          email: b.user.email,
+          crypto: b.crypto,
+          network: b.network,
+          address,
+          ledgerAvailable,
+          ledgerLocked,
+          onChain: 0,
+          newAvailable: ledgerAvailable,
+          delta: 0,
+          skipped: true,
+          skipReason: "rpc_unavailable",
+        } satisfies ReconcileRow;
+      }
+      onChain = fetched;
     }
 
     // Spendable cannot exceed what's on the current address after locks.
@@ -116,7 +137,8 @@ export async function reconcileCryptoToOnChain(opts: {
     } satisfies ReconcileRow;
   });
 
-  const rows = planned.filter((r) => r.delta < -1e-12); // only reductions
+  const skipped = planned.filter((r) => r.skipped).length;
+  const rows = planned.filter((r) => !r.skipped && r.delta < -1e-12); // only reductions
   if (!dryRun && rows.length) {
     for (const r of rows) {
       const claw = round8NonNeg(-r.delta);
@@ -161,6 +183,7 @@ export async function reconcileCryptoToOnChain(opts: {
     dryRun,
     checked: balances.length,
     changed: rows.length,
+    skipped,
     rows: rows.sort((a, b) => a.delta - b.delta),
   };
 }
