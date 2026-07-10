@@ -6,6 +6,7 @@ import { BetType, TransactionType, TransactionStatus } from "@prisma/client";
 import { readFixtureDetail } from "@/lib/fixtures-cache";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
+import { findCachedMarket, findCachedOdd } from "@/lib/bet-selection";
 
 const MIN_STAKE = 10;
 
@@ -30,22 +31,16 @@ async function resolveLiveSelections(selections: BetSelectionInput[]) {
     selections.map(async (selection) => {
       // Cache only — never spend Odds credits on bet placement (4k+ users).
       const detail = await readFixtureDetail(Number(selection.fixtureId));
-      if (!detail) {
+      if (!detail || detail.markets.length === 0) {
         throw new Error("MARKET_UNAVAILABLE");
       }
 
-      const requestedMarket = selection.market.trim().toLowerCase();
-      const requestedLabel = selection.label.trim().toLowerCase();
-      const market = detail.markets.find((m) => m.name.trim().toLowerCase() === requestedMarket);
+      const market = findCachedMarket(detail.markets, selection.market);
       if (!market) {
         throw new Error("MARKET_UNAVAILABLE");
       }
 
-      const odd = market.odds.find((o) => {
-        const base = o.label.trim().toLowerCase();
-        const withExtra = `${o.label} ${o.extra ?? ""}`.trim().toLowerCase();
-        return base === requestedLabel || withExtra === requestedLabel;
-      });
+      const odd = findCachedOdd(market, selection.label, detail.match);
       if (!odd) {
         throw new Error("ODDS_CHANGED");
       }
