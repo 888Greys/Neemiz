@@ -356,6 +356,20 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             );
           }
 
+          if (item.action === "wallet") {
+            return (
+              <button
+                key={item.label}
+                type="button"
+                className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset"
+                onClick={() => openWallet()}
+              >
+                <Icon name={item.icon} className="text-[20px]" />
+                <span className="mt-0.5 font-bold leading-none">{item.label}</span>
+              </button>
+            );
+          }
+
 
           return (
             <Link
