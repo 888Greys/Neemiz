@@ -27,6 +27,8 @@ export type MobileNavItem = {
   // Section tabs that share one route but switch via `?tab=` (e.g. Sports / Live).
   // When set, active state keys off the tab value so sibling tabs don't all light up.
   tab?: string;
+  // In-app action instead of navigation (e.g. open the floating wallet sheet).
+  action?: "wallet";
 };
 
 // Default cross-product switcher — shown on the dashboard and any section that
@@ -54,7 +56,7 @@ export const binaryMobileNav: MobileNavItem[] = [
 // (Markets pair-picker / Trade / Positions), Menu as the constant escape hatch.
 export const forexMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
-  { href: "/wallet",                label: "Wallet",    icon: "account_balance_wallet" },
+  { label: "Wallet", icon: "account_balance_wallet", action: "wallet" },
   { href: "/forex",                 label: "Trade",     icon: "show_chart",             panel: "",          activePath: "/forex" },
   { href: "/forex?panel=discover",  label: "Discover",  icon: "explore",                panel: "discover",  activePath: "/forex" },
   { href: "/forex?panel=positions", label: "Positions", icon: "schedule",               panel: "positions", activePath: "/forex" },
