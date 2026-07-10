@@ -361,7 +361,11 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             ? pathname.startsWith(activePath) && currentPanel === item.panel
             : isQueryTab
               ? pathname.startsWith(activePath) && currentTab === item.tab
-              : activePath === (pendingPath ?? pathname);
+              : item.label === "Orders"
+                ? (pendingPath ?? pathname).startsWith("/p2p/order") || (pendingPath ?? pathname).startsWith("/p2p/orders")
+                : item.label === "Ads"
+                  ? (pendingPath ?? pathname).startsWith("/p2p/merchant")
+                  : activePath === (pendingPath ?? pathname);
           const navigating = !isPanelTab && !isQueryTab && pendingPath === activePath && pathname !== activePath;
           if (item.label === "Menu") {
             return (
@@ -379,6 +383,20 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
                 type="button"
                 className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset"
                 onClick={() => openWallet()}
+              >
+                <Icon name={item.icon} className="text-[20px]" />
+                <span className="mt-0.5 font-bold leading-none">{item.label}</span>
+              </button>
+            );
+          }
+
+          if (item.action === "profile") {
+            return (
+              <button
+                key={item.label}
+                type="button"
+                className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset"
+                onClick={() => openProfile()}
               >
                 <Icon name={item.icon} className="text-[20px]" />
                 <span className="mt-0.5 font-bold leading-none">{item.label}</span>

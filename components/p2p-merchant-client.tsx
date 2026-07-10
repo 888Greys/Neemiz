@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { createClient } from "@/lib/supabase/client";
@@ -1986,12 +1987,25 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
 
 function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const { user } = useSupabaseAuth();
+  const searchParams = useSearchParams();
   const [ads, setAds]           = useState<Ad[]>([]);
   const [loading, setLoading]   = useState(true);
   const [merchantProfile, setMerchantProfile] = useState<MerchantStatus>(status);
   const [createOpen, setCreate] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
-  const [section, setSection] = useState<"overview" | "profile" | "wallet" | "payments" | "ads">("overview");
+  const initialTab = searchParams.get("tab");
+  const [section, setSection] = useState<"overview" | "profile" | "wallet" | "payments" | "ads">(
+    initialTab === "ads" || initialTab === "payments" || initialTab === "wallet" || initialTab === "profile"
+      ? initialTab
+      : "overview",
+  );
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "ads" || tab === "payments" || tab === "wallet" || tab === "profile" || tab === "overview") {
+      setSection(tab);
+    }
+  }, [searchParams]);
   // Bumped to jump from an ad's "Add payment method" straight into the Payment
   // Methods tab with the add form open.
   const [payFormSignal, setPayFormSignal] = useState(0);

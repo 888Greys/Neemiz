@@ -5,54 +5,73 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
+import { useNavBadge } from "@/lib/nav-badge-context";
 
 const TABS = [
-  { href: "/p2p",          label: "Browse",          icon: "storefront" },
-  { href: "/p2p/express",  label: "Express",         icon: "bolt" },
-  { href: "/p2p/orders",   label: "My Orders",       icon: "receipt_long" },
-  { href: "/p2p/merchant", label: "Merchant Center",  icon: "verified_user" },
+  {
+    href: "/p2p",
+    label: "P2P",
+    icon: "storefront",
+    match: (p: string) => p === "/p2p" || p.startsWith("/p2p/express"),
+  },
+  {
+    href: "/p2p/orders",
+    label: "Orders",
+    icon: "receipt_long",
+    match: (p: string) => p.startsWith("/p2p/orders") || p.startsWith("/p2p/order/"),
+  },
+  {
+    href: "/p2p/merchant?tab=ads",
+    label: "Ads",
+    icon: "campaign",
+    match: (p: string) => p.startsWith("/p2p/merchant"),
+  },
 ];
 
 export function P2PSubNav() {
-  const pathname    = usePathname();
+  const pathname = usePathname();
   const { isSignedIn } = useSupabaseAuth();
+  const navBadge = useNavBadge();
   const [orderCount, setOrderCount] = useState(0);
 
-  // Poll the count of live orders needing attention (new incoming as a seller,
-  // or awaiting pay/release) → drives the red-dot badge on "My Orders".
   useEffect(() => {
-    if (!isSignedIn) { setOrderCount(0); return; }
+    if (!isSignedIn) {
+      setOrderCount(0);
+      navBadge?.setBadge("Orders", 0);
+      return;
+    }
     let cancelled = false;
     const tick = async () => {
-      // Presence heartbeat (no-op server-side for non-merchants) + order count.
       fetch("/api/p2p/merchant/profile", { method: "POST" }).catch(() => {});
       try {
         const r = await fetch("/api/p2p/orders/active-count");
         if (!r.ok) return;
-        const d = await r.json() as { count?: number };
-        if (!cancelled) setOrderCount(d.count ?? 0);
-      } catch { /* ignore */ }
+        const d = (await r.json()) as { count?: number };
+        const n = d.count ?? 0;
+        if (!cancelled) {
+          setOrderCount(n);
+          navBadge?.setBadge("Orders", n);
+        }
+      } catch {
+        /* ignore */
+      }
     };
     tick();
     const id = setInterval(() => {
       if (document.visibilityState === "visible") tick();
     }, 60000);
-    return () => { cancelled = true; clearInterval(id); };
-  }, [isSignedIn, pathname]);
-
-  // Determine active tab — order room counts as "My Orders"
-  const effectivePath = pathname.startsWith("/p2p/order/") ? "/p2p/orders" : pathname;
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [isSignedIn, pathname, navBadge]);
 
   return (
-    // Hidden on mobile/tablet — the section bottom-nav covers these tabs there;
-    // shown on desktop (lg+) where there is no bottom nav.
     <div className="mx-auto hidden w-full max-w-6xl px-3 pt-2 sm:px-4 lg:block lg:px-3">
       <div className="flex w-full items-center justify-between rounded-lg border border-white/[0.06] bg-[#18191f] px-1.5 py-1">
         <div className="no-scrollbar flex items-center overflow-x-auto">
           {TABS.map((t) => {
-            const active = t.href === "/p2p"
-              ? effectivePath === "/p2p"
-              : effectivePath.startsWith(t.href);
+            const active = t.match(pathname);
             return (
               <Link
                 key={t.href}
@@ -66,7 +85,7 @@ export function P2PSubNav() {
               >
                 <Icon name={t.icon} fill={active} className="text-[16px]" />
                 <span className="hidden sm:inline">{t.label}</span>
-                {t.href === "/p2p/orders" && orderCount > 0 && (
+                {t.label === "Orders" && orderCount > 0 && (
                   <span className="absolute -right-0.5 -top-0.5 flex h-[13px] min-w-[13px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[8px] font-black leading-none text-white ring-1 ring-[#18191f]">
                     {orderCount > 9 ? "9+" : orderCount}
                   </span>
@@ -75,18 +94,6 @@ export function P2PSubNav() {
             );
           })}
         </div>
-
-        {/* Post Ad shortcut — only on browse, only if signed in */}
-        {effectivePath === "/p2p" && isSignedIn && (
-          <Link
-            href="/p2p/merchant"
-            prefetch={false}
-            className="flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-white/[0.06] px-3 text-xs font-black text-white/70 transition-colors hover:bg-white/[0.1] hover:text-white"
-          >
-            <Icon name="add_business" className="text-sm" />
-            <span className="hidden sm:inline">Post Ad</span>
-          </Link>
-        )}
       </div>
     </div>
   );
