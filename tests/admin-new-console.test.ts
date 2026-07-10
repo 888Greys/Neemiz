@@ -12,13 +12,18 @@ describe("new admin console entry point", () => {
 
   it("provides an authenticated internal preview route backed by the Stitch screens", () => {
     const route = "app/admin/(panel)/new/page.tsx";
+    const layout = "app/admin/(panel)/new/layout.tsx";
+    const shell = "components/admin-v2/shell.tsx";
+    const withdrawals = "components/admin-v2/withdrawals.tsx";
 
     expect(existsSync(route)).toBe(true);
+    expect(existsSync(layout)).toBe(true);
+    expect(existsSync(shell)).toBe(true);
+    expect(existsSync(withdrawals)).toBe(true);
 
-    const source = readFileSync(route, "utf8");
-    expect(source).toContain("AdminShell");
-    expect(source).toContain("10900649296411941705");
-    expect(source).toContain("Owner Cockpit");
-    expect(source).toContain("Withdrawals & Approvals");
+    expect(readFileSync(route, "utf8")).toContain("AdminV2Cockpit");
+    expect(readFileSync(layout, "utf8")).toContain("AdminV2Shell");
+    expect(readFileSync(shell, "utf8")).toContain("Owner Cockpit");
+    expect(readFileSync(withdrawals, "utf8")).toContain("Withdrawals");
   });
 });
