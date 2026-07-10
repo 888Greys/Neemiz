@@ -451,3 +451,56 @@ input[type="email"]:focus {
 @media (max-width: 768px) {
   .admin-page { padding: 18px 12px 32px; }
 }
+
+/* ── Aviator win celebration ─────────────────────────────── */
+
+@keyframes aviator-win-pop {
+  0% { opacity: 0; transform: translate(-50%, 12px) scale(0.86); }
+  55% { opacity: 1; transform: translate(-50%, 0) scale(1.06); }
+  75% { transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes aviator-win-float {
+  0% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -28px); }
+}
+
+.aviator-win-badge-anim {
+  animation:
+    aviator-win-pop 420ms cubic-bezier(0.22, 1.2, 0.36, 1) both,
+    aviator-win-float 700ms ease-in 1.7s forwards;
+}
+
+@keyframes aviator-confetti-fall {
+  0% { opacity: 1; transform: translate3d(0, 0, 0) rotate(0deg); }
+  100% { opacity: 0; transform: translate3d(var(--dx, 20px), 90px, 0) rotate(220deg); }
+}
+
+.aviator-confetti {
+  animation: aviator-confetti-fall 900ms ease-out forwards;
+}
+
+@keyframes aviator-cashout-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.aviator-cashout-shimmer {
+  background: linear-gradient(
+    110deg,
+    rgba(245, 185, 66, 0.12) 25%,
+    rgba(245, 185, 66, 0.35) 37%,
+    rgba(245, 185, 66, 0.12) 63%
+  );
+  background-size: 200% 100%;
+  animation: aviator-cashout-shimmer 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aviator-win-badge-anim,
+  .aviator-confetti,
+  .aviator-cashout-shimmer {
+    animation: none !important;
+  }
+}
