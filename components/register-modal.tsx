@@ -10,6 +10,7 @@ import { COUNTRIES, type Country } from "@/lib/countries";
 import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
 import { stashPendingPromo, redeemPromoClient } from "@/lib/pending-promo";
+import { showPromoSuccess } from "@/components/promo-success";
 
 
 type Props = {
@@ -44,10 +45,10 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     stashPendingPromo(promoCode);
     const promo = await redeemPromoClient(promoCode || undefined);
     onClose();
-    if (promo.ok && promo.amount) {
-      toast.success(welcomeMsg, `KSh ${promo.amount.toLocaleString()} promo credited to your wallet.`);
-    } else {
-      toast.success(welcomeMsg, "Welcome to Nezeem 🎉");
+    toast.success(welcomeMsg, "Welcome to Nezeem 🎉");
+    if (promo.ok && promo.amount && promo.code) {
+      // Slight delay so the register sheet closes first, then celebrate.
+      setTimeout(() => showPromoSuccess({ amount: promo.amount!, code: promo.code! }), 350);
     }
     router.push("/dashboard");
   }

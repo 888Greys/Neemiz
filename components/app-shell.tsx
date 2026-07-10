@@ -19,6 +19,7 @@ import { MONEY_LOCALE, CURRENCY_SYMBOL } from "@/lib/currency";
 import { useMoney } from "@/lib/currency-context";
 import { CurrencySwitcher } from "@/components/currency-switcher";
 import { peekPendingPromo, redeemPromoClient } from "@/lib/pending-promo";
+import { PromoSuccessHost, showPromoSuccess } from "@/components/promo-success";
 import { NavBadgeContext } from "@/lib/nav-badge-context";
 import { PhonePromptModal } from "@/components/phone-prompt-modal";
 
@@ -133,8 +134,8 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     let cancelled = false;
     void (async () => {
       const result = await redeemPromoClient();
-      if (cancelled || !result.ok || !result.amount) return;
-      toast.success("Promo applied", `KSh ${result.amount.toLocaleString()} credited to your wallet.`);
+      if (cancelled || !result.ok || !result.amount || !result.code) return;
+      showPromoSuccess({ amount: result.amount, code: result.code });
     })();
     return () => { cancelled = true; };
   }, [isSignedIn]);
@@ -342,6 +343,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {registerOpen && <RegisterModal onClose={() => setRegisterOpen(false)} onSwitchToLogin={() => { setRegisterOpen(false); setLoginOpen(true); }} />}
       {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={(tab) => { setProfileOpen(false); openWallet(tab); }} initialView={profileInitialView} />}
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} initialTab={walletInitialTab} />}
+      <PromoSuccessHost />
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileInitialView(undefined); setProfileOpen(true); }} />}
       {missingPhone && <PhonePromptModal onComplete={handlePhoneComplete} />}
 
