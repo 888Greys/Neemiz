@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * Pre-signup / pre-login device check. Client sends the stable localStorage
  * deviceId; we count how many app users already share that fingerprint and
- * reject when over DEVICE_MAX_ACCOUNTS (default 2). Also blocks Tor exits
+ * reject when over DEVICE_MAX_ACCOUNTS (default 1). Also blocks Tor exits
  * (Cloudflare cf-ipcountry=T1).
  */
 export async function POST(req: Request) {
