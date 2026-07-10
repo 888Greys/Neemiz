@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
 import { disableBetType } from "@/lib/game-guard";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
 import { sendRtpGuardAlertEmail } from "@/lib/brevo";
-import { sendTelegram } from "@/lib/telegram";
+import { sendTelegram, isTelegramConfigured } from "@/lib/telegram";
 
 const num = (v: string | undefined, d: number) => {
   const n = Number(v);
@@ -134,8 +134,12 @@ export async function runRtpGuard() {
   }
 
   if (halted.length || userFlags.length) {
-    try { await sendRtpGuardAlertEmail({ halted, userFlags, windowH }); }
-    catch (e) { console.error("[rtp-guard] owner email failed", e); }
+    // Email only as a fallback when Telegram isn't configured — the owner's
+    // primary channel is Telegram (below), so don't double-notify by email.
+    if (!isTelegramConfigured()) {
+      try { await sendRtpGuardAlertEmail({ halted, userFlags, windowH }); }
+      catch (e) { console.error("[rtp-guard] owner email failed", e); }
+    }
 
     // Immediate Telegram page. Only fires when the cooldown let a notification
     // through above (so we don't re-page every 10 min for the same breach).

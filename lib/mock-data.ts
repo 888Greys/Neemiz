@@ -54,12 +54,12 @@ export const binaryMobileNav: MobileNavItem[] = [
 
 // Forex is its own destination too — same self-contained shape as binary
 // (Markets pair-picker / Trade / Positions), Menu as the constant escape hatch.
+// Wallet lives in the header chip; Discover is secondary (from Markets sheet).
 export const forexMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
-  { label: "Wallet", icon: "account_balance_wallet", action: "wallet" },
-  { href: "/forex",                 label: "Trade",     icon: "show_chart",             panel: "",          activePath: "/forex" },
-  { href: "/forex?panel=discover",  label: "Discover",  icon: "explore",                panel: "discover",  activePath: "/forex" },
-  { href: "/forex?panel=positions", label: "Positions", icon: "schedule",               panel: "positions", activePath: "/forex" },
+  { href: "/forex?panel=markets",   label: "Markets",   icon: "candlestick_chart", panel: "markets",   activePath: "/forex" },
+  { href: "/forex",                 label: "Trade",     icon: "show_chart",        panel: "",          activePath: "/forex" },
+  { href: "/forex?panel=positions", label: "Positions", icon: "schedule",          panel: "positions", activePath: "/forex" },
 ];
 
 // Sports is its own destination: Sports / Live / My Bets, with Menu as the

@@ -25,6 +25,12 @@ import {
 import { findCountryByCurrency } from "@/lib/payments/world-countries";
 import { PaymentBrandLogo } from "@/components/payment-brand-logo";
 import { MarketCurrencyPicker } from "@/components/market-currency-picker";
+import { CurrencySwitcher } from "@/components/currency-switcher";
+import { CurrencyFlag } from "@/components/currency-flag";
+import {
+  CryptoWithdrawAssetSheet,
+  CryptoWithdrawAssetTrigger,
+} from "@/components/crypto-withdraw-asset-sheet";
 import {
   CRYPTO_WITHDRAW_ASSETS,
   type CryptoWithdrawAsset,
@@ -1009,78 +1015,30 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                   <div className="space-y-7">
                     <section>
                       <p className="mb-3 text-[13px] font-black text-white">Asset</p>
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setCwOpen((o) => !o)}
-                          className="flex w-full items-center justify-between border-b border-white/[0.08] py-3 text-left transition hover:border-white/[0.14]"
-                        >
-                          <span className="flex items-center gap-3">
-                            {COIN_ICON_URL[cwAsset.code] && (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={COIN_ICON_URL[cwAsset.code]}
-                                alt={cwAsset.code}
-                                width={28}
-                                height={28}
-                                className="h-7 w-7 rounded-full"
-                              />
-                            )}
-                            <span>
-                              <span className="block text-[15px] font-bold text-white">{cwAsset.code}</span>
-                              <span className="block text-[12px] font-medium text-slate-500">{cwAsset.displayNet}</span>
-                            </span>
-                          </span>
-                          <Icon name={cwOpen ? "expand_less" : "expand_more"} className="text-[22px] text-slate-500" />
-                        </button>
-
-                        {cwOpen && (
-                          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-xl bg-[#18191f] shadow-2xl ring-1 ring-white/[0.08]">
-                            {CRYPTO_WITHDRAW_ASSETS.map((a) => (
-                              <button
-                                key={`${a.code}:${a.network}`}
-                                type="button"
-                                onClick={() => {
-                                  setCwAsset(a);
-                                  setCwOpen(false);
-                                  setCwState({ step: "idle" });
-                                }}
-                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.05]"
-                              >
-                                {COIN_ICON_URL[a.code] && (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={COIN_ICON_URL[a.code]}
-                                    alt={a.code}
-                                    width={28}
-                                    height={28}
-                                    className="h-7 w-7 rounded-full"
-                                  />
-                                )}
-                                <span className="flex-1">
-                                  <span className="block text-[14px] font-bold text-white">
-                                    {a.code}
-                                    <span className="ml-2 text-[12px] font-medium text-slate-500">{a.displayNet}</span>
-                                  </span>
-                                  <span className="text-[11px] text-slate-600">min {a.min} {a.code}</span>
-                                </span>
-                                {cwAsset.code === a.code && cwAsset.network === a.network && (
-                                  <Icon name="check" className="text-[18px] text-[#087cff]" />
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      <CryptoWithdrawAssetTrigger
+                        asset={cwAsset}
+                        available={cwBalance?.available ?? null}
+                        onOpen={() => setCwOpen(true)}
+                      />
+                      <CryptoWithdrawAssetSheet
+                        open={cwOpen}
+                        value={cwAsset}
+                        balances={cryptoBalances}
+                        onClose={() => setCwOpen(false)}
+                        onChange={(a) => {
+                          setCwAsset(a);
+                          setCwState({ step: "idle" });
+                        }}
+                      />
                       {cwBalance ? (
                         <p className="mt-2 text-[12px] font-medium text-slate-500">
-                          Available{" "}
+                          Tap available to fill amount ·{" "}
                           <button
                             type="button"
                             className="font-bold text-white transition hover:text-[#75b8ff]"
                             onClick={() => setCwAmount(cwBalance.available.toFixed(6))}
                           >
-                            {cwBalance.available.toFixed(6)} {cwAsset.code}
+                            Max {cwBalance.available.toFixed(6)} {cwAsset.code}
                           </button>
                         </p>
                       ) : (
@@ -1433,6 +1391,8 @@ function WalletHome({
   onLogin: () => void;
   onOpen: (tab: WalletTab) => void;
 }) {
+  const { code, currency: displayCurrency } = useCurrency();
+  const [pickingCurrency, setPickingCurrency] = useState(false);
   const actions: Array<{ tab: WalletTab; label: string; icon: string }> = [
     { tab: "deposit", label: "Deposit", icon: "arrow_downward" },
     { tab: "send", label: "Send", icon: "send" },
@@ -1444,12 +1404,48 @@ function WalletHome({
     maximumFractionDigits: 2,
   });
 
+  if (pickingCurrency) {
+    return (
+      <main className="mx-auto max-w-md px-0 pb-24 pt-5 sm:max-w-2xl sm:pb-10 animate-in fade-in duration-200">
+        <div className="mb-2 grid grid-cols-[2.5rem_1fr_2.5rem] items-center px-5">
+          <button
+            type="button"
+            onClick={() => setPickingCurrency(false)}
+            aria-label="Back to wallet"
+            className="grid h-9 w-9 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-95"
+          >
+            <Icon name="arrow_back" className="text-[20px]" />
+          </button>
+          <h1 className="text-center text-[15px] font-black tracking-tight text-white">
+            Display currency
+          </h1>
+        </div>
+        <CurrencySwitcher
+          variant="sheet"
+          onPicked={() => setPickingCurrency(false)}
+        />
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8 sm:max-w-2xl sm:pb-10 sm:pt-10">
       <section className="animate-in fade-in duration-300">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Available balance
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Available balance
+          </p>
+          <button
+            type="button"
+            onClick={() => setPickingCurrency(true)}
+            aria-label="Change display currency"
+            className="flex items-center gap-1.5 rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-black text-slate-200 ring-1 ring-white/[0.08] transition hover:bg-white/[0.08] hover:text-white active:scale-[0.97]"
+          >
+            <CurrencyFlag currency={displayCurrency} size={14} />
+            <span>{code}</span>
+            <Icon name="expand_more" className="text-[14px] text-slate-500" />
+          </button>
+        </div>
         <p className={`mt-2 text-[1.75rem] font-black leading-none tracking-tight sm:text-[2rem] ${isSignedIn ? "text-white" : "text-slate-600"}`}>
           {balance}
         </p>

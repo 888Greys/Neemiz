@@ -158,6 +158,7 @@ model LoginDevice {
   lastSeenAt   DateTime @default(now()) @map("last_seen_at")
 
   @@unique([userId, deviceHash])
+  @@index([deviceHash])
   @@map("login_devices")
 }
 

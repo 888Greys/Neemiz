@@ -150,7 +150,18 @@ export function SupabaseAuthProvider({
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deviceId }),
-      }).catch(() => {});
+      })
+        .then(async (res) => {
+          if (res.status !== 403) return;
+          const body = await res.json().catch(() => ({})) as { suspended?: boolean; error?: string };
+          if (body.suspended) {
+            await supabase.auth.signOut();
+            window.location.replace("/suspended");
+            return;
+          }
+          if (body.error) toast.error(body.error);
+        })
+        .catch(() => {});
     }
 
     // Stay in sync with sign-in / sign-out / token refresh events

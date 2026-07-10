@@ -13,8 +13,15 @@
  *     https://www.nezeem.com/api/cron/reconcile-balances
  *
  * Env:
- *   RECON_ALERT_THRESHOLD   — min unexplained KES to flag (default 100)
+ *   RECON_ALERT_THRESHOLD   — min unexplained KES to flag (default 1000)
  *   RECON_EXCLUDE_USERNAMES — extra comma-separated usernames to ignore
+ *
+ * Threshold note: real balance injections (the 2026-06-26 incident) were tens of
+ * thousands of KES. Small drift (hundreds) on active players comes from benign
+ * ledger-completeness gaps — e.g. an aviator cash-out or a withdrawal refund that
+ * credits wallet_balance without writing a matching REFUND/BET_WIN row. Those are
+ * accounting bugs to fix at source, not breaches, so the tripwire ignores them
+ * below the threshold rather than paging the owner for KSh 600 of play drift.
  */
 import { db } from "@/lib/db";
 import { Prisma } from "@prisma/client";
@@ -32,7 +39,7 @@ export async function GET(req: Request) {
   if (!secret) return Response.json({ error: "CRON_SECRET is not configured" }, { status: 503 });
   if (auth !== `Bearer ${secret}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const threshold = Math.max(1, Number(process.env.RECON_ALERT_THRESHOLD ?? 100));
+  const threshold = Math.max(1, Number(process.env.RECON_ALERT_THRESHOLD ?? 1000));
   const extra = (process.env.RECON_EXCLUDE_USERNAMES ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   const excludes = [...new Set([...DEFAULT_EXCLUDES, ...extra])];
 
