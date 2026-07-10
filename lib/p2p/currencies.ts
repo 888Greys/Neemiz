@@ -1,7 +1,9 @@
 // ─── P2P fiat currencies ──────────────────────────────────────────────────────
-// Single source of truth for every fiat the P2P market supports. Used by the
-// browse filter, the merchant ad form, the order flow, and all formatting so a
-// price in NGN never renders with a KSh symbol or en-KE grouping again.
+// Single source of truth for every fiat the P2P market supports. Built from the
+// world-country catalogue so ad/browse pickers can offer every country, while
+// curated entries keep preferred symbols / locales for major markets.
+
+import { WORLD_COUNTRIES } from "@/lib/payments/world-countries";
 
 export interface FiatCurrency {
   code: string;   // ISO 4217, e.g. "KES" — also what we store on P2PAd.fiat
@@ -11,15 +13,18 @@ export interface FiatCurrency {
   flag?: string;  // (optional) emoji — UI renders real flag images by code instead
 }
 
-// Popular world currencies. Flags are rendered from the code (first two letters
-// = ISO-3166 country) so no per-entry emoji is needed.
-export const FIAT_CURRENCIES: FiatCurrency[] = [
+/** Preferred symbol/locale for well-known currencies (overrides world defaults). */
+const CURATED: FiatCurrency[] = [
   { code: "KES", symbol: "KSh", name: "Kenyan Shilling",      locale: "en-KE" },
   { code: "NGN", symbol: "₦",   name: "Nigerian Naira",       locale: "en-NG" },
   { code: "GHS", symbol: "GH₵", name: "Ghanaian Cedi",        locale: "en-GH" },
   { code: "ZAR", symbol: "R",   name: "South African Rand",   locale: "en-ZA" },
   { code: "TZS", symbol: "TSh", name: "Tanzanian Shilling",   locale: "en-TZ" },
   { code: "UGX", symbol: "USh", name: "Ugandan Shilling",     locale: "en-UG" },
+  { code: "RWF", symbol: "FRw", name: "Rwandan Franc",        locale: "en-RW" },
+  { code: "ETB", symbol: "Br",  name: "Ethiopian Birr",       locale: "en-ET" },
+  { code: "XOF", symbol: "CFA", name: "West African CFA Franc", locale: "fr-SN" },
+  { code: "XAF", symbol: "FCFA",name: "Central African CFA Franc", locale: "fr-CM" },
   { code: "USD", symbol: "$",   name: "US Dollar",            locale: "en-US" },
   { code: "EUR", symbol: "€",   name: "Euro",                 locale: "en-IE" },
   { code: "GBP", symbol: "£",   name: "British Pound",        locale: "en-GB" },
@@ -56,6 +61,28 @@ export const FIAT_CURRENCIES: FiatCurrency[] = [
   { code: "COP", symbol: "COL$",name: "Colombian Peso",       locale: "es-CO" },
 ];
 
+function buildFiatCurrencies(): FiatCurrency[] {
+  const byCode = new Map<string, FiatCurrency>();
+  for (const c of CURATED) byCode.set(c.code, c);
+  for (const w of WORLD_COUNTRIES) {
+    if (byCode.has(w.currency)) continue;
+    byCode.set(w.currency, {
+      code: w.currency,
+      symbol: w.currency,
+      name: w.currencyName,
+      locale: "en-US",
+    });
+  }
+  // Curated first (Africa + majors), then the rest A–Z by code.
+  const curatedCodes = new Set(CURATED.map((c) => c.code));
+  const rest = [...byCode.values()]
+    .filter((c) => !curatedCodes.has(c.code))
+    .sort((a, b) => a.code.localeCompare(b.code));
+  return [...CURATED, ...rest];
+}
+
+export const FIAT_CURRENCIES: FiatCurrency[] = buildFiatCurrencies();
+
 export const DEFAULT_FIAT = "KES";
 
 const BY_CODE = new Map(FIAT_CURRENCIES.map((c) => [c.code, c]));
@@ -74,6 +101,7 @@ export function isSupportedFiat(code: string | null | undefined): boolean {
 // currency we support are listed; anything else falls back to DEFAULT_FIAT.
 const COUNTRY_TO_FIAT: Record<string, string> = {
   KE: "KES", NG: "NGN", GH: "GHS", ZA: "ZAR", TZ: "TZS", UG: "UGX",
+  RW: "RWF", ET: "ETB",
   US: "USD", GB: "GBP", IN: "INR",
   // Eurozone → EUR
   AT: "EUR", BE: "EUR", HR: "EUR", CY: "EUR", EE: "EUR", FI: "EUR", FR: "EUR",
@@ -91,14 +119,21 @@ const COUNTRY_TO_FIAT: Record<string, string> = {
 export function detectFiatFromHeaders(getHeader: (name: string) => string | null | undefined): string {
   const geoHeaders = ["x-vercel-ip-country", "cf-ipcountry", "x-country", "x-geo-country", "x-country-code"];
   for (const h of geoHeaders) {
-    const fiat = COUNTRY_TO_FIAT[(getHeader(h) ?? "").trim().toUpperCase()];
-    if (fiat) return fiat;
+    const country = (getHeader(h) ?? "").trim().toUpperCase();
+    const mapped = COUNTRY_TO_FIAT[country];
+    if (mapped) return mapped;
+    // Any world country whose currency we support
+    const fromWorld = WORLD_COUNTRIES.find((c) => c.code === country);
+    if (fromWorld && BY_CODE.has(fromWorld.currency)) return fromWorld.currency;
   }
   const lang = getHeader("accept-language") ?? "";
   const m = /-([A-Za-z]{2})\b/.exec(lang);
   if (m) {
-    const fiat = COUNTRY_TO_FIAT[m[1].toUpperCase()];
-    if (fiat) return fiat;
+    const country = m[1].toUpperCase();
+    const mapped = COUNTRY_TO_FIAT[country];
+    if (mapped) return mapped;
+    const fromWorld = WORLD_COUNTRIES.find((c) => c.code === country);
+    if (fromWorld && BY_CODE.has(fromWorld.currency)) return fromWorld.currency;
   }
   return DEFAULT_FIAT;
 }
