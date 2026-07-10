@@ -357,15 +357,18 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           // Tab tabs (Sports / Live) work the same way via `?tab=`.
           const isPanelTab = item.panel !== undefined;
           const isQueryTab = item.tab !== undefined;
+          const pathNow = pendingPath ?? pathname;
           const active = isPanelTab
             ? pathname.startsWith(activePath) && currentPanel === item.panel
             : isQueryTab
               ? pathname.startsWith(activePath) && currentTab === item.tab
-              : item.label === "Orders"
-                ? (pendingPath ?? pathname).startsWith("/p2p/order") || (pendingPath ?? pathname).startsWith("/p2p/orders")
-                : item.label === "Ads"
-                  ? (pendingPath ?? pathname).startsWith("/p2p/merchant")
-                  : activePath === (pendingPath ?? pathname);
+              : item.label === "P2P"
+                ? pathNow === "/p2p" || pathNow.startsWith("/p2p/express")
+                : item.label === "Orders"
+                  ? pathNow.startsWith("/p2p/order") || pathNow.startsWith("/p2p/orders")
+                  : item.label === "Ads"
+                    ? pathNow.startsWith("/p2p/merchant")
+                    : activePath === pathNow;
           const navigating = !isPanelTab && !isQueryTab && pendingPath === activePath && pathname !== activePath;
           if (item.label === "Menu") {
             return (
