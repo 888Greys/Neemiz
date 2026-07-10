@@ -1551,7 +1551,7 @@ function WalletPageFrame({ children, onBack, title }: { children: ReactNode; onB
   );
 }
 
-// International payment-method picker: full-screen country list, then methods.
+// International payment-method picker: geo-preselect country, then methods.
 function DepositMethodStep({
   pesapalEnabled,
   displayCurrency,
@@ -1561,14 +1561,16 @@ function DepositMethodStep({
   displayCurrency: string;
   onContinue: (selection: DepositSelection) => void;
 }) {
-  const initialCountry = findCountryByCurrency(displayCurrency)?.code
+  const fallbackCountry = findCountryByCurrency(displayCurrency)?.code
     ?? findCountryByCurrency("USD")?.code
     ?? "US";
-  const [countryCode, setCountryCode] = useState(initialCountry);
-  const [marketCurrency, setMarketCurrency] = useState(
-    () => findCountryByCurrency(displayCurrency)?.currency ?? "USD",
-  );
-  const [pickingMarket, setPickingMarket] = useState(true);
+  const fallbackCurrency = findCountryByCurrency(displayCurrency)?.currency ?? "USD";
+
+  const [countryCode, setCountryCode] = useState(fallbackCountry);
+  const [marketCurrency, setMarketCurrency] = useState(fallbackCurrency);
+  // Stay on methods until geo resolves; only open the full list if user taps country.
+  const [pickingMarket, setPickingMarket] = useState(false);
+  const [geoReady, setGeoReady] = useState(false);
   const rows = useMemo(
     () => depositRowsForCurrency(marketCurrency, { pesapalEnabled }),
     [marketCurrency, pesapalEnabled],
@@ -1580,6 +1582,62 @@ function DepositMethodStep({
     setSelectedId(null);
   }, [marketCurrency]);
 
+  // Auto-detect country from IP (edge headers). Manual pick stored in session wins.
+  useEffect(() => {
+    let cancelled = false;
+    const KEY = "neemiz.deposit.country";
+
+    async function resolve() {
+      try {
+        const saved = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(KEY) : null;
+        if (saved) {
+          const parsed = JSON.parse(saved) as { countryCode?: string; currency?: string };
+          if (parsed.countryCode && parsed.currency && !cancelled) {
+            setCountryCode(parsed.countryCode);
+            setMarketCurrency(parsed.currency);
+            setGeoReady(true);
+            return;
+          }
+        }
+      } catch { /* ignore bad cache */ }
+
+      try {
+        const res = await fetch("/api/geo/country", { cache: "no-store" });
+        const data = (await res.json()) as {
+          countryCode?: string | null;
+          currency?: string | null;
+        };
+        if (!cancelled && data.countryCode && data.currency) {
+          setCountryCode(data.countryCode);
+          setMarketCurrency(data.currency);
+          try {
+            sessionStorage.setItem(
+              KEY,
+              JSON.stringify({ countryCode: data.countryCode, currency: data.currency }),
+            );
+          } catch { /* private mode */ }
+        }
+      } catch { /* keep fallback */ }
+      finally {
+        if (!cancelled) setGeoReady(true);
+      }
+    }
+
+    void resolve();
+    return () => { cancelled = true; };
+  }, []);
+
+  function persistCountry(cc: string, currency: string) {
+    setCountryCode(cc);
+    setMarketCurrency(currency);
+    try {
+      sessionStorage.setItem(
+        "neemiz.deposit.country",
+        JSON.stringify({ countryCode: cc, currency }),
+      );
+    } catch { /* private mode */ }
+  }
+
   if (pickingMarket) {
     return (
       <MarketCurrencyPicker
@@ -1589,8 +1647,7 @@ function DepositMethodStep({
           if (!open) setPickingMarket(false);
         }}
         onChange={({ countryCode: cc, currency }) => {
-          setCountryCode(cc);
-          setMarketCurrency(currency);
+          persistCountry(cc, currency);
           setPickingMarket(false);
         }}
         title="Where are you depositing from?"
@@ -1603,7 +1660,7 @@ function DepositMethodStep({
       <div className="pb-20">
         <h2 className="mb-0.5 text-[14px] font-black text-white">Payment method</h2>
         <p className="mb-2.5 text-[11px] font-medium text-slate-500">
-          Tap country to change
+          {geoReady ? "Based on your location — tap to change" : "Detecting your location…"}
         </p>
         <div className="mb-3">
           <MarketCurrencyPicker
@@ -1613,8 +1670,7 @@ function DepositMethodStep({
               if (open) setPickingMarket(true);
             }}
             onChange={({ countryCode: cc, currency }) => {
-              setCountryCode(cc);
-              setMarketCurrency(currency);
+              persistCountry(cc, currency);
             }}
           />
         </div>
