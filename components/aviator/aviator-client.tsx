@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AviatorCanvas }   from "./aviator-canvas";
 import { AviatorBetPanel } from "./aviator-bet-panel";
@@ -83,6 +83,7 @@ function mapStatus(s: string): AviatorRoundState {
 
 export function AviatorClient({ userId, username, balance: initialBalance }: Props) {
   const { format } = useMoney();
+  const router = useRouter();
   const [round,      setRound]      = useState<AviatorRound | null>(null);
   const [liveBets,   setLiveBets]   = useState<AviatorBetPublic[]>([]);
   const [myBets,     setMyBets]     = useState<MyBets>({});
@@ -93,9 +94,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [verifyRound,    setVerifyRound]    = useState<HistoryRound | null>(null);
   const [prevRoundBets,  setPrevRoundBets]  = useState<AviatorBetPublic[]>([]);
   const [loading,        setLoading]        = useState(true);
-  const [dualPanel,      setDualPanel]      = useState(false);
   const [soundEnabled,   setSoundEnabled]   = useState(loadSoundEnabled);
-  // Mobile bottom-nav: players / mine open the side panel on the matching tab.
+  // Mobile bottom-nav: players / mine open the players sheet on the matching tab.
   const searchParams = useSearchParams();
   const urlTab = searchParams.get("tab");
   const [playersOpen, setPlayersOpen] = useState(false);
@@ -112,6 +112,11 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       setPlayersTab("live");
     }
   }, [urlTab]);
+
+  const closePlayersSheet = useCallback(() => {
+    setPlayersOpen(false);
+    router.replace("/aviator", { scroll: false });
+  }, [router]);
 
   const wsRef          = useRef<WebSocket | null>(null);
   const rafRef         = useRef<number>(0);
@@ -516,7 +521,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex h-72 items-center justify-center">
+      <div className="flex h-full min-h-72 items-center justify-center">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/20 border-t-[#31c45d]" />
       </div>
     );
@@ -524,18 +529,15 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full w-full flex-col bg-[#151518] lg:overflow-hidden">
-      <div className="flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-3 lg:p-3">
-        <section className="flex min-h-0 min-w-0 flex-col">
+    <div className="relative flex h-full w-full min-h-0 flex-col overflow-hidden bg-[#151518]">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-3 lg:p-3">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <AviatorTicker liveBets={liveBets} />
 
-          <div className="flex min-w-0 items-center gap-2 px-2 pb-1.5">
+          <div className="flex min-w-0 shrink-0 items-center gap-1.5 px-2 pb-1">
             <div className="min-w-0 flex-1 overflow-hidden">
               <AviatorHistory rounds={history} onVerify={setVerifyRound} />
             </div>
-            <button className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/75 ring-1 ring-white/[0.06]" type="button">
-              <Icon name="history" className="h-4 w-4" />
-            </button>
             <button
               type="button"
               onClick={() => setSoundEnabled((v) => !v)}
@@ -549,8 +551,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             </button>
           </div>
 
-          <div className="mx-2 overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#151518] lg:mx-0 lg:min-h-0 lg:flex-1">
-            <div className="h-[260px] lg:h-full">
+          <div className="mx-2 min-h-0 flex-1 overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#151518] lg:mx-0">
+            <div className="h-full min-h-[180px]">
               <AviatorCanvas
                 state={round?.state ?? "WAITING"}
                 multiplier={displayMult}
@@ -561,9 +563,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             </div>
           </div>
 
-          <div className="flex shrink-0 min-w-0 flex-col gap-2 p-2 lg:flex-row lg:p-3">
-            {/* Panel 0 — wrapped so the parent sizes it equally regardless of internal state */}
-            <div className="relative min-w-0 lg:flex-1">
+          <div className="grid shrink-0 grid-cols-2 gap-1.5 p-1.5 pb-2 lg:gap-3 lg:p-3">
+            <div className="relative min-w-0">
               <AviatorBetPanel
                 panelIndex={0}
                 round={round}
@@ -574,8 +575,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
                 onCashout={handleCashout}
               />
             </div>
-            {/* Panel 1 — always mounted (preserves state); hidden on mobile until user opts in */}
-            <div className={`relative min-w-0 lg:flex-1 ${!dualPanel && !myBets[1] ? "hidden lg:block" : "block"}`}>
+            <div className="relative min-w-0">
               <AviatorBetPanel
                 panelIndex={1}
                 round={round}
@@ -585,56 +585,34 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
                 onBet={handleBet}
                 onCashout={handleCashout}
               />
-              {dualPanel && !myBets[1] && (
-                <button
-                  type="button"
-                  onClick={() => setDualPanel(false)}
-                  className="lg:hidden absolute -top-1.5 -right-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-[#3a3b41] text-[10px] text-white/60 hover:text-white"
-                  aria-label="Remove second bet panel"
-                >✕</button>
-              )}
             </div>
-            {/* Mobile-only toggle to reveal panel 1 */}
-            {!dualPanel && !myBets[1] && (
-              <button
-                type="button"
-                onClick={() => setDualPanel(true)}
-                className="lg:hidden flex items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 py-3 text-[11px] font-black text-white/30 transition-colors hover:border-white/30 hover:text-white/50 active:scale-[0.98]"
-              >
-                <span className="text-[15px] leading-none font-black">+</span>
-                Add 2nd bet panel
-              </button>
-            )}
           </div>
         </section>
 
-        <aside className="min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-white/[0.06] lg:bg-[#18191f]">
-          {/* Mobile: collapsible players section */}
-          <MobilePlayersCollapsible
+        <aside className="hidden min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-white/[0.06] lg:bg-[#18191f]">
+          <AviatorPlayersTable
             liveBets={liveBets}
             prevRoundBets={prevRoundBets}
             myHistory={myHistory}
             myCurrentBets={Object.values(myBets)}
             userId={userId}
-            open={playersOpen}
-            onOpenChange={setPlayersOpen}
             tab={playersTab}
             onTabChange={setPlayersTab}
           />
-          {/* Desktop: always-visible full table */}
-          <div className="hidden lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
-            <AviatorPlayersTable
-              liveBets={liveBets}
-              prevRoundBets={prevRoundBets}
-              myHistory={myHistory}
-              myCurrentBets={Object.values(myBets)}
-              userId={userId}
-              tab={playersTab}
-              onTabChange={setPlayersTab}
-            />
-          </div>
         </aside>
       </div>
+
+      <MobilePlayersSheet
+        open={playersOpen}
+        onClose={closePlayersSheet}
+        liveBets={liveBets}
+        prevRoundBets={prevRoundBets}
+        myHistory={myHistory}
+        myCurrentBets={Object.values(myBets)}
+        userId={userId}
+        tab={playersTab}
+        onTabChange={setPlayersTab}
+      />
 
       {verifyRound && (
         <VerifyModal round={verifyRound} onClose={() => setVerifyRound(null)} />
@@ -647,13 +625,13 @@ function AviatorTicker({ liveBets }: { liveBets: AviatorBetPublic[] }) {
   const winners = liveBets.filter((bet) => bet.status === "CASHEDOUT" && bet.winAmount);
 
   return (
-    <div className="px-2 py-1.5">
-      <div className="flex min-w-0 gap-2 overflow-hidden rounded-full bg-[#18191a] px-2 py-1">
+    <div className="shrink-0 px-2 py-1">
+      <div className="flex min-w-0 gap-2 overflow-hidden rounded-full bg-[#18191a] px-2 py-0.5">
         {winners.length === 0 ? (
-          <span className="px-2 py-1 text-[9px] font-bold text-white/30">Waiting for cashouts…</span>
+          <span className="px-2 py-0.5 text-[9px] font-bold text-white/30">Waiting for cashouts…</span>
         ) : (
           winners.slice(-4).map((bet) => (
-            <span key={bet.id} className="shrink-0 rounded-full bg-[#242526] px-2 py-1 text-[9px] font-bold text-white/60">
+            <span key={bet.id} className="shrink-0 rounded-full bg-[#242526] px-2 py-0.5 text-[9px] font-bold text-white/60">
               {maskName(bet.username)} won {(bet.winAmount ?? 0).toFixed(2)} KES{" "}
               <span className="text-[#28a909]">at {(bet.cashoutAt ?? 1).toFixed(2)}×</span>
             </span>
@@ -718,7 +696,7 @@ function AviatorPlayersTable({
       </div>
 
       {/* Rows */}
-      <div className="flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto px-3 pb-2 [scrollbar-width:none] max-h-[300px] lg:max-h-none [&::-webkit-scrollbar]:hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-[3px] overflow-y-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tab === "live" && (
           allLive.length === 0 ? (
             <p className="py-6 text-center text-[11px] text-white/25">Waiting for bets…</p>
@@ -782,43 +760,55 @@ function BetRow({ bet, isMe }: { bet: AviatorBetPublic; isMe?: boolean }) {
   );
 }
 
-function MobilePlayersCollapsible({
-  liveBets, prevRoundBets, myHistory, myCurrentBets, userId,
-  open: controlledOpen,
-  onOpenChange,
+function MobilePlayersSheet({
+  open,
+  onClose,
+  liveBets,
+  prevRoundBets,
+  myHistory,
+  myCurrentBets,
+  userId,
   tab,
   onTabChange,
 }: {
-  liveBets:      AviatorBetPublic[];
+  open: boolean;
+  onClose: () => void;
+  liveBets: AviatorBetPublic[];
   prevRoundBets: AviatorBetPublic[];
-  myHistory:     MyHistoryBet[];
+  myHistory: MyHistoryBet[];
   myCurrentBets: AviatorBetPublic[];
-  userId?:       string;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  userId?: string;
   tab?: "live" | "mine" | "prev";
   onTabChange?: (t: "live" | "mine" | "prev") => void;
 }) {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = controlledOpen ?? internalOpen;
-  const setOpen = onOpenChange ?? setInternalOpen;
+  if (!open) return null;
+
   return (
-    <div className="lg:hidden border-t border-white/[0.06]">
+    <div className="lg:hidden absolute inset-0 z-40 flex flex-col justify-end">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between px-4 py-2.5 text-[11px] font-black text-white/40 transition-colors hover:text-white/60"
+        className="absolute inset-0 bg-black/55"
+        aria-label="Close players"
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 flex max-h-[70dvh] flex-col overflow-hidden rounded-t-2xl border border-white/[0.08] border-b-0 bg-[#18191f] shadow-[0_-8px_32px_rgba(0,0,0,.45)]"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Players"
       >
-        <span className="flex items-center gap-2">
-          Live Players
-          {liveBets.length > 0 && (
-            <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-black">{liveBets.length}</span>
-          )}
-        </span>
-        <Icon name={open ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[18px]" />
-      </button>
-      {open && (
-        <div className="flex max-h-[280px] flex-col overflow-hidden border-t border-white/[0.06]">
+        <div className="flex shrink-0 items-center justify-between px-4 pb-1 pt-2.5">
+          <div className="mx-auto h-1 w-10 rounded-full bg-white/20" aria-hidden />
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-3 top-2.5 grid h-8 w-8 place-items-center rounded-full bg-white/[0.06] text-white/55 ring-1 ring-white/[0.06] transition-colors hover:text-white"
+            aria-label="Close"
+          >
+            <Icon name="close" className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden pb-2">
           <AviatorPlayersTable
             liveBets={liveBets}
             prevRoundBets={prevRoundBets}
@@ -829,7 +819,7 @@ function MobilePlayersCollapsible({
             onTabChange={onTabChange}
           />
         </div>
-      )}
+      </div>
     </div>
   );
 }
