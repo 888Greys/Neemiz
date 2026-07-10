@@ -3,8 +3,8 @@ import { db } from "@/lib/db";
 
 /** Max distinct app users that may share one browser/device fingerprint. */
 export function deviceMaxAccounts(): number {
-  const n = Number(process.env.DEVICE_MAX_ACCOUNTS ?? 2);
-  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 2;
+  const n = Number(process.env.DEVICE_MAX_ACCOUNTS ?? 1);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
 }
 
 export function hashDeviceId(deviceId: string): string {
