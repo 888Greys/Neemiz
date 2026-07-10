@@ -35,6 +35,7 @@ export function clearPendingPromo() {
 export async function redeemPromoClient(code?: string | null): Promise<{
   ok: boolean;
   amount?: number;
+  code?: string;
   error?: string;
 }> {
   const value = (code ?? peekPendingPromo() ?? "").trim();
@@ -49,6 +50,7 @@ export async function redeemPromoClient(code?: string | null): Promise<{
     const data = await res.json().catch(() => ({})) as {
       ok?: boolean;
       amount?: number;
+      code?: string;
       error?: string;
     };
     if (res.ok && data.ok) {
@@ -56,7 +58,11 @@ export async function redeemPromoClient(code?: string | null): Promise<{
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("wallet-refresh"));
       }
-      return { ok: true, amount: data.amount };
+      return {
+        ok: true,
+        amount: data.amount,
+        code: typeof data.code === "string" ? data.code : value.toUpperCase(),
+      };
     }
     // Already used / invalid — clear so we don't keep retrying on every load.
     if (res.status === 409 || res.status === 404 || res.status === 410) {

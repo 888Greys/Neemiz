@@ -10,6 +10,7 @@ import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { AvatarUploader } from "@/components/avatar-uploader";
 import { CurrencySwitcher } from "@/components/currency-switcher";
+import { PromoSuccessCard, PromoNoticeCard, promoNoticeFromStatus, type PromoNoticeKind } from "@/components/promo-success";
 import { useCurrency } from "@/lib/currency-context";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
@@ -609,38 +610,70 @@ function BonusesView() {
 function BonusCodesView() {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [success, setSuccess] = useState<{ amount: number; code: string } | null>(null);
+  const [notice, setNotice] = useState<{ kind: PromoNoticeKind; code: string } | null>(null);
 
   async function apply() {
     if (!code.trim()) return;
     setLoading(true);
-    setResult(null);
+    const entered = code.trim().toUpperCase();
     try {
       const res = await fetch("/api/promo/redeem", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code: entered }),
       });
       const data = await res.json().catch(() => ({})) as {
         ok?: boolean;
         amount?: number;
+        code?: string;
         error?: string;
       };
       if (res.ok && data.ok) {
         window.dispatchEvent(new Event("wallet-refresh"));
-        setResult({
-          ok: true,
-          message: `KSh ${Number(data.amount ?? 0).toLocaleString()} credited to your wallet.`,
+        setSuccess({
+          amount: Number(data.amount ?? 0),
+          code: typeof data.code === "string" ? data.code : entered,
         });
         setCode("");
       } else {
-        setResult({ ok: false, message: data.error ?? "Invalid or expired bonus code." });
+        setNotice({
+          kind: promoNoticeFromStatus(res.status, data.error),
+          code: entered,
+        });
+        setCode("");
       }
     } catch {
-      setResult({ ok: false, message: "Network error — try again." });
+      setNotice({ kind: "error", code: entered });
     } finally {
       setLoading(false);
     }
+  }
+
+  if (success) {
+    return (
+      <div className="px-5 pb-8 pt-2">
+        <PromoSuccessCard
+          amount={success.amount}
+          code={success.code}
+          cta="Apply another code"
+          onDone={() => setSuccess(null)}
+        />
+      </div>
+    );
+  }
+
+  if (notice) {
+    return (
+      <div className="px-5 pb-8 pt-2">
+        <PromoNoticeCard
+          kind={notice.kind}
+          code={notice.code}
+          cta={notice.kind === "already_used" ? "Got it" : "Try another code"}
+          onDone={() => setNotice(null)}
+        />
+      </div>
+    );
   }
 
   return (
@@ -659,11 +692,6 @@ function BonusCodesView() {
         </div>
         <p className="mt-2 text-[12px] font-medium text-slate-500">Enter a promo or referral code to unlock rewards.</p>
       </div>
-      {result && (
-        <p className={`text-[13px] font-bold ${result.ok ? "text-emerald-400" : "text-red-400"}`}>
-          {result.message}
-        </p>
-      )}
       <button
         type="button"
         onClick={apply}
