@@ -221,3 +221,31 @@ export function countryFlagUrl(countryCode: string): string {
 export function findCountryByCurrency(currency: string): WorldCountry | undefined {
   return WORLD_COUNTRIES.find((c) => c.currency === currency);
 }
+
+/**
+ * Detect visitor country from CDN/edge geo headers (Cloudflare / Vercel),
+ * then accept-language region. Returns ISO 3166-1 alpha-2 or null.
+ */
+export function detectCountryFromHeaders(
+  getHeader: (name: string) => string | null | undefined,
+): string | null {
+  const geoHeaders = [
+    "cf-ipcountry",
+    "x-vercel-ip-country",
+    "x-country-code",
+    "x-geo-country",
+    "x-country",
+  ];
+  for (const h of geoHeaders) {
+    const code = (getHeader(h) ?? "").trim().toUpperCase();
+    if (!code || code === "XX" || code === "T1") continue;
+    if (WORLD_BY_CODE[code]) return code;
+  }
+  const lang = getHeader("accept-language") ?? "";
+  const m = /-([A-Za-z]{2})\b/.exec(lang);
+  if (m) {
+    const code = m[1].toUpperCase();
+    if (WORLD_BY_CODE[code]) return code;
+  }
+  return null;
+}
