@@ -64,4 +64,12 @@ describe("international payment catalogue", () => {
     expect(methodsForCurrency("BRL")).toContain("PIX");
     expect(methodsForCurrency("INR")).toContain("UPI");
   });
+
+  it("lists the full world country set for the picker", async () => {
+    const { WORLD_COUNTRIES } = await import("@/lib/payments/world-countries");
+    expect(WORLD_COUNTRIES.length).toBeGreaterThan(180);
+    expect(WORLD_COUNTRIES.some((c) => c.code === "KE" && c.currency === "KES")).toBe(true);
+    expect(WORLD_COUNTRIES.some((c) => c.code === "BR" && c.currency === "BRL")).toBe(true);
+    expect(WORLD_COUNTRIES.some((c) => c.code === "FR" && c.currency === "EUR")).toBe(true);
+  });
 });
