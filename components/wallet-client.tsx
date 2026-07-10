@@ -25,6 +25,8 @@ import {
 import { findCountryByCurrency } from "@/lib/payments/world-countries";
 import { PaymentBrandLogo } from "@/components/payment-brand-logo";
 import { MarketCurrencyPicker } from "@/components/market-currency-picker";
+import { CurrencySwitcher } from "@/components/currency-switcher";
+import { CurrencyFlag } from "@/components/currency-flag";
 import {
   CRYPTO_WITHDRAW_ASSETS,
   type CryptoWithdrawAsset,
@@ -1433,6 +1435,8 @@ function WalletHome({
   onLogin: () => void;
   onOpen: (tab: WalletTab) => void;
 }) {
+  const { code, currency: displayCurrency } = useCurrency();
+  const [pickingCurrency, setPickingCurrency] = useState(false);
   const actions: Array<{ tab: WalletTab; label: string; icon: string }> = [
     { tab: "deposit", label: "Deposit", icon: "arrow_downward" },
     { tab: "send", label: "Send", icon: "send" },
@@ -1444,12 +1448,48 @@ function WalletHome({
     maximumFractionDigits: 2,
   });
 
+  if (pickingCurrency) {
+    return (
+      <main className="mx-auto max-w-md px-0 pb-24 pt-5 sm:max-w-2xl sm:pb-10 animate-in fade-in duration-200">
+        <div className="mb-2 grid grid-cols-[2.5rem_1fr_2.5rem] items-center px-5">
+          <button
+            type="button"
+            onClick={() => setPickingCurrency(false)}
+            aria-label="Back to wallet"
+            className="grid h-9 w-9 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white active:scale-95"
+          >
+            <Icon name="arrow_back" className="text-[20px]" />
+          </button>
+          <h1 className="text-center text-[15px] font-black tracking-tight text-white">
+            Display currency
+          </h1>
+        </div>
+        <CurrencySwitcher
+          variant="sheet"
+          onPicked={() => setPickingCurrency(false)}
+        />
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-md px-5 pb-24 pt-8 sm:max-w-2xl sm:pb-10 sm:pt-10">
       <section className="animate-in fade-in duration-300">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Available balance
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Available balance
+          </p>
+          <button
+            type="button"
+            onClick={() => setPickingCurrency(true)}
+            aria-label="Change display currency"
+            className="flex items-center gap-1.5 rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-black text-slate-200 ring-1 ring-white/[0.08] transition hover:bg-white/[0.08] hover:text-white active:scale-[0.97]"
+          >
+            <CurrencyFlag currency={displayCurrency} size={14} />
+            <span>{code}</span>
+            <Icon name="expand_more" className="text-[14px] text-slate-500" />
+          </button>
+        </div>
         <p className={`mt-2 text-[1.75rem] font-black leading-none tracking-tight sm:text-[2rem] ${isSignedIn ? "text-white" : "text-slate-600"}`}>
           {balance}
         </p>
