@@ -484,8 +484,8 @@ function sidebarItemActive(pathname: string, href: string, tab = "") {
   const q = new URLSearchParams(query ?? "");
   if (q.get("tab") === "live") return pathname.startsWith("/sports") && tab === "live";
   if (q.get("tab") === "ads") return pathname.startsWith("/p2p/merchant") && tab === "ads";
-  if (path === "/sports") return pathname.startsWith("/sports") && tab !== "live";
-  if (path === "/p2p") return pathname === "/p2p" || pathname.startsWith("/p2p/express");
+  if (path === "/sports") return pathname.startsWith("/sports");
+  if (path === "/p2p") return pathname.startsWith("/p2p");
   if (path === "/polymarket" || path === "/predictions") {
     return pathname.startsWith("/polymarket") || pathname.startsWith("/predictions");
   }
@@ -541,16 +541,12 @@ function Sidebar({
         )}
         <div className="space-y-0.5">
           <StandaloneSidebarItem collapsed={collapsed} href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/sports?tab=live" icon="sensors" label="Live" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/my-bets" icon="receipt_long" label="My Bets" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} tab={tab} badge="HOT" />
-          <StandaloneSidebarItem collapsed={collapsed} href="/lucky-spin" icon="casino" label="Lucky Spin" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/polymarket" icon="online_prediction" label="Polymarket" pathname={pathname} tab={tab} />
           <StandaloneSidebarItem collapsed={collapsed} href="/p2p" icon="swap_horiz" label="P2P" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/p2p/merchant?tab=ads" icon="campaign" label="Ads" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/p2p/orders" icon="receipt_long" label="Orders" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/polymarket" icon="online_prediction" label="Polymarket" pathname={pathname} tab={tab} />
           <StandaloneSidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} tab={tab} />
           <StandaloneSidebarItem collapsed={collapsed} href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} tab={tab} badge="HOT" />
+          <StandaloneSidebarItem collapsed={collapsed} href="/lucky-spin" icon="casino" label="Lucky Spin" pathname={pathname} tab={tab} />
         </div>
 
         <div className={`${collapsed ? "mx-1" : "-mx-4"} my-4 border-t border-white/10`} />
@@ -772,16 +768,12 @@ function MobileMenuDrawer({
           </p>
           <nav className="space-y-0.5">
             <MobileDrawerLink href="/sports" icon="sports_soccer" label="Sports" active={isActive("/sports")} onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=live" icon="sensors" label="Live" active={isActive("/sports?tab=live")} onClick={onClose} />
-            <MobileDrawerLink href="/my-bets" icon="receipt_long" label="My Bets" active={isActive("/my-bets")} onClick={onClose} />
-            <MobileDrawerLink href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" active={isActive("/aviator")} onClick={onClose} />
-            <MobileDrawerLink href="/lucky-spin" icon="casino" label="Lucky Spin" active={isActive("/lucky-spin")} onClick={onClose} />
-            <MobileDrawerLink href="/predictions" icon="online_prediction" label="Polymarket" active={isActive("/predictions")} onClick={onClose} />
             <MobileDrawerLink href="/p2p" icon="swap_horiz" label="P2P" active={isActive("/p2p")} onClick={onClose} />
-            <MobileDrawerLink href="/p2p/merchant?tab=ads" icon="campaign" label="Ads" active={isActive("/p2p/merchant?tab=ads")} onClick={onClose} />
-            <MobileDrawerLink href="/p2p/orders" icon="receipt_long" label="Orders" active={isActive("/p2p/orders")} onClick={onClose} />
+            <MobileDrawerLink href="/predictions" icon="online_prediction" label="Polymarket" active={isActive("/predictions")} onClick={onClose} />
             <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary" active={isActive("/binary")} onClick={onClose} />
             <MobileDrawerLink href="/forex" icon="currency_exchange" label="Forex" active={isActive("/forex")} onClick={onClose} />
+            <MobileDrawerLink href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" active={isActive("/aviator")} onClick={onClose} />
+            <MobileDrawerLink href="/lucky-spin" icon="casino" label="Lucky Spin" active={isActive("/lucky-spin")} onClick={onClose} />
           </nav>
         </div>
 
