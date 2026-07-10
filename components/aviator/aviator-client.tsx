@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AviatorCanvas }   from "./aviator-canvas";
 import { AviatorBetPanel } from "./aviator-bet-panel";
 import { AviatorHistory, VerifyModal } from "./aviator-history";
+import { WinCelebration, RollingBalance, type WinCelebrationHandle } from "./win-celebration";
 import { toast } from "@/lib/toast";
 import { Icon } from "@/components/icon";
 import { useMoney } from "@/lib/currency-context";
@@ -95,6 +96,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [prevRoundBets,  setPrevRoundBets]  = useState<AviatorBetPublic[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [soundEnabled,   setSoundEnabled]   = useState(loadSoundEnabled);
+  const [cashingOut,     setCashingOut]     = useState<{ 0?: boolean; 1?: boolean }>({});
+  const winCelebrationRef = useRef<WinCelebrationHandle>(null);
   // Mobile bottom-nav: players / mine open the players sheet on the matching tab.
   const searchParams = useSearchParams();
   const urlTab = searchParams.get("tab");
@@ -473,9 +476,10 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     const pendingWin = Number((bet.betAmount * clickedMultiplier).toFixed(2));
 
     // ── INSTANT: remove cashout button so user can't double-tap ──────────────
-    // Do NOT show a success toast yet — wait for server confirmation to avoid
-    // the confusing "Cashed out ✓" immediately followed by "Cashout failed" pair.
+    // Show a brief "cashing out…" shimmer until the server confirms.
+    // Do NOT celebrate yet — wait for server confirmation.
     setMyBets((prev) => { const n = { ...prev }; delete n[panelIndex]; return n; });
+    setCashingOut((prev) => ({ ...prev, [panelIndex]: true }));
     setBalance((b) => b + pendingWin);
 
     // ── Confirm with server (keepalive so the request isn't dropped on nav) ──
@@ -489,14 +493,14 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       const data = await res.json();
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Cashout failed");
 
-      // Server confirmed — show success toast with the authoritative amount
+      // Server confirmed — celebrate with authoritative amount (no generic toast)
       const serverWin  = Number((data as { winAmount: number }).winAmount);
       const serverMult = Number((data as { cashoutAt: number }).cashoutAt);
       if (serverWin !== pendingWin) setBalance((b) => b - pendingWin + serverWin);
-      toast.cashout(
-        `Cashed out at ${serverMult.toFixed(2)}×`,
-        `+${format(serverWin)}`,
-      );
+      winCelebrationRef.current?.fire({
+        multiplier: serverMult,
+        amount: serverWin,
+      });
       window.dispatchEvent(new Event("wallet-refresh"));
     } catch (err) {
       // Server rejected — revert balance
@@ -504,15 +508,19 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       const msg = (err as Error).message ?? "Cashout failed";
       const isTimeout = /timeout|ended|too late|expired/i.test(msg);
       if (isTimeout) {
-        // Round ended before request arrived — not a product bug, just latency
         toast.error("Too late", "Plane flew away before your cashout was processed");
       } else if (roundRef.current?.state === "FLYING") {
-        // Some other error while round is still going — restore button
         setMyBets((prev) => ({ ...prev, [panelIndex]: { ...bet, status: "ACTIVE" } }));
         toast.error("Cashout failed", msg);
       } else {
         toast.error("Cashout failed", "Round ended before cashout was processed");
       }
+    } finally {
+      setCashingOut((prev) => {
+        const next = { ...prev };
+        delete next[panelIndex];
+        return next;
+      });
     }
   }, [multiplier, myBets]);
 
@@ -538,6 +546,16 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             <div className="min-w-0 flex-1 overflow-hidden">
               <AviatorHistory rounds={history} onVerify={setVerifyRound} />
             </div>
+            {userId && (
+              <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/[0.05] px-2 py-1 ring-1 ring-white/[0.06] sm:px-2.5">
+                <Icon name="account_balance_wallet" className="text-[13px] text-[#31c45d] sm:text-[14px]" />
+                <RollingBalance
+                  value={balance}
+                  className="text-[10px] font-black tabular-nums text-white sm:text-[11px]"
+                  format={(n) => format(n)}
+                />
+              </div>
+            )}
             <button
               type="button"
               onClick={() => setSoundEnabled((v) => !v)}
@@ -551,7 +569,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             </button>
           </div>
 
-          <div className="mx-2 min-h-0 flex-1 overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#151518] lg:mx-0">
+          <div className="relative mx-2 min-h-0 flex-1 overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#151518] lg:mx-0">
             <div className="h-full min-h-[180px]">
               <AviatorCanvas
                 state={round?.state ?? "WAITING"}
@@ -561,6 +579,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
                 flyingStartedAt={round?.flyingStartedAt ?? null}
               />
             </div>
+            <WinCelebration ref={winCelebrationRef} soundEnabled={soundEnabled} />
           </div>
 
           <div className="grid shrink-0 grid-cols-2 gap-1.5 p-1.5 pb-2 lg:gap-3 lg:p-3">
@@ -571,6 +590,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
                 myBet={myBets[0]}
                 currentMultiplier={displayMult}
                 balance={balance}
+                cashingOut={!!cashingOut[0]}
                 onBet={handleBet}
                 onCashout={handleCashout}
               />
@@ -582,6 +602,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
                 myBet={myBets[1]}
                 currentMultiplier={displayMult}
                 balance={balance}
+                cashingOut={!!cashingOut[1]}
                 onBet={handleBet}
                 onCashout={handleCashout}
               />
