@@ -12,7 +12,7 @@ import { useBetslip } from "@/lib/betslip-context";
 
 export default function DashboardPage() {
   return (
-    <AppShell hideSidebar={false}>
+    <AppShell>
       <div className="md:hidden">
         <HeroSection compact />
       </div>

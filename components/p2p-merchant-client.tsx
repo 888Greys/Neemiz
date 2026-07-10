@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
+import { useAuthModal } from "@/lib/auth-modal-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { createClient } from "@/lib/supabase/client";
 import { P2PSubNav } from "@/components/p2p-subnav";
@@ -97,90 +99,239 @@ interface Ad {
 // Reflects the merchant's real stage so the journey feels alive and trackable.
 // current = index of the in-progress step; everything before it is complete.
 
-const MERCHANT_STEPS = [
-  { icon: "edit_note",               label: "Apply",          desc: "Submit your display name" },
-  { icon: "manage_search",           label: "KYC Review",     desc: "Reviewed in under 24h" },
-  { icon: "account_balance_wallet",  label: "Fund escrow",    desc: "Receive crypto, then fund" },
-  { icon: "storefront",              label: "Post ads",       desc: "Go live and start trading" },
-];
+const NICKNAME_MAX = 15;
 
-function MerchantProgress({ current, failed = false }: { current: number; failed?: boolean }) {
-  const pct = MERCHANT_STEPS.length > 1 ? (current / (MERCHANT_STEPS.length - 1)) * 100 : 0;
+/** Bybit-style My Ads empty shell (Active / All + Active Mode + empty CTA). */
+function MyAdsEmptyShell({
+  onPost,
+  banner,
+}: {
+  onPost: () => void;
+  banner?: ReactNode;
+}) {
+  const [adTab, setAdTab] = useState<"active" | "all">("active");
+  const [activeMode, setActiveMode] = useState(false);
+
   return (
-    <div className="mb-3 rounded-lg border border-white/[0.06] bg-[#18191f] p-4 sm:p-5">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-base font-black text-white">Your merchant journey</h2>
-        <span className="rounded-full bg-white/[0.04] px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
-          Step {Math.min(current + 1, MERCHANT_STEPS.length)} of {MERCHANT_STEPS.length}
+    <div className="mx-auto w-full max-w-lg px-3 pb-10 pt-1 sm:max-w-xl sm:px-4">
+      <div className="mb-1 flex items-center justify-between py-2">
+        <Link
+          href="/p2p"
+          prefetch={false}
+          className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/[0.06]"
+          aria-label="Back"
+        >
+          <Icon name="arrow_back" className="text-[22px]" />
+        </Link>
+        <h1 className="text-[17px] font-bold text-white">My Ads</h1>
+        <button
+          type="button"
+          onClick={onPost}
+          className="grid h-9 w-9 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
+          aria-label="More"
+        >
+          <Icon name="more_vert" className="text-[22px]" />
+        </button>
+      </div>
+
+      <div className="flex items-end justify-between border-b border-white/[0.08]">
+        <div className="flex gap-5">
+          {(
+            [
+              { id: "active" as const, label: "Active(0)" },
+              { id: "all" as const, label: "All" },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setAdTab(tab.id)}
+              className={`relative pb-2.5 text-[15px] font-bold transition ${
+                adTab === tab.id ? "text-white" : "text-slate-500"
+              }`}
+            >
+              {tab.label}
+              {adTab === tab.id && (
+                <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-white" />
+              )}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={onPost}
+          className="mb-2 grid h-8 w-8 place-items-center rounded-full border border-white/[0.12] text-white transition hover:bg-white/[0.06]"
+          aria-label="Post ad"
+        >
+          <Icon name="add" className="text-[20px]" />
+        </button>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3 rounded-xl bg-[#1c1c1e] px-3.5 py-3">
+        <span className="shrink-0 text-[13px] font-semibold text-white">Active Mode</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={activeMode}
+          onClick={() => setActiveMode((v) => !v)}
+          className={`relative h-[22px] w-[40px] shrink-0 rounded-full transition ${
+            activeMode ? "bg-[#05b957]" : "bg-white/20"
+          }`}
+        >
+          <span
+            className={`absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition ${
+              activeMode ? "left-[20px]" : "left-[2px]"
+            }`}
+          />
+        </button>
+        <span className="min-w-0 flex-1 text-right text-[12px] font-semibold text-[#087cff]">
+          Automatic Inactive Mode
         </span>
       </div>
 
-      <div className="relative">
-        {/* Track */}
-        <div className="absolute left-4 right-4 top-4 hidden h-0.5 -translate-y-1/2 bg-white/[0.07] sm:block" />
-        <div
-          className={`absolute left-4 top-4 hidden h-0.5 -translate-y-1/2 transition-all duration-500 sm:block ${failed ? "bg-red-500/60" : "bg-[#087cff]"}`}
-          style={{ width: `calc((100% - 2rem) * ${pct / 100})` }}
-        />
+      {banner}
 
-        <div className="grid gap-4 sm:grid-cols-4 sm:gap-2">
-          {MERCHANT_STEPS.map((s, i) => {
-            const done    = i < current;
-            const active  = i === current;
-            const isFail  = active && failed;
-            return (
-              <div key={s.label} className="flex items-center gap-3 sm:flex-col sm:items-center sm:text-center">
-                <div
-                  className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[13px] font-black transition-colors ${
-                    isFail
-                      ? "border-red-500/40 bg-red-500/15 text-red-400"
-                      : done
-                      ? "border-[#05b957]/40 bg-[#05b957]/15 text-[#05b957]"
-                      : active
-                      ? "border-[#087cff]/40 bg-[#087cff]/15 text-[#087cff]"
-                      : "border-white/10 bg-white/[0.03] text-slate-600"
-                  }`}
-                >
-                  {done ? (
-                    <Icon name="check" className="text-[16px]" />
-                  ) : isFail ? (
-                    <Icon name="close" className="text-[16px]" />
-                  ) : (
-                    <Icon name={s.icon} className="text-[15px]" />
-                  )}
-                  {active && !failed && (
-                    <span className="absolute inset-0 animate-ping rounded-full bg-[#087cff]/30" />
-                  )}
-                </div>
-                <div className="min-w-0 sm:mt-2">
-                  <p className={`text-sm font-black ${active || done ? "text-white" : "text-slate-500"}`}>{s.label}</p>
-                  <p className="text-xs leading-5 text-slate-600">{s.desc}</p>
-                </div>
-              </div>
-            );
-          })}
+      <div className="flex min-h-[320px] flex-col items-center justify-center px-4 py-14 text-center">
+        <svg
+          width="72"
+          height="72"
+          viewBox="0 0 72 72"
+          fill="none"
+          aria-hidden
+          className="mb-4 text-slate-600"
+        >
+          <path
+            d="M18 14h28l10 10v34a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinejoin="round"
+          />
+          <path d="M46 14v10h10" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+          <path d="M24 34h24M24 42h18M24 50h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+        <p className="text-[14px] font-medium text-slate-400">
+          Oops, you do not have any active ads.
+        </p>
+        <button
+          type="button"
+          onClick={onPost}
+          className="mt-6 rounded-full border border-dashed border-white/35 px-8 py-2.5 text-[14px] font-bold text-white transition hover:border-white/55 hover:bg-white/[0.04] active:scale-[0.98]"
+        >
+          Post Now
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SetNicknameSheet({
+  open,
+  onClose,
+  onConfirm,
+  submitting,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: (nickname: string) => void;
+  submitting: boolean;
+}) {
+  const [nickname, setNickname] = useState("");
+
+  useEffect(() => {
+    if (open) setNickname("");
+  }, [open]);
+
+  if (!open) return null;
+
+  const trimmed = nickname.trim();
+  const canSubmit = trimmed.length >= 2 && trimmed.length <= NICKNAME_MAX && !submitting;
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/65"
+        aria-label="Close"
+        onClick={onClose}
+      />
+      <div className="relative z-10 w-full max-w-lg rounded-t-2xl bg-[#1c1c1e] px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl sm:rounded-2xl sm:pb-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-[17px] font-bold text-white">Set Nickname</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
+            aria-label="Close"
+          >
+            <Icon name="close" className="text-[20px]" />
+          </button>
         </div>
+
+        <div className="mb-4 flex gap-2.5 rounded-xl bg-[#087cff]/10 px-3.5 py-3">
+          <Icon name="error" className="mt-0.5 shrink-0 text-[18px] text-[#087cff]" />
+          <p className="text-[12px] leading-5 text-[#087cff]">
+            Please note that your nickname can only be set once and can not be modified after confirmation.
+          </p>
+        </div>
+
+        <p className="mb-4 text-[13px] leading-5 text-slate-300">
+          Please set a nickname first before posting your ad. Your nickname will be displayed on the advertisement list.
+        </p>
+
+        <label className="mb-1.5 block text-[12px] font-medium text-slate-500">Nickname</label>
+        <div className="relative mb-5">
+          <input
+            autoFocus
+            type="text"
+            value={nickname}
+            maxLength={NICKNAME_MAX}
+            onChange={(e) => setNickname(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && canSubmit) onConfirm(trimmed);
+            }}
+            placeholder="Enter your nickname."
+            className="w-full rounded-xl border border-transparent bg-[#2c2c2e] px-3.5 py-3.5 pr-14 text-[14px] text-white placeholder:text-slate-500 outline-none focus:border-[#087cff]/40"
+          />
+          <span className="pointer-events-none absolute bottom-3 right-3.5 text-[11px] tabular-nums text-slate-500">
+            {nickname.length}/{NICKNAME_MAX}
+          </span>
+        </div>
+
+        <button
+          type="button"
+          disabled={!canSubmit}
+          onClick={() => onConfirm(trimmed)}
+          className="flex h-12 w-full items-center justify-center rounded-full bg-[#087cff] text-[15px] font-bold text-white transition hover:bg-[#0570e8] disabled:opacity-40 active:scale-[0.99]"
+        >
+          {submitting ? <LoadingDots label="Confirming" /> : "Confirm"}
+        </button>
       </div>
     </div>
   );
 }
 
 function ApplyLanding({ onApplied }: { onApplied: () => void }) {
-  const [displayName, setDisplayName] = useState("");
+  const { isSignedIn } = useSupabaseAuth();
+  const { openLogin } = useAuthModal();
+  const [sheetOpen, setSheetOpen] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  async function submit() {
-    if (!displayName.trim()) return toast.error("Display name required");
+  async function confirmNickname(displayName: string) {
+    if (!isSignedIn) {
+      openLogin();
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch("/api/p2p/merchant/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName: displayName.trim() }),
+        body: JSON.stringify({ displayName }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success("Application submitted! Your account is usually verified within the hour.");
+      toast.success("Nickname set. Verification usually completes within the hour.");
+      setSheetOpen(false);
       onApplied();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -190,80 +341,15 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
-      {/* Hero */}
-      <div className="relative mb-3 overflow-hidden rounded-lg border border-white/[0.06] bg-[#18191f] p-4 sm:p-5 lg:p-4">
-        <div className="relative flex items-center gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#087cff]/25 bg-[#087cff]/15 shadow-xl shadow-[#087cff]/10">
-            <Icon name="storefront" className="text-2xl text-[#087cff]" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="mb-1 text-2xl font-black text-white lg:text-xl">Become a Merchant</h1>
-            <p className="max-w-3xl text-sm leading-5 text-slate-400">
-              Post buy &amp; sell ads, set your own prices, and earn from every trade.
-              Nezeem holds crypto in escrow — your funds are always safe.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Benefits grid */}
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {[
-          { icon: "price_change",   label: "Your Prices",     desc: "Set your own spread and profit per trade" },
-          { icon: "lock",           label: "Escrow Safe",     desc: "Crypto secured by Nezeem before any release" },
-          { icon: "verified",       label: "Trust Badge",     desc: "Verified badge builds buyer confidence" },
-          { icon: "payments",       label: "Local Payments",  desc: "M-Pesa and bank transfers supported" },
-        ].map(({ icon, label, desc }) => (
-          <div key={label} className="rounded-lg border border-white/[0.06] bg-[#18191f] p-3 transition-colors hover:border-[#087cff]/20">
-            <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-lg bg-[#087cff]/10">
-              <Icon name={icon} className="text-[#087cff] text-sm" />
-            </div>
-            <p className="text-white font-black text-sm mb-1">{label}</p>
-            <p className="text-slate-500 text-xs leading-relaxed">{desc}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Live progress tracker */}
-      <MerchantProgress current={0} />
-
-      {/* Application form */}
-      <div className="max-w-lg">
-        <div className="rounded-lg border border-white/[0.07] bg-[#18191f] p-4">
-          <h2 className="mb-1 text-lg font-black text-white">Start your application</h2>
-          <p className="mb-4 text-sm text-slate-500">Takes less than a minute. Verification usually completes within the hour.</p>
-
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-black text-slate-400 mb-1.5 block uppercase tracking-wide">Merchant display name</label>
-              <input
-                autoFocus
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && submit()}
-                placeholder="e.g. CryptoKing_KE"
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-white placeholder:text-slate-600 outline-none focus:border-[#087cff]/50 transition-colors text-sm"
-              />
-              <p className="text-slate-600 text-xs mt-1.5">This name will be shown to buyers and sellers on your ads.</p>
-            </div>
-
-            <button
-              onClick={submit}
-              disabled={!displayName.trim() || submitting}
-              className="w-full py-3.5 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] disabled:opacity-40 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-lg shadow-[#087cff]/20"
-            >
-              {submitting ? (
-                <LoadingDots label="Submitting" />
-              ) : (
-                <><Icon name="send" className="text-base" /> Submit Application</>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <>
+      <MyAdsEmptyShell onPost={() => setSheetOpen(true)} />
+      <SetNicknameSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onConfirm={confirmNickname}
+        submitting={submitting}
+      />
+    </>
   );
 }
 
@@ -271,76 +357,351 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
 
 function ApplicationStatus({ status, onRefresh }: { status: MerchantStatus; onRefresh: () => void }) {
   const isRejected = status.kycStatus === "REJECTED";
-  const isPending  = status.kycStatus === "PENDING";
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
-      <MerchantProgress current={1} failed={isRejected} />
-      <div className="max-w-lg">
-        {/* Status card */}
-        <div className={`rounded-2xl border p-6 mb-6 ${
-          isRejected ? "bg-red-500/[0.06] border-red-500/20" : "bg-amber-500/[0.06] border-amber-500/20"
-        }`}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              isRejected ? "bg-red-500/15" : "bg-amber-500/15"
-            }`}>
-              <Icon name={isRejected ? "cancel" : "hourglass_top"} className={`text-2xl ${isRejected ? "text-red-400" : "text-amber-400"}`} />
-            </div>
-            <div>
-              <h2 className="text-white font-black text-lg">
-                {isRejected ? "Application Not Approved" : "Under Review"}
-              </h2>
-              <p className="text-slate-500 text-sm">
-                {isRejected ? `Submitted ${status.createdAt ? new Date(status.createdAt).toLocaleDateString() : "—"}` : "Usually reviewed within 24 hours"}
+    <MyAdsEmptyShell
+      onPost={() => {
+        if (isRejected) {
+          toast.error("Your application was not approved. Contact support to re-apply.");
+          return;
+        }
+        toast.info("Verification in progress — you can post ads once approved.");
+      }}
+      banner={
+        <div
+          className={`mt-3 rounded-xl px-3.5 py-3 ${
+            isRejected
+              ? "bg-red-500/10 ring-1 ring-red-500/25"
+              : "bg-[#087cff]/10 ring-1 ring-[#087cff]/25"
+          }`}
+        >
+          <div className="flex items-start gap-2.5">
+            <Icon
+              name={isRejected ? "cancel" : "hourglass_top"}
+              className={`mt-0.5 shrink-0 text-[18px] ${isRejected ? "text-red-400" : "text-[#087cff]"}`}
+            />
+            <div className="min-w-0 flex-1">
+              <p className={`text-[13px] font-bold ${isRejected ? "text-red-300" : "text-[#087cff]"}`}>
+                {isRejected ? "Application not approved" : "Under review"}
               </p>
+              <p className="mt-0.5 text-[12px] leading-5 text-slate-400">
+                {isRejected
+                  ? status.kycNote || "Please contact support if you believe this is a mistake."
+                  : `Nickname “${status.displayName}” is set. Approval usually completes within the hour.`}
+              </p>
+              {isRejected && (
+                <button
+                  type="button"
+                  onClick={onRefresh}
+                  className="mt-2 text-[12px] font-bold text-white underline underline-offset-2"
+                >
+                  Refresh status
+                </button>
+              )}
             </div>
           </div>
+        </div>
+      }
+    />
+  );
+}
 
-          {isPending && (
-            <div className="space-y-2">
-              {[
-                { icon: "task_alt", text: "Application received" },
-                { icon: "manage_search", text: "Identity review in progress…" },
-                { icon: "check_circle", text: "Approval & account activation", dim: true },
-              ].map(({ icon, text, dim }) => (
-                <div key={text} className={`flex items-center gap-2.5 text-sm ${dim ? "text-slate-700" : "text-slate-400"}`}>
-                  <Icon name={icon} className={`text-base ${dim ? "text-slate-700" : "text-amber-400"}`} />
-                  {text}
-                </div>
-              ))}
-            </div>
-          )}
+/** Bybit-style P2P profile (not the main app Profile modal). */
+function P2PUserProfile({
+  status,
+  onApply,
+  onOpenPayments,
+  paymentCount = 0,
+}: {
+  status: MerchantStatus | null;
+  onApply?: () => void;
+  onOpenPayments?: () => void;
+  paymentCount?: number;
+}) {
+  const router = useRouter();
+  const { isSignedIn, user } = useSupabaseAuth();
+  const { openLogin } = useAuthModal();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [profile, setProfile] = useState<MerchantStatus | null>(status);
 
-          {isRejected && status.kycNote && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mt-3">
-              <p className="text-xs font-black text-red-400 uppercase tracking-wide mb-1">Rejection reason</p>
-              <p className="text-slate-300 text-sm">{status.kycNote}</p>
-            </div>
+  useEffect(() => {
+    setProfile(status);
+  }, [status]);
+
+  useEffect(() => {
+    if (!isSignedIn || !status?.applied) return;
+    fetch("/api/p2p/merchant/profile", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: MerchantStatus | null) => {
+        if (data) setProfile((current) => ({ ...current, ...data, applied: true }));
+      })
+      .catch(() => {});
+  }, [isSignedIn, status?.applied, status?.kycStatus]);
+
+  const nickname =
+    profile?.displayName?.trim() ||
+    (user?.user_metadata?.full_name as string | undefined)?.trim() ||
+    (user?.email ? user.email.split("@")[0] : null) ||
+    "User";
+
+  const completed = Number(profile?.completedTrades ?? 0);
+  const completion = Number(profile?.completionRate ?? 0);
+  const release = Number(profile?.avgReleaseTime ?? 0);
+  const positive = Number(profile?.positiveFeedbackRate ?? 0);
+  const approved = profile?.applied && profile.kycStatus === "APPROVED";
+  const pending = profile?.applied && profile.kycStatus === "PENDING";
+  const rejected = profile?.applied && profile.kycStatus === "REJECTED";
+
+  const emailOk = !!(user?.email && !user.email.endsWith("@phone.nezeem.com"));
+  const phoneOk = !!(user?.phone || user?.user_metadata?.phone_number || user?.email?.endsWith("@phone.nezeem.com"));
+  const identityOk = !!approved;
+
+  async function confirmNickname(displayName: string) {
+    if (!isSignedIn) {
+      openLogin();
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/p2p/merchant/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed");
+      toast.success("Nickname set. Verification usually completes within the hour.");
+      setSheetOpen(false);
+      onApply?.();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function requireAuth(fn: () => void) {
+    if (!isSignedIn) {
+      openLogin();
+      return;
+    }
+    fn();
+  }
+
+  const advertiserRight = !profile?.applied ? (
+    <span className="text-[13px] font-bold text-[#087cff]">Apply Now &gt;</span>
+  ) : pending ? (
+    <span className="text-[13px] font-semibold text-[#087cff]">Under review</span>
+  ) : rejected ? (
+    <span className="text-[13px] font-semibold text-red-400">Not approved</span>
+  ) : (
+    <Icon name="chevron_right" className="text-[18px] text-slate-600" />
+  );
+
+  const menuPrimary: Array<{
+    icon: string;
+    label: string;
+    right?: ReactNode;
+    onClick: () => void;
+  }> = [
+    {
+      icon: "confirmation_number",
+      label: "P2P Coupon",
+      onClick: () => toast.info("P2P coupons coming soon"),
+    },
+    {
+      icon: "account_balance_wallet",
+      label: "Payment Method",
+      right: (
+        <span className="flex items-center gap-1.5">
+          {paymentCount > 0 && (
+            <span className="text-[13px] font-semibold text-slate-400">{paymentCount}</span>
           )}
+          <Icon name="chevron_right" className="text-[18px] text-slate-600" />
+        </span>
+      ),
+      onClick: () =>
+        requireAuth(() => {
+          if (approved && onOpenPayments) onOpenPayments();
+          else if (approved) router.push("/p2p/merchant?tab=payments");
+          else toast.info("Become an advertiser first to manage payment methods");
+        }),
+    },
+    {
+      icon: "badge",
+      label: "Advertiser",
+      right: advertiserRight,
+      onClick: () =>
+        requireAuth(() => {
+          if (!profile?.applied) setSheetOpen(true);
+          else if (approved) router.push("/p2p/merchant?tab=ads");
+          else if (pending) toast.info("Advertiser application is under review");
+          else toast.error("Application was not approved");
+        }),
+    },
+  ];
+
+  const menuSecondary: Array<{ icon: string; label: string; right?: string; onClick: () => void }> = [
+    {
+      icon: "thumb_up",
+      label: "Leave A Review",
+      right: `${positive.toFixed(0)}%`,
+      onClick: () => toast.info("Reviews appear after completed trades"),
+    },
+    {
+      icon: "notifications",
+      label: "Manage Notifications",
+      onClick: () => toast.info("Notification settings coming soon"),
+    },
+    {
+      icon: "person_add",
+      label: "Following",
+      onClick: () => toast.info("Following list coming soon"),
+    },
+    {
+      icon: "block",
+      label: "Manage the Blacklist",
+      onClick: () => toast.info("Blacklist coming soon"),
+    },
+  ];
+
+  return (
+    <>
+      <div className="mx-auto w-full max-w-lg px-3 pb-10 pt-1 sm:max-w-xl sm:px-4">
+        <div className="mb-4 flex items-center justify-between py-2">
+          <Link
+            href="/p2p"
+            prefetch={false}
+            className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/[0.06]"
+            aria-label="Back"
+          >
+            <Icon name="arrow_back" className="text-[22px]" />
+          </Link>
+          <a
+            href="mailto:support@nezeem.com"
+            className="text-[13px] font-semibold text-slate-300 transition hover:text-white"
+          >
+            Help &amp; Support
+          </a>
         </div>
 
-        {isRejected && (
-          <div className="bg-[#18191f] border border-white/[0.06] rounded-2xl p-5">
-            <p className="text-slate-400 text-sm mb-4">
-              You can re-apply with updated information. Make sure your display name follows our guidelines.
-            </p>
+        <div className="mb-5 flex flex-col items-center text-center">
+          <MerchantAvatar
+            id={nickname}
+            name={nickname}
+            avatarUrl={user?.user_metadata?.avatar_url || profile?.avatarUrl}
+            size={72}
+            rounded="full"
+            className="mb-3 h-[72px] w-[72px]"
+          />
+          <div className="flex items-center gap-1.5">
+            <h1 className="text-[20px] font-bold text-white">{nickname}</h1>
             <button
-              onClick={onRefresh}
-              className="w-full py-3 rounded-xl font-black text-white bg-[#087cff] hover:bg-[#0570e8] transition-all text-sm"
+              type="button"
+              onClick={() =>
+                requireAuth(() => {
+                  if (!profile?.applied) setSheetOpen(true);
+                  else toast.info("Nickname can only be set once");
+                })
+              }
+              className="grid h-7 w-7 place-items-center rounded-full text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
+              aria-label="Edit nickname"
             >
-              Re-apply
+              <Icon name="edit" className="text-[16px]" />
             </button>
           </div>
-        )}
 
-        <div className="text-center mt-4">
-          <Link href="/p2p" className="text-slate-600 text-sm hover:text-slate-400 transition-colors">
-            ← Back to P2P marketplace
-          </Link>
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
+            {(
+              [
+                { label: "Email", ok: emailOk },
+                { label: "SMS", ok: phoneOk },
+                { label: "Identity Verification", ok: identityOk },
+                { label: "Deposit", ok: false },
+              ] as const
+            ).map((badge) => (
+              <span key={badge.label} className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                <Icon
+                  name={badge.ok ? "check_circle" : "error"}
+                  className={`text-[14px] ${badge.ok ? "text-[#05b957]" : "text-slate-600"}`}
+                />
+                {badge.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-3 rounded-xl bg-[#1c1c1e] px-4 py-3.5">
+          {[
+            ["Completed Order(s) in 30 Days", `${completed} Order(s)`],
+            ["Completion Rate Within 30 Days", `${completion.toFixed(0)}%`],
+            ["Avg. Release Time", release > 0 ? `${release.toFixed(0)} Minute(s)` : "—"],
+            ["Avg. Payment Time", "—"],
+          ].map(([label, value]) => (
+            <div key={label} className="flex items-center justify-between gap-3 py-2 text-[13px]">
+              <span className="text-slate-500">{label}</span>
+              <span className="font-semibold text-white">{value}</span>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => toast.info("More trading stats coming soon")}
+            className="mt-1 w-full py-2 text-center text-[13px] font-semibold text-slate-400 transition hover:text-white"
+          >
+            More Data &gt;
+          </button>
+        </div>
+
+        <div className="mb-3 overflow-hidden rounded-xl bg-[#1c1c1e]">
+          {menuPrimary.map((item, i) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={item.onClick}
+              className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.03] ${
+                i > 0 ? "border-t border-white/[0.06]" : ""
+              }`}
+            >
+              <Icon name={item.icon} className="text-[20px] text-slate-300" />
+              <span className="flex-1 text-[14px] font-semibold text-white">{item.label}</span>
+              {item.right ?? <Icon name="chevron_right" className="text-[18px] text-slate-600" />}
+            </button>
+          ))}
+        </div>
+
+        <div className="overflow-hidden rounded-xl bg-[#1c1c1e]">
+          {menuSecondary.map((item, i) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={item.onClick}
+              className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.03] ${
+                i > 0 ? "border-t border-white/[0.06]" : ""
+              }`}
+            >
+              <Icon name={item.icon} className="text-[20px] text-slate-300" />
+              <span className="flex-1 text-[14px] font-semibold text-white">{item.label}</span>
+              {item.right ? (
+                <span className="flex items-center gap-1 text-[13px] font-semibold text-slate-400">
+                  {item.right}
+                  <Icon name="chevron_right" className="text-[18px] text-slate-600" />
+                </span>
+              ) : (
+                <Icon name="chevron_right" className="text-[18px] text-slate-600" />
+              )}
+            </button>
+          ))}
         </div>
       </div>
-    </div>
+
+      <SetNicknameSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onConfirm={confirmNickname}
+        submitting={submitting}
+      />
+    </>
   );
 }
 
@@ -2009,9 +2370,10 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
     setSection("payments");
     setPayFormSignal((n) => n + 1);
   }, []);
-  const [adFilter, setAdFilter] = useState<"ALL" | "ACTIVE" | "PAUSED" | "EXHAUSTED">("ALL");
+  const [adFilter, setAdFilter] = useState<"ALL" | "ACTIVE" | "PAUSED" | "EXHAUSTED">("ACTIVE");
   const [adPage, setAdPage] = useState(1);
   const [openAdMenu, setOpenAdMenu] = useState<string | null>(null);
+  const [paymentCount, setPaymentCount] = useState(0);
 
   // Editable display name
   const [displayName, setDisplayName] = useState(status.displayName ?? "");
@@ -2090,6 +2452,13 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
   useEffect(() => { loadAds(); }, [loadAds]);
 
+  useEffect(() => {
+    fetch("/api/p2p/merchant/payment-methods")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: unknown) => setPaymentCount(Array.isArray(list) ? list.length : 0))
+      .catch(() => setPaymentCount(0));
+  }, []);
+
   const loadMerchantProfile = useCallback(async () => {
     try {
       const r = await fetch("/api/p2p/merchant/profile", { cache: "no-store" });
@@ -2159,25 +2528,14 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const adsPerPage = 8;
   const adPageCount = Math.max(1, Math.ceil(filteredAds.length / adsPerPage));
   const visibleAds = filteredAds.slice((adPage - 1) * adsPerPage, adPage * adsPerPage);
-  const profileCreatedAt = merchantProfile.createdAt ?? status.createdAt;
-  const profileCompleted = Number(merchantProfile.completedTrades ?? 0);
-  const profileTotal = Number(merchantProfile.totalTrades ?? profileCompleted);
-  const profileCompletion = Number(merchantProfile.completionRate ?? 0);
-  const profileRelease = Number(merchantProfile.avgReleaseTime ?? 0);
-  const profileFeedbackCount = Number(merchantProfile.feedbackCount ?? 0);
-  const profileFeedbackAverage = Number(merchantProfile.feedbackAverage ?? 0);
-  const profilePositiveRate = Number(merchantProfile.positiveFeedbackRate ?? 0);
-  const profileFeedback = merchantProfile.feedback ?? [];
-  const profileRegistered = profileCreatedAt
-    ? `${Math.max(0, Math.floor((Date.now() - new Date(profileCreatedAt).getTime()) / 86_400_000)).toLocaleString()} Day(s) ago`
-    : "—";
-  const profileReleaseLabel = profileRelease > 0 ? `${profileRelease.toFixed(2)} Minute(s)` : "—";
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-3 py-4 sm:px-4">
+    <div className={`mx-auto w-full px-3 py-4 sm:px-4 ${section === "ads" || section === "profile" ? "max-w-lg sm:max-w-xl" : "max-w-6xl"}`}>
       {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
       {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
 
+      {section !== "ads" && section !== "profile" && (
+      <>
       {/* Merchant header */}
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -2274,6 +2632,8 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
           </button>
         ))}
       </div>
+      </>
+      )}
 
       {section === "overview" && (
         <>
@@ -2348,69 +2708,11 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       )}
 
       {section === "profile" && (
-        <div className="grid gap-3 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <div className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4">
-            <p className="mb-4 text-xs font-black uppercase tracking-wide text-slate-500">Public profile stats</p>
-
-            <div className="divide-y divide-white/[0.06]">
-              {[
-                ["30d Trades", profileCompleted.toLocaleString()],
-                ["30d Completion Rate", `${profileCompletion.toFixed(1)}%`],
-                ["Avg. Release Time", profileReleaseLabel],
-                ["Positive Feedback", `${profilePositiveRate.toFixed(1)}%`],
-                ["Avg. Rating", profileFeedbackCount > 0 ? `${profileFeedbackAverage.toFixed(1)} / 5` : "—"],
-                ["Registered", profileRegistered],
-                ["All Trades", `${profileTotal.toLocaleString()} Time(s)`],
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                  <span className="text-slate-500">{label}</span>
-                  <span className="text-right font-black text-white">{value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-black text-white">Received Feedback</h2>
-                <p className="mt-0.5 text-xs text-slate-500">{profileFeedbackCount} review{profileFeedbackCount === 1 ? "" : "s"} from completed trades</p>
-              </div>
-              <span className="rounded-lg bg-[#05b957]/10 px-2.5 py-1 text-xs font-black text-[#05b957]">
-                {profileFeedbackCount > 0 ? `${profileFeedbackAverage.toFixed(1)} / 5` : "New"}
-              </span>
-            </div>
-
-            {profileFeedback.length === 0 ? (
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-8 text-center">
-                <Icon name="rate_review" className="mx-auto text-2xl text-slate-600" />
-                <p className="mt-2 text-sm font-black text-white">No feedback yet</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">Feedback will appear here after completed traders submit reviews.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {profileFeedback.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-3">
-                    <div className="flex items-center gap-2">
-                      <MerchantAvatar
-                        id={item.fromUser.displayName}
-                        name={item.fromUser.displayName}
-                        avatarUrl={item.fromUser.imageUrl}
-                        size={32}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-black text-white">{item.fromUser.displayName}</p>
-                        <p className="text-[11px] font-bold text-[#05b957]">{"★".repeat(item.rating)}{"☆".repeat(5 - item.rating)}</p>
-                      </div>
-                      <span className="text-[10px] text-slate-600">{new Date(item.createdAt).toLocaleDateString("en-KE", { month: "short", day: "2-digit" })}</span>
-                    </div>
-                    {item.comment && <p className="mt-2 text-xs leading-5 text-slate-400">{item.comment}</p>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        <P2PUserProfile
+          status={merchantProfile}
+          onOpenPayments={goToAddPayment}
+          paymentCount={paymentCount}
+        />
       )}
 
       {section === "wallet" && <DepositSection />}
@@ -2418,29 +2720,80 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
       {/* Ads list */}
       {section === "ads" && <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
-          <div>
-            <h2 className="text-white font-black text-base">My Ads</h2>
-            <p className="text-slate-500 text-xs mt-0.5">{activeAds.length} active · {ads.length} total</p>
-          </div>
-          <div className="flex gap-1 rounded-lg bg-white/[0.03] p-1">
-            {(["ALL", "ACTIVE", "PAUSED", "EXHAUSTED"] as const).map((filter) => (
-              <button
-                key={filter}
-                type="button"
-                onClick={() => {
-                  setAdFilter(filter);
-                  setAdPage(1);
-                  setOpenAdMenu(null);
-                }}
-                className={`rounded-md px-3 py-1.5 text-[10px] font-black transition ${
-                  adFilter === filter ? "bg-white/[0.10] text-white" : "text-slate-600 hover:text-slate-300"
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
+        <div className="mb-1 flex items-center justify-between py-1">
+          <Link
+            href="/p2p"
+            prefetch={false}
+            className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/[0.06]"
+            aria-label="Back"
+          >
+            <Icon name="arrow_back" className="text-[22px]" />
+          </Link>
+          <h2 className="text-[17px] font-bold text-white">My Ads</h2>
+          <button
+            type="button"
+            onClick={() => setCreate(true)}
+            className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.12] text-white transition hover:bg-white/[0.06]"
+            aria-label="Post ad"
+          >
+            <Icon name="add" className="text-[20px]" />
+          </button>
+        </div>
+
+        <div className="mb-3 flex items-end gap-5 border-b border-white/[0.08]">
+          {(
+            [
+              { id: "ACTIVE" as const, label: `Active(${activeAds.length})` },
+              { id: "ALL" as const, label: "All" },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setAdFilter(tab.id);
+                setAdPage(1);
+                setOpenAdMenu(null);
+              }}
+              className={`relative pb-2.5 text-[15px] font-bold transition ${
+                adFilter === tab.id ? "text-white" : "text-slate-500"
+              }`}
+            >
+              {tab.label}
+              {adFilter === tab.id && (
+                <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-white" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-3 flex items-center gap-3 rounded-xl bg-[#1c1c1e] px-3.5 py-3">
+          <span className="shrink-0 text-[13px] font-semibold text-white">Active Mode</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={activeAds.length > 0}
+            onClick={() => {
+              if (activeAds.length === 0) {
+                toast.info("Post an ad first to use Active Mode");
+                return;
+              }
+              const target = ads.find((a) => a.isActive) ?? ads[0];
+              if (target) void toggleActive(target);
+            }}
+            className={`relative h-[22px] w-[40px] shrink-0 rounded-full transition ${
+              activeAds.length > 0 ? "bg-[#05b957]" : "bg-white/20"
+            }`}
+          >
+            <span
+              className={`absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition ${
+                activeAds.length > 0 ? "left-[20px]" : "left-[2px]"
+              }`}
+            />
+          </button>
+          <span className="min-w-0 flex-1 text-right text-[12px] font-semibold text-[#087cff]">
+            Automatic Inactive Mode
+          </span>
         </div>
 
         {loading ? (
@@ -2448,14 +2801,21 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             {[1,2].map((i) => <div key={i} className="h-20 rounded-2xl bg-white/[0.03] animate-pulse" />)}
           </div>
         ) : filteredAds.length === 0 ? (
-          <div className="flex min-h-[120px] flex-col items-center justify-center rounded-2xl ring-1 ring-white/[0.07] bg-white/[0.03] px-6 py-5 text-center">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
-              <Icon name="post_add" className="text-xl text-slate-500" />
-            </div>
-            <p className="mb-1 text-base font-black text-white">{ads.length ? `No ${adFilter.toLowerCase()} ads` : "No ads yet"}</p>
-            <p className="mb-4 max-w-sm text-sm leading-6 text-slate-500">{ads.length ? "Choose another filter to view your inventory." : "Create your first ad to start trading."}</p>
-            <button onClick={() => setCreate(true)} className="px-5 py-2.5 rounded-xl bg-[#087cff] text-white font-black text-sm hover:bg-[#0570e8] transition-colors">
-              {ads.length ? "Post New Ad" : "Create First Ad"}
+          <div className="flex min-h-[280px] flex-col items-center justify-center px-4 py-14 text-center">
+            <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden className="mb-4 text-slate-600">
+              <path d="M18 14h28l10 10v34a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+              <path d="M46 14v10h10" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+              <path d="M24 34h24M24 42h18M24 50h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+            </svg>
+            <p className="text-[14px] font-medium text-slate-400">
+              {ads.length ? `No ${adFilter === "ACTIVE" ? "active" : "matching"} ads.` : "Oops, you do not have any active ads."}
+            </p>
+            <button
+              type="button"
+              onClick={() => setCreate(true)}
+              className="mt-6 rounded-full border border-dashed border-white/35 px-8 py-2.5 text-[14px] font-bold text-white transition hover:border-white/55 hover:bg-white/[0.04] active:scale-[0.98]"
+            >
+              Post Now
             </button>
           </div>
         ) : (
@@ -2595,9 +2955,12 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function P2PMerchantClient() {
-  const { isSignedIn, user } = useSupabaseAuth();
+  const { isSignedIn } = useSupabaseAuth();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab");
   const [status, setStatus] = useState<MerchantStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [paymentCount, setPaymentCount] = useState(0);
 
   const check = useCallback(async () => {
     try { const r = await fetch("/api/p2p/merchant/apply"); setStatus(await r.json()); }
@@ -2609,6 +2972,14 @@ export function P2PMerchantClient() {
     else setLoading(false);
   }, [isSignedIn, check]);
 
+  useEffect(() => {
+    if (!isSignedIn) { setPaymentCount(0); return; }
+    fetch("/api/p2p/merchant/payment-methods")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((list: unknown) => setPaymentCount(Array.isArray(list) ? list.length : 0))
+      .catch(() => setPaymentCount(0));
+  }, [isSignedIn, status?.applied, status?.kycStatus]);
+
   // While an application is pending, poll so the "Under Review" screen
   // clears on its own once auto-verification kicks in (no manual refresh).
   useEffect(() => {
@@ -2617,23 +2988,24 @@ export function P2PMerchantClient() {
     return () => clearInterval(interval);
   }, [status?.applied, status?.kycStatus, check]);
 
+  const showProfile = tab === "profile";
+
   return (
     <>
       <P2PSubNav />
-      <div className="mx-auto w-full max-w-6xl px-3 pt-2 sm:px-4 lg:px-3">
-        <div className="flex items-center justify-between rounded-lg border border-white/[0.06] bg-[#18191f] px-4 py-3">
-          <div>
-            <p className="text-[8px] font-black uppercase tracking-[0.22em] text-blue-400">Liquidity operations</p>
-            <h1 className="mt-0.5 text-lg font-black tracking-tight text-white">Merchant command</h1>
-            <p className="text-[9px] text-slate-600">Manage ads, escrow balances, payment rails and settlement capacity.</p>
+      {showProfile ? (
+        loading && isSignedIn ? (
+          <div className="flex min-h-[260px] items-center justify-center px-4 py-5">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
           </div>
-          <div className="hidden items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.025] px-3 py-1.5 text-[9px] font-black text-slate-500 sm:flex">
-            <Icon name="shield" className="text-[13px] text-emerald-400" />
-            LIVE RISK CHECKS
-          </div>
-        </div>
-      </div>
-      {!isSignedIn ? (
+        ) : (
+          <P2PUserProfile
+            status={isSignedIn ? status : null}
+            onApply={check}
+            paymentCount={paymentCount}
+          />
+        )
+      ) : !isSignedIn ? (
         <ApplyLanding onApplied={check} />
       ) : loading || !status ? (
         <div className="flex min-h-[260px] items-center justify-center px-4 py-5 sm:px-6 lg:px-8">

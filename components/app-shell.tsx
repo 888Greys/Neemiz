@@ -22,6 +22,7 @@ import { peekPendingPromo, redeemPromoClient } from "@/lib/pending-promo";
 import { PromoSuccessHost, showPromoSuccess } from "@/components/promo-success";
 import { NavBadgeContext } from "@/lib/nav-badge-context";
 import { PhonePromptModal } from "@/components/phone-prompt-modal";
+import { readNavRecents, trackNavRecent, type NavRecent } from "@/lib/nav-recents";
 
 const LoginModal = dynamic(
   () => import("@/components/login-modal").then((mod) => mod.LoginModal),
@@ -54,7 +55,7 @@ type AppShellProps = {
   hideSidebar?: boolean;
 };
 
-export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = true }: AppShellProps) {
+export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = false }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -82,10 +83,15 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   // Start collapsed on both server and first client render to avoid a hydration
   // mismatch, then sync the persisted preference from localStorage after mount.
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [recents, setRecents] = useState<NavRecent[]>([]);
   useEffect(() => {
     const stored = localStorage.getItem("sidebar-collapsed");
     if (stored !== null) setSidebarCollapsed(stored === "true");
+    setRecents(readNavRecents());
   }, []);
+  useEffect(() => {
+    setRecents(trackNavRecent(pathname));
+  }, [pathname]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loginOpen, setLoginOpen]             = useState(false);
   const [registerOpen, setRegisterOpen]       = useState(false);
@@ -250,18 +256,17 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             </nav>
           </div>
           {isSignedIn ? (
-            <div className="flex shrink-0 items-center gap-2">
-              <div className="flex items-center rounded-2xl bg-[#18191d] ring-1 ring-white/[0.07]">
-                {/* Balance → floating wallet (deposit, withdraw, send, history) */}
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              {/* Wallet balance — desktop only; mobile uses sidebar / menu */}
+              <div className="hidden items-center rounded-2xl bg-[#18191d] ring-1 ring-white/[0.07] md:flex">
                 <button
                   type="button"
                   onClick={() => openWallet()}
                   className="flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 sm:px-4 sm:py-2 transition hover:bg-[#22242a]"
                 >
                   <Icon name="account_balance_wallet" fill className="text-[15px] text-[#087cff]" />
-                  <span className="hidden text-sm font-black text-white sm:inline">{fmtBalance}</span>
+                  <span className="text-sm font-black text-white">{fmtBalance}</span>
                 </button>
-                {/* Quick deposit shortcut */}
                 <button
                   type="button"
                   onClick={() => openWallet()}
@@ -274,8 +279,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
                 <CurrencySwitcher />
               </div>
               <NotificationsBell />
-              {/* Profile entry point — needed on desktop when the sidebar (which
-                  used to hold the avatar) is hidden. */}
+              {/* Profile when sidebar is hidden (immersive game pages) */}
               {hideSidebar && (
                 <button
                   type="button"
@@ -316,7 +320,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             sidebarCollapsed ? "w-[78px]" : "w-[280px]"
           }`}
         >
-          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} onOpenWallet={() => openWallet()} onOpenPromotionCodes={() => openProfile("promotion-codes")} onOpenProfile={() => { setProfileInitialView(undefined); setProfileOpen(true); }} />
+          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} tab={currentTab} recents={recents} onOpenWallet={() => openWallet()} onOpenPromotionCodes={() => openProfile("promotion-codes")} onOpenProfile={() => { setProfileInitialView(undefined); setProfileOpen(true); }} />
         </aside>
         )}
 
@@ -344,7 +348,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={(tab) => { setProfileOpen(false); openWallet(tab); }} initialView={profileInitialView} />}
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} initialTab={walletInitialTab} />}
       <PromoSuccessHost />
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileInitialView(undefined); setProfileOpen(true); }} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileInitialView(undefined); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); openWallet(); }} recents={recents} />}
       {missingPhone && <PhonePromptModal onComplete={handlePhoneComplete} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
@@ -366,9 +370,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
                 ? pathNow === "/p2p" || pathNow.startsWith("/p2p/express")
                 : item.label === "Orders"
                   ? pathNow.startsWith("/p2p/order") || pathNow.startsWith("/p2p/orders")
-                  : item.label === "Ads"
-                    ? pathNow.startsWith("/p2p/merchant")
-                    : activePath === pathNow;
+                  : activePath === pathNow;
           const navigating = !isPanelTab && !isQueryTab && pendingPath === activePath && pathname !== activePath;
           if (item.label === "Menu") {
             return (
@@ -477,54 +479,86 @@ function UserAvatar({ src, initials, className }: { src?: string | null; initial
   );
 }
 
-function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenPromotionCodes, onOpenProfile, pathname }: { collapsed: boolean; onToggle: () => void; onOpenWallet: () => void; onOpenPromotionCodes: () => void; onOpenProfile: () => void; pathname: string }) {
-  const [openGroups, setOpenGroups] = useState({
-    sports: true,
-    p2p: false,
-  });
+function sidebarItemActive(pathname: string, href: string, tab = "") {
+  const [path, query] = href.split("?");
+  const q = new URLSearchParams(query ?? "");
+  if (q.get("tab") === "live") return pathname.startsWith("/sports") && tab === "live";
+  if (q.get("tab") === "ads") return pathname.startsWith("/p2p/merchant") && tab === "ads";
+  if (path === "/sports") return pathname.startsWith("/sports") && tab !== "live";
+  if (path === "/p2p") return pathname === "/p2p" || pathname.startsWith("/p2p/express");
+  if (path === "/polymarket" || path === "/predictions") {
+    return pathname.startsWith("/polymarket") || pathname.startsWith("/predictions");
+  }
+  if (path === "/dashboard") return pathname === "/dashboard";
+  return pathname.startsWith(path);
+}
 
-  const toggleGroup = (group: keyof typeof openGroups) => {
-    setOpenGroups((current) => ({ ...current, [group]: !current[group] }));
-  };
-
+function Sidebar({
+  collapsed,
+  onOpenWallet,
+  onOpenPromotionCodes,
+  onOpenProfile,
+  pathname,
+  tab,
+  recents,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+  onOpenWallet: () => void;
+  onOpenPromotionCodes: () => void;
+  onOpenProfile: () => void;
+  pathname: string;
+  tab: string;
+  recents: NavRecent[];
+}) {
   return (
     <div className="relative flex h-full flex-col">
-
       <div className={`no-scrollbar flex-1 overflow-y-auto py-5 ${collapsed ? "px-2" : "px-4"}`}>
-        {/* Sports */}
-        <SidebarGroup collapsed={collapsed} icon="sports_soccer" isOpen={openGroups.sports} onToggle={() => toggleGroup("sports")} title="Sports">
-          <SidebarItem collapsed={collapsed} href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/sports?tab=live" icon="sensors" label="Live" pathname={pathname} suppressActive />
-          <SidebarItem collapsed={collapsed} href="/my-bets" icon="receipt_long" label="My Bets" pathname={pathname} />
-        </SidebarGroup>
+        {!collapsed && recents.length > 0 && (
+          <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">Recents</p>
+        )}
+        {recents.length > 0 && (
+          <div className="mb-3 space-y-0.5">
+            {recents.map((r) => (
+              <StandaloneSidebarItem
+                key={r.href}
+                collapsed={collapsed}
+                href={r.href}
+                icon={r.icon}
+                label={r.label}
+                pathname={pathname}
+                tab={tab}
+              />
+            ))}
+          </div>
+        )}
+        {recents.length > 0 && (
+          <div className={`${collapsed ? "mx-1" : "-mx-4"} mb-3 border-t border-white/10`} />
+        )}
 
-        {/* Aviator */}
-        <StandaloneSidebarItem collapsed={collapsed} href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} badge="HOT" />
-
-        {/* Lucky Spin */}
-        <StandaloneSidebarItem collapsed={collapsed} href="/lucky-spin" icon="casino" label="Lucky Spin" pathname={pathname} />
-
-        {/* Polymarket */}
-        <StandaloneSidebarItem collapsed={collapsed} href="/polymarket" icon="online_prediction" label="Polymarket" pathname={pathname} />
-
-        {/* P2P */}
-        <SidebarGroup collapsed={collapsed} icon="swap_horiz" isOpen={openGroups.p2p} onToggle={() => toggleGroup("p2p")} title="P2P">
-          <SidebarItem collapsed={collapsed} href="/p2p" icon="storefront" label="Browse Ads" pathname={pathname} direct />
-          <SidebarItem collapsed={collapsed} href="/p2p/merchant" icon="verified_user" label="Merchant Center" pathname={pathname} direct />
-          <SidebarItem collapsed={collapsed} href="/p2p/orders" icon="receipt_long" label="My Orders" pathname={pathname} direct />
-        </SidebarGroup>
-
-        {/* Trading */}
-        <StandaloneSidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} />
-        <StandaloneSidebarItem collapsed={collapsed} href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} />
+        {!collapsed && (
+          <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">Explore</p>
+        )}
+        <div className="space-y-0.5">
+          <StandaloneSidebarItem collapsed={collapsed} href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/sports?tab=live" icon="sensors" label="Live" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/my-bets" icon="receipt_long" label="My Bets" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} tab={tab} badge="HOT" />
+          <StandaloneSidebarItem collapsed={collapsed} href="/lucky-spin" icon="casino" label="Lucky Spin" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/polymarket" icon="online_prediction" label="Polymarket" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/p2p" icon="swap_horiz" label="P2P" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/p2p/merchant?tab=ads" icon="campaign" label="Ads" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/p2p/orders" icon="receipt_long" label="Orders" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} tab={tab} />
+        </div>
 
         <div className={`${collapsed ? "mx-1" : "-mx-4"} my-4 border-t border-white/10`} />
 
-        {/* Utility */}
-        <div className="space-y-1">
-          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="account_balance_wallet" label="Wallet" pathname={pathname} onClick={onOpenWallet} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="confirmation_number" label="Promotion code" pathname={pathname} onClick={onOpenPromotionCodes} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/dashboard" icon="campaign" label="Promotions" pathname={pathname} onClick={() => toast.info("Promotions", "Seasonal promotions and free bets are launching soon!")} />
+        <div className="space-y-0.5">
+          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="account_balance_wallet" label="Wallet" pathname={pathname} tab={tab} onClick={onOpenWallet} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="confirmation_number" label="Promotion code" pathname={pathname} tab={tab} onClick={onOpenPromotionCodes} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/dashboard" icon="campaign" label="Promotions" pathname={pathname} tab={tab} onClick={() => toast.info("Promotions", "Seasonal promotions and free bets are launching soon!")} />
         </div>
       </div>
 
@@ -576,135 +610,6 @@ function Sidebar({ collapsed, onToggle, onOpenWallet, onOpenPromotionCodes, onOp
   );
 }
 
-function SidebarGroup({
-  collapsed,
-  icon,
-  isOpen,
-  onToggle,
-  title,
-  children,
-}: {
-  collapsed: boolean;
-  icon: string;
-  isOpen: boolean;
-  onToggle: () => void;
-  title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="mb-3">
-      <button
-        className={`mb-1 flex w-full items-center rounded-lg text-left text-slate-200 transition hover:bg-white/[0.04] ${
-          collapsed ? "justify-center p-1.5" : "gap-2 px-2 py-1"
-        }`}
-        onClick={onToggle}
-        type="button"
-        aria-expanded={isOpen}
-      >
-        <span className="flex h-6 w-6 items-center justify-center text-slate-400">
-          <Icon name={icon} fill className="text-[18px]" />
-        </span>
-        {!collapsed && (
-          <>
-            <span className="flex-1 text-[12px] font-black uppercase tracking-wide text-slate-400">{title}</span>
-            <Icon name={isOpen ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[16px] text-slate-500" />
-          </>
-        )}
-      </button>
-      <div className={`overflow-hidden transition-all duration-200 ease-out ${isOpen ? "max-h-[280px] opacity-100" : "max-h-0 opacity-0"}`}>
-        <div className={collapsed ? "space-y-0.5" : "ml-3 space-y-0.5 border-l border-white/10 pl-3"}>{children}</div>
-      </div>
-    </section>
-  );
-}
-
-function SidebarItem({
-  collapsed,
-  href,
-  icon,
-  label,
-  pathname,
-  badge,
-  direct,
-  highlight,
-  isOpen,
-  muted,
-  onToggle,
-  suppressActive,
-}: {
-  collapsed: boolean;
-  href: string;
-  icon: string;
-  label: string;
-  pathname: string;
-  badge?: string;
-  direct?: boolean;
-  highlight?: boolean;
-  isOpen?: boolean;
-  muted?: boolean;
-  onToggle?: () => void;
-  suppressActive?: boolean;
-}) {
-  const active = !suppressActive && (href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href.split("?")[0]));
-  const content = (
-    <>
-      <Icon name={icon} fill={active || highlight} className={`text-[18px] ${highlight && !active ? "text-violet-400" : "text-slate-400"}`} />
-      {!collapsed && (
-        <>
-          <span className="min-w-0 flex-1 whitespace-nowrap text-[12px]">{label}</span>
-          {badge && <span className="rounded-full bg-[#ff1979] px-1.5 py-0.5 text-[9px] font-black text-white">{badge}</span>}
-          <Icon name={direct ? "chevron_right" : isOpen === undefined ? "chevron_right" : isOpen ? "keyboard_arrow_up" : "keyboard_arrow_down"} className="text-[16px] text-slate-500" />
-        </>
-      )}
-    </>
-  );
-  const className = `flex items-center rounded-lg font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
-    collapsed ? "justify-center px-1.5 py-2" : "gap-2 px-2 py-1.5"
-  } ${
-    active && !muted
-      ? "bg-[#3a3b41] text-white"
-      : muted
-        ? "pointer-events-none text-slate-500 opacity-50"
-        : highlight && !active
-          ? "text-violet-300 hover:bg-violet-500/10 hover:text-violet-200"
-          : "text-slate-300 hover:bg-white/[0.05] hover:text-white"
-  }`;
-
-  if (onToggle) {
-    return (
-      <button
-        className={`${className} w-full text-left`}
-        onClick={onToggle}
-        title={collapsed ? label : undefined}
-        type="button"
-        aria-expanded={isOpen}
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <Link
-      href={href}
-      prefetch={false}
-      title={collapsed ? label : undefined}
-      className={className}
-    >
-      {content}
-    </Link>
-  );
-}
-
-function NestedSidebarItem({ href, icon, label, truncate }: { href: string; icon: string; label: string; truncate?: boolean }) {
-  return (
-    <Link href={href} prefetch={false} className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/[0.05] hover:text-white">
-      <Icon name={icon} fill className="text-[19px] text-slate-400" />
-      <span className={truncate ? "min-w-0 truncate" : ""}>{label}</span>
-    </Link>
-  );
-}
-
 function StandaloneSidebarItem({
   badge,
   collapsed,
@@ -713,6 +618,7 @@ function StandaloneSidebarItem({
   label,
   onClick,
   pathname,
+  tab = "",
 }: {
   badge?: string;
   collapsed: boolean;
@@ -721,15 +627,16 @@ function StandaloneSidebarItem({
   label: string;
   onClick?: () => void;
   pathname: string;
+  tab?: string;
 }) {
-  const active = pathname.startsWith(href.split("?")[0]) && href !== "/dashboard#promotions";
-  const cls = `flex items-center rounded-lg text-[12px] font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
+  const active = !onClick && sidebarItemActive(pathname, href, tab);
+  const cls = `flex items-center rounded-lg text-[12px] font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${
     collapsed ? "justify-center px-1.5 py-2" : "gap-2 px-2 py-1.5"
   } ${active ? "bg-[#3a3b41] text-white" : "text-slate-300 hover:bg-white/[0.05] hover:text-white"}`;
 
   const inner = (
     <>
-      <Icon name={icon} fill className="text-[18px] text-slate-400" />
+      <Icon name={icon} fill={active} className={`text-[18px] ${active ? "text-[#087cff]" : "text-slate-400"}`} />
       {!collapsed && (
         <>
           <span className="flex-1">{label}</span>
@@ -765,19 +672,27 @@ function TelegramIcon() {
   );
 }
 
-function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile }: { onClose: () => void; onOpenLogin: () => void; onOpenRegister: () => void; onOpenProfile: () => void }) {
+function MobileMenuDrawer({
+  onClose,
+  onOpenLogin,
+  onOpenRegister,
+  onOpenProfile,
+  onOpenWallet,
+  recents,
+}: {
+  onClose: () => void;
+  onOpenLogin: () => void;
+  onOpenRegister: () => void;
+  onOpenProfile: () => void;
+  onOpenWallet: () => void;
+  recents: NavRecent[];
+}) {
   const { isSignedIn, signOut } = useSupabaseAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isActive = (href: string) => {
-    const base = href.split("?")[0];
-    return base === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(base);
-  };
-
-  const [openGroups, setOpenGroups] = useState({
-    sports: false,
-    p2p: false,
-  });
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") ?? "";
+  const isActive = (href: string) => sidebarItemActive(pathname, href, tab);
 
   return (
     <div className="fixed inset-0 z-[60] animate-fade-in bg-black/70 lg:hidden" onClick={onClose}>
@@ -817,32 +732,57 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile 
             </section>
           )}
 
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          {isSignedIn && (
+            <>
+              <button
+                type="button"
+                onClick={onOpenWallet}
+                className="mb-4 flex w-full items-center gap-3 rounded-xl bg-[#1c1c1e] px-3.5 py-3 text-left transition hover:bg-[#222226]"
+              >
+                <Icon name="account_balance_wallet" fill className="text-[20px] text-[#087cff]" />
+                <span className="flex-1 text-[14px] font-bold text-white">Wallet</span>
+                <Icon name="chevron_right" className="text-[18px] text-slate-600" />
+              </button>
+            </>
+          )}
+
+          {recents.length > 0 && (
+            <>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Recents
+              </p>
+              <nav className="mb-4 space-y-0.5">
+                {recents.map((r) => (
+                  <MobileDrawerLink
+                    key={r.href}
+                    href={r.href}
+                    icon={r.icon}
+                    label={r.label}
+                    active={isActive(r.href)}
+                    onClick={onClose}
+                  />
+                ))}
+              </nav>
+              <div className="mb-4 border-t border-white/[0.06]" />
+            </>
+          )}
+
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
             Explore
           </p>
           <nav className="space-y-0.5">
-            <MobileDrawerGroup icon="sports_soccer" isOpen={openGroups.sports} label="Sports" onToggle={() => setOpenGroups((v) => ({ ...v, sports: !v.sports }))}>
-              <MobileDrawerLink nested href="/sports" icon="sports_soccer" label="Sports" onClick={onClose} />
-              <MobileDrawerLink nested href="/sports?tab=live" icon="sensors" label="Live" onClick={onClose} />
-            </MobileDrawerGroup>
-
+            <MobileDrawerLink href="/sports" icon="sports_soccer" label="Sports" active={isActive("/sports")} onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=live" icon="sensors" label="Live" active={isActive("/sports?tab=live")} onClick={onClose} />
+            <MobileDrawerLink href="/my-bets" icon="receipt_long" label="My Bets" active={isActive("/my-bets")} onClick={onClose} />
             <MobileDrawerLink href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" active={isActive("/aviator")} onClick={onClose} />
             <MobileDrawerLink href="/lucky-spin" icon="casino" label="Lucky Spin" active={isActive("/lucky-spin")} onClick={onClose} />
             <MobileDrawerLink href="/predictions" icon="online_prediction" label="Polymarket" active={isActive("/predictions")} onClick={onClose} />
+            <MobileDrawerLink href="/p2p" icon="swap_horiz" label="P2P" active={isActive("/p2p")} onClick={onClose} />
+            <MobileDrawerLink href="/p2p/merchant?tab=ads" icon="campaign" label="Ads" active={isActive("/p2p/merchant?tab=ads")} onClick={onClose} />
+            <MobileDrawerLink href="/p2p/orders" icon="receipt_long" label="Orders" active={isActive("/p2p/orders")} onClick={onClose} />
             <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary" active={isActive("/binary")} onClick={onClose} />
-
-            <MobileDrawerGroup icon="swap_horiz" isOpen={openGroups.p2p} label="P2P" onToggle={() => setOpenGroups((v) => ({ ...v, p2p: !v.p2p }))}>
-              <MobileDrawerLink nested href="/p2p" icon="storefront" label="Browse Ads" active={pathname === "/p2p"} onClick={onClose} />
-              <MobileDrawerLink nested href="/p2p/merchant" icon="verified_user" label="Merchant Center" active={isActive("/p2p/merchant")} onClick={onClose} />
-              <MobileDrawerLink nested href="/p2p/orders" icon="receipt_long" label="My Orders" active={isActive("/p2p/orders")} onClick={onClose} />
-            </MobileDrawerGroup>
-
             <MobileDrawerLink href="/forex" icon="currency_exchange" label="Forex" active={isActive("/forex")} onClick={onClose} />
           </nav>
-
-          <div className="my-4 border-t border-white/[0.06]" />
-
-          <MobileDrawerLink href="/my-bets" icon="receipt_long" label="My Bets" active={isActive("/my-bets")} onClick={onClose} />
         </div>
 
         <div className="border-t border-white/[0.06] px-5 py-3">
@@ -874,25 +814,6 @@ function MobileMenuDrawer({ onClose, onOpenLogin, onOpenRegister, onOpenProfile 
         </div>
       </aside>
     </div>
-  );
-}
-
-function MobileDrawerGroup({ children, icon, isOpen, label, onToggle }: { children: React.ReactNode; icon: string; isOpen: boolean; label: string; onToggle: () => void }) {
-  return (
-    <section>
-      <button
-        className="flex w-full items-center gap-3 rounded-lg py-2.5 text-left transition active:bg-white/[0.03]"
-        onClick={onToggle}
-        type="button"
-      >
-        <Icon name={icon} className="text-[20px] text-slate-400" />
-        <span className="flex-1 text-[14px] font-bold text-white">{label}</span>
-        <Icon name={isOpen ? "expand_less" : "expand_more"} className="text-[18px] text-slate-600" />
-      </button>
-      <div className={`overflow-hidden transition-all duration-200 ease-out ${isOpen ? "max-h-[280px] opacity-100" : "max-h-0 opacity-0"}`}>
-        <div className="ml-8 border-l border-white/[0.06] pl-3">{children}</div>
-      </div>
-    </section>
   );
 }
 

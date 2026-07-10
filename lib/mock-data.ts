@@ -78,8 +78,8 @@ export const p2pMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
   { href: "/p2p", label: "P2P", icon: "home", activePath: "/p2p" },
   { href: "/p2p/orders", label: "Orders", icon: "receipt_long", activePath: "/p2p/orders" },
-  { href: "/p2p/merchant?tab=ads", label: "Ads", icon: "campaign", activePath: "/p2p/merchant" },
-  { label: "Profile", icon: "person", action: "profile" },
+  { href: "/p2p/merchant?tab=ads", label: "Ads", icon: "campaign", activePath: "/p2p/merchant", tab: "ads" },
+  { href: "/p2p/merchant?tab=profile", label: "Profile", icon: "person", activePath: "/p2p/merchant", tab: "profile" },
 ];
 
 // Polymarket: Markets / Trending / My Bets — same 4-slot shape as Sports/P2P.

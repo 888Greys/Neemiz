@@ -43,7 +43,7 @@ function Row({ label, value, strong = false }: { label: string; value: string; s
   return (
     <div className="flex items-center justify-between gap-3 text-[13px]">
       <span className="shrink-0 text-slate-500">{label}</span>
-      <span className={`min-w-0 truncate text-right ${strong ? "text-[15px] font-black text-white" : "font-semibold text-white"}`}>
+      <span className={`min-w-0 truncate text-right ${strong ? "text-[15px] font-bold text-white" : "font-semibold text-white"}`}>
         {value}
       </span>
     </div>
@@ -146,15 +146,15 @@ export function P2POrdersClient() {
   return (
     <>
       <P2PSubNav />
-    <div className="mx-auto w-full max-w-6xl px-3 py-3 sm:px-4 lg:px-3 lg:py-2">
+    <div className="mx-auto w-full max-w-lg px-3 py-3 sm:max-w-xl sm:px-4 lg:max-w-6xl lg:px-3 lg:py-2">
       {/* Header */}
-      <div className="mb-3 lg:mb-2">
-        <h1 className="mb-0.5 text-lg font-black text-white lg:text-base">My P2P Orders</h1>
-        <p className="text-xs text-slate-500">Track all your buy and sell orders.</p>
+      <div className="mb-1 flex items-center justify-between py-2 lg:mb-2">
+        <h1 className="text-[17px] font-bold text-white">Orders</h1>
+        <span className="text-[12px] font-medium text-slate-500 lg:hidden" />
       </div>
 
       {/* Main tabs: Ongoing / Fulfilled */}
-      <div className="mb-3 flex items-center gap-6 border-b border-white/[0.08]">
+      <div className="mb-3 flex items-end gap-5 border-b border-white/[0.08]">
         {([
           { id: "ongoing" as MainTab, label: "Ongoing" },
           { id: "fulfilled" as MainTab, label: "Fulfilled" },
@@ -163,12 +163,14 @@ export function P2POrdersClient() {
             key={id}
             type="button"
             onClick={() => switchTab(id)}
-            className={`relative -mb-px pb-2.5 text-sm font-bold transition ${
-              mainTab === id ? "text-white" : "text-slate-500 hover:text-slate-300"
+            className={`relative pb-2.5 text-[15px] font-bold transition ${
+              mainTab === id ? "text-white" : "text-slate-500"
             }`}
           >
             {label}
-            {mainTab === id && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[#087cff]" />}
+            {mainTab === id && (
+              <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-white" />
+            )}
           </button>
         ))}
       </div>
@@ -180,7 +182,7 @@ export function P2POrdersClient() {
             key={id}
             type="button"
             onClick={() => setSubFilter(id)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+            className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold transition ${
               subFilter === id ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
             }`}
           >
@@ -215,11 +217,11 @@ export function P2POrdersClient() {
               key={order.id}
               href={`/p2p/order/${order.id}`}
               prefetch={false}
-              className="group block rounded-2xl border border-white/[0.06] bg-[#0f0f16] px-4 py-4 transition hover:border-white/[0.10] hover:bg-[#13131b] lg:px-5"
+              className="group block rounded-xl bg-[#1c1c1e] px-4 py-4 transition hover:bg-[#222226] lg:px-5"
             >
               {/* Top: side + status */}
               <div className="mb-3 flex items-center justify-between gap-2">
-                <span className="text-[15px] font-black text-white">
+                <span className="text-[15px] font-bold text-white">
                   <span className={cryptoBuyer ? "text-[#05b957]" : "text-red-500"}>{cryptoBuyer ? "Buy" : "Sell"}</span> {order.crypto}
                 </span>
                 <P2PStatusBadge status={order.status} />
@@ -270,53 +272,49 @@ export function P2POrdersClient() {
 
 function OrdersLoginState({ openLogin }: { openLogin: () => void }) {
   return (
-    <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-white/[0.06] bg-[#151518] px-6 py-8 text-center">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04]">
-        <Icon name="lock" className="text-xl text-slate-400" />
-      </div>
-      <p className="mb-1 text-lg font-black text-white">Log in to view P2P orders</p>
-      <p className="max-w-sm text-sm leading-6 text-slate-500">
-        This page only shows trades for the account signed in on this browser.
-      </p>
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        <button
-          type="button"
-          onClick={openLogin}
-          className="rounded-xl bg-[#087cff] px-5 py-2.5 text-sm font-black text-white transition hover:bg-[#0a6ee0]"
+    <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-14 text-center">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden className="mb-4 text-slate-600">
+        <path d="M18 14h28l10 10v34a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+        <path d="M46 14v10h10" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+        <path d="M24 34h24M24 42h18M24 50h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      </svg>
+      <p className="text-[14px] font-medium text-slate-400">Log in to view your P2P orders.</p>
+      <button
+        type="button"
+        onClick={openLogin}
+        className="mt-6 rounded-full border border-dashed border-white/35 px-8 py-2.5 text-[14px] font-bold text-white transition hover:border-white/55 hover:bg-white/[0.04] active:scale-[0.98]"
+      >
+        Login
+      </button>
+      {process.env.NODE_ENV !== "production" ? (
+        <Link
+          href="/dev-login"
+          prefetch={false}
+          className="mt-3 text-[12px] font-semibold text-slate-500 transition hover:text-white"
         >
-          Login
-        </button>
-        {process.env.NODE_ENV !== "production" ? (
-          <Link
-            href="/dev-login"
-            prefetch={false}
-            className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-5 py-2.5 text-sm font-black text-slate-200 transition hover:bg-white/[0.08]"
-          >
-            Dev login
-          </Link>
-        ) : null}
-      </div>
+          Dev login
+        </Link>
+      ) : null}
     </div>
   );
 }
 
-// Clean empty state — no onboarding cards / how-it-works.
+// Clean empty state — Ads-style dashed CTA.
 function OrdersEmptyState() {
   return (
-    <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-16 text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white/[0.04]">
-        <Icon name="receipt_long" className="text-[28px] text-slate-600" />
-      </div>
-      <p className="text-[15px] font-bold text-slate-300">No orders yet</p>
-      <p className="mt-1.5 max-w-[240px] text-[13px] leading-5 text-slate-600">
-        Your P2P trades will show up here.
-      </p>
+    <div className="flex min-h-[280px] flex-col items-center justify-center px-6 py-14 text-center">
+      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden className="mb-4 text-slate-600">
+        <path d="M18 14h28l10 10v34a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+        <path d="M46 14v10h10" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round" />
+        <path d="M24 34h24M24 42h18M24 50h12" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      </svg>
+      <p className="text-[14px] font-medium text-slate-400">Oops, you do not have any orders.</p>
       <Link
         href="/p2p"
         prefetch={false}
-        className="mt-6 rounded-full bg-white/[0.06] px-5 py-2 text-[13px] font-bold text-slate-200 transition hover:bg-white/[0.1] active:scale-95"
+        className="mt-6 rounded-full border border-dashed border-white/35 px-8 py-2.5 text-[14px] font-bold text-white transition hover:border-white/55 hover:bg-white/[0.04] active:scale-[0.98]"
       >
-        Go to P2P
+        Trade Now
       </Link>
     </div>
   );
