@@ -45,6 +45,28 @@ export async function redeemPromoCode(
     return { ok: false, error: "You already used this promo code.", status: 409 };
   }
 
+  // Per-device cap — the anti-farming guard. The signup-velocity tripwire showed
+  // single devices spinning up dozens of accounts to each claim welcome credit.
+  // One promo redemption per physical device: refuse if any OTHER account that
+  // shares a login device with this user has already redeemed ANY promo.
+  const myDevices = await db.loginDevice.findMany({
+    where: { userId },
+    select: { deviceHash: true },
+  });
+  if (myDevices.length > 0) {
+    const deviceSibling = await db.loginDevice.findFirst({
+      where: {
+        deviceHash: { in: myDevices.map((d) => d.deviceHash) },
+        userId: { not: userId },
+        user: { promoRedemptions: { some: {} } },
+      },
+      select: { userId: true },
+    });
+    if (deviceSibling) {
+      return { ok: false, error: "A promo code has already been claimed on this device.", status: 429 };
+    }
+  }
+
   const amount = Number(promo.amountKes);
   if (!Number.isFinite(amount) || amount <= 0) {
     return { ok: false, error: "Invalid promo code.", status: 400 };
