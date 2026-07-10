@@ -24,13 +24,14 @@ const TABS = [
     href: "/p2p/merchant?tab=ads",
     label: "Ads",
     icon: "campaign",
-    match: (p: string, tab: string) => p.startsWith("/p2p/merchant") && tab !== "profile",
+    match: (p: string, tab: string) => p.startsWith("/p2p/merchant") && tab === "ads",
   },
   {
     href: "/p2p/merchant?tab=profile",
     label: "Profile",
     icon: "person",
-    match: (p: string, tab: string) => p.startsWith("/p2p/merchant") && tab === "profile",
+    match: (p: string, tab: string) =>
+      p.startsWith("/p2p/merchant") && (tab === "profile" || tab === "payments" || tab === "wallet"),
   },
 ];
 

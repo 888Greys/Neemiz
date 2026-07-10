@@ -420,10 +420,12 @@ function P2PUserProfile({
 }) {
   const router = useRouter();
   const { isSignedIn, user } = useSupabaseAuth();
-  const { openLogin } = useAuthModal();
+  const { openLogin, openWallet } = useAuthModal();
+  const { balance: fiatBalance } = useWalletBalance();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [profile, setProfile] = useState<MerchantStatus | null>(status);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   useEffect(() => {
     setProfile(status);
@@ -446,16 +448,24 @@ function P2PUserProfile({
     "User";
 
   const completed = Number(profile?.completedTrades ?? 0);
+  const totalTrades = Number(profile?.totalTrades ?? completed);
   const completion = Number(profile?.completionRate ?? 0);
   const release = Number(profile?.avgReleaseTime ?? 0);
   const positive = Number(profile?.positiveFeedbackRate ?? 0);
+  const feedbackCount = Number(profile?.feedbackCount ?? 0);
+  const feedbackAverage = Number(profile?.feedbackAverage ?? 0);
+  const feedback = profile?.feedback ?? [];
   const approved = profile?.applied && profile.kycStatus === "APPROVED";
   const pending = profile?.applied && profile.kycStatus === "PENDING";
   const rejected = profile?.applied && profile.kycStatus === "REJECTED";
+  const registered = profile?.createdAt
+    ? `${Math.max(0, Math.floor((Date.now() - new Date(profile.createdAt).getTime()) / 86_400_000)).toLocaleString()} Day(s)`
+    : "—";
 
   const emailOk = !!(user?.email && !user.email.endsWith("@phone.nezeem.com"));
   const phoneOk = !!(user?.phone || user?.user_metadata?.phone_number || user?.email?.endsWith("@phone.nezeem.com"));
   const identityOk = !!approved;
+  const depositOk = Number(fiatBalance) > 0;
 
   async function confirmNickname(displayName: string) {
     if (!isSignedIn) {
@@ -499,16 +509,27 @@ function P2PUserProfile({
     <Icon name="chevron_right" className="text-[18px] text-slate-600" />
   );
 
-  const menuPrimary: Array<{
+  const menuItems: Array<{
     icon: string;
     label: string;
     right?: ReactNode;
     onClick: () => void;
   }> = [
     {
-      icon: "confirmation_number",
-      label: "P2P Coupon",
-      onClick: () => toast.info("P2P coupons coming soon"),
+      icon: "receipt_long",
+      label: "Orders",
+      onClick: () => requireAuth(() => router.push("/p2p/orders")),
+    },
+    {
+      icon: "campaign",
+      label: "My Ads",
+      onClick: () =>
+        requireAuth(() => {
+          if (!profile?.applied) setSheetOpen(true);
+          else if (approved) router.push("/p2p/merchant?tab=ads");
+          else if (pending) toast.info("Advertiser application is under review");
+          else toast.error("Application was not approved");
+        }),
     },
     {
       icon: "account_balance_wallet",
@@ -529,6 +550,15 @@ function P2PUserProfile({
         }),
     },
     {
+      icon: "account_balance",
+      label: "Escrow",
+      onClick: () =>
+        requireAuth(() => {
+          if (approved) router.push("/p2p/merchant?tab=wallet");
+          else toast.info("Become an advertiser first to use escrow");
+        }),
+    },
+    {
       icon: "badge",
       label: "Advertiser",
       right: advertiserRight,
@@ -542,29 +572,19 @@ function P2PUserProfile({
     },
   ];
 
-  const menuSecondary: Array<{ icon: string; label: string; right?: string; onClick: () => void }> = [
-    {
+  if (feedbackCount > 0 || feedback.length > 0) {
+    menuItems.push({
       icon: "thumb_up",
-      label: "Leave A Review",
-      right: `${positive.toFixed(0)}%`,
-      onClick: () => toast.info("Reviews appear after completed trades"),
-    },
-    {
-      icon: "notifications",
-      label: "Manage Notifications",
-      onClick: () => toast.info("Notification settings coming soon"),
-    },
-    {
-      icon: "person_add",
-      label: "Following",
-      onClick: () => toast.info("Following list coming soon"),
-    },
-    {
-      icon: "block",
-      label: "Manage the Blacklist",
-      onClick: () => toast.info("Blacklist coming soon"),
-    },
-  ];
+      label: "Feedback",
+      right: (
+        <span className="flex items-center gap-1 text-[13px] font-semibold text-slate-400">
+          {feedbackAverage > 0 ? `${feedbackAverage.toFixed(1)} / 5` : `${positive.toFixed(0)}%`}
+          <Icon name="chevron_right" className="text-[18px] text-slate-600" />
+        </span>
+      ),
+      onClick: () => setShowFeedback((v) => !v),
+    });
+  }
 
   return (
     <>
@@ -615,19 +635,25 @@ function P2PUserProfile({
           <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
             {(
               [
-                { label: "Email", ok: emailOk },
-                { label: "SMS", ok: phoneOk },
-                { label: "Identity Verification", ok: identityOk },
-                { label: "Deposit", ok: false },
+                { label: "Email", ok: emailOk, onClick: undefined as undefined | (() => void) },
+                { label: "SMS", ok: phoneOk, onClick: undefined },
+                { label: "Identity", ok: identityOk, onClick: undefined },
+                { label: "Deposit", ok: depositOk, onClick: () => requireAuth(() => openWallet()) },
               ] as const
             ).map((badge) => (
-              <span key={badge.label} className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+              <button
+                key={badge.label}
+                type="button"
+                disabled={!badge.onClick}
+                onClick={badge.onClick}
+                className="inline-flex items-center gap-1 text-[11px] text-slate-400 disabled:cursor-default"
+              >
                 <Icon
                   name={badge.ok ? "check_circle" : "error"}
                   className={`text-[14px] ${badge.ok ? "text-[#05b957]" : "text-slate-600"}`}
                 />
                 {badge.label}
-              </span>
+              </button>
             ))}
           </div>
         </div>
@@ -637,24 +663,19 @@ function P2PUserProfile({
             ["Completed Order(s) in 30 Days", `${completed} Order(s)`],
             ["Completion Rate Within 30 Days", `${completion.toFixed(0)}%`],
             ["Avg. Release Time", release > 0 ? `${release.toFixed(0)} Minute(s)` : "—"],
-            ["Avg. Payment Time", "—"],
+            ["Positive Feedback", feedbackCount > 0 ? `${positive.toFixed(0)}%` : "—"],
+            ["All Trades", `${totalTrades.toLocaleString()} Time(s)`],
+            ["Registered", registered],
           ].map(([label, value]) => (
             <div key={label} className="flex items-center justify-between gap-3 py-2 text-[13px]">
               <span className="text-slate-500">{label}</span>
               <span className="font-semibold text-white">{value}</span>
             </div>
           ))}
-          <button
-            type="button"
-            onClick={() => toast.info("More trading stats coming soon")}
-            className="mt-1 w-full py-2 text-center text-[13px] font-semibold text-slate-400 transition hover:text-white"
-          >
-            More Data &gt;
-          </button>
         </div>
 
-        <div className="mb-3 overflow-hidden rounded-xl bg-[#1c1c1e]">
-          {menuPrimary.map((item, i) => (
+        <div className="overflow-hidden rounded-xl bg-[#1c1c1e]">
+          {menuItems.map((item, i) => (
             <button
               key={item.label}
               type="button"
@@ -670,29 +691,40 @@ function P2PUserProfile({
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-xl bg-[#1c1c1e]">
-          {menuSecondary.map((item, i) => (
-            <button
-              key={item.label}
-              type="button"
-              onClick={item.onClick}
-              className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.03] ${
-                i > 0 ? "border-t border-white/[0.06]" : ""
-              }`}
-            >
-              <Icon name={item.icon} className="text-[20px] text-slate-300" />
-              <span className="flex-1 text-[14px] font-semibold text-white">{item.label}</span>
-              {item.right ? (
-                <span className="flex items-center gap-1 text-[13px] font-semibold text-slate-400">
-                  {item.right}
-                  <Icon name="chevron_right" className="text-[18px] text-slate-600" />
-                </span>
-              ) : (
-                <Icon name="chevron_right" className="text-[18px] text-slate-600" />
-              )}
-            </button>
-          ))}
-        </div>
+        {showFeedback && (
+          <div className="mt-3 overflow-hidden rounded-xl bg-[#1c1c1e]">
+            {feedback.length === 0 ? (
+              <p className="px-4 py-6 text-center text-[13px] text-slate-500">No written feedback yet.</p>
+            ) : (
+              feedback.map((item, i) => (
+                <div
+                  key={item.id}
+                  className={`px-4 py-3.5 ${i > 0 ? "border-t border-white/[0.06]" : ""}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <MerchantAvatar
+                      id={item.fromUser.displayName}
+                      name={item.fromUser.displayName}
+                      avatarUrl={item.fromUser.imageUrl}
+                      size={32}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold text-white">{item.fromUser.displayName}</p>
+                      <p className="text-[11px] font-bold text-[#05b957]">
+                        {"★".repeat(item.rating)}
+                        {"☆".repeat(5 - item.rating)}
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-slate-600">
+                      {new Date(item.createdAt).toLocaleDateString("en-KE", { month: "short", day: "2-digit" })}
+                    </span>
+                  </div>
+                  {item.comment && <p className="mt-2 text-[12px] leading-5 text-slate-400">{item.comment}</p>}
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       <SetNicknameSheet
@@ -901,32 +933,48 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
   const showForm = formOpen || (!loading && methods.length === 0);
 
   return (
-    <div id="merchant-payment-methods" className="mb-4 scroll-mt-24 overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-[#1a1b22] to-[#14151a]">
-      <div className="flex items-start justify-between gap-3 border-b border-white/[0.06] px-4 py-4">
-        <div className="min-w-0">
-          <h2 className="text-[15px] font-black tracking-tight text-white">Payment methods</h2>
-          <p className="mt-1 text-[12px] leading-5 text-slate-500">Where buyers send fiat after opening an order.</p>
-        </div>
-        {methods.length > 0 && (
+    <div id="merchant-payment-methods" className="scroll-mt-24">
+      <div className="mb-1 flex items-center justify-between py-1">
+        <Link
+          href="/p2p/merchant?tab=profile"
+          prefetch={false}
+          className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/[0.06]"
+          aria-label="Back"
+        >
+          <Icon name="arrow_back" className="text-[22px]" />
+        </Link>
+        <h2 className="text-[17px] font-bold text-white">Payment Method</h2>
+        {methods.length > 0 ? (
           <button
             type="button"
             onClick={() => setFormOpen((v) => !v)}
-            className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#087cff] px-3.5 text-[12px] font-black text-white transition hover:bg-[#0570e8] active:scale-95"
+            className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.12] text-white transition hover:bg-white/[0.06]"
+            aria-label={formOpen ? "Close" : "Add"}
           >
-            <Icon name={formOpen ? "close" : "add"} className="text-sm" />
-            {formOpen ? "Close" : "Add"}
+            <Icon name={formOpen ? "close" : "add"} className="text-[20px]" />
           </button>
+        ) : (
+          <span className="w-9" />
         )}
       </div>
 
+      <p className="mb-4 text-center text-[12px] font-medium text-slate-500">
+        Where buyers send fiat after opening an order.
+      </p>
+
       {!loading && methods.length > 0 && (
-        <div className="space-y-2 px-3 py-3">
-          {methods.map((m) => (
-            <div key={m.id} className="flex items-center justify-between gap-2 rounded-2xl bg-white/[0.03] px-3.5 py-3 ring-1 ring-white/[0.06]">
+        <div className="mb-3 overflow-hidden rounded-xl bg-[#1c1c1e]">
+          {methods.map((m, i) => (
+            <div
+              key={m.id}
+              className={`flex items-center justify-between gap-2 px-3.5 py-3.5 ${
+                i > 0 ? "border-t border-white/[0.06]" : ""
+              }`}
+            >
               <div className="flex min-w-0 items-center gap-3">
                 <PaymentLogo code={m.name} size={32} />
                 <div className="min-w-0">
-                  <p className="text-[13px] font-black text-white">{paymentMethodLabel(m.name)}{m.bankName ? ` · ${m.bankName}` : ""}</p>
+                  <p className="text-[14px] font-semibold text-white">{paymentMethodLabel(m.name)}{m.bankName ? ` · ${m.bankName}` : ""}</p>
                   <p className="truncate text-[12px] text-slate-400">{m.accountName} · <span className="font-mono">{m.accountNo}</span></p>
                 </div>
               </div>
@@ -939,19 +987,32 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
       )}
 
       {showForm && (
-        <div className="grid grid-cols-2 gap-2.5 border-t border-white/[0.05] px-3 py-4">
+        <div className="grid grid-cols-2 gap-2.5 rounded-xl bg-[#1c1c1e] px-3 py-4">
           <MethodPicker value={method} onChange={setMethod} />
           <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
-            className="col-span-2 h-12 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-600 focus:border-[#087cff]/50" />
+            className="col-span-2 h-12 rounded-xl border border-transparent bg-[#2c2c2e] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40" />
           <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={accountIdentifierLabel(method)}
-            className={`${isBank ? "" : "col-span-2"} h-12 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-600 focus:border-[#087cff]/50`} />
+            className={`${isBank ? "" : "col-span-2"} h-12 rounded-xl border border-transparent bg-[#2c2c2e] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40`} />
           {isBank && (
             <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
-              className="h-12 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-600 focus:border-[#087cff]/50" />
+              className="h-12 rounded-xl border border-transparent bg-[#2c2c2e] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40" />
           )}
           <button type="button" onClick={add} disabled={saving}
-            className="col-span-2 flex h-12 items-center justify-center gap-1.5 rounded-2xl bg-[#087cff] text-[14px] font-black text-white transition hover:bg-[#0570e8] active:scale-[0.99] disabled:opacity-50">
+            className="col-span-2 flex h-12 items-center justify-center gap-1.5 rounded-full bg-[#087cff] text-[14px] font-bold text-white transition hover:bg-[#0570e8] active:scale-[0.99] disabled:opacity-50">
             <Icon name="add" className="text-base" /> {saving ? "Saving..." : "Save payment method"}
+          </button>
+        </div>
+      )}
+
+      {!loading && methods.length === 0 && !showForm && (
+        <div className="flex min-h-[200px] flex-col items-center justify-center py-10 text-center">
+          <p className="text-[14px] font-medium text-slate-400">No payment methods yet.</p>
+          <button
+            type="button"
+            onClick={() => setFormOpen(true)}
+            className="mt-6 rounded-full border border-dashed border-white/35 px-8 py-2.5 text-[14px] font-bold text-white transition hover:border-white/55 hover:bg-white/[0.04] active:scale-[0.98]"
+          >
+            Add Now
           </button>
         </div>
       )}
@@ -2369,6 +2430,11 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
     setEditingAd(null);
     setSection("payments");
     setPayFormSignal((n) => n + 1);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", "payments");
+      window.history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
+    }
   }, []);
   const [adFilter, setAdFilter] = useState<"ALL" | "ACTIVE" | "PAUSED" | "EXHAUSTED">("ACTIVE");
   const [adPage, setAdPage] = useState(1);
@@ -2529,12 +2595,14 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const adPageCount = Math.max(1, Math.ceil(filteredAds.length / adsPerPage));
   const visibleAds = filteredAds.slice((adPage - 1) * adsPerPage, adPage * adsPerPage);
 
+  const cleanSection = section === "ads" || section === "profile" || section === "payments" || section === "wallet";
+
   return (
-    <div className={`mx-auto w-full px-3 py-4 sm:px-4 ${section === "ads" || section === "profile" ? "max-w-lg sm:max-w-xl" : "max-w-6xl"}`}>
+    <div className={`mx-auto w-full px-3 py-4 sm:px-4 ${cleanSection ? "max-w-lg sm:max-w-xl" : "max-w-6xl"}`}>
       {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
       {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
 
-      {section !== "ads" && section !== "profile" && (
+      {!cleanSection && (
       <>
       {/* Merchant header */}
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -2715,7 +2783,23 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         />
       )}
 
-      {section === "wallet" && <DepositSection />}
+      {section === "wallet" && (
+        <div>
+          <div className="mb-3 flex items-center justify-between py-1">
+            <Link
+              href="/p2p/merchant?tab=profile"
+              prefetch={false}
+              className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/[0.06]"
+              aria-label="Back"
+            >
+              <Icon name="arrow_back" className="text-[22px]" />
+            </Link>
+            <h2 className="text-[17px] font-bold text-white">Escrow</h2>
+            <span className="w-9" />
+          </div>
+          <DepositSection />
+        </div>
+      )}
       {section === "payments" && <PaymentMethodsSection openSignal={payFormSignal} />}
 
       {/* Ads list */}

@@ -365,7 +365,10 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           const active = isPanelTab
             ? pathname.startsWith(activePath) && currentPanel === item.panel
             : isQueryTab
-              ? pathname.startsWith(activePath) && currentTab === item.tab
+              ? pathname.startsWith(activePath) && (
+                  currentTab === item.tab ||
+                  (item.label === "Profile" && (currentTab === "payments" || currentTab === "wallet"))
+                )
               : item.label === "P2P"
                 ? pathNow === "/p2p" || pathNow.startsWith("/p2p/express")
                 : item.label === "Orders"
