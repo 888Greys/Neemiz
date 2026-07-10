@@ -251,7 +251,7 @@ export function NotificationsDropdown({ onClose }: Props) {
   return (
     <div
       ref={ref}
-      className="fixed right-3 top-14 z-[500] w-[calc(100vw-1.5rem)] max-w-[340px] overflow-hidden rounded-2xl bg-[#111316] shadow-[0_8px_48px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.09] animate-in fade-in slide-in-from-top-2 duration-200 sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:w-[340px]"
+      className="fixed right-3 top-12 z-[500] w-[calc(100vw-1.5rem)] max-w-[340px] overflow-hidden rounded-2xl bg-[#111316] shadow-[0_8px_48px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.09] animate-in fade-in slide-in-from-top-2 duration-200 sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:w-[340px]"
     >
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/[0.07] px-4 py-3.5">
@@ -433,14 +433,14 @@ export function NotificationsBell() {
           notificationCache = null;
           refreshUnread();
         }}
-        className={`relative flex h-8 w-8 items-center justify-center rounded-full transition ${
+        className={`relative flex h-7 w-7 items-center justify-center rounded-full transition sm:h-8 sm:w-8 ${
           open ? "bg-[#087cff]/20 text-[#087cff]" : "text-slate-400 hover:bg-white/[0.08] hover:text-white"
         }`}
         aria-label="Notifications"
       >
-        <Icon name="notifications" fill={open} className="text-[18px]" />
+        <Icon name="notifications" fill={open} className="text-[16px] sm:text-[18px]" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[#ff1979] px-0.5 text-[8px] font-black text-white ring-2 ring-[#151518]">
+          <span className="absolute -right-0.5 -top-0.5 flex h-3 min-w-[12px] items-center justify-center rounded-full bg-[#ff1979] px-0.5 text-[7px] font-black text-white ring-2 ring-[#151518] sm:h-3.5 sm:min-w-[14px] sm:text-[8px]">
             {unread}
           </span>
         )}
