@@ -5,11 +5,11 @@ VALUES
   (
     'promo_kip100',
     'KIP100',
-    100.00,
+    50.00,
     NULL,
     0,
     true,
-    'Promo — KSh 100',
+    'Promo — KSh 50',
     CURRENT_TIMESTAMP,
     CURRENT_TIMESTAMP
   ),
