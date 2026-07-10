@@ -7,9 +7,10 @@ describe("crypto on-chain reconcile", () => {
     expect(existsSync("app/api/cron/reconcile-crypto-onchain/route.ts")).toBe(true);
     const src = readFileSync("lib/crypto/reconcile-onchain.ts", "utf8");
     expect(src).toContain("clamp_ledger_to_current_deposit_address");
-    expect(src).toContain("getOnChainBalance");
+    expect(src).toContain("tryGetOnChainBalance");
     expect(src).toContain("Never raise a balance");
     expect(src).toContain("round8NonNeg");
+    expect(src).toContain("rpc_unavailable");
     // Negative deltas must survive rounding (phantom clawbacks).
     expect(src).toMatch(/const delta = round8\(newAvailable - ledgerAvailable\)/);
   });

@@ -1,9 +1,9 @@
 /**
  * Clamp user crypto ledgers to live on-chain balances on their CURRENT deposit
- * addresses. Use after HD seed migrations / when phantom balances linger.
+ * addresses. Safe to run on a schedule: never raises balances, skips RPC failures.
  *
- * GET  ?dryRun=1  — report only (default)
- * POST ?dryRun=0  — apply clamps (CRON_SECRET or admin)
+ * GET/POST ?dryRun=1  — report only (default)
+ * GET/POST ?dryRun=0  — apply clamps (CRON_SECRET)
  */
 import { reconcileCryptoToOnChain } from "@/lib/crypto/reconcile-onchain";
 

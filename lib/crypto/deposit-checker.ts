@@ -564,18 +564,33 @@ async function getBTCBalance(address: string): Promise<number> {
   return (funded - spent) / 1e8;
 }
 
-/** Returns the actual current on-chain balance for an address/coin. */
+/**
+ * Returns the live on-chain balance, or `null` if the RPC/API call failed.
+ * Prefer this for reconcile / clawbacks so an outage cannot zero ledgers.
+ */
+export async function tryGetOnChainBalance(
+  address: string,
+  crypto:  string,
+  network: string,
+): Promise<number | null> {
+  try {
+    let bal: number;
+    if (network === "BITCOIN")            bal = await getBTCBalance(address);
+    else if (network === "TRC20" && crypto === "TRX") bal = await getTRXBalance(address);
+    else if (network === "TRC20")         bal = await getTRC20Balance(address, crypto);
+    else                                  bal = await getEVMBalance(address, crypto, network);
+    if (!Number.isFinite(bal) || bal < 0) return null;
+    return bal;
+  } catch {
+    return null;
+  }
+}
+
+/** Returns the actual current on-chain balance for an address/coin (0 on RPC failure). */
 export async function getOnChainBalance(
   address: string,
   crypto:  string,
   network: string,
 ): Promise<number> {
-  try {
-    if (network === "BITCOIN")            return await getBTCBalance(address);
-    if (network === "TRC20" && crypto === "TRX") return await getTRXBalance(address);
-    if (network === "TRC20")              return await getTRC20Balance(address, crypto);
-    return await getEVMBalance(address, crypto, network);
-  } catch {
-    return 0; // never throw — balance sync is best-effort
-  }
+  return (await tryGetOnChainBalance(address, crypto, network)) ?? 0;
 }
