@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/icon";
+import { COIN_URL } from "@/components/payment-brand-logo";
 import {
   CRYPTO_WITHDRAW_ASSETS,
   type CryptoWithdrawAsset,
@@ -12,12 +13,6 @@ type BalanceRow = {
   crypto: string;
   network: string;
   available: number;
-};
-
-const COIN_ICON_URL: Record<string, string> = {
-  USDT: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
-  USDC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg",
-  BTC: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
 };
 
 function fmtAvail(n: number, code: string): string {
@@ -133,10 +128,10 @@ export function CryptoWithdrawAssetSheet({
                   active ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
                 }`}
               >
-                {COIN_ICON_URL[a.code] ? (
+                {COIN_URL[a.code] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={COIN_ICON_URL[a.code]}
+                    src={COIN_URL[a.code]}
                     alt=""
                     className="h-8 w-8 shrink-0 rounded-full"
                   />
@@ -192,10 +187,10 @@ export function CryptoWithdrawAssetTrigger({
       onClick={onOpen}
       className="flex w-full items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-left transition hover:border-white/15 active:scale-[0.99]"
     >
-      {COIN_ICON_URL[asset.code] ? (
+      {COIN_URL[asset.code] ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={COIN_ICON_URL[asset.code]}
+          src={COIN_URL[asset.code]}
           alt=""
           className="h-8 w-8 shrink-0 rounded-full"
         />

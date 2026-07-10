@@ -90,8 +90,11 @@ export async function POST(req: Request) {
     return Response.json({ error: "Destination address is required" }, { status: 400 });
   }
   if (!VALID_CRYPTO_WITHDRAW_NETWORKS[crypto]?.includes(network)) {
-    const supported = Object.entries(VALID_CRYPTO_WITHDRAW_NETWORKS).map(([c, nets]) => `${c}(${nets.join("/")})`).join(", ");
-    return Response.json({ error: `Unsupported withdrawal network. Supported: ${supported}` }, { status: 400 });
+    console.warn("crypto/withdraw rejected pair", { crypto, network });
+    return Response.json(
+      { error: "This asset or network isn't available for withdrawals. Please choose another option." },
+      { status: 400 },
+    );
   }
   const minAmt = MIN_WITHDRAWAL[crypto] ?? 1;
   if (!amount || amount < minAmt) {
