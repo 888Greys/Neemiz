@@ -103,7 +103,8 @@ export async function POST(req: Request) {
     // so the deep-ITM "guaranteed win" class can't be sold.
     const priced = priceDirectionalServer({
       kind: kind as FixedKind, side: side as DirectionalSide, entrySpot, barrier,
-      durationTicks: ticks, stake: stakeVal, ticks: marketPrices, edgeFloor: symbolEdge,
+      durationTicks: ticks, stake: stakeVal, ticks: marketPrices, market,
+      edgeFloor: symbolEdge,
     });
     if (!priced.accepted)
       return Response.json({ error: `This contract isn't available right now (${priced.reason}). Try a barrier closer to the spot, or a different duration.` }, { status: 400 });
