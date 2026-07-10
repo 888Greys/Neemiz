@@ -197,7 +197,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
     <NavBadgeContext.Provider value={navBadgeContext}>
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
-      <header className="fixed left-0 right-0 top-0 z-50 flex h-14 max-w-[100vw] items-center overflow-visible border-b border-white/[0.06] bg-[#151518] px-3 lg:h-20 lg:px-0">
+      <header className="fixed left-0 right-0 top-0 z-50 flex h-12 max-w-[100vw] items-center overflow-visible border-b border-white/[0.06] bg-[#151518] px-3 lg:h-20 lg:px-0">
         {!hideSidebar && (
         <div
           className={`hidden h-full shrink-0 items-center border-r border-white/10 px-3 transition-[width] duration-300 ease-out lg:flex ${
@@ -313,7 +313,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </div>
       </header>
 
-      <div className="flex h-screen overflow-hidden pt-14 lg:pt-20">
+      <div className="flex h-screen overflow-hidden pt-12 lg:pt-20">
         {!hideSidebar && (
         <aside
           className={`hidden shrink-0 overflow-hidden border-r border-white/[0.06] bg-[#151518] transition-[width] duration-300 ease-out lg:block ${
@@ -485,10 +485,31 @@ function UserAvatar({ src, initials, className }: { src?: string | null; initial
 function sidebarItemActive(pathname: string, href: string, tab = "") {
   const [path, query] = href.split("?");
   const q = new URLSearchParams(query ?? "");
-  if (q.get("tab") === "live") return pathname.startsWith("/sports") && tab === "live";
-  if (q.get("tab") === "ads") return pathname.startsWith("/p2p/merchant") && tab === "ads";
-  if (path === "/sports") return pathname.startsWith("/sports");
-  if (path === "/p2p") return pathname.startsWith("/p2p");
+  const hrefTab = q.get("tab");
+
+  if (hrefTab === "live") return pathname.startsWith("/sports") && tab === "live";
+  if (hrefTab === "ads") {
+    // Ads tab (default merchant landing) — not Profile / Payments.
+    return (
+      pathname.startsWith("/p2p/merchant") &&
+      tab !== "profile" &&
+      tab !== "payments" &&
+      tab !== "escrow" &&
+      (tab === "ads" || tab === "")
+    );
+  }
+  if (path === "/sports") return pathname.startsWith("/sports") && tab !== "live";
+  if (path === "/my-bets") return pathname.startsWith("/my-bets");
+  if (path === "/p2p/orders") {
+    return pathname.startsWith("/p2p/orders") || pathname.startsWith("/p2p/order/");
+  }
+  if (path === "/p2p") {
+    // Browse / Express only — Ads & Orders are separate flat items.
+    if (pathname.startsWith("/p2p/merchant") || pathname.startsWith("/p2p/orders") || pathname.startsWith("/p2p/order/")) {
+      return false;
+    }
+    return pathname === "/p2p" || pathname.startsWith("/p2p/express") || pathname.startsWith("/p2p?");
+  }
   if (path === "/polymarket" || path === "/predictions") {
     return pathname.startsWith("/polymarket") || pathname.startsWith("/predictions");
   }
@@ -544,7 +565,11 @@ function Sidebar({
         )}
         <div className="space-y-0.5">
           <StandaloneSidebarItem collapsed={collapsed} href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/sports?tab=live" icon="sensors" label="Live" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/my-bets" icon="receipt_long" label="My Bets" pathname={pathname} tab={tab} />
           <StandaloneSidebarItem collapsed={collapsed} href="/p2p" icon="swap_horiz" label="P2P" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/p2p/merchant?tab=ads" icon="campaign" label="Ads" pathname={pathname} tab={tab} />
+          <StandaloneSidebarItem collapsed={collapsed} href="/p2p/orders" icon="list_alt" label="Orders" pathname={pathname} tab={tab} />
           <StandaloneSidebarItem collapsed={collapsed} href="/polymarket" icon="online_prediction" label="Polymarket" pathname={pathname} tab={tab} />
           <StandaloneSidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} tab={tab} />
           <StandaloneSidebarItem collapsed={collapsed} href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} tab={tab} />
@@ -771,7 +796,11 @@ function MobileMenuDrawer({
           </p>
           <nav className="space-y-0.5">
             <MobileDrawerLink href="/sports" icon="sports_soccer" label="Sports" active={isActive("/sports")} onClick={onClose} />
+            <MobileDrawerLink href="/sports?tab=live" icon="sensors" label="Live" active={isActive("/sports?tab=live")} onClick={onClose} />
+            <MobileDrawerLink href="/my-bets" icon="receipt_long" label="My Bets" active={isActive("/my-bets")} onClick={onClose} />
             <MobileDrawerLink href="/p2p" icon="swap_horiz" label="P2P" active={isActive("/p2p")} onClick={onClose} />
+            <MobileDrawerLink href="/p2p/merchant?tab=ads" icon="campaign" label="Ads" active={isActive("/p2p/merchant?tab=ads")} onClick={onClose} />
+            <MobileDrawerLink href="/p2p/orders" icon="list_alt" label="Orders" active={isActive("/p2p/orders")} onClick={onClose} />
             <MobileDrawerLink href="/predictions" icon="online_prediction" label="Polymarket" active={isActive("/predictions")} onClick={onClose} />
             <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary" active={isActive("/binary")} onClick={onClose} />
             <MobileDrawerLink href="/forex" icon="currency_exchange" label="Forex" active={isActive("/forex")} onClick={onClose} />

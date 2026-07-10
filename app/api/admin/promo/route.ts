@@ -93,14 +93,60 @@ export async function POST(req: Request) {
   }
 }
 
-/** GET /api/admin/promo — list codes */
-export async function GET() {
+/**
+ * GET /api/admin/promo
+ * Lists codes + recent redemptions (who used what).
+ * Query: ?code=KIP100 to filter redemptions to one code; ?limit=200
+ */
+export async function GET(req: Request) {
   const admin = await requireAdmin();
   if (!admin) return Response.json({ error: "Forbidden" }, { status: 403 });
+
+  const url = new URL(req.url);
+  const codeFilter = normalizePromoCode(url.searchParams.get("code") ?? "");
+  const limit = Math.min(500, Math.max(20, Number(url.searchParams.get("limit") ?? 200) || 200));
 
   const promos = await db.promoCode.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,
   });
-  return Response.json({ promos });
+
+  const redemptions = await db.promoRedemption.findMany({
+    where: codeFilter
+      ? { promoCode: { code: codeFilter } }
+      : undefined,
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: {
+      promoCode: { select: { code: true, amountKes: true } },
+      user: {
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          phone: true,
+          walletBalance: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+
+  return Response.json({
+    promos,
+    redemptions: redemptions.map((r) => ({
+      id: r.id,
+      code: r.promoCode.code,
+      amountKes: Number(r.amountKes),
+      createdAt: r.createdAt.toISOString(),
+      user: {
+        id: r.user.id,
+        username: r.user.username,
+        email: r.user.email,
+        phone: r.user.phone,
+        walletBalance: Number(r.user.walletBalance),
+        joinedAt: r.user.createdAt.toISOString(),
+      },
+    })),
+  });
 }

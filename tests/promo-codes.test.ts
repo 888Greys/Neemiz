@@ -46,4 +46,15 @@ describe("promo codes", () => {
     expect(existsSync("app/api/admin/promo/route.ts")).toBe(true);
     expect(existsSync("lib/promo-redeem.ts")).toBe(true);
   });
+
+  it("locks promo credits from transfer/withdraw helpers", () => {
+    expect(existsSync("lib/promo-lock.ts")).toBe(true);
+    const lock = readFileSync("lib/promo-lock.ts", "utf8");
+    expect(lock).toContain("getPromoLockedKes");
+    expect(lock).toContain("PROMO_LOCKED");
+    const transfer = readFileSync("app/api/wallet/transfer/route.ts", "utf8");
+    expect(transfer).toContain("promo-lock");
+    expect(transfer).toContain("PROMO_LOCKED");
+    expect(transfer).toContain("promoRedemption");
+  });
 });
