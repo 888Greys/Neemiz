@@ -34,20 +34,32 @@ describe("wallet deposit options", () => {
       network: "POLYGON",
       displayNet: "Polygon",
     });
-
-    expect(CRYPTO_DEPOSIT_ASSETS).toEqual([
-      expect.objectContaining({ code: "USDT", network: "POLYGON", min: 1, enabled: true, soon: false }),
-      expect.objectContaining({ code: "USDT", network: "BEP20", min: 1, enabled: false, soon: true }),
-      expect.objectContaining({ code: "USDC", network: "POLYGON", min: 1, enabled: true, soon: false }),
-      expect.objectContaining({ code: "BTC", network: "BITCOIN", enabled: true, soon: false }),
+    // The three existing live assets stay live and lead the list.
+    expect(CRYPTO_DEPOSIT_ASSETS.filter((a) => a.enabled)).toEqual([
+      expect.objectContaining({ code: "USDT", network: "POLYGON", enabled: true }),
+      expect.objectContaining({ code: "USDC", network: "POLYGON", enabled: true }),
+      expect.objectContaining({ code: "BTC", network: "BITCOIN", enabled: true }),
     ]);
   });
 
-  it("allows the address API to generate gas-covered stablecoin deposit addresses", () => {
+  it("lists self-paying natives as coming soon (never live until wired)", () => {
+    const soon = CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).map((a) => a.code);
+    for (const code of ["TRX", "ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
+      expect(soon).toContain(code);
+    }
+    // Every soon asset must be disabled (no accidental live listing).
+    expect(CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).every((a) => !a.enabled)).toBe(true);
+  });
+
+  it("does NOT let the address API generate deposit addresses for unwired natives", () => {
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).toContain("POLYGON");
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).not.toContain("BEP20");
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDC).toEqual(["POLYGON"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BTC).toEqual(["BITCOIN"]);
+    // Coming-soon natives must have no address-generation allowlist entry yet.
+    for (const code of ["TRX", "ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
+      expect(VALID_CRYPTO_DEPOSIT_NETWORKS[code]).toBeUndefined();
+    }
   });
 });
 
