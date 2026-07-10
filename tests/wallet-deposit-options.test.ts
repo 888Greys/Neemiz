@@ -34,30 +34,34 @@ describe("wallet deposit options", () => {
       network: "POLYGON",
       displayNet: "Polygon",
     });
-    // The three existing live assets stay live and lead the list.
+    // Live assets: the three stables/BTC plus native TRX (self-paying, signer live).
     expect(CRYPTO_DEPOSIT_ASSETS.filter((a) => a.enabled)).toEqual([
       expect.objectContaining({ code: "USDT", network: "POLYGON", enabled: true }),
       expect.objectContaining({ code: "USDC", network: "POLYGON", enabled: true }),
       expect.objectContaining({ code: "BTC", network: "BITCOIN", enabled: true }),
+      expect.objectContaining({ code: "TRX", network: "TRC20", enabled: true }),
     ]);
   });
 
-  it("lists self-paying natives as coming soon (never live until wired)", () => {
+  it("keeps the still-unwired natives as coming soon (never live until wired)", () => {
     const soon = CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).map((a) => a.code);
-    for (const code of ["TRX", "ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
+    for (const code of ["ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
       expect(soon).toContain(code);
     }
+    // TRX is now live, so it must NOT be in the soon set.
+    expect(soon).not.toContain("TRX");
     // Every soon asset must be disabled (no accidental live listing).
     expect(CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).every((a) => !a.enabled)).toBe(true);
   });
 
-  it("does NOT let the address API generate deposit addresses for unwired natives", () => {
+  it("allows address generation for live rails only (TRX now included, others not)", () => {
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).toContain("POLYGON");
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).not.toContain("BEP20");
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDC).toEqual(["POLYGON"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BTC).toEqual(["BITCOIN"]);
-    // Coming-soon natives must have no address-generation allowlist entry yet.
-    for (const code of ["TRX", "ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.TRX).toEqual(["TRC20"]);
+    // Still-unwired natives must have no address-generation allowlist entry yet.
+    for (const code of ["ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
       expect(VALID_CRYPTO_DEPOSIT_NETWORKS[code]).toBeUndefined();
     }
   });
