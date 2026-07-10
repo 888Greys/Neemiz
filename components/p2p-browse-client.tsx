@@ -8,8 +8,17 @@ import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { P2PSubNav } from "@/components/p2p-subnav";
+import {
+  AmountFilterSheet,
+  BuySellPill,
+  P2PFilterRow,
+  P2PMarketTabs,
+  PaymentMethodsSheet,
+  SelectCoinSheet,
+  paymentChipLabel,
+} from "@/components/p2p-market-chrome";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { paymentMethodsForFiat, paymentMethodLabel, ALL_PAYMENT_CODES, GLOBAL_PAYMENT_METHODS } from "@/lib/p2p/payment-methods";
+import { paymentMethodsForFiat, paymentMethodLabel, ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
 import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
 
@@ -102,11 +111,6 @@ interface MerchantFeedback {
 const fmtPm = (m: string) => paymentMethodLabel(m);
 const p2pRailLabel = (method: string, fiat = "KES") =>
   method === "MPESA" && fiat === "KES" ? "M-PESA Kenya (Safaricom)" : paymentMethodLabel(method);
-
-// Real flag image (flag emoji doesn't render on Windows). The first two letters
-// of every supported ISO-4217 code happen to be the ISO-3166 country (EUR→eu).
-const flagUrl = (currencyCode: string) =>
-  `https://flagcdn.com/w40/${currencyCode.slice(0, 2).toLowerCase()}.png`;
 
 const formatJoined = (value?: string) => {
   if (!value) return "Recently";
@@ -1199,225 +1203,6 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
   );
 }
 
-// ─── Currency picker (searchable modal) ────────────────────────────────────────
-
-function FiatSelect({ value, onChange, inline = false }: { value: string; onChange: (code: string) => void; inline?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const current = FIAT_CURRENCIES.find((f) => f.code === value) ?? FIAT_CURRENCIES[0];
-
-  const term = q.trim().toLowerCase();
-  const filtered = term
-    ? FIAT_CURRENCIES.filter((f) => f.code.toLowerCase().includes(term) || f.name.toLowerCase().includes(term))
-    : FIAT_CURRENCIES;
-
-  function pick(code: string) { onChange(code); setOpen(false); setQ(""); }
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Currency"
-        className={inline
-          ? "flex shrink-0 items-center gap-0.5 rounded bg-white/[0.06] py-0.5 pl-1.5 pr-1 text-[10px] font-black text-slate-200 transition-colors hover:bg-white/[0.12]"
-          : "flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] pl-1.5 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"}
-      >
-        <img
-          src={flagUrl(current.code)}
-          alt=""
-          className={inline ? "h-3 w-[18px] shrink-0 rounded-[2px] object-cover" : "h-4 w-6 shrink-0 rounded-[3px] object-cover"}
-        />
-        {current.code}
-        <Icon name="expand_more" className={inline ? "text-[14px] text-slate-400" : "text-base text-slate-400"} />
-      </button>
-
-      {open && (
-        <div
-          className="fixed inset-0 z-[120] flex items-start justify-center bg-black/80 px-4 pt-[8vh] backdrop-blur-sm"
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-[#18191f] shadow-2xl ring-1 ring-white/10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex shrink-0 items-center justify-between border-b border-white/[0.07] px-4 py-3">
-              <h3 className="text-sm font-black text-white">Select currency</h3>
-              <button onClick={() => setOpen(false)} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white">
-                <Icon name="close" className="text-[18px]" />
-              </button>
-            </div>
-            <div className="shrink-0 p-3">
-              <div className="flex items-center gap-2 rounded-lg bg-white/[0.05] px-3 ring-1 ring-white/[0.07] focus-within:ring-[#087cff]/50">
-                <Icon name="search" className="text-[18px] text-slate-500" />
-                <input
-                  autoFocus
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search currency"
-                  className="h-10 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
-                />
-              </div>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3 [scrollbar-width:thin]">
-              {filtered.length === 0 ? (
-                <p className="py-8 text-center text-xs text-slate-600">No currency matches “{q}”</p>
-              ) : filtered.map((f) => (
-                <button
-                  key={f.code}
-                  type="button"
-                  onClick={() => pick(f.code)}
-                  className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-colors ${f.code === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
-                >
-                  <img src={flagUrl(f.code)} alt="" className="h-6 w-8 shrink-0 rounded-sm object-cover" />
-                  <span className="text-sm font-black text-white">{f.code}</span>
-                  <span className="truncate text-xs font-semibold text-slate-500">{f.name}</span>
-                  {f.code === value && <Icon name="check" className="ml-auto shrink-0 text-[18px] text-[#087cff]" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-function CryptoSelect({ value, onChange }: { value: string; onChange: (c: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Crypto"
-        className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] pl-1.5 pr-1.5 text-xs font-black text-white transition-colors hover:border-white/20"
-      >
-        {CRYPTO_ICONS[value] && <img src={CRYPTO_ICONS[value]} alt={value} className="h-4 w-4 rounded-full" />}
-        {value === "ALL" ? "All" : value}
-        <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-44 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] p-1 shadow-2xl shadow-black/60">
-          {CRYPTOS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => { onChange(c); setOpen(false); }}
-              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${c === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
-            >
-              {c === "ALL" ? (
-                <span className="grid h-5 w-5 place-items-center rounded-full bg-white/[0.08]">
-                  <Icon name="apps" className="text-[13px] text-[#75b8ff]" />
-                </span>
-              ) : (
-                CRYPTO_ICONS[c] && <img src={CRYPTO_ICONS[c]} alt={c} className="h-5 w-5 rounded-full" />
-              )}
-              <span className="text-xs font-black text-white">{c === "ALL" ? "All assets" : c}</span>
-              {c === value && <Icon name="check" className="ml-auto text-[15px] text-[#087cff]" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PaymentSelect({ value, fiat, onChange }: { value: string; fiat: string; onChange: (p: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Full catalogue, with the fiat's local rails surfaced first so the common
-  // choices are one tap away, then every other method — all searchable.
-  const local = paymentMethodsForFiat(fiat);
-  const localCodes = new Set(local.map((m) => m.value));
-  const rest = GLOBAL_PAYMENT_METHODS.filter((m) => !localCodes.has(m.value));
-
-  const q = query.trim().toLowerCase();
-  const match = (m: { value: string; label: string }) =>
-    !q || m.label.toLowerCase().includes(q) || m.value.toLowerCase().includes(q);
-  const localFiltered = local.filter(match);
-  const restFiltered = rest.filter(match);
-  const showAll = !q || "all payments".includes(q);
-
-  const currentLabel = value ? paymentMethodLabel(value) : "All payments";
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  // Reset the search each time the menu closes so it opens fresh next time.
-  useEffect(() => { if (!open) setQuery(""); }, [open]);
-
-  const pick = (v: string) => { onChange(v); setOpen(false); };
-  const Row = ({ v, label }: { v: string; label: string }) => (
-    <button
-      type="button"
-      onClick={() => pick(v)}
-      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${v === value ? "bg-[#087cff]/15" : "hover:bg-white/[0.06]"}`}
-    >
-      <span className="text-xs font-bold text-white">{label}</span>
-      {v === value && <Icon name="check" className="ml-auto shrink-0 text-[15px] text-[#087cff]" />}
-    </button>
-  );
-
-  return (
-    <div ref={ref} className="relative min-w-0 shrink-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Payment method"
-        className="flex h-8 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] px-2.5 text-xs font-bold text-white transition-colors hover:border-white/20"
-      >
-        <Icon name="account_balance_wallet" className="text-[14px] text-slate-400" />
-        <span className="max-w-[120px] truncate">{currentLabel}</span>
-        <Icon name="expand_more" className={`text-base text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-50 w-60 overflow-hidden rounded-xl border border-white/10 bg-[#18191f] shadow-2xl shadow-black/60">
-          <div className="border-b border-white/[0.06] p-2">
-            <div className="flex h-9 items-center gap-2 rounded-lg bg-white/[0.05] px-2.5 ring-1 ring-white/[0.06] focus-within:ring-[#087cff]/50">
-              <Icon name="search" className="text-[16px] text-slate-500" />
-              <input
-                autoFocus
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search payment methods"
-                className="min-w-0 flex-1 bg-transparent text-xs font-bold text-white outline-none placeholder:text-slate-600"
-              />
-            </div>
-          </div>
-          <div className="max-h-64 overflow-y-auto p-1 [scrollbar-width:thin]">
-            {showAll && <Row v="" label="All payments" />}
-            {localFiltered.length > 0 && (
-              <p className="px-2.5 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-slate-600">Common for {fiat}</p>
-            )}
-            {localFiltered.map((o) => <Row key={o.value} v={o.value} label={o.label} />)}
-            {restFiltered.length > 0 && (
-              <p className="px-2.5 pb-1 pt-2 text-[9px] font-black uppercase tracking-widest text-slate-600">All methods</p>
-            )}
-            {restFiltered.map((o) => <Row key={o.value} v={o.value} label={o.label} />)}
-            {!showAll && localFiltered.length === 0 && restFiltered.length === 0 && (
-              <p className="px-2.5 py-6 text-center text-xs font-bold text-slate-600">No methods found</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Ad Row ──────────────────────────────────────────────────────────────────
 
 const AD_COLS = "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_120px]";
@@ -1550,26 +1335,6 @@ function AdCard({
   );
 }
 
-// ─── Direct-buy promo banner ───────────────────────────────────────────────────
-
-function DirectBuyBanner() {
-  return (
-    <div className="relative flex items-center justify-between gap-4 overflow-hidden rounded-lg border border-[#05b957]/20 bg-gradient-to-r from-[#0c2a1d] via-[#0e1a16] to-[#151518] px-3 py-2.5 sm:px-4">
-      <div className="min-w-0">
-        <p className="text-[13px] font-black text-white sm:text-sm">Need crypto <span className="text-[#05b957]">right now?</span></p>
-        <p className="mt-0.5 text-[10px] font-semibold text-slate-400 sm:text-[11px]">No time to chat? Top up instantly with M-Pesa or crypto.</p>
-      </div>
-      <Link
-        href="/wallet"
-        prefetch={false}
-        className="shrink-0 rounded-lg bg-[#05b957] px-3 py-2 text-[12px] font-black text-white transition hover:bg-[#06d169] active:scale-[0.98]"
-      >
-        Direct buy
-      </Link>
-    </div>
-  );
-}
-
 // ─── Offers table (one section: promoted or other) ─────────────────────────────
 
 function OffersTable({
@@ -1607,7 +1372,7 @@ function OffersTable({
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
-function EmptyAds({ side }: { side: "BUY" | "SELL"; isSignedIn: boolean }) {
+function EmptyAds({ side }: { side: "BUY" | "SELL" }) {
   return (
     <div className="flex min-h-[280px] flex-col items-center justify-center px-4 py-14 text-center">
       <svg width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden className="mb-4 text-slate-600">
@@ -1618,34 +1383,7 @@ function EmptyAds({ side }: { side: "BUY" | "SELL"; isSignedIn: boolean }) {
       <p className="text-[14px] font-medium text-slate-400">
         Oops, no {side === "SELL" ? "sell" : "buy"} offers right now.
       </p>
-      <Link
-        href="/p2p/merchant?tab=ads"
-        prefetch={false}
-        className="mt-6 rounded-full border border-dashed border-white/35 px-8 py-2.5 text-[14px] font-bold text-white transition hover:border-white/55 hover:bg-white/[0.04] active:scale-[0.98]"
-      >
-        Post Now
-      </Link>
     </div>
-  );
-}
-
-// ─── Merchant Promo Banner ────────────────────────────────────────────────────
-
-function MerchantPromoBanner({ isSignedIn }: { isSignedIn: boolean }) {
-  return (
-    <Link
-      href="/p2p/merchant?tab=ads"
-      prefetch={false}
-      className="flex items-center justify-between gap-3 rounded-xl bg-[#1c1c1e] px-4 py-3.5 transition hover:bg-[#222226]"
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        <Icon name="campaign" className="shrink-0 text-[20px] text-slate-300" />
-        <span className="text-[14px] font-semibold text-white">
-          {isSignedIn ? "Post your own ad" : "Post an ad"}
-        </span>
-      </div>
-      <span className="text-[13px] font-bold text-[#087cff]">Post Now &gt;</span>
-    </Link>
   );
 }
 
@@ -1715,6 +1453,9 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const [amountInput, setAmountInput] = useState("");
   const [orderAd, setOrderAd] = useState<Ad | null>(null);
   const [selectedMerchant, setSelectedMerchant] = useState<AdMerchant | null>(null);
+  const [coinSheetOpen, setCoinSheetOpen] = useState(false);
+  const [paySheetOpen, setPaySheetOpen] = useState(false);
+  const [amountSheetOpen, setAmountSheetOpen] = useState(false);
 
   // Sync state to URL whenever filters change
   const pushUrl = useCallback((newTab: string, newCrypto: string, newPayment: string, newFiat: string) => {
@@ -1921,157 +1662,95 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const promotedIds = new Set(promoted.map((a) => a.id));
   const otherAds = visibleAds.filter((a) => !promotedIds.has(a.id));
 
+  const amountChipLabel = amountInput.trim()
+    ? `${Number(amountInput).toLocaleString()} ${fiat}`
+    : "Amount";
+
   return (
     <>
       {orderAd && <OrderModal ad={orderAd} onClose={() => setOrderAd(null)} onMerchantClick={setSelectedMerchant} />}
       {selectedMerchant && <MerchantProfileModal merchant={selectedMerchant} onClose={() => setSelectedMerchant(null)} />}
 
-      <P2PSubNav />
+      <SelectCoinSheet
+        open={coinSheetOpen}
+        value={crypto}
+        onClose={() => setCoinSheetOpen(false)}
+        onChange={setCrypto}
+        coins={CRYPTOS}
+      />
+      <PaymentMethodsSheet
+        open={paySheetOpen}
+        fiat={fiat}
+        value={payment}
+        onClose={() => setPaySheetOpen(false)}
+        onConfirm={setPayment}
+      />
+      <AmountFilterSheet
+        open={amountSheetOpen}
+        value={amountInput}
+        fiat={fiat}
+        onClose={() => setAmountSheetOpen(false)}
+        onConfirm={setAmountInput}
+      />
+
+      <div className="hidden lg:block">
+        <P2PSubNav />
+      </div>
 
       <div className="mx-auto w-full max-w-6xl px-3 py-2 sm:px-4 lg:px-3">
+        <P2PMarketTabs fiat={fiat} onFiatChange={setFiat} />
 
-        {/* Quiet intro — land here before Buy/Sell controls */}
-        <div className="mb-3 border-b border-white/[0.06] pb-3">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-[17px] font-bold tracking-tight text-white sm:text-[20px]">
-                P2P Trading
-              </h1>
-              <p className="mt-1 max-w-lg text-[13px] font-medium leading-relaxed text-slate-500">
-                Escrow-protected orders, local payments, verified merchants.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href="/p2p/express"
-                className="rounded-full bg-[#087cff] px-4 py-2 text-[13px] font-bold text-white transition hover:bg-[#0570e8]"
-              >
-                Direct buy
-              </Link>
-              <Link
-                href="/p2p/merchant?tab=ads"
-                className="rounded-full border border-dashed border-white/35 px-4 py-2 text-[13px] font-bold text-white transition hover:border-white/55 hover:bg-white/[0.04]"
-              >
-                Post Now
-              </Link>
-            </div>
+        {stats && (
+          <div className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] font-medium text-slate-500">
+            <span>
+              <span className="tabular-nums text-white">{stats.onlineMerchants}</span> online
+            </span>
+            <span>
+              <span className="tabular-nums text-white">{stats.activeOffers}</span> offers
+            </span>
+            <span>
+              <span className="tabular-nums text-white">{stats.trades24h}</span> trades · 24h
+            </span>
+            {stats.avgReleaseMin > 0 && (
+              <span>
+                ~<span className="tabular-nums text-white">{stats.avgReleaseMin}</span> min avg release
+              </span>
+            )}
           </div>
-          {stats && (
-            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[12px] font-medium text-slate-500">
-              <span>
-                <span className="tabular-nums text-white">{stats.onlineMerchants}</span> online
-              </span>
-              <span>
-                <span className="tabular-nums text-white">{stats.activeOffers}</span> offers
-              </span>
-              <span>
-                <span className="tabular-nums text-white">{stats.trades24h}</span> trades · 24h
-              </span>
-              {stats.avgReleaseMin > 0 && (
-                <span>
-                  ~<span className="tabular-nums text-white">{stats.avgReleaseMin}</span> min avg release
-                </span>
-              )}
-            </div>
-          )}
-        </div>
+        )}
 
-        {/* Market workspace */}
-        <div className="mb-2 min-w-0">
-          <div className="min-w-0 rounded-xl bg-[#1c1c1e] px-3 py-2.5">
-            <div className="mb-2 flex min-w-0 items-center justify-between gap-3 lg:mb-1.5">
-              <div>
-                <h2 className="text-[15px] font-bold leading-tight text-white">{tab === "BUY" ? "Buy" : "Sell"} {crypto === "ALL" ? "Crypto" : crypto}</h2>
-                {marketRef > 0 && crypto !== "ALL" ? (
-                  <p className="mt-0.5 flex items-center gap-1.5 text-[12px] font-medium text-slate-400">
-                    <img src={CRYPTO_ICONS[crypto]} alt={crypto} width={14} height={14} className="h-3.5 w-3.5 rounded-full" />
-                    1 {crypto} ≈ <span className="text-white">{formatFiat(marketRef, fiat)}</span>
-                    <span className="hidden text-slate-600 sm:inline">· {rateIsLive ? "live market price" : "median of offers"}</span>
-                  </p>
-                ) : (
-                  <p className="max-w-md text-[12px] font-medium leading-5 text-slate-500 lg:leading-4">
-                    Pick Buy or Sell, then choose an offer below.
-                  </p>
-                )}
-              </div>
-              <div className="hidden shrink-0 items-center gap-2 text-[12px] text-slate-500 sm:flex">
-                <span className="flex items-center gap-1.5 rounded-full bg-[#05b957]/10 px-2.5 py-1 font-semibold text-[#05b957]">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#05b957]" />
-                  Escrow active
-                </span>
-              </div>
-            </div>
+        <BuySellPill value={tab} onChange={setTab} />
 
-            {/* Controls */}
-            <div className="grid min-w-0 grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
-              <div className="flex items-center gap-3 rounded-xl bg-black/25 px-3 py-2 sm:gap-2">
-                <span className="shrink-0 text-[13px] font-semibold text-white">Side</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={tab === "BUY"}
-                  onClick={() => setTab(tab === "BUY" ? "SELL" : "BUY")}
-                  className={`relative h-[22px] w-[40px] shrink-0 rounded-full transition ${
-                    tab === "BUY" ? "bg-[#05b957]" : "bg-red-500/80"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition ${
-                      tab === "BUY" ? "left-[20px]" : "left-[2px]"
-                    }`}
-                  />
-                </button>
-                <span className={`min-w-0 flex-1 text-right text-[12px] font-semibold sm:flex-none ${tab === "BUY" ? "text-[#05b957]" : "text-red-400"}`}>
-                  {tab === "BUY" ? "Buy" : "Sell"}
-                </span>
-              </div>
+        <P2PFilterRow
+          crypto={crypto}
+          amountLabel={amountChipLabel}
+          paymentLabel={paymentChipLabel(payment)}
+          onCoin={() => setCoinSheetOpen(true)}
+          onAmount={() => setAmountSheetOpen(true)}
+          onPayment={() => setPaySheetOpen(true)}
+        />
 
-              {/* Crypto dropdown + USING */}
-              <div className="flex items-center gap-1.5">
-                <CryptoSelect value={crypto} onChange={setCrypto} />
-                <span className="hidden rounded bg-white/[0.06] px-1.5 py-1 text-[9px] font-black uppercase tracking-wider text-slate-500 sm:inline">Using</span>
-              </div>
-
-              {/* Amount */}
-              <div className="flex h-8 min-w-0 items-center gap-1.5 rounded-md border border-white/[0.07] bg-white/[0.04] px-2 sm:w-[170px]">
-                <input
-                  type="number"
-                  inputMode="decimal"
-                  value={amountInput}
-                  onChange={(e) => setAmountInput(e.target.value)}
-                  placeholder="Amount"
-                  className="min-w-0 flex-1 bg-transparent text-xs font-bold text-white outline-none placeholder:text-slate-600"
-                />
-                {amountInput && (
-                  <button type="button" onClick={() => setAmountInput("")} className="shrink-0 text-slate-600 hover:text-slate-300">
-                    <Icon name="close" className="text-[14px]" />
-                  </button>
-                )}
-                {/* Currency filter — sits as the amount suffix */}
-                <FiatSelect value={fiat} onChange={setFiat} inline />
-              </div>
-
-              {/* Payment dropdown */}
-              <PaymentSelect value={payment} fiat={fiat} onChange={setPayment} />
-            </div>
-          </div>
-        </div>
+        {marketRef > 0 && (
+          <p className="mb-3 flex items-center gap-1.5 text-[12px] font-medium text-slate-500">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={CRYPTO_ICONS[crypto]} alt="" className="h-3.5 w-3.5 rounded-full" />
+            1 {crypto} ≈ <span className="text-white">{formatFiat(marketRef, fiat)}</span>
+            <span className="hidden text-slate-600 sm:inline">· {rateIsLive ? "live" : "median"}</span>
+          </p>
+        )}
 
         {/* Offers */}
         <div className="space-y-3">
           {loading ? (
             <AdSkeleton />
           ) : visibleAds.length === 0 ? (
-            <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} isSignedIn={!!isSignedIn} />
+            <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} />
           ) : (
             <>
               <OffersTable title="Promoted offers" ads={promoted} onDetails={openOrder} onMerchantClick={setSelectedMerchant} promoted />
-              <DirectBuyBanner />
               <OffersTable title="Other offers" ads={otherAds} onDetails={openOrder} onMerchantClick={setSelectedMerchant} />
             </>
           )}
-
-          {visibleAds.length > 0 && <MerchantPromoBanner isSignedIn={!!isSignedIn} />}
         </div>
       </div>
     </>

@@ -18,6 +18,16 @@ describe("promo codes", () => {
     expect(sql).toContain("promo_redemptions");
   });
 
+  it("ships a migration that seeds KIP100 and SILAS50", () => {
+    const path = "prisma/migrations/20260710160000_promo_kip100_silas50/migration.sql";
+    expect(existsSync(path)).toBe(true);
+    const sql = readFileSync(path, "utf8");
+    expect(sql).toContain("KIP100");
+    expect(sql).toContain("100.00");
+    expect(sql).toContain("SILAS50");
+    expect(sql).toContain("50.00");
+  });
+
   it("exposes redeem + admin create routes", () => {
     expect(existsSync("app/api/promo/redeem/route.ts")).toBe(true);
     expect(existsSync("app/api/admin/promo/route.ts")).toBe(true);

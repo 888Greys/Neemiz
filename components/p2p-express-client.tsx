@@ -1,115 +1,96 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
-import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { LoadingDots } from "@/components/loading-dots";
 import { FIAT_CURRENCIES, formatFiat } from "@/lib/p2p/currencies";
-import { paymentMethodsForFiat } from "@/lib/p2p/payment-methods";
+import { paymentMethodLabel } from "@/lib/p2p/payment-methods";
+import {
+  BuySellTabs,
+  P2PMarketTabs,
+  P2P_COIN_ICONS,
+  P2P_MAIN_COINS,
+  PaymentMethodsSheet,
+  SelectCoinSheet,
+} from "@/components/p2p-market-chrome";
 
-const flagUrl = (code: string) => `https://flagcdn.com/w40/${code.slice(0, 2).toLowerCase()}.png`;
-
-const COINS = [
-  { code: "USDT", name: "Tether",   icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg" },
-  { code: "USDC", name: "USD Coin", icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg" },
-  { code: "BTC",  name: "Bitcoin",  icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg" },
-  { code: "ETH",  name: "Ethereum", icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg" },
-  { code: "BNB",  name: "BNB",      icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg" },
-  { code: "KES",  name: "KES Coin", icon: "https://flagcdn.com/w80/ke.png" },
-];
-
-// ─── Tiny click-outside dropdown ───────────────────────────────────────────────
-type DropOption = { value: string; label: string; icon?: string };
-function Dropdown({ label, value, options, onChange }: {
-  label: string;
-  value: string;
-  options: DropOption[];
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    function onDoc(e: MouseEvent) { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
-  const current = options.find((o) => o.value === value);
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex h-10 w-full items-center justify-between gap-1 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2.5 text-[13px] font-bold text-white transition-colors hover:border-white/20"
-      >
-        <span className="flex min-w-0 items-center gap-1.5 truncate">
-          {current?.icon && <img src={current.icon} alt="" width={16} height={16} className="h-4 w-4 shrink-0 rounded-full" />}
-          <span className="truncate">{current?.label ?? label}</span>
-        </span>
-        <Icon name="expand_more" className={`shrink-0 text-[15px] text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 max-h-64 overflow-y-auto rounded-lg border border-white/10 bg-[#121824] py-1 shadow-2xl shadow-black/40 [scrollbar-width:thin]">
-          {options.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => { onChange(o.value); setOpen(false); }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-bold text-white transition hover:bg-white/[0.06]"
-            >
-              {o.icon && <img src={o.icon} alt="" width={16} height={16} className="h-4 w-4 shrink-0 rounded-full" />}
-              <span className="flex-1 truncate">{o.label}</span>
-              {o.value === value && <Icon name="check" className="shrink-0 text-[15px] text-[#087cff]" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "back"] as const;
 
 export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string }) {
   const { isSignedIn } = useSupabaseAuth();
-  const { openLogin }  = useAuthModal();
-  const router         = useRouter();
-  const { balance: coinBalance, currency: coinCurrency } = useWalletBalance();
+  const { openLogin } = useAuthModal();
+  const router = useRouter();
 
-  const [crypto, setCrypto]   = useState("USDT");
-  const [fiat, setFiat]       = useState(FIAT_CURRENCIES.some((f) => f.code === defaultFiat) ? defaultFiat : "KES");
-  const [amount, setAmount]   = useState("");
-  const [payments, setPayments] = useState(() => paymentMethodsForFiat(defaultFiat));
-  const [payment, setPayment] = useState(() => paymentMethodsForFiat(defaultFiat)[0]?.value ?? "");
-  const [rate, setRate]       = useState<number | null>(null);
+  const [side, setSide] = useState<"BUY" | "SELL">("BUY");
+  const [crypto, setCrypto] = useState("USDT");
+  const [fiat, setFiat] = useState(
+    FIAT_CURRENCIES.some((f) => f.code === defaultFiat) ? defaultFiat : "KES",
+  );
+  const [amount, setAmount] = useState("");
+  const [payment, setPayment] = useState("");
+  const [paymentPicked, setPaymentPicked] = useState(false);
+  const [rate, setRate] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [excludeVerify, setExcludeVerify] = useState(false);
+  const [coinSheetOpen, setCoinSheetOpen] = useState(false);
+  const [paySheetOpen, setPaySheetOpen] = useState(false);
 
-  // Payment rails follow the selected currency.
   useEffect(() => {
-    const opts = paymentMethodsForFiat(fiat);
-    setPayments(opts);
-    setPayment((p) => (opts.some((o) => o.value === p) ? p : opts[0]?.value ?? ""));
+    document.cookie = `user_fiat=${fiat}; path=/; max-age=31536000; samesite=lax`;
   }, [fiat]);
 
-  // Live spot rate for the estimate. The KES coin is pegged 1:1.
   useEffect(() => {
-    if (crypto === "KES") { setRate(1); return; }
+    if (crypto === "KES") {
+      setRate(1);
+      return;
+    }
     let cancelled = false;
     setRate(null);
     fetch(`/api/p2p/spot?crypto=${crypto}&fiat=${fiat}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { rate?: number | null } | null) => { if (!cancelled && typeof d?.rate === "number" && d.rate > 0) setRate(d.rate); })
+      .then((d: { rate?: number | null } | null) => {
+        if (!cancelled && typeof d?.rate === "number" && d.rate > 0) setRate(d.rate);
+      })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [crypto, fiat]);
 
   const amountNum = Number(amount) || 0;
-  const estCrypto = amountNum > 0 && rate ? amountNum / rate : null;
+  const estCrypto = amountNum > 0 && rate ? amountNum / rate : 0;
+
+  function pressKey(key: (typeof KEYS)[number]) {
+    if (key === "back") {
+      setAmount((a) => a.slice(0, -1));
+      return;
+    }
+    if (key === ".") {
+      setAmount((a) => (a.includes(".") ? a : a === "" ? "0." : `${a}.`));
+      return;
+    }
+    setAmount((a) => {
+      if (a === "0") return key;
+      if (a.includes(".") && (a.split(".")[1]?.length ?? 0) >= 2) return a;
+      if (a.replace(".", "").length >= 12) return a;
+      return `${a}${key}`;
+    });
+  }
 
   async function buyNow() {
-    if (!isSignedIn) { openLogin(); return; }
+    if (!isSignedIn) {
+      openLogin();
+      return;
+    }
+    if (side === "SELL") {
+      toast.error("Express sell is coming soon — use P2P listings for now");
+      return;
+    }
     if (amountNum <= 0) return toast.error("Enter an amount");
     if (!payment) return toast.error("Choose a payment method");
     setSubmitting(true);
@@ -128,140 +109,150 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
     }
   }
 
-  const QUICK = [500, 1000, 2500, 5000, 10000];
+  function onPrimary() {
+    if (!paymentPicked || !payment) {
+      setPaySheetOpen(true);
+      return;
+    }
+    void buyNow();
+  }
+
+  const displayAmount = amount === "" ? "0" : amount;
+  const primaryLabel = !paymentPicked || !payment
+    ? "Select payment method"
+    : side === "BUY"
+      ? `Buy ${crypto}`
+      : `Sell ${crypto}`;
 
   return (
     <>
-      <P2PSubNav />
-      <div className="mx-auto w-full max-w-lg px-3 pt-2 sm:max-w-xl sm:px-4 lg:max-w-6xl lg:px-3">
-        <div className="mb-1 flex items-center justify-between py-2">
-          <div>
-            <h1 className="text-[17px] font-bold text-white">Express</h1>
-            <p className="mt-0.5 text-[12px] font-medium text-slate-500">Auto-match the best backed offer.</p>
-          </div>
-          <span className="hidden items-center gap-1.5 rounded-full bg-[#05b957]/10 px-2.5 py-1 text-[12px] font-semibold text-[#05b957] sm:inline-flex">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#05b957]" />
-            Escrow active
+      <SelectCoinSheet
+        open={coinSheetOpen}
+        value={crypto}
+        onClose={() => setCoinSheetOpen(false)}
+        onChange={setCrypto}
+        coins={[...P2P_MAIN_COINS]}
+      />
+      <PaymentMethodsSheet
+        open={paySheetOpen}
+        fiat={fiat}
+        value={payment}
+        onClose={() => setPaySheetOpen(false)}
+        allowAll={false}
+        onConfirm={(code) => {
+          if (!code) return;
+          setPayment(code);
+          setPaymentPicked(true);
+        }}
+      />
+
+      <div className="hidden lg:block">
+        <P2PSubNav />
+      </div>
+
+      <div className="mx-auto flex min-h-[calc(100dvh-8rem)] w-full max-w-lg flex-col px-4 pb-4 pt-2 sm:max-w-md">
+        <P2PMarketTabs fiat={fiat} onFiatChange={setFiat} />
+        <BuySellTabs value={side} onChange={setSide} />
+
+        {/* Coin chip */}
+        <button
+          type="button"
+          onClick={() => setCoinSheetOpen(true)}
+          className="mb-6 flex items-center gap-1.5 self-start text-[15px] font-bold text-white"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={P2P_COIN_ICONS[crypto]} alt="" className="h-5 w-5 rounded-full" />
+          {crypto}
+          <Icon name="expand_more" className="text-[18px] text-slate-500" />
+        </button>
+
+        {/* Large amount */}
+        <div className="mb-2 flex items-baseline gap-2">
+          <span
+            className={`text-[48px] font-bold leading-none tracking-tight tabular-nums ${
+              amount === "" ? "text-slate-600" : "text-white"
+            }`}
+          >
+            {displayAmount}
+          </span>
+          <span className="text-[28px] font-bold text-slate-500">{fiat}</span>
+        </div>
+
+        {/* Rate row */}
+        <div className="mb-6 flex items-center gap-2 text-[13px] text-slate-500">
+          <Icon name="swap_horiz" className="text-[18px] text-slate-500" />
+          <span className="tabular-nums text-slate-400">
+            {estCrypto > 0 ? estCrypto.toFixed(6) : "0"} {crypto}
+          </span>
+          <span className="text-slate-600">·</span>
+          <span>
+            1 {crypto} ≈ {rate ? formatFiat(rate, fiat) : "—"}
           </span>
         </div>
-      </div>
-      <div className="mx-auto grid w-full max-w-6xl gap-5 px-3 py-5 sm:px-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:px-3">
-        <section className="hidden rounded-2xl border border-white/[0.07] bg-[radial-gradient(circle_at_top_left,rgba(8,124,255,.12),transparent_42%),#0d1017] p-7 lg:block">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-400 ring-1 ring-blue-400/20">
-            <Icon name="bolt" fill className="text-[24px]" />
-          </div>
-          <h2 className="mt-6 max-w-md text-3xl font-black tracking-tight text-white">Buy crypto without hunting through listings.</h2>
-          <p className="mt-3 max-w-lg text-sm leading-6 text-slate-500">Enter what you want to spend. Nezeem checks active inventory, merchant backing, payment rails and order limits before opening an escrow-protected order.</p>
-          <div className="mt-8 grid grid-cols-3 gap-2">
-            {[["Best price", "price_check"], ["Backed liquidity", "account_balance_wallet"], ["Escrow protected", "shield"]].map(([label, icon]) => (
-              <div key={label} className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3">
-                <Icon name={icon} className="text-[16px] text-blue-400" />
-                <p className="mt-3 text-[10px] font-black text-slate-300">{label}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-        <div className="rounded-2xl border border-white/[0.06] bg-[#18191f] p-4 shadow-[0_24px_70px_rgba(0,0,0,.24)]">
-          {/* Header */}
-          <div className="mb-3 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#087cff]/12 ring-1 ring-[#087cff]/25">
-              <Icon name="bolt" fill className="text-[16px] text-[#087cff]" />
-            </div>
-            <div>
-              <h1 className="text-[15px] font-black leading-tight text-white">Express Buy</h1>
-              <p className="text-[10px] font-semibold text-slate-500">Best price, auto-matched · escrow-protected</p>
-            </div>
-          </div>
 
-          {/* Coin + Currency dropdowns */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <p className="mb-1 text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">Coin</p>
-              <Dropdown
-                label="Coin"
-                value={crypto}
-                onChange={setCrypto}
-                options={COINS.map((c) => ({ value: c.code, label: c.code, icon: c.icon }))}
-              />
-            </div>
-            <div>
-              <p className="mb-1 text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">Currency</p>
-              <Dropdown
-                label="Currency"
-                value={fiat}
-                onChange={setFiat}
-                options={FIAT_CURRENCIES.map((f) => ({ value: f.code, label: f.code, icon: flagUrl(f.code) }))}
-              />
-            </div>
-          </div>
-
-          {/* Amount — paid from the local "coin" balance */}
-          <div className="mb-1 mt-3 flex items-center justify-between">
-            <p className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">Pay with {fiat} Coin</p>
-            {isSignedIn && coinCurrency === fiat && (
-              <button
-                type="button"
-                onClick={() => setAmount(String(Math.floor(coinBalance)))}
-                className="text-[10px] font-black uppercase tracking-wider text-[#087cff] hover:text-[#2a90ff]"
-              >
-                Bal {formatFiat(coinBalance, fiat, { symbol: false })} · Max
-              </button>
-            )}
-          </div>
-          <div className="flex h-11 items-center rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 focus-within:border-[#087cff]/50">
-            <img src={flagUrl(fiat)} alt="" className="mr-2 h-3.5 w-5 shrink-0 rounded-[2px] object-cover" />
-            <input
-              type="number"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0"
-              className="w-full bg-transparent text-base font-black text-white outline-none placeholder:text-slate-700"
-            />
-            <span className="ml-2 text-[13px] font-black text-slate-500">{fiat}</span>
-          </div>
-          <div className="mt-1.5 flex flex-wrap gap-1.5">
-            {QUICK.map((q) => (
-              <button
-                key={q}
-                type="button"
-                onClick={() => setAmount(String(q))}
-                className="rounded-md bg-white/[0.04] px-2 py-0.5 text-[10px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:text-white"
-              >
-                {q.toLocaleString()}
-              </button>
-            ))}
-          </div>
-
-          {/* Payment */}
-          <p className="mb-1 mt-3 text-[9px] font-black uppercase tracking-[0.15em] text-slate-600">Payment</p>
-          <Dropdown label="Payment" value={payment} onChange={setPayment} options={payments} />
-
-          {/* Estimate */}
-          <div className="mt-3 rounded-lg bg-white/[0.03] p-3 ring-1 ring-white/[0.06]">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="text-slate-500">You receive (approx.)</span>
-              <span className="font-black text-white">{estCrypto != null ? `≈ ${estCrypto.toFixed(6)} ${crypto}` : "—"}</span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[10px]">
-              <span className="text-slate-600">Market rate</span>
-              <span className="text-slate-500">{rate ? `1 ${crypto} ≈ ${formatFiat(rate, fiat)}` : "fetching…"}</span>
-            </div>
-          </div>
-
+        {/* Exclude verification */}
+        <label className="mb-8 flex cursor-pointer items-center gap-3">
           <button
             type="button"
-            onClick={buyNow}
-            disabled={submitting || amountNum <= 0 || !payment}
-            className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#05b957] text-[13px] font-black text-white shadow-lg shadow-[#05b957]/20 transition hover:bg-[#04a64e] disabled:cursor-not-allowed disabled:opacity-40"
+            role="switch"
+            aria-checked={excludeVerify}
+            onClick={() => setExcludeVerify((v) => !v)}
+            className={`relative h-[22px] w-[40px] shrink-0 rounded-full transition ${
+              excludeVerify ? "bg-[#087cff]" : "bg-[#3a3a3c]"
+            }`}
           >
-            {submitting ? <LoadingDots /> : <><Icon name="bolt" fill className="text-[16px]" /> Buy {crypto} now</>}
+            <span
+              className={`absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white shadow transition ${
+                excludeVerify ? "left-[20px]" : "left-[2px]"
+              }`}
+            />
+          </button>
+          <span className="text-[13px] font-medium text-slate-400">
+            Exclude ads that required verification
+          </span>
+        </label>
+
+        {paymentPicked && payment && (
+          <button
+            type="button"
+            onClick={() => setPaySheetOpen(true)}
+            className="mb-3 flex w-full items-center justify-between rounded-xl bg-white/[0.04] px-3 py-2.5 text-left"
+          >
+            <span className="text-[12px] text-slate-500">Payment</span>
+            <span className="flex items-center gap-1 text-[13px] font-bold text-white">
+              {paymentMethodLabel(payment)}
+              <Icon name="expand_more" className="text-[16px] text-slate-500" />
+            </span>
+          </button>
+        )}
+
+        <div className="mt-auto space-y-3">
+          <button
+            type="button"
+            onClick={onPrimary}
+            disabled={submitting || (!!paymentPicked && !!payment && amountNum <= 0)}
+            className="flex h-12 w-full items-center justify-center rounded-xl bg-[#0d3d28] text-[15px] font-bold text-[#3dd68c] transition hover:bg-[#104a30] disabled:opacity-40"
+          >
+            {submitting ? <LoadingDots /> : primaryLabel}
           </button>
 
-          <p className="mt-2.5 text-center text-[10px] text-slate-600">
-            Prefer to choose a merchant yourself?{" "}
-            <button onClick={() => router.push("/p2p")} className="font-bold text-[#087cff] hover:underline">Browse offers</button>
-          </p>
+          {/* Keypad */}
+          <div className="grid grid-cols-3 gap-y-1">
+            {KEYS.map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => pressKey(key)}
+                className="flex h-14 items-center justify-center text-[28px] font-medium text-white transition active:bg-white/[0.06]"
+              >
+                {key === "back" ? (
+                  <Icon name="undo" className="text-[26px] text-slate-300" />
+                ) : (
+                  key
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </>
