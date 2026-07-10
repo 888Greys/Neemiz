@@ -13,6 +13,7 @@ import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 import { withdrawalsDisabledResponse, setWithdrawalsDisabled } from "@/lib/withdrawal-guard";
 import { assertLedgerBacked, LedgerUnbackedError } from "@/lib/ledger-guard";
 import { isTwilioConfigured } from "@/lib/twilio";
+import { assertNotPromoLocked, promoLockedHttpError } from "@/lib/promo-lock";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -152,6 +153,23 @@ export async function POST(req: Request) {
         data:  { walletBalance: { decrement: amountKes } },
       });
       if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+
+      // Promo credits cannot be withdrawn — only surplus above the lock.
+      if (!dbUser.isAdmin) {
+        const promoAgg = await tx.promoRedemption.aggregate({
+          where: { userId: dbUser.id },
+          _sum: { amountKes: true },
+        });
+        const locked = Number(promoAgg._sum.amountKes ?? 0);
+        const afterDebit = await tx.user.findUnique({
+          where: { id: dbUser.id },
+          select: { walletBalance: true },
+        });
+        // Check against pre-debit balance: amount must fit in transferable.
+        const balBefore = Number(afterDebit?.walletBalance ?? 0) + amountKes;
+        const transferable = Math.max(0, Math.round((balBefore - (Number.isFinite(locked) ? locked : 0)) * 100) / 100);
+        assertNotPromoLocked(amountKes, transferable, Number.isFinite(locked) ? locked : 0);
+      }
 
       // Ledger-backed balance guard. The balance debit above only proves the
       // wallet_balance column is high enough — but that column can be written
@@ -346,6 +364,10 @@ export async function POST(req: Request) {
         { error: "This withdrawal could not be processed. Please contact support." },
         { status: 403 },
       );
+    }
+    if (err instanceof Error && err.message.startsWith("PROMO_LOCKED:")) {
+      const { status, body } = promoLockedHttpError(err.message);
+      return Response.json(body, { status });
     }
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {
       return Response.json({ error: "Insufficient balance" }, { status: 400 });

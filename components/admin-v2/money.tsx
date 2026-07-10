@@ -5,6 +5,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { Icon } from "@/components/icon";
 import { AdminProfitsClient } from "@/components/admin-profits-client";
+import { AdminV2Promos } from "@/components/admin-v2/promos";
 
 // Money Treasury, built to the generated Stitch design. Cashflow tab is wired
 // natively to /api/admin/money; the Daily P&L tab reuses the existing profits
@@ -146,8 +147,8 @@ function Cashflow() {
   );
 }
 
-export function AdminV2Money({ initialTab = "cashflow" }: { initialTab?: "cashflow" | "pnl" }) {
-  const [tab, setTab] = useState<"cashflow" | "pnl">(initialTab);
+export function AdminV2Money({ initialTab = "cashflow" }: { initialTab?: "cashflow" | "pnl" | "promos" }) {
+  const [tab, setTab] = useState<"cashflow" | "pnl" | "promos">(initialTab);
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-6 flex items-end justify-between">
@@ -158,7 +159,7 @@ export function AdminV2Money({ initialTab = "cashflow" }: { initialTab?: "cashfl
       </div>
 
       <div className="mb-6 flex border-b border-[#424754]">
-        {([["cashflow", "Cashflow", "trending_up"], ["pnl", "Daily P&L", "account_balance"]] as const).map(([id, label, icon]) => (
+        {([["cashflow", "Cashflow", "trending_up"], ["pnl", "Daily P&L", "account_balance"], ["promos", "Promos", "confirmation_number"]] as const).map(([id, label, icon]) => (
           <button
             key={id}
             onClick={() => setTab(id)}
@@ -169,7 +170,7 @@ export function AdminV2Money({ initialTab = "cashflow" }: { initialTab?: "cashfl
         ))}
       </div>
 
-      {tab === "cashflow" ? <Cashflow /> : <AdminProfitsClient />}
+      {tab === "cashflow" ? <Cashflow /> : tab === "pnl" ? <AdminProfitsClient /> : <AdminV2Promos />}
     </div>
   );
 }
