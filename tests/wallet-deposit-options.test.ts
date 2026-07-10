@@ -8,13 +8,19 @@ import {
 import { MARKETS, methodsForCurrency } from "@/lib/payments/country-methods";
 
 describe("wallet deposit options", () => {
-  it("keeps gas-covered crypto methods available internationally", () => {
+  it("offers a single Crypto method instead of per-coin rows", () => {
     const rows = depositRowsForCurrency("USD", { pesapalEnabled: false });
     const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
-    expect(byId["crypto-USDT"]).toMatchObject({ enabled: true, soon: false });
-    expect(byId["crypto-BTC"]).toMatchObject({ enabled: true, soon: false });
-    expect(byId["crypto-ETH"]).toMatchObject({ enabled: false, soon: true });
-    expect(byId["crypto-USDC"]).toMatchObject({ enabled: true, soon: false });
+    expect(byId["crypto"]).toMatchObject({
+      enabled: true,
+      soon: false,
+      label: "Crypto",
+      selection: { kind: "crypto" },
+    });
+    expect(byId["crypto-USDT"]).toBeUndefined();
+    expect(byId["crypto-BTC"]).toBeUndefined();
+    expect(byId["crypto-USDC"]).toBeUndefined();
+    expect(byId["crypto-ETH"]).toBeUndefined();
   });
 
   it("shows Kenya MoMo live and Brazil Pix as soon", () => {

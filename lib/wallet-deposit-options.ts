@@ -3,18 +3,15 @@
  * Local methods come from the market catalogue; crypto is always global.
  */
 import {
-  GLOBAL_CRYPTO_METHODS,
   marketForCurrency,
   type Market,
 } from "@/lib/payments/country-methods";
 import { METHOD_REGISTRY, methodLabel, type MethodCode } from "@/lib/payments/method-registry";
 
-export type CryptoAssetGroup = "USDT" | "BTC" | "ETH" | "OTHER";
-
 export type DepositSelection =
   | { kind: "mpesa" }
   | { kind: "pesapal" }
-  | { kind: "crypto"; assetGroup: CryptoAssetGroup };
+  | { kind: "crypto" };
 
 export type DepositMethodRow = {
   id: string;
@@ -59,18 +56,8 @@ function walletRowForCode(
     };
   }
 
-  if (def.walletRail === "crypto" && def.cryptoGroup) {
-    const live = !!def.walletLive;
-    return {
-      id: `crypto-${code}`,
-      code,
-      label: def.label,
-      subtitle: "On-chain · Global",
-      enabled: live,
-      soon: !live,
-      selection: live ? { kind: "crypto", assetGroup: def.cryptoGroup } : undefined,
-    };
-  }
+  // Per-coin crypto rows are collapsed into a single "Crypto" method below.
+  if (def.walletRail === "crypto") return null;
 
   // Coming soon — still shown so the product reads international.
   return {
@@ -109,9 +96,16 @@ export function depositRowsForCurrency(
     push(walletRowForCode(code, { pesapalEnabled: opts.pesapalEnabled, region: market.region }));
   }
 
-  for (const code of GLOBAL_CRYPTO_METHODS) {
-    push(walletRowForCode(code, { pesapalEnabled: opts.pesapalEnabled, region: "Global" }));
-  }
+  // One Crypto entry — coin + network are chosen in the deposit detail steps.
+  push({
+    id: "crypto",
+    code: "CRYPTO",
+    label: "Crypto",
+    subtitle: "On-chain · Global",
+    enabled: true,
+    soon: false,
+    selection: { kind: "crypto" },
+  });
 
   // Live methods first, then soon.
   return rows.sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.label.localeCompare(b.label));
