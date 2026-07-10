@@ -3,15 +3,17 @@ import { BinaryClient } from "@/components/binary/binary-client";
 import { BinaryMaintenance } from "@/components/binary/binary-maintenance";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { isBinaryOptionsInMaintenance, binaryLiveFamilies } from "@/lib/game-guard";
-import { TRADE_TYPES, liveTradeTypes } from "@/components/binary/trade-types";
+import { bettableBinaryTradeTypeIds } from "@/lib/game-guard";
+import { TRADE_TYPES, TRADE_TYPE_LIVE_TOKEN, type TradeTypeId } from "@/components/binary/trade-types";
 
 export const dynamic = "force-dynamic";
 
 export default async function BinaryPage() {
-  const maint = await isBinaryOptionsInMaintenance();
   const allTypes = TRADE_TYPES.map((t) => t.id);
-  const liveTypes = maint ? liveTradeTypes(await binaryLiveFamilies()) : allTypes;
+  const liveTypes = (await bettableBinaryTradeTypeIds(
+    allTypes,
+    TRADE_TYPE_LIVE_TOKEN as Record<string, string>,
+  )) as TradeTypeId[];
 
   if (liveTypes.length === 0) {
     return (
