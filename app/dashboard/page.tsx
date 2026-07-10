@@ -141,7 +141,7 @@ function FeaturedArena() {
                 className="text-[72px] text-sky-400/70 drop-shadow-lg transition duration-500 group-hover:-translate-y-2 group-hover:translate-x-1 md:text-[96px]"
               />
             </div>
-            <span className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-sky-500 px-5 py-2.5 text-[12px] font-black text-white shadow-lg shadow-sky-500/30 transition group-hover:bg-sky-400">
+            <span className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-sky-800 px-5 py-2.5 text-[12px] font-black text-sky-50 transition group-hover:bg-sky-700">
               Start trading
               <Icon name="arrow_forward" className="text-[16px]" />
             </span>
@@ -338,7 +338,7 @@ function TopPicks() {
                   }
                   className={`mt-4 flex w-full items-center justify-between rounded-lg px-4 py-3 transition active:scale-[0.98] ${
                     selected
-                      ? "bg-[#087cff] text-white shadow-md shadow-[#087cff]/25"
+                      ? "bg-[#0a5fbf] text-white"
                       : "bg-white/[0.04] text-white hover:bg-white/[0.07]"
                   }`}
                 >
@@ -589,7 +589,7 @@ function PromoStrip() {
           <button
             type="button"
             onClick={openWallet}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#05b957] px-5 py-3 text-[13px] font-black text-white shadow-lg shadow-emerald-500/20 transition hover:bg-[#06c960] active:scale-[0.98]"
+            className="inline-flex items-center gap-2 rounded-2xl bg-emerald-800 px-5 py-3 text-[13px] font-black text-emerald-50 transition hover:bg-emerald-700 active:scale-[0.98]"
           >
             Deposit now
             <Icon name="arrow_forward" className="text-[16px]" />
