@@ -28,7 +28,7 @@ export type MobileNavItem = {
   // When set, active state keys off the tab value so sibling tabs don't all light up.
   tab?: string;
   // In-app action instead of navigation (e.g. open the floating wallet sheet).
-  action?: "wallet";
+  action?: "wallet" | "profile";
 };
 
 // Default cross-product switcher — shown on the dashboard and any section that
@@ -72,13 +72,13 @@ export const sportsMobileNav: MobileNavItem[] = [
   { href: "/my-bets",           label: "My Bets", icon: "receipt_long",  activePath: "/my-bets" },
 ];
 
-// P2P is a self-contained marketplace: Browse ads / Merchant center / My orders,
-// with Menu as the escape hatch. Each tab is a real route under /p2p.
+// P2P marketplace bottom nav (matches Binance-style reference):
+// Menu · Orders · Ads · Profile
 export const p2pMobileNav: MobileNavItem[] = [
   { label: "Menu", icon: "menu" },
-  { href: "/p2p",          label: "Browse",   icon: "storefront" },
-  { href: "/p2p/merchant", label: "Merchant", icon: "verified_user" },
-  { href: "/p2p/orders",   label: "Orders",   icon: "receipt_long" },
+  { href: "/p2p/orders",   label: "Orders",  icon: "receipt_long", activePath: "/p2p/orders" },
+  { href: "/p2p/merchant?tab=ads", label: "Ads", icon: "campaign", activePath: "/p2p/merchant" },
+  { label: "Profile", icon: "person", action: "profile" },
 ];
 
 // Polymarket: Markets / Trending / My Bets — same 4-slot shape as Sports/P2P.
