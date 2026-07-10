@@ -136,8 +136,11 @@ export function priceDigitServer(params: {
   ticks: number[];
   edgeFloor?: number;
   cfg?: PricingConfig;
+  /** Live entry digit. When supplied, Over/Under are priced CONDITIONALLY on it
+   *  (removes the sticky-digit autocorrelation edge). */
+  entryDigit?: number;
 }): DigitPrice {
-  const { side, targetDigit, durationTicks, stake, ticks } = params;
+  const { side, targetDigit, durationTicks, stake, ticks, entryDigit } = params;
 
   // 0. Microstructure gate: reject too-short Over/Under (autocorrelation exploit).
   if ((side === "Over" || side === "Under") && durationTicks < MIN_OVER_UNDER_TICKS) {
@@ -175,7 +178,12 @@ export function priceDigitServer(params: {
     maxWinProb: resolvedMaxWinProb,
   };
 
-  const q = priceDigitContract(side, targetDigit, durationTicks, ticks, cfg);
+  // Over/Under are priced conditionally on the live entry digit when we have it
+  // (the sticky-digit exploit fix). Other digit families (Even/Odd/Matches/
+  // Differs) are not entry-digit autocorrelated in an exploitable way, so they
+  // keep the unconditional price.
+  const condEntry = (side === "Over" || side === "Under") ? entryDigit : undefined;
+  const q = priceDigitContract(side, targetDigit, durationTicks, ticks, cfg, 1, condEntry);
   if (!q.accepted) return { accepted: false, reason: q.reason };
   const payout = Number((stake * q.payoutMultiplier).toFixed(2));
   return { accepted: true, payout, multiplier: q.payoutMultiplier };
