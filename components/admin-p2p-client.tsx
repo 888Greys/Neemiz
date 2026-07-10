@@ -102,7 +102,7 @@ function Spinner() {
 
 // ─── KYC Requests Tab ────────────────────────────────────────────────────────
 
-function KycRequestsTab({ onAction }: { onAction: () => void }) {
+export function KycRequestsTab({ onAction }: { onAction: () => void }) {
   const [filter, setFilter]           = useState<KycStatus>("PENDING");
   const [merchants, setMerchants]     = useState<MerchantKyc[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -277,7 +277,7 @@ function KycRequestsTab({ onAction }: { onAction: () => void }) {
 const DEFAULT_PROOF_REQUEST =
   "Hello, this is Nezeem Support. To resolve this dispute fairly we need proof of payment from both sides. Please upload a clear screenshot of your M-Pesa confirmation message or bank transfer slip showing the reference, amount, date and time. Thank you.";
 
-function DisputesTab({ onAction }: { onAction: () => void }) {
+export function DisputesTab({ onAction }: { onAction: () => void }) {
   const [filter, setFilter]           = useState<"ALL" | "OPEN" | "RESOLVED">("ALL");
   const [disputes, setDisputes]       = useState<Dispute[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -677,7 +677,7 @@ function DisputesTab({ onAction }: { onAction: () => void }) {
 
 // ─── Deposits Tab ─────────────────────────────────────────────────────────────
 
-function DepositsTab({ onAction }: { onAction: () => void }) {
+export function DepositsTab({ onAction }: { onAction: () => void }) {
   const [filter, setFilter]           = useState<"ALL" | "PENDING" | "APPROVED" | "REJECTED">("ALL");
   const [deposits, setDeposits]       = useState<AdminDeposit[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -896,7 +896,7 @@ function FamilyBadge({ family }: { family: WalletFamily }) {
   );
 }
 
-function CryptoWalletsTab() {
+export function CryptoWalletsTab() {
   const [wallets, setWallets]   = useState<CryptoWallet[]>([]);
   const [loading, setLoading]   = useState(true);
   const [copiedAddr, setCopied] = useState<string | null>(null);
