@@ -243,7 +243,15 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         )}
 
         <div className="flex min-w-0 flex-1 items-center justify-between gap-2 lg:gap-5 lg:px-6">
-          <div className="flex min-w-0 items-center gap-6">
+          <div className="flex min-w-0 items-center gap-3 lg:gap-6">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open menu"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-300 transition hover:bg-white/[0.06] hover:text-white lg:hidden"
+            >
+              <Icon name="menu" className="text-[22px]" />
+            </button>
             <BrandLogo href="/dashboard" size="sm" />
             <nav className="hidden items-center gap-0.5 rounded-2xl bg-[#18191d] p-1 ring-1 ring-white/[0.06] text-sm font-black md:flex">
               <TopNavLink href="/dashboard" icon="home" label="Home" pathname={pathname} />
@@ -310,7 +318,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </aside>
         )}
 
-        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto ${immersive ? "pb-0 lg:overflow-hidden lg:pl-0" : `lg:pl-3 lg:pb-0 ${fullHeight ? "pb-14 lg:overflow-hidden" : "pb-32"}`} ${mainBg ?? "bg-background"}`}>
+        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto ${immersive ? "pb-0 lg:overflow-hidden lg:pl-0" : `lg:pl-3 lg:pb-0 ${fullHeight ? "pb-20 lg:overflow-hidden" : "pb-32"}`} ${mainBg ?? "bg-background"}`}>
           {fullHeight ? (
             <div className={`h-full min-w-0 max-w-full overflow-x-hidden ${immersive ? "sm:h-[calc(100vh-3rem)] lg:h-[calc(100vh-5rem)]" : "lg:h-[calc(100vh-5rem)]"}`}>{children}</div>
           ) : (
@@ -339,8 +347,8 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       {!immersive && (
-      <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/[0.06] bg-[#151518] px-1 lg:hidden">
-        {mobileNav.map((item) => {
+      <nav className="fixed bottom-[max(0.6rem,env(safe-area-inset-bottom))] left-3 right-3 z-50 flex h-14 items-center justify-around gap-1 rounded-2xl border border-white/[0.08] bg-[#1c1c1e]/92 px-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl lg:hidden">
+        {mobileNav.filter((item) => item.label !== "Menu").map((item) => {
           const activePath = item.activePath ?? (item.href ?? "").split("?")[0].split("#")[0];
           // Panel tabs (binary's Markets/Trade/Positions) share one route and are
           // distinguished by the `?panel=` value, so match on panel rather than
@@ -744,7 +752,7 @@ function MobileMenuDrawer({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 pt-5 pb-2">
-          <BrandLogo size="sm" />
+          <span className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Menu</span>
           <button
             className="grid h-8 w-8 place-items-center rounded-full text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
             onClick={onClose}
@@ -780,11 +788,16 @@ function MobileMenuDrawer({
               <button
                 type="button"
                 onClick={onOpenWallet}
-                className="mb-4 flex w-full items-center gap-3 rounded-xl bg-[#1c1c1e] px-3.5 py-3 text-left transition hover:bg-[#222226]"
+                className="animate-wallet-glow mb-4 flex w-full items-center gap-3 rounded-xl border border-[#087cff]/40 bg-gradient-to-r from-[#087cff]/[0.12] to-[#1c1c1e] px-3.5 py-3 text-left transition hover:from-[#087cff]/20"
               >
-                <Icon name="account_balance_wallet" fill className="text-[20px] text-[#087cff]" />
-                <span className="flex-1 text-[14px] font-bold text-white">Wallet</span>
-                <Icon name="chevron_right" className="text-[18px] text-slate-600" />
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#087cff]/15 text-[#087cff]">
+                  <Icon name="account_balance_wallet" fill className="text-[20px]" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-bold text-white">Wallet</span>
+                  <span className="block text-[11px] font-semibold text-[#75b8ff]">Deposit, withdraw & track balance</span>
+                </span>
+                <Icon name="chevron_right" className="text-[18px] text-[#087cff]/70" />
               </button>
             </>
           )}
