@@ -43,6 +43,7 @@ import {
   Egg,
   ExternalLink,
   EyeOff,
+  EyeClosed,
   Eye,
   FileEdit,
   FilePlus2,
@@ -296,6 +297,7 @@ const iconMap: Record<string, LucideIcon> = {
   verified_user: UserCheck,
   videogame_asset: Gamepad,
   visibility_off: EyeOff,
+  visibility_closed: EyeClosed,
   visibility: Eye,
 
   // W
