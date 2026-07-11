@@ -6,6 +6,8 @@
 // price we reject the trade rather than fall back to a guessable value — a
 // known fallback price is exactly what was being exploited to mint winnings.
 
+import { getLatestTick, startDerivFeed } from "@/lib/deriv-feed";
+
 const DERIV_WS_URL = "wss://api.derivws.com/trading/v1/options/ws/public";
 
 // Mirror of the MARKETS table in components/forex/forex-client.tsx.
@@ -35,11 +37,19 @@ const WS_TIMEOUT_MS = 6000;
 
 /**
  * Fetch the latest live mid price for a forex symbol from Deriv, server-side.
+ * Prefers the shared in-process tick feed; falls back to a one-shot WS fetch.
  * Throws if the symbol is unknown or no live price can be obtained.
  */
 export async function getServerForexPrice(symbol: string): Promise<number> {
   const market = SYMBOL_MAP[symbol];
   if (!market) throw new Error(`Unsupported forex symbol: ${symbol}`);
+
+  startDerivFeed();
+  const fromFeed = getLatestTick(market.derivSymbol);
+  if (fromFeed) {
+    cache.set(symbol, { price: fromFeed.price, at: Date.now() });
+    return fromFeed.price;
+  }
 
   const cached = cache.get(symbol);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.price;
