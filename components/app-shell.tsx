@@ -449,10 +449,11 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
 function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
   const { balance, currency } = useWalletBalance();
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(true);
 
   useEffect(() => {
-    setHidden(localStorage.getItem("balance-hidden") === "true");
+    const stored = localStorage.getItem("balance-hidden");
+    if (stored !== null) setHidden(stored === "true");
   }, []);
 
   const toggle = () => {
