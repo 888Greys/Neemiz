@@ -51,9 +51,11 @@ type AppShellProps = {
   hideFooter?: boolean;
   fullHeight?: boolean;
   hideSidebar?: boolean;
+  /** Full-bleed game surfaces: no logo/bell header, no mobile bottom nav. */
+  immersive?: boolean;
 };
 
-export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = false }: AppShellProps) {
+export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = false, immersive = false }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -179,6 +181,15 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     setPendingPath(null); // route arrived — clear the optimistic highlight
   }, [pathname]);
 
+  // Immersive surfaces (Forex trade) open the drawer via a window event so the
+  // in-app tab bar can keep a Menu escape hatch without rendering shell chrome.
+  useEffect(() => {
+    if (!immersive) return;
+    const open = () => setMobileMenuOpen(true);
+    window.addEventListener("neemiz:open-menu", open);
+    return () => window.removeEventListener("neemiz:open-menu", open);
+  }, [immersive]);
+
   if (isLogin) return <>{children}</>;
 
   return (
@@ -186,7 +197,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
     <NavBadgeContext.Provider value={navBadgeContext}>
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
-      <header className="fixed left-0 right-0 top-0 z-50 flex h-12 max-w-[100vw] items-center overflow-visible border-b border-white/[0.06] bg-[#151518] px-3 lg:h-20 lg:px-0">
+      <header className={`${immersive ? "hidden sm:flex" : "flex"} fixed left-0 right-0 top-0 z-50 h-12 max-w-[100vw] items-center overflow-visible border-b border-white/[0.06] bg-[#151518] px-3 lg:h-20 lg:px-0`}>
         {!hideSidebar && (
         <div
           className={`hidden h-full shrink-0 items-center border-r border-white/10 px-3 transition-[width] duration-300 ease-out lg:flex ${
@@ -288,7 +299,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </div>
       </header>
 
-      <div className="flex h-screen overflow-hidden pt-12 lg:pt-20">
+      <div className={`flex h-screen overflow-hidden ${immersive ? "pt-0 sm:pt-12 lg:pt-20" : "pt-12 lg:pt-20"}`}>
         {!hideSidebar && (
         <aside
           className={`hidden shrink-0 overflow-hidden border-r border-white/[0.06] bg-[#151518] transition-[width] duration-300 ease-out lg:block ${
@@ -299,9 +310,9 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </aside>
         )}
 
-        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto lg:pl-3 lg:pb-0 ${fullHeight ? "pb-14 lg:overflow-hidden" : "pb-32"} ${mainBg ?? "bg-background"}`}>
+        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto ${immersive ? "pb-0 lg:overflow-hidden lg:pl-0" : `lg:pl-3 lg:pb-0 ${fullHeight ? "pb-14 lg:overflow-hidden" : "pb-32"}`} ${mainBg ?? "bg-background"}`}>
           {fullHeight ? (
-            <div className="h-full min-w-0 max-w-full overflow-x-hidden lg:h-[calc(100vh-5rem)]">{children}</div>
+            <div className={`h-full min-w-0 max-w-full overflow-x-hidden ${immersive ? "sm:h-[calc(100vh-3rem)] lg:h-[calc(100vh-5rem)]" : "lg:h-[calc(100vh-5rem)]"}`}>{children}</div>
           ) : (
             <div className="flex min-h-screen min-w-0 max-w-full flex-col overflow-x-hidden">
               <BroadcastBanner />
@@ -327,6 +338,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {missingPhone && <PhonePromptModal onComplete={handlePhoneComplete} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
+      {!immersive && (
       <nav className="fixed bottom-0 left-0 right-0 z-50 flex h-14 items-center justify-around border-t border-white/[0.06] bg-[#151518] px-1 lg:hidden">
         {mobileNav.map((item) => {
           const activePath = item.activePath ?? (item.href ?? "").split("?")[0].split("#")[0];
@@ -409,6 +421,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           );
         })}
       </nav>
+      )}
     </div>
     </NavBadgeContext.Provider>
     </AuthModalContext.Provider>
