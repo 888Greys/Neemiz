@@ -26,7 +26,7 @@ export async function POST(req: Request) {
   if (await isBinaryOptionsInMaintenance())
     return Response.json({ error: BINARY_MAINTENANCE_MESSAGE }, { status: 503 });
 
-  const rl = rateLimit(`leveraged-bet:${user.id}`, 30, 60_000);
+  const rl = await rateLimit(`leveraged-bet:${user.id}`, 30, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   let body: {
