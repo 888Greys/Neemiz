@@ -59,6 +59,17 @@ body {
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
 }
 
+@keyframes wallet-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(8, 124, 255, 0.0), 0 0 14px 0 rgba(8, 124, 255, 0.25);
+    border-color: rgba(8, 124, 255, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(8, 124, 255, 0.14), 0 0 26px 2px rgba(8, 124, 255, 0.55);
+    border-color: rgba(8, 124, 255, 0.85);
+  }
+}
+
 @keyframes shimmer {
   0%   { background-position: -200% center; }
   100% { background-position: 200% center; }
@@ -129,6 +140,10 @@ body {
 .animate-live-dot      { animation: live-dot 1.2s ease-in-out infinite; }
 .animate-orb           { animation: orb-move 12s ease-in-out infinite; }
 .animate-pulse-ring    { animation: pulse-ring 2s ease-in-out infinite; }
+.animate-wallet-glow   { animation: wallet-glow 2.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-wallet-glow { animation: none; }
+}
 .animate-zeem          { display: inline-block; animation: zeem-pulse 1.35s ease-in-out infinite; }
 .loading-scan          { animation: loading-scan 1.25s ease-in-out infinite; }
 

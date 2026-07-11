@@ -896,32 +896,51 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
 }
 
 /** Multi-select world payment catalogue for create-ad — same sheet chrome as MethodPicker. */
+const MAX_AD_PAYMENT_METHODS = 5;
+
+function maskAccountNo(no: string): string {
+  const s = (no ?? "").trim();
+  if (s.length <= 4) return s;
+  return `•••• ${s.slice(-4)}`;
+}
+
 function AdPaymentMethodsSheet({
   open,
   value,
-  savedCodes,
+  savedMethods,
   onClose,
   onConfirm,
   onAddMethod,
 }: {
   open: boolean;
   value: string[];
-  savedCodes: Set<string>;
+  savedMethods: PayMethod[];
   onClose: () => void;
   onConfirm: (codes: string[]) => void;
   onAddMethod?: () => void;
 }) {
   const [q, setQ] = useState("");
   const [draft, setDraft] = useState<string[]>(value);
+  const [browseAll, setBrowseAll] = useState(false);
 
   useEffect(() => {
     if (open) {
       setDraft(value);
       setQ("");
+      setBrowseAll(false);
     }
   }, [open, value]);
 
   if (!open) return null;
+
+  const savedCodes = new Set(savedMethods.map((m) => m.name).filter(Boolean));
+
+  // De-dupe saved methods by code, keeping the first account details for each.
+  const savedByCode = new Map<string, PayMethod>();
+  for (const m of savedMethods) {
+    if (m.name && !savedByCode.has(m.name)) savedByCode.set(m.name, m);
+  }
+  const savedList = [...savedByCode.values()];
 
   const term = q.trim().toLowerCase();
   const groups = Object.entries(paymentMethodsByCategory())
@@ -936,17 +955,22 @@ function AdPaymentMethodsSheet({
     ] as const)
     .filter(([, list]) => list.length > 0);
 
-  function toggle(code: string) {
-    if (!savedCodes.has(code)) {
+  function toggle(code: string, saved: boolean) {
+    if (!saved) {
       toast.info(
         paymentMethodLabel(code),
         "Save this method under Payment methods first, then select it on the ad.",
       );
       return;
     }
-    setDraft((prev) =>
-      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code],
-    );
+    setDraft((prev) => {
+      if (prev.includes(code)) return prev.filter((c) => c !== code);
+      if (prev.length >= MAX_AD_PAYMENT_METHODS) {
+        toast.info(`Up to ${MAX_AD_PAYMENT_METHODS} methods`, "Deselect one to add another.");
+        return prev;
+      }
+      return [...prev, code];
+    });
   }
 
   return (
@@ -955,8 +979,13 @@ function AdPaymentMethodsSheet({
         className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between px-4 py-3">
-          <h2 className="text-[17px] font-bold text-white">Payment Methods</h2>
+        <div className="flex shrink-0 items-center justify-between px-4 pb-1 pt-3">
+          <div>
+            <h2 className="text-[17px] font-bold text-white">Payment Methods</h2>
+            <p className="mt-0.5 text-[12px] font-medium text-slate-500">
+              Select up to {MAX_AD_PAYMENT_METHODS} · {draft.length} selected
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -966,82 +995,161 @@ function AdPaymentMethodsSheet({
             <Icon name="close" className="text-[18px]" />
           </button>
         </div>
-        <div className="shrink-0 px-4 pb-2">
-          <div className="flex items-center gap-2 rounded-xl bg-[#2c2c2e] px-3">
-            <Icon name="search" className="text-[18px] text-slate-500" />
-            <input
-              autoFocus
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search M-Pesa, Pix, PayPal…"
-              className="h-11 min-w-0 flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-slate-500"
-            />
-          </div>
-          <p className="mt-2 text-[11px] font-medium text-slate-500">
-            All world methods. Only ones you’ve saved can be selected for this ad.
-          </p>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {groups.length === 0 && (
-            <p className="px-3 py-16 text-center text-[13px] font-semibold text-slate-500">No methods found</p>
-          )}
-          {groups.map(([cat, list]) => (
-            <div key={cat} className="mb-2">
-              <p className="sticky top-0 z-[1] bg-[#1c1c1e]/95 px-4 pb-1.5 pt-3 text-[12px] font-semibold text-slate-500 backdrop-blur">
-                {cat}
-              </p>
-              {list.map((r) => {
-                const saved = savedCodes.has(r.value);
-                const selected = draft.includes(r.value);
-                return (
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={() => toggle(r.value)}
-                    className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
-                      selected ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
-                    } ${saved ? "" : "opacity-55"}`}
-                  >
-                    <PaymentLogo code={r.value} size={32} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[14px] font-semibold text-white">{r.label}</span>
-                      {!saved && (
-                        <span className="block text-[11px] font-medium text-amber-400/90">
-                          Not saved — tap to add
-                        </span>
-                      )}
-                    </span>
-                    {selected && <Icon name="check" className="shrink-0 text-[20px] text-white" />}
-                  </button>
-                );
-              })}
+
+        {browseAll && (
+          <div className="shrink-0 px-4 pb-2 pt-2">
+            <div className="flex items-center gap-2 rounded-xl bg-[#2c2c2e] px-3">
+              <Icon name="search" className="text-[18px] text-slate-500" />
+              <input
+                autoFocus
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search M-Pesa, Pix, PayPal…"
+                className="h-11 min-w-0 flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-slate-500"
+              />
             </div>
-          ))}
+            <p className="mt-2 text-[11px] font-medium text-slate-500">
+              Only methods you’ve saved can be selected. Tap an unsaved one to add it.
+            </p>
+          </div>
+        )}
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pt-1">
+          {!browseAll ? (
+            <>
+              {savedList.length === 0 ? (
+                <div className="mx-1 my-6 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-6 text-center">
+                  <p className="text-[13px] font-bold text-white">No saved payment methods</p>
+                  <p className="mx-auto mt-1 max-w-[15rem] text-[11px] leading-4 text-slate-500">
+                    Add the account where buyers should send payment to start selecting it on ads.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2 py-1">
+                  {savedList.map((m) => {
+                    const selected = draft.includes(m.name);
+                    const detail = m.bankName?.trim()
+                      ? `${m.bankName} · ${maskAccountNo(m.accountNo)}`
+                      : maskAccountNo(m.accountNo);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggle(m.name, true)}
+                        className={`flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition ${
+                          selected
+                            ? "border-[#087cff]/60 bg-[#087cff]/[0.08]"
+                            : "border-white/[0.08] bg-white/[0.03] hover:border-white/20"
+                        }`}
+                      >
+                        <PaymentLogo code={m.name} size={34} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14px] font-bold text-white">
+                            {paymentMethodLabel(m.name)}
+                          </span>
+                          <span className="block truncate text-[12px] font-medium text-slate-400">
+                            {m.accountName}
+                          </span>
+                          {detail && (
+                            <span className="block truncate text-[11px] font-medium text-slate-500">
+                              {detail}
+                            </span>
+                          )}
+                        </span>
+                        <span
+                          className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border transition ${
+                            selected ? "border-[#087cff] bg-[#087cff]" : "border-white/25"
+                          }`}
+                        >
+                          {selected && <Icon name="check" className="text-[15px] text-white" />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (onAddMethod) {
+                    onClose();
+                    onAddMethod();
+                  }
+                }}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/15 py-3 text-[13px] font-bold text-slate-300 transition hover:border-white/30 hover:text-white"
+              >
+                <Icon name="add" className="text-[18px]" />
+                Add a payment method
+              </button>
+              <button
+                type="button"
+                onClick={() => setBrowseAll(true)}
+                className="mt-2 flex w-full items-center justify-center gap-1 py-2 text-[12px] font-semibold text-slate-500 transition hover:text-slate-300"
+              >
+                Browse all world methods
+                <Icon name="chevron_right" className="text-[16px]" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => { setBrowseAll(false); setQ(""); }}
+                className="mb-1 flex items-center gap-1 py-1 text-[12px] font-semibold text-[#55aaff]"
+              >
+                <Icon name="chevron_left" className="text-[16px]" />
+                Back to your methods
+              </button>
+              {groups.length === 0 && (
+                <p className="px-3 py-16 text-center text-[13px] font-semibold text-slate-500">No methods found</p>
+              )}
+              {groups.map(([cat, list]) => (
+                <div key={cat} className="mb-2">
+                  <p className="sticky top-0 z-[1] bg-[#1c1c1e]/95 px-1 pb-1.5 pt-3 text-[12px] font-semibold text-slate-500 backdrop-blur">
+                    {cat}
+                  </p>
+                  {list.map((r) => {
+                    const saved = savedCodes.has(r.value);
+                    const selected = draft.includes(r.value);
+                    return (
+                      <button
+                        key={r.value}
+                        type="button"
+                        onClick={() => toggle(r.value, saved)}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition ${
+                          selected ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
+                        } ${saved ? "" : "opacity-55"}`}
+                      >
+                        <PaymentLogo code={r.value} size={32} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[14px] font-semibold text-white">{r.label}</span>
+                          {!saved && (
+                            <span className="block text-[11px] font-medium text-amber-400/90">
+                              Not saved — tap to add
+                            </span>
+                          )}
+                        </span>
+                        {selected && <Icon name="check" className="shrink-0 text-[20px] text-white" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </>
+          )}
         </div>
-        <div className="grid grid-cols-2 gap-3 border-t border-white/[0.06] px-4 py-3">
-          <button
-            type="button"
-            onClick={() => {
-              if (onAddMethod) {
-                onClose();
-                onAddMethod();
-              } else {
-                setDraft([]);
-              }
-            }}
-            className="h-12 rounded-full border border-white/25 text-[14px] font-bold text-white transition hover:bg-white/[0.04]"
-          >
-            {onAddMethod ? "Add method" : "Reset"}
-          </button>
+
+        <div className="shrink-0 border-t border-white/[0.06] px-4 py-3">
           <button
             type="button"
             onClick={() => {
               onConfirm(draft);
               onClose();
             }}
-            className="h-12 rounded-full bg-[#087cff] text-[14px] font-bold text-white transition hover:bg-[#0570e8]"
+            className="h-12 w-full rounded-full bg-[#087cff] text-[14px] font-bold text-white transition hover:bg-[#0570e8]"
           >
-            Confirm{draft.length ? ` (${draft.length})` : ""}
+            Confirm{draft.length ? ` · ${draft.length}` : ""}
           </button>
         </div>
       </div>
@@ -1941,13 +2049,47 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     );
   }, [fiatQuery]);
 
+  // Coins the merchant actually holds (escrow for blockchain assets; fiat wallet backs KES Coin).
+  const heldSymbols = useMemo(() => {
+    const held = new Set<string>();
+    for (const b of escrowBalances) {
+      if (b.crypto !== "KES" && Number(b.available) > 0) held.add(b.crypto);
+    }
+    if (Number(fiatBalance) > 0) held.add("KES");
+    return held;
+  }, [escrowBalances, fiatBalance]);
+
+  // For SELL ads you can only list coins you hold. BUY ads may reference any supported coin.
+  // While balances load, or when editing an existing ad, don't restrict the list.
+  const restrictToHeld = form.side === "SELL" && !isEditing && !balancesLoading;
+
+  const sellableCryptos = useMemo(() => {
+    if (!restrictToHeld) return P2P_CRYPTOS;
+    return P2P_CRYPTOS.filter((c) => heldSymbols.has(c.symbol) || c.symbol === form.crypto);
+  }, [restrictToHeld, heldSymbols, form.crypto]);
+
   const filteredCryptos = useMemo(() => {
     const q = cryptoQuery.trim().toLowerCase();
-    if (!q) return P2P_CRYPTOS;
-    return P2P_CRYPTOS.filter(
+    if (!q) return sellableCryptos;
+    return sellableCryptos.filter(
       (c) => c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q),
     );
-  }, [cryptoQuery]);
+  }, [cryptoQuery, sellableCryptos]);
+
+  // On a fresh SELL ad, if the selected coin isn't one the merchant holds, jump to the first held coin.
+  useEffect(() => {
+    if (!restrictToHeld) return;
+    if (heldSymbols.size === 0) return;
+    if (heldSymbols.has(form.crypto)) return;
+    const first = P2P_CRYPTOS.find((c) => heldSymbols.has(c.symbol));
+    if (!first) return;
+    setForm((p) => ({
+      ...p,
+      crypto: first.symbol,
+      pricePerUnit: first.symbol === "KES" ? "1" : "",
+      profitMarginPct: first.symbol === "KES" ? "0" : "",
+    }));
+  }, [restrictToHeld, heldSymbols, form.crypto]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2078,11 +2220,6 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const priceRangeMin = spotRate ? spotRate * 0.8 : priceNum > 0 ? priceNum * 0.8 : null;
   const priceRangeMax = spotRate ? spotRate * 2 : priceNum > 0 ? priceNum * 2 : null;
   const highestOrderPrice = spotRate ? spotRate * 1.1 : priceNum > 0 ? priceNum * 1.1 : null;
-
-  const savedPaymentCodes = useMemo(
-    () => new Set(savedPaymentMethods.map((m) => m.name).filter(Boolean)),
-    [savedPaymentMethods],
-  );
 
   async function submit() {
     if (savedPaymentMethods.length === 0) {
@@ -2304,7 +2441,20 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
                 {filteredCryptos.length === 0 && (
-                  <p className="py-12 text-center text-[13px] font-semibold text-slate-500">No coins match</p>
+                  <div className="px-6 py-12 text-center">
+                    <p className="text-[13px] font-semibold text-slate-400">
+                      {cryptoQuery.trim()
+                        ? "No coins match"
+                        : restrictToHeld
+                        ? "No crypto in your balance to sell"
+                        : "No coins available"}
+                    </p>
+                    {!cryptoQuery.trim() && restrictToHeld && (
+                      <p className="mx-auto mt-1 max-w-[16rem] text-[11px] leading-4 text-slate-500">
+                        Fund your merchant escrow (or top up your fiat wallet for KES Coin) to list a sell ad.
+                      </p>
+                    )}
+                  </div>
                 )}
                 {filteredCryptos.map((c) => (
                   <button
@@ -2711,7 +2861,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 <AdPaymentMethodsSheet
                   open={payMethodsOpen}
                   value={form.paymentMethods}
-                  savedCodes={savedPaymentCodes}
+                  savedMethods={savedPaymentMethods}
                   onClose={() => setPayMethodsOpen(false)}
                   onConfirm={(codes) => f("paymentMethods", codes)}
                   onAddMethod={() => {
