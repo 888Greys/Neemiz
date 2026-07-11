@@ -13,7 +13,7 @@ import { CURRENCY_SYMBOL, WITHDRAWAL_FEE_RATE } from "@/lib/currency";
 import { withdrawalsDisabledResponse, setWithdrawalsDisabled } from "@/lib/withdrawal-guard";
 import { assertLedgerBacked, LedgerUnbackedError } from "@/lib/ledger-guard";
 import { isTwilioConfigured } from "@/lib/twilio";
-import { assertNotPromoLocked, promoLockedHttpError, getPromoLockedKes } from "@/lib/promo-lock";
+import { assertNotPromoLocked, promoLockedHttpError, getPromoLockedKes, assertRealDepositForWithdrawal, noDepositGateHttpError } from "@/lib/promo-lock";
 
 function normalizeMsisdn(phone: string): string {
   const v = phone.trim().replace(/\s+/g, "");
@@ -168,6 +168,13 @@ export async function POST(req: Request) {
         const locked = await getPromoLockedKes(tx, dbUser.id, balBefore);
         const transferable = Math.max(0, Math.round((balBefore - locked) * 100) / 100);
         assertNotPromoLocked(amountKes, transferable, locked);
+
+        // Generalized deposit-to-withdraw gate: an account that never made a real
+        // external deposit cannot cash out at all — its balance is necessarily
+        // internal credit (transfers, admin seeding, or winnings staked from
+        // those). This closes the transfer-mule / admin-fanout vectors that the
+        // promo lock (above) misses because those mules never redeem a promo.
+        await assertRealDepositForWithdrawal(tx, dbUser.id, dbUser.isAdmin);
       }
 
       // Ledger-backed balance guard. The balance debit above only proves the
@@ -366,6 +373,10 @@ export async function POST(req: Request) {
     }
     if (err instanceof Error && err.message.startsWith("PROMO_LOCKED:")) {
       const { status, body } = promoLockedHttpError(err.message);
+      return Response.json(body, { status });
+    }
+    if (err instanceof Error && err.message === "NO_DEPOSIT_GATE") {
+      const { status, body } = noDepositGateHttpError();
       return Response.json(body, { status });
     }
     if (err instanceof Error && err.message === "INSUFFICIENT_BALANCE") {

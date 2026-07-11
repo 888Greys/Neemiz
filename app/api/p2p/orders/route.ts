@@ -272,6 +272,7 @@ export async function POST(req: Request) {
       if (msg === "INSUFFICIENT_CRYPTO_BALANCE") return "INSUFFICIENT_CRYPTO_BALANCE" as const;
       if (msg === "INSUFFICIENT_FIAT_BALANCE") return "INSUFFICIENT_FIAT_BALANCE" as const;
       if (msg === "PROMO_LOCKED") return "PROMO_LOCKED" as const;
+      if (msg === "NO_DEPOSIT_GATE") return "NO_DEPOSIT_GATE" as const;
       throw err;
     });
 
@@ -279,6 +280,12 @@ export async function POST(req: Request) {
       return Response.json({
         error: "Welcome/promo credit is play-only. Make a deposit with your own funds to unlock cash-outs, transfers and P2P sells.",
         code: "PROMO_LOCKED",
+      }, { status: 400 });
+    }
+    if (order === "NO_DEPOSIT_GATE") {
+      return Response.json({
+        error: "Make a deposit with your own funds before selling on P2P. Credit received from others is play-only until your account is funded.",
+        code: "NO_DEPOSIT_GATE",
       }, { status: 400 });
     }
     if (order === "INSUFFICIENT_CRYPTO_BALANCE") {
