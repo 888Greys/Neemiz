@@ -94,6 +94,9 @@ Sports live scores soft-refresh via `GET /api/sports/fixtures` (and
 Match cards patch scores in place; a full RSC `router.refresh()` runs only when
 the live fixture set changes (appear/disappear) or a detail match leaves live.
 
+VPS capacity (Prisma `connection_limit`, `WEB_CONCURRENCY`, nginx keepalive,
+Redis rate limits, Cloudflare cache rules) is documented in `docs/CAPACITY.md`.
+
 ### Fewer requests
 
 `GET /api/notifications` returns the notification list and unread count in one
