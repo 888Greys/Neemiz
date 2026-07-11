@@ -10,6 +10,7 @@
 
 import { quoteToDigit, DerivClient, type TickPoint } from "neemiz-binary-engine";
 import { resolveDigitExitTick } from "@/lib/binary/kernel";
+import { getLatestTick, getTicksSince, startDerivFeed } from "@/lib/deriv-feed";
 
 // Synthetic index symbols accepted for binary trades. Mirrors VALID_MARKETS in
 // app/api/binary/bet/route.ts and MARKETS in components/binary/binary-client.tsx.
@@ -61,6 +62,9 @@ export async function getContractExitDigit(
  * replay the whole tick path to find a barrier breach. Returns chronological
  * { price, epoch } points strictly after startEpoch. Throws on unknown symbol
  * or no obtainable history.
+ *
+ * Prefers the shared in-process Deriv feed when it can prove continuity from
+ * startEpoch; otherwise falls back to a one-shot WebSocket history fetch.
  */
 export async function getServerTickHistory(
   symbol: string,
@@ -68,6 +72,16 @@ export async function getServerTickHistory(
   count = 1000,
 ): Promise<TickPoint[]> {
   if (!VALID_SYMBOLS.has(symbol)) throw new Error(`Unsupported binary symbol: ${symbol}`);
+
+  // Warm the feed on first use in this process (no-op if already started / disabled).
+  startDerivFeed();
+
+  const fromFeed = getTicksSince(symbol, startEpoch);
+  if (fromFeed && fromFeed.length > 0) {
+    // Cap to requested count from the end (most recent), matching history semantics.
+    return fromFeed.length > count ? fromFeed.slice(-count) : fromFeed;
+  }
+
   return derivClient.fetchTickHistory(symbol, startEpoch, Math.min(Math.max(count, 1), 5000));
 }
 
@@ -78,10 +92,16 @@ export async function getServerTickHistory(
  * at placement time — never a cached one. A stale entry (e.g. from the 3s
  * calibration cache) lets a player watch the live feed and bet in the direction
  * the price already moved, getting a lagging entry that nudges their win
- * probability above 50%. This always hits Deriv fresh so there is no such gap.
+ * probability above 50%. Prefers the shared feed when fresh; otherwise hits
+ * Deriv with a one-shot history fetch.
  */
 export async function getLiveEntrySpot(symbol: string): Promise<{ spot: number; epoch: number }> {
   if (!VALID_SYMBOLS.has(symbol)) throw new Error(`Unsupported binary symbol: ${symbol}`);
+
+  startDerivFeed();
+  const live = getLatestTick(symbol);
+  if (live) return { spot: live.price, epoch: live.epoch };
+
   const nowSec = Math.floor(Date.now() / 1000);
   const hist = await derivClient.fetchTickHistory(symbol, nowSec - 30, 5);
   const last = hist[hist.length - 1];
