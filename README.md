@@ -542,7 +542,8 @@ Production always uses `www.nezeem.com`. Bare `nezeem.com` → 307 redirect to `
 - All money-moving API routes require Supabase session auth
 - P2P escrow: crypto is locked in `P2PCryptoBalance.locked` until released/refunded atomically
 - **Rate limiting** (`lib/rate-limit.ts`): admin 2FA verify (anti-TOTP-brute-force) and crypto
-  withdraw are throttled. In-process limiter; per-worker under clustering
+  withdraw are throttled. Optional Redis backend via `REDIS_URL` for cluster-wide limits;
+  in-memory fallback per worker. Capacity sizing: `docs/CAPACITY.md`
 - **Inbound webhooks** verify HMAC signatures with constant-time compare before crediting
   (NOWPayments IPN: `lib/nowpayments.ts`)
 - **HTTP headers** (`next.config.mjs`): HSTS, `X-Frame-Options: DENY`, `nosniff`, and a CSP

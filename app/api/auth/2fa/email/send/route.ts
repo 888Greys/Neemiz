@@ -19,7 +19,7 @@ export async function POST() {
     return Response.json({ error: "Add an email to your account before enabling email authentication." }, { status: 400 });
   }
 
-  const rl = rateLimit(`email-otp:${user.id}`, 3, 60_000);
+  const rl = await rateLimit(`email-otp:${user.id}`, 3, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email });

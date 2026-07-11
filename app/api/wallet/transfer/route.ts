@@ -73,7 +73,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rl = rateLimit(`wallet-transfer:${user.id}`, 10, 60_000);
+  const rl = await rateLimit(`wallet-transfer:${user.id}`, 10, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   const sender = await getOrCreateUser(user.id, { email: user.email, phone: user.phone });

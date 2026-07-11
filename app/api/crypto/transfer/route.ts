@@ -59,7 +59,7 @@ export async function POST(req: Request) {
 
     // Cap transfer attempts per account (anti-abuse / mule-fan-out throttle).
     // Keyed by account, not IP, so proxies can't sidestep it.
-    const rl = rateLimit(`crypto-transfer:${dbSender.id}`, 10, 60_000);
+    const rl = await rateLimit(`crypto-transfer:${dbSender.id}`, 10, 60_000);
     if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
     let body: Record<string, unknown>;
