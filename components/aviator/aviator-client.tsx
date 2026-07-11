@@ -618,6 +618,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
               />
             </div>
           </div>
+
+          <AviatorBottomNav urlTab={urlTab} router={router} />
         </section>
 
         <aside className="hidden min-w-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden lg:rounded-[10px] lg:border lg:border-white/[0.06] lg:bg-[#18191f]">
@@ -649,6 +651,46 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         <VerifyModal round={verifyRound} onClose={() => setVerifyRound(null)} />
       )}
     </div>
+  );
+}
+
+// Game-native bottom nav (flush, in-flow) matching the forex trader — Menu opens
+// the shell drawer via the neemiz:open-menu event; Players / My Bets drive the
+// mobile players sheet through the ?tab= param the client already reads.
+function AviatorBottomNav({ urlTab, router }: { urlTab: string | null; router: ReturnType<typeof useRouter> }) {
+  const tabs = [
+    { key: "menu",    label: "Menu",    icon: "menu",          href: null as string | null },
+    { key: "play",    label: "Play",    icon: "rocket_launch", href: "/aviator" },
+    { key: "players", label: "Players", icon: "groups",        href: "/aviator?tab=players" },
+    { key: "mine",    label: "My Bets", icon: "receipt_long",  href: "/aviator?tab=mine" },
+  ] as const;
+
+  return (
+    <nav className="flex shrink-0 items-stretch border-t border-white/[0.07] bg-[#0c0c0e] pb-[max(0.25rem,env(safe-area-inset-bottom))] lg:hidden">
+      {tabs.map((tab) => {
+        const active =
+          tab.key === "play"    ? !urlTab :
+          tab.key === "players" ? urlTab === "players" :
+          tab.key === "mine"    ? urlTab === "mine" :
+          false;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => {
+              if (tab.key === "menu") window.dispatchEvent(new Event("neemiz:open-menu"));
+              else router.push(tab.href!, { scroll: false });
+            }}
+            className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
+              active ? "text-[#31c45d]" : "text-slate-500"
+            }`}
+          >
+            <Icon name={tab.icon} fill={active} className="text-[20px]" />
+            <span className="text-[9px] font-bold">{tab.label}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
 
