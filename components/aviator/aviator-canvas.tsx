@@ -177,12 +177,7 @@ function drawSunburst(
 }
 
 function genStars(w: number, h: number): Star[] {
-  return Array.from({ length: 60 }, () => ({
-    x: Math.random() * w, y: Math.random() * h,
-    r: Math.random() * 1.1 + 0.2,
-    alpha: Math.random() * 0.35 + 0.1,
-    speed: Math.random() * 0.3 + 0.05,
-  }));
+  return [];
 }
 
 function draw(
@@ -245,15 +240,7 @@ function draw(
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, w, h);
 
-  // Stars
-  stars.forEach((s) => {
-    s.alpha += Math.sin(timeSec * s.speed) * 0.005;
-    s.alpha  = Math.max(0.06, Math.min(0.6, s.alpha));
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255,255,255,${s.alpha})`;
-    ctx.fill();
-  });
+
 
   // Origin BOTTOM-LEFT → curve rises UP to TOP-RIGHT
   const ORIGIN_X = compact ? 8  : 6;
@@ -515,41 +502,95 @@ function drawIdleState(
   const timeSecIdle = (Date.now() % 3600000) / 1000;
 
   if (state === "BETTING") {
-    const labelFs = Math.min(w*0.038, 20);
-    ctx.font = `700 ${labelFs}px Inter,sans-serif`; ctx.textAlign = "center";
-    ctx.fillStyle = "rgba(255,255,255,0.45)";
-    ctx.fillText("STARTING IN", cx, cy-(compact?54:62));
+    const scale = compact ? 0.8 : 1;
+    const remaining = bettingEndsAt ? Math.max(0, new Date(bettingEndsAt).getTime() - Date.now()) : 0;
+    const progress = Math.max(0, Math.min(1, remaining / 5000));
 
-    if (bettingEndsAt) {
-      const endMs = new Date(bettingEndsAt).getTime();
-      const remaining = Math.max(0, endMs - Date.now());
-      const progress  = Math.max(0, Math.min(1, remaining / 5000));
-      const remSec    = Math.ceil(remaining / 1000);
-      const urgent    = remSec <= 2;
-      const ringR = Math.min(w*0.14, compact?44:54);
-      const ringY = cy-(compact?4:6);
-      const ringW = Math.max(4, ringR*0.18);
-      const color = urgent ? "#ff1838" : "#ffffff";
+    // 1. Logo Row: NEZEEM | Aviator
+    ctx.font = `italic 800 ${22 * scale}px Inter,sans-serif`;
+    const wNezeem = ctx.measureText("NEZEEM").width;
+    ctx.font = `300 ${22 * scale}px Inter,sans-serif`;
+    const wDiv = ctx.measureText("  |  ").width;
+    ctx.font = `italic 900 ${22 * scale}px Inter,sans-serif`;
+    const wAviator = ctx.measureText("Aviator").width;
 
-      ctx.beginPath(); ctx.arc(cx,ringY,ringR,0,Math.PI*2);
-      ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = ringW; ctx.stroke();
+    const totalLogoW = wNezeem + wDiv + wAviator;
+    const startX = cx - totalLogoW / 2;
 
-      if (progress > 0) {
-        ctx.beginPath(); ctx.arc(cx,ringY,ringR,-Math.PI/2,-Math.PI/2+Math.PI*2*progress);
-        ctx.strokeStyle = color; ctx.lineWidth = ringW; ctx.lineCap = "round";
-        ctx.shadowColor = color; ctx.shadowBlur = urgent?20:12; ctx.stroke();
-        ctx.shadowBlur = 0; ctx.lineCap = "butt";
-      }
+    // Draw NEZEEM
+    ctx.font = `italic 800 ${22 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "left";
+    ctx.fillText("NEZEEM", startX, cy - 60 * scale);
 
-      const numFs = Math.min(w*0.13, compact?46:56);
-      ctx.font = `900 ${numFs}px Inter,sans-serif`; ctx.textAlign = "center";
-      ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = urgent?30:16;
-      ctx.fillText(`${remSec}`, cx, ringY+numFs*0.36); ctx.shadowBlur = 0;
+    // Draw Divider
+    ctx.font = `300 ${22 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.2)";
+    ctx.fillText("  |  ", startX + wNezeem, cy - 60 * scale);
+
+    // Draw Aviator
+    ctx.font = `italic 900 ${22 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "#ff1838";
+    ctx.fillText("Aviator", startX + wNezeem + wDiv, cy - 60 * scale);
+
+    // Draw "OFFICIAL PLATFORM" below
+    ctx.font = `900 ${8.5 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.textAlign = "center";
+    if (typeof (ctx as any).letterSpacing !== "undefined") {
+      (ctx as any).letterSpacing = `${2 * scale}px`;
     }
+    ctx.fillText("OFFICIAL PLATFORM", cx, cy - 42 * scale);
+    if (typeof (ctx as any).letterSpacing !== "undefined") {
+      (ctx as any).letterSpacing = "0px";
+    }
+
+    // 2. Progress Bar
+    const barW = 200 * scale;
+    const barH = 3 * scale;
+    const barX = cx - barW / 2;
+    const barY = cy - 28 * scale;
+
+    drawRoundedRect(ctx, barX, barY, barW, barH, 1.5 * scale, "rgba(255,255,255,0.08)", true);
+
+    if (progress > 0) {
+      const fillW = barW * progress;
+      drawRoundedRect(ctx, barX, barY, fillW, barH, 1.5 * scale, "#ff1838", true);
+    }
+
+    // 3. Official Game Card
+    const cardW = 120 * scale;
+    const cardH = 60 * scale;
+    const cardX = cx - cardW / 2;
+    const cardY = cy - 10 * scale;
+
+    drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 8 * scale, "rgba(12,24,14,0.85)", true, "#1ba608", 1 * scale);
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `900 ${13 * scale}px Inter,sans-serif`;
+    ctx.fillText("NEZEEM", cx, cardY + 18 * scale);
+
+    const badgeW = 84 * scale;
+    const badgeH = 16 * scale;
+    const badgeX = cx - badgeW / 2;
+    const badgeY = cardY + 26 * scale;
+
+    drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 8 * scale, "rgba(27,166,8,0.12)", true, "rgba(27,166,8,0.25)", 1 * scale);
+
+    ctx.font = `700 ${8.5 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "#31c45d";
+    ctx.textAlign = "center";
+    ctx.fillText("Official Game  ✔", cx, badgeY + 11 * scale);
+
+    ctx.font = `500 ${8 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    ctx.textAlign = "center";
+    ctx.fillText("Since 2026", cx, cardY + 52 * scale);
 
     // Bobbing plane near origin (bottom-left), faces upper-right to match flight direction
     const bob = Math.sin(timeSecIdle * 2) * 3;
-    drawPlane(ctx, ox+24, oy-20+bob, -Math.PI/6, compact?0.75:0.9);
+    drawPlane(ctx, ox + 24, oy - 20 + bob, -Math.PI / 6, compact ? 0.75 : 0.9);
   } else {
     // WAITING: orbiting plane
     const spin = timeSecIdle * 1.5;
@@ -584,4 +625,38 @@ function drawIdleState(
     ctx.beginPath(); ctx.moveTo(cx-lineW/2,textY+fs*0.5); ctx.lineTo(cx+lineW/2,textY+fs*0.5);
     ctx.strokeStyle="#ff1838"; ctx.lineWidth=2; ctx.shadowColor="#ff1838"; ctx.shadowBlur=6; ctx.stroke(); ctx.shadowBlur=0;
   }
+}
+
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number,
+  w: number, h: number,
+  r: number,
+  fillColor: string,
+  fill = true,
+  strokeColor?: string,
+  strokeWidth = 1,
+) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  if (fill) {
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+  }
+  if (strokeColor) {
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = strokeWidth;
+    ctx.stroke();
+  }
+  ctx.restore();
 }

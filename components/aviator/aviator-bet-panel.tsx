@@ -241,14 +241,14 @@ export function AviatorBetPanel({
             </div>
             <button
               onClick={handleCashout}
-              className="relative w-[72px] overflow-hidden rounded-lg text-black transition-transform active:scale-[0.97] lg:w-[120px] lg:rounded-xl"
-              style={{ background: "linear-gradient(160deg, #f5b942, #e08200)" }}
+              className="relative w-[72px] overflow-hidden rounded-2xl text-black transition-all duration-100 hover:brightness-105 active:scale-[0.98] lg:w-[120px]"
+              style={{ background: "linear-gradient(180deg, #f5b942, #d97706)" }}
             >
-              <p className="text-[9px] font-bold leading-none opacity-80 lg:text-[11px]">Cashout</p>
-              <p className="mt-0.5 text-[12px] font-black leading-tight lg:text-[15px]">
-                {money(potWin, { maximumFractionDigits: 0 })}
+              <p className="text-[10px] font-bold leading-none opacity-90 lg:text-[12px]">Cash Out</p>
+              <p className="mt-0.5 text-[13px] font-black leading-tight lg:text-[16px] tabular-nums">
+                {money(potWin)}
               </p>
-              <span className="absolute inset-0 animate-ping rounded-lg bg-[#f59e0b] opacity-10 lg:rounded-xl" />
+              <span className="absolute inset-0 animate-ping rounded-2xl bg-[#f59e0b] opacity-10" />
             </button>
           </div>
           <p className="text-center text-[10px] font-black text-[#f59e0b] lg:text-[11px]">{currentMultiplier.toFixed(2)}×</p>
@@ -371,10 +371,11 @@ export function AviatorBetPanel({
 
           <div className="grid h-[72px] grid-cols-[1fr_1fr] items-stretch gap-2 lg:h-[88px] lg:grid-cols-[1fr_1.15fr] lg:gap-2.5">
             <div className="flex min-w-0 flex-col gap-1.5">
-              <div className="flex h-[34px] items-center justify-between rounded-full bg-[#0f1013] px-1 lg:h-[38px]">
+              <div className="flex h-[34px] items-center justify-between rounded-full bg-[#030303] px-1 lg:h-[38px]">
                 <button
+                  type="button"
                   onClick={() => { adj(-snapStep(amount)); setError(null); }}
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/[0.06] text-base font-black text-white/70 transition hover:bg-white/[0.12] hover:text-white active:scale-90 lg:h-7 lg:w-7 lg:text-lg"
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-white/10 bg-transparent text-base font-bold text-slate-400 transition hover:border-white/25 hover:text-white active:scale-90 lg:h-7 lg:w-7 lg:text-lg"
                 >−</button>
 
                 <input
@@ -382,12 +383,13 @@ export function AviatorBetPanel({
                   value={Number(convert(amount).toFixed(currency.decimals))}
                   min={convert(MIN_BET)} max={convert(50000)}
                   onChange={(e) => { setAmount(clampAmt(toKes(Number(e.target.value)))); setError(null); }}
-                  className="min-w-0 flex-1 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] lg:text-[17px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  className="min-w-0 flex-1 bg-transparent text-center text-[14px] font-bold text-white outline-none [appearance:textfield] lg:text-[17px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                 />
 
                 <button
+                  type="button"
                   onClick={() => { adj(snapStep(amount)); setError(null); }}
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/[0.06] text-base font-black text-white/70 transition hover:bg-white/[0.12] hover:text-white active:scale-90 lg:h-7 lg:w-7 lg:text-lg"
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-white/10 bg-transparent text-base font-bold text-slate-400 transition hover:border-white/25 hover:text-white active:scale-90 lg:h-7 lg:w-7 lg:text-lg"
                 >+</button>
               </div>
 
@@ -395,11 +397,12 @@ export function AviatorBetPanel({
                 {QUICK_AMOUNTS.map((v) => (
                   <button
                     key={v}
+                    type="button"
                     onClick={() => { setAmount(v); setError(null); }}
-                    className={`rounded-full text-[9px] font-bold transition lg:text-[10px] ${
+                    className={`rounded-full py-1 text-[10px] font-bold transition ${
                       amount === v
-                        ? "bg-white/[0.14] text-white ring-1 ring-white/20"
-                        : "bg-white/[0.05] text-white/45 hover:bg-white/[0.09] hover:text-white"
+                        ? "bg-white/20 text-white ring-1 ring-white/30"
+                        : "bg-black/35 text-slate-400 hover:bg-white/[0.07] hover:text-white"
                     }`}
                   >
                     {convert(v).toLocaleString(currency.locale, { maximumFractionDigits: currency.decimals })}
@@ -411,16 +414,16 @@ export function AviatorBetPanel({
             <button
               onClick={isFlying ? queueForNext : handleBet}
               disabled={loading}
-              className="flex min-w-0 flex-col items-center justify-center rounded-2xl px-1 py-2 text-white shadow-[inset_0_-3px_0_rgba(0,0,0,.22),0_4px_14px_rgba(31,176,9,0.25)] transition-transform active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40 lg:px-2 lg:py-3"
-              style={{ background: (bettingOpen || isFlying) ? "linear-gradient(180deg,#2fce18,#1ba608)" : "#1f2937" }}
+              className="flex min-w-0 flex-col items-center justify-center rounded-2xl px-2 py-2.5 text-white shadow-[0_4px_12px_rgba(43,178,11,0.2)] transition-all duration-100 hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 lg:px-3 lg:py-3"
+              style={{ background: (bettingOpen || isFlying) ? "linear-gradient(180deg, #2cb10b, #1c8d02)" : "#1f2937" }}
             >
-              <span className="text-[15px] font-black uppercase leading-none tracking-wide lg:text-[24px]">
+              <span className="text-[16px] font-bold tracking-wide lg:text-[20px]">
                 {loading ? <LoadingDots /> : isFlying ? "Next" : "Bet"}
               </span>
-              <span className="mt-1 max-w-full truncate text-[10px] font-bold leading-tight opacity-90 lg:text-[13px]">
+              <span className="mt-0.5 max-w-full truncate text-[11px] font-medium text-white/90 lg:text-[13px]">
                 {bettingOpen && bettingSecsLeft > 0
-                  ? `${money(amount, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} · ${bettingSecsLeft}s`
-                  : money(amount, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  ? `${money(amount)} · ${bettingSecsLeft}s`
+                  : money(amount)}
               </span>
             </button>
           </div>
