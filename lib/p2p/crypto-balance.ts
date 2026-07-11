@@ -6,6 +6,7 @@
  */
 
 import { TransactionStatus, TransactionType, type Prisma } from "@prisma/client";
+import { getPromoLockedKes } from "@/lib/promo-lock";
 
 // The tx parameter accepts either the full PrismaClient or a transaction client.
 type TxClient = Omit<
@@ -128,8 +129,24 @@ export async function debitKesCoinBalance(tx: TxClient, userId: string, amount: 
   if (debited.count === 0) throw new Error("INSUFFICIENT_FIAT_BALANCE");
 }
 
-/** Lock KES Coin by debiting the fiat wallet. Throws if insufficient. */
+/**
+ * Lock KES Coin by debiting the fiat wallet. Throws if insufficient.
+ *
+ * Enforces the deposit-to-withdraw promo gate at the P2P escrow choke point:
+ * promo credit (and winnings staked from it) that hasn't been cash-unlocked by a
+ * real deposit must not leave the wallet by selling KES Coin on P2P — otherwise
+ * a P2P sell is a promo-farming exit that bypasses the M-Pesa/crypto withdrawal
+ * gate (a never-funded promo account was cashing out via p2p_kes_escrow). Mirrors
+ * the guard in /api/wallet/withdraw and /api/wallet/transfer. See lib/promo-lock.
+ * Throws PROMO_LOCKED when the lock would dip into non-transferable promo funds.
+ */
 export async function lockKesCoinBalance(tx: TxClient, userId: string, amount: number) {
+  const u = await tx.user.findUnique({ where: { id: userId }, select: { walletBalance: true } });
+  const bal = Number(u?.walletBalance ?? 0);
+  const promoLocked = await getPromoLockedKes(tx as unknown as Prisma.TransactionClient, userId, bal);
+  if (promoLocked > 0 && amount > bal - promoLocked + 1e-9) {
+    throw new Error("PROMO_LOCKED");
+  }
   const locked = await tx.user.updateMany({
     where: { id: userId, walletBalance: { gte: amount } },
     data:  { walletBalance: { decrement: amount } },
