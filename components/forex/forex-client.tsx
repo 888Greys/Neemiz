@@ -358,7 +358,7 @@ function ForexNativeTabBar({
   ] as const;
 
   return (
-    <nav className="flex shrink-0 items-stretch border-t border-white/[0.07] bg-[#0c0c0e] pb-[max(0.25rem,env(safe-area-inset-bottom))] sm:hidden">
+    <nav className="fixed bottom-[max(0.6rem,env(safe-area-inset-bottom))] left-3 right-3 z-50 flex h-14 items-center justify-around gap-1 rounded-2xl border border-white/[0.08] bg-[#1c1c1e]/92 px-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl lg:hidden">
       {tabs.map((tab) => {
         const active =
           tab.key === "trade" ? !panel || panel === "" :
@@ -371,10 +371,10 @@ function ForexNativeTabBar({
               key={tab.key}
               type="button"
               onClick={() => window.dispatchEvent(new Event("neemiz:open-menu"))}
-              className="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 text-slate-500"
+              className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset"
             >
               <Icon name={tab.icon} className="text-[20px]" />
-              <span className="text-[9px] font-bold">{tab.label}</span>
+              <span className="mt-0.5 font-bold leading-none">{tab.label}</span>
             </button>
           );
         }
@@ -383,19 +383,19 @@ function ForexNativeTabBar({
             key={tab.key}
             href={tab.href!}
             prefetch={false}
-            className={`relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
-              active ? "text-[#c9a227]" : "text-slate-500"
+            className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${
+              active ? "text-[#087cff]" : "text-on-surface-variant"
             }`}
           >
             <span className="relative">
               <Icon name={tab.icon} fill={active} className="text-[20px]" />
               {tab.key === "positions" && positionsCount > 0 && (
-                <span className="absolute -right-2 -top-1.5 grid min-w-3.5 h-3.5 place-items-center rounded-full bg-red-500 px-0.5 text-[8px] font-black text-white">
-                  {positionsCount > 9 ? "9+" : positionsCount}
+                <span className="absolute -right-2 -top-2 grid min-w-4 h-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#151518]">
+                  {positionsCount > 99 ? "99+" : positionsCount}
                 </span>
               )}
             </span>
-            <span className="text-[9px] font-bold">{tab.label}</span>
+            <span className="mt-0.5 font-bold leading-none">{tab.label}</span>
           </Link>
         );
       })}
@@ -804,7 +804,7 @@ export function ForexClient() {
   }, [price, trades]);
 
   return (
-    <div className="flex h-full min-h-0 max-w-full flex-col overflow-hidden bg-[#0c0c0e] text-white sm:block sm:h-auto sm:min-h-full sm:overflow-x-hidden sm:pb-8 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+    <div className="flex h-full min-h-0 max-w-full flex-col overflow-hidden bg-[#0c0c0e] text-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:block sm:h-auto sm:min-h-full sm:overflow-x-hidden sm:pb-8 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       {/* Native top chrome — replaces logo / bell / wallet shell header */}
       <header className="grid shrink-0 grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 border-b border-white/[0.06] bg-[#0c0c0e] px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:hidden">
         <Link

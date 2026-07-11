@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCurrency } from "@/lib/currency-context";
@@ -1774,7 +1775,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#151518] text-white sm:block sm:h-auto sm:min-h-full sm:overflow-visible sm:pb-16 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#151518] text-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:block sm:h-auto sm:min-h-full sm:overflow-visible sm:pb-16 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       <div data-binary-grid="true" className={`relative flex min-h-0 flex-1 flex-col min-w-0 gap-0 overflow-hidden px-0 py-0 sm:grid sm:flex-none sm:overflow-visible sm:px-2 sm:py-2 xl:grid xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         {pickerOpen && (
           <TradeTypePicker value={tradeType} onSelect={selectTradeType} onClose={() => setPickerOpen(false)} allowed={new Set(liveTypes)} />
@@ -2099,7 +2100,68 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       {chartSheet === "types" && <ChartTypesSheet onClose={() => setChartSheet(null)} />}
       {chartSheet === "drawing" && <DrawingToolsSheet onClose={() => setChartSheet(null)} />}
 
+      <BinaryNativeTabBar panel={panel} positionsCount={openPositions.length} />
     </div>
+  );
+}
+
+function BinaryNativeTabBar({
+  panel,
+  positionsCount,
+}: {
+  panel: string | null;
+  positionsCount: number;
+}) {
+  const tabs = [
+    { key: "menu", label: "Menu", icon: "menu", href: null as string | null },
+    { key: "markets", label: "Markets", icon: "candlestick_chart", href: "/binary?panel=markets" },
+    { key: "trade", label: "Trade", icon: "show_chart", href: "/binary" },
+    { key: "positions", label: "Positions", icon: "schedule", href: "/binary?panel=positions" },
+  ] as const;
+
+  return (
+    <nav className="fixed bottom-[max(0.6rem,env(safe-area-inset-bottom))] left-3 right-3 z-50 flex h-14 items-center justify-around gap-1 rounded-2xl border border-white/[0.08] bg-[#1c1c1e]/92 px-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl lg:hidden">
+      {tabs.map((tab) => {
+        const active =
+          tab.key === "trade" ? !panel || panel === "" :
+          tab.key === "markets" ? panel === "markets" :
+          tab.key === "positions" ? panel === "positions" :
+          false;
+        if (tab.key === "menu") {
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("neemiz:open-menu"))}
+              className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset"
+            >
+              <Icon name={tab.icon} className="text-[20px]" />
+              <span className="mt-0.5 font-bold leading-none">{tab.label}</span>
+            </button>
+          );
+        }
+        return (
+          <Link
+            key={tab.key}
+            href={tab.href!}
+            prefetch={false}
+            className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${
+              active ? "text-[#087cff]" : "text-on-surface-variant"
+            }`}
+          >
+            <span className="relative">
+              <Icon name={tab.icon} fill={active} className="text-[20px]" />
+              {tab.key === "positions" && positionsCount > 0 && (
+                <span className="absolute -right-2 -top-2 grid min-w-4 h-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#151518]">
+                  {positionsCount > 99 ? "99+" : positionsCount}
+                </span>
+              )}
+            </span>
+            <span className="mt-0.5 font-bold leading-none">{tab.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 

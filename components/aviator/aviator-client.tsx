@@ -10,6 +10,7 @@ import { WinCelebration, RollingBalance, type WinCelebrationHandle } from "./win
 import { toast } from "@/lib/toast";
 import { Icon } from "@/components/icon";
 import { useMoney } from "@/lib/currency-context";
+import { useAuthModal } from "@/lib/auth-modal-context";
 import type {
   AviatorRoundState,
   AviatorRound,
@@ -85,6 +86,7 @@ function mapStatus(s: string): AviatorRoundState {
 export function AviatorClient({ userId, username, balance: initialBalance }: Props) {
   const { format } = useMoney();
   const router = useRouter();
+  const { openWallet } = useAuthModal();
   const [round,      setRound]      = useState<AviatorRound | null>(null);
   const [liveBets,   setLiveBets]   = useState<AviatorBetPublic[]>([]);
   const [myBets,     setMyBets]     = useState<MyBets>({});
@@ -539,37 +541,68 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   return (
     <div className="relative flex h-full w-full min-h-0 flex-col overflow-hidden bg-[#151518]">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-3 lg:p-3">
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <AviatorTicker liveBets={liveBets} />
-
-          <div className="flex min-w-0 shrink-0 items-center gap-1.5 px-2 pb-1">
-            {/* Immersive back — shell header/nav are hidden on mobile, so give a
-                way out. Desktop keeps the shell nav, so hide it there. */}
+        <section className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto lg:overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
+          {/* Mobile Top Header: Back, Wallet, Sound */}
+          <div className="flex shrink-0 items-center justify-between px-2 py-1.5 sm:hidden">
             <button
               type="button"
               onClick={() => router.push("/dashboard")}
               aria-label="Back to home"
-              className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-white/60 ring-1 ring-white/[0.06] transition active:scale-95 sm:hidden"
+              className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.04] text-white/60 ring-1 ring-white/[0.06] transition active:scale-95"
             >
-              <Icon name="arrow_back" className="text-[16px]" />
+              <Icon name="arrow_back" className="text-[18px]" />
             </button>
+            {userId && (
+              <button
+                type="button"
+                onClick={() => openWallet()}
+                className="flex items-center gap-1.5 rounded-full bg-white/[0.05] px-3 py-1 ring-1 ring-white/[0.06] transition active:scale-95 hover:bg-white/[0.1] hover:text-white"
+              >
+                <Icon name="account_balance_wallet" className="text-[13px] text-[#31c45d]" />
+                <RollingBalance
+                  value={balance}
+                  className="text-[11px] font-black tabular-nums text-white"
+                  format={(n) => format(n)}
+                />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setSoundEnabled((v) => !v)}
+              className={`grid h-8 w-8 place-items-center rounded-full ring-1 ring-white/[0.06] transition-colors ${
+                soundEnabled ? "bg-white/[0.06] text-[#31c45d]" : "bg-white/[0.06] text-white/35"
+              }`}
+              aria-label={soundEnabled ? "Mute Aviator sounds" : "Enable Aviator sounds"}
+              title={soundEnabled ? "Sound on" : "Sound off"}
+            >
+              <Icon name={soundEnabled ? "notifications" : "notifications_off"} className="h-4.5 w-4.5" />
+            </button>
+          </div>
+
+          <AviatorTicker liveBets={liveBets} />
+
+          <div className="flex min-w-0 shrink-0 items-center gap-1.5 px-2 pb-1">
             <div className="min-w-0 flex-1 overflow-hidden">
               <AviatorHistory rounds={history} onVerify={setVerifyRound} />
             </div>
             {userId && (
-              <div className="flex shrink-0 items-center gap-1 rounded-full bg-white/[0.05] px-2 py-1 ring-1 ring-white/[0.06] sm:px-2.5">
+              <button
+                type="button"
+                onClick={() => openWallet()}
+                className="hidden sm:flex shrink-0 items-center gap-1 rounded-full bg-white/[0.05] px-2 py-1 ring-1 ring-white/[0.06] transition active:scale-95 hover:bg-white/[0.1] sm:px-2.5"
+              >
                 <Icon name="account_balance_wallet" className="text-[13px] text-[#31c45d] sm:text-[14px]" />
                 <RollingBalance
                   value={balance}
                   className="text-[10px] font-black tabular-nums text-white sm:text-[11px]"
                   format={(n) => format(n)}
                 />
-              </div>
+              </button>
             )}
             <button
               type="button"
               onClick={() => setSoundEnabled((v) => !v)}
-              className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ring-1 ring-white/[0.06] transition-colors ${
+              className={`hidden sm:grid h-7 w-7 shrink-0 place-items-center rounded-full ring-1 ring-white/[0.06] transition-colors ${
                 soundEnabled ? "bg-white/[0.06] text-[#31c45d]" : "bg-white/[0.06] text-white/35"
               }`}
               aria-label={soundEnabled ? "Mute Aviator sounds" : "Enable Aviator sounds"}
@@ -592,7 +625,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             <WinCelebration ref={winCelebrationRef} soundEnabled={soundEnabled} />
           </div>
 
-          <div className="grid shrink-0 grid-cols-2 gap-1.5 p-1.5 pb-2 lg:gap-3 lg:p-3">
+          <div className="grid shrink-0 grid-cols-1 sm:grid-cols-2 gap-1.5 p-1.5 pb-2 lg:gap-3 lg:p-3 lg:pb-3">
             <div className="relative min-w-0">
               <AviatorBetPanel
                 panelIndex={0}
@@ -654,9 +687,6 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   );
 }
 
-// Game-native bottom nav (flush, in-flow) matching the forex trader — Menu opens
-// the shell drawer via the neemiz:open-menu event; Players / My Bets drive the
-// mobile players sheet through the ?tab= param the client already reads.
 function AviatorBottomNav({ urlTab, router }: { urlTab: string | null; router: ReturnType<typeof useRouter> }) {
   const tabs = [
     { key: "menu",    label: "Menu",    icon: "menu",          href: null as string | null },
@@ -666,7 +696,7 @@ function AviatorBottomNav({ urlTab, router }: { urlTab: string | null; router: R
   ] as const;
 
   return (
-    <nav className="flex shrink-0 items-stretch border-t border-white/[0.07] bg-[#0c0c0e] pb-[max(0.25rem,env(safe-area-inset-bottom))] lg:hidden">
+    <nav className="fixed bottom-[max(0.6rem,env(safe-area-inset-bottom))] left-3 right-3 z-50 flex h-14 items-center justify-around gap-1 rounded-2xl border border-white/[0.08] bg-[#1c1c1e]/92 px-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl lg:hidden">
       {tabs.map((tab) => {
         const active =
           tab.key === "play"    ? !urlTab :
@@ -681,12 +711,14 @@ function AviatorBottomNav({ urlTab, router }: { urlTab: string | null; router: R
               if (tab.key === "menu") window.dispatchEvent(new Event("neemiz:open-menu"));
               else router.push(tab.href!, { scroll: false });
             }}
-            className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-2 transition-colors ${
-              active ? "text-[#31c45d]" : "text-slate-500"
+            className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${
+              active ? "text-[#087cff]" : "text-on-surface-variant"
             }`}
           >
-            <Icon name={tab.icon} fill={active} className="text-[20px]" />
-            <span className="text-[9px] font-bold">{tab.label}</span>
+            <span className="relative">
+              <Icon name={tab.icon} fill={active} className="text-[20px]" />
+            </span>
+            <span className="mt-0.5 font-bold leading-none">{tab.label}</span>
           </button>
         );
       })}
