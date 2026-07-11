@@ -36,13 +36,10 @@ import { previewDigitPayout } from "@/lib/binary/server-price";
 import {
   SIGMA_WINDOW, computeSigma, barrierFracFor, maxTicksFor, payoutAtTick,
 } from "@/lib/accumulator";
+import dynamic from "next/dynamic";
 import { TradeTypePicker } from "./trade-type-picker";
-import { AccumulatorsPanel } from "./panels/accumulators-panel";
+/** Default panel stays eager so /binary first paint ships chart + digit controls. */
 import { DigitPanel } from "./panels/digit-panel";
-import { DirectionalPanel } from "./panels/directional-panel";
-import { VanillaPanel } from "./panels/vanilla-panel";
-import { LeveragedPanel } from "./panels/leveraged-panel";
-import { AutoPanel } from "./panels/auto-panel";
 import { tradeTypeById, TRADE_TYPES, type TradeTypeId } from "./trade-types";
 import { MarketIcon } from "./market-icon";
 import { payoutRate as dirPayoutRate, vanillaPayoutPerPoint, resolveContract, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
@@ -50,6 +47,37 @@ import {
   resolveLeveraged, leveragedValueAt, multiplierStopOutPrice, clampTurboBarrier, turboPayoutPerPoint,
   LEVERAGED_MAX_MULT, type LeveragedKindT, type LeveragedDirection,
 } from "@/lib/leveraged";
+
+function PanelSkeleton() {
+  return (
+    <div className="flex flex-1 animate-pulse flex-col gap-3 p-4" aria-hidden>
+      <div className="h-8 rounded bg-white/[0.06]" />
+      <div className="h-24 rounded bg-white/[0.04]" />
+      <div className="mt-auto h-12 rounded bg-white/[0.06]" />
+    </div>
+  );
+}
+
+const AccumulatorsPanel = dynamic(
+  () => import("./panels/accumulators-panel").then((m) => m.AccumulatorsPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+);
+const DirectionalPanel = dynamic(
+  () => import("./panels/directional-panel").then((m) => m.DirectionalPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+);
+const VanillaPanel = dynamic(
+  () => import("./panels/vanilla-panel").then((m) => m.VanillaPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+);
+const LeveragedPanel = dynamic(
+  () => import("./panels/leveraged-panel").then((m) => m.LeveragedPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+);
+const AutoPanel = dynamic(
+  () => import("./panels/auto-panel").then((m) => m.AutoPanel),
+  { ssr: false, loading: () => <PanelSkeleton /> },
+);
 
 // Digit trade types reuse the existing Even/Odd/Matches/Over digit controls.
 const DIGIT_TYPE_TO_FAMILY: Partial<Record<TradeTypeId, ContractFamily>> = {
@@ -1148,7 +1176,9 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     if (!isLive) return;
     const id = setInterval(() => {
       const now = Date.now();
-      const pending = openTradesRef.current.filter((t) => t.isReal && t.settlesAt <= now);
+      const pending = openTradesRef.current.filter(
+        (t) => t.isReal && t.settlesAt <= now && !t.id.startsWith("pending-"),
+      );
       for (const trade of pending) {
         if (inFlightRef.current.has(trade.id) || settledIds.current.has(trade.id)) continue;
         inFlightRef.current.add(trade.id);
@@ -1260,7 +1290,9 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     const tp = takeProfitOn ? takeProfit : null;
 
     if (isLive) {
+      const prevBalance = liveBalance;
       setAccaPlacing(true);
+      setLiveBalance((b) => b - stake);
       try {
         const res  = await fetch("/api/accumulator/buy", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -1268,6 +1300,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         });
         const data = await res.json() as { tradeId?: string; entrySpot?: number; entryEpoch?: number; barrierFrac?: number; maxTicks?: number; error?: string };
         if (!res.ok || !data.tradeId) {
+          setLiveBalance(prevBalance);
           toast.error("Trade failed", data.error ?? "Could not place accumulator");
           return;
         }
@@ -1277,9 +1310,11 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           barrierFrac: data.barrierFrac!, maxTicks: data.maxTicks!, takeProfit: tp,
           isReal: true, ticksSurvived: 0, lastEpoch: data.entryEpoch!, prevSpot: data.entrySpot!, status: "open",
         });
-        setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
         toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${money(stake)}`);
+      } catch (err) {
+        setLiveBalance(prevBalance);
+        toast.error("Trade failed", err instanceof Error ? err.message : "Could not place accumulator");
       } finally {
         setAccaPlacing(false);
       }
@@ -1301,7 +1336,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         toast.error("Not enough market data", "Wait for a few more ticks and try again.");
       }
     }
-  }, [accaPlacing, accaPos, stake, balance, isLive, market, growthRate, takeProfit, takeProfitOn, ticks]);
+  }, [accaPlacing, accaPos, stake, balance, liveBalance, isLive, market, growthRate, takeProfit, takeProfitOn, ticks]);
 
   // Close a leveraged contract. Real cash-out is server-authoritative; demo
   // replays the tick buffer through the shared resolver so demo == server. Also
@@ -1404,14 +1439,20 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     const offset = levKind === "TURBO" ? barrierOffset : 0;
 
     if (isLive) {
+      const prevBalance = liveBalance;
       setLevPlacing(true);
+      setLiveBalance((b) => b - stake);
       try {
         const res  = await fetch("/api/leveraged/bet", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ market: market.derivSymbol, kind: levKind, direction, stake, multiplier, barrierOffset: offset, takeProfit: tp, stopLoss: sl }),
         });
         const data = await res.json() as { tradeId?: string; entrySpot?: number; entryEpoch?: number; barrier?: number | null; payoutPerPoint?: number | null; error?: string };
-        if (!res.ok || !data.tradeId) { toast.error("Trade failed", data.error ?? "Could not place trade"); return; }
+        if (!res.ok || !data.tradeId) {
+          setLiveBalance(prevBalance);
+          toast.error("Trade failed", data.error ?? "Could not place trade");
+          return;
+        }
         setLevPos({
           id: data.tradeId, market: market.symbol, derivSymbol: market.derivSymbol, kind: levKind, direction,
           stake, multiplier: levKind === "MULTIPLIER" ? multiplier : null,
@@ -1419,9 +1460,11 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           entrySpot: data.entrySpot!, entryEpoch: data.entryEpoch!, takeProfit: tp, stopLoss: sl,
           isReal: true, lastEpoch: data.entryEpoch!, status: "open",
         });
-        setLiveBalance((b) => b - stake);
         window.dispatchEvent(new Event("wallet-refresh"));
         toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${money(stake)}`);
+      } catch (err) {
+        setLiveBalance(prevBalance);
+        toast.error("Trade failed", err instanceof Error ? err.message : "Could not place trade");
       } finally {
         setLevPlacing(false);
       }
@@ -1440,7 +1483,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       });
       toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${money(stake)}`);
     }
-  }, [levPlacing, levPos, stake, balance, isLive, levKind, multiplier, barrierOffset, takeProfit, takeProfitOn, stopLoss, stopLossOn, market, ticks]);
+  }, [levPlacing, levPos, stake, balance, liveBalance, isLive, levKind, multiplier, barrierOffset, takeProfit, takeProfitOn, stopLoss, stopLossOn, market, ticks]);
 
   // Settle a real directional trade via the server (authoritative exit tick).
   const applyDirSettled = useCallback((t: DirTrade, data: { won: boolean; winAmount?: number }) => {
@@ -1582,15 +1625,20 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     const settlesAt = Date.now() + duration * Math.max(1000, market.speedMs) + 500;
 
     if (isLive) {
+      const prevBalance = liveBalance;
       setDirPlacing(true);
+      setLiveBalance((b) => b - stake);
       try {
         const res  = await fetch("/api/directional/bet", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ market: market.derivSymbol, kind: dirKind, side, stake, durationTicks: duration, barrierOffset: offset }),
         });
         const data = await res.json() as { tradeId?: string; entrySpot?: number; entryEpoch?: number; barrier?: number | null; payout?: number; payoutPerPoint?: number | null; error?: string };
-        if (!res.ok || !data.tradeId) { toast.error("Trade failed", data.error ?? "Could not place trade"); return; }
-        setLiveBalance((b) => b - stake);
+        if (!res.ok || !data.tradeId) {
+          setLiveBalance(prevBalance);
+          toast.error("Trade failed", data.error ?? "Could not place trade");
+          return;
+        }
         window.dispatchEvent(new Event("wallet-refresh"));
         setDirTrades((cur) => [{
           id: data.tradeId!, market: market.symbol, derivSymbol: market.derivSymbol, kind: dirKind, side,
@@ -1599,6 +1647,9 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           barrier: data.barrier ?? null, durationTicks: duration, isReal: true, settlesAt, status: "open" as const,
         }, ...cur].slice(0, 12));
         toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
+      } catch (err) {
+        setLiveBalance(prevBalance);
+        toast.error("Trade failed", err instanceof Error ? err.message : "Could not place trade");
       } finally {
         setDirPlacing(false);
       }
@@ -1623,7 +1674,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       }, ...cur].slice(0, 12));
       toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
     }
-  }, [dirPlacing, stake, balance, isLive, dirKind, barrierOffset, duration, market, ticks, clientSigma]);
+  }, [dirPlacing, stake, balance, liveBalance, isLive, dirKind, barrierOffset, duration, market, ticks, clientSigma]);
 
   async function placeTrade(side: ContractSide) {
     if (placing || stake <= 0) return;
@@ -1633,7 +1684,30 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     }
 
     if (isLive) {
+      // Optimistic UI (P2P pattern): deduct + show open trade immediately;
+      // server remains source of truth — reconcile id/payout or roll back.
+      const prevBalance = liveBalance;
+      const prevOpen = openTrades;
+      const prevTx = transactions;
+      const tempId = `pending-${Date.now()}`;
+      const optimistic: BinaryTrade = {
+        id: tempId,
+        market: market.symbol,
+        side,
+        stake,
+        payout: displayedPayout(stake, side, targetDigit),
+        entryDigit: latest.digit,
+        targetDigit,
+        openedAt: Date.now(),
+        settlesAt: Date.now() + duration * 1000,
+        status: "open",
+        isReal: true,
+      };
       setPlacing(true);
+      setLiveBalance((b) => b - stake);
+      setOpenTrades((current) => [optimistic, ...current].slice(0, 12));
+      setTransactions((current) => [`${side} ${market.symbol} ${money(stake)}`, ...current].slice(0, 12));
+      setTab("open");
       try {
         const res  = await fetch("/api/binary/bet", {
           method:  "POST",
@@ -1649,30 +1723,26 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         });
         const data = await res.json() as { tradeId?: string; payout?: number; error?: string };
         if (!res.ok || !data.tradeId) {
+          setLiveBalance(prevBalance);
+          setOpenTrades(prevOpen);
+          setTransactions(prevTx);
           toast.error("Trade failed", data.error ?? "Could not place trade");
           return;
         }
-        const trade: BinaryTrade = {
-          id:          data.tradeId,
-          market:      market.symbol,
-          side,
-          stake,
-          payout:      data.payout ?? displayedPayout(stake, side, targetDigit),
-          entryDigit:  latest.digit,
-          targetDigit,
-          openedAt:    Date.now(),
-          settlesAt:   Date.now() + duration * 1000,
-          status:      "open",
-          isReal:      true,
-        };
-        setLiveBalance((b) => b - stake);
+        setOpenTrades((current) =>
+          current.map((t) =>
+            t.id === tempId
+              ? { ...t, id: data.tradeId!, payout: data.payout ?? t.payout }
+              : t,
+          ),
+        );
         window.dispatchEvent(new Event("wallet-refresh"));
-        setOpenTrades((current) => [trade, ...current].slice(0, 12));
-        setTransactions((current) => [`${side} ${market.symbol} ${money(stake)}`, ...current].slice(0, 12));
-        // Surface the live position immediately — jump to the Open tab so the
-        // countdown is visible, and confirm with a toast so the click registers.
-        setTab("open");
         toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
+      } catch (err) {
+        setLiveBalance(prevBalance);
+        setOpenTrades(prevOpen);
+        setTransactions(prevTx);
+        toast.error("Trade failed", err instanceof Error ? err.message : "Could not place trade");
       } finally {
         setPlacing(false);
       }

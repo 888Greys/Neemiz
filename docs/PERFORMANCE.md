@@ -94,6 +94,11 @@ Sports live scores soft-refresh via `GET /api/sports/fixtures` (and
 Match cards patch scores in place; a full RSC `router.refresh()` runs only when
 the live fixture set changes (appear/disappear) or a detail match leaves live.
 
+Binary `/binary` lazy-loads non-default trade panels via `next/dynamic` so the
+first paint ships the chart + digit panel only. Live bet placement uses
+optimistic balance (and digit open-trade) updates that roll back on failure;
+the server remains the source of truth.
+
 ### Fewer requests
 
 `GET /api/notifications` returns the notification list and unread count in one
