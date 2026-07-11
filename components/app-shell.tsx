@@ -252,7 +252,9 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             >
               <Icon name="menu" className="text-[22px]" />
             </button>
-            <BrandLogo href="/dashboard" size="sm" />
+            <span className="hidden lg:block">
+              <BrandLogo href="/dashboard" size="sm" />
+            </span>
             <nav className="hidden items-center gap-0.5 rounded-2xl bg-[#18191d] p-1 ring-1 ring-white/[0.06] text-sm font-black md:flex">
               <TopNavLink href="/dashboard" icon="home" label="Home" pathname={pathname} />
               <TopNavLink href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} />
@@ -744,131 +746,165 @@ function MobileMenuDrawer({
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab") ?? "";
   const isActive = (href: string) => sidebarItemActive(pathname, href, tab);
+  const [q, setQ] = useState("");
+
+  const exploreItems: Array<{ href: string; icon: string; label: string; badge?: string }> = [
+    { href: "/sports", icon: "sports_soccer", label: "Sports" },
+    { href: "/sports?tab=live", icon: "sensors", label: "Live" },
+    { href: "/my-bets", icon: "receipt_long", label: "My Bets" },
+    { href: "/p2p", icon: "swap_horiz", label: "P2P" },
+    { href: "/p2p/merchant?tab=ads", icon: "campaign", label: "Ads" },
+    { href: "/p2p/orders", icon: "list_alt", label: "Orders" },
+    { href: "/predictions", icon: "online_prediction", label: "Polymarket" },
+    { href: "/binary", icon: "candlestick_chart", label: "Binary" },
+    { href: "/forex", icon: "currency_exchange", label: "Forex" },
+    { href: "/aviator", icon: "rocket_launch", label: "Aviator", badge: "HOT" },
+    { href: "/lucky-spin", icon: "casino", label: "Lucky Spin" },
+  ];
+
+  const term = q.trim().toLowerCase();
+  const filteredExplore = term
+    ? exploreItems.filter((i) => i.label.toLowerCase().includes(term))
+    : exploreItems;
+  const searching = term.length > 0;
 
   return (
-    <div className="fixed inset-0 z-[60] animate-fade-in bg-black/70 lg:hidden" onClick={onClose}>
-      <aside
-        className="animate-drawer-in relative flex h-full w-[78vw] max-w-[320px] min-w-[260px] flex-col bg-[#151518]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-5 pt-5 pb-2">
-          <span className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">Menu</span>
-          <button
-            className="grid h-8 w-8 place-items-center rounded-full text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
-            onClick={onClose}
-            type="button"
-            aria-label="Close menu"
-          >
-            <Icon name="close" className="text-[18px]" />
-          </button>
-        </div>
-
-        <div className="no-scrollbar flex-1 overflow-y-auto px-5 pb-6">
-          {!isSignedIn && (
-            <section className="mb-5 grid grid-cols-2 gap-2">
-              <button
-                onClick={onOpenLogin}
-                className="rounded-xl bg-white/[0.06] py-2.5 text-[13px] font-bold text-white"
-                type="button"
-              >
-                Log in
-              </button>
-              <button
-                onClick={onOpenRegister}
-                className="rounded-xl bg-[#087cff] py-2.5 text-[13px] font-bold text-white"
-                type="button"
-              >
-                Register
-              </button>
-            </section>
-          )}
-
-          {isSignedIn && (
-            <>
-              <button
-                type="button"
-                onClick={onOpenWallet}
-                className="animate-wallet-glow mb-4 flex w-full items-center gap-3 rounded-xl border border-[#087cff]/40 bg-gradient-to-r from-[#087cff]/[0.12] to-[#1c1c1e] px-3.5 py-3 text-left transition hover:from-[#087cff]/20"
-              >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#087cff]/15 text-[#087cff]">
-                  <Icon name="account_balance_wallet" fill className="text-[20px]" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[14px] font-bold text-white">Wallet</span>
-                  <span className="block text-[11px] font-semibold text-[#75b8ff]">Deposit, withdraw & track balance</span>
-                </span>
-                <Icon name="chevron_right" className="text-[18px] text-[#087cff]/70" />
-              </button>
-            </>
-          )}
-
-          {recents.length > 0 && (
-            <>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Recents
-              </p>
-              <nav className="mb-4 space-y-0.5">
-                {recents.map((r) => (
-                  <MobileDrawerLink
-                    key={r.href}
-                    href={r.href}
-                    icon={r.icon}
-                    label={r.label}
-                    active={isActive(r.href)}
-                    onClick={onClose}
-                  />
-                ))}
-              </nav>
-              <div className="mb-4 border-t border-white/[0.06]" />
-            </>
-          )}
-
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-            Explore
-          </p>
-          <nav className="space-y-0.5">
-            <MobileDrawerLink href="/sports" icon="sports_soccer" label="Sports" active={isActive("/sports")} onClick={onClose} />
-            <MobileDrawerLink href="/sports?tab=live" icon="sensors" label="Live" active={isActive("/sports?tab=live")} onClick={onClose} />
-            <MobileDrawerLink href="/my-bets" icon="receipt_long" label="My Bets" active={isActive("/my-bets")} onClick={onClose} />
-            <MobileDrawerLink href="/p2p" icon="swap_horiz" label="P2P" active={isActive("/p2p")} onClick={onClose} />
-            <MobileDrawerLink href="/p2p/merchant?tab=ads" icon="campaign" label="Ads" active={isActive("/p2p/merchant?tab=ads")} onClick={onClose} />
-            <MobileDrawerLink href="/p2p/orders" icon="list_alt" label="Orders" active={isActive("/p2p/orders")} onClick={onClose} />
-            <MobileDrawerLink href="/predictions" icon="online_prediction" label="Polymarket" active={isActive("/predictions")} onClick={onClose} />
-            <MobileDrawerLink href="/binary" icon="candlestick_chart" label="Binary" active={isActive("/binary")} onClick={onClose} />
-            <MobileDrawerLink href="/forex" icon="currency_exchange" label="Forex" active={isActive("/forex")} onClick={onClose} />
-            <MobileDrawerLink href="/aviator" icon="rocket_launch" label="Aviator" badge="HOT" active={isActive("/aviator")} onClick={onClose} />
-            <MobileDrawerLink href="/lucky-spin" icon="casino" label="Lucky Spin" active={isActive("/lucky-spin")} onClick={onClose} />
-          </nav>
-        </div>
-
-        <div className="border-t border-white/[0.06] px-5 py-3">
-          <button
-            type="button"
-            onClick={onOpenProfile}
-            className="flex w-full items-center gap-3 py-2.5 text-left"
-          >
-            <Icon name="person" className="text-[20px] text-slate-400" />
-            <span className="flex-1 text-[14px] font-bold text-white">Profile</span>
-            <Icon name="chevron_right" className="text-[18px] text-slate-600" />
-          </button>
-
-          {isSignedIn && (
-            <button
-              type="button"
-              className="flex w-full items-center gap-3 py-2.5 text-left"
-              onClick={async () => {
-                onClose();
-                await signOut();
-                toast.info("Signed out", "See you next time!");
-                router.push("/");
-              }}
-            >
-              <Icon name="logout" className="text-[20px] text-red-400" />
-              <span className="flex-1 text-[14px] font-bold text-red-400">Sign out</span>
+    <div className="fixed inset-0 z-[60] flex animate-fade-in flex-col bg-[#151518] lg:hidden">
+      <div className="flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+        <button
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
+          onClick={onClose}
+          type="button"
+          aria-label="Close menu"
+        >
+          <Icon name="close" className="text-[18px]" />
+        </button>
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-white/[0.05] px-3.5">
+          <Icon name="search" className="text-[18px] text-slate-500" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search the menu…"
+            className="h-10 min-w-0 flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-slate-500"
+          />
+          {q && (
+            <button type="button" onClick={() => setQ("")} aria-label="Clear" className="shrink-0 text-slate-500 hover:text-white">
+              <Icon name="close" className="text-[16px]" />
             </button>
           )}
         </div>
-      </aside>
+      </div>
+
+      <div className="no-scrollbar flex-1 overflow-y-auto px-4 pb-6">
+        {!isSignedIn && !searching && (
+          <section className="mb-5 grid grid-cols-2 gap-2">
+            <button
+              onClick={onOpenLogin}
+              className="rounded-xl bg-white/[0.06] py-3 text-[13px] font-bold text-white"
+              type="button"
+            >
+              Log in
+            </button>
+            <button
+              onClick={onOpenRegister}
+              className="rounded-xl bg-[#087cff] py-3 text-[13px] font-bold text-white"
+              type="button"
+            >
+              Register
+            </button>
+          </section>
+        )}
+
+        {isSignedIn && !searching && (
+          <button
+            type="button"
+            onClick={onOpenWallet}
+            className="animate-wallet-glow mb-4 flex w-full items-center gap-3 rounded-xl border border-[#087cff]/40 bg-gradient-to-r from-[#087cff]/[0.12] to-[#1c1c1e] px-3.5 py-3.5 text-left transition hover:from-[#087cff]/20"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#087cff]/15 text-[#087cff]">
+              <Icon name="account_balance_wallet" fill className="text-[22px]" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-bold text-white">Wallet</span>
+              <span className="block text-[11px] font-semibold text-[#75b8ff]">Deposit, withdraw & track balance</span>
+            </span>
+            <Icon name="chevron_right" className="text-[18px] text-[#087cff]/70" />
+          </button>
+        )}
+
+        {recents.length > 0 && !searching && (
+          <>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Recents
+            </p>
+            <nav className="mb-4 space-y-0.5">
+              {recents.map((r) => (
+                <MobileDrawerLink
+                  key={r.href}
+                  href={r.href}
+                  icon={r.icon}
+                  label={r.label}
+                  active={isActive(r.href)}
+                  onClick={onClose}
+                />
+              ))}
+            </nav>
+            <div className="mb-4 border-t border-white/[0.06]" />
+          </>
+        )}
+
+        {!searching && (
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Explore
+          </p>
+        )}
+        <nav className="space-y-0.5">
+          {filteredExplore.map((item) => (
+            <MobileDrawerLink
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={item.label}
+              badge={item.badge}
+              active={isActive(item.href)}
+              onClick={onClose}
+            />
+          ))}
+          {filteredExplore.length === 0 && (
+            <p className="py-10 text-center text-[13px] font-semibold text-slate-500">
+              Nothing matches “{q.trim()}”
+            </p>
+          )}
+        </nav>
+      </div>
+
+      <div className="border-t border-white/[0.06] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <button
+          type="button"
+          onClick={onOpenProfile}
+          className="flex w-full items-center gap-3 py-2.5 text-left"
+        >
+          <Icon name="person" className="text-[20px] text-slate-400" />
+          <span className="flex-1 text-[14px] font-bold text-white">Profile</span>
+          <Icon name="chevron_right" className="text-[18px] text-slate-600" />
+        </button>
+
+        {isSignedIn && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 py-2.5 text-left"
+            onClick={async () => {
+              onClose();
+              await signOut();
+              toast.info("Signed out", "See you next time!");
+              router.push("/");
+            }}
+          >
+            <Icon name="logout" className="text-[20px] text-red-400" />
+            <span className="flex-1 text-[14px] font-bold text-red-400">Sign out</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
