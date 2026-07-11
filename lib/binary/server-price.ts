@@ -33,6 +33,20 @@ export const SHORT_1HZ_RISE_FALL_EDGE = 0.15;
  */
 export const MIN_OVER_UNDER_TICKS = 5;
 
+/**
+ * Markets whose digit calibration is currently mis-measured for Under and price
+ * it +EV. Live autopsy (7d): R_50 Under ran RTP ~1.33–1.42 on mid digits (Under
+ * 4/5/6, ~40k staked, ~18k/wk house loss) while the SAME digits on 1Hz markets
+ * settled house-favorable. The conditional win-prob the engine measures on R_50
+ * calibration ticks (~49% for Under 5) badly understates the live low-digit skew
+ * (~79% realized), so the multiplier is set far too high. Raising the edge floor
+ * can't fix a mis-MEASURED win prob, so we fail CLOSED here — reject R_50 Under
+ * outright — until the R_50 digit distribution / quoteToDigit precision is
+ * recalibrated and proven RTP ≤ 1 via scripts/pricing-proof.ts. Reversible:
+ * remove the market from this set once the calibration lands.
+ */
+export const UNDER_QUARANTINED_MARKETS = new Set<string>(["R_50"]);
+
 export function isOneHzMarket(market?: string | null): boolean {
   return !!market && market.startsWith("1HZ");
 }
@@ -136,15 +150,23 @@ export function priceDigitServer(params: {
   ticks: number[];
   edgeFloor?: number;
   cfg?: PricingConfig;
+  /** Deriv symbol — used to quarantine markets whose Under is mis-calibrated. */
+  market?: string;
   /** Live entry digit. When supplied, Over/Under are priced CONDITIONALLY on it
    *  (removes the sticky-digit autocorrelation edge). */
   entryDigit?: number;
 }): DigitPrice {
-  const { side, targetDigit, durationTicks, stake, ticks, entryDigit } = params;
+  const { side, targetDigit, durationTicks, stake, ticks, entryDigit, market } = params;
 
   // 0. Microstructure gate: reject too-short Over/Under (autocorrelation exploit).
   if ((side === "Over" || side === "Under") && durationTicks < MIN_OVER_UNDER_TICKS) {
     return { accepted: false, reason: `Over/Under needs at least ${MIN_OVER_UNDER_TICKS} ticks` };
+  }
+
+  // 0b. Calibration quarantine: fail closed on markets where Under is currently
+  // priced +EV (see UNDER_QUARANTINED_MARKETS — R_50 Under mid-digit leak).
+  if (side === "Under" && market && UNDER_QUARANTINED_MARKETS.has(market)) {
+    return { accepted: false, reason: "Under is temporarily unavailable on this market" };
   }
 
   // 1. Stability Gate (Matches only): check if the target digit distribution
