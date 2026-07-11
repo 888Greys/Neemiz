@@ -77,6 +77,10 @@ describe("Wallet Transfer Rules", () => {
     // and no promo credit locks transfers. Individual tests override as needed.
     mockTx.user.findUnique.mockResolvedValue({ walletBalance: 100_000 } as any);
     mockTx.promoRedemption.aggregate.mockResolvedValue({ _sum: { amountKes: 0 } } as any);
+    // Sender is funded by default (a real deposit exists) so the deposit-to-
+    // withdraw gate on the send side passes; the unfunded case is tested below.
+    // Admin once-ever tests override this findFirst as needed.
+    mockTx.transaction.findFirst.mockResolvedValue({ id: "dep" } as any);
 
     // Default Supabase mock user
     vi.mocked(createClient).mockResolvedValue({
@@ -124,6 +128,21 @@ describe("Wallet Transfer Rules", () => {
     expect(res.status).toBe(400);
     const data = await res.json();
     expect(data.error).toContain("Daily limit");
+  });
+
+  it("blocks a never-funded (no real deposit) user from sending — traps mule credit", async () => {
+    vi.mocked(getOrCreateUser).mockResolvedValue({ id: "user_123", isAdmin: false } as any);
+    vi.mocked(db.user.findFirst).mockResolvedValue({ id: "rec_456", username: "recipient" } as any);
+    mockTx.user.updateMany.mockResolvedValue({ count: 1 });
+    // No qualifying deposit → the send-side deposit gate fires.
+    mockTx.transaction.findFirst.mockResolvedValue(null);
+
+    const res = await POST(makeRequest({ recipientId: "rec_456", amount: 40 }));
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.code).toBe("NO_DEPOSIT_GATE");
+    // Must reject BEFORE debiting the sender.
+    expect(mockTx.user.updateMany).not.toHaveBeenCalled();
   });
 
   it("exempts admin users from the cumulative daily cash-out limit but applies the transfer cap", async () => {
