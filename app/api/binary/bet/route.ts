@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   // Throttle bet placement per user — defense-in-depth against settlement/stake spam.
-  const rl = rateLimit(`binary-bet:${user.id}`, 30, 60_000);
+  const rl = await rateLimit(`binary-bet:${user.id}`, 30, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   let body: { market?: string; side?: string; stake?: number; targetDigit?: number; durationTicks?: number; clientSeed?: string };

@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rl = rateLimit(`directional-bet:${user.id}`, 30, 60_000);
+  const rl = await rateLimit(`directional-bet:${user.id}`, 30, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   let body: { market?: string; kind?: string; side?: string; stake?: number; durationTicks?: number; barrierOffset?: number; clientSeed?: string };
