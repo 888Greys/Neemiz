@@ -21,6 +21,7 @@ import { NavBadgeContext } from "@/lib/nav-badge-context";
 import { PhonePromptModal } from "@/components/phone-prompt-modal";
 import { readNavRecents, trackNavRecent, type NavRecent } from "@/lib/nav-recents";
 import { COMPANY } from "@/lib/company";
+import { useWalletBalance } from "@/lib/use-wallet-balance";
 
 const LoginModal = dynamic(
   () => import("@/components/login-modal").then((mod) => mod.LoginModal),
@@ -197,7 +198,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
     <NavBadgeContext.Provider value={navBadgeContext}>
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
-      <header className={`${immersive ? "hidden sm:flex" : "flex"} fixed left-0 right-0 top-0 z-50 h-12 max-w-[100vw] items-center overflow-visible border-b border-white/[0.06] bg-[#151518] px-3 lg:h-20 lg:px-0`}>
+      <header className={`${immersive ? "hidden sm:flex" : "flex"} fixed z-50 items-center overflow-visible left-3 right-3 top-[max(0.5rem,env(safe-area-inset-top))] h-12 rounded-2xl border border-white/[0.05] bg-[#18191d]/50 px-3 shadow-[0_4px_16px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:left-0 lg:right-0 lg:top-0 lg:h-20 lg:max-w-[100vw] lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-b lg:border-white/[0.06] lg:bg-[#151518] lg:px-0 lg:shadow-none lg:backdrop-blur-none`}>
         {!hideSidebar && (
         <div
           className={`hidden h-full shrink-0 items-center border-r border-white/10 px-3 transition-[width] duration-300 ease-out lg:flex ${
@@ -267,13 +268,20 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           </div>
           {isSignedIn ? (
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              <HeaderWalletChip
-                onOpen={() => openWallet()}
-                onDeposit={() => openWallet("deposit")}
-              />
+              <HeaderBalanceChip onOpen={() => openWallet()} />
               <div className="hidden md:block">
                 <CurrencySwitcher />
               </div>
+              {/* Small profile icon (mobile — desktop has it in the sidebar) */}
+              <button
+                type="button"
+                onClick={() => setProfileOpen(true)}
+                title="Profile"
+                aria-label="Profile"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#18191d] text-slate-300 ring-1 ring-white/[0.08] transition hover:bg-[#22242a] hover:text-white sm:h-9 sm:w-9 lg:hidden"
+              >
+                <Icon name="person" fill className="text-[18px] sm:text-[20px]" />
+              </button>
               <NotificationsBell />
               {/* Profile when sidebar is hidden (immersive game pages) */}
               {hideSidebar && (
@@ -309,7 +317,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </div>
       </header>
 
-      <div className={`flex h-screen overflow-hidden ${immersive ? "pt-0 sm:pt-12 lg:pt-20" : "pt-12 lg:pt-20"}`}>
+      <div className={`flex h-screen overflow-hidden ${immersive ? "pt-0 sm:pt-16 lg:pt-20" : "pt-16 lg:pt-20"}`}>
         {!hideSidebar && (
         <aside
           className={`hidden shrink-0 overflow-hidden border-r border-white/[0.06] bg-[#151518] transition-[width] duration-300 ease-out lg:block ${
@@ -344,7 +352,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {profileOpen && <ProfileModal onClose={() => { setProfileOpen(false); setProfileInitialView(undefined); }} onOpenWallet={(tab) => { setProfileOpen(false); openWallet(tab); }} initialView={profileInitialView} />}
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} initialTab={walletInitialTab} />}
       <PromoSuccessHost />
-      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileInitialView(undefined); setProfileOpen(true); }} onOpenWallet={() => { setMobileMenuOpen(false); openWallet(); }} recents={recents} />}
+      {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileInitialView(undefined); setProfileOpen(true); }} onOpenWallet={(tab) => { setMobileMenuOpen(false); openWallet(tab); }} recents={recents} />}
       {missingPhone && <PhonePromptModal onComplete={handlePhoneComplete} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
@@ -439,32 +447,43 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   );
 }
 
-function HeaderWalletChip({
-  onOpen,
-  onDeposit,
-}: {
-  onOpen: () => void;
-  onDeposit: () => void;
-}) {
+function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
+  const { balance, currency } = useWalletBalance();
+  const [hidden, setHidden] = useState(false);
+
+  useEffect(() => {
+    setHidden(localStorage.getItem("balance-hidden") === "true");
+  }, []);
+
+  const toggle = () => {
+    setHidden((prev) => {
+      const next = !prev;
+      localStorage.setItem("balance-hidden", String(next));
+      return next;
+    });
+  };
+
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 rounded-full bg-[#18191d] py-1 pl-3 pr-1.5 ring-1 ring-white/[0.08]">
       <button
         type="button"
         onClick={onOpen}
         aria-label="Open wallet"
         title="Wallet"
-        className="grid h-8 w-8 place-items-center rounded-full bg-[#18191d] text-[#087cff] ring-1 ring-white/[0.08] transition-[background-color,transform] duration-100 ease-out hover:bg-[#22242a] active:scale-[0.97] sm:h-9 sm:w-9"
+        className="flex items-baseline gap-1 text-left"
       >
-        <Icon name="account_balance_wallet" fill className="text-[18px] sm:text-[20px]" />
+        <span className="text-[13px] font-black tabular-nums text-white">
+          {hidden ? "＊＊＊" : balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+        </span>
+        <span className="text-[10px] font-bold text-slate-400">{currency}</span>
       </button>
       <button
         type="button"
-        onClick={onDeposit}
-        aria-label="Deposit"
-        title="Deposit"
-        className="grid h-8 w-8 place-items-center rounded-full bg-emerald-700 text-emerald-50 transition-[background-color,transform] duration-100 ease-out hover:bg-emerald-600 active:scale-[0.97] sm:h-9 sm:w-9"
+        onClick={toggle}
+        aria-label={hidden ? "Show balance" : "Hide balance"}
+        className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-slate-500 transition hover:text-white"
       >
-        <Icon name="add" className="text-[18px] sm:text-[20px]" />
+        <Icon name={hidden ? "visibility_closed" : "visibility"} className="text-[12px]" />
       </button>
     </div>
   );
@@ -737,10 +756,11 @@ function MobileMenuDrawer({
   onOpenLogin: () => void;
   onOpenRegister: () => void;
   onOpenProfile: () => void;
-  onOpenWallet: () => void;
+  onOpenWallet: (tab?: "home" | "deposit" | "send" | "withdraw" | "history") => void;
   recents: NavRecent[];
 }) {
   const { isSignedIn, signOut } = useSupabaseAuth();
+  const { balance, currency } = useWalletBalance();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -924,6 +944,42 @@ function MobileMenuDrawer({
                 Register
               </button>
             </section>
+          )}
+
+          {isSignedIn && (
+            <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
+              <button
+                type="button"
+                onClick={() => onOpenWallet()}
+                className="flex w-full items-center gap-3 text-left"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Wallet balance</span>
+                  <span className="mt-0.5 block text-[22px] font-black leading-none tabular-nums text-white">
+                    {balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    <span className="ml-1.5 text-[12px] font-bold text-slate-500">{currency}</span>
+                  </span>
+                </span>
+                <Icon name="chevron_right" className="text-[18px] text-slate-600" />
+              </button>
+              <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/[0.06] pt-4">
+                {([
+                  { tab: "deposit", label: "Deposit", icon: "arrow_downward" },
+                  { tab: "withdraw", label: "Withdraw", icon: "arrow_upward" },
+                  { tab: "history", label: "History", icon: "history" },
+                ] as const).map((a) => (
+                  <button
+                    key={a.tab}
+                    type="button"
+                    onClick={() => onOpenWallet(a.tab)}
+                    className="flex flex-col items-center gap-2 rounded-xl bg-white/[0.04] py-3 text-[11px] font-semibold text-slate-300 transition hover:bg-white/[0.07] hover:text-white"
+                  >
+                    <Icon name={a.icon} className="text-[19px] text-slate-400" />
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {recents.length > 0 && (
