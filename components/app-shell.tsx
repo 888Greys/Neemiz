@@ -198,7 +198,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
     <NavBadgeContext.Provider value={navBadgeContext}>
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
-      <header className={`${immersive ? "hidden sm:flex" : "flex"} fixed z-50 items-center overflow-visible left-3 right-3 top-[max(0.5rem,env(safe-area-inset-top))] h-12 rounded-2xl border border-white/[0.05] bg-[#18191d]/50 px-3 shadow-[0_4px_16px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:left-0 lg:right-0 lg:top-0 lg:h-20 lg:max-w-[100vw] lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-b lg:border-white/[0.06] lg:bg-[#151518] lg:px-0 lg:shadow-none lg:backdrop-blur-none`}>
+      <header className={`${immersive ? "hidden sm:flex" : "flex"} fixed z-50 items-center overflow-visible left-3 right-3 top-[max(0.5rem,env(safe-area-inset-top))] h-10 rounded-full border border-white/[0.05] bg-[#18191d]/50 px-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:left-0 lg:right-0 lg:top-0 lg:h-20 lg:max-w-[100vw] lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-b lg:border-white/[0.06] lg:bg-[#151518] lg:px-0 lg:shadow-none lg:backdrop-blur-none`}>
         {!hideSidebar && (
         <div
           className={`hidden h-full shrink-0 items-center border-r border-white/10 px-3 transition-[width] duration-300 ease-out lg:flex ${
@@ -307,7 +307,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </div>
       </header>
 
-      <div className={`flex h-screen overflow-hidden ${immersive ? "pt-0 sm:pt-16 lg:pt-20" : "pt-16 lg:pt-20"}`}>
+      <div className={`flex h-screen overflow-hidden ${immersive ? "pt-0 sm:pt-14 lg:pt-20" : "pt-14 lg:pt-20"}`}>
         {!hideSidebar && (
         <aside
           className={`hidden shrink-0 overflow-hidden border-r border-white/[0.06] bg-[#151518] transition-[width] duration-300 ease-out lg:block ${
