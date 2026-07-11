@@ -184,8 +184,8 @@ function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; cur
     if (!active) return;
     fetchMessages();
 
-    // Poll as a fallback when realtime is unavailable.
-    const poll = setInterval(fetchMessages, 8000);
+    // Poll as a fallback when realtime is unavailable (Realtime is primary).
+    const poll = setInterval(fetchMessages, 30_000);
 
     // Only the visible responsive chat subscribes. Polling remains the fallback
     // when realtime is unavailable or blocked by the user's network.
@@ -228,10 +228,9 @@ function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; cur
 
   const prevMsgCount = useRef(0);
   useEffect(() => {
-    // Only scroll when a NEW message actually arrives. The 4s poll re-sets
-    // `messages` to a fresh array every time, which previously fired
-    // scrollIntoView on every tick and yanked the whole page. block:"nearest"
-    // also keeps it from moving the window when the chat is already in view.
+    // Only scroll when a NEW message actually arrives. Fallback poll re-sets
+    // `messages` to a fresh array; avoid scrollIntoView on every tick.
+    // block:"nearest" keeps it from moving the window when chat is in view.
     if (messages.length > prevMsgCount.current) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
@@ -1436,10 +1435,11 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
     } catch {
       // Polling below remains the fallback when realtime is unavailable.
     }
+    // Realtime on p2p_orders is primary; slow poll covers blocked WS.
     const refreshVisible = () => {
       if (document.visibilityState === "visible") fetchOrder();
     };
-    const id = setInterval(refreshVisible, 4_000);
+    const id = setInterval(refreshVisible, 30_000);
     document.addEventListener("visibilitychange", refreshVisible);
     return () => {
       clearInterval(id);

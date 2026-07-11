@@ -85,8 +85,14 @@ Supabase Realtime for new notification rows. A slower polling fallback remains
 for browsers or networks where the realtime connection is unavailable.
 
 P2P chat uses the same realtime connection for new messages, receipt updates,
-and ephemeral typing indicators. An eight-second polling fallback keeps chat
-usable when realtime is blocked.
+and ephemeral typing indicators. Order status changes subscribe to
+`p2p_orders` Realtime on the order page. A 30-second polling fallback keeps
+chat and order state usable when realtime is blocked.
+
+Sports live scores soft-refresh via `GET /api/sports/fixtures` (and
+`/api/sports/fixtures/[id]` on detail) with `s-maxage=10, stale-while-revalidate`.
+Match cards patch scores in place; a full RSC `router.refresh()` runs only when
+the live fixture set changes (appear/disappear) or a detail match leaves live.
 
 ### Fewer requests
 
