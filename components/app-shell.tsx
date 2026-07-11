@@ -245,17 +245,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
         <div className="flex min-w-0 flex-1 items-center justify-between gap-2 lg:gap-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3 lg:gap-6">
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              aria-label="Open menu"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-300 transition hover:bg-white/[0.06] hover:text-white lg:hidden"
-            >
-              <Icon name="menu" className="text-[22px]" />
-            </button>
-            <span className="hidden lg:block">
-              <BrandLogo href="/dashboard" size="sm" />
-            </span>
+            <BrandLogo href="/dashboard" size="sm" />
             <nav className="hidden items-center gap-0.5 rounded-2xl bg-[#18191d] p-1 ring-1 ring-white/[0.06] text-sm font-black md:flex">
               <TopNavLink href="/dashboard" icon="home" label="Home" pathname={pathname} />
               <TopNavLink href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} />
@@ -358,7 +348,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       {!immersive && (
       <nav className="fixed bottom-[max(0.6rem,env(safe-area-inset-bottom))] left-3 right-3 z-50 flex h-14 items-center justify-around gap-1 rounded-2xl border border-white/[0.08] bg-[#1c1c1e]/92 px-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl lg:hidden">
-        {mobileNav.filter((item) => item.label !== "Menu").map((item) => {
+        {mobileNav.map((item) => {
           const activePath = item.activePath ?? (item.href ?? "").split("?")[0].split("#")[0];
           // Panel tabs (binary's Markets/Trade/Positions) share one route and are
           // distinguished by the `?panel=` value, so match on panel rather than
