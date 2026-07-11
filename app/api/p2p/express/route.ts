@@ -162,9 +162,13 @@ export async function POST(req: Request) {
       const msg = (err as Error).message;
       if (msg === "INSUFFICIENT_AD_LIQUIDITY") return null;
       if (msg === "INSUFFICIENT_FIAT_BALANCE") return "INSUFFICIENT_FIAT_BALANCE" as const;
+      if (msg === "PROMO_LOCKED") return "PROMO_LOCKED" as const;
       throw err;
     });
 
+    if (order === "PROMO_LOCKED") {
+      return Response.json({ error: "That merchant's balance is promo credit that is play-only until they deposit their own funds." }, { status: 409 });
+    }
     if (order === "INSUFFICIENT_FIAT_BALANCE") {
       return Response.json({ error: "That merchant does not have enough fiat wallet balance to back this KES Coin order." }, { status: 409 });
     }
