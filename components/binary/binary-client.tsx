@@ -1830,6 +1830,14 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                   faded top (no solid bar) so it reads as part of the graph. The
                   active type is outlined; "View all" opens the full picker. */}
               <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 overflow-x-auto bg-gradient-to-b from-[#151518] via-[#151518]/70 to-transparent px-2 pb-5 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
+                <button
+                  type="button"
+                  onClick={() => router.push("/dashboard")}
+                  aria-label="Back to home"
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-white/60 ring-1 ring-white/[0.06] transition active:scale-95 sm:hidden"
+                >
+                  <Icon name="arrow_back" className="text-[15px]" />
+                </button>
                 {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
                   <button
                     key={t.id}
