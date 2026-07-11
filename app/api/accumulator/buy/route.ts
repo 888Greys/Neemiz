@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  const rl = rateLimit(`accumulator-buy:${user.id}`, 30, 60_000);
+  const rl = await rateLimit(`accumulator-buy:${user.id}`, 30, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   if (await isBinaryOptionsInMaintenance())

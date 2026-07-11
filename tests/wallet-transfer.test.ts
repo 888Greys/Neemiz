@@ -19,7 +19,7 @@ vi.mock("@/lib/withdrawal-guard", () => ({
 }));
 
 vi.mock("@/lib/rate-limit", () => ({
-  rateLimit: vi.fn().mockReturnValue({ ok: true }),
+  rateLimit: vi.fn().mockResolvedValue({ ok: true, remaining: 9, retryAfterSec: 0 }),
   tooManyRequests: vi.fn(),
 }));
 

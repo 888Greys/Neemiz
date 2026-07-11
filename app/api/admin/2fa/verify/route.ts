@@ -7,7 +7,7 @@ import { rateLimit, clientIp, tooManyRequests } from "@/lib/rate-limit";
 export async function POST(req: Request) {
   // Throttle TOTP guesses hard: a 6-digit code is only ~10^6 wide and the
   // verify window accepts ±1 step, so unbounded attempts are brute-forceable.
-  const rl = rateLimit(`a2fa-verify:${clientIp(req)}`, 10, 5 * 60_000);
+  const rl = await rateLimit(`a2fa-verify:${clientIp(req)}`, 10, 5 * 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   const supabase = await createClient();

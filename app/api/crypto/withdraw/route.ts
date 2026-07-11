@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
   // Cap payout attempts per user (covers brute-forcing balance edges / spamming
   // the signer). Keyed by account, not IP, so it can't be sidestepped via proxies.
-  const rl = rateLimit(`crypto-withdraw:${dbUser.id}`, 5, 60_000);
+  const rl = await rateLimit(`crypto-withdraw:${dbUser.id}`, 5, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   // ── Server-side step-up gate ──
