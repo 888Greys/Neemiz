@@ -6,7 +6,7 @@
  */
 
 import { TransactionStatus, TransactionType, type Prisma } from "@prisma/client";
-import { getPromoLockedKes } from "@/lib/promo-lock";
+import { getPromoLockedKes, assertRealDepositForWithdrawal } from "@/lib/promo-lock";
 
 // The tx parameter accepts either the full PrismaClient or a transaction client.
 type TxClient = Omit<
@@ -138,12 +138,17 @@ export async function debitKesCoinBalance(tx: TxClient, userId: string, amount: 
  * a P2P sell is a promo-farming exit that bypasses the M-Pesa/crypto withdrawal
  * gate (a never-funded promo account was cashing out via p2p_kes_escrow). Mirrors
  * the guard in /api/wallet/withdraw and /api/wallet/transfer. See lib/promo-lock.
- * Throws PROMO_LOCKED when the lock would dip into non-transferable promo funds.
+ * Throws PROMO_LOCKED when the lock would dip into non-transferable promo funds,
+ * or NO_DEPOSIT_GATE when the seller has never made a real deposit at all (an
+ * unfunded account's balance is internal credit that must not exit via a P2P
+ * sell — mirrors the withdraw route's generalized deposit-to-withdraw gate).
  */
 export async function lockKesCoinBalance(tx: TxClient, userId: string, amount: number) {
-  const u = await tx.user.findUnique({ where: { id: userId }, select: { walletBalance: true } });
+  const u = await tx.user.findUnique({ where: { id: userId }, select: { walletBalance: true, isAdmin: true } });
   const bal = Number(u?.walletBalance ?? 0);
-  const promoLocked = await getPromoLockedKes(tx as unknown as Prisma.TransactionClient, userId, bal);
+  const client = tx as unknown as Prisma.TransactionClient;
+  await assertRealDepositForWithdrawal(client, userId, Boolean(u?.isAdmin));
+  const promoLocked = await getPromoLockedKes(client, userId, bal);
   if (promoLocked > 0 && amount > bal - promoLocked + 1e-9) {
     throw new Error("PROMO_LOCKED");
   }

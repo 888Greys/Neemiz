@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { normalizePromoCode } from "@/lib/promo-redeem";
-import { getPromoLockedKes, REAL_DEPOSIT_PROVIDERS } from "@/lib/promo-lock";
+import { getPromoLockedKes, REAL_DEPOSIT_PROVIDERS, assertRealDepositForWithdrawal } from "@/lib/promo-lock";
 import { readFileSync, existsSync } from "node:fs";
 
 /**
@@ -96,6 +96,32 @@ describe("promo codes", () => {
       expect(where.provider.in).not.toContain("wallet_transfer");
       expect(where.provider.in).not.toContain("p2p_kes_escrow");
       expect(where.provider.in).not.toContain("manual");
+    });
+  });
+
+  describe("generalized deposit-to-withdraw gate (all mule vectors)", () => {
+    it("blocks a never-funded non-admin from withdrawing", async () => {
+      const { client } = mockClient(0, null); // no promo, no deposit
+      await expect(assertRealDepositForWithdrawal(client, "u1", false)).rejects.toThrow("NO_DEPOSIT_GATE");
+    });
+
+    it("allows a funded account through", async () => {
+      const { client } = mockClient(0, { id: "dep1" });
+      await expect(assertRealDepositForWithdrawal(client, "u1", false)).resolves.toBeUndefined();
+    });
+
+    it("exempts admins even when unfunded", async () => {
+      const { client } = mockClient(0, null);
+      await expect(assertRealDepositForWithdrawal(client, "admin1", true)).resolves.toBeUndefined();
+    });
+
+    it("catches the transfer-mule: no promo redeemed but never deposited", async () => {
+      const { client } = mockClient(0, null);
+      // A mule funded purely by wallet transfers redeemed no promo, so the promo
+      // lock is a no-op — but this gate still blocks it.
+      const promoLock = await getPromoLockedKes(client, "mule", 500);
+      expect(promoLock).toBe(0); // promo lock misses it
+      await expect(assertRealDepositForWithdrawal(client, "mule", false)).rejects.toThrow("NO_DEPOSIT_GATE");
     });
   });
 

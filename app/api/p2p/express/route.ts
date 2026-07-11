@@ -163,11 +163,15 @@ export async function POST(req: Request) {
       if (msg === "INSUFFICIENT_AD_LIQUIDITY") return null;
       if (msg === "INSUFFICIENT_FIAT_BALANCE") return "INSUFFICIENT_FIAT_BALANCE" as const;
       if (msg === "PROMO_LOCKED") return "PROMO_LOCKED" as const;
+      if (msg === "NO_DEPOSIT_GATE") return "NO_DEPOSIT_GATE" as const;
       throw err;
     });
 
     if (order === "PROMO_LOCKED") {
       return Response.json({ error: "That merchant's balance is promo credit that is play-only until they deposit their own funds." }, { status: 409 });
+    }
+    if (order === "NO_DEPOSIT_GATE") {
+      return Response.json({ error: "That merchant hasn't funded their account with a real deposit yet, so this offer can't settle right now." }, { status: 409 });
     }
     if (order === "INSUFFICIENT_FIAT_BALANCE") {
       return Response.json({ error: "That merchant does not have enough fiat wallet balance to back this KES Coin order." }, { status: 409 });

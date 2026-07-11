@@ -43,6 +43,37 @@ export async function hasQualifyingDeposit(client: LockClient, userId: string): 
 }
 
 /**
+ * Generalized deposit-to-withdraw invariant: an account that has NEVER made a
+ * real external deposit cannot withdraw real cash. Its entire withdrawable
+ * balance can only have come from internal credit — promo, wallet transfers,
+ * admin seeding, or winnings staked from those — none of which is money the user
+ * actually brought to the platform. This closes ALL three mule vectors at once
+ * (promo mules, transfer mules, admin-fanout mules), where the promo-lock alone
+ * only covered accounts that had redeemed a promo. Funded accounts and admins
+ * are unaffected. Throws NO_DEPOSIT_GATE for an unfunded non-admin cash-out.
+ */
+export async function assertRealDepositForWithdrawal(
+  client: LockClient,
+  userId: string,
+  isAdmin: boolean,
+): Promise<void> {
+  if (isAdmin) return;
+  const funded = await hasQualifyingDeposit(client, userId);
+  if (!funded) throw new Error("NO_DEPOSIT_GATE");
+}
+
+export function noDepositGateHttpError() {
+  return {
+    status: 400 as const,
+    body: {
+      error:
+        "Make a deposit with your own funds before withdrawing. Winnings and credit you receive from others are play-only until your account is funded.",
+      code: "NO_DEPOSIT_GATE",
+    },
+  };
+}
+
+/**
  * Promo credits land in the main wallet but must not be cashable as real money.
  *
  * Deposit-to-withdraw gate: promo credit AND everything it generates (winnings
