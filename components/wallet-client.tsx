@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type MutableRefObject, type ReactNode } from "react";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { createClient } from "@/lib/supabase/client";
 import { stepUpWithPasskey } from "@/lib/passkey-client";
@@ -151,6 +151,8 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   const [depositMethod, setDepositMethod] = useState<"mpesa" | "crypto" | "pesapal">(displayCurrency === "KES" ? "mpesa" : "crypto");
   // Deposit is a two-step flow: pick a method, press Continue, then fill details.
   const [depositStep, setDepositStep]     = useState<"method" | "detail">("method");
+  /** Crypto deposit sub-steps handle header Back before leaving the detail pane. */
+  const cryptoBackRef = useRef<(() => boolean) | null>(null);
   const [amount, setAmount]               = useState("");
   const [phone, setPhone]                 = useState("");
   const [loading, setLoading]             = useState(false);
@@ -698,7 +700,10 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
         <WalletPageFrame
           title={activeTitle}
           onBack={() => {
-            // Within Deposit, Back steps from the details view to the method list first.
+            // Crypto: address → network → asset, then method list, then home.
+            if (tab === "deposit" && depositStep === "detail" && depositMethod === "crypto") {
+              if (cryptoBackRef.current?.()) return;
+            }
             if (tab === "deposit" && depositStep === "detail") setDepositStep("method");
             else setTab("home");
           }}
@@ -792,7 +797,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
             ) : (
               <div className="space-y-5">
                 {/* ── Step 2: method-specific details ── */}
-                {depositMethod === "crypto" && <CryptoDepositPanel />}
+                {depositMethod === "crypto" && <CryptoDepositPanel backRef={cryptoBackRef} />}
 
                 {depositMethod === "pesapal" && (
                   <div className="space-y-5">
@@ -1506,7 +1511,7 @@ function WalletHome({
 
 function WalletPageFrame({ children, onBack, title }: { children: ReactNode; onBack: () => void; title: string }) {
   return (
-    <main className="mx-auto max-w-md px-5 pb-24 pt-5 sm:max-w-2xl sm:pb-10 animate-in fade-in duration-200">
+    <main className="mx-auto max-w-md px-5 pb-6 pt-5 sm:max-w-2xl sm:pb-10 animate-in fade-in duration-200">
       <div className="mb-6 grid grid-cols-[2.5rem_1fr_2.5rem] items-center">
         <button
           type="button"
@@ -1628,8 +1633,8 @@ function DepositMethodStep({
   }
 
   return (
-    <section className="relative flex flex-col">
-      <div className="pb-20">
+    <section className="relative -mx-5 flex min-h-[min(36rem,calc(90dvh-6.5rem))] flex-col">
+      <div className="flex-1 px-5 pb-4">
         <h2 className="mb-0.5 text-[14px] font-black text-white">Payment method</h2>
         <p className="mb-2.5 text-[11px] font-medium text-slate-500">
           {geoReady ? "Based on your location — tap to change" : "Detecting your location…"}
@@ -1688,7 +1693,7 @@ function DepositMethodStep({
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-30 -mx-5 border-t border-white/[0.08] bg-[#151518]/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-[#151518]/80">
+      <div className="sticky bottom-0 z-30 mt-auto shrink-0 border-t border-white/[0.08] bg-[#151518] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
         <Button
           onClick={() => selected?.selection && onContinue(selected.selection)}
           disabled={!selected}
@@ -2300,7 +2305,11 @@ function cryptoDepositCoinRows(): Array<{
   return rows.sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.code.localeCompare(b.code));
 }
 
-function CryptoDepositPanel() {
+function CryptoDepositPanel({
+  backRef,
+}: {
+  backRef?: MutableRefObject<(() => boolean) | null>;
+}) {
   const coins = useMemo(() => cryptoDepositCoinRows(), []);
   const [step, setStep] = useState<CryptoDepositStep>("asset");
   const [code, setCode] = useState<string | null>(null);
@@ -2317,6 +2326,25 @@ function CryptoDepositPanel() {
     return CRYPTO_DEPOSIT_ASSETS.find((a) => a.code === code && a.network === network);
   }, [code, network]);
 
+  // One Back affordance: the wallet header. Return true when we consumed it.
+  useEffect(() => {
+    if (!backRef) return;
+    backRef.current = () => {
+      if (step === "address") {
+        setStep("network");
+        return true;
+      }
+      if (step === "network") {
+        setStep("asset");
+        setNetwork(null);
+        return true;
+      }
+      return false;
+    };
+    return () => {
+      backRef.current = null;
+    };
+  }, [backRef, step]);
   const load = useCallback(async (c: string, net: string) => {
     const cached = depositAddrCache.get(addrKey(c, net));
     if (cached) { setAddr({ phase: "ready", address: cached }); return; }
@@ -2345,9 +2373,32 @@ function CryptoDepositPanel() {
   const selectedCoinLive = code != null && coins.some((c) => c.code === code && c.enabled);
   const selectedNetLive = asset?.enabled === true;
 
+  const continueFooter =
+    step === "asset" || step === "network" ? (
+      <div className="sticky bottom-0 z-30 mt-auto shrink-0 border-t border-white/[0.08] bg-[#151518] px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+        <Button
+          onClick={() => {
+            if (step === "asset") {
+              if (!code || !selectedCoinLive) return;
+              const firstLive = CRYPTO_DEPOSIT_ASSETS.find((a) => a.code === code && a.enabled);
+              setNetwork(firstLive?.network ?? null);
+              setStep("network");
+              return;
+            }
+            if (!selectedNetLive) return;
+            setStep("address");
+          }}
+          disabled={step === "asset" ? !selectedCoinLive : !selectedNetLive}
+          className="h-11 w-full rounded-xl text-sm"
+        >
+          Continue
+        </Button>
+      </div>
+    ) : null;
+
   return (
-    <div className="relative flex flex-col">
-      <div className={step === "address" ? "pb-2" : "pb-20"}>
+    <div className="relative -mx-5 flex min-h-[min(36rem,calc(90dvh-6.5rem))] flex-col">
+      <div className="flex-1 px-5 pb-4">
         {step === "asset" && (
           <div>
             <h2 className="mb-0.5 text-[14px] font-black text-white">Select crypto</h2>
@@ -2393,14 +2444,6 @@ function CryptoDepositPanel() {
 
         {step === "network" && code && (
           <div>
-            <button
-              type="button"
-              onClick={() => { setStep("asset"); setNetwork(null); }}
-              className="mb-3 flex items-center gap-1 text-[11px] font-bold text-slate-500 transition hover:text-slate-300"
-            >
-              <Icon name="arrow_back" className="text-[14px]" />
-              Change asset
-            </button>
             <div className="mb-3 flex items-center gap-2">
               <PaymentBrandLogo code={code} size={28} />
               <div>
@@ -2453,37 +2496,28 @@ function CryptoDepositPanel() {
         )}
 
         {step === "address" && asset && (
-          <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() => setStep("network")}
-              className="flex items-center gap-1 text-[11px] font-bold text-slate-500 transition hover:text-slate-300"
-            >
-              <Icon name="arrow_back" className="text-[14px]" />
-              Change network
-            </button>
-
-            <div className="flex items-center justify-center gap-2">
-              <PaymentBrandLogo code={asset.code} size={32} />
-              <span className="text-lg font-black text-white">{asset.name}</span>
-              <span className="text-sm font-black text-slate-500">{asset.code}</span>
+          <div className="space-y-5">
+            <div className="text-center">
+              <div className="mb-1.5 flex items-center justify-center gap-2">
+                <PaymentBrandLogo code={asset.code} size={28} />
+                <span className="text-[17px] font-black tracking-tight text-white">{asset.name}</span>
+                <span className="text-[13px] font-bold text-slate-500">{asset.code}</span>
+              </div>
+              <p className="text-[11px] font-medium text-slate-500">{asset.displayNet}</p>
+              <p className="mt-2 text-[11px] font-medium text-slate-500">
+                Minimum deposit:{" "}
+                <span className="font-bold text-white">{asset.min} {asset.code}</span>
+                <span className="text-slate-600"> · amounts below will not be credited</span>
+              </p>
             </div>
-            <p className="text-center text-[11px] font-medium text-slate-500">
-              {asset.displayNet}
-            </p>
-
-            <p className="text-xs font-bold text-slate-500">
-              Minimum deposit: <span className="text-white">{asset.min} {asset.code}</span>
-              <span className="ml-1 text-slate-600">· amounts below will not be credited</span>
-            </p>
 
             {addr.phase === "checking" ? (
-              <div className="flex items-center justify-center gap-3 rounded-2xl bg-white/[0.06] py-6 ring-1 ring-white/[0.08]">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-[#f59e0b]" />
-                <span className="text-xs font-bold text-slate-500">Checking for your address…</span>
+              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-white/[0.03] py-14 ring-1 ring-white/[0.06]">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-600 border-t-[#087cff]" />
+                <span className="text-xs font-medium text-slate-500">Preparing your address…</span>
               </div>
             ) : addr.phase === "form" || addr.phase === "generating" ? (
-              <div className="space-y-3 rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/[0.08]">
+              <div className="space-y-3 rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/[0.06]">
                 {addr.phase === "form" && addr.error && (
                   <p className="text-xs font-bold text-red-400">{addr.error}</p>
                 )}
@@ -2499,43 +2533,53 @@ function CryptoDepositPanel() {
                 </button>
               </div>
             ) : (
-              <div className="flex flex-col gap-3 rounded-xl bg-white/[0.04] p-4 ring-1 ring-white/[0.06] sm:flex-row sm:items-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(addr.address)}&bgcolor=ffffff&color=000000&margin=8&qzone=1`}
-                  alt="Deposit QR code"
-                  width={88}
-                  height={88}
-                  className="h-[88px] w-[88px] shrink-0 self-center rounded-lg"
-                />
-                <div className="min-w-0 flex-1 text-center sm:text-left">
-                  <p className="text-sm font-black text-white">Deposit address</p>
-                  <p className="mt-1.5 break-all font-mono text-[11px] leading-relaxed text-slate-400">
-                    <span className="font-black text-white">{addr.address.slice(0, 6)}</span>
-                    {addr.address.slice(6, -5)}
-                    <span className="font-black text-white">{addr.address.slice(-5)}</span>
-                  </p>
-                  <p className="mt-1 flex items-center justify-center gap-1 text-[10px] font-medium text-emerald-400/70 sm:justify-start">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              <div className="overflow-hidden rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07]">
+                <div className="flex flex-col items-center px-5 pb-2 pt-6">
+                  <div className="rounded-2xl bg-white p-3 shadow-[0_0_0_1px_rgba(255,255,255,0.06)]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(addr.address)}&bgcolor=ffffff&color=0a0a0c&margin=0&qzone=2`}
+                      alt="Deposit QR code"
+                      width={168}
+                      height={168}
+                      className="h-[168px] w-[168px]"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-3 px-5 pb-5 pt-4">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                      Deposit address
+                    </p>
+                    <p className="mt-2 break-all font-mono text-[12px] leading-[1.55] tracking-wide text-slate-400">
+                      <span className="font-semibold text-white">{addr.address.slice(0, 8)}</span>
+                      {addr.address.slice(8, -6)}
+                      <span className="font-semibold text-white">{addr.address.slice(-6)}</span>
+                    </p>
+                  </div>
+                  <p className="flex items-center gap-1.5 text-[10px] font-medium text-emerald-400/80">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
                     Detected automatically · credited within 1–5 min
                   </p>
                   <button
                     type="button"
                     onClick={copy}
-                    className="mt-2.5 inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#087cff] px-4 text-xs font-bold text-white transition hover:bg-[#1a8cff]"
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-[13px] font-bold text-white transition hover:bg-[#1a8cff] active:scale-[0.99]"
                   >
                     <Icon name={copied ? "check" : "content_copy"} className="text-[16px]" />
-                    {copied ? "Copied!" : "Copy address"}
+                    {copied ? "Copied" : "Copy address"}
                   </button>
                 </div>
               </div>
             )}
 
             {addr.phase === "ready" && (
-              <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/8 px-4 py-3">
-                <Icon name="info" fill className="mt-0.5 shrink-0 text-[16px] text-amber-400" />
-                <p className="text-xs font-medium text-amber-300/80">
-                  Send only <strong>{asset.code}</strong> on the <strong>{asset.displayNet}</strong> network to this address. Sending other assets may result in permanent loss.
+              <div className="flex items-start gap-2.5 rounded-xl bg-amber-400/[0.07] px-3.5 py-3">
+                <Icon name="info" fill className="mt-0.5 shrink-0 text-[15px] text-amber-400" />
+                <p className="text-[11px] font-medium leading-snug text-amber-200/75">
+                  Send only <strong className="text-amber-100">{asset.code}</strong> on{" "}
+                  <strong className="text-amber-100">{asset.displayNet}</strong> to this address.
+                  Other assets may be lost permanently.
                 </p>
               </div>
             )}
@@ -2543,37 +2587,7 @@ function CryptoDepositPanel() {
         )}
       </div>
 
-      {step === "asset" && (
-        <div className="sticky bottom-0 z-30 -mx-5 border-t border-white/[0.08] bg-[#151518]/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-[#151518]/80">
-          <Button
-            onClick={() => {
-              if (!code || !selectedCoinLive) return;
-              const firstLive = CRYPTO_DEPOSIT_ASSETS.find((a) => a.code === code && a.enabled);
-              setNetwork(firstLive?.network ?? null);
-              setStep("network");
-            }}
-            disabled={!selectedCoinLive}
-            className="h-11 w-full rounded-xl text-sm"
-          >
-            Continue
-          </Button>
-        </div>
-      )}
-
-      {step === "network" && (
-        <div className="sticky bottom-0 z-30 -mx-5 border-t border-white/[0.08] bg-[#151518]/95 px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md supports-[backdrop-filter]:bg-[#151518]/80">
-          <Button
-            onClick={() => {
-              if (!selectedNetLive) return;
-              setStep("address");
-            }}
-            disabled={!selectedNetLive}
-            className="h-11 w-full rounded-xl text-sm"
-          >
-            Continue
-          </Button>
-        </div>
-      )}
+      {continueFooter}
     </div>
   );
 }
