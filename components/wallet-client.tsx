@@ -1086,9 +1086,6 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                     </Button>
                   </div>
                 )}
-
-                {/* Recent crypto withdrawals */}
-                <CryptoWithdrawalHistory isSignedIn={!!isSignedIn} />
               </>
             )}
 
@@ -1972,76 +1969,6 @@ function WalletTransferPanel({
   );
 }
 
-function CryptoWithdrawalHistory({ isSignedIn }: { isSignedIn: boolean }) {
-  const [items, setItems] = useState<
-    Array<{ id: string; amount: number; crypto: string; status: string; address?: string; network?: string; createdAt: string }>
-  >([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!isSignedIn) return;
-    setLoading(true);
-    fetch("/api/crypto/withdraw")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data: unknown) => setItems(Array.isArray(data) ? data as typeof items : []))
-      .finally(() => setLoading(false));
-  }, [isSignedIn]);
-
-  if (!isSignedIn || (!loading && !items.length)) return null;
-
-  return (
-    <div className="mt-8 border-t border-white/[0.06] pt-6">
-      <p className="mb-1 text-[13px] font-black text-white">Recent</p>
-      {loading ? (
-        <div className="divide-y divide-white/[0.05]">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex items-center gap-3 py-4">
-              <div className="flex-1 space-y-2">
-                <div className="h-3.5 w-28 rounded skeleton" />
-                <div className="h-2.5 w-20 rounded skeleton" />
-              </div>
-              <div className="h-4 w-16 rounded skeleton" />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="divide-y divide-white/[0.05]">
-          {items.map((w) => (
-            <div key={w.id} className="flex items-center gap-3 py-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-bold text-white">
-                  {w.crypto} · {w.network ?? ""}
-                </p>
-                <p className="mt-0.5 truncate text-[12px] font-medium text-slate-500">
-                  {new Date(w.createdAt).toLocaleDateString("en-KE", {
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                  <span className="mx-1.5 text-slate-700">·</span>
-                  <span className={
-                    w.status === "COMPLETED"
-                      ? "text-emerald-500/80"
-                      : w.status === "FAILED"
-                        ? "text-red-400/80"
-                        : "text-amber-400/80"
-                  }>
-                    {w.status}
-                  </span>
-                </p>
-              </div>
-              <p className="shrink-0 text-[14px] font-black tabular-nums text-red-400">
-                -{w.amount} {w.crypto}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 const KES_CURRENCIES = new Set(["KES"]);
 
 function fmtTxAmount(amount: number, currency: string): string {
@@ -2100,10 +2027,19 @@ function txStatusLabel(t: WalletTransaction): string {
   }
 }
 
+// Currencies settled on-chain. Everything else (KES and other local rails) is fiat.
+const CRYPTO_CURRENCY_CODES = new Set([
+  "USDT", "USDC", "BTC", "ETH", "BNB", "TRX", "POL", "MATIC", "SOL", "LTC", "XRP", "DOGE", "BCH", "TON",
+]);
+function isCryptoTx(t: WalletTransaction): boolean {
+  return CRYPTO_CURRENCY_CODES.has((t.currency ?? "").toUpperCase());
+}
+
 function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
   const [txns, setTxns] = useState<WalletTransaction[]>([]);
   const [selected, setSelected] = useState<WalletTransaction | null>(null);
   const [loading, setLoading] = useState(true);
+  const [kind, setKind] = useState<"fiat" | "crypto">("fiat");
 
   // Seed from the client cache after mount (not during render) so the first
   // client render matches the server and we don't trip a hydration mismatch.
@@ -2197,9 +2133,38 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
     );
   }
 
+  const filtered = txns.filter((t) => (kind === "crypto" ? isCryptoTx(t) : !isCryptoTx(t)));
+
   return (
-    <div className="animate-in fade-in divide-y divide-white/[0.05] duration-200">
-      {txns.map((t) => {
+    <div className="animate-in fade-in duration-200">
+      <div className="mb-2 flex gap-1 rounded-xl bg-white/[0.04] p-1">
+        {([
+          { key: "fiat", label: "Fiat" },
+          { key: "crypto", label: "Crypto" },
+        ] as const).map((opt) => (
+          <button
+            key={opt.key}
+            type="button"
+            onClick={() => setKind(opt.key)}
+            className={`flex-1 rounded-lg py-2 text-[13px] font-bold transition ${
+              kind === opt.key ? "bg-[#087cff] text-white" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center gap-1.5 py-16 text-center">
+          <p className="text-[14px] font-bold text-white">No {kind} transactions</p>
+          <p className="text-[12px] font-medium text-slate-500">
+            {kind === "crypto" ? "Crypto deposits, sends and withdrawals show here" : "M-Pesa and local activity shows here"}
+          </p>
+        </div>
+      ) : (
+      <div className="divide-y divide-white/[0.05]">
+      {filtered.map((t) => {
         const meta = TXN_META[t.type] ?? { label: t.type, icon: "swap_horiz", color: "text-white", sign: "+" as const };
         return (
           <button
@@ -2235,6 +2200,8 @@ function TransactionHistory({ isSignedIn }: { isSignedIn: boolean }) {
           </button>
         );
       })}
+      </div>
+      )}
     </div>
   );
 }

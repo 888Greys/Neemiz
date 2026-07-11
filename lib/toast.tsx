@@ -43,14 +43,16 @@ export const toast = {
 function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
   const [visible, setVisible] = useState(false);
 
+  const duration = item.type === "error" ? 6000 : 3800;
+
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
     const t = setTimeout(() => {
       setVisible(false);
       setTimeout(onRemove, 300);
-    }, 3800);
+    }, duration);
     return () => clearTimeout(t);
-  }, [onRemove]);
+  }, [onRemove, duration]);
 
   const IconComponent =
     item.type === "success" ? CheckCircle
@@ -81,7 +83,7 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
       className={`relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-[#111319]/95 py-2 pl-3 pr-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] ring-1 backdrop-blur-xl ${ringColor} transition-[transform,opacity] duration-300 ease-out ${
         visible ? "translate-x-0 scale-100 opacity-100" : "translate-x-8 scale-[0.97] opacity-0"
       }`}
-      style={{ minWidth: 200, maxWidth: 300 }}
+      style={{ minWidth: 200, maxWidth: 360 }}
     >
       <div className={`absolute inset-y-0 left-0 w-0.5 ${accentColor}`} />
       {/* Icon */}
@@ -91,9 +93,9 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
 
       {/* Text */}
       <div className="min-w-0 flex-1 py-0.5">
-        <p className="truncate text-[12.5px] font-bold leading-tight text-white">{item.title}</p>
+        <p className="text-[12.5px] font-bold leading-snug text-white break-words [overflow-wrap:anywhere] line-clamp-4">{item.title}</p>
         {item.description && (
-          <p className="mt-0.5 truncate text-[11px] font-medium leading-tight text-slate-400">{item.description}</p>
+          <p className="mt-0.5 text-[11px] font-medium leading-snug text-slate-400 break-words [overflow-wrap:anywhere] line-clamp-3">{item.description}</p>
         )}
       </div>
 
@@ -107,7 +109,7 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
       </button>
       <div
         className={`absolute bottom-0 left-0 h-0.5 ${accentColor} transition-[width] ease-linear`}
-        style={{ width: visible ? "0%" : "100%", transitionDuration: visible ? "3800ms" : "0ms" }}
+        style={{ width: visible ? "0%" : "100%", transitionDuration: visible ? `${duration}ms` : "0ms" }}
       />
     </div>
   );
