@@ -13,6 +13,7 @@ import { getLiveEntrySpot } from "@/lib/binary-price";
 import { buildProof, isProvablyFairConfigured, sha256 } from "@/lib/binary/provably-fair";
 import { priceDirectionalServer, type FixedKind } from "@/lib/binary/server-price";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
+import { registerDue } from "@/lib/settle-due-list";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_KINDS = ["RISE_FALL", "HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"];
@@ -160,6 +161,17 @@ export async function POST(req: Request) {
         },
       });
       return created;
+    });
+
+    registerDue({
+      kind: "directional",
+      tradeId: trade.id,
+      userId: trade.userId,
+      market: trade.market,
+      entryEpoch: trade.entryEpoch,
+      durationTicks: trade.durationTicks,
+      dueEpoch: trade.entryEpoch + 1,
+      settleBeforeMs: trade.settleBefore.getTime(),
     });
 
     return Response.json({

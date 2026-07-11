@@ -11,6 +11,7 @@ import { priceDigitServer, resolveDigitEdgeFloor } from "@/lib/binary/server-pri
 import { exitDigitFromQuote, type DigitSide } from "@/lib/binary/kernel";
 import { buildDigitProof, isProvablyFairConfigured, sha256 } from "@/lib/binary/provably-fair";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
+import { registerDue } from "@/lib/settle-due-list";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_SIDES   = ["Even", "Odd", "Matches", "Differs", "Over", "Under"];
@@ -154,6 +155,16 @@ export async function POST(req: Request) {
       });
 
       return trade;
+    });
+
+    registerDue({
+      kind: "binary",
+      tradeId: result.id,
+      userId: result.userId,
+      market: result.market,
+      entryEpoch: result.entryEpoch!,
+      durationTicks: result.durationTicks,
+      settleBeforeMs: result.settleBefore.getTime(),
     });
 
     return Response.json({
