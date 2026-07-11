@@ -33,6 +33,7 @@ import {
   type ClosedPosition,
 } from "@/lib/binary/history";
 import { previewDigitPayout } from "@/lib/binary/server-price";
+import { isUnderQuarantined } from "@/lib/binary/quarantine";
 import {
   SIGMA_WINDOW, computeSigma, barrierFracFor, maxTicksFor, payoutAtTick,
 } from "@/lib/accumulator";
@@ -910,7 +911,11 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
 
   const change = latest.quote - (ticks[0]?.quote ?? latest.quote);
   const changePct = (change / Math.max(1, ticks[0]?.quote ?? latest.quote)) * 100;
-  const selectedSides = familySides(family);
+  // Hide Under on markets where it's quarantined server-side (see
+  // lib/binary/quarantine) so the UI never offers a bet the server will reject.
+  const selectedSides = familySides(family).filter(
+    (s) => !(s === "Under" && isUnderQuarantined(marketSymbol)),
+  );
 
   // Live net payout (what an accumulator cash-out would credit now).
   const accaNetPayout = accaPos
