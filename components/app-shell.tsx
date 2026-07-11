@@ -747,6 +747,14 @@ function MobileMenuDrawer({
   const tab = searchParams.get("tab") ?? "";
   const isActive = (href: string) => sidebarItemActive(pathname, href, tab);
   const [q, setQ] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
+  const [lang, setLang] = useState("English");
+
+  useEffect(() => {
+    const stored = localStorage.getItem("preferred-language");
+    if (stored) setLang(stored);
+  }, []);
 
   const exploreItems: Array<{ href: string; icon: string; label: string; badge?: string }> = [
     { href: "/sports", icon: "sports_soccer", label: "Sports" },
@@ -762,29 +770,45 @@ function MobileMenuDrawer({
     { href: "/lucky-spin", icon: "casino", label: "Lucky Spin" },
   ];
 
+  const quickChips = [
+    { label: "P2P Trading", href: "/p2p" },
+    { label: "Aviator", href: "/aviator" },
+    { label: "Binary", href: "/binary" },
+    { label: "Forex", href: "/forex" },
+    { label: "Sports", href: "/sports" },
+    { label: "Lucky Spin", href: "/lucky-spin" },
+  ];
+
+  const shortcuts = [
+    { label: "P2P Market", icon: "swap_horiz", href: "/p2p" },
+    { label: "My Ads", icon: "campaign", href: "/p2p/merchant?tab=ads" },
+    { label: "Orders", icon: "list_alt", href: "/p2p/orders" },
+    { label: "My Bets", icon: "receipt_long", href: "/my-bets" },
+  ];
+
   const term = q.trim().toLowerCase();
   const filteredExplore = term
     ? exploreItems.filter((i) => i.label.toLowerCase().includes(term))
     : exploreItems;
-  const searching = term.length > 0;
 
   return (
     <div className="fixed inset-0 z-[60] flex animate-fade-in flex-col bg-[#151518] lg:hidden">
-      <div className="flex items-center gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
+      <div className="flex items-center gap-2.5 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3">
         <button
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/[0.05] text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
-          onClick={onClose}
+          onClick={() => (searchOpen ? (setSearchOpen(false), setQ("")) : onClose())}
           type="button"
-          aria-label="Close menu"
+          aria-label={searchOpen ? "Back" : "Close menu"}
         >
-          <Icon name="close" className="text-[18px]" />
+          <Icon name={searchOpen ? "arrow_back" : "close"} className="text-[18px]" />
         </button>
         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full bg-white/[0.05] px-3.5">
           <Icon name="search" className="text-[18px] text-slate-500" />
           <input
             value={q}
+            onFocus={() => setSearchOpen(true)}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search the menu…"
+            placeholder="Search anything"
             className="h-10 min-w-0 flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-slate-500"
           />
           {q && (
@@ -793,117 +817,251 @@ function MobileMenuDrawer({
             </button>
           )}
         </div>
-      </div>
-
-      <div className="no-scrollbar flex-1 overflow-y-auto px-4 pb-6">
-        {!isSignedIn && !searching && (
-          <section className="mb-5 grid grid-cols-2 gap-2">
-            <button
-              onClick={onOpenLogin}
-              className="rounded-xl bg-white/[0.06] py-3 text-[13px] font-bold text-white"
-              type="button"
-            >
-              Log in
-            </button>
-            <button
-              onClick={onOpenRegister}
-              className="rounded-xl bg-[#087cff] py-3 text-[13px] font-bold text-white"
-              type="button"
-            >
-              Register
-            </button>
-          </section>
-        )}
-
-        {isSignedIn && !searching && (
+        {!searchOpen && (
           <button
             type="button"
-            onClick={onOpenWallet}
-            className="animate-wallet-glow mb-4 flex w-full items-center gap-3 rounded-xl border border-[#087cff]/40 bg-gradient-to-r from-[#087cff]/[0.12] to-[#1c1c1e] px-3.5 py-3.5 text-left transition hover:from-[#087cff]/20"
+            onClick={() => setLangOpen(true)}
+            className="shrink-0 rounded-full bg-white/[0.05] px-3 py-2 text-[12px] font-bold text-slate-300 transition hover:bg-white/[0.1] hover:text-white"
           >
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#087cff]/15 text-[#087cff]">
-              <Icon name="account_balance_wallet" fill className="text-[22px]" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[15px] font-bold text-white">Wallet</span>
-              <span className="block text-[11px] font-semibold text-[#75b8ff]">Deposit, withdraw & track balance</span>
-            </span>
-            <Icon name="chevron_right" className="text-[18px] text-[#087cff]/70" />
+            {lang}
           </button>
         )}
+      </div>
 
-        {recents.length > 0 && !searching && (
-          <>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Recents
-            </p>
-            <nav className="mb-4 space-y-0.5">
-              {recents.map((r) => (
+      {searchOpen ? (
+        <div className="no-scrollbar flex-1 overflow-y-auto px-4 pb-6">
+          {term ? (
+            <nav className="space-y-0.5">
+              {filteredExplore.map((item) => (
                 <MobileDrawerLink
-                  key={r.href}
-                  href={r.href}
-                  icon={r.icon}
-                  label={r.label}
-                  active={isActive(r.href)}
+                  key={item.href}
+                  href={item.href}
+                  icon={item.icon}
+                  label={item.label}
+                  badge={item.badge}
+                  active={isActive(item.href)}
                   onClick={onClose}
                 />
               ))}
+              {filteredExplore.length === 0 && (
+                <p className="py-10 text-center text-[13px] font-semibold text-slate-500">
+                  Nothing matches “{q.trim()}”
+                </p>
+              )}
             </nav>
-            <div className="mb-4 border-t border-white/[0.06]" />
-          </>
-        )}
+          ) : (
+            <>
+              <div className="mb-6 flex flex-wrap gap-2">
+                {quickChips.map((c) => (
+                  <Link
+                    key={c.label}
+                    href={c.href}
+                    prefetch={false}
+                    onClick={onClose}
+                    className="rounded-full bg-white/[0.05] px-3.5 py-2 text-[13px] font-bold text-emerald-400 transition hover:bg-white/[0.09]"
+                  >
+                    {c.label}
+                  </Link>
+                ))}
+              </div>
 
-        {!searching && (
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Quick actions
+              </p>
+              <div className="mb-6 grid grid-cols-2 gap-2.5">
+                {shortcuts.map((s) => (
+                  <Link
+                    key={s.label}
+                    href={s.href}
+                    prefetch={false}
+                    onClick={onClose}
+                    className="flex flex-col gap-4 rounded-xl bg-white/[0.03] p-3.5 ring-1 ring-white/[0.06] transition hover:bg-white/[0.05]"
+                  >
+                    <Icon name={s.icon} className="text-[22px] text-slate-400" />
+                    <span className="text-[14px] font-bold text-white">{s.label}</span>
+                  </Link>
+                ))}
+              </div>
+
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Explore our products
+              </p>
+              <Link
+                href="/p2p"
+                prefetch={false}
+                onClick={onClose}
+                className="flex items-center gap-3 overflow-hidden rounded-xl bg-gradient-to-br from-[#0a5fbf]/25 to-[#1c1c1e] p-4 ring-1 ring-white/[0.06]"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[16px] font-black leading-tight text-white">Skip the hassle. Cash out now.</span>
+                  <span className="mt-1 block text-[12px] leading-snug text-slate-400">
+                    Direct payouts to your bank, card or mobile money — no waiting for a buyer.
+                  </span>
+                </span>
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-emerald-500/15 text-emerald-400">
+                  <Icon name="payments" fill className="text-[24px]" />
+                </span>
+              </Link>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="no-scrollbar flex-1 overflow-y-auto px-4 pb-6">
+          {!isSignedIn && (
+            <section className="mb-5 grid grid-cols-2 gap-2">
+              <button
+                onClick={onOpenLogin}
+                className="rounded-xl bg-white/[0.06] py-3 text-[13px] font-bold text-white"
+                type="button"
+              >
+                Log in
+              </button>
+              <button
+                onClick={onOpenRegister}
+                className="rounded-xl bg-[#087cff] py-3 text-[13px] font-bold text-white"
+                type="button"
+              >
+                Register
+              </button>
+            </section>
+          )}
+
+          {recents.length > 0 && (
+            <>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Recents
+              </p>
+              <nav className="mb-4 space-y-0.5">
+                {recents.map((r) => (
+                  <MobileDrawerLink
+                    key={r.href}
+                    href={r.href}
+                    icon={r.icon}
+                    label={r.label}
+                    active={isActive(r.href)}
+                    onClick={onClose}
+                  />
+                ))}
+              </nav>
+              <div className="mb-4 border-t border-white/[0.06]" />
+            </>
+          )}
+
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
             Explore
           </p>
-        )}
-        <nav className="space-y-0.5">
-          {filteredExplore.map((item) => (
-            <MobileDrawerLink
-              key={item.href}
-              href={item.href}
-              icon={item.icon}
-              label={item.label}
-              badge={item.badge}
-              active={isActive(item.href)}
-              onClick={onClose}
-            />
-          ))}
-          {filteredExplore.length === 0 && (
-            <p className="py-10 text-center text-[13px] font-semibold text-slate-500">
-              Nothing matches “{q.trim()}”
-            </p>
-          )}
-        </nav>
-      </div>
+          <nav className="space-y-0.5">
+            {exploreItems.map((item) => (
+              <MobileDrawerLink
+                key={item.href}
+                href={item.href}
+                icon={item.icon}
+                label={item.label}
+                badge={item.badge}
+                active={isActive(item.href)}
+                onClick={onClose}
+              />
+            ))}
+          </nav>
+        </div>
+      )}
 
-      <div className="border-t border-white/[0.06] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <button
-          type="button"
-          onClick={onOpenProfile}
-          className="flex w-full items-center gap-3 py-2.5 text-left"
-        >
-          <Icon name="person" className="text-[20px] text-slate-400" />
-          <span className="flex-1 text-[14px] font-bold text-white">Profile</span>
-          <Icon name="chevron_right" className="text-[18px] text-slate-600" />
-        </button>
-
-        {isSignedIn && (
+      {!searchOpen && (
+        <div className="border-t border-white/[0.06] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <button
             type="button"
+            onClick={onOpenProfile}
             className="flex w-full items-center gap-3 py-2.5 text-left"
-            onClick={async () => {
-              onClose();
-              await signOut();
-              toast.info("Signed out", "See you next time!");
-              router.push("/");
-            }}
           >
-            <Icon name="logout" className="text-[20px] text-red-400" />
-            <span className="flex-1 text-[14px] font-bold text-red-400">Sign out</span>
+            <Icon name="person" className="text-[20px] text-slate-400" />
+            <span className="flex-1 text-[14px] font-bold text-white">Profile</span>
+            <Icon name="chevron_right" className="text-[18px] text-slate-600" />
           </button>
-        )}
+
+          {isSignedIn && (
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 py-2.5 text-left"
+              onClick={async () => {
+                onClose();
+                await signOut();
+                toast.info("Signed out", "See you next time!");
+                router.push("/");
+              }}
+            >
+              <Icon name="logout" className="text-[20px] text-red-400" />
+              <span className="flex-1 text-[14px] font-bold text-red-400">Sign out</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {langOpen && (
+        <LanguageSheet
+          current={lang}
+          onClose={() => setLangOpen(false)}
+          onSelect={(name) => {
+            setLang(name);
+            localStorage.setItem("preferred-language", name);
+            setLangOpen(false);
+            if (name !== "English") toast.info(name, "Full translations are on the way.");
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+const MENU_LANGUAGES: Array<{ label: string; sub: string }> = [
+  { label: "English", sub: "English" },
+  { label: "简体中文(SC)", sub: "Simplified Chinese" },
+  { label: "繁體中文(TC)", sub: "Traditional Chinese" },
+  { label: "Português brasileiro", sub: "Brazilian Portuguese" },
+  { label: "한국어", sub: "Korean" },
+  { label: "Français", sub: "French" },
+  { label: "Español", sub: "Spanish" },
+  { label: "Русский", sub: "Russian" },
+];
+
+function LanguageSheet({ current, onClose, onSelect }: { current: string; onClose: () => void; onSelect: (name: string) => void }) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/65" onClick={onClose}>
+      <div
+        className="flex max-h-[80dvh] w-full max-w-md flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex shrink-0 items-center justify-between px-5 py-3">
+          <h2 className="text-[17px] font-bold text-white">Languages</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.06] text-slate-400 hover:text-white"
+            aria-label="Close"
+          >
+            <Icon name="close" className="text-[18px]" />
+          </button>
+        </div>
+        <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-2">
+          {MENU_LANGUAGES.map((l) => {
+            const active = l.label === current;
+            return (
+              <button
+                key={l.label}
+                type="button"
+                onClick={() => onSelect(l.label)}
+                className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition ${
+                  active ? "bg-emerald-500 text-white" : "text-slate-200 hover:bg-white/[0.05]"
+                }`}
+              >
+                <span>
+                  <span className="block text-[15px] font-bold">{l.label}</span>
+                  <span className={`block text-[12px] font-medium ${active ? "text-white/80" : "text-slate-500"}`}>{l.sub}</span>
+                </span>
+                {active && <Icon name="check" className="text-[18px]" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
