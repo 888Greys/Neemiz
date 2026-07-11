@@ -4,6 +4,16 @@ All notable changes to Neemiz are documented here. From v1.0.0 onward this file
 is maintained automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.9.1](https://github.com/888Greys/Neemiz/compare/v1.9.0...v1.9.1) (2026-07-11)
+
+
+### Performance
+
+* shared Deriv tick feed for bet and settle paths ([c09e835](https://github.com/888Greys/Neemiz/commit/c09e835a56e10a1c82fedad7b94b1c272af0168a))
+* shared Deriv tick feed for bet and settle paths ([6393c82](https://github.com/888Greys/Neemiz/commit/6393c82ce59fd0bce386c1374de9e399a2748f3e))
+* tick-driven binary settle + Realtime push ([6195757](https://github.com/888Greys/Neemiz/commit/61957579090bd8bb2cfddef4d01254f065eeaa4f))
+* tick-driven binary settle + Realtime push ([334cc2e](https://github.com/888Greys/Neemiz/commit/334cc2ea52bb4fd9973188f584b9196d276154fa))
+
 ## [1.9.0](https://github.com/888Greys/Neemiz/compare/v1.8.0...v1.9.0) (2026-07-10)
 
 
