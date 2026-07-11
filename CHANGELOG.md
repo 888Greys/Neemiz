@@ -4,6 +4,24 @@ All notable changes to Neemiz are documented here. From v1.0.0 onward this file
 is maintained automatically by [release-please](https://github.com/googleapis/release-please)
 from [Conventional Commits](https://www.conventionalcommits.org/).
 
+## [1.9.2](https://github.com/888Greys/Neemiz/compare/v1.9.1...v1.9.2) (2026-07-11)
+
+
+### Bug Fixes
+
+* **binary:** quarantine R_50 Under — mis-calibrated +EV leak ([f3d593c](https://github.com/888Greys/Neemiz/commit/f3d593c542e32e415c7638cf5c77125a1911ba87))
+* **binary:** quarantine R_50 Under — mis-calibrated +EV leak ([e0e01b3](https://github.com/888Greys/Neemiz/commit/e0e01b3864fa821009d77542e6419485970c77b1))
+* **promo:** deposit-to-withdraw gate to stop promo farming ([92212d9](https://github.com/888Greys/Neemiz/commit/92212d95cdc177c57597e2c974ba466d63dbdcfe))
+* **promo:** deposit-to-withdraw gate to stop promo farming ([edcc5eb](https://github.com/888Greys/Neemiz/commit/edcc5eb810db67066bc553cd30611d5d4f6490e9))
+
+
+### Performance
+
+* lazy-load binary panels + optimistic bet placement ([0ec7ec3](https://github.com/888Greys/Neemiz/commit/0ec7ec38ad09141e444f80fb6c38d80210fba688))
+* lazy-load binary panels + optimistic bet placement ([e9909ad](https://github.com/888Greys/Neemiz/commit/e9909adb6f9cb02b66d67473cd826fd6a36fe70a))
+* Redis rate limits + capacity runbook for nez ([2f8a7a3](https://github.com/888Greys/Neemiz/commit/2f8a7a3bef014e335f8dcbe0edefc2c999bc6ee4))
+* Redis rate limits + capacity runbook for nez ([a226039](https://github.com/888Greys/Neemiz/commit/a2260392712302907c65491d6b628b6d485873b8))
+
 ## [1.9.1](https://github.com/888Greys/Neemiz/compare/v1.9.0...v1.9.1) (2026-07-11)
 
 

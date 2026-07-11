@@ -1,6 +1,6 @@
 {
   "name": "neemiz",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "private": true,
   "scripts": {
     "prepare": "git config core.hooksPath .githooks || true",
