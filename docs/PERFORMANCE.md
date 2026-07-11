@@ -99,6 +99,9 @@ first paint ships the chart + digit panel only. Live bet placement uses
 optimistic balance (and digit open-trade) updates that roll back on failure;
 the server remains the source of truth.
 
+VPS capacity (Prisma `connection_limit`, `WEB_CONCURRENCY`, nginx keepalive,
+Redis rate limits, Cloudflare cache rules) is documented in `docs/CAPACITY.md`.
+
 ### Fewer requests
 
 `GET /api/notifications` returns the notification list and unread count in one

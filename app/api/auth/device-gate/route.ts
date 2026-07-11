@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   const ip = clientIp(req);
-  const rl = rateLimit(`device-gate:${ip}`, 30, 60_000);
+  const rl = await rateLimit(`device-gate:${ip}`, 30, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
   let deviceId = "";
