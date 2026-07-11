@@ -21,7 +21,7 @@ export default async function AviatorPage() {
   }
 
   return (
-    <AppShell fullHeight hideSidebar>
+    <AppShell fullHeight hideSidebar immersive>
       <div className="h-full w-full min-w-0">
         <AviatorClient
           userId={userId}
