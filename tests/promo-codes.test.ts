@@ -1,6 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { normalizePromoCode } from "@/lib/promo-redeem";
+import { getPromoLockedKes, REAL_DEPOSIT_PROVIDERS } from "@/lib/promo-lock";
 import { readFileSync, existsSync } from "node:fs";
+
+/**
+ * Build a mock LockClient. `promo` is the summed promo principal; `deposit` is
+ * the row (or null) that transaction.findFirst resolves to — non-null means the
+ * account has funded via a real rail. Captures the findFirst `where` so tests
+ * can assert the provider filter.
+ */
+function mockClient(promo: number, deposit: { id: string } | null) {
+  const findFirst = vi.fn().mockResolvedValue(deposit);
+  return {
+    client: {
+      promoRedemption: { aggregate: vi.fn().mockResolvedValue({ _sum: { amountKes: promo } }) },
+      transaction: { findFirst },
+    } as any,
+    findFirst,
+  };
+}
 
 describe("promo codes", () => {
   it("normalizes codes to uppercase without spaces", () => {
@@ -45,6 +63,40 @@ describe("promo codes", () => {
     expect(existsSync("app/api/promo/redeem/route.ts")).toBe(true);
     expect(existsSync("app/api/admin/promo/route.ts")).toBe(true);
     expect(existsSync("lib/promo-redeem.ts")).toBe(true);
+  });
+
+  describe("deposit-to-withdraw gate", () => {
+    it("locks the ENTIRE wallet when promo was redeemed and no real deposit", async () => {
+      // Farm scenario: 50 promo grown to 173 on games, never deposited.
+      const { client } = mockClient(50, null);
+      const locked = await getPromoLockedKes(client, "u1", 173);
+      expect(locked).toBe(173); // transferable = 173 - 173 = 0
+    });
+
+    it("relaxes to just the promo principal after a real deposit", async () => {
+      const { client } = mockClient(50, { id: "dep1" });
+      const locked = await getPromoLockedKes(client, "u1", 173);
+      expect(locked).toBe(50); // transferable = 173 - 50 = 123
+    });
+
+    it("does not lock at all when no promo was redeemed", async () => {
+      const { client } = mockClient(0, null);
+      const locked = await getPromoLockedKes(client, "u1", 500);
+      expect(locked).toBe(0);
+    });
+
+    it("only counts deposits from real external funding rails", async () => {
+      const { client, findFirst } = mockClient(50, { id: "dep1" });
+      await getPromoLockedKes(client, "u1", 100);
+      const where = findFirst.mock.calls[0][0].where;
+      expect(where.type).toBe("DEPOSIT");
+      expect(where.status).toBe("COMPLETED");
+      expect(where.provider.in).toEqual([...REAL_DEPOSIT_PROVIDERS]);
+      // internal rails must NOT be an unlock path
+      expect(where.provider.in).not.toContain("wallet_transfer");
+      expect(where.provider.in).not.toContain("p2p_kes_escrow");
+      expect(where.provider.in).not.toContain("manual");
+    });
   });
 
   it("locks promo credits from transfer/withdraw helpers", () => {
