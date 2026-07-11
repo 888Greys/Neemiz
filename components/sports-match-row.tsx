@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import type { ListOdd, Match } from "@/lib/theoddsapi";
@@ -7,6 +8,7 @@ import { useBetslip } from "@/lib/betslip-context";
 import { getTeamLogo } from "@/lib/team-logos";
 import { getLeagueLogo } from "@/lib/league-logos";
 import { Icon } from "@/components/icon";
+import { mergeLivePatch, subscribeLivePatch } from "@/lib/sports-live-store";
 
 function TeamCrest({ name, logo }: { name: string; logo?: string }) {
   const src = logo || getTeamLogo(name);
@@ -174,7 +176,20 @@ function pickVisibleBlocks(markets: ReturnType<typeof ensureListMarkets>): {
 }
 
 /** SportPesa-style match card: teams + up to 6 odds, then +N more. */
-export function MatchRow({ match: m }: { match: Match }) {
+export function MatchRow({ match: initial }: { match: Match }) {
+  const [m, setM] = useState(initial);
+
+  useEffect(() => {
+    setM(initial);
+  }, [initial]);
+
+  useEffect(() => {
+    if (!initial.isLive) return;
+    return subscribeLivePatch(initial.id, (patch) => {
+      setM((prev) => mergeLivePatch(prev, patch));
+    });
+  }, [initial.id, initial.isLive]);
+
   const detailHref = `/sports/${m.id}`;
   const matchName = `${m.home.name} vs ${m.away.name}`;
   const markets = ensureListMarkets(m);

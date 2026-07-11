@@ -250,7 +250,10 @@ export default async function SportsPage({ searchParams }: Props) {
 
   return (
     <AppShell rightPanel={<SportsBetSlip />}>
-      <SportsLiveRefresh active={displayLive.length > 0 || liveOnly} />
+      <SportsLiveRefresh
+        active={displayLive.length > 0 || liveOnly}
+        initialIds={displayLive.map((m) => m.id)}
+      />
       {/* Sticky: sports strip + professional search */}
       <div className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#151518]/95 backdrop-blur-md">
         <div className="flex gap-2 overflow-x-auto no-scrollbar px-3 pt-2.5">
