@@ -543,6 +543,16 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           <AviatorTicker liveBets={liveBets} />
 
           <div className="flex min-w-0 shrink-0 items-center gap-1.5 px-2 pb-1">
+            {/* Immersive back — shell header/nav are hidden on mobile, so give a
+                way out. Desktop keeps the shell nav, so hide it there. */}
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              aria-label="Back to home"
+              className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-white/60 ring-1 ring-white/[0.06] transition active:scale-95 sm:hidden"
+            >
+              <Icon name="arrow_back" className="text-[16px]" />
+            </button>
             <div className="min-w-0 flex-1 overflow-hidden">
               <AviatorHistory rounds={history} onVerify={setVerifyRound} />
             </div>

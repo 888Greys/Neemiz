@@ -2657,22 +2657,54 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 <button
                   type="button"
                   onClick={() => setPayMethodsOpen(true)}
-                  className="flex w-full items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-left transition hover:border-white/15 active:scale-[0.99]"
+                  className="flex w-full items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-left transition hover:border-white/15 active:scale-[0.99]"
                 >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/[0.06]">
-                    <Icon name="payments" className="text-[18px] text-slate-300" />
-                  </span>
+                  {form.paymentMethods.length === 0 ? (
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/[0.06]">
+                      <Icon name="payments" className="text-[18px] text-slate-300" />
+                    </span>
+                  ) : (
+                    <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-visible">
+                      {form.paymentMethods.slice(0, 3).map((m, idx, arr) => {
+                        const offset = arr.length === 1 ? 5 : arr.length === 2 ? idx * 10 : idx * 8;
+                        return (
+                          <div
+                            key={m}
+                            className="absolute rounded-lg bg-[#151518] p-0.5 shadow-md ring-1 ring-white/10"
+                            style={{
+                              left: `${offset}px`,
+                              zIndex: arr.length - idx,
+                            }}
+                          >
+                            <PaymentLogo code={m} size={22} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                   <span className="min-w-0 flex-1">
                     <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                      {form.paymentMethods.length
-                        ? `${form.paymentMethods.length} selected`
-                        : "Choose methods"}
+                      {form.paymentMethods.length === 0
+                        ? "Choose methods"
+                        : `${form.paymentMethods.length} selected`}
                     </span>
-                    <span className="block truncate text-[13px] font-bold text-white">
-                      {form.paymentMethods.length
-                        ? form.paymentMethods.map((m) => paymentMethodLabel(m)).join(", ")
-                        : "Browse all world payment methods"}
-                    </span>
+                    {form.paymentMethods.length === 0 ? (
+                      <span className="block truncate text-[13px] font-bold text-slate-400">
+                        Browse all world payment methods
+                      </span>
+                    ) : (
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {form.paymentMethods.map((m) => (
+                          <span
+                            key={m}
+                            className="inline-flex items-center gap-1 rounded bg-white/[0.06] py-0.5 pl-1 pr-1.5 text-[11px] font-semibold text-white ring-1 ring-white/[0.08]"
+                          >
+                            <PaymentLogo code={m} size={14} />
+                            {paymentMethodLabel(m)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </span>
                   <Icon name="expand_more" className="shrink-0 text-[22px] text-slate-500" />
                 </button>

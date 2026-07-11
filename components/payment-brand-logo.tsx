@@ -64,7 +64,6 @@ const SI: Record<string, SimpleIcon> = {
 
 /** Self-hosted marks for brands Simple Icons lacks. */
 const LOCAL_SVG: Record<string, { bg: string; fg: string; monogram: string }> = {
-  MPESA: { bg: "#43B02A", fg: "#ffffff", monogram: "M" },
   MTN_MOMO: { bg: "#FFCC00", fg: "#000000", monogram: "MTN" },
   UPI: { bg: "#097939", fg: "#ffffff", monogram: "UPI" },
   BKASH: { bg: "#E2136E", fg: "#ffffff", monogram: "bK" },
@@ -140,6 +139,33 @@ function CryptoMethodMark({ size, className }: { size: number; className: string
 export function PaymentBrandLogo({ code, size = 32, className = "" }: Props) {
   const key = code === "MC" ? "MASTERCARD" : code;
   const title = methodLabel(key);
+
+  if (key === "MPESA") {
+    return (
+      <svg
+        viewBox="0 0 32 32"
+        width={size}
+        height={size}
+        className={`shrink-0 rounded-lg ${className}`}
+        style={{ width: size, height: size }}
+      >
+        <rect width="32" height="32" rx="6" fill="#43b02a" />
+        <text
+          x="16"
+          y="19"
+          fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+          fontWeight="900"
+          fontStyle="italic"
+          fontSize="7"
+          textAnchor="middle"
+          letterSpacing="-0.3"
+        >
+          <tspan fill="#e30613">M</tspan>
+          <tspan fill="#ffffff">-PESA</tspan>
+        </text>
+      </svg>
+    );
+  }
 
   if (key === "CRYPTO") {
     return <CryptoMethodMark size={size} className={className} />;
