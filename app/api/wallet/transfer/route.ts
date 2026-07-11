@@ -10,7 +10,7 @@ import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { transfersDisabledResponse } from "@/lib/withdrawal-guard";
 import { DEV_AUTH_ENABLED } from "@/lib/dev-auth";
 import { verifyStepUpToken, STEPUP_COOKIE } from "@/lib/step-up";
-import { promoLockedHttpError } from "@/lib/promo-lock";
+import { promoLockedHttpError, assertRealDepositForWithdrawal, noDepositGateHttpError } from "@/lib/promo-lock";
 
 /** Per-transfer cap (KES). Keep in sync with wallet Send Max button. */
 const MAX_TRANSFER_KES = 50;
@@ -139,6 +139,13 @@ export async function POST(req: Request) {
         throw new Error(`PROMO_LOCKED:0:${locked}`);
       }
 
+      // Generalized deposit gate on the SEND side: an account that never made a
+      // real deposit cannot send wallet transfers either. Combined with the same
+      // gate on withdraw and P2P-sell, this TRAPS all value in unfunded accounts —
+      // fake/internal credit can no longer be relayed through a chain of unfunded
+      // mules to a funded confederate who cashes out (the last laundering hop).
+      await assertRealDepositForWithdrawal(tx, sender.id, sender.isAdmin);
+
       // Race-safe debit FIRST: the conditional updateMany takes a row lock on
       // the sender, serializing concurrent cash-outs so the cap aggregate below
       // can't be raced (two sends both reading a stale "usedToday").
@@ -238,6 +245,10 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("PROMO_LOCKED:")) {
       const { status, body } = promoLockedHttpError(error.message);
+      return Response.json(body, { status });
+    }
+    if (error instanceof Error && error.message === "NO_DEPOSIT_GATE") {
+      const { status, body } = noDepositGateHttpError();
       return Response.json(body, { status });
     }
     if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") {
