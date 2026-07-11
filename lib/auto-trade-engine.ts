@@ -16,6 +16,7 @@ import { buildDigitProof, isProvablyFairConfigured, sha256 } from "@/lib/binary/
 import { applyProfitRetention } from "@/lib/house-retention";
 import { isBetTypeDisabled } from "@/lib/game-guard";
 import { nextStake, stopStatus, type AutoStrategy } from "@/lib/auto-trade";
+import { registerDue } from "@/lib/settle-due-list";
 
 const n = (d: unknown) => Number(d);
 
@@ -52,14 +53,14 @@ async function placeNext(session: AutoTradeSession): Promise<string> {
       })
     : null;
 
-  const tradeId = await db.$transaction(async (tx) => {
+  const trade = await db.$transaction(async (tx) => {
     const debited = await tx.user.updateMany({
       where: { id: session.userId, walletBalance: { gte: stake } },
       data:  { walletBalance: { decrement: stake } },
     });
     if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
 
-    const trade = await tx.binaryTrade.create({
+    const created = await tx.binaryTrade.create({
       data: {
         userId:        session.userId,
         market:        session.market,
@@ -89,21 +90,31 @@ async function placeNext(session: AutoTradeSession): Promise<string> {
         amount:    stake,
         currency:  "KES",
         status:    TransactionStatus.COMPLETED,
-        reference: `binary-auto-stake-${session.id}-${trade.id}`,
+        reference: `binary-auto-stake-${session.id}-${created.id}`,
         provider:  "binary",
-        metadata:  { game: "binary", auto: true, sessionId: session.id, tradeId: trade.id, market: session.market, side: session.side },
+        metadata:  { game: "binary", auto: true, sessionId: session.id, tradeId: created.id, market: session.market, side: session.side },
       },
     });
 
     await tx.autoTradeSession.update({
       where: { id: session.id },
-      data:  { lastTradeId: trade.id },
+      data:  { lastTradeId: created.id },
     });
 
-    return trade.id;
+    return created;
   });
 
-  return tradeId;
+  registerDue({
+    kind: "binary",
+    tradeId: trade.id,
+    userId: trade.userId,
+    market: trade.market,
+    entryEpoch: trade.entryEpoch!,
+    durationTicks: trade.durationTicks,
+    settleBeforeMs: trade.settleBefore.getTime(),
+  });
+
+  return trade.id;
 }
 
 async function halt(sessionId: string, status: string, reason: string) {

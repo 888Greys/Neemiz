@@ -36,6 +36,8 @@ const ALL_SYMBOLS: readonly string[] = [...BINARY_FEED_SYMBOLS, ...FOREX_FEED_SY
 
 type WsCtor = new (url: string) => WebSocket;
 
+export type TickListener = (symbol: string, tick: FeedTick) => void;
+
 type FeedState = {
   buffers: Map<string, FeedTick[]>;
   /** True once we've received a history snapshot (or test seed) for the symbol. */
@@ -49,6 +51,7 @@ type FeedState = {
   reconnectTimer: ReturnType<typeof setTimeout> | null;
   WebSocketClass: WsCtor | null;
   disabled: boolean;
+  tickListeners: Set<TickListener>;
 };
 
 function emptyState(): FeedState {
@@ -65,6 +68,7 @@ function emptyState(): FeedState {
       ? (globalThis.WebSocket as unknown as WsCtor)
       : null,
     disabled: process.env.DERIV_FEED === "0",
+    tickListeners: new Set(),
   };
 }
 
@@ -72,6 +76,16 @@ const globalForFeed = globalThis as unknown as { __neemizDerivFeed?: FeedState }
 function state(): FeedState {
   if (!globalForFeed.__neemizDerivFeed) globalForFeed.__neemizDerivFeed = emptyState();
   return globalForFeed.__neemizDerivFeed;
+}
+
+function notifyTickListeners(symbol: string, tick: FeedTick) {
+  for (const cb of state().tickListeners) {
+    try {
+      cb(symbol, tick);
+    } catch (err) {
+      console.warn("[deriv-feed] tick listener error", err);
+    }
+  }
 }
 
 function pushTick(symbol: string, tick: FeedTick) {
@@ -86,10 +100,11 @@ function pushTick(symbol: string, tick: FeedTick) {
   if (last && tick.epoch < last.epoch) return;
   if (last && tick.epoch === last.epoch) {
     last.price = tick.price;
-    return;
+    return; // same-epoch overwrite — do not notify (not a new tick)
   }
   buf.push(tick);
   if (buf.length > RING_SIZE) buf.splice(0, buf.length - RING_SIZE);
+  notifyTickListeners(symbol, tick);
 }
 
 function mergeHistory(symbol: string, ticks: FeedTick[]) {
@@ -258,6 +273,15 @@ export function startDerivFeed(): void {
   s.started = true;
   s.stopping = false;
   connect();
+}
+
+/** Subscribe to new-epoch ticks (not same-epoch price overwrites). */
+export function addTickListener(cb: TickListener): void {
+  state().tickListeners.add(cb);
+}
+
+export function removeTickListener(cb: TickListener): void {
+  state().tickListeners.delete(cb);
 }
 
 export function isDerivFeedStarted(): boolean {
