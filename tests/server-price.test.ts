@@ -101,6 +101,25 @@ describe("priceDigitServer", () => {
     }
   });
 
+  it("quarantines R_50 Under (mis-calibrated +EV) but leaves R_50 Over live", () => {
+    // Live 7d autopsy: R_50 Under 4/5/6 ran RTP 1.33–1.42 (measured winProb far
+    // below realized). Fail closed on R_50 Under until recalibrated; other
+    // markets and R_50 Over are unaffected.
+    const rUnder = priceDigitServer({ side: "Under", targetDigit: 5, durationTicks: 5, stake: 100, ticks, market: "R_50" });
+    expect(rUnder.accepted).toBe(false);
+
+    const rOver = priceDigitServer({ side: "Over", targetDigit: 5, durationTicks: 5, stake: 100, ticks, market: "R_50" });
+    expect(rOver.accepted).toBe(true);
+
+    // Under on a non-quarantined market still prices.
+    const rUnderOk = priceDigitServer({ side: "Under", targetDigit: 5, durationTicks: 5, stake: 100, ticks, market: "1HZ10V" });
+    expect(rUnderOk.accepted).toBe(true);
+
+    // No market supplied → no quarantine (back-compat with existing callers).
+    const rNoMarket = priceDigitServer({ side: "Under", targetDigit: 5, durationTicks: 5, stake: 100, ticks });
+    expect(rNoMarket.accepted).toBe(true);
+  });
+
   it("prices Even/Odd/Matches/Differs contracts with sane payouts", () => {
     // 1. Even
     const rEven = priceDigitServer({ side: "Even", targetDigit: 0, durationTicks: 5, stake: 100, ticks });
