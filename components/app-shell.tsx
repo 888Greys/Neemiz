@@ -1044,20 +1044,28 @@ function LanguageSheet({ current, onClose, onSelect }: { current: string; onClos
         <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-2">
           {MENU_LANGUAGES.map((l) => {
             const active = l.label === current;
+            const soon = l.label !== "English";
             return (
               <button
                 key={l.label}
                 type="button"
-                onClick={() => onSelect(l.label)}
+                disabled={soon}
+                onClick={() => { if (!soon) onSelect(l.label); }}
                 className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left transition ${
-                  active ? "bg-emerald-500 text-white" : "text-slate-200 hover:bg-white/[0.05]"
+                  active ? "bg-emerald-500 text-white" : soon ? "cursor-not-allowed" : "text-slate-200 hover:bg-white/[0.05]"
                 }`}
               >
-                <span>
+                <span className={soon ? "opacity-45" : ""}>
                   <span className="block text-[15px] font-bold">{l.label}</span>
                   <span className={`block text-[12px] font-medium ${active ? "text-white/80" : "text-slate-500"}`}>{l.sub}</span>
                 </span>
-                {active && <Icon name="check" className="text-[18px]" />}
+                {active ? (
+                  <Icon name="check" className="text-[18px]" />
+                ) : soon ? (
+                  <span className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                    Coming soon
+                  </span>
+                ) : null}
               </button>
             );
           })}
