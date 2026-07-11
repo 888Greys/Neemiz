@@ -17,7 +17,7 @@ export default async function BinaryPage() {
 
   if (liveTypes.length === 0) {
     return (
-      <AppShell hideFooter fullHeight hideSidebar>
+      <AppShell hideFooter fullHeight hideSidebar immersive>
         <BinaryMaintenance />
       </AppShell>
     );
@@ -38,7 +38,7 @@ export default async function BinaryPage() {
   }
 
   return (
-    <AppShell hideFooter fullHeight hideSidebar>
+    <AppShell hideFooter fullHeight hideSidebar immersive>
       <BinaryClient userId={userId} username={username} balance={balance} liveTypes={liveTypes} />
     </AppShell>
   );
