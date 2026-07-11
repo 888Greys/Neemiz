@@ -271,9 +271,16 @@ export async function POST(req: Request) {
       if (msg === "INSUFFICIENT_AD_LIQUIDITY") return null;
       if (msg === "INSUFFICIENT_CRYPTO_BALANCE") return "INSUFFICIENT_CRYPTO_BALANCE" as const;
       if (msg === "INSUFFICIENT_FIAT_BALANCE") return "INSUFFICIENT_FIAT_BALANCE" as const;
+      if (msg === "PROMO_LOCKED") return "PROMO_LOCKED" as const;
       throw err;
     });
 
+    if (order === "PROMO_LOCKED") {
+      return Response.json({
+        error: "Welcome/promo credit is play-only. Make a deposit with your own funds to unlock cash-outs, transfers and P2P sells.",
+        code: "PROMO_LOCKED",
+      }, { status: 400 });
+    }
     if (order === "INSUFFICIENT_CRYPTO_BALANCE") {
       return Response.json({ error: `Insufficient ${ad.crypto} balance to sell.` }, { status: 400 });
     }
