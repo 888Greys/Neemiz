@@ -8,6 +8,7 @@ import { useAuthModal } from "@/lib/auth-modal-context";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
 import { useCurrency } from "@/lib/currency-context";
+import { placed, outcomeWin, outcomeLose } from "@/lib/game-feel";
 
 // Must match the server SEGMENTS in /api/wheel/spin exactly (same order/index).
 const WHEEL_SEGS = [
@@ -105,6 +106,7 @@ export function LuckySpinWheel() {
     setAnimating(true);
     setSpinning(true);
     setRotation(newRot);
+    placed(); // tactile kick as the wheel launches
 
     setTimeout(() => {
       setSpinning(false);
@@ -112,6 +114,9 @@ export function LuckySpinWheel() {
       setResult(data);
       refreshBalance();
       window.dispatchEvent(new Event("wallet-refresh"));
+      // Outcome cue the instant the wheel stops.
+      if (data.multiplier === 0 || data.netChange < 0) outcomeLose();
+      else outcomeWin();
     }, 4200);
   }
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
-import { LoadingDots } from "@/components/loading-dots";
 import { ValuePickerSheet, DurationPickerSheet } from "./digit-panel";
 import { BarrierSheet } from "./directional-panel";
 import { useCurrency } from "@/lib/currency-context";
@@ -174,13 +173,13 @@ export function VanillaPanel({
         {sides.map((side) => {
           const isPut = side === "PUT";
           return (
-            <button key={side} type="button" onClick={() => onTrade(side)} disabled={placing}
+            <button key={side} type="button" onClick={() => onTrade(side)} aria-busy={placing}
               className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black leading-none text-white transition active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0 sm:px-3 sm:py-3 ${
                 isPut ? "bg-[#e2474b] hover:bg-[#ec5a5e]" : "bg-[#16a085] hover:bg-[#1bb198]"
               }`}>
               <span className="flex items-center gap-1 text-[11px] leading-none sm:text-[14px]">
                 <Icon name={isPut ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
-                {placing ? <LoadingDots /> : side}
+                {side}
               </span>
               <span className="font-mono text-[9px] leading-none text-white/85 sm:mt-0.5 sm:text-[12px]">{format(payoutPerPointFor(side))}/pt</span>
             </button>
@@ -331,12 +330,12 @@ function MobileVanilla({
         <button
           type="button"
           onClick={() => onTrade(selectedSide)}
-          disabled={placing}
+          aria-busy={placing}
           className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${
             armedPut ? "bg-[#e2474b] active:bg-[#ec5a5e]" : "bg-[#16a085] active:bg-[#1bb198]"
           }`}
         >
-          <span className="text-[15px] leading-tight">{placing ? <LoadingDots /> : `Buy ${selectedSide}`}</span>
+          <span className="text-[15px] leading-tight">{`Buy ${selectedSide}`}</span>
           <span className="font-mono text-[11px] leading-tight text-white/85">{format(payoutPerPointFor(selectedSide))}/pt</span>
         </button>
       </div>

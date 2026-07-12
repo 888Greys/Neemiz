@@ -12,8 +12,9 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle, AlertCircle, Info } from "lucide-react";
+import { haptic, playSound } from "@/lib/game-feel";
 
-type ToastType = "success" | "error" | "info" | "cashout";
+type ToastType = "success" | "error" | "info" | "cashout" | "loss";
 
 interface ToastItem {
   id: string;
@@ -30,6 +31,12 @@ function fire(type: ToastType, title: string, description?: string) {
   const id = Math.random().toString(36).slice(2, 9);
   const item: ToastItem = { id, type, title, description };
   listeners.forEach((fn) => fn(item));
+  // Central feedback hub: every game routes wins/losses through the toast, so
+  // pairing sound + haptic here gives consistent game feel everywhere for free.
+  // Operational errors get a soft warning buzz only (no melody).
+  if (type === "cashout") { playSound("win"); haptic("success"); }
+  else if (type === "loss") { playSound("lose"); haptic("warning"); }
+  else if (type === "error") { haptic("warning"); }
 }
 
 export const toast = {
@@ -37,6 +44,8 @@ export const toast = {
   error:   (title: string, description?: string) => fire("error",   title, description),
   info:    (title: string, description?: string) => fire("info",    title, description),
   cashout: (title: string, description?: string) => fire("cashout", title, description),
+  /** Game loss — distinct from operational error: plays the soft "lose" cue. */
+  loss:    (title: string, description?: string) => fire("loss",    title, description),
 };
 
 /* ── Single toast pill (Spribe-style: dark rounded pill that fades) ── */
@@ -60,14 +69,14 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
   const IconComponent =
     item.type === "success" ? CheckCircle
     : item.type === "cashout" ? CheckCircle
-    : item.type === "error" ? AlertCircle
+    : item.type === "error" || item.type === "loss" ? AlertCircle
     : Info;
 
-  // Win = green, loss/error = red, cashout = amber, info = blue.
+  // Win/cashout = green, loss/error = red, info = blue.
   const tint =
     item.type === "success" ? { icon: "text-emerald-400", ring: "ring-emerald-500/25" }
     : item.type === "cashout" ? { icon: "text-emerald-400", ring: "ring-emerald-500/25" }
-    : item.type === "error"   ? { icon: "text-red-400",     ring: "ring-red-500/30" }
+    : item.type === "error" || item.type === "loss" ? { icon: "text-red-400", ring: "ring-red-500/30" }
     :                           { icon: "text-[#3aa0ff]",   ring: "ring-[#3aa0ff]/20" };
 
   return (

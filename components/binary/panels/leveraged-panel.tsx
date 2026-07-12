@@ -189,19 +189,19 @@ export function LeveragedPanel({
 
       {/* Direction buttons */}
       <div className="grid shrink-0 grid-cols-2 gap-1.5 p-2 pt-1.5 sm:gap-2 sm:pt-2">
-        <button type="button" onClick={() => onTrade("UP")} disabled={placing}
+        <button type="button" onClick={() => onTrade("UP")} aria-busy={placing}
           className="flex items-center justify-center gap-2 rounded-lg bg-[#16a085] px-2.5 py-1.5 text-center font-black text-white transition hover:bg-[#1bb198] active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3">
           <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
             <Icon name="trending_up" className="text-[13px] sm:text-[16px]" />
-            {placing ? <LoadingDots /> : "UP"}
+            {"UP"}
           </span>
           <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{isTurbo ? "Long" : `×${multiplier}`}</span>
         </button>
-        <button type="button" onClick={() => onTrade("DOWN")} disabled={placing}
+        <button type="button" onClick={() => onTrade("DOWN")} aria-busy={placing}
           className="flex items-center justify-center gap-2 rounded-lg bg-[#e2474b] px-2.5 py-1.5 text-center font-black text-white transition hover:bg-[#ec5a5e] active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3">
           <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
             <Icon name="trending_down" className="text-[13px] sm:text-[16px]" />
-            {placing ? <LoadingDots /> : "DOWN"}
+            {"DOWN"}
           </span>
           <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{isTurbo ? "Short" : `×${multiplier}`}</span>
         </button>
@@ -292,9 +292,9 @@ function MobileTurboPanel({
         )}
 
 
-        <button type="button" onClick={() => onTrade(direction)} disabled={placing}
+        <button type="button" onClick={() => onTrade(direction)} aria-busy={placing}
           className={`flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${direction === "UP" ? "bg-[#16a085]" : "bg-[#e2474b]"}`}>
-          {placing ? <LoadingDots /> : <>Buy {direction === "UP" ? "Up" : "Down"}</>}
+          {<>Buy {direction === "UP" ? "Up" : "Down"}</>}
         </button>
       </div>
       {picker === "stake" && <ValuePickerSheet money title="Stake" unit={currency} value={stake} presets={stakePresets} min={minStake} max={1_000_000} onChange={setStake} onClose={() => setPicker(null)} />}
@@ -394,9 +394,9 @@ function MobileMultiplierPanel({
           <span className="font-mono font-black text-amber-300">{formatSpot(dangerSpot)}</span>
         </button>
 
-        <button type="button" onClick={() => onTrade(direction)} disabled={placing}
+        <button type="button" onClick={() => onTrade(direction)} aria-busy={placing}
           className={`flex w-full items-center justify-center gap-2 rounded-full py-3 text-[15px] font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${direction === "UP" ? "bg-[#16a085]" : "bg-[#e2474b]"}`}>
-          {placing ? <LoadingDots /> : <>Buy {direction === "UP" ? "Up" : "Down"} · ×{multiplier}</>}
+          {<>Buy {direction === "UP" ? "Up" : "Down"} · ×{multiplier}</>}
         </button>
       </div>
 
