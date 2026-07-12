@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AviatorCanvas }   from "./aviator-canvas";
 import { AviatorBetPanel } from "./aviator-bet-panel";
 import { AviatorHistory, VerifyModal } from "./aviator-history";
+import { AviatorLiveBets } from "./aviator-live-bets";
 import { WinCelebration, RollingBalance, type WinCelebrationHandle } from "./win-celebration";
 import { toast } from "@/lib/toast";
 import { Icon } from "@/components/icon";
@@ -493,6 +494,11 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     setCashingOut((prev) => ({ ...prev, [panelIndex]: true }));
     setBalance((b) => b + pendingWin);
 
+    // ── INSTANT feedback: fire the cashout toast now, don't wait for the server.
+    // The win celebration still fires on confirm; a rare rejection replaces this
+    // with an error toast.
+    toast.cashout(`Cashed out ${clickedMultiplier.toFixed(2)}×`, `+${format(pendingWin)}`);
+
     // ── Confirm with server (keepalive so the request isn't dropped on nav) ──
     try {
       const res = await fetch("/api/aviator/cashout", {
@@ -618,7 +624,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             </button>
           </div>
 
-          <div className="relative mx-2 min-h-0 max-h-[38vh] flex-1 overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#151518] lg:mx-0 lg:max-h-none">
+          <div className="relative mx-2 min-h-[42vh] max-h-[42vh] shrink-0 overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#151518] lg:mx-0 lg:min-h-0 lg:max-h-none lg:flex-1">
             <div className="h-full min-h-[180px]">
               <AviatorCanvas
                 state={round?.state ?? "WAITING"}
@@ -629,6 +635,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
               />
             </div>
             <WinCelebration ref={winCelebrationRef} soundEnabled={soundEnabled} />
+            <RoundPlayersBadge liveBets={liveBets} />
           </div>
 
           <div className="grid shrink-0 grid-cols-1 sm:grid-cols-2 gap-1.5 p-1.5 pb-2 lg:gap-3 lg:p-3 lg:pb-3">
@@ -656,6 +663,18 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
                 onCashout={handleCashout}
               />
             </div>
+          </div>
+
+          {/* Spribe-style inline live-bets table (mobile only) — fills the space
+              between the bet panels and the bottom nav. Desktop uses the aside. */}
+          <div className="min-h-[360px] flex-1 px-1.5 pb-2 lg:hidden">
+            <AviatorLiveBets
+              liveBets={liveBets}
+              prevBets={prevRoundBets}
+              myHistory={myHistory}
+              myCurrentBets={Object.values(myBets)}
+              userId={userId}
+            />
           </div>
 
           <AviatorBottomNav urlTab={urlTab} router={router} />
@@ -931,6 +950,47 @@ function AviatorTicker({ liveBets }: { liveBets: AviatorBetPublic[] }) {
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+// Spribe-style avatar cluster + player count, overlaid on the canvas bottom-right.
+// Cashed-out players are ringed green. Shows how many are in the current round.
+function RoundPlayersBadge({ liveBets }: { liveBets: AviatorBetPublic[] }) {
+  if (liveBets.length === 0) return null;
+
+  // Prioritise cashed-out players in the visible stack, then the rest.
+  const ordered = [...liveBets].sort((a, b) => {
+    const aCashed = a.status === "CASHEDOUT" ? 0 : 1;
+    const bCashed = b.status === "CASHEDOUT" ? 0 : 1;
+    return aCashed - bCashed;
+  });
+  const shown = ordered.slice(0, 3);
+
+  return (
+    <div className="pointer-events-none absolute bottom-2 right-2 z-10 flex items-center gap-1.5 rounded-full border border-white/[0.08] bg-black/45 py-0.5 pl-1 pr-2 backdrop-blur-sm">
+      <div className="flex items-center">
+        {shown.map((bet, i) => {
+          const cashed = bet.status === "CASHEDOUT";
+          return (
+            <span
+              key={bet.id}
+              className={`grid h-5 w-5 place-items-center overflow-hidden rounded-full text-[8px] font-black text-white ring-2 ${
+                cashed ? "ring-[#28a909]" : "ring-[#17181d]"
+              } ${avatarColor(bet.username ?? "?")}`}
+              style={{ marginLeft: i === 0 ? 0 : -6, zIndex: shown.length - i }}
+            >
+              {bet.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={bet.imageUrl} alt="" className="h-full w-full object-cover" />
+              ) : (
+                (bet.username ?? "?").slice(0, 1).toUpperCase()
+              )}
+            </span>
+          );
+        })}
+      </div>
+      <span className="text-[11px] font-black tabular-nums text-white/85">{liveBets.length}</span>
     </div>
   );
 }
