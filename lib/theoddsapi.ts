@@ -745,6 +745,26 @@ export function extraMarketsFromCached(
   return Math.max(0, total - shownGroups);
 }
 
+// TheOddsAPI's `completed` flag routinely lags hours behind the final whistle
+// (and a finished game's scores record can linger with completed:false), which
+// left games stuck showing "LIVE" the next morning. No fixture we cover runs
+// longer than this, so once kickoff is older than the cap we stop trusting the
+// `completed` flag and treat the match as no-longer-live.
+export const MAX_LIVE_MS = 4 * 60 * 60 * 1000; // 4h
+
+/** Is a match genuinely in-play right now? Kicked off, not completed, not aged out. */
+export function isMatchLive(
+  commenceTime: string,
+  score?: Pick<ScoreEvent, "completed"> | null,
+): boolean {
+  if (!score || score.completed) return false;
+  const kickoff = new Date(commenceTime).getTime();
+  const now = Date.now();
+  if (kickoff > now) return false; // not started yet
+  if (now - kickoff > MAX_LIVE_MS) return false; // too old to still be live
+  return true;
+}
+
 export function normalizeOddsEvent(event: OddsEvent, liveScore?: ScoreEvent): Match {
   const meta  = metaFor(event.sport_key, event.sport_title);
   const { odds } = extractH2hOdds(event);
@@ -756,8 +776,7 @@ export function normalizeOddsEvent(event: OddsEvent, liveScore?: ScoreEvent): Ma
   // A game is only "live" once kickoff has passed. TheOddsAPI returns
   // not-yet-started games in the scores feed with completed:false too, so
   // !completed alone would wrongly flag pre-game matches as live.
-  const hasKickedOff = new Date(event.commence_time).getTime() <= Date.now();
-  const isLive    = !!liveScore && !liveScore.completed && hasKickedOff;
+  const isLive    = isMatchLive(event.commence_time, liveScore);
 
   const period = isLive ? "Live" : formatKickoffTime(event.commence_time);
 
@@ -971,11 +990,11 @@ export async function getWorldCupFixtures(): Promise<{ live: Match[]; upcoming: 
     for (const e of odds) {
       const score = scoreMap.get(e.id);
       const kickedOff = new Date(e.commence_time).getTime() <= now;
-      const isLive = !!score && !score.completed && kickedOff;
+      const isLive = isMatchLive(e.commence_time, score);
       const match = normalizeOddsEvent(e, score);
       if (isLive) live.push(match);
-      else if (!score?.completed && new Date(e.commence_time).getTime() > now) upcoming.push(match);
       else if (!score?.completed && !kickedOff) upcoming.push(match);
+      // Aged-out / finished games (kicked off, not live) drop from both buckets.
     }
     // Also surface not-yet-in-odds scores? skip — odds feed has the 4 QFs.
     return {
@@ -989,7 +1008,6 @@ export async function getWorldCupFixtures(): Promise<{ live: Match[]; upcoming: 
 }
 
 export async function getLivescores(): Promise<Match[]> {
-  const now = Date.now();
   const FETCH_SPORTS = await getFetchSports();
   const results = await Promise.all(
     FETCH_SPORTS.map(async (sport) => {
@@ -998,10 +1016,10 @@ export async function getLivescores(): Promise<Match[]> {
       return odds
         .filter((e) => {
           const score = scoreMap.get(e.id);
-          // Truly live = in scores feed, not finished, AND kickoff has passed.
+          // Truly live = in scores feed, not finished, kicked off, not aged out.
           // Pre-game matches (completed:false, scores:null) are excluded here
           // and fall through to getUpcomingFixtures instead.
-          return score && !score.completed && new Date(e.commence_time).getTime() <= now;
+          return isMatchLive(e.commence_time, score);
         })
         .map((e) => normalizeOddsEvent(e, scoreMap.get(e.id)));
     }),
@@ -1019,10 +1037,7 @@ export async function getUpcomingFixtures(): Promise<Match[]> {
       // Only genuinely-live games (kicked off + not completed) are excluded.
       const liveIds = new Set(
         odds
-          .filter((e) => {
-            const s = scoreMap.get(e.id);
-            return s && !s.completed && new Date(e.commence_time).getTime() <= now;
-          })
+          .filter((e) => isMatchLive(e.commence_time, scoreMap.get(e.id)))
           .map((e) => e.id),
       );
       return odds

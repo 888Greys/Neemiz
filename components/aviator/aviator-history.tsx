@@ -49,7 +49,7 @@ export function AviatorHistory({ rounds, onVerify }: Props) {
     <div className="relative min-w-0 overflow-hidden">
       <div
         ref={scrollRef}
-        className="no-scrollbar flex w-full min-w-0 max-w-full items-center gap-1.5 overflow-x-auto py-0.5"
+        className="no-scrollbar flex w-full min-w-0 max-w-full items-center gap-1 overflow-x-auto py-0.5"
         style={{ scrollBehavior: "smooth", scrollbarWidth: "none" } as React.CSSProperties}
       >
         {rounds.length === 0 && (
@@ -61,7 +61,7 @@ export function AviatorHistory({ rounds, onVerify }: Props) {
             onClick={() => onVerify?.(r)}
             onMouseEnter={(e) => setTooltip({ r, x: e.clientX })}
             onMouseLeave={() => setTooltip(null)}
-            className={`shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-black transition-transform hover:scale-105 ${chipColor(r.crashPoint)} ${chipGlow(r.crashPoint)}`}
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black tracking-[0.01em] transition-transform hover:scale-[1.03] ${chipColor(r.crashPoint)} ${chipGlow(r.crashPoint)}`}
           >
             {r.crashPoint.toFixed(2)}x
           </button>
