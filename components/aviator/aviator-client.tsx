@@ -7,7 +7,7 @@ import { AviatorCanvas }   from "./aviator-canvas";
 import { AviatorBetPanel } from "./aviator-bet-panel";
 import { AviatorHistory, VerifyModal } from "./aviator-history";
 import { AviatorLiveBets } from "./aviator-live-bets";
-import { WinCelebration, RollingBalance, type WinCelebrationHandle } from "./win-celebration";
+import { RollingBalance } from "./win-celebration";
 import { toast } from "@/lib/toast";
 import { Icon } from "@/components/icon";
 import { useMoney, useCurrency } from "@/lib/currency-context";
@@ -109,7 +109,6 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [menuOpen,       setMenuOpen]       = useState(false);
   const [infoModal,      setInfoModal]      = useState<null | "how" | "rules" | "fair" | "limits">(null);
   const [cashingOut,     setCashingOut]     = useState<{ 0?: boolean; 1?: boolean }>({});
-  const winCelebrationRef = useRef<WinCelebrationHandle>(null);
   // Mobile bottom-nav: players / mine open the players sheet on the matching tab.
   const searchParams = useSearchParams();
   const urlTab = searchParams.get("tab");
@@ -510,14 +509,10 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       const data = await res.json();
       if (!res.ok) throw new Error((data as { error?: string }).error ?? "Cashout failed");
 
-      // Server confirmed — celebrate with authoritative amount (no generic toast)
-      const serverWin  = Number((data as { winAmount: number }).winAmount);
-      const serverMult = Number((data as { cashoutAt: number }).cashoutAt);
+      // Server confirmed — reconcile the balance to the authoritative amount.
+      // The instant cashout toast already gave the user feedback (no overlay).
+      const serverWin = Number((data as { winAmount: number }).winAmount);
       if (serverWin !== pendingWin) setBalance((b) => b - pendingWin + serverWin);
-      winCelebrationRef.current?.fire({
-        multiplier: serverMult,
-        amount: serverWin,
-      });
       window.dispatchEvent(new Event("wallet-refresh"));
     } catch (err) {
       // Server rejected — revert balance
@@ -634,7 +629,6 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
                 flyingStartedAt={round?.flyingStartedAt ?? null}
               />
             </div>
-            <WinCelebration ref={winCelebrationRef} soundEnabled={soundEnabled} />
             <RoundPlayersBadge liveBets={liveBets} />
           </div>
 
