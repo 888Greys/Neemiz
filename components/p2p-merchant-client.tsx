@@ -173,7 +173,7 @@ function MyAdsEmptyShell({
         </button>
       </div>
 
-      <div className="mt-3 flex items-center gap-3 rounded-xl bg-[#1c1c1e] px-3.5 py-3">
+      <div className="mt-3 flex items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3.5 py-3">
         <span className="shrink-0 text-[13px] font-semibold text-white">Active Mode</span>
         <button
           type="button"
@@ -260,7 +260,7 @@ function SetNicknameSheet({
         aria-label="Close"
         onClick={onClose}
       />
-      <div className="relative z-10 w-full max-w-lg rounded-t-2xl bg-[#1c1c1e] px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl sm:rounded-2xl sm:pb-5">
+      <div className="relative z-10 w-full max-w-lg rounded-t-2xl border border-white/10 bg-[#151518] px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl sm:rounded-2xl sm:pb-5">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-[17px] font-bold text-white">Set Nickname</h2>
           <button
@@ -296,7 +296,7 @@ function SetNicknameSheet({
               if (e.key === "Enter" && canSubmit) onConfirm(trimmed);
             }}
             placeholder="Enter your nickname."
-            className="w-full rounded-xl border border-transparent bg-[#2c2c2e] px-3.5 py-3.5 pr-14 text-[14px] text-white placeholder:text-slate-500 outline-none focus:border-[#087cff]/40"
+            className="w-full rounded-xl border border-transparent bg-white/[0.06] px-3.5 py-3.5 pr-14 text-[14px] text-white placeholder:text-slate-500 outline-none focus:border-[#087cff]/40"
           />
           <span className="pointer-events-none absolute bottom-3 right-3.5 text-[11px] tabular-nums text-slate-500">
             {nickname.length}/{NICKNAME_MAX}
@@ -664,7 +664,7 @@ function P2PUserProfile({
           </div>
         </div>
 
-        <div className="mb-3 rounded-xl bg-[#1c1c1e] px-4 py-3.5">
+        <div className="mb-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3.5">
           {[
             ["Completed Order(s) in 30 Days", `${completed} Order(s)`],
             ["Completion Rate Within 30 Days", `${completion.toFixed(0)}%`],
@@ -680,7 +680,7 @@ function P2PUserProfile({
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-xl bg-[#1c1c1e]">
+        <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
           {menuItems.map((item, i) => (
             <button
               key={item.label}
@@ -698,7 +698,7 @@ function P2PUserProfile({
         </div>
 
         {showFeedback && (
-          <div className="mt-3 overflow-hidden rounded-xl bg-[#1c1c1e]">
+          <div className="mt-3 overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
             {feedback.length === 0 ? (
               <p className="px-4 py-6 text-center text-[13px] text-slate-500">No written feedback yet.</p>
             ) : (
@@ -836,7 +836,7 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
       {open && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/65" onClick={() => setOpen(false)}>
           <div
-            className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 bg-[#151518] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex shrink-0 items-center justify-between px-4 py-3">
@@ -851,7 +851,7 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
               </button>
             </div>
             <div className="shrink-0 px-4 pb-2">
-              <div className="flex items-center gap-2 rounded-xl bg-[#2c2c2e] px-3">
+              <div className="flex items-center gap-2 rounded-xl bg-white/[0.06] px-3">
                 <Icon name="search" className="text-[18px] text-slate-500" />
                 <input
                   autoFocus
@@ -868,7 +868,7 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
               )}
               {groups.map(([cat, list]) => (
                 <div key={cat} className="mb-2">
-                  <p className="sticky top-0 z-[1] bg-[#1c1c1e]/95 px-4 pb-1.5 pt-3 text-[12px] font-semibold text-slate-500 backdrop-blur">
+                  <p className="sticky top-0 z-[1] bg-[#151518]/95 px-4 pb-1.5 pt-3 text-[12px] font-semibold text-slate-500 backdrop-blur">
                     {cat}
                   </p>
                   {list.map((r) => (
@@ -976,7 +976,7 @@ function AdPaymentMethodsSheet({
   return (
     <div className="fixed inset-0 z-[140] flex items-end justify-center bg-black/65" onClick={onClose}>
       <div
-        className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 bg-[#151518] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between px-4 pb-1 pt-3">
@@ -998,7 +998,7 @@ function AdPaymentMethodsSheet({
 
         {browseAll && (
           <div className="shrink-0 px-4 pb-2 pt-2">
-            <div className="flex items-center gap-2 rounded-xl bg-[#2c2c2e] px-3">
+            <div className="flex items-center gap-2 rounded-xl bg-white/[0.06] px-3">
               <Icon name="search" className="text-[18px] text-slate-500" />
               <input
                 autoFocus
@@ -1106,7 +1106,7 @@ function AdPaymentMethodsSheet({
               )}
               {groups.map(([cat, list]) => (
                 <div key={cat} className="mb-2">
-                  <p className="sticky top-0 z-[1] bg-[#1c1c1e]/95 px-1 pb-1.5 pt-3 text-[12px] font-semibold text-slate-500 backdrop-blur">
+                  <p className="sticky top-0 z-[1] bg-[#151518]/95 px-1 pb-1.5 pt-3 text-[12px] font-semibold text-slate-500 backdrop-blur">
                     {cat}
                   </p>
                   {list.map((r) => {
@@ -1242,7 +1242,7 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
       </p>
 
       {!loading && methods.length > 0 && (
-        <div className="mb-3 overflow-hidden rounded-xl bg-[#1c1c1e]">
+        <div className="mb-3 overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
           {methods.map((m, i) => (
             <div
               key={m.id}
@@ -1266,15 +1266,15 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
       )}
 
       {showForm && (
-        <div className="grid grid-cols-2 gap-2.5 rounded-xl bg-[#1c1c1e] px-3 py-4">
+        <div className="grid grid-cols-2 gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-4">
           <MethodPicker value={method} onChange={setMethod} />
           <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
-            className="col-span-2 h-12 rounded-xl border border-transparent bg-[#2c2c2e] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40" />
+            className="col-span-2 h-12 rounded-xl border border-transparent bg-white/[0.06] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40" />
           <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={accountIdentifierLabel(method)}
-            className={`${isBank ? "" : "col-span-2"} h-12 rounded-xl border border-transparent bg-[#2c2c2e] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40`} />
+            className={`${isBank ? "" : "col-span-2"} h-12 rounded-xl border border-transparent bg-white/[0.06] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40`} />
           {isBank && (
             <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
-              className="h-12 rounded-xl border border-transparent bg-[#2c2c2e] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40" />
+              className="h-12 rounded-xl border border-transparent bg-white/[0.06] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40" />
           )}
           <button type="button" onClick={add} disabled={saving}
             className="col-span-2 flex h-12 items-center justify-center gap-1.5 rounded-full bg-[#087cff] text-[14px] font-bold text-white transition hover:bg-[#0570e8] active:scale-[0.99] disabled:opacity-50">
@@ -2304,9 +2304,9 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/90 backdrop-blur-md p-0 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[440px] flex-col overflow-hidden border-white/10 bg-[#0f1015] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-3xl sm:border" onClick={(e) => e.stopPropagation()}>
+      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[440px] flex-col overflow-hidden border-white/10 bg-[#151518] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border" onClick={(e) => e.stopPropagation()}>
         {/* ── Header + stepper ── */}
-        <div className="shrink-0 border-b border-white/[0.07] bg-[#0f1015] px-4 pb-5 pt-[calc(1.1rem+env(safe-area-inset-top))]">
+        <div className="shrink-0 border-b border-white/[0.07] bg-[#151518] px-4 pb-5 pt-[calc(1.1rem+env(safe-area-inset-top))]">
           <div className="mb-6 flex items-center justify-between">
             <button onClick={step === 0 ? onClose : () => setStep((s) => s - 1)} className="flex h-10 w-10 items-center justify-center rounded-full text-slate-200 transition hover:bg-white/[0.06] active:scale-95">
               <Icon name="arrow_back" className="text-[20px]" />
@@ -2410,7 +2410,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           {pickerMounted && cryptoOpen && !isEditing && createPortal(
             <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/65" onClick={() => setCryptoOpen(false)}>
               <div
-                className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 bg-[#151518] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                 onClick={(e) => e.stopPropagation()}
               >
               <div className="flex shrink-0 items-center justify-between px-4 py-3">
@@ -2428,7 +2428,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 </div>
               </div>
               <div className="shrink-0 px-4 pb-2">
-                <div className="flex items-center gap-2 rounded-xl bg-[#2c2c2e] px-3">
+                <div className="flex items-center gap-2 rounded-xl bg-white/[0.06] px-3">
                   <Icon name="search" className="text-[18px] text-slate-500" />
                   <input
                     autoFocus
@@ -2491,7 +2491,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           {pickerMounted && fiatOpen && createPortal(
             <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/65" onClick={() => setFiatOpen(false)}>
               <div
-                className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 bg-[#151518] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                 onClick={(e) => e.stopPropagation()}
               >
               <div className="flex shrink-0 items-center justify-between px-4 py-3">
@@ -2509,7 +2509,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 </div>
               </div>
               <div className="shrink-0 px-4 pb-2">
-                <div className="flex items-center gap-2 rounded-xl bg-[#2c2c2e] px-3">
+                <div className="flex items-center gap-2 rounded-xl bg-white/[0.06] px-3">
                   <Icon name="search" className="text-[18px] text-slate-500" />
                   <input
                     autoFocus
@@ -2561,7 +2561,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
 
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price type</label>
-            <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-[#2c2c2e] p-1">
+            <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-white/[0.04] p-1">
               {([
                 { id: "MARKET" as const, label: "Market", hint: "Track spot + margin %" },
                 { id: "FIXED" as const, label: "Fixed", hint: "Set your own price" },
@@ -2572,7 +2572,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                   onClick={() => switchPriceMode(opt.id)}
                   className={`rounded-lg px-3 py-2.5 text-left transition ${
                     priceMode === opt.id
-                      ? "bg-[#3a3a3c] text-white shadow-sm"
+                      ? "bg-white/[0.1] text-white shadow-sm"
                       : "text-slate-500 hover:text-slate-300"
                   }`}
                 >
@@ -3379,7 +3379,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
           ))}
         </div>
 
-        <div className="mb-3 flex items-center gap-3 rounded-xl bg-[#1c1c1e] px-3.5 py-3">
+        <div className="mb-3 flex items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3.5 py-3">
           <span className="shrink-0 text-[13px] font-semibold text-white">Active Mode</span>
           <button
             type="button"
