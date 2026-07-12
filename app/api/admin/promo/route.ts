@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { logAdminAction } from "@/lib/admin-audit";
 import { normalizePromoCode } from "@/lib/promo-redeem";
+import { REAL_DEPOSIT_PROVIDERS } from "@/lib/promo-lock";
 
 export const dynamic = "force-dynamic";
 
@@ -261,6 +262,82 @@ export async function GET(req: Request) {
     }),
   ]);
 
+  // Per-user activity for the redemptions on this page: real deposits made and
+  // withdrawals taken. Lets the owner see whether a promo user actually funded
+  // and cashed out, not just that they claimed the code.
+  const pageUserIds = [...new Set(redemptions.map((r) => r.user.id))];
+  const [depByUser, wdByUser] = pageUserIds.length
+    ? await Promise.all([
+        db.transaction.groupBy({
+          by: ["userId"],
+          where: {
+            userId: { in: pageUserIds },
+            type: "DEPOSIT",
+            status: "COMPLETED",
+            provider: { in: REAL_DEPOSIT_PROVIDERS as unknown as string[] },
+          },
+          _sum: { amount: true },
+          _count: { _all: true },
+        }),
+        db.transaction.groupBy({
+          by: ["userId"],
+          where: {
+            userId: { in: pageUserIds },
+            type: "WITHDRAWAL",
+            status: "COMPLETED",
+          },
+          _sum: { amount: true },
+          _count: { _all: true },
+        }),
+      ])
+    : [[], []];
+
+  const depMap = new Map(depByUser.map((d) => [d.userId, d]));
+  const wdMap = new Map(wdByUser.map((w) => [w.userId, w]));
+
+  // Scope summary: deposits/withdrawals across ALL users matching the current
+  // redemption filter (whole code, not just this page) — the "promo summary".
+  const scopeUsers = await db.promoRedemption.findMany({
+    where: redemptionWhere,
+    distinct: ["userId"],
+    select: { userId: true },
+  });
+  const scopeUserIds = scopeUsers.map((u) => u.userId);
+  const [scopeDep, scopeWd, scopeFunded] = scopeUserIds.length
+    ? await Promise.all([
+        db.transaction.aggregate({
+          where: {
+            userId: { in: scopeUserIds },
+            type: "DEPOSIT",
+            status: "COMPLETED",
+            provider: { in: REAL_DEPOSIT_PROVIDERS as unknown as string[] },
+          },
+          _sum: { amount: true },
+        }),
+        db.transaction.aggregate({
+          where: { userId: { in: scopeUserIds }, type: "WITHDRAWAL", status: "COMPLETED" },
+          _sum: { amount: true },
+        }),
+        db.transaction.findMany({
+          where: {
+            userId: { in: scopeUserIds },
+            type: "DEPOSIT",
+            status: "COMPLETED",
+            provider: { in: REAL_DEPOSIT_PROVIDERS as unknown as string[] },
+          },
+          distinct: ["userId"],
+          select: { userId: true },
+        }),
+      ])
+    : [null, null, []];
+
+  const redemptionSummary = {
+    users: scopeUserIds.length,
+    funded: scopeFunded.length,
+    depositedKes: Number(scopeDep?._sum.amount ?? 0),
+    withdrawnKes: Number(scopeWd?._sum.amount ?? 0),
+  };
+
   const mappedPromos = promos.map((p) => {
     const amountKes = Number(p.amountKes);
     return {
@@ -295,20 +372,31 @@ export async function GET(req: Request) {
       total: promoTotal,
       pages: Math.max(1, Math.ceil(promoTotal / pageSize)),
     },
-    redemptions: redemptions.map((r) => ({
-      id: r.id,
-      code: r.promoCode.code,
-      amountKes: Number(r.amountKes),
-      createdAt: r.createdAt.toISOString(),
-      user: {
-        id: r.user.id,
-        username: r.user.username,
-        email: r.user.email,
-        phone: r.user.phone,
-        walletBalance: Number(r.user.walletBalance),
-        joinedAt: r.user.createdAt.toISOString(),
-      },
-    })),
+    redemptionSummary,
+    redemptions: redemptions.map((r) => {
+      const dep = depMap.get(r.user.id);
+      const wd = wdMap.get(r.user.id);
+      const depositedKes = Number(dep?._sum.amount ?? 0);
+      return {
+        id: r.id,
+        code: r.promoCode.code,
+        amountKes: Number(r.amountKes),
+        createdAt: r.createdAt.toISOString(),
+        user: {
+          id: r.user.id,
+          username: r.user.username,
+          email: r.user.email,
+          phone: r.user.phone,
+          walletBalance: Number(r.user.walletBalance),
+          joinedAt: r.user.createdAt.toISOString(),
+          depositedKes,
+          depositCount: dep?._count._all ?? 0,
+          withdrawnKes: Number(wd?._sum.amount ?? 0),
+          withdrawalCount: wd?._count._all ?? 0,
+          funded: depositedKes > 0,
+        },
+      };
+    }),
     redemptionPagination: {
       page: rPage,
       pageSize: rPageSize,
