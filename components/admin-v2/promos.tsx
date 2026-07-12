@@ -30,7 +30,19 @@ type Redemption = {
     phone: string | null;
     walletBalance: number;
     joinedAt: string;
+    depositedKes: number;
+    depositCount: number;
+    withdrawnKes: number;
+    withdrawalCount: number;
+    funded: boolean;
   };
+};
+
+type RedemptionSummary = {
+  users: number;
+  funded: number;
+  depositedKes: number;
+  withdrawnKes: number;
 };
 
 type Totals = {
@@ -96,6 +108,7 @@ function Pager({
 export function AdminV2Promos() {
   const [promos, setPromos] = useState<Promo[]>([]);
   const [redemptions, setRedemptions] = useState<Redemption[]>([]);
+  const [rSummary, setRSummary] = useState<RedemptionSummary | null>(null);
   const [totals, setTotals] = useState<Totals>({ codes: 0, active: 0, redemptions: 0, paidKes: 0 });
   const [pagination, setPagination] = useState<PageMeta>({ page: 1, pageSize: 20, total: 0, pages: 1 });
   const [rPagination, setRPagination] = useState<PageMeta>({ page: 1, pageSize: 25, total: 0, pages: 1 });
@@ -140,6 +153,7 @@ export function AdminV2Promos() {
       const data = await res.json();
       setPromos(data.promos ?? []);
       setRedemptions(data.redemptions ?? []);
+      setRSummary(data.redemptionSummary ?? null);
       if (data.totals) setTotals(data.totals);
       if (data.pagination) setPagination(data.pagination);
       if (data.redemptionPagination) setRPagination(data.redemptionPagination);
@@ -467,6 +481,36 @@ export function AdminV2Promos() {
           </form>
         </div>
 
+        {rSummary && rSummary.users > 0 && (
+          <div className="grid gap-3 border-b border-[#424754]/50 px-4 py-3 sm:grid-cols-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#8c909f]">
+                {codeFilter ? "Users of code" : "Users (filter)"}
+              </p>
+              <p className="av2-mono mt-0.5 text-[16px] font-bold text-[#e5e2e3]">
+                {rSummary.users.toLocaleString()}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#8c909f]">Funded (deposited)</p>
+              <p className="av2-mono mt-0.5 text-[16px] font-bold text-emerald-400">
+                {rSummary.funded.toLocaleString()}
+                <span className="ml-1 text-[11px] font-medium text-[#5c6070]">
+                  ({rSummary.users ? Math.round((rSummary.funded / rSummary.users) * 100) : 0}%)
+                </span>
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#8c909f]">Total deposited</p>
+              <p className="av2-mono mt-0.5 text-[16px] font-bold text-[#adc6ff]">{money(rSummary.depositedKes)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#8c909f]">Total withdrawn</p>
+              <p className="av2-mono mt-0.5 text-[16px] font-bold text-[#ffb786]">{money(rSummary.withdrawnKes)}</p>
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <p className="px-4 py-10 text-center text-[12px] text-[#8c909f]">Loading…</p>
         ) : redemptions.length === 0 ? (
@@ -481,6 +525,8 @@ export function AdminV2Promos() {
                   <th className="px-4 py-2.5 font-semibold">Player</th>
                   <th className="px-4 py-2.5 font-semibold">Contact</th>
                   <th className="px-4 py-2.5 text-right font-semibold">Credit</th>
+                  <th className="px-4 py-2.5 text-right font-semibold">Deposited</th>
+                  <th className="px-4 py-2.5 text-right font-semibold">Withdrawn</th>
                   <th className="px-4 py-2.5 text-right font-semibold">Balance</th>
                 </tr>
               </thead>
@@ -503,6 +549,30 @@ export function AdminV2Promos() {
                       {r.user.phone || r.user.email || "—"}
                     </td>
                     <td className="av2-mono px-4 py-2.5 text-right text-emerald-400">{money(r.amountKes)}</td>
+                    <td className="av2-mono px-4 py-2.5 text-right">
+                      {r.user.depositedKes > 0 ? (
+                        <span className="text-[#adc6ff]">
+                          {money(r.user.depositedKes)}
+                          {r.user.depositCount > 1 && (
+                            <span className="ml-1 text-[10px] text-[#5c6070]">×{r.user.depositCount}</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-[#5c6070]">—</span>
+                      )}
+                    </td>
+                    <td className="av2-mono px-4 py-2.5 text-right">
+                      {r.user.withdrawnKes > 0 ? (
+                        <span className="text-[#ffb786]">
+                          {money(r.user.withdrawnKes)}
+                          {r.user.withdrawalCount > 1 && (
+                            <span className="ml-1 text-[10px] text-[#5c6070]">×{r.user.withdrawalCount}</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-[#5c6070]">—</span>
+                      )}
+                    </td>
                     <td className="av2-mono px-4 py-2.5 text-right text-[#e5e2e3]">{money(r.user.walletBalance)}</td>
                   </tr>
                 ))}
