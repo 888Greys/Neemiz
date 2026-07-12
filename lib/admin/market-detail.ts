@@ -374,11 +374,22 @@ async function aviatorDetail(base: object, w: Window): Promise<Omit<MarketDetail
 async function healthFor(key: MarketKey): Promise<HealthItem[]> {
   switch (key) {
     case "sports": {
-      // The known getFixtureDetail stateId-5 bug: bets never flip WON/LOST.
-      const stuck = await db.bet.count({ where: { status: "PENDING", createdAt: { lt: new Date(Date.now() - 24 * 60 * 60 * 1000) } } });
+      // Genuinely stuck = PENDING >24h with NO future-dated leg. Bets placed
+      // early on an upcoming fixture are correctly pending, not stuck, so they
+      // must be excluded (otherwise every pre-match multi looks like a backlog).
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const rows = await db.$queryRaw<Array<{ n: bigint }>>`
+        SELECT count(*) AS n FROM bets b
+        WHERE b.status = 'PENDING' AND b.created_at < ${dayAgo}
+          AND NOT EXISTS (
+            SELECT 1 FROM bet_selections s
+            JOIN fixtures_cache fc ON fc.numeric_id = s.fixture_id::bigint
+            WHERE s.bet_id = b.id AND s.fixture_id ~ '^[0-9]+$' AND fc.commence_time > now()
+          )`;
+      const stuck = Number(rows[0]?.n ?? 0);
       return [{
         label: stuck > 0 ? `${stuck} fixtures unsettled >24h` : "Settlement healthy",
-        detail: stuck > 0 ? "getFixtureDetail never returns stateId 5" : "all bets settling",
+        detail: stuck > 0 ? "finished games not grading (odds-API stateId / player-sport fallback gap)" : "all bets settling",
         tone: stuck > 0 ? "danger" : "ok",
       }];
     }
