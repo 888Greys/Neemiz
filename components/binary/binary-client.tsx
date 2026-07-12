@@ -23,6 +23,7 @@ import {
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { placed } from "@/lib/game-feel";
 import { createClient } from "@/lib/supabase/client";
 import { quoteToDigit } from "@/lib/binary-digit";
 import {
@@ -1103,7 +1104,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     if (won) {
       toast.cashout(`+${money(data.winAmount ?? trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${exitDigit}`);
     } else {
-      toast.error("Trade lost", `${trade.side} · Exit digit: ${exitDigit}`);
+      toast.loss("Trade lost", `${trade.side} · Exit digit: ${exitDigit}`);
     }
     setTab("closed");
   }, [money]);
@@ -1168,7 +1169,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         if (won) {
           toast.cashout(`+${money(trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${digit}`);
         } else {
-          toast.error("Trade lost", `${trade.side} · Exit digit: ${digit}`);
+          toast.loss("Trade lost", `${trade.side} · Exit digit: ${digit}`);
         }
       }
 
@@ -1233,7 +1234,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           window.dispatchEvent(new Event("wallet-refresh"));
           toast.cashout(`+${money(payout)} — Accumulator closed!`, `${data.ticksSurvived ?? pos.ticksSurvived} ticks · ${pos.market}`);
         } else {
-          toast.error("Accumulator busted", `Hit the barrier after ${data.ticksSurvived ?? pos.ticksSurvived} ticks.`);
+          toast.loss("Accumulator busted", `Hit the barrier after ${data.ticksSurvived ?? pos.ticksSurvived} ticks.`);
         }
       } else {
         const busted = auto === "bust";
@@ -1252,7 +1253,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           setDemoBalance((b) => b + payout);
           toast.cashout(`+${money(payout)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
         } else {
-          toast.error("Accumulator busted", `Hit the barrier after ${pos.ticksSurvived} ticks.`);
+          toast.loss("Accumulator busted", `Hit the barrier after ${pos.ticksSurvived} ticks.`);
         }
       }
     } finally {
@@ -1299,6 +1300,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       const prevBalance = liveBalance;
       setAccaPlacing(true);
       setLiveBalance((b) => b - stake);
+      placed();
       toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${money(stake)}`);
       try {
         const res  = await fetch("/api/accumulator/buy", {
@@ -1337,6 +1339,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           barrierFrac, maxTicks: maxTicksFor(growthRate), takeProfit: tp,
           isReal: false, ticksSurvived: 0, lastEpoch: entry.time as number, prevSpot: entry.quote, status: "open",
         });
+        placed();
         toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${money(stake)}`);
       } catch {
         toast.error("Not enough market data", "Wait for a few more ticks and try again.");
@@ -1378,7 +1381,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           window.dispatchEvent(new Event("wallet-refresh"));
           toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
         } else {
-          toast.error(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
+          toast.loss(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
       } else {
         const path = ticksRef.current
@@ -1403,7 +1406,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           setDemoBalance((b) => b + payout);
           toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
         } else {
-          toast.error(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
+          toast.loss(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
       }
     } finally {
@@ -1448,6 +1451,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       const prevBalance = liveBalance;
       setLevPlacing(true);
       setLiveBalance((b) => b - stake);
+      placed();
       toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${money(stake)}`);
       try {
         const res  = await fetch("/api/leveraged/bet", {
@@ -1487,6 +1491,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         barrier, payoutPerPoint, entrySpot: entry.quote, entryEpoch: entry.time as number, takeProfit: tp, stopLoss: sl,
         isReal: false, lastEpoch: entry.time as number, status: "open",
       });
+      placed();
       toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${money(stake)}`);
     }
   }, [levPlacing, levPos, stake, balance, liveBalance, isLive, levKind, multiplier, barrierOffset, takeProfit, takeProfitOn, stopLoss, stopLossOn, market, ticks]);
@@ -1510,7 +1515,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       window.dispatchEvent(new Event("wallet-refresh"));
       toast.cashout(`+${money(data.winAmount)} — ${t.side} won!`, t.market);
     } else {
-      toast.error(`${t.side} lost`, t.market);
+      toast.loss(`${t.side} lost`, t.market);
     }
   }, [money]);
 
@@ -1559,7 +1564,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           }),
         ], cur).slice(0, 40));
         if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${money(res.credit)} — ${t.side} won!`, t.market); }
-        else { toast.error(`${t.side} lost`, t.market); }
+        else { toast.loss(`${t.side} lost`, t.market); }
       }
     }, 500);
     return () => clearInterval(id);
@@ -1634,6 +1639,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       const prevBalance = liveBalance;
       setDirPlacing(true);
       setLiveBalance((b) => b - stake);
+      placed();
       toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
       try {
         const res  = await fetch("/api/directional/bet", {
@@ -1678,6 +1684,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         stake, payout, payoutPerPoint, entrySpot: entry.quote, entryEpoch: entry.time as number,
         barrier, durationTicks: duration, isReal: false, settlesAt, status: "open" as const,
       }, ...cur].slice(0, 12));
+      placed();
       toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
     }
   }, [dirPlacing, stake, balance, liveBalance, isLive, dirKind, barrierOffset, duration, market, ticks, clientSigma]);
@@ -1715,6 +1722,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       setTransactions((current) => [`${side} ${market.symbol} ${money(stake)}`, ...current].slice(0, 12));
       setTab("open");
       // Instant feedback — fire the toast now, not after the server round-trip.
+      placed();
       toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
       try {
         const res  = await fetch("/api/binary/bet", {
@@ -1771,6 +1779,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       setOpenTrades((current) => [trade, ...current].slice(0, 12));
       setTransactions((current) => [`${side} ${market.symbol} ${money(stake)}`, ...current].slice(0, 12));
       setTab("open");
+      placed();
       toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
     }
   }
