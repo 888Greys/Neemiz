@@ -48,7 +48,7 @@ export async function evaluateBusinessMetrics(): Promise<MetricAlert[]> {
   const approvalCutoff  = new Date(Date.now() - approvalAgeMinutes * 60_000);
   const dayAgo          = new Date(Date.now() - 24 * 60 * 60_000);
 
-  const [depAgg, depInitErrRows, wdStuck, wdApproval, settlementBacklog] = await Promise.all([
+  const [depAgg, depInitErrRows, wdStuck, wdApproval, settlementBacklogRows] = await Promise.all([
     // Deposit completion vs failure within the window (terminal states only).
     db.$queryRaw<Array<{ status: string; n: bigint; users: bigint }>>`
       SELECT status::text AS status, count(*) AS n, count(DISTINCT user_id) AS users
@@ -72,9 +72,24 @@ export async function evaluateBusinessMetrics(): Promise<MetricAlert[]> {
     db.transaction.count({
       where: { type: "WITHDRAWAL", status: "PENDING_APPROVAL", createdAt: { lt: approvalCutoff } },
     }),
-    // Settlement backlog: sports bets stuck PENDING past 24h (the stateId-5 bug).
-    db.bet.count({ where: { status: "PENDING", createdAt: { lt: dayAgo } } }),
+    // Settlement backlog: sports bets GENUINELY stuck — PENDING past 24h whose
+    // every leg's game is already in the past. A bet with a leg on a future
+    // fixture (placed early on an upcoming match) is correctly pending, not
+    // stuck, so it must not inflate this count. Excludes any bet that has a
+    // selection whose cached fixture kicks off in the future.
+    db.$queryRaw<Array<{ n: bigint }>>`
+      SELECT count(*) AS n
+      FROM bets b
+      WHERE b.status = 'PENDING' AND b.created_at < ${dayAgo}
+        AND NOT EXISTS (
+          SELECT 1 FROM bet_selections s
+          JOIN fixtures_cache fc ON fc.numeric_id = s.fixture_id::bigint
+          WHERE s.bet_id = b.id
+            AND s.fixture_id ~ '^[0-9]+$'
+            AND fc.commence_time > now()
+        )`,
   ]);
+  const settlementBacklog = Number(settlementBacklogRows[0]?.n ?? 0);
 
   const completed = Number(depAgg.find((r) => r.status === "COMPLETED")?.n ?? 0);
   const failed = Number(depAgg.find((r) => r.status === "FAILED")?.n ?? 0);
@@ -134,7 +149,7 @@ export async function evaluateBusinessMetrics(): Promise<MetricAlert[]> {
       key: "settlement_backlog",
       severity: "warn",
       title: `${settlementBacklog} sports bets unsettled > 24h`,
-      detail: `${settlementBacklog} sports bets are stuck PENDING past 24 hours — the settlement pipeline is falling behind (known getFixtureDetail stateId-5 issue).`,
+      detail: `${settlementBacklog} sports bets whose games are already over are still PENDING past 24 hours — the settlement pipeline is falling behind. Common causes: the Odds API never flips a finished game to completed, or the bet is on a player sport (tennis/cricket) the results fallback can't grade. Bets on upcoming fixtures are excluded from this count.`,
       link: "/admin/markets/sports",
     });
   }
