@@ -1299,6 +1299,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       const prevBalance = liveBalance;
       setAccaPlacing(true);
       setLiveBalance((b) => b - stake);
+      toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${money(stake)}`);
       try {
         const res  = await fetch("/api/accumulator/buy", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -1317,7 +1318,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           isReal: true, ticksSurvived: 0, lastEpoch: data.entryEpoch!, prevSpot: data.entrySpot!, status: "open",
         });
         window.dispatchEvent(new Event("wallet-refresh"));
-        toast.info(`Accumulator ${growthRate}% placed`, `${market.symbol} · Stake ${money(stake)}`);
       } catch (err) {
         setLiveBalance(prevBalance);
         toast.error("Trade failed", err instanceof Error ? err.message : "Could not place accumulator");
@@ -1448,6 +1448,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       const prevBalance = liveBalance;
       setLevPlacing(true);
       setLiveBalance((b) => b - stake);
+      toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${money(stake)}`);
       try {
         const res  = await fetch("/api/leveraged/bet", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -1467,7 +1468,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           isReal: true, lastEpoch: data.entryEpoch!, status: "open",
         });
         window.dispatchEvent(new Event("wallet-refresh"));
-        toast.info(`${levKind === "TURBO" ? "Turbo" : `Multiplier ×${multiplier}`} ${direction}`, `${market.symbol} · Stake ${money(stake)}`);
       } catch (err) {
         setLiveBalance(prevBalance);
         toast.error("Trade failed", err instanceof Error ? err.message : "Could not place trade");
@@ -1634,6 +1634,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       const prevBalance = liveBalance;
       setDirPlacing(true);
       setLiveBalance((b) => b - stake);
+      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
       try {
         const res  = await fetch("/api/directional/bet", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -1652,7 +1653,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           entrySpot: data.entrySpot!, entryEpoch: data.entryEpoch!,
           barrier: data.barrier ?? null, durationTicks: duration, isReal: true, settlesAt, status: "open" as const,
         }, ...cur].slice(0, 12));
-        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
       } catch (err) {
         setLiveBalance(prevBalance);
         toast.error("Trade failed", err instanceof Error ? err.message : "Could not place trade");
@@ -1714,6 +1714,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       setOpenTrades((current) => [optimistic, ...current].slice(0, 12));
       setTransactions((current) => [`${side} ${market.symbol} ${money(stake)}`, ...current].slice(0, 12));
       setTab("open");
+      // Instant feedback — fire the toast now, not after the server round-trip.
+      toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
       try {
         const res  = await fetch("/api/binary/bet", {
           method:  "POST",
@@ -1743,7 +1745,6 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           ),
         );
         window.dispatchEvent(new Event("wallet-refresh"));
-        toast.info(`${side} placed · ${duration} ticks`, `${market.symbol} · Stake ${money(stake)}`);
       } catch (err) {
         setLiveBalance(prevBalance);
         setOpenTrades(prevOpen);

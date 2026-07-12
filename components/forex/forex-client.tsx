@@ -681,6 +681,8 @@ export function ForexClient() {
   async function openTrade(nextDirection: Direction = direction) {
     setTradeError(null);
     setOpeningTrade(true);
+    // Instant feedback the moment the button is tapped — don't wait for the server.
+    toast.info(`${nextDirection === "buy" ? "Buy" : "Sell"} ${selectedMarket.symbol}`, `Size ${size} @ ${price.toFixed(selectedMarket.precision)}`);
     const sl = nextDirection === "buy" ? price - riskPips * unit : price + riskPips * unit;
     const tp = nextDirection === "buy" ? price + targetPips * unit : price - targetPips * unit;
     try {
@@ -737,6 +739,12 @@ export function ForexClient() {
       }
       setTrades((current) => current.filter((t) => t.id !== id));
       window.dispatchEvent(new Event("wallet-refresh"));
+      // Win = green, loss = red.
+      const pl = data.profitLoss;
+      if (typeof pl === "number") {
+        if (pl >= 0) toast.cashout(`Closed +${format(pl)}`, trade.symbol);
+        else toast.error(`Closed −${format(Math.abs(pl))}`, trade.symbol);
+      }
       // Prepend to local history so user sees it immediately without a refresh
       if (trade) {
         const closed: ClosedTrade = {
