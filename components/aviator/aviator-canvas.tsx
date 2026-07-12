@@ -258,7 +258,7 @@ function draw(
   ctx.fill();
 
   if (state === "WAITING" || state === "BETTING") {
-    drawIdleState(ctx, w, h, ORIGIN_X, ORIGIN_Y, state, bettingEndsAt);
+    drawIdleState(ctx, w, h, ORIGIN_X, ORIGIN_Y, state, bettingEndsAt, planeImg);
     return;
   }
 
@@ -390,6 +390,22 @@ function draw(
   if (isCrashed) ctx.fillText("CRASHED", w/2, h*(compact?0.52:0.5)+fs*0.58);
 }
 
+// Draw the plane SVG (150×74, faces right) rotated to `angle` with the nose on (x,y).
+function drawPlaneImg(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, angle: number, pw: number,
+) {
+  const ph = pw * (img.height / img.width);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.shadowColor = "#ff1838"; ctx.shadowBlur = 14;
+  ctx.drawImage(img, -pw + pw * 0.12, -ph / 2, pw, ph);
+  ctx.restore();
+  ctx.shadowBlur = 0;
+}
+
 // Plane — y-axis flipped (scale 1,-1) so it appears right-side-up when going down-right
 function drawPlane(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, scale = 1) {
   ctx.save();
@@ -493,6 +509,7 @@ function drawIdleState(
   ox: number, oy: number,
   state: AviatorRoundState,
   bettingEndsAt?: string | null,
+  planeImg?: HTMLImageElement | null,
 ) {
   const cx = w/2, cy = h/2;
   const compact = w < 520;
@@ -574,7 +591,11 @@ function drawIdleState(
     const planeX = ox + (compact ? 26 : 34);
     const planeY = oy - (compact ? 22 : 28) + Math.sin(timeSecIdle * 2.2) * 2.5;
     drawTrail(ctx, planeX - 2, planeY + 1, -Math.PI / 6);
-    drawPlane(ctx, planeX, planeY, -Math.PI / 6, compact ? 0.88 : 1.02);
+    if (planeImg) {
+      drawPlaneImg(ctx, planeImg, planeX, planeY, -Math.PI / 6, compact ? 64 : 84);
+    } else {
+      drawPlane(ctx, planeX, planeY, -Math.PI / 6, compact ? 0.88 : 1.02);
+    }
   } else {
     // WAITING: orbiting plane
     const spin = timeSecIdle * 1.5;
