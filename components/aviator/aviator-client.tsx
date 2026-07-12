@@ -9,7 +9,7 @@ import { AviatorHistory, VerifyModal } from "./aviator-history";
 import { WinCelebration, RollingBalance, type WinCelebrationHandle } from "./win-celebration";
 import { toast } from "@/lib/toast";
 import { Icon } from "@/components/icon";
-import { useMoney } from "@/lib/currency-context";
+import { useMoney, useCurrency } from "@/lib/currency-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import type {
   AviatorRoundState,
@@ -85,6 +85,13 @@ function mapStatus(s: string): AviatorRoundState {
 
 export function AviatorClient({ userId, username, balance: initialBalance }: Props) {
   const { format } = useMoney();
+  const { convert, currency, code } = useCurrency();
+  // Spribe-style balance: bare number + currency code, e.g. "7,733.87 USD".
+  const spribeBalance = (kes: number) =>
+    `${convert(kes).toLocaleString(currency.locale, {
+      minimumFractionDigits: currency.decimals,
+      maximumFractionDigits: currency.decimals,
+    })} ${code}`;
   const router = useRouter();
   const { openWallet } = useAuthModal();
   const [round,      setRound]      = useState<AviatorRound | null>(null);
@@ -98,6 +105,8 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [prevRoundBets,  setPrevRoundBets]  = useState<AviatorBetPublic[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [soundEnabled,   setSoundEnabled]   = useState(loadSoundEnabled);
+  const [menuOpen,       setMenuOpen]       = useState(false);
+  const [infoModal,      setInfoModal]      = useState<null | "how" | "rules" | "fair" | "limits">(null);
   const [cashingOut,     setCashingOut]     = useState<{ 0?: boolean; 1?: boolean }>({});
   const winCelebrationRef = useRef<WinCelebrationHandle>(null);
   // Mobile bottom-nav: players / mine open the players sheet on the matching tab.
@@ -542,7 +551,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     <div className="relative flex h-full w-full min-h-0 flex-col overflow-hidden bg-[#151518]">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-3 lg:p-3">
         <section className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto lg:overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
-          {/* Mobile Top Header: Back, Wallet, Sound */}
+          {/* Mobile Top Header: Back, Balance (Spribe-style), Menu */}
           <div className="flex shrink-0 items-center justify-between px-2 py-1.5 sm:hidden">
             <button
               type="button"
@@ -556,26 +565,23 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
               <button
                 type="button"
                 onClick={() => openWallet()}
-                className="flex items-center gap-1.5 rounded-full bg-white/[0.05] px-3 py-1 ring-1 ring-white/[0.06] transition active:scale-95 hover:bg-white/[0.1] hover:text-white"
+                aria-label="Open wallet"
+                className="flex items-baseline gap-1 font-sans tracking-tight transition active:scale-95"
               >
-                <Icon name="account_balance_wallet" className="text-[13px] text-[#31c45d]" />
                 <RollingBalance
                   value={balance}
-                  className="text-[11px] font-black tabular-nums text-white"
-                  format={(n) => format(n)}
+                  className="text-[15px] font-bold tabular-nums text-[#31c45d]"
+                  format={spribeBalance}
                 />
               </button>
             )}
             <button
               type="button"
-              onClick={() => setSoundEnabled((v) => !v)}
-              className={`grid h-8 w-8 place-items-center rounded-full ring-1 ring-white/[0.06] transition-colors ${
-                soundEnabled ? "bg-white/[0.06] text-[#31c45d]" : "bg-white/[0.06] text-white/35"
-              }`}
-              aria-label={soundEnabled ? "Mute Aviator sounds" : "Enable Aviator sounds"}
-              title={soundEnabled ? "Sound on" : "Sound off"}
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.06] text-white/70 ring-1 ring-white/[0.06] transition active:scale-95 hover:text-white"
             >
-              <Icon name={soundEnabled ? "notifications" : "notifications_off"} className="h-4.5 w-4.5" />
+              <Icon name="menu" className="text-[18px]" />
             </button>
           </div>
 
@@ -612,7 +618,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             </button>
           </div>
 
-          <div className="relative mx-2 min-h-0 flex-1 overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#151518] lg:mx-0">
+          <div className="relative mx-2 min-h-0 max-h-[38vh] flex-1 overflow-hidden rounded-[10px] border border-white/[0.06] bg-[#151518] lg:mx-0 lg:max-h-none">
             <div className="h-full min-h-[180px]">
               <AviatorCanvas
                 state={round?.state ?? "WAITING"}
@@ -680,9 +686,191 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         onTabChange={setPlayersTab}
       />
 
+      <AviatorMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        username={username}
+        soundEnabled={soundEnabled}
+        onToggleSound={() => setSoundEnabled((v) => !v)}
+        onInfo={(k) => { setInfoModal(k); setMenuOpen(false); }}
+        onHistory={() => { setMenuOpen(false); router.push("/aviator?tab=mine", { scroll: false }); }}
+        onHome={() => { setMenuOpen(false); router.push("/dashboard"); }}
+      />
+
+      {infoModal && (
+        <AviatorInfoModal kind={infoModal} onClose={() => setInfoModal(null)} />
+      )}
+
       {verifyRound && (
         <VerifyModal round={verifyRound} onClose={() => setVerifyRound(null)} />
       )}
+    </div>
+  );
+}
+
+// ─── Spribe-style hamburger menu ───────────────────────────────────────────────
+
+function AviatorMenu({
+  open, onClose, username, soundEnabled, onToggleSound, onInfo, onHistory, onHome,
+}: {
+  open: boolean;
+  onClose: () => void;
+  username?: string;
+  soundEnabled: boolean;
+  onToggleSound: () => void;
+  onInfo: (k: "how" | "rules" | "fair" | "limits") => void;
+  onHistory: () => void;
+  onHome: () => void;
+}) {
+  if (!open) return null;
+
+  const links: { icon: string; label: string; onClick: () => void }[] = [
+    { icon: "history",       label: "My Bet History",         onClick: onHistory },
+    { icon: "verified_user", label: "Provably Fair Settings", onClick: () => onInfo("fair") },
+    { icon: "speed",         label: "Game Limits",            onClick: () => onInfo("limits") },
+    { icon: "help",          label: "How To Play",            onClick: () => onInfo("how") },
+    { icon: "menu_book",     label: "Game Rules",             onClick: () => onInfo("rules") },
+  ];
+
+  return (
+    <div className="absolute inset-0 z-[60] flex flex-col">
+      <button
+        type="button"
+        aria-label="Close menu"
+        onClick={onClose}
+        className="absolute inset-0 bg-black/55"
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Aviator menu"
+        className="relative z-10 ml-auto mt-12 mr-2 w-[240px] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1c1d23] shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2.5 border-b border-white/[0.06] px-3 py-2.5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#087cff]/20 text-[13px] font-black text-[#087cff]">
+            {(username ?? "G").slice(0, 1).toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[12px] font-black text-white">{username ?? "Guest"}</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-white/35">Aviator</p>
+          </div>
+        </div>
+
+        {/* Sound toggle */}
+        <button
+          type="button"
+          onClick={onToggleSound}
+          className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
+        >
+          <span className="flex items-center gap-2.5 text-[12px] font-bold text-white/80">
+            <Icon name={soundEnabled ? "volume_up" : "volume_off"} className="text-[18px] text-white/50" />
+            Sound
+          </span>
+          <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${soundEnabled ? "bg-[#31c45d]" : "bg-white/15"}`}>
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${soundEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          </span>
+        </button>
+
+        <div className="h-px bg-white/[0.06]" />
+
+        {/* Links */}
+        {links.map((l) => (
+          <button
+            key={l.label}
+            type="button"
+            onClick={l.onClick}
+            className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[12px] font-bold text-white/80 transition-colors hover:bg-white/[0.04]"
+          >
+            <Icon name={l.icon} className="text-[18px] text-white/50" />
+            {l.label}
+          </button>
+        ))}
+
+        <div className="h-px bg-white/[0.06]" />
+
+        <button
+          type="button"
+          onClick={onHome}
+          className="flex w-full items-center justify-center gap-2 px-3 py-2.5 text-[12px] font-black text-white/60 transition-colors hover:bg-white/[0.04] hover:text-white"
+        >
+          <Icon name="home" className="text-[18px]" />
+          Home
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const INFO_CONTENT: Record<"how" | "rules" | "fair" | "limits", { title: string; body: string[] }> = {
+  how: {
+    title: "How To Play",
+    body: [
+      "1. Place a bet before the round starts — you can run two bets at once.",
+      "2. Watch the multiplier climb as the plane flies.",
+      "3. Cash out before it flies away to lock in your winnings (bet × multiplier).",
+      "4. If the plane flies away before you cash out, the bet is lost.",
+      "Tip: use Auto Cashout to exit automatically at a target multiplier.",
+    ],
+  },
+  rules: {
+    title: "Game Rules",
+    body: [
+      "Each round the plane takes off and the multiplier grows from 1.00×.",
+      "The round ends when the plane flies away at a random crash point.",
+      "A winning payout = your stake × the multiplier at cashout.",
+      "Winnings are subject to the house margin applied at cashout.",
+      "Only bets placed during the betting window are accepted.",
+    ],
+  },
+  fair: {
+    title: "Provably Fair",
+    body: [
+      "Every crash point is generated from a server seed committed before the round.",
+      "The seed hash is shown before the round; the seed is revealed after the crash.",
+      "You can verify any past round from the round-history chips → Verify.",
+      "This guarantees no result can be altered once betting opens.",
+    ],
+  },
+  limits: {
+    title: "Game Limits",
+    body: [
+      "Minimum bet: KES 10 per panel.",
+      "Maximum bet: KES 50,000 per panel.",
+      "Up to two simultaneous bets per round.",
+      "Maximum win is capped per round per the house payout policy.",
+    ],
+  },
+};
+
+function AviatorInfoModal({ kind, onClose }: { kind: "how" | "rules" | "fair" | "limits"; onClose: () => void }) {
+  const { title, body } = INFO_CONTENT[kind];
+  return (
+    <div className="absolute inset-0 z-[70] flex items-center justify-center p-4">
+      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="relative z-10 w-full max-w-sm overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1c1d23] shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+      >
+        <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
+          <h2 className="text-[13px] font-black text-white">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-7 w-7 place-items-center rounded-full bg-white/[0.06] text-white/55 transition-colors hover:text-white"
+            aria-label="Close"
+          >
+            <Icon name="close" className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex flex-col gap-2 px-4 py-3.5">
+          {body.map((line, i) => (
+            <p key={i} className="text-[12px] leading-relaxed text-white/70">{line}</p>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

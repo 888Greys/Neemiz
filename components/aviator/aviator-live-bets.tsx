@@ -48,9 +48,9 @@ export function AviatorLiveBets({ liveBets, prevBets = [], myHistory, myCurrentB
     .slice(0, 20);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg bg-[#151518]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-[14px] border border-white/[0.06] bg-[#17181d] shadow-[0_18px_60px_rgba(0,0,0,0.22)]">
       {/* Tab bar */}
-      <div className="flex shrink-0 gap-1 border-b border-white/[0.06] bg-[#18191f] p-2">
+      <div className="flex shrink-0 gap-1 border-b border-white/[0.06] bg-[#1b1c22] p-2">
         {([
           { id: "live" as const, label: "All Bets",  count: liveBets.length },
           { id: "prev" as const, label: "Previous",  count: prevBets.length },
@@ -62,7 +62,7 @@ export function AviatorLiveBets({ liveBets, prevBets = [], myHistory, myCurrentB
             onClick={() => setTab(id)}
             className={`flex flex-1 items-center justify-center gap-1 rounded-full py-1.5 text-[10px] font-black transition-colors ${
               tab === id
-                ? "bg-white/10 text-white"
+                ? "bg-[#262831] text-white"
                 : "text-white/40 hover:bg-white/5 hover:text-white/70"
             }`}
           >
@@ -77,7 +77,7 @@ export function AviatorLiveBets({ liveBets, prevBets = [], myHistory, myCurrentB
       </div>
 
       {/* Column headers */}
-      <div className="grid grid-cols-[minmax(0,1fr)_64px_42px_58px] gap-0 border-b border-white/[0.05] px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_64px_42px_58px] gap-0 border-b border-white/[0.05] bg-black/10 px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3">
         {["User", `Bet (${currency.symbol})`, "@", `Win (${currency.symbol})`].map((h) => (
           <span key={h} className="text-[9px] font-black uppercase tracking-widest text-white/20 last:text-right [&:nth-child(2)]:text-right [&:nth-child(3)]:text-right">
             {h}
@@ -144,7 +144,7 @@ function LiveRow({ bet, isMe }: { bet: AviatorBetPublic; isMe: boolean }) {
   const lost   = bet.status === "LOST";
   const { convert, currency } = useCurrency();
   return (
-    <div className={`grid grid-cols-[minmax(0,1fr)_64px_42px_58px] items-center gap-0 px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3 ${isMe ? "bg-[#087cff]/5" : ""}`}>
+    <div className={`grid grid-cols-[minmax(0,1fr)_64px_42px_58px] items-center gap-0 px-2 py-2 sm:grid-cols-[1fr_78px_56px_72px] sm:px-3 ${isMe ? "bg-[#087cff]/6" : ""}`}>
       {/* User */}
       <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
         {bet.imageUrl ? (
