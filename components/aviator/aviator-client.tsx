@@ -9,7 +9,7 @@ import { AviatorHistory, VerifyModal } from "./aviator-history";
 import { AviatorLiveBets } from "./aviator-live-bets";
 import { RollingBalance } from "./win-celebration";
 import { toast } from "@/lib/toast";
-import { placed, setSoundEnabled as setGameSound } from "@/lib/game-feel";
+import { placed, isSoundEnabled, setSoundEnabled as setGameSound } from "@/lib/game-feel";
 import { Icon } from "@/components/icon";
 import { useMoney, useCurrency } from "@/lib/currency-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
@@ -23,7 +23,9 @@ import { maskName } from "@/lib/aviator/types";
 
 const WS_URL = process.env.NEXT_PUBLIC_AVIATOR_WS_URL ?? "wss://aviator.nezeem.com/ws";
 const HISTORY_STORAGE_KEY = "nezeem_aviator_rounds";
-const SOUND_STORAGE_KEY = "nezeem_aviator_sound_enabled";
+// Background music (music.mp3) — OFF by default. Distinct from game "sound"
+// (the synthesized win/cash-out cues in lib/game-feel), which is ON by default.
+const MUSIC_STORAGE_KEY = "nezeem_aviator_music_enabled";
 
 function loadStoredHistory(): HistoryRound[] {
   if (typeof window === "undefined") return [];
@@ -42,11 +44,12 @@ function appendStoredHistory(entry: HistoryRound) {
   } catch { /* non-critical */ }
 }
 
-function loadSoundEnabled(): boolean {
-  if (typeof window === "undefined") return true;
+function loadMusicEnabled(): boolean {
+  if (typeof window === "undefined") return false;
   try {
-    return localStorage.getItem(SOUND_STORAGE_KEY) !== "0";
-  } catch { return true; }
+    // Default OFF: only on when explicitly enabled.
+    return localStorage.getItem(MUSIC_STORAGE_KEY) === "1";
+  } catch { return false; }
 }
 
 interface HistoryRound {
@@ -106,7 +109,12 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const [verifyRound,    setVerifyRound]    = useState<HistoryRound | null>(null);
   const [prevRoundBets,  setPrevRoundBets]  = useState<AviatorBetPublic[]>([]);
   const [loading,        setLoading]        = useState(true);
-  const [soundEnabled,   setSoundEnabled]   = useState(loadSoundEnabled);
+  const [musicEnabled,   setMusicEnabled]   = useState(loadMusicEnabled);
+  // Game "sound" = synthesized win/cash-out cues (lib/game-feel), ON by default.
+  const [soundOn,        setSoundOn]        = useState(isSoundEnabled);
+  const toggleGameSound = useCallback(() => {
+    setSoundOn((v) => { const next = !v; setGameSound(next); return next; });
+  }, []);
   const [menuOpen,       setMenuOpen]       = useState(false);
   const [infoModal,      setInfoModal]      = useState<null | "how" | "rules" | "fair" | "limits">(null);
   const [cashingOut,     setCashingOut]     = useState<{ 0?: boolean; 1?: boolean }>({});
@@ -139,23 +147,14 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   const liveBetsRef    = useRef<AviatorBetPublic[]>([]);
   const roundCountRef  = useRef(0);
   const bgMusicRef     = useRef<HTMLAudioElement | null>(null);
-  const soundEnabledRef = useRef(soundEnabled);
+  const musicEnabledRef = useRef(musicEnabled);
   // tracks which panel index has a pending bet awaiting a bet_id response
   const pendingBetRef  = useRef<{ panelIndex: 0 | 1; amount: number } | null>(null);
   const supabase       = createClient();
 
   useEffect(() => { roundRef.current  = round;     }, [round]);
   useEffect(() => { liveBetsRef.current = liveBets; }, [liveBets]);
-  useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
-  // Keep the global game-feel (win/lose jingles + haptics) in step with
-  // Aviator's own sound switch, so one toggle rules music AND outcome cues.
-  // Skip the initial render so we don't create/chime the audio context before a
-  // user gesture — only react to an actual toggle.
-  const soundSyncedRef = useRef(false);
-  useEffect(() => {
-    if (!soundSyncedRef.current) { soundSyncedRef.current = true; return; }
-    setGameSound(soundEnabled);
-  }, [soundEnabled]);
+  useEffect(() => { musicEnabledRef.current = musicEnabled; }, [musicEnabled]);
 
   // Mirror of myBets for reading current state inside the WS crash handler.
   const myBetsRef = useRef<MyBets>({});
@@ -171,7 +170,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
     const unlockAudio = () => {
       // Browsers block autoplay until a gesture — kick off music here if enabled.
-      if (soundEnabledRef.current) music.play().catch(() => undefined);
+      if (musicEnabledRef.current) music.play().catch(() => undefined);
     };
     window.addEventListener("pointerdown", unlockAudio, { once: true });
     return () => {
@@ -182,13 +181,13 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem(SOUND_STORAGE_KEY, soundEnabled ? "1" : "0"); } catch { /* non-critical */ }
-    if (!soundEnabled) {
+    try { localStorage.setItem(MUSIC_STORAGE_KEY, musicEnabled ? "1" : "0"); } catch { /* non-critical */ }
+    if (!musicEnabled) {
       bgMusicRef.current?.pause();
     } else {
       bgMusicRef.current?.play().catch(() => undefined);
     }
-  }, [soundEnabled]);
+  }, [musicEnabled]);
 
   // ── Balance ────────────────────────────────────────────────────────────────
   const fetchBalance = useCallback(async () => {
@@ -627,14 +626,14 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             )}
             <button
               type="button"
-              onClick={() => setSoundEnabled((v) => !v)}
+              onClick={() => setMusicEnabled((v) => !v)}
               className={`hidden sm:grid h-7 w-7 shrink-0 place-items-center rounded-full ring-1 ring-white/[0.06] transition-colors ${
-                soundEnabled ? "bg-white/[0.06] text-[#31c45d]" : "bg-white/[0.06] text-white/35"
+                musicEnabled ? "bg-white/[0.06] text-[#31c45d]" : "bg-white/[0.06] text-white/35"
               }`}
-              aria-label={soundEnabled ? "Mute Aviator sounds" : "Enable Aviator sounds"}
-              title={soundEnabled ? "Sound on" : "Sound off"}
+              aria-label={musicEnabled ? "Turn music off" : "Turn music on"}
+              title={musicEnabled ? "Music on" : "Music off"}
             >
-              <Icon name={soundEnabled ? "notifications" : "notifications_off"} className="h-4 w-4" />
+              <Icon name={musicEnabled ? "music_note" : "music_off"} className="h-4 w-4" />
             </button>
           </div>
 
@@ -722,8 +721,10 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         username={username}
-        soundEnabled={soundEnabled}
-        onToggleSound={() => setSoundEnabled((v) => !v)}
+        musicEnabled={musicEnabled}
+        onToggleMusic={() => setMusicEnabled((v) => !v)}
+        soundOn={soundOn}
+        onToggleSound={toggleGameSound}
         onInfo={(k) => { setInfoModal(k); setMenuOpen(false); }}
         onHistory={() => { setMenuOpen(false); router.push("/aviator?tab=mine", { scroll: false }); }}
         onHome={() => { setMenuOpen(false); router.push("/dashboard"); }}
@@ -743,12 +744,14 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 // ─── Spribe-style hamburger menu ───────────────────────────────────────────────
 
 function AviatorMenu({
-  open, onClose, username, soundEnabled, onToggleSound, onInfo, onHistory, onHome,
+  open, onClose, username, musicEnabled, onToggleMusic, soundOn, onToggleSound, onInfo, onHistory, onHome,
 }: {
   open: boolean;
   onClose: () => void;
   username?: string;
-  soundEnabled: boolean;
+  musicEnabled: boolean;
+  onToggleMusic: () => void;
+  soundOn: boolean;
   onToggleSound: () => void;
   onInfo: (k: "how" | "rules" | "fair" | "limits") => void;
   onHistory: () => void;
@@ -789,18 +792,33 @@ function AviatorMenu({
           </div>
         </div>
 
-        {/* Sound toggle */}
+        {/* Sound toggle — win / cash-out cues (on by default) */}
         <button
           type="button"
           onClick={onToggleSound}
           className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
         >
           <span className="flex items-center gap-2.5 text-[12px] font-bold text-white/80">
-            <Icon name={soundEnabled ? "volume_up" : "volume_off"} className="text-[18px] text-white/50" />
+            <Icon name={soundOn ? "volume_up" : "volume_off"} className="text-[18px] text-white/50" />
             Sound
           </span>
-          <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${soundEnabled ? "bg-[#31c45d]" : "bg-white/15"}`}>
-            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${soundEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${soundOn ? "bg-[#31c45d]" : "bg-white/15"}`}>
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${soundOn ? "translate-x-4" : "translate-x-0.5"}`} />
+          </span>
+        </button>
+
+        {/* Music toggle — looping background track (off by default) */}
+        <button
+          type="button"
+          onClick={onToggleMusic}
+          className="flex w-full items-center justify-between px-3 py-2.5 text-left transition-colors hover:bg-white/[0.04]"
+        >
+          <span className="flex items-center gap-2.5 text-[12px] font-bold text-white/80">
+            <Icon name={musicEnabled ? "music_note" : "music_off"} className="text-[18px] text-white/50" />
+            Music
+          </span>
+          <span className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${musicEnabled ? "bg-[#31c45d]" : "bg-white/15"}`}>
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${musicEnabled ? "translate-x-4" : "translate-x-0.5"}`} />
           </span>
         </button>
 
