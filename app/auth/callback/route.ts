@@ -40,12 +40,19 @@ export async function GET(request: Request) {
     if (!error && data.user) {
       const account = await db.user.findUnique({
         where: { supabaseId: data.user.id },
-        select: { isActive: true },
+        select: { isActive: true, phone: true },
       });
       if (account?.isActive === false) {
         await supabase.auth.signOut();
         return NextResponse.redirect(`${appUrl}/suspended`);
       }
+
+      // Google/GitHub sign-ins arrive already email-verified (the provider
+      // confirms the address), so there's no OTP to send. But new social
+      // sign-ups still have no withdrawal phone on file. Flag those so the app
+      // shows a brief "Email verified ✓" confirmation and then hard-blocks on
+      // the phone-number step, matching the email-OTP flow's end state.
+      const needsPhone = !account || !account.phone;
 
       // Shrink the session cookie: Google returns several bulky, app-unused
       // user_metadata keys — `picture` duplicates `avatar_url`, and iss/sub/
@@ -61,7 +68,9 @@ export async function GET(request: Request) {
         await supabase.auth.updateUser({ data: cleared }).catch(() => {});
       }
 
-      return NextResponse.redirect(`${appUrl}${next}`);
+      const dest = new URL(`${appUrl}${next}`);
+      if (needsPhone) dest.searchParams.set("verified", "1");
+      return NextResponse.redirect(dest.toString());
     }
   }
 
