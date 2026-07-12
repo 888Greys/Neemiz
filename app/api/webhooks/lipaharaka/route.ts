@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
+import { grantFirstDepositBonus } from "@/lib/first-deposit-bonus";
 
 function safeEqual(a: string, b: string) {
   return a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -113,6 +114,8 @@ export async function POST(req: Request) {
       if (claimed.count) {
         if (found.type === "DEPOSIT") {
           await prisma.user.update({ where: { id: found.userId }, data: { walletBalance: { increment: found.amount } } });
+          // Match the user's FIRST real deposit with a play-only bonus.
+          await grantFirstDepositBonus(prisma, found.userId, Number(found.amount), found.id);
         } else if (found.type === "WITHDRAWAL" && wasFailed) {
           // Previously marked FAILED and refunded, but Lipa actually disbursed —
           // re-debit to undo the erroneous refund.

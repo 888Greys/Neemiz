@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { TransactionStatus } from "@prisma/client";
 import { timingSafeEqual } from "node:crypto";
+import { grantFirstDepositBonus } from "@/lib/first-deposit-bonus";
 
 /** Constant-time string compare (avoids leaking the token via response timing). */
 function safeTokenEqual(a: string, b: string): boolean {
@@ -109,6 +110,8 @@ export async function POST(req: Request) {
         where: { id: tx.userId },
         data:  { walletBalance: { increment: Number(tx.amount) } },
       });
+      // Match the user's FIRST real deposit with a play-only bonus.
+      await grantFirstDepositBonus(prismaTx, tx.userId, Number(tx.amount), tx.id);
     });
   } else {
     await db.transaction.updateMany({
