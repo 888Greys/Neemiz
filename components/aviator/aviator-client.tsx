@@ -173,8 +173,21 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
       if (musicEnabledRef.current) music.play().catch(() => undefined);
     };
     window.addEventListener("pointerdown", unlockAudio, { once: true });
+
+    // Pause the music while the tab/app is backgrounded; resume on return (only
+    // if music is still enabled). Stops it playing over other tabs or the OS.
+    const onVisibility = () => {
+      if (document.hidden) {
+        music.pause();
+      } else if (musicEnabledRef.current) {
+        music.play().catch(() => undefined);
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       window.removeEventListener("pointerdown", unlockAudio);
+      document.removeEventListener("visibilitychange", onVisibility);
       music.pause();
       bgMusicRef.current = null;
     };
