@@ -63,7 +63,7 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
     sun.src = "/aviator/sun.svg";
     const plane = new Image();
     plane.onload = () => { planeImgRef.current = plane; };
-    plane.src = "/aviator/plane-3.svg";
+    plane.src = "/aviator/plane-4.svg";
   }, []);
 
   useEffect(() => {
@@ -83,22 +83,12 @@ export function AviatorCanvas({ state, crashPoint, bettingEndsAt, flyingStartedA
 
   // Single permanent RAF loop — empty deps, zero restarts = no shake
   useEffect(() => {
-    console.log("[aviator-canvas] Mount effect running. canvasRef.current:", canvasRef.current);
     const canvas = canvasRef.current;
-    if (!canvas) {
-      console.warn("[aviator-canvas] Mount failed: canvas is null");
-      return;
-    }
-    console.log("[aviator-canvas] Loop starting successfully.");
+    if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
     let id: number;
-    let frameCount = 0;
 
     const loop = () => {
-      frameCount++;
-      if (frameCount <= 5) {
-        console.log(`[aviator-canvas] frame ${frameCount} rendering. state: ${stateRef.current}`);
-      }
       const currentState = stateRef.current;
       const isFlying     = currentState === "FLYING";
       const isCrashed    = currentState === "CRASHED";
@@ -198,7 +188,14 @@ function draw(
   const isFlying = state === "FLYING";
 
   // Background — wallet-aligned #151518 surface with a soft lift near the origin
-  ctx.fillStyle = "#151518";
+  ctx.fillStyle = "#17181d";
+  ctx.fillRect(0, 0, w, h);
+
+  const sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, "rgba(255,255,255,0.015)");
+  sky.addColorStop(0.32, "rgba(255,255,255,0.01)");
+  sky.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
 
   const bg = ctx.createRadialGradient(w * 0.28, h * 0.68, 0, w * 0.28, h * 0.68, Math.max(w, h) * 1.05);
@@ -220,10 +217,10 @@ function draw(
   }
 
   if (sunImg) {
-    const size = Math.hypot(w, h) * 2.2;
+    const size = Math.hypot(w, h) * 2.35;
     ctx.save();
     ctx.globalCompositeOperation = "screen";
-    ctx.globalAlpha = isCrashed ? 0.04 : isFlying ? 0.10 : 0.07;
+    ctx.globalAlpha = isCrashed ? 0.05 : isFlying ? 0.13 : 0.09;
     ctx.translate(ox0, oy0);
     ctx.rotate(spin);
     ctx.drawImage(sunImg, -size / 2, -size / 2, size, size);
@@ -249,7 +246,7 @@ function draw(
   const MAX_Y    = compact ? 12 : 10;
 
   // Guide lines
-  ctx.strokeStyle = "rgba(255,255,255,0.07)";
+  ctx.strokeStyle = "rgba(255,255,255,0.055)";
   ctx.lineWidth   = 1;
   ctx.beginPath(); ctx.moveTo(ORIGIN_X, 0);      ctx.lineTo(ORIGIN_X, ORIGIN_Y); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(ORIGIN_X, MAX_Y);  ctx.lineTo(w, MAX_Y);           ctx.stroke();
@@ -310,10 +307,10 @@ function draw(
     const t = (i / STEPS) * curElapsed;
     ctx.lineTo(normX(t), normYT(t));
   }
-  ctx.strokeStyle = "#ff3150";
-  ctx.lineWidth   = compact ? 3 : 3.5;
+  ctx.strokeStyle = "#ff3b57";
+  ctx.lineWidth   = compact ? 3.25 : 4;
   ctx.shadowColor = "#ff1838";
-  ctx.shadowBlur  = 16;
+  ctx.shadowBlur  = 18;
   ctx.stroke();
   ctx.shadowBlur  = 0;
 
@@ -368,7 +365,7 @@ function draw(
     if (planeImg) {
       // plane-3.svg is 150×74 and faces right (nose at the right edge). Draw it
       // rotated to the flight angle with the nose sitting on the curve tip.
-      const pw = (compact ? 66 : 90);
+      const pw = (compact ? 70 : 96);
       const ph = pw * (planeImg.height / planeImg.width);
       ctx.save();
       ctx.translate(tipX, planeY);
@@ -383,13 +380,13 @@ function draw(
   }
 
   // Multiplier
-  const mc = isCrashed ? "#ff4444" : displayMult>=10 ? "#ff2aa8" : displayMult>=5 ? "#8b5cf6" : "#ffffff";
-  const fs = Math.min(w*(compact?0.16:0.10), compact?54:64);
+  const mc = isCrashed ? "#ff4a4a" : displayMult>=10 ? "#ff2aa8" : displayMult>=5 ? "#8b5cf6" : "#ffffff";
+  const fs = Math.min(w*(compact?0.17:0.105), compact?58:68);
   ctx.font = `900 ${fs}px Inter,sans-serif`; ctx.textAlign = "center";
   ctx.shadowColor = mc; ctx.shadowBlur = 28; ctx.fillStyle = mc;
   ctx.fillText(`${displayMult.toFixed(2)}x`, w/2, h*(compact?0.52:0.5)+fs*0.18);
   ctx.shadowBlur = 0;
-  ctx.font = `bold ${fs*0.28}px Inter,sans-serif`; ctx.fillStyle = "rgba(255,255,255,0.35)";
+  ctx.font = `bold ${fs*0.24}px Inter,sans-serif`; ctx.fillStyle = "rgba(255,255,255,0.42)";
   if (isCrashed) ctx.fillText("CRASHED", w/2, h*(compact?0.52:0.5)+fs*0.58);
 }
 
@@ -502,95 +499,82 @@ function drawIdleState(
   const timeSecIdle = (Date.now() % 3600000) / 1000;
 
   if (state === "BETTING") {
-    const scale = compact ? 0.8 : 1;
+    const scale = compact ? 0.82 : 1;
     const remaining = bettingEndsAt ? Math.max(0, new Date(bettingEndsAt).getTime() - Date.now()) : 0;
     const progress = Math.max(0, Math.min(1, remaining / 5000));
 
-    // 1. Logo Row: NEZEEM | Aviator
-    ctx.font = `italic 800 ${22 * scale}px Inter,sans-serif`;
+    const logoY = cy - 34 * scale;
+    ctx.textAlign = "left";
+    ctx.font = `italic 900 ${21 * scale}px Inter,sans-serif`;
     const wNezeem = ctx.measureText("NEZEEM").width;
-    ctx.font = `300 ${22 * scale}px Inter,sans-serif`;
-    const wDiv = ctx.measureText("  |  ").width;
-    ctx.font = `italic 900 ${22 * scale}px Inter,sans-serif`;
+    ctx.font = `700 ${21 * scale}px Inter,sans-serif`;
+    const wDiv = ctx.measureText(" | ").width;
+    ctx.font = `italic 900 ${21 * scale}px Inter,sans-serif`;
     const wAviator = ctx.measureText("Aviator").width;
-
     const totalLogoW = wNezeem + wDiv + wAviator;
     const startX = cx - totalLogoW / 2;
 
-    // Draw NEZEEM
-    ctx.font = `italic 800 ${22 * scale}px Inter,sans-serif`;
-    ctx.fillStyle = "#ffffff";
-    ctx.textAlign = "left";
-    ctx.fillText("NEZEEM", startX, cy - 60 * scale);
+    ctx.font = `italic 900 ${21 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText("NEZEEM", startX, logoY);
 
-    // Draw Divider
-    ctx.font = `300 ${22 * scale}px Inter,sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.2)";
-    ctx.fillText("  |  ", startX + wNezeem, cy - 60 * scale);
+    ctx.font = `700 ${21 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.22)";
+    ctx.fillText(" | ", startX + wNezeem, logoY);
 
-    // Draw Aviator
-    ctx.font = `italic 900 ${22 * scale}px Inter,sans-serif`;
-    ctx.fillStyle = "#ff1838";
-    ctx.fillText("Aviator", startX + wNezeem + wDiv, cy - 60 * scale);
+    ctx.font = `italic 900 ${21 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "#ff304f";
+    ctx.fillText("Aviator", startX + wNezeem + wDiv, logoY);
 
-    // Draw "OFFICIAL PLATFORM" below
-    ctx.font = `900 ${8.5 * scale}px Inter,sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
     ctx.textAlign = "center";
-    if (typeof (ctx as any).letterSpacing !== "undefined") {
-      (ctx as any).letterSpacing = `${2 * scale}px`;
-    }
-    ctx.fillText("OFFICIAL PLATFORM", cx, cy - 42 * scale);
-    if (typeof (ctx as any).letterSpacing !== "undefined") {
-      (ctx as any).letterSpacing = "0px";
-    }
+    ctx.font = `900 ${8 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.fillText("OFFICIAL PLATFORM", cx, logoY + 17 * scale);
 
-    // 2. Progress Bar
-    const barW = 200 * scale;
-    const barH = 3 * scale;
-    const barX = cx - barW / 2;
-    const barY = cy - 28 * scale;
+    const lineW = 148 * scale;
+    const lineY = logoY + 28 * scale;
+    ctx.strokeStyle = "rgba(255,255,255,0.16)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx - lineW / 2, lineY);
+    ctx.lineTo(cx + lineW / 2, lineY);
+    ctx.stroke();
+    ctx.strokeStyle = "#ff1838";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - lineW / 2, lineY);
+    ctx.lineTo(cx - lineW / 2 + lineW * progress, lineY);
+    ctx.stroke();
 
-    drawRoundedRect(ctx, barX, barY, barW, barH, 1.5 * scale, "rgba(255,255,255,0.08)", true);
-
-    if (progress > 0) {
-      const fillW = barW * progress;
-      drawRoundedRect(ctx, barX, barY, fillW, barH, 1.5 * scale, "#ff1838", true);
-    }
-
-    // 3. Official Game Card
-    const cardW = 120 * scale;
-    const cardH = 60 * scale;
+    const cardW = 116 * scale;
+    const cardH = 58 * scale;
     const cardX = cx - cardW / 2;
-    const cardY = cy - 10 * scale;
-
-    drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 8 * scale, "rgba(12,24,14,0.85)", true, "#1ba608", 1 * scale);
+    const cardY = logoY + 40 * scale;
+    drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 10 * scale, "rgba(10,24,12,0.88)", true, "rgba(49,196,93,0.9)", 1.2 * scale);
 
     ctx.textAlign = "center";
     ctx.fillStyle = "#ffffff";
-    ctx.font = `900 ${13 * scale}px Inter,sans-serif`;
-    ctx.fillText("NEZEEM", cx, cardY + 18 * scale);
+    ctx.font = `900 ${12 * scale}px Inter,sans-serif`;
+    ctx.fillText("NEZEEM", cx, cardY + 17 * scale);
 
-    const badgeW = 84 * scale;
-    const badgeH = 16 * scale;
+    const badgeW = 78 * scale;
+    const badgeH = 15 * scale;
     const badgeX = cx - badgeW / 2;
-    const badgeY = cardY + 26 * scale;
+    const badgeY = cardY + 24 * scale;
+    drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 7 * scale, "rgba(49,196,93,0.12)", true, "rgba(49,196,93,0.22)", 1 * scale);
 
-    drawRoundedRect(ctx, badgeX, badgeY, badgeW, badgeH, 8 * scale, "rgba(27,166,8,0.12)", true, "rgba(27,166,8,0.25)", 1 * scale);
-
-    ctx.font = `700 ${8.5 * scale}px Inter,sans-serif`;
+    ctx.font = `700 ${7.6 * scale}px Inter,sans-serif`;
     ctx.fillStyle = "#31c45d";
-    ctx.textAlign = "center";
-    ctx.fillText("Official Game  ✔", cx, badgeY + 11 * scale);
+    ctx.fillText("Official Game ✔", cx, badgeY + 10.5 * scale);
 
-    ctx.font = `500 ${8 * scale}px Inter,sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
-    ctx.textAlign = "center";
-    ctx.fillText("Since 2026", cx, cardY + 52 * scale);
+    ctx.font = `500 ${7.5 * scale}px Inter,sans-serif`;
+    ctx.fillStyle = "rgba(255,255,255,0.34)";
+    ctx.fillText("Since 2026", cx, cardY + 49 * scale);
 
-    // Bobbing plane near origin (bottom-left), faces upper-right to match flight direction
-    const bob = Math.sin(timeSecIdle * 2) * 3;
-    drawPlane(ctx, ox + 24, oy - 20 + bob, -Math.PI / 6, compact ? 0.75 : 0.9);
+    const planeX = ox + (compact ? 26 : 34);
+    const planeY = oy - (compact ? 22 : 28) + Math.sin(timeSecIdle * 2.2) * 2.5;
+    drawTrail(ctx, planeX - 2, planeY + 1, -Math.PI / 6);
+    drawPlane(ctx, planeX, planeY, -Math.PI / 6, compact ? 0.88 : 1.02);
   } else {
     // WAITING: orbiting plane
     const spin = timeSecIdle * 1.5;

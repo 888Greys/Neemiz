@@ -202,7 +202,7 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (cashingOut) {
     return (
-      <div className="flex min-h-[96px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#f59e0b]/25 bg-[#1a1200] lg:min-h-0 lg:rounded-2xl">
+      <div className="flex min-h-[72px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#f59e0b]/25 bg-[#1a1200] lg:min-h-0 lg:rounded-2xl">
         {TabBar}
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-2 lg:p-3">
           <div className="aviator-cashout-shimmer h-10 w-full max-w-[140px] rounded-xl" />
@@ -217,7 +217,7 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (isFlying && myBet?.status === "ACTIVE") {
     return (
-      <div className="flex min-h-[96px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12] lg:min-h-0 lg:rounded-2xl">
+      <div className="flex min-h-[72px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#f59e0b]/30 bg-gradient-to-b from-[#1a1200] to-[#0d0e12] lg:min-h-0 lg:rounded-2xl">
         {TabBar}
         <div className="flex flex-1 flex-col justify-center gap-1.5 p-1.5 lg:gap-2 lg:p-3">
           {myBet.autoCashout && (
@@ -264,7 +264,7 @@ export function AviatorBetPanel({
   if (isCrashed && myBet) {
     const won = myBet.status === "CASHEDOUT";
     return (
-      <div className={`flex min-h-[96px] min-w-0 flex-col overflow-hidden rounded-2xl border lg:min-h-0 lg:rounded-2xl ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
+      <div className={`flex min-h-[72px] min-w-0 flex-col overflow-hidden rounded-2xl border lg:min-h-0 lg:rounded-2xl ${won ? "border-[#31c45d]/20 bg-[#0a1a0f]" : "border-red-500/20 bg-[#1a0a0a]"}`}>
         {TabBar}
         <div className="flex flex-1 flex-col items-center justify-center gap-0.5 p-2 text-center lg:gap-1 lg:p-3">
           <p className={`text-[11px] font-black lg:text-[13px] ${won ? "text-[#31c45d]" : "text-red-400"}`}>
@@ -286,7 +286,7 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (bettingOpen && myBet?.status === "ACTIVE") {
     return (
-      <div className="flex min-h-[96px] min-w-0 flex-col overflow-hidden rounded-2xl border border-yellow-500/20 bg-[#1a1500] lg:min-h-0 lg:rounded-2xl">
+      <div className="flex min-h-[72px] min-w-0 flex-col overflow-hidden rounded-2xl border border-yellow-500/20 bg-[#1a1500] lg:min-h-0 lg:rounded-2xl">
         {TabBar}
         <div className="flex flex-1 flex-col items-center justify-center gap-0.5 p-2 text-center lg:gap-1 lg:p-3">
           <p className="text-[11px] font-black text-yellow-400 lg:text-[13px]">Bet confirmed</p>
@@ -303,7 +303,7 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (isFlying && !myBet && nextBet) {
     return (
-      <div className="flex min-h-[96px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#087cff]/30 bg-[#060d1c] lg:min-h-0 lg:rounded-2xl">
+      <div className="flex min-h-[72px] min-w-0 flex-col overflow-hidden rounded-2xl border border-[#087cff]/30 bg-[#060d1c] lg:min-h-0 lg:rounded-2xl">
         {TabBar}
         <div className="flex flex-1 flex-col items-center justify-center gap-0.5 p-2 text-center lg:gap-1.5 lg:p-3">
           <p className="text-[11px] font-black text-[#087cff] lg:text-[13px]">Queued next</p>
@@ -327,7 +327,7 @@ export function AviatorBetPanel({
   // ─────────────────────────────────────────────────────────────────────────
   if (state === "WAITING" || (isCrashed && !myBet)) {
     return (
-      <div className="flex min-h-[96px] min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#151518] lg:min-h-0 lg:rounded-2xl">
+      <div className="flex min-h-[72px] min-w-0 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#151518] lg:min-h-0 lg:rounded-2xl">
         {TabBar}
         <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-2 text-center lg:gap-2.5 lg:p-5">
           {state === "WAITING" && <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/15 border-t-white/50 lg:h-8 lg:w-8" />}
@@ -350,7 +350,7 @@ export function AviatorBetPanel({
   };
 
   return (
-    <div className="flex min-h-[96px] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#1b1c22] p-2 lg:min-h-0 lg:p-2.5">
+    <div className="flex min-h-[72px] min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-white/[0.06] bg-[#1b1c22] p-1.5 lg:min-h-0 lg:p-2.5">
       {TabBar}
 
       {/* Countdown is already on the BET button — skip duplicate banner on narrow dual panels */}
@@ -369,13 +369,13 @@ export function AviatorBetPanel({
             <p className="rounded-lg bg-red-900/30 px-2 py-1 text-[10px] text-red-400 lg:px-3 lg:py-1.5 lg:text-[11px]">{error}</p>
           )}
 
-          <div className="grid h-[72px] grid-cols-[1fr_1fr] items-stretch gap-2 lg:h-[88px] lg:grid-cols-[1fr_1.15fr] lg:gap-2.5">
-            <div className="flex min-w-0 flex-col gap-1.5">
-              <div className="flex h-[34px] items-center justify-between rounded-full bg-[#030303] px-1 lg:h-[38px]">
+          <div className="grid grid-cols-[1fr_1fr] items-stretch gap-2 lg:h-[88px] lg:grid-cols-[1fr_1.15fr] lg:gap-2.5">
+            <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex h-[28px] items-center justify-between rounded-full bg-[#030303] px-1 lg:h-[38px]">
                 <button
                   type="button"
                   onClick={() => { adj(-snapStep(amount)); setError(null); }}
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-white/10 bg-transparent text-base font-bold text-slate-400 transition hover:border-white/25 hover:text-white active:scale-90 lg:h-7 lg:w-7 lg:text-lg"
+                  className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-white/10 bg-transparent text-base font-bold text-slate-400 transition hover:border-white/25 hover:text-white active:scale-90 lg:h-7 lg:w-7 lg:text-lg"
                 >−</button>
 
                 <input
@@ -389,7 +389,7 @@ export function AviatorBetPanel({
                 <button
                   type="button"
                   onClick={() => { adj(snapStep(amount)); setError(null); }}
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full border border-white/10 bg-transparent text-base font-bold text-slate-400 transition hover:border-white/25 hover:text-white active:scale-90 lg:h-7 lg:w-7 lg:text-lg"
+                  className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-white/10 bg-transparent text-base font-bold text-slate-400 transition hover:border-white/25 hover:text-white active:scale-90 lg:h-7 lg:w-7 lg:text-lg"
                 >+</button>
               </div>
 
@@ -414,7 +414,7 @@ export function AviatorBetPanel({
             <button
               onClick={isFlying ? queueForNext : handleBet}
               disabled={loading}
-              className="flex min-w-0 flex-col items-center justify-center rounded-2xl px-2 py-2.5 text-white shadow-[0_4px_12px_rgba(43,178,11,0.2)] transition-all duration-100 hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 lg:px-3 lg:py-3"
+              className="flex min-w-0 flex-col items-center justify-center rounded-2xl px-2 py-1 text-white shadow-[0_4px_12px_rgba(43,178,11,0.2)] transition-all duration-100 hover:brightness-105 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 lg:px-3 lg:py-3"
               style={{ background: (bettingOpen || isFlying) ? "linear-gradient(180deg, #2cb10b, #1c8d02)" : "#1f2937" }}
             >
               <span className="text-[16px] font-bold tracking-wide lg:text-[20px]">
