@@ -9,6 +9,7 @@ import { AviatorHistory, VerifyModal } from "./aviator-history";
 import { AviatorLiveBets } from "./aviator-live-bets";
 import { RollingBalance } from "./win-celebration";
 import { toast } from "@/lib/toast";
+import { placed, setSoundEnabled as setGameSound } from "@/lib/game-feel";
 import { Icon } from "@/components/icon";
 import { useMoney, useCurrency } from "@/lib/currency-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
@@ -146,6 +147,19 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
   useEffect(() => { roundRef.current  = round;     }, [round]);
   useEffect(() => { liveBetsRef.current = liveBets; }, [liveBets]);
   useEffect(() => { soundEnabledRef.current = soundEnabled; }, [soundEnabled]);
+  // Keep the global game-feel (win/lose jingles + haptics) in step with
+  // Aviator's own sound switch, so one toggle rules music AND outcome cues.
+  // Skip the initial render so we don't create/chime the audio context before a
+  // user gesture — only react to an actual toggle.
+  const soundSyncedRef = useRef(false);
+  useEffect(() => {
+    if (!soundSyncedRef.current) { soundSyncedRef.current = true; return; }
+    setGameSound(soundEnabled);
+  }, [soundEnabled]);
+
+  // Mirror of myBets for reading current state inside the WS crash handler.
+  const myBetsRef = useRef<MyBets>({});
+  useEffect(() => { myBetsRef.current = myBets; }, [myBets]);
 
   // One sound only: looping background music that plays for the whole session.
   // No synth, no crash sound.
@@ -335,6 +349,9 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           });
         }
         setMultiplier(crashPoint);
+        // Did the user still have skin in the game when it flew away? Read the
+        // ref (reliable inside this WS handler) so we can fire the loss cue once.
+        const hadActiveBet = Object.values(myBetsRef.current).some((b) => b?.status === "ACTIVE");
         setMyBets((prev) => {
           const next = { ...prev } as MyBets;
           (Object.keys(next) as unknown as Array<0 | 1>).forEach((k) => {
@@ -342,6 +359,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
           });
           return next;
         });
+        if (hadActiveBet) toast.loss(`Flew away ${crashPoint.toFixed(2)}×`, "Bet lost — cash out earlier next time");
         setTimeout(fetchHistory, 1000);
         setTimeout(fetchBalance, 800);
         break;
@@ -451,6 +469,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
 
     setMyBets((prev) => ({ ...prev, [panelIndex]: tempBet }));
     setBalance((b) => b - amount);
+    placed(); // instant tactile feedback the moment the bet is tapped
 
     const res = await fetch("/api/aviator/bet", {
       method: "POST",

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
-import { LoadingDots } from "@/components/loading-dots";
 import { useCurrency } from "@/lib/currency-context";
 
 type ContractFamily = "evenOdd" | "matchDiffer" | "overUnder";
@@ -211,14 +210,14 @@ export function DigitPanel({
               key={side}
               type="button"
               onClick={() => onTrade(side)}
-              disabled={placing}
-              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
+              aria-busy={placing}
+              className={`flex items-center justify-center gap-2 rounded-lg px-2.5 py-1.5 text-center font-black text-white transition-transform active:scale-[0.94] sm:flex-col sm:gap-0.5 sm:px-3 sm:py-3 ${
                 isRed ? "bg-[#e2474b] hover:bg-[#ec5a5e]" : "bg-[#16a085] hover:bg-[#1bb198]"
               }`}
             >
               <span className="flex items-center gap-1 text-[11px] sm:text-[14px]">
                 <Icon name={isRed ? "trending_down" : "trending_up"} className="text-[13px] sm:text-[16px]" />
-                {placing ? <LoadingDots /> : actionLabel(side)}
+                {actionLabel(side)}
               </span>
               <span className="font-mono text-[9px] leading-none text-white/85 sm:text-[12px]">{format(payoutFor(side))}</span>
             </button>
@@ -389,12 +388,12 @@ function MobileDerivDigits({
         <button
           type="button"
           onClick={() => onTrade(selectedSide)}
-          disabled={placing}
-          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${
+          aria-busy={placing}
+          className={`flex w-full flex-col items-center justify-center gap-0 rounded-full py-2.5 text-center font-black text-white transition-transform active:scale-[0.95] ${
             armedRed ? "bg-[#e2474b] active:bg-[#ec5a5e]" : "bg-[#16a085] active:bg-[#1bb198]"
           }`}
         >
-          <span className="text-[15px] leading-tight">{placing ? <LoadingDots /> : `Buy ${actionLabel(selectedSide)}`}</span>
+          <span className="text-[15px] leading-tight">{`Buy ${actionLabel(selectedSide)}`}</span>
           <span className="font-mono text-[11px] leading-tight text-white/85">Payout {format(payoutFor(selectedSide))}</span>
         </button>
       </div>

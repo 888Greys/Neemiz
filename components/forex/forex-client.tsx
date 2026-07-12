@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
+import { placed } from "@/lib/game-feel";
 import { ValuePickerSheet } from "@/components/binary/panels/digit-panel";
 import { useNavBadge } from "@/lib/nav-badge-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
@@ -679,9 +680,11 @@ export function ForexClient() {
   }, [hasOpenPositions]);
 
   async function openTrade(nextDirection: Direction = direction) {
+    if (openingTrade) return; // guard double-taps now that the button stays live
     setTradeError(null);
     setOpeningTrade(true);
     // Instant feedback the moment the button is tapped — don't wait for the server.
+    placed();
     toast.info(`${nextDirection === "buy" ? "Buy" : "Sell"} ${selectedMarket.symbol}`, `Size ${size} @ ${price.toFixed(selectedMarket.precision)}`);
     const sl = nextDirection === "buy" ? price - riskPips * unit : price + riskPips * unit;
     const tp = nextDirection === "buy" ? price + targetPips * unit : price - targetPips * unit;
@@ -743,7 +746,7 @@ export function ForexClient() {
       const pl = data.profitLoss;
       if (typeof pl === "number") {
         if (pl >= 0) toast.cashout(`Closed +${format(pl)}`, trade.symbol);
-        else toast.error(`Closed −${format(Math.abs(pl))}`, trade.symbol);
+        else toast.loss(`Closed −${format(Math.abs(pl))}`, trade.symbol);
       }
       // Prepend to local history so user sees it immediately without a refresh
       if (trade) {
@@ -1084,14 +1087,15 @@ export function ForexClient() {
               <button
                 type="button"
                 onClick={() => openTrade()}
-                disabled={streamStatus !== "live" || openingTrade}
+                aria-busy={openingTrade}
+                disabled={streamStatus !== "live"}
                 className={`hidden w-full rounded-lg py-4 text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 xl:block ${
                   direction === "buy"
                     ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68] hover:from-[#1ac98a] hover:to-[#13ae73]"
                     : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b] hover:from-[#f25a69] hover:to-[#e24755]"
                 }`}
               >
-                {openingTrade ? "Opening…" : streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
+                {streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
               </button>
 
               <p className="hidden text-center text-[10px] font-bold leading-relaxed text-slate-600 xl:block">
@@ -1148,7 +1152,8 @@ export function ForexClient() {
         <button
           type="button"
           onClick={() => openTrade()}
-          disabled={streamStatus !== "live" || openingTrade}
+          aria-busy={openingTrade}
+          disabled={streamStatus !== "live"}
           className={`flex min-h-14 w-full items-center justify-between rounded-lg px-4 text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
             direction === "buy"
               ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68]"
@@ -1156,7 +1161,7 @@ export function ForexClient() {
           }`}
         >
           <span className="text-sm font-black">
-            {openingTrade ? "Opening…" : streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
+            {streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
           </span>
           {streamStatus === "live" && !openingTrade && (
             <span className="font-mono text-sm font-black">{formatPrice(selectedMarket, direction === "buy" ? ask : bid)}</span>
@@ -1794,9 +1799,9 @@ function MobileForexTicket({
           </button>
         </div>
 
-        <button type="button" onClick={onOpen} disabled={opening || !live}
+        <button type="button" onClick={onOpen} aria-busy={opening} disabled={!live}
           className={`flex min-h-12 w-full flex-col items-center justify-center gap-0 rounded-2xl py-2.5 font-black text-white transition active:scale-[0.98] disabled:opacity-50 ${buy ? "bg-[#087cff] active:bg-[#1a8cff]" : "bg-[#ef4444] active:bg-[#f87171]"}`}>
-          <span className="text-[15px] leading-tight">{opening ? "Opening…" : !live ? "Awaiting feed…" : `Confirm ${buy ? "buy" : "sell"}`}</span>
+          <span className="text-[15px] leading-tight">{!live ? "Awaiting feed…" : `Confirm ${buy ? "buy" : "sell"}`}</span>
           <span className="font-mono text-[11px] leading-tight text-white/85">
             {buy ? askLabel : bidLabel}
             <span className="mx-1.5 text-white/40">·</span>

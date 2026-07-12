@@ -110,7 +110,7 @@ export function HeroSection({ compact = false }: { compact?: boolean } = {}) {
       className={`group relative overflow-hidden ${
         compact
           ? "min-h-[58vw] max-h-[380px] rounded-b-3xl"
-          : "min-h-[min(72vh,720px)]"
+          : "min-h-[340px] sm:min-h-[400px] lg:min-h-[440px] lg:max-h-[500px] rounded-2xl"
       }`}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
@@ -121,7 +121,7 @@ export function HeroSection({ compact = false }: { compact?: boolean } = {}) {
       {SLIDES.map((s, i) => (
         <div
           key={s.href}
-          className="absolute inset-0 bg-cover bg-center transition-opacity duration-700"
+          className="absolute inset-0 bg-cover bg-center transition-opacity duration-700 lg:bg-right"
           style={{
             opacity: i === index ? 1 : 0,
             backgroundImage: s.image
@@ -135,13 +135,16 @@ export function HeroSection({ compact = false }: { compact?: boolean } = {}) {
         className={`absolute -right-16 -top-16 h-56 w-56 rounded-full blur-3xl transition duration-700 ${slide.glow}`}
       />
       <div className="absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-[#0d0e12] to-transparent" />
+      {/* Desktop: darken the left so the copy stays crisp and the raster art on
+          the right reads as a tasteful accent instead of a stretched centerpiece. */}
+      <div className="absolute inset-0 hidden bg-gradient-to-r from-[#0d0e12] via-[#0d0e12]/55 to-transparent lg:block" />
 
       <div
         key={slide.href}
         className={`animate-fade-up relative z-10 flex h-full flex-col justify-end ${
           compact
             ? "px-5 pb-9 pt-14"
-            : "mx-auto w-full max-w-[1600px] px-6 py-16 xl:px-8 xl:py-20"
+            : "mx-auto w-full max-w-[1600px] px-8 py-10 xl:px-12 xl:py-12"
         }`}
         style={{ animationDuration: "0.4s" }}
       >
@@ -162,7 +165,7 @@ export function HeroSection({ compact = false }: { compact?: boolean } = {}) {
           <div>
             <h1
               className={`font-black leading-none tracking-tight text-white ${
-                compact ? "text-[42px]" : "text-6xl xl:text-7xl 2xl:text-8xl"
+                compact ? "text-[42px]" : "text-5xl xl:text-6xl"
               }`}
             >
               {slide.title}
