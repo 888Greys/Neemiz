@@ -67,8 +67,11 @@ export async function redeemPromoCode(
     }
   }
 
+  // Allow KSh 0 promos: they grant nothing but still record a redemption row,
+  // so the owner can track which users entered a given code. Only negative /
+  // non-finite amounts are rejected.
   const amount = Number(promo.amountKes);
-  if (!Number.isFinite(amount) || amount <= 0) {
+  if (!Number.isFinite(amount) || amount < 0) {
     return { ok: false, error: "Invalid promo code.", status: 400 };
   }
 
