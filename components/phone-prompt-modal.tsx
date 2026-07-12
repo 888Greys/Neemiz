@@ -9,9 +9,14 @@ import { createClient } from "@/lib/supabase/client";
 
 type PhonePromptModalProps = {
   onComplete: (phone: string) => void;
+  /** Show a brief "Email verified ✓" confirmation before the phone form.
+   *  Used for social (Google/GitHub) sign-ups, which arrive pre-verified. */
+  verifiedIntro?: boolean;
 };
 
-export function PhonePromptModal({ onComplete }: PhonePromptModalProps) {
+export function PhonePromptModal({ onComplete, verifiedIntro = false }: PhonePromptModalProps) {
+  // Social sign-ups see a "verified" confirmation first, then the phone form.
+  const [step, setStep] = useState<"verified" | "phone">(verifiedIntro ? "verified" : "phone");
   const [phone, setPhone] = useState("");
   const [country, setCountry] = useState<Country>(() => {
     return COUNTRIES.find((c) => c.iso === "KE") || COUNTRIES[0];
@@ -94,6 +99,32 @@ export function PhonePromptModal({ onComplete }: PhonePromptModalProps) {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (step === "verified") {
+    return (
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+        <div className="w-full max-w-[420px] rounded-3xl border border-white/[0.08] bg-[#111316] p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex flex-col items-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 animate-in zoom-in-50 duration-300">
+              <Icon name="check_circle" fill className="text-[36px]" />
+            </div>
+            <h2 className="text-2xl font-black text-white">Email verified</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Your email is confirmed. One last step — add the mobile number you&apos;ll use for deposits and withdrawals.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStep("phone")}
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-blue-500/20 transition hover:bg-[#1a85ff] active:scale-[.98]"
+          >
+            Continue
+            <Icon name="arrow_forward" className="text-[18px]" />
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -97,6 +97,19 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const [navBadges, setNavBadges]             = useState<Record<string, number>>({});
   const [checkingPhone, setCheckingPhone]     = useState(false);
   const [missingPhone, setMissingPhone]       = useState(false);
+  // Social sign-ups land with ?verified=1 (set by /auth/callback). Show a brief
+  // "Email verified ✓" confirmation ahead of the (hard-blocking) phone step.
+  const [verifiedIntro, setVerifiedIntro]     = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("verified") !== "1") return;
+    setVerifiedIntro(true);
+    // Strip the param so a refresh doesn't replay the intro.
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    params.delete("verified");
+    const qs = params.toString();
+    window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
+  }, [searchParams, pathname]);
 
   useEffect(() => {
     if (isSignedIn && user) {
@@ -343,7 +356,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       {walletOpen && <WalletSheet onClose={() => setWalletOpen(false)} initialTab={walletInitialTab} />}
       <PromoSuccessHost />
       {mobileMenuOpen && <MobileMenuDrawer onClose={() => setMobileMenuOpen(false)} onOpenLogin={() => { setMobileMenuOpen(false); setLoginOpen(true); }} onOpenRegister={() => { setMobileMenuOpen(false); setRegisterOpen(true); }} onOpenProfile={() => { setMobileMenuOpen(false); setProfileInitialView(undefined); setProfileOpen(true); }} onOpenWallet={(tab) => { setMobileMenuOpen(false); openWallet(tab); }} recents={recents} />}
-      {missingPhone && <PhonePromptModal onComplete={handlePhoneComplete} />}
+      {missingPhone && <PhonePromptModal verifiedIntro={verifiedIntro} onComplete={handlePhoneComplete} />}
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       {!immersive && (
