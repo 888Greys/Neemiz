@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
+import { CheckCircle, AlertCircle, Info } from "lucide-react";
 
 type ToastType = "success" | "error" | "info" | "cashout";
 
@@ -39,20 +39,23 @@ export const toast = {
   cashout: (title: string, description?: string) => fire("cashout", title, description),
 };
 
-/* ── Single toast card ── */
+/* ── Single toast pill (Spribe-style: dark rounded pill that fades) ── */
 function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
   const [visible, setVisible] = useState(false);
 
-  const duration = item.type === "error" ? 6000 : 3800;
+  const duration = item.type === "error" ? 5000 : 3200;
+
+  function dismiss() {
+    setVisible(false);
+    setTimeout(onRemove, 260);
+  }
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
-    const t = setTimeout(() => {
-      setVisible(false);
-      setTimeout(onRemove, 300);
-    }, duration);
+    const t = setTimeout(dismiss, duration);
     return () => clearTimeout(t);
-  }, [onRemove, duration]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [duration]);
 
   const IconComponent =
     item.type === "success" ? CheckCircle
@@ -60,58 +63,31 @@ function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
     : item.type === "error" ? AlertCircle
     : Info;
 
-  const iconColor =
-    item.type === "success" ? "text-emerald-400"
-    : item.type === "cashout" ? "text-[#f59e0b]"
-    : item.type === "error" ? "text-red-400"
-    : "text-[#087cff]";
-
-  const ringColor =
-    item.type === "success" ? "ring-emerald-500/20"
-    : item.type === "cashout" ? "ring-[#f59e0b]/40"
-    : item.type === "error" ? "ring-red-500/20"
-    : "ring-[#087cff]/20";
-
-  const accentColor =
-    item.type === "success" ? "bg-emerald-400"
-    : item.type === "cashout" ? "bg-amber-400"
-    : item.type === "error" ? "bg-red-400"
-    : "bg-[#2a90ff]";
+  // Win = green, loss/error = red, cashout = amber, info = blue.
+  const tint =
+    item.type === "success" ? { icon: "text-emerald-400", ring: "ring-emerald-500/25" }
+    : item.type === "cashout" ? { icon: "text-emerald-400", ring: "ring-emerald-500/25" }
+    : item.type === "error"   ? { icon: "text-red-400",     ring: "ring-red-500/30" }
+    :                           { icon: "text-[#3aa0ff]",   ring: "ring-[#3aa0ff]/20" };
 
   return (
-    <div
-      className={`relative flex items-center gap-2.5 overflow-hidden rounded-xl bg-[#111319]/95 py-2 pl-3 pr-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.55)] ring-1 backdrop-blur-xl ${ringColor} transition-[transform,opacity] duration-300 ease-out ${
-        visible ? "translate-x-0 scale-100 opacity-100" : "translate-x-8 scale-[0.97] opacity-0"
+    <button
+      type="button"
+      onClick={dismiss}
+      aria-label="Dismiss notification"
+      className={`pointer-events-auto flex items-center gap-2 rounded-full bg-[#1c1d22]/95 py-1.5 pl-2.5 pr-3.5 text-left shadow-[0_10px_30px_rgba(0,0,0,0.5)] ring-1 backdrop-blur-xl transition-[transform,opacity] duration-300 ease-out sm:gap-2.5 sm:py-2 sm:pl-3 sm:pr-4 ${tint.ring} ${
+        visible ? "translate-y-0 scale-100 opacity-100" : "-translate-y-2 scale-[0.96] opacity-0"
       }`}
-      style={{ minWidth: 200, maxWidth: 360 }}
+      style={{ maxWidth: "min(90vw, 360px)" }}
     >
-      <div className={`absolute inset-y-0 left-0 w-0.5 ${accentColor}`} />
-      {/* Icon */}
-      <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/[0.06] ${iconColor}`}>
-        <IconComponent size={15} strokeWidth={2.5} />
-      </div>
-
-      {/* Text */}
-      <div className="min-w-0 flex-1 py-0.5">
-        <p className="text-[12.5px] font-bold leading-snug text-white break-words [overflow-wrap:anywhere] line-clamp-4">{item.title}</p>
+      <IconComponent strokeWidth={2.6} className={`h-[14px] w-[14px] shrink-0 sm:h-[17px] sm:w-[17px] ${tint.icon}`} />
+      <div className="min-w-0">
+        <p className="truncate text-[11.5px] font-bold leading-tight text-white sm:text-[13px]">{item.title}</p>
         {item.description && (
-          <p className="mt-0.5 text-[11px] font-medium leading-snug text-slate-400 break-words [overflow-wrap:anywhere] line-clamp-3">{item.description}</p>
+          <p className="mt-px truncate text-[10px] font-medium leading-tight text-white/45 sm:text-[11px]">{item.description}</p>
         )}
       </div>
-
-      {/* Dismiss */}
-      <button
-        type="button"
-        onClick={() => { setVisible(false); setTimeout(onRemove, 300); }}
-        className="shrink-0 text-slate-600 transition hover:text-slate-300"
-      >
-        <X size={13} strokeWidth={2} />
-      </button>
-      <div
-        className={`absolute bottom-0 left-0 h-0.5 ${accentColor} transition-[width] ease-linear`}
-        style={{ width: visible ? "0%" : "100%", transitionDuration: visible ? `${duration}ms` : "0ms" }}
-      />
-    </div>
+    </button>
   );
 }
 
@@ -139,12 +115,10 @@ export function Toaster() {
   return createPortal(
     <div
       aria-live="polite"
-      className="pointer-events-none fixed right-3 top-3 z-[9999] flex flex-col items-end gap-2 sm:right-5 sm:top-5"
+      className="pointer-events-none fixed inset-x-0 top-3 z-[9999] flex flex-col items-center gap-2 px-3 sm:top-5"
     >
       {items.map((item) => (
-        <div key={item.id} className="pointer-events-auto">
-          <Card item={item} onRemove={() => remove(item.id)} />
-        </div>
+        <Card key={item.id} item={item} onRemove={() => remove(item.id)} />
       ))}
     </div>,
     document.body

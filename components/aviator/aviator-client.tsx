@@ -494,6 +494,11 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     setCashingOut((prev) => ({ ...prev, [panelIndex]: true }));
     setBalance((b) => b + pendingWin);
 
+    // ── INSTANT feedback: fire the cashout toast now, don't wait for the server.
+    // The win celebration still fires on confirm; a rare rejection replaces this
+    // with an error toast.
+    toast.cashout(`Cashed out ${clickedMultiplier.toFixed(2)}×`, `+${format(pendingWin)}`);
+
     // ── Confirm with server (keepalive so the request isn't dropped on nav) ──
     try {
       const res = await fetch("/api/aviator/cashout", {
