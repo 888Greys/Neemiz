@@ -22,8 +22,17 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { Icon } from "@/components/icon";
+import { LiveTickChart, type LiveChartTheme } from "@/components/charts/live-tick-chart";
 import { toast } from "@/lib/toast";
 import { placed } from "@/lib/game-feel";
+
+// Blue/white theme for the shared live chart engine.
+const BINARY_THEME: LiveChartTheme = {
+  bg: "#151518",
+  up: "#3b82f6", down: "#ef4444",
+  areaTop: "rgba(59,130,246,0.28)", areaBottom: "rgba(59,130,246,0.02)",
+  dot: "#ffffff", stub: "rgba(59,130,246,0.9)", lineColor: "#e5edf8",
+};
 import { createClient } from "@/lib/supabase/client";
 import { quoteToDigit } from "@/lib/binary-digit";
 import {
@@ -645,6 +654,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
   const [marketSymbol, setMarketSymbol] = useState(MARKETS[0].symbol);
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
   const [ticks, setTicks] = useState(() => seedTicks(market));
+  // Raw price points for the shared live chart (memoised so it only changes with ticks).
+  const livePoints = useMemo(() => ticks.map((t) => ({ time: t.time, value: t.quote })), [ticks]);
   const [family, setFamily] = useState<ContractFamily>(() => {
     const defaultType = liveTypes[0] ?? "even_odd";
     return DIGIT_TYPE_TO_FAMILY[defaultType] ?? "evenOdd";
@@ -1895,19 +1906,15 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                 </span>
               </button>
 
-              <TradingViewBinaryChart ticks={ticks} lines={chartLines} markers={chartMarkers} />
-
-              {/* Mobile chart tools (Deriv-style) — "1t" chart types + drawing */}
-              <div className="absolute bottom-3 left-3 z-10 flex gap-2 sm:hidden">
-                <button type="button" onClick={() => setChartSheet("types")} aria-label="Chart types"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-[#1c1d24]/90 text-[11px] font-black text-slate-100 ring-1 ring-white/10 backdrop-blur active:scale-95">
-                  1t
-                </button>
-                <button type="button" onClick={() => setChartSheet("drawing")} aria-label="Drawing tools"
-                  className="grid h-9 w-9 place-items-center rounded-full bg-[#1c1d24]/90 text-slate-100 ring-1 ring-white/10 backdrop-blur active:scale-95">
-                  <Icon name="draw" className="text-[16px]" />
-                </button>
-              </div>
+              <LiveTickChart
+                points={livePoints}
+                theme={BINARY_THEME}
+                lines={chartLines}
+                markers={chartMarkers}
+                formatValue={formatQuote}
+                bucketSeconds={5}
+                storageKey="nz.binary.chartType"
+              />
             </div>
 
             {/* Digit-frequency strip — last-100-tick distribution. Click a digit
