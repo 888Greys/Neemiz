@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMoney } from "@/lib/currency-context";
 import {
+  AreaSeries,
+  BarSeries,
   CandlestickSeries,
   ColorType,
   createChart,
@@ -148,6 +150,44 @@ function buildFallbackCandles(market: ForexMarket): Candle[] {
   });
 }
 
+type ChartType = "candles" | "heikin" | "bars" | "area";
+
+const CHART_TYPES: { key: ChartType; label: string; icon: string }[] = [
+  { key: "candles", label: "Candlesticks", icon: "candlestick_chart" },
+  { key: "heikin",  label: "Heikin Ashi",  icon: "waterfall_chart" },
+  { key: "bars",    label: "Bars (OHLC)",  icon: "bar_chart" },
+  { key: "area",    label: "Area",         icon: "show_chart" },
+];
+
+const CHART_TYPE_KEY = "nz.forex.chartType";
+function loadChartType(): ChartType {
+  if (typeof window === "undefined") return "candles";
+  const v = window.localStorage.getItem(CHART_TYPE_KEY);
+  return v === "heikin" || v === "bars" || v === "area" ? v : "candles";
+}
+
+// Heikin Ashi smooths OHLC using the running average of the previous HA bar.
+function toHeikinAshi(candles: Candle[]): CandlestickData<Time>[] {
+  let prevOpen: number | undefined;
+  let prevClose: number | undefined;
+  return candles.map((c) => {
+    const haClose = (c.open + c.high + c.low + c.close) / 4;
+    const haOpen = prevOpen === undefined ? (c.open + c.close) / 2 : (prevOpen + prevClose!) / 2;
+    const haHigh = Math.max(c.high, haOpen, haClose);
+    const haLow = Math.min(c.low, haOpen, haClose);
+    prevOpen = haOpen;
+    prevClose = haClose;
+    return { time: c.time, open: haOpen, high: haHigh, low: haLow, close: haClose };
+  });
+}
+
+// Map the full candle set to the shape the active series expects.
+function seriesDataFor(type: ChartType, candles: Candle[]): unknown[] {
+  if (type === "area") return candles.map((c) => ({ time: c.time, value: c.close }));
+  if (type === "heikin") return toHeikinAshi(candles);
+  return candles; // candles + bars both take OHLC
+}
+
 function TradingViewCandles({
   candles,
   market,
@@ -159,11 +199,19 @@ function TradingViewCandles({
   bid: number;
   ask: number;
 }) {
+  const [chartType, setChartType] = useState<ChartType>("candles");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  useEffect(() => { setChartType(loadChartType()); }, []);
+  const chartTypeRef = useRef<ChartType>(chartType);
+  useEffect(() => { chartTypeRef.current = chartType; }, [chartType]);
+  const candlesRef = useRef<Candle[]>(candles);
+  useEffect(() => { candlesRef.current = candles; }, [candles]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick" | "Bar" | "Area"> | null>(null);
   const bidLineRef = useRef<IPriceLine | null>(null);
   const askLineRef = useRef<IPriceLine | null>(null);
+  const lastBarRef = useRef<{ time: number; close: number } | null>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -222,22 +270,26 @@ function TradingViewCandles({
     });
 
     // FX Pro palette: blue bull / red bear (not casino green).
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#087cff",
-      downColor: "#ef4444",
-      borderUpColor: "#087cff",
-      borderDownColor: "#ef4444",
-      borderVisible: true,
-      wickUpColor: "#087cff",
-      wickDownColor: "#ef4444",
-      priceLineVisible: false,
-      lastValueVisible: false,
-      priceFormat: {
-        type: "price",
-        precision: market.precision,
-        minMove: pipSize(market),
-      },
-    });
+    const priceFormat = { type: "price" as const, precision: market.precision, minMove: pipSize(market) };
+    const ohlcOpts = {
+      upColor: "#087cff", downColor: "#ef4444",
+      borderUpColor: "#087cff", borderDownColor: "#ef4444", borderVisible: true,
+      wickUpColor: "#087cff", wickDownColor: "#ef4444",
+      priceLineVisible: false, lastValueVisible: false, priceFormat,
+    };
+    const series: ISeriesApi<"Candlestick" | "Bar" | "Area"> =
+      chartType === "area"
+        ? chart.addSeries(AreaSeries, {
+            lineColor: "#087cff", lineWidth: 2,
+            topColor: "rgba(8,124,255,0.28)", bottomColor: "rgba(8,124,255,0.02)",
+            priceLineVisible: false, lastValueVisible: false, priceFormat,
+          })
+        : chartType === "bars"
+        ? chart.addSeries(BarSeries, {
+            upColor: "#087cff", downColor: "#ef4444", thinBars: false,
+            priceLineVisible: false, lastValueVisible: false, priceFormat,
+          })
+        : chart.addSeries(CandlestickSeries, ohlcOpts);
 
     bidLineRef.current = series.createPriceLine({
       price: bid,
@@ -258,9 +310,17 @@ function TradingViewCandles({
 
     chartRef.current = chart;
     seriesRef.current = series;
-    // Don't fitContent() — with only a few initial bars it stretches them wide
-    // (the "zoomed-in on open" look). Keep the fixed barSpacing and let the data
-    // effect scroll to real time so the view is consistent and dense.
+    // Seed the freshly-created series with whatever candles we already have (so
+    // switching chart type doesn't blank the chart). Don't fitContent() — with a
+    // few bars it stretches them wide (the "zoomed-in" look); keep the fixed
+    // barSpacing and scroll to real time.
+    const seed = candlesRef.current;
+    if (seed.length) {
+      series.setData(seriesDataFor(chartType, seed) as Parameters<typeof series.setData>[0]);
+      const l = seed[seed.length - 1];
+      lastBarRef.current = { time: l.time as number, close: l.close };
+      chart.timeScale().scrollToRealTime();
+    }
 
     return () => {
       chart.remove();
@@ -269,9 +329,10 @@ function TradingViewCandles({
       bidLineRef.current = null;
       askLineRef.current = null;
     };
-    // bid/ask lines are updated in a separate effect; recreate only on market change.
+    // bid/ask lines are updated in a separate effect; recreate on market OR
+    // chart-type change so the right series kind is rendered.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [market]);
+  }, [market, chartType]);
 
   useEffect(() => {
     const series = seriesRef.current;
@@ -284,12 +345,11 @@ function TradingViewCandles({
     }
   }, [bid, ask]);
 
-  const lastBarRef = useRef<{ time: number; close: number } | null>(null);
-
   useEffect(() => {
     const series = seriesRef.current;
     const chart = chartRef.current;
     if (!series || !chart || candles.length === 0) return;
+    const type = chartTypeRef.current;
 
     const latest = candles[candles.length - 1];
     const prev = candles[candles.length - 2];
@@ -303,14 +363,17 @@ function TradingViewCandles({
       prev.close === last.close &&
       latest.time > last.time;
 
-    if (sameBar || appended) {
-      series.update(latest);
-      lastBarRef.current = { time: latest.time, close: latest.close };
+    // Heikin Ashi bars depend on the previous HA bar, so they can't be updated
+    // incrementally — recompute the set. Everything else updates the last bar.
+    if (type !== "heikin" && (sameBar || appended)) {
+      const one = type === "area" ? { time: latest.time, value: latest.close } : latest;
+      series.update(one as Parameters<typeof series.update>[0]);
+      lastBarRef.current = { time: latest.time as number, close: latest.close };
       return;
     }
 
-    series.setData(candles);
-    lastBarRef.current = { time: latest.time, close: latest.close };
+    series.setData(seriesDataFor(type, candles) as Parameters<typeof series.setData>[0]);
+    lastBarRef.current = { time: latest.time as number, close: latest.close };
     chart.timeScale().scrollToRealTime();
   }, [candles]);
 
@@ -328,9 +391,49 @@ function TradingViewCandles({
     ts.scrollToRealTime();
   };
 
+  const selectType = (t: ChartType) => {
+    setChartType(t);
+    try { window.localStorage.setItem(CHART_TYPE_KEY, t); } catch { /* ignore */ }
+    setPickerOpen(false);
+  };
+  const activeType = CHART_TYPES.find((t) => t.key === chartType) ?? CHART_TYPES[0];
+
   return (
     <div className="relative h-full min-h-[240px] overflow-hidden bg-[#0c0c0e] sm:min-h-[280px]">
       <div ref={containerRef} className="absolute inset-0" />
+
+      {/* Chart-type picker (top-right) */}
+      <div className="absolute right-2 top-2 z-20 sm:right-3 sm:top-3">
+        <button
+          type="button"
+          onClick={() => setPickerOpen((v) => !v)}
+          title="Chart type"
+          aria-label="Chart type"
+          className="flex h-9 items-center gap-1.5 rounded-lg bg-[#1a1b20]/95 px-2.5 text-slate-200 ring-1 ring-white/[0.08] backdrop-blur transition hover:bg-[#22242a] active:scale-[0.97]"
+        >
+          <Icon name={activeType.icon} className="text-[17px]" />
+          <Icon name="expand_more" className="text-[16px] text-slate-500" />
+        </button>
+        {pickerOpen && (
+          <>
+            <button type="button" aria-label="Close" onClick={() => setPickerOpen(false)} className="fixed inset-0 z-[-1] cursor-default" />
+            <div className="absolute right-0 mt-1.5 w-44 overflow-hidden rounded-xl border border-white/[0.08] bg-[#151518] py-1 shadow-2xl">
+              {CHART_TYPES.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => selectType(t.key)}
+                  className={`flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] font-semibold transition hover:bg-white/[0.05] ${chartType === t.key ? "text-[#75b8ff]" : "text-slate-200"}`}
+                >
+                  <Icon name={t.icon} className="text-[18px]" />
+                  <span className="flex-1">{t.label}</span>
+                  {chartType === t.key && <Icon name="check" className="text-[16px]" />}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       <div className="absolute bottom-3 left-2 z-10 flex gap-1.5 sm:bottom-4 sm:left-3">
         <button type="button" onClick={() => zoom(1.3)} title="Zoom in" aria-label="Zoom in"
