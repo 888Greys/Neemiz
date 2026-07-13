@@ -192,8 +192,12 @@ function TradingViewCandles({
         borderVisible: false,
         timeVisible: true,
         secondsVisible: false,
-        rightOffset: 12,
-        barSpacing: 14,
+        // Denser default so the chart shows plenty of history at a glance
+        // instead of a handful of fat, "zoomed-in" candles on open, and keep
+        // the latest candle close to the right edge.
+        rightOffset: 6,
+        barSpacing: 7,
+        minBarSpacing: 2,
         tickMarkFormatter: (time: Time) => fmtClock(time, false),
       },
       crosshair: {
@@ -254,7 +258,9 @@ function TradingViewCandles({
 
     chartRef.current = chart;
     seriesRef.current = series;
-    chart.timeScale().fitContent();
+    // Don't fitContent() — with only a few initial bars it stretches them wide
+    // (the "zoomed-in on open" look). Keep the fixed barSpacing and let the data
+    // effect scroll to real time so the view is consistent and dense.
 
     return () => {
       chart.remove();
@@ -311,14 +317,14 @@ function TradingViewCandles({
   const zoom = (factor: number) => {
     const ts = chartRef.current?.timeScale();
     if (!ts) return;
-    const current = ts.options().barSpacing ?? 14;
+    const current = ts.options().barSpacing ?? 7;
     ts.applyOptions({ barSpacing: Math.min(60, Math.max(2, current * factor)) });
   };
 
   const recenter = () => {
     const ts = chartRef.current?.timeScale();
     if (!ts) return;
-    ts.applyOptions({ barSpacing: 14 });
+    ts.applyOptions({ barSpacing: 7 });
     ts.scrollToRealTime();
   };
 
