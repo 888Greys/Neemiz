@@ -212,6 +212,10 @@ function TradingViewCandles({
   const bidLineRef = useRef<IPriceLine | null>(null);
   const askLineRef = useRef<IPriceLine | null>(null);
   const lastBarRef = useRef<{ time: number; close: number } | null>(null);
+  // Glide state: the forming bar's close eases toward the latest tick so the
+  // line advances in small steps instead of one big jump per tick.
+  const animRef = useRef<{ time: Time; open: number; high: number; low: number; target: number; shown: number } | null>(null);
+  const rafRef = useRef<number>(0);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -319,7 +323,10 @@ function TradingViewCandles({
       series.setData(seriesDataFor(chartType, seed) as Parameters<typeof series.setData>[0]);
       const l = seed[seed.length - 1];
       lastBarRef.current = { time: l.time as number, close: l.close };
+      animRef.current = { time: l.time, open: l.open, high: l.high, low: l.low, target: l.close, shown: l.close };
       chart.timeScale().scrollToRealTime();
+    } else {
+      animRef.current = null;
     }
 
     return () => {
@@ -364,18 +371,52 @@ function TradingViewCandles({
       latest.time > last.time;
 
     // Heikin Ashi bars depend on the previous HA bar, so they can't be updated
-    // incrementally — recompute the set. Everything else updates the last bar.
+    // incrementally — recompute the set. Everything else eases via the rAF loop
+    // below (set the target here; the loop steps the visible close toward it).
     if (type !== "heikin" && (sameBar || appended)) {
-      const one = type === "area" ? { time: latest.time, value: latest.close } : latest;
-      series.update(one as Parameters<typeof series.update>[0]);
+      const a = animRef.current;
+      const shown = sameBar && a && a.time === latest.time ? a.shown : latest.open;
+      animRef.current = {
+        time: latest.time,
+        open: latest.open,
+        high: latest.high,
+        low: latest.low,
+        target: latest.close,
+        shown,
+      };
       lastBarRef.current = { time: latest.time as number, close: latest.close };
       return;
     }
 
     series.setData(seriesDataFor(type, candles) as Parameters<typeof series.setData>[0]);
+    animRef.current = { time: latest.time, open: latest.open, high: latest.high, low: latest.low, target: latest.close, shown: latest.close };
     lastBarRef.current = { time: latest.time as number, close: latest.close };
     chart.timeScale().scrollToRealTime();
   }, [candles]);
+
+  // Glide loop: each frame, step the forming bar's visible close a fraction of
+  // the way toward the latest tick, so the line/candle advances in small steps
+  // rather than one big jump. Idle (no series.update) once it reaches the tick.
+  useEffect(() => {
+    const step = () => {
+      rafRef.current = requestAnimationFrame(step);
+      const a = animRef.current;
+      const series = seriesRef.current;
+      // Heikin Ashi is recomputed as a set, not eased — skip it here.
+      if (!a || !series || chartTypeRef.current === "heikin") return;
+      const diff = a.target - a.shown;
+      if (Math.abs(diff) < 1e-9) return;
+      // Snap when very close; otherwise ease ~28% per frame (~120ms to arrive).
+      a.shown = Math.abs(diff) < 1e-7 ? a.target : a.shown + diff * 0.28;
+      const shownData =
+        chartTypeRef.current === "area"
+          ? { time: a.time, value: a.shown }
+          : { time: a.time, open: a.open, high: Math.max(a.high, a.shown), low: Math.min(a.low, a.shown), close: a.shown };
+      series.update(shownData as Parameters<typeof series.update>[0]);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, []);
 
   const zoom = (factor: number) => {
     const ts = chartRef.current?.timeScale();
