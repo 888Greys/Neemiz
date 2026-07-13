@@ -12,7 +12,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { GLOBAL_PAYMENT_METHODS, paymentMethodLabel, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
+import { paymentMethodLabel, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
 import { MARKETS, type Market } from "@/lib/payments/country-methods";
 import { ACTIVE_LOCAL_COINS } from "@/lib/p2p/local-coins";
 import { PaymentLogo } from "@/components/p2p/payment-logo";
@@ -808,7 +808,6 @@ interface PayMethod {
   id: string; type: string; name: string;
   accountName: string; accountNo: string; bankName: string | null;
 }
-const PAY_RAILS = GLOBAL_PAYMENT_METHODS;                 // full world catalogue
 const BANKISH = new Set(["BANK", "KUDA", "FNB", "CAPITEC"]);
 
 function fmtEscrowAmt(n: number): string {
@@ -845,10 +844,20 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
         onClick={() => setOpen(true)}
         className="col-span-2 flex h-12 w-full items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-3.5 text-left transition hover:border-white/15 active:scale-[0.99]"
       >
-        <PaymentLogo code={value} size={28} />
+        {value ? (
+          <PaymentLogo code={value} size={28} />
+        ) : (
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/[0.06]">
+            <Icon name="public" className="text-[16px] text-slate-300" />
+          </span>
+        )}
         <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">Method</span>
-          <span className="block truncate text-[14px] font-black text-white">{paymentMethodLabel(value)}</span>
+          <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">
+            {value ? "Method" : "Country & method"}
+          </span>
+          <span className="block truncate text-[14px] font-black text-white">
+            {value ? paymentMethodLabel(value) : "Choose your country"}
+          </span>
         </span>
         <Icon name="expand_more" className="shrink-0 text-[22px] text-slate-500" />
       </button>
@@ -958,7 +967,8 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
   const [methods, setMethods] = useState<PayMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
-  const [method, setMethod]   = useState(PAY_RAILS[0]?.value ?? "MPESA");
+  // No default method — the user picks a country first, then a method in it.
+  const [method, setMethod]   = useState("");
   const [accountName, setAccountName] = useState("");
   const [accountNo, setAccountNo]     = useState("");
   const [bankName, setBankName]       = useState("");
@@ -982,6 +992,7 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
   useEffect(() => { load(); }, [load]);
 
   async function add() {
+    if (!method) return toast.error("Choose a country and payment method");
     if (accountName.trim().length < 2) return toast.error("Enter the account holder name");
     if (accountNo.trim().length < 4)   return toast.error("Enter a valid account/phone number");
     if (isBank && !bankName.trim())    return toast.error("Enter the bank name");
@@ -994,7 +1005,7 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed");
       toast.success("Payment method saved");
-      setAccountName(""); setAccountNo(""); setBankName("");
+      setMethod(""); setAccountName(""); setAccountNo(""); setBankName("");
       setFormOpen(false);
       load();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
@@ -1065,18 +1076,27 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
       {showForm && (
         <div className="grid grid-cols-2 gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3 py-4">
           <MethodPicker value={method} onChange={setMethod} />
-          <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
-            className="col-span-2 h-12 rounded-xl border border-transparent bg-white/[0.06] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40" />
-          <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={accountIdentifierLabel(method)}
-            className={`${isBank ? "" : "col-span-2"} h-12 rounded-xl border border-transparent bg-white/[0.06] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40`} />
-          {isBank && (
-            <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
-              className="h-12 rounded-xl border border-transparent bg-white/[0.06] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40" />
+          {/* Account details appear only after a country + method are chosen. */}
+          {method ? (
+            <>
+              <input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Account name"
+                className="col-span-2 h-12 rounded-xl border border-transparent bg-white/[0.06] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40" />
+              <input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} placeholder={accountIdentifierLabel(method)}
+                className={`${isBank ? "" : "col-span-2"} h-12 rounded-xl border border-transparent bg-white/[0.06] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40`} />
+              {isBank && (
+                <input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank name"
+                  className="h-12 rounded-xl border border-transparent bg-white/[0.06] px-3.5 text-[14px] font-semibold text-white outline-none placeholder:text-slate-500 focus:border-[#087cff]/40" />
+              )}
+              <button type="button" onClick={add} disabled={saving}
+                className="col-span-2 flex h-12 items-center justify-center gap-1.5 rounded-full bg-[#087cff] text-[14px] font-bold text-white transition hover:bg-[#0570e8] active:scale-[0.99] disabled:opacity-50">
+                <Icon name="add" className="text-base" /> {saving ? "Saving..." : "Save payment method"}
+              </button>
+            </>
+          ) : (
+            <p className="col-span-2 text-center text-[12px] font-medium text-slate-500">
+              Pick your country, then the payment method you accept.
+            </p>
           )}
-          <button type="button" onClick={add} disabled={saving}
-            className="col-span-2 flex h-12 items-center justify-center gap-1.5 rounded-full bg-[#087cff] text-[14px] font-bold text-white transition hover:bg-[#0570e8] active:scale-[0.99] disabled:opacity-50">
-            <Icon name="add" className="text-base" /> {saving ? "Saving..." : "Save payment method"}
-          </button>
         </div>
       )}
 
