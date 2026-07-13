@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { TodayMoney } from "@/components/admin/today-money";
 
 // Withdrawals & Approvals, restyled to the Stitch design. All endpoints and
 // action logic are identical to the original client (financial-critical):
@@ -152,7 +153,7 @@ function History() {
 }
 
 export function AdminV2Withdrawals() {
-  const [tab, setTab] = useState<"approvals" | "history">("approvals");
+  const [tab, setTab] = useState<"today" | "approvals" | "history">("approvals");
   const [items, setItems] = useState<PendingWithdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
@@ -201,7 +202,7 @@ export function AdminV2Withdrawals() {
       </div>
 
       <div className="mb-6 flex gap-1 border-b border-[#424754]">
-        {([["approvals", "Approvals"], ["history", "History"]] as const).map(([key, label]) => (
+        {([["today", "Today"], ["approvals", "Approvals"], ["history", "History"]] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -213,7 +214,9 @@ export function AdminV2Withdrawals() {
         ))}
       </div>
 
-      {tab === "history" ? (
+      {tab === "today" ? (
+        <TodayMoney />
+      ) : tab === "history" ? (
         <History />
       ) : loading ? (
         <div className="flex justify-center py-16"><div className="h-6 w-6 animate-spin rounded-full border-2 border-white/10 border-t-[#adc6ff]" /></div>
