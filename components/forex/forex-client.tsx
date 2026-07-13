@@ -18,8 +18,17 @@ import {
 } from "lightweight-charts";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
+import { LiveTickChart, type LivePoint, type LiveChartTheme } from "@/components/charts/live-tick-chart";
 import { toast } from "@/lib/toast";
 import { placed } from "@/lib/game-feel";
+
+// Green FX Pro theme for the shared live chart engine (matches the Binary feel).
+const FOREX_THEME: LiveChartTheme = {
+  bg: "#0c0c0e",
+  up: "#22c55e", down: "#ef4444",
+  areaTop: "rgba(34,197,94,0.22)", areaBottom: "rgba(34,197,94,0.02)",
+  dot: "#22c55e", stub: "rgba(34,197,94,0.9)",
+};
 import { ValuePickerSheet } from "@/components/binary/panels/digit-panel";
 import { useNavBadge } from "@/lib/nav-badge-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
@@ -567,6 +576,8 @@ export function ForexClient() {
   const [streamStatus, setStreamStatus] = useState<StreamStatus>("connecting");
   const [streamError, setStreamError] = useState<string | null>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
+  // Raw per-tick price points for the shared live chart (smooth line + dot).
+  const [priceTicks, setPriceTicks] = useState<LivePoint[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [openingTrade, setOpeningTrade] = useState(false);
@@ -611,6 +622,7 @@ export function ForexClient() {
     let socket: WebSocket | undefined;
 
     setCandles([]);
+    setPriceTicks([]);
     setStreamStatus("connecting");
     setStreamError(null);
 
@@ -691,6 +703,9 @@ export function ForexClient() {
             }))
             .slice(-180);
           setCandles(historyCandles);
+          // Seed the live line with the history closes (coarse), then live ticks
+          // add per-second detail on top.
+          setPriceTicks(historyCandles.map((c) => ({ time: c.time, value: c.close })));
           setStreamStatus("live");
           setStreamError(null);
         }
@@ -701,6 +716,15 @@ export function ForexClient() {
           gotData = true;
           if (dataTimer) window.clearTimeout(dataTimer);
           const { epoch, quote } = response.tick;
+          // Raw per-second point for the smooth live line (rolling buffer).
+          setPriceTicks((cur) => {
+            const t = epoch as UTCTimestamp;
+            const last = cur[cur.length - 1];
+            if (last && (last.time as number) === epoch) {
+              return [...cur.slice(0, -1), { time: t, value: quote }];
+            }
+            return [...cur, { time: t, value: quote }].slice(-600);
+          });
           const time = bucketTime(epoch);
           setCandles((current) => {
             const last = current[current.length - 1];
@@ -1084,7 +1108,17 @@ export function ForexClient() {
                   </button>
                 )}
               </div>
-              <TradingViewCandles candles={chartCandles} market={selectedMarket} bid={bid} ask={ask} />
+              <LiveTickChart
+                points={priceTicks}
+                theme={FOREX_THEME}
+                storageKey="nz.forex.chartType"
+                bucketSeconds={15}
+                formatValue={(v) => formatPrice(selectedMarket, v)}
+                lines={[
+                  { id: "ask", price: ask, color: "#22c55e", title: "" },
+                  { id: "bid", price: bid, color: "#ef4444", title: "" },
+                ]}
+              />
               {chartCandles.length === 0 && (
                 <div className="absolute inset-0 grid place-items-center bg-[#0c0c0e]/80">
                   <div className="rounded-lg border border-white/[0.08] bg-[#14151a]/90 px-4 py-3 text-center shadow-2xl shadow-black/30">
