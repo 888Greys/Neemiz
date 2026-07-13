@@ -227,9 +227,9 @@ function TradingViewCandles({
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: "#0c0c0e" },
-        textColor: "#6b7280",
-        fontFamily: "var(--font-jakarta), ui-sans-serif, system-ui, sans-serif",
-        fontSize: 11,
+        // Match the Binary chart's typography for a consistent feel across games.
+        textColor: "#8d99ae",
+        fontFamily: "var(--font-jakarta), sans-serif",
       },
       grid: {
         vertLines: { color: "rgba(255,255,255,0.035)", style: 0 },
@@ -245,9 +245,9 @@ function TradingViewCandles({
         timeVisible: true,
         secondsVisible: false,
         // Denser default so the chart shows plenty of history at a glance
-        // instead of a handful of fat, "zoomed-in" candles on open, and keep
-        // the latest candle close to the right edge.
-        rightOffset: 6,
+        // instead of a handful of fat, "zoomed-in" candles on open, and let the
+        // line run right up to the price axis (no right-hand gap).
+        rightOffset: 0,
         barSpacing: 7,
         minBarSpacing: 2,
         tickMarkFormatter: (time: Time) => fmtClock(time, false),
@@ -273,24 +273,25 @@ function TradingViewCandles({
       },
     });
 
-    // FX Pro palette: blue bull / red bear (not casino green).
+    // Green bull / red bear, thin lines — consistent with the Binary chart.
     const priceFormat = { type: "price" as const, precision: market.precision, minMove: pipSize(market) };
+    const UP = "#22c55e", DOWN = "#ef4444";
     const ohlcOpts = {
-      upColor: "#087cff", downColor: "#ef4444",
-      borderUpColor: "#087cff", borderDownColor: "#ef4444", borderVisible: true,
-      wickUpColor: "#087cff", wickDownColor: "#ef4444",
+      upColor: UP, downColor: DOWN,
+      borderUpColor: UP, borderDownColor: DOWN, borderVisible: true,
+      wickUpColor: UP, wickDownColor: DOWN,
       priceLineVisible: false, lastValueVisible: false, priceFormat,
     };
     const series: ISeriesApi<"Candlestick" | "Bar" | "Area"> =
       chartType === "area"
         ? chart.addSeries(AreaSeries, {
-            lineColor: "#087cff", lineWidth: 2,
-            topColor: "rgba(8,124,255,0.28)", bottomColor: "rgba(8,124,255,0.02)",
+            lineColor: UP, lineWidth: 1,
+            topColor: "rgba(34,197,94,0.22)", bottomColor: "rgba(34,197,94,0.02)",
             priceLineVisible: false, lastValueVisible: false, priceFormat,
           })
         : chartType === "bars"
         ? chart.addSeries(BarSeries, {
-            upColor: "#087cff", downColor: "#ef4444", thinBars: false,
+            upColor: UP, downColor: DOWN, thinBars: true,
             priceLineVisible: false, lastValueVisible: false, priceFormat,
           })
         : chart.addSeries(CandlestickSeries, ohlcOpts);
