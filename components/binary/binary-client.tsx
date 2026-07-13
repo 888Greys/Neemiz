@@ -397,7 +397,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
 
     const series = chart.addSeries(AreaSeries, {
       lineColor: "#e5edf8",
-      lineWidth: 3,
+      lineWidth: 2,
       topColor: "rgba(59,130,246,0.28)",
       bottomColor: "rgba(59,130,246,0.02)",
       priceLineColor: "#3b82f6",
