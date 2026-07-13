@@ -12,7 +12,9 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { GLOBAL_PAYMENT_METHODS, paymentMethodsByCategory, paymentMethodLabel, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
+import { GLOBAL_PAYMENT_METHODS, paymentMethodLabel, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
+import { MARKETS, type Market } from "@/lib/payments/country-methods";
+import { ACTIVE_LOCAL_COINS } from "@/lib/p2p/local-coins";
 import { PaymentLogo } from "@/components/p2p/payment-logo";
 import { LoadingDots } from "@/components/loading-dots";
 import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
@@ -25,13 +27,23 @@ import {
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
 
+// In-app local coins (KES Coin today; UG/TZ/… ready to switch on once the
+// wallet can hold their currency) are generated from the shared registry so
+// adding a country coin is a one-line change in lib/p2p/local-coins.ts.
+const LOCAL_COIN_CRYPTOS = ACTIVE_LOCAL_COINS.map((c) => ({
+  symbol: c.currency,
+  name: `${c.name} · in-app`,
+  icon: `https://flagcdn.com/w80/${c.flagCode}.png`,
+  color: "#0a7e3f",
+}));
+
 const P2P_CRYPTOS: Array<{ symbol: string; name: string; icon: string; color: string }> = [
   { symbol: "USDT", name: "Tether",       icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg", color: "#26a17b" },
   { symbol: "USDC", name: "USD Coin",     icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdc.svg", color: "#2775ca" },
   { symbol: "BTC",  name: "Bitcoin",      icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",  color: "#f7931a" },
   { symbol: "ETH",  name: "Ethereum",     icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",  color: "#627eea" },
   { symbol: "BNB",  name: "BNB",          icon: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",  color: "#f0b90b" },
-  { symbol: "KES",  name: "KES Coin · in-app", icon: "https://flagcdn.com/w80/ke.png",                                       color: "#0a7e3f" },
+  ...LOCAL_COIN_CRYPTOS,
 ];
 
 const P2P_SYMBOLS = P2P_CRYPTOS.map((c) => c.symbol);
@@ -797,7 +809,6 @@ interface PayMethod {
   accountName: string; accountNo: string; bankName: string | null;
 }
 const PAY_RAILS = GLOBAL_PAYMENT_METHODS;                 // full world catalogue
-const PAY_RAILS_BY_CATEGORY = paymentMethodsByCategory(); // grouped for the picker
 const BANKISH = new Set(["BANK", "KUDA", "FNB", "CAPITEC"]);
 
 function fmtEscrowAmt(n: number): string {
@@ -806,17 +817,26 @@ function fmtEscrowAmt(n: number): string {
   return s;
 }
 
-// Searchable payment-method picker — bottom sheet (same chrome as P2P Payment Methods).
+// Two-step payment-method picker (Noones-style): choose a country/market first,
+// then a payment method available in that country. Same bottom-sheet chrome.
 function MethodPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"country" | "method">("country");
+  const [market, setMarket] = useState<Market | null>(null);
   const [query, setQuery] = useState("");
 
-  useEffect(() => { if (!open) setQuery(""); }, [open]);
+  function close() { setOpen(false); }
+  // Reset to the country step whenever the sheet closes.
+  useEffect(() => { if (!open) { setStep("country"); setMarket(null); setQuery(""); } }, [open]);
+  useEffect(() => { setQuery(""); }, [step]);
 
   const q = query.trim().toLowerCase();
-  const groups = Object.entries(PAY_RAILS_BY_CATEGORY)
-    .map(([cat, list]) => [cat, list.filter((r) => !q || r.label.toLowerCase().includes(q) || r.value.toLowerCase().includes(q))] as const)
-    .filter(([, list]) => list.length > 0);
+  const countries = MARKETS.filter(
+    (m) => !q || m.region.toLowerCase().includes(q) || m.label.toLowerCase().includes(q) || m.currency.toLowerCase().includes(q),
+  );
+  const methodCodes = (market?.methods ?? []).filter(
+    (code) => !q || paymentMethodLabel(code).toLowerCase().includes(q) || code.toLowerCase().includes(q),
+  );
 
   return (
     <>
@@ -834,16 +854,29 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/65" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/65" onClick={close}>
           <div
             className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 bg-[#151518] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex shrink-0 items-center justify-between px-4 py-3">
-              <h3 className="text-[17px] font-bold text-white">Payment method</h3>
+            <div className="flex shrink-0 items-center gap-2 px-4 py-3">
+              {step === "method" && (
+                <button
+                  type="button"
+                  onClick={() => { setStep("country"); setMarket(null); }}
+                  className="grid h-8 w-8 place-items-center rounded-full text-slate-300 hover:bg-white/[0.06]"
+                  aria-label="Back to countries"
+                >
+                  <Icon name="arrow_back" className="text-[18px]" />
+                </button>
+              )}
+              <h3 className="min-w-0 flex-1 truncate text-[17px] font-bold text-white">
+                {step === "country" ? "Choose country" : `${market?.region} methods`}
+              </h3>
+              {step === "country" && <span className="text-[12px] font-semibold text-slate-500">{countries.length}</span>}
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={close}
                 className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-white/[0.06]"
                 aria-label="Close"
               >
@@ -857,36 +890,53 @@ function MethodPicker({ value, onChange }: { value: string; onChange: (v: string
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search M-Pesa, Pix, PayPal…"
+                  placeholder={step === "country" ? "Search country or currency" : "Search method"}
                   className="h-11 min-w-0 flex-1 bg-transparent text-[14px] text-white outline-none placeholder:text-slate-500"
                 />
               </div>
             </div>
+
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {groups.length === 0 && (
-                <p className="px-3 py-16 text-center text-[13px] font-semibold text-slate-500">No methods found</p>
-              )}
-              {groups.map(([cat, list]) => (
-                <div key={cat} className="mb-2">
-                  <p className="sticky top-0 z-[1] bg-[#151518]/95 px-4 pb-1.5 pt-3 text-[12px] font-semibold text-slate-500 backdrop-blur">
-                    {cat}
-                  </p>
-                  {list.map((r) => (
+              {step === "country" ? (
+                countries.length === 0 ? (
+                  <p className="px-3 py-16 text-center text-[13px] font-semibold text-slate-500">No countries found</p>
+                ) : (
+                  countries.map((m) => (
                     <button
-                      key={r.value}
+                      key={m.currency}
                       type="button"
-                      onClick={() => { onChange(r.value); setOpen(false); }}
-                      className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.04] ${
-                        r.value === value ? "bg-white/[0.08]" : ""
-                      }`}
+                      onClick={() => { setMarket(m); setStep("method"); }}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-white/[0.04]"
                     >
-                      <PaymentLogo code={r.value} size={32} />
-                      <span className="min-w-0 flex-1 text-[14px] font-semibold text-white">{r.label}</span>
-                      {r.value === value && <Icon name="check" className="shrink-0 text-[18px] text-white" />}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={flagUrl(m.currency)} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14px] font-bold text-white">{m.region}</span>
+                        <span className="block truncate text-[12px] font-semibold text-slate-500">{m.label}</span>
+                      </span>
+                      <span className="shrink-0 text-[12px] font-bold text-slate-500">{m.currency}</span>
+                      <Icon name="chevron_right" className="shrink-0 text-[18px] text-slate-600" />
                     </button>
-                  ))}
-                </div>
-              ))}
+                  ))
+                )
+              ) : methodCodes.length === 0 ? (
+                <p className="px-3 py-16 text-center text-[13px] font-semibold text-slate-500">No methods found</p>
+              ) : (
+                methodCodes.map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => { onChange(code); close(); }}
+                    className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.04] ${
+                      code === value ? "bg-white/[0.08]" : ""
+                    }`}
+                  >
+                    <PaymentLogo code={code} size={32} />
+                    <span className="min-w-0 flex-1 text-[14px] font-semibold text-white">{paymentMethodLabel(code)}</span>
+                    {code === value && <Icon name="check" className="shrink-0 text-[18px] text-white" />}
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>
