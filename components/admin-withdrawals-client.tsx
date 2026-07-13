@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { TodayMoney } from "@/components/admin/today-money";
 
 interface PendingWithdrawal {
   id: string;
@@ -186,7 +187,7 @@ function WithdrawalsHistory() {
 }
 
 export function AdminWithdrawalsClient() {
-  const [tab, setTab] = useState<"approvals" | "history">("approvals");
+  const [tab, setTab] = useState<"today" | "approvals" | "history">("approvals");
   const [items, setItems]       = useState<PendingWithdrawal[]>([]);
   const [loading, setLoading]   = useState(true);
   const [acting, setActing]     = useState<string | null>(null);
@@ -243,7 +244,7 @@ export function AdminWithdrawalsClient() {
       </div>
 
       <div className="mb-4 flex gap-1 border-b border-white/[0.07]">
-        {([["approvals", "Approvals"], ["history", "History"]] as const).map(([key, label]) => (
+        {([["today", "Today"], ["approvals", "Approvals"], ["history", "History"]] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -259,7 +260,7 @@ export function AdminWithdrawalsClient() {
         ))}
       </div>
 
-      {tab === "history" ? <WithdrawalsHistory /> : loading ? (
+      {tab === "today" ? <TodayMoney /> : tab === "history" ? <WithdrawalsHistory /> : loading ? (
         <div className="flex justify-center py-16"><Spinner /></div>
       ) : items.length === 0 ? (
         <div className="admin-panel relative flex min-h-[280px] flex-col items-center justify-center overflow-hidden py-16">
