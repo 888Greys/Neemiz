@@ -90,7 +90,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     orderBy: { createdAt: "asc" },
   });
 
-  return Response.json(messages.map((message) => ({ ...message, deliveredAt: null, readAt: null })));
+  return Response.json(messages.map((message) => ({ ...message, isSystem: false, deliveredAt: null, readAt: null })));
 }
 
 // POST /api/p2p/orders/[id]/messages — send a message
@@ -134,6 +134,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       id: true,
       content: true,
       imageUrl: true,
+      isSystem: true,
       createdAt: true,
       sender: { select: { id: true, firstName: true, lastName: true, username: true, imageUrl: true } },
     },

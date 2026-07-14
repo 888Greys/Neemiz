@@ -54,6 +54,7 @@ interface Message {
   id: string;
   content: string;
   imageUrl: string | null;
+  isSystem?: boolean;
   deliveredAt: string | null;
   readAt: string | null;
   createdAt: string;
@@ -324,10 +325,25 @@ function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; cur
           </div>
         )}
         {messages.map((m, i) => {
+          // Order events (payment marked, released, cancelled, disputed, …) render
+          // as a centred "System message" block, not a chat bubble.
+          if (m.isSystem) {
+            return (
+              <div key={m.id} className="my-3 flex flex-col items-center">
+                <div className="max-w-[88%] rounded-xl border border-white/[0.06] bg-white/[0.03] px-3.5 py-2.5 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">System message</p>
+                  <p className="mt-1 whitespace-pre-wrap break-words text-[12px] font-semibold leading-5 text-slate-300">{m.content}</p>
+                  <p className="mt-1 text-[10px] font-semibold text-slate-600">
+                    {new Date(m.createdAt).toLocaleString([], { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </p>
+                </div>
+              </div>
+            );
+          }
           const mine = m.sender?.id === currentUserId;
           // Group consecutive messages from the same sender (tighter spacing, hide repeat name).
           const prev = messages[i - 1];
-          const grouped = prev && prev.sender?.id === m.sender?.id;
+          const grouped = prev && prev.sender?.id === m.sender?.id && !prev.isSystem;
           return (
             <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"} ${grouped ? "mt-0.5" : "mt-3 first:mt-0"}`}>
               {!grouped && !mine && (
@@ -486,8 +502,8 @@ function MobileP2POrderView({
     try {
       const res = await fetch(`/api/p2p/orders/${orderId}/messages`, { cache: "no-store" });
       if (!res.ok) return;
-      const msgs: { sender: { id: string } | null; readAt: string | null }[] = await res.json();
-      setUnreadCount(msgs.filter((m) => m.sender?.id !== currentUserId && !m.readAt).length);
+      const msgs: { sender: { id: string } | null; readAt: string | null; isSystem?: boolean }[] = await res.json();
+      setUnreadCount(msgs.filter((m) => !m.isSystem && m.sender?.id !== currentUserId && !m.readAt).length);
     } catch { /* ignore — badge just stays as-is */ }
   }, [orderId, currentUserId]);
 

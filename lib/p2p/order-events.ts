@@ -18,6 +18,7 @@ export async function createP2POrderEventMessage(
       orderId: input.orderId,
       senderId: input.senderId,
       content: input.content,
+      isSystem: true,
     },
   });
 }
