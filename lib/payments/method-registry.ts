@@ -9,6 +9,7 @@ export type PaymentCategory =
   | "Online Wallets"
   | "Wallets & Neobanks"
   | "Crypto"
+  | "Gift Cards"
   | "Cash"
   | "Other";
 
@@ -124,6 +125,67 @@ export const METHOD_REGISTRY: Record<string, MethodDef> = {
   ETH:         { code: "ETH",         label: "Ethereum",          category: "Crypto", walletRail: "crypto", cryptoGroup: "ETH" },
   USDC:        { code: "USDC",        label: "USDC",              category: "Crypto", walletLive: true, walletRail: "crypto", cryptoGroup: "OTHER" },
   CRYPTO:      { code: "CRYPTO",      label: "Crypto",            category: "Crypto", walletLive: true, walletRail: "crypto", cryptoGroup: "OTHER" },
+
+  // ── Extended global catalogue (country-specific rails from the world list) ──
+  DINACARD:    { code: "DINACARD", label: "DinaCard", category: "Cards" },
+  DISCOVER:    { code: "DISCOVER", label: "Discover", category: "Cards" },
+  ELCART:      { code: "ELCART", label: "Elcart", category: "Cards" },
+  HUMO:        { code: "HUMO", label: "Humo", category: "Cards" },
+  LOCAL_CARDS: { code: "LOCAL_CARDS", label: "Local Bank Card", category: "Cards" },
+  MADA:        { code: "MADA", label: "mada", category: "Cards" },
+  MIR:         { code: "MIR", label: "MIR", category: "Cards" },
+  UZCARD:      { code: "UZCARD", label: "Uzcard", category: "Cards" },
+  VERVE:       { code: "VERVE", label: "Verve", category: "Cards" },
+  AIRTELTIGO:  { code: "AIRTELTIGO", label: "AirtelTigo Money", category: "Mobile Money" },
+  CB_PAY:      { code: "CB_PAY", label: "CB Pay", category: "Mobile Money" },
+  EMOLA:       { code: "EMOLA", label: "e-Mola", category: "Mobile Money" },
+  ESEWA:       { code: "ESEWA", label: "eSewa", category: "Mobile Money" },
+  EVC_PLUS:    { code: "EVC_PLUS", label: "EVC Plus", category: "Mobile Money" },
+  FREE_MONEY:  { code: "FREE_MONEY", label: "Free Money", category: "Mobile Money" },
+  IME_PAY:     { code: "IME_PAY", label: "IME Pay", category: "Mobile Money" },
+  JUICE:       { code: "JUICE", label: "Juice", category: "Mobile Money" },
+  KBZPAY:      { code: "KBZPAY", label: "KBZPay", category: "Mobile Money" },
+  KHALTI:      { code: "KHALTI", label: "Khalti", category: "Mobile Money" },
+  MKESH:       { code: "MKESH", label: "mKesh", category: "Mobile Money" },
+  SAHAL:       { code: "SAHAL", label: "Sahal", category: "Mobile Money" },
+  WAVE_MONEY:  { code: "WAVE_MONEY", label: "Wave Money", category: "Mobile Money" },
+  ZAAD:        { code: "ZAAD", label: "Zaad", category: "Mobile Money" },
+  ABA_PAY:     { code: "ABA_PAY", label: "ABA Pay", category: "Bank" },
+  ACH:         { code: "ACH", label: "ACH", category: "Bank" },
+  BCEL_ONE:    { code: "BCEL_ONE", label: "BCEL One", category: "Bank" },
+  BIZUM:       { code: "BIZUM", label: "Bizum", category: "Bank" },
+  CODI:        { code: "CODI", label: "CoDi", category: "Bank" },
+  INSTANT_EFT: { code: "INSTANT_EFT", label: "Instant EFT", category: "Bank" },
+  KHQR:        { code: "KHQR", label: "KHQR", category: "Bank" },
+  LANKAPAY:    { code: "LANKAPAY", label: "LankaPay", category: "Bank" },
+  NET_BANKING: { code: "NET_BANKING", label: "Net Banking", category: "Bank" },
+  NETS:        { code: "NETS", label: "NETS", category: "Bank" },
+  NIBSS:       { code: "NIBSS", label: "NIBSS", category: "Bank" },
+  PAGO_MOVIL:  { code: "PAGO_MOVIL", label: "Pago Móvil", category: "Bank" },
+  PAYNOW:      { code: "PAYNOW", label: "PayNow", category: "Bank" },
+  POLI:        { code: "POLI", label: "POLi", category: "Bank" },
+  QPAY:        { code: "QPAY", label: "QPay", category: "Bank" },
+  SINPE_MOVIL: { code: "SINPE_MOVIL", label: "SINPE Móvil", category: "Bank" },
+  VIETQR:      { code: "VIETQR", label: "VietQR", category: "Bank" },
+  ZIPIT:       { code: "ZIPIT", label: "ZIPIT", category: "Bank" },
+  BHIM:        { code: "BHIM", label: "BHIM", category: "Online Wallets" },
+  BIT:         { code: "BIT", label: "Bit", category: "Online Wallets" },
+  GENIE:       { code: "GENIE", label: "Genie", category: "Online Wallets" },
+  MACH:        { code: "MACH", label: "MACH", category: "Online Wallets" },
+  MOMO_VN:     { code: "MOMO_VN", label: "MoMo", category: "Online Wallets" },
+  PASMO:       { code: "PASMO", label: "PASMO", category: "Online Wallets" },
+  SNAPSCAN:    { code: "SNAPSCAN", label: "SnapScan", category: "Online Wallets" },
+  SUICA:       { code: "SUICA", label: "Suica", category: "Online Wallets" },
+  ZALOPAY:     { code: "ZALOPAY", label: "ZaloPay", category: "Online Wallets" },
+  ZAPPER:      { code: "ZAPPER", label: "Zapper", category: "Online Wallets" },
+
+  // Gift cards (cross-border, universal)
+  GIFT_AMAZON:      { code: "GIFT_AMAZON",      label: "Amazon Gift Card",       category: "Gift Cards" },
+  GIFT_APPLE:       { code: "GIFT_APPLE",       label: "Apple Gift Card",        category: "Gift Cards" },
+  GIFT_GOOGLE_PLAY: { code: "GIFT_GOOGLE_PLAY", label: "Google Play Gift Card",  category: "Gift Cards" },
+  GIFT_STEAM:       { code: "GIFT_STEAM",       label: "Steam Gift Card",        category: "Gift Cards" },
+  GIFT_PLAYSTATION: { code: "GIFT_PLAYSTATION", label: "PlayStation Store Card", category: "Gift Cards" },
+  GIFT_XBOX:        { code: "GIFT_XBOX",        label: "Xbox Gift Card",         category: "Gift Cards" },
 
   // Cash
   CASH_DEPOSIT:{ code: "CASH_DEPOSIT",label: "Cash Deposit",      category: "Cash" },
