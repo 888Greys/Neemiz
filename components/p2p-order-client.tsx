@@ -353,7 +353,8 @@ function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; cur
               {!grouped && !mine && (
                 <span className="text-slate-500 text-[11px] font-semibold mb-1 px-1">{senderName(m.sender)}</span>
               )}
-              <div className={`group max-w-[78%] px-3.5 py-2 text-sm leading-relaxed shadow-sm ${
+              <div className={`flex max-w-[92%] items-end gap-1 ${mine ? "flex-row-reverse" : ""}`}>
+              <div className={`group max-w-full px-3.5 py-2 text-sm leading-relaxed shadow-sm ${
                 mine
                   ? "bg-[#05b957] text-white rounded-2xl rounded-br-md"
                   : "bg-white/[0.07] text-slate-100 rounded-2xl rounded-bl-md border border-white/[0.05]"
@@ -373,6 +374,17 @@ function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; cur
                     />
                   )}
                 </span>
+              </div>
+              {m.content && (
+                <button
+                  type="button"
+                  onClick={() => { navigator.clipboard?.writeText(m.content).then(() => toast.success("Copied")).catch(() => {}); }}
+                  className="mb-1 grid h-7 w-7 shrink-0 place-items-center rounded-full text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
+                  aria-label="Copy message"
+                >
+                  <Icon name="content_copy" className="text-[13px]" />
+                </button>
+              )}
               </div>
             </div>
           );
@@ -1572,8 +1584,14 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
       invalidate("/api/p2p/orders");
       window.dispatchEvent(new Event("wallet-refresh"));
       window.dispatchEvent(new Event("nezeem:notifications-refresh"));
-      await fetchOrder();
       toast.success(successMessage(data.status));
+      // After cancelling, send the user back to browse ads (Noones-style)
+      // rather than leaving them on the dead order.
+      if (endpoint === "cancel") {
+        router.push("/p2p");
+        return;
+      }
+      await fetchOrder();
     } catch (err: unknown) {
       setOrder(previousOrder);
       toast.error(err instanceof Error ? err.message : "Failed");
