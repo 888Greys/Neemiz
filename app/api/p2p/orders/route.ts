@@ -161,7 +161,9 @@ export async function POST(req: Request) {
 
     const { adId, cryptoAmount, paymentMethod } = body;
 
-    if (!adId || cryptoAmount == null || !paymentMethod) {
+    // paymentMethod is optional — an ad may carry no methods and settle the rail
+    // in chat (validated against the ad below).
+    if (!adId || cryptoAmount == null) {
       return Response.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -199,8 +201,17 @@ export async function POST(req: Request) {
       }, { status: 400 });
     }
 
-    if (!ad.paymentMethods.includes(paymentMethod as string)) {
-      return Response.json({ error: "Payment method not supported by this ad" }, { status: 400 });
+    // If the ad lists methods, the buyer must pick one of them. If it lists
+    // none, payment is arranged in chat — accept the buyer's choice or fall back
+    // to a CHAT sentinel so the order still carries a value.
+    let orderPaymentMethod: string;
+    if (ad.paymentMethods.length > 0) {
+      if (!paymentMethod || !ad.paymentMethods.includes(paymentMethod as string)) {
+        return Response.json({ error: "Payment method not supported by this ad" }, { status: 400 });
+      }
+      orderPaymentMethod = paymentMethod as string;
+    } else {
+      orderPaymentMethod = typeof paymentMethod === "string" && paymentMethod ? paymentMethod : "CHAT";
     }
 
     // Create order + reserve liquidity atomically.
@@ -228,7 +239,7 @@ export async function POST(req: Request) {
             cryptoAmount: cryptoAmountNum,
             fiatAmount,
             pricePerUnit: Number(ad.pricePerUnit),
-            paymentMethod: paymentMethod as string,
+            paymentMethod: orderPaymentMethod,
             expiresAt:    new Date(Date.now() + ad.paymentWindow * 60 * 1000),
           },
         });
@@ -257,7 +268,7 @@ export async function POST(req: Request) {
           cryptoAmount: cryptoAmountNum,
           fiatAmount,
           pricePerUnit: Number(ad.pricePerUnit),
-          paymentMethod: paymentMethod as string,
+          paymentMethod: orderPaymentMethod,
           expiresAt:    new Date(Date.now() + ad.paymentWindow * 60 * 1000),
         },
       });
@@ -331,7 +342,7 @@ export async function POST(req: Request) {
         cryptoAmount: cryptoAmountNum,
         fiatAmount,
         fiat: ad.fiat,
-        paymentMethod: paymentMethod as string,
+        paymentMethod: orderPaymentMethod,
         side: ad.side,
         })
         : null]),
