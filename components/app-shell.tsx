@@ -272,6 +272,16 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           {isSignedIn ? (
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <HeaderBalanceChip onOpen={() => openWallet()} />
+              {/* Wallet icon — desktop (mobile has it in the bottom nav) */}
+              <button
+                type="button"
+                onClick={() => openWallet()}
+                title="Wallet"
+                aria-label="Open wallet"
+                className="hidden h-9 w-9 shrink-0 place-items-center rounded-full bg-[#18191d] text-slate-300 ring-1 ring-white/[0.08] transition hover:bg-[#22242a] hover:text-white lg:grid"
+              >
+                <Icon name="account_balance_wallet" className="text-[20px]" />
+              </button>
               <div className="hidden md:block">
                 <CurrencySwitcher />
               </div>
@@ -590,28 +600,6 @@ function Sidebar({
   return (
     <div className="relative flex h-full flex-col">
       <div className={`no-scrollbar flex-1 overflow-y-auto py-5 ${collapsed ? "px-2" : "px-4"}`}>
-        {!collapsed && recents.length > 0 && (
-          <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">Recents</p>
-        )}
-        {recents.length > 0 && (
-          <div className="mb-3 space-y-0.5">
-            {recents.map((r) => (
-              <StandaloneSidebarItem
-                key={r.href}
-                collapsed={collapsed}
-                href={r.href}
-                icon={r.icon}
-                label={r.label}
-                pathname={pathname}
-                tab={tab}
-              />
-            ))}
-          </div>
-        )}
-        {recents.length > 0 && (
-          <div className={`${collapsed ? "mx-1" : "-mx-4"} mb-3 border-t border-white/10`} />
-        )}
-
         {!collapsed && (
           <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">Explore</p>
         )}
@@ -984,27 +972,6 @@ function MobileMenuDrawer({
                 ))}
               </div>
             </div>
-          )}
-
-          {recents.length > 0 && (
-            <>
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                Recents
-              </p>
-              <nav className="mb-4 space-y-0.5">
-                {recents.map((r) => (
-                  <MobileDrawerLink
-                    key={r.href}
-                    href={r.href}
-                    icon={r.icon}
-                    label={r.label}
-                    active={isActive(r.href)}
-                    onClick={onClose}
-                  />
-                ))}
-              </nav>
-              <div className="mb-4 border-t border-white/[0.06]" />
-            </>
           )}
 
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
