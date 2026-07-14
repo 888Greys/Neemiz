@@ -2038,13 +2038,10 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const highestOrderPrice = spotRate ? spotRate * 1.1 : priceNum > 0 ? priceNum * 1.1 : null;
 
   async function submit() {
-    if (savedPaymentMethods.length === 0) {
-      return toast.error("Add a payment method in Merchant Center before posting an ad");
-    }
+    // Payment methods are optional — merchants can arrange the rail in chat.
     if (
       !form.pricePerUnit ||
       !form.totalAmount ||
-      !form.paymentMethods.length ||
       !form.minLimit || !form.maxLimit
     )
       return toast.error("Please fill all required fields");
@@ -2108,12 +2105,11 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
       return setStep(1);
     }
     if (step === 1) {
-      if (savedPaymentMethods.length === 0) return toast.error("Add a payment method in Merchant Center before posting an ad");
       if (!isEditing && totalAmountNum <= 0) return toast.error(`Enter the total ${form.crypto} amount`);
       if (needsKesBacking) return toast.error(`Top up your fiat wallet first. This KES Coin sell ad needs KSh ${requiredKesBacking.toLocaleString("en-KE")}.`);
       if (exceedsSellableBalance) return toast.error(`You can sell up to ${sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto} from escrow.`);
       if (!form.minLimit || !form.maxLimit) return toast.error("Enter min and max order limits");
-      if (!form.paymentMethods.length) return toast.error("Select at least one payment method");
+      // Payment methods are optional — no "select at least one" gate.
       return setStep(2);
     }
   }
@@ -2604,15 +2600,15 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 Loading saved payment methods...
               </div>
             ) : savedPaymentMethods.length === 0 ? (
-              <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-3">
-                <p className="text-xs font-black text-amber-300">Payment setup required</p>
+              <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3">
+                <p className="text-xs font-black text-slate-300">Payment methods (optional)</p>
                 <p className="mt-1 text-[11px] leading-4 text-slate-400">
-                  Add the account where buyers should send payment. Ads cannot be posted without saved payout details.
+                  You can post this ad now and agree the payment method with the buyer in chat, or add a saved account so it shows on the ad.
                 </p>
                 <button
                   type="button"
                   onClick={() => (onSetupPayments ?? onClose)()}
-                  className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-300 px-3 text-xs font-black text-black"
+                  className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-white/10 px-3 text-xs font-black text-white"
                 >
                   <Icon name="add" className="text-sm" />
                   Add payment method
@@ -2726,7 +2722,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               </button>
             )}
             <button onClick={step === 2 ? submit : goNext}
-              disabled={step === 2 && (submitting || paymentMethodsLoading || savedPaymentMethods.length === 0 || exceedsSellableBalance)}
+              disabled={step === 2 && (submitting || paymentMethodsLoading || exceedsSellableBalance)}
               className={`flex h-12 items-center justify-center gap-2 rounded-xl bg-[#087cff] text-[13px] font-black text-white shadow-lg shadow-[#087cff]/20 transition-all hover:bg-[#1a78ff] active:scale-[0.98] disabled:opacity-50 ${step > 0 ? "flex-1" : "w-full"}`}>
               {step === 2
                 ? (submitting ? <LoadingDots label={isEditing ? "Saving" : "Creating"} /> : isEditing ? "Save Changes" : "Post ad")

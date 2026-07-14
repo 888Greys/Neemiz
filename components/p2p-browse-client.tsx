@@ -826,7 +826,9 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
 
   async function submit() {
     if (!valid) return;
-    if (!isBuyingCrypto && !selectedMethod) {
+    // Only force a receiving method when the ad lists payment methods. A
+    // no-method ad settles the rail in chat, so let the order through.
+    if (!isBuyingCrypto && ad.paymentMethods.length > 0 && !selectedMethod) {
       toast.error("Add a payment method before placing this sell order");
       setPaymentScreen("select");
       return;
