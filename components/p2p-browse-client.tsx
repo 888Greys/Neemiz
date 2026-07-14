@@ -125,12 +125,14 @@ const formatReleaseTime = (minutes: number) => {
   return `${(minutes / 60).toFixed(1)}h`;
 };
 
-// Minutes (float) → "5m 1s" style used on the merchant profile.
+// Minutes (float) → "5m 1s" / "20h 7m" style used on the merchant profile.
 const formatDuration = (minutes?: number) => {
   if (!Number.isFinite(minutes) || (minutes as number) <= 0) return "—";
   const totalSeconds = Math.round((minutes as number) * 60);
-  const m = Math.floor(totalSeconds / 60);
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 };
 
@@ -212,13 +214,13 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
   // the layout matches and fills in automatically once the API returns them.
   const dash = "—";
 
-  const identityStats: { label: string; value: ReactNode; icon: string; iconClass: string }[] = [
+  const identityStats: { label: string; value: ReactNode; icon?: string; iconClass?: string }[] = [
     { label: "Positive feedbacks", value: positiveFeedbacks.toLocaleString(), icon: "thumb_up", iconClass: "text-[#05b957]" },
     { label: "Negative feedbacks", value: negativeFeedbacks.toLocaleString(), icon: "thumb_down", iconClass: "text-red-400" },
-    { label: "Country", value: dash, icon: "flag", iconClass: "text-slate-400" },
-    { label: "IP location", value: dash, icon: "public", iconClass: "text-slate-400" },
-    { label: "Trusted by", value: dash, icon: "handshake", iconClass: "text-slate-400" },
-    { label: "Blocked by", value: dash, icon: "block", iconClass: "text-slate-400" },
+    { label: "Country", value: dash },
+    { label: "IP location", value: dash },
+    { label: "Trusted by", value: dash },
+    { label: "Blocked by", value: dash },
   ];
 
   const tradingStats: { label: string; value: ReactNode }[] = [
@@ -231,51 +233,51 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
 
   return (
     <div
-      className="fixed inset-0 z-[130] flex items-end justify-center bg-black/90 backdrop-blur-md pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:items-center sm:p-4"
+      className="fixed inset-0 z-[130] flex items-end justify-center bg-black/65 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className="flex h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#151518] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#151518] text-white shadow-2xl sm:max-h-[88dvh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {/* ── Header ── */}
-          <div className="flex shrink-0 items-center justify-between px-4 py-3.5 sm:px-5">
-            <p className="text-[15px] font-black text-white">Profile information</p>
+          <div className="flex shrink-0 items-center justify-between px-4 py-3 sm:px-5">
+            <p className="text-[13px] font-black text-white">Profile information</p>
             <button
               type="button"
               onClick={onClose}
-              className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
+              className="grid h-7 w-7 place-items-center rounded-full bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
               aria-label="Close"
             >
-              <Icon name="close" className="text-[18px]" />
+              <Icon name="close" className="text-[16px]" />
             </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5">
             {error && (
-              <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-semibold text-slate-300">
+              <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[10px] font-semibold text-slate-300">
                 Showing available merchant data. {error}
               </div>
             )}
 
             {/* ── Identity card ── */}
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
-              <div className="flex items-center gap-3">
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3">
+              <div className="flex items-center gap-2.5">
                 <MerchantAvatar
                   id={source.id ?? source.displayName}
                   name={source.displayName}
                   avatarUrl={source.avatarUrl}
-                  size={48}
+                  size={40}
                   online={online}
                   onlineRingClass="border-[#1a1b1f]"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
-                    <h3 className="truncate text-[15px] font-black">{source.displayName}</h3>
-                    {(profile?.isVerified ?? true) && <VerifiedSeal className="h-[15px] w-[15px] shrink-0" />}
+                    <h3 className="truncate text-[13px] font-black">{source.displayName}</h3>
+                    {(profile?.isVerified ?? true) && <VerifiedSeal className="h-[13px] w-[13px] shrink-0" />}
                   </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] font-semibold text-slate-400">
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] font-semibold text-slate-400">
                     <span className="text-[#05b957]">{completionRate.toFixed(0)}%</span>
                     <span className="text-slate-600">·</span>
                     <span>{totalTrades.toLocaleString()} Trades</span>
@@ -289,12 +291,12 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
             </div>
 
             {/* ── Identity stats grid ── */}
-            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4">
+            <div className="mt-3.5 grid grid-cols-2 gap-x-4 gap-y-3.5">
               {identityStats.map((row) => (
                 <div key={row.label}>
-                  <p className="text-[11px] font-semibold text-slate-500">{row.label}</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-[15px] font-black text-white">
-                    <Icon name={row.icon} className={`text-[16px] ${row.iconClass}`} />
+                  <p className="text-[10px] font-semibold text-slate-500">{row.label}</p>
+                  <p className="mt-0.5 flex items-center gap-1.5 text-[13px] font-black text-white">
+                    {row.icon && <Icon name={row.icon} className={`text-[14px] ${row.iconClass ?? ""}`} />}
                     {row.value}
                   </p>
                 </div>
@@ -302,7 +304,7 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
             </div>
 
             {/* ── Tabs ── */}
-            <div className="mt-5 flex items-center gap-2">
+            <div className="mt-4 flex items-center gap-2">
               {([
                 { key: "info" as const, label: "Trading info" },
                 { key: "feedback" as const, label: "Recent feedbacks" },
@@ -311,7 +313,7 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
                   key={t.key}
                   type="button"
                   onClick={() => setTab(t.key)}
-                  className={`rounded-lg px-3.5 py-2 text-[13px] font-bold transition ${
+                  className={`rounded-lg px-3 py-1.5 text-[12px] font-bold transition ${
                     tab === t.key
                       ? "bg-[#05b957] text-white"
                       : "bg-white/[0.05] text-slate-300 hover:bg-white/[0.08]"
@@ -323,13 +325,13 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
             </div>
 
             {/* ── Tab content ── */}
-            <div className="mt-4">
+            <div className="mt-3.5">
               {tab === "info" ? (
-                <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
                   {tradingStats.map((row) => (
                     <div key={row.label}>
-                      <p className="text-[11px] font-semibold text-slate-500">{row.label}</p>
-                      <p className="mt-1 text-[15px] font-black text-white">{row.value}</p>
+                      <p className="text-[10px] font-semibold text-slate-500">{row.label}</p>
+                      <p className="mt-0.5 text-[13px] font-black text-white">{row.value}</p>
                     </div>
                   ))}
                 </div>
