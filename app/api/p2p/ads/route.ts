@@ -111,7 +111,8 @@ export async function POST(req: Request) {
     const dbUser   = await getOrCreateUser(user.id, { email: user.email });
 
     const p2pDenied = await p2pBlockedResponse(dbUser.email);
-    if (p2pDenied) return p2pDenied;    const found    = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
+    if (p2pDenied) return p2pDenied;
+    const found    = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
     const merchant = found ? await autoApproveIfDue(found) : null;
     if (!merchant?.isVerified) return Response.json({ error: "Merchant account required" }, { status: 403 });
 
@@ -135,8 +136,10 @@ export async function POST(req: Request) {
     if (!VALID_CRYPTOS.includes(crypto as string)) {
       return Response.json({ error: "Unsupported crypto" }, { status: 400 });
     }
+    // Payment methods are optional — the field may be omitted entirely, so
+    // default to an empty list rather than assuming an array (avoids a 500).
     const requestedPaymentMethods = Array.from(new Set(
-      (paymentMethods as unknown[]).filter((method): method is string => typeof method === "string"),
+      (Array.isArray(paymentMethods) ? paymentMethods : []).filter((method): method is string => typeof method === "string"),
     ));
     const savedPaymentMethods = await db.p2PPaymentMethod.findMany({
       where: { merchantId: merchant.id, isActive: true },
