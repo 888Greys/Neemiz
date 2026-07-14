@@ -124,7 +124,9 @@ export async function POST(req: Request) {
 
     const { side, crypto, fiat, pricePerUnit, totalAmount, minLimit, maxLimit, paymentMethods, paymentWindow, terms } = body;
 
-    if (!side || !crypto || pricePerUnit == null || totalAmount == null || !(paymentMethods as unknown[])?.length) {
+    // Payment methods are OPTIONAL: a merchant may post an ad without listing
+    // any and agree the payment rail with the buyer in chat.
+    if (!side || !crypto || pricePerUnit == null || totalAmount == null) {
       return Response.json({ error: "Missing required fields" }, { status: 400 });
     }
     if (!VALID_SIDES.includes(side as AdSide)) {
@@ -142,9 +144,8 @@ export async function POST(req: Request) {
     });
     const savedPaymentCodes = new Set(savedPaymentMethods.map((method) => method.name).filter(Boolean));
     const missingPaymentMethods = requestedPaymentMethods.filter((method) => !savedPaymentCodes.has(method));
-    if (savedPaymentCodes.size === 0) {
-      return Response.json({ error: "Add a payment method in Merchant Center before posting an ad." }, { status: 400 });
-    }
+    // No saved methods is fine — the ad simply carries none and payment is
+    // arranged in chat. If the merchant DID list methods, they must be saved.
     if (missingPaymentMethods.length > 0) {
       return Response.json({ error: "This ad uses a payment method that is not saved in your Merchant Center." }, { status: 400 });
     }
