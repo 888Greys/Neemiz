@@ -296,17 +296,16 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
                 <Icon name="person" fill className="text-[18px] sm:text-[20px]" />
               </button>
               <NotificationsBell />
-              {/* Profile when sidebar is hidden (immersive game pages) */}
-              {hideSidebar && (
-                <button
-                  type="button"
-                  onClick={() => setProfileOpen(true)}
-                  title="Profile"
-                  className="hidden lg:block shrink-0 rounded-full ring-1 ring-white/[0.07] transition hover:ring-white/20"
-                >
-                  <UserAvatar src={avatarUrl} initials={initials} className="h-9 w-9" />
-                </button>
-              )}
+              {/* Profile — desktop, top-right (easier to find than the sidebar) */}
+              <button
+                type="button"
+                onClick={() => setProfileOpen(true)}
+                title="Profile"
+                aria-label="Profile"
+                className="hidden shrink-0 rounded-full ring-1 ring-white/[0.07] transition hover:ring-white/20 lg:block"
+              >
+                <UserAvatar src={avatarUrl} initials={initials} className="h-9 w-9" />
+              </button>
             </div>
           ) : (
             <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">

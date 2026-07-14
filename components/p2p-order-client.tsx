@@ -447,7 +447,7 @@ function MobileP2POrderView({
   feedbackLoading: boolean;
   onBack: () => void;
   onAction: (endpoint: string, body: object, label: string) => Promise<void>;
-  onSubmitFeedback: (rating: number) => void;
+  onSubmitFeedback: (rating: number, comment: string) => void;
 }) {
   const [showChat, setShowChat] = useState(false);
   const [showCancelForm, setShowCancelForm] = useState(false);
@@ -1334,11 +1334,13 @@ function P2PFeedbackBox({
 }: {
   feedback: OrderData["myFeedback"];
   loading: boolean;
-  onSubmitRating: (rating: number) => void;
+  onSubmitRating: (rating: number, comment: string) => void;
 }) {
-  const submittedIsPositive = feedback ? feedback.rating >= 4 : false;
+  const [choice, setChoice] = useState<"positive" | "negative" | null>(null);
+  const [comment, setComment] = useState("");
 
   if (feedback) {
+    const submittedIsPositive = feedback.rating >= 4;
     return (
       <div className="rounded-xl border border-white/[0.08] bg-[#111923] p-4">
         <p className="text-center text-[12px] font-bold text-slate-300">Your feedback</p>
@@ -1354,9 +1356,16 @@ function P2PFeedbackBox({
             {submittedIsPositive ? "Positive" : "Negative"}
           </div>
         </div>
+        {feedback.comment && (
+          <p className="mt-3 whitespace-pre-wrap text-center text-[12px] leading-5 text-slate-400">
+            “{feedback.comment}”
+          </p>
+        )}
       </div>
     );
   }
+
+  const rating = choice === "positive" ? 5 : choice === "negative" ? 1 : 0;
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#111923] p-3.5">
@@ -1364,24 +1373,50 @@ function P2PFeedbackBox({
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
-          onClick={() => onSubmitRating(5)}
+          onClick={() => setChoice("positive")}
           disabled={loading}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/[0.10] bg-transparent px-3 text-[13px] font-bold text-white transition hover:border-[#05b957]/45 hover:bg-[#05b957]/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-[13px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+            choice === "positive"
+              ? "border-[#05b957]/60 bg-[#05b957]/15"
+              : "border-white/[0.10] bg-transparent hover:border-[#05b957]/45 hover:bg-[#05b957]/10"
+          }`}
         >
           <Icon name="thumb_up" className="h-4 w-4" />
           Positive
         </button>
         <button
           type="button"
-          onClick={() => onSubmitRating(1)}
+          onClick={() => setChoice("negative")}
           disabled={loading}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/[0.10] bg-transparent px-3 text-[13px] font-bold text-white transition hover:border-red-400/45 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-[13px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${
+            choice === "negative"
+              ? "border-red-400/60 bg-red-500/15"
+              : "border-white/[0.10] bg-transparent hover:border-red-400/45 hover:bg-red-500/10"
+          }`}
         >
           <Icon name="thumb_down" className="h-4 w-4" />
           Negative
         </button>
       </div>
-      {loading && <div className="mt-3 flex justify-center text-[11px] font-bold text-slate-400"><LoadingDots label="Saving" /></div>}
+
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value.slice(0, 500))}
+        disabled={loading}
+        rows={3}
+        placeholder="Add a comment (optional)…"
+        className="mt-3 w-full resize-none rounded-xl border border-white/[0.10] bg-transparent px-3 py-2.5 text-[13px] font-semibold text-white outline-none transition placeholder:text-slate-500 focus:border-white/25 disabled:opacity-60"
+      />
+      <div className="mt-1 text-right text-[10px] font-semibold text-slate-600">{comment.length}/500</div>
+
+      <button
+        type="button"
+        onClick={() => rating && onSubmitRating(rating, comment)}
+        disabled={loading || !rating}
+        className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#087cff] text-[13px] font-bold text-white transition hover:bg-[#0570e8] disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {loading ? <LoadingDots label="Saving" /> : "Submit feedback"}
+      </button>
     </div>
   );
 }
@@ -1497,14 +1532,14 @@ export function P2POrderClient({ orderId }: { orderId: string }) {
     }
   }
 
-  async function submitFeedback(rating: number) {
+  async function submitFeedback(rating: number, comment: string) {
     if (!order || order.myFeedback) return;
     setFeedbackLoading(true);
     try {
       const res = await fetch(`/api/p2p/orders/${orderId}/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rating, comment: null }),
+        body: JSON.stringify({ rating, comment: comment.trim() || null }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not save feedback");
