@@ -2594,7 +2594,14 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           </p>
 
           <div className="lg:col-span-2">
-            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">Payment methods</label>
+            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">
+              Payment methods <span className="font-semibold normal-case text-slate-600">(optional)</span>
+            </label>
+            {!paymentMethodsLoading && savedPaymentMethods.length > 0 && (
+              <p className="mb-2 text-[11px] leading-4 text-slate-500">
+                Optional — leave unselected to agree the payment method with the buyer in chat.
+              </p>
+            )}
             {paymentMethodsLoading ? (
               <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-xs font-semibold text-slate-500">
                 Loading saved payment methods...
