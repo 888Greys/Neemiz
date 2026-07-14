@@ -8,10 +8,6 @@ import { OrderStatus } from "@prisma/client";
 
 const OPEN_ORDER_STATUSES: OrderStatus[] = ["PENDING", "PAID", "DISPUTED"];
 
-function hasPaymentMethods(value: unknown): value is string[] {
-  return Array.isArray(value) && value.length > 0 && value.every((m) => typeof m === "string");
-}
-
 // GET /api/p2p/ads/mine — merchant's own ads
 export async function GET() {
   const supabase = await createClient();
@@ -84,7 +80,12 @@ export async function PATCH(req: Request) {
   const minLimit = body.minLimit == null ? Number(ad.minLimit) : Number(body.minLimit);
   const maxLimit = body.maxLimit == null ? Number(ad.maxLimit) : Number(body.maxLimit);
   const paymentWindow = body.paymentWindow == null ? ad.paymentWindow : Number(body.paymentWindow);
-  const paymentMethods = body.paymentMethods == null ? ad.paymentMethods : body.paymentMethods;
+  const rawPaymentMethods = body.paymentMethods == null ? ad.paymentMethods : body.paymentMethods;
+  // Payment methods are OPTIONAL (same as ad creation) — a merchant may keep an
+  // ad with none and settle the rail in chat. Normalize to a clean string list.
+  const paymentMethods = Array.from(new Set(
+    (Array.isArray(rawPaymentMethods) ? rawPaymentMethods : []).filter((m): m is string => typeof m === "string"),
+  ));
   const terms = body.terms == null ? ad.terms : String(body.terms || "");
   const isActive = typeof body.isActive === "boolean" ? body.isActive : ad.isActive;
   const isCryptoSell = ad.side === "SELL" && !isKesCoin(ad.crypto);
@@ -106,19 +107,17 @@ export async function PATCH(req: Request) {
   if (!Number.isFinite(paymentWindow) || paymentWindow < 5 || paymentWindow > 180) {
     return Response.json({ error: "Payment window must be 5-180 minutes" }, { status: 400 });
   }
-  if (!hasPaymentMethods(paymentMethods)) {
-    return Response.json({ error: "Select at least one payment method" }, { status: 400 });
-  }
-  const savedPaymentMethods = await db.p2PPaymentMethod.findMany({
-    where: { merchantId: merchant.id, isActive: true },
-    select: { name: true },
-  });
-  const savedPaymentCodes = new Set(savedPaymentMethods.map((method) => method.name).filter(Boolean));
-  if (savedPaymentCodes.size === 0) {
-    return Response.json({ error: "Add a payment method in Merchant Center before activating an ad." }, { status: 400 });
-  }
-  if (paymentMethods.some((method) => !savedPaymentCodes.has(method))) {
-    return Response.json({ error: "This ad uses a payment method that is not saved in your Merchant Center." }, { status: 400 });
+  // If the ad DOES list methods, each must still be saved in Merchant Center.
+  // No methods is fine — payment is arranged in chat (matches ad creation).
+  if (paymentMethods.length > 0) {
+    const savedPaymentMethods = await db.p2PPaymentMethod.findMany({
+      where: { merchantId: merchant.id, isActive: true },
+      select: { name: true },
+    });
+    const savedPaymentCodes = new Set(savedPaymentMethods.map((method) => method.name).filter(Boolean));
+    if (paymentMethods.some((method) => !savedPaymentCodes.has(method))) {
+      return Response.json({ error: "This ad uses a payment method that is not saved in your Merchant Center." }, { status: 400 });
+    }
   }
 
   if (isActive) {
