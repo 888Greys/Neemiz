@@ -103,6 +103,66 @@ export const GLOBAL_PAYMENT_METHODS: PaymentMethod[] = [
   { value: "CAPITEC",      label: "Capitec",           category: "Bank" },
   { value: "SBERBANK",     label: "Sberbank",          category: "Bank" },
   { value: "TINKOFF",      label: "Tinkoff",           category: "Bank" },
+  // ── Extended catalogue (country-specific rails from the world list) ──
+  { value: "LOCAL_CARDS", label: "Local Bank Card", category: "Cards" },
+  { value: "DISCOVER", label: "Discover", category: "Cards" },
+  { value: "MIR", label: "MIR", category: "Cards" },
+  { value: "DINACARD", label: "DinaCard", category: "Cards" },
+  { value: "VERVE", label: "Verve", category: "Cards" },
+  { value: "HUMO", label: "Humo", category: "Cards" },
+  { value: "UZCARD", label: "Uzcard", category: "Cards" },
+  { value: "ELCART", label: "Elcart", category: "Cards" },
+  { value: "MADA", label: "mada", category: "Cards" },
+  { value: "MAESTRO", label: "Maestro", category: "Cards" },
+  { value: "AIRTELTIGO", label: "AirtelTigo Money", category: "Mobile Money" },
+  { value: "FREE_MONEY", label: "Free Money", category: "Mobile Money" },
+  { value: "EMOLA", label: "e-Mola", category: "Mobile Money" },
+  { value: "MKESH", label: "mKesh", category: "Mobile Money" },
+  { value: "KBZPAY", label: "KBZPay", category: "Mobile Money" },
+  { value: "WAVE_MONEY", label: "Wave Money", category: "Mobile Money" },
+  { value: "CB_PAY", label: "CB Pay", category: "Mobile Money" },
+  { value: "ESEWA", label: "eSewa", category: "Mobile Money" },
+  { value: "KHALTI", label: "Khalti", category: "Mobile Money" },
+  { value: "IME_PAY", label: "IME Pay", category: "Mobile Money" },
+  { value: "EVC_PLUS", label: "EVC Plus", category: "Mobile Money" },
+  { value: "ZAAD", label: "Zaad", category: "Mobile Money" },
+  { value: "SAHAL", label: "Sahal", category: "Mobile Money" },
+  { value: "JUICE", label: "Juice", category: "Mobile Money" },
+  { value: "MOMO_VN", label: "MoMo", category: "Online Wallets" },
+  { value: "ZALOPAY", label: "ZaloPay", category: "Online Wallets" },
+  { value: "BHIM", label: "BHIM", category: "Online Wallets" },
+  { value: "BIT", label: "Bit", category: "Online Wallets" },
+  { value: "SUICA", label: "Suica", category: "Online Wallets" },
+  { value: "PASMO", label: "PASMO", category: "Online Wallets" },
+  { value: "SNAPSCAN", label: "SnapScan", category: "Online Wallets" },
+  { value: "ZAPPER", label: "Zapper", category: "Online Wallets" },
+  { value: "GENIE", label: "Genie", category: "Online Wallets" },
+  { value: "MACH", label: "MACH", category: "Online Wallets" },
+  { value: "ABA_PAY", label: "ABA Pay", category: "Bank" },
+  { value: "ACH", label: "ACH", category: "Bank" },
+  { value: "BCEL_ONE", label: "BCEL One", category: "Bank" },
+  { value: "BIZUM", label: "Bizum", category: "Bank" },
+  { value: "CODI", label: "CoDi", category: "Bank" },
+  { value: "INSTANT_EFT", label: "Instant EFT", category: "Bank" },
+  { value: "KHQR", label: "KHQR", category: "Bank" },
+  { value: "LANKAPAY", label: "LankaPay", category: "Bank" },
+  { value: "NET_BANKING", label: "Net Banking", category: "Bank" },
+  { value: "NETS", label: "NETS", category: "Bank" },
+  { value: "NIBSS", label: "NIBSS", category: "Bank" },
+  { value: "PAGO_MOVIL", label: "Pago Móvil", category: "Bank" },
+  { value: "PAYNOW", label: "PayNow", category: "Bank" },
+  { value: "POLI", label: "POLi", category: "Bank" },
+  { value: "QPAY", label: "QPay", category: "Bank" },
+  { value: "SINPE_MOVIL", label: "SINPE Móvil", category: "Bank" },
+  { value: "VIETQR", label: "VietQR", category: "Bank" },
+  { value: "ZIPIT", label: "ZIPIT", category: "Bank" },
+  // Gift cards (cross-border)
+  { value: "GIFT_AMAZON", label: "Amazon Gift Card", category: "Gift Cards" },
+  { value: "GIFT_APPLE", label: "Apple Gift Card", category: "Gift Cards" },
+  { value: "GIFT_GOOGLE_PLAY", label: "Google Play Gift Card", category: "Gift Cards" },
+  { value: "GIFT_STEAM", label: "Steam Gift Card", category: "Gift Cards" },
+  { value: "GIFT_PLAYSTATION", label: "PlayStation Store Card", category: "Gift Cards" },
+  { value: "GIFT_XBOX", label: "Xbox Gift Card", category: "Gift Cards" },
   // Cash
   { value: "CASH_DEPOSIT", label: "Cash Deposit",      category: "Cash" },
   { value: "CASH_PERSON",  label: "Cash in Person",    category: "Cash" },
@@ -130,6 +190,8 @@ export function paymentMethodsForFiat(fiat: string | null | undefined): PaymentM
 const UNIVERSAL_METHODS = new Set([
   "BANK", "SWIFT", "WISE", "PAYPAL", "REVOLUT", "SKRILL", "NETELLER",
   "PAYONEER", "CASH_DEPOSIT", "CASH_PERSON",
+  // Gift cards are cross-border — valid to offer with any fiat.
+  "GIFT_AMAZON", "GIFT_APPLE", "GIFT_GOOGLE_PLAY", "GIFT_STEAM", "GIFT_PLAYSTATION", "GIFT_XBOX",
 ]);
 
 /**
@@ -182,6 +244,7 @@ export function accountIdentifierLabel(code: string): string {
     case "Wallets & Neobanks": return "Account or phone";
     case "Online Wallets":     return "Email or phone";
     case "Cash":               return "Location / details";
+    case "Gift Cards":         return "Gift card code / details";
     default:                   return "Phone / Paybill";
   }
 }
