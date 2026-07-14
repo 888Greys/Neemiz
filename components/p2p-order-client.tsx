@@ -80,6 +80,14 @@ function isReleaseActor(order: OrderData): boolean {
   return merchantIsSelling ? order.isSeller : order.isBuyer;
 }
 
+const P2P_CANCEL_REASONS = [
+  "Unresponsive trader",
+  "Trader asked me to cancel",
+  "Trader didn't accept my payment method",
+  "Trader changed the offer terms",
+  "Opened the trade by mistake",
+] as const;
+
 function counterpartyName(order: OrderData): string {
   return order.isBuyer
     ? order.seller.displayName
@@ -484,6 +492,7 @@ function MobileP2POrderView({
   const [showChat, setShowChat] = useState(false);
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [mobileCancelReason, setMobileCancelReason] = useState("");
+  const [cancelConfirmed, setCancelConfirmed] = useState(false);
   const [showDisputeScreen, setShowDisputeScreen] = useState(false);
   const [mobileDisputeReason, setMobileDisputeReason] = useState("");
   const [showReleaseConfirm, setShowReleaseConfirm] = useState(false);
@@ -572,44 +581,59 @@ function MobileP2POrderView({
         <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
             type="button"
-            onClick={() => setShowCancelForm(false)}
+            onClick={() => { setShowCancelForm(false); setCancelConfirmed(false); setMobileCancelReason(""); }}
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white"
           >
             <Icon name="arrow_back" className="text-[21px]" />
           </button>
-          <h1 className="text-sm font-black">Cancel Order</h1>
+          <h1 className="text-sm font-black">Cancel trade</h1>
         </div>
 
         {/* Body */}
         <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
-          <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
-            <p className="text-[12px] font-bold leading-5 text-red-400">
-              Are you sure you want to cancel this order? This action cannot be undone.
+          <div className="mb-4 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
+            <p className="text-[12px] font-semibold leading-5 text-slate-300">
+              If you&apos;ve already made the payment, <span className="font-black text-white">stay on this page</span>.
+              For any other issues, go back and start a dispute instead.
             </p>
           </div>
-          <label className="mb-2 block text-[11px] font-bold text-slate-500">Reason for cancellation</label>
-          <textarea
+          <label className="mb-2 block text-[11px] font-bold text-slate-500">Select a cancellation reason</label>
+          <select
             value={mobileCancelReason}
             onChange={(e) => setMobileCancelReason(e.target.value)}
-            placeholder="e.g. Payment method not supported, changed my mind…"
-            rows={4}
-            className="w-full rounded-xl border border-white/[0.08] bg-[#18191f] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-700 resize-none"
-          />
+            className="mb-4 h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-[#18191f] px-3 text-sm font-semibold text-white outline-none focus:border-[#087cff]/40"
+          >
+            <option value="" style={{ background: "#18191f" }}>Select a reason</option>
+            {P2P_CANCEL_REASONS.map((reason) => (
+              <option key={reason} value={reason} style={{ background: "#18191f" }}>{reason}</option>
+            ))}
+          </select>
+          <label className="flex items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={cancelConfirmed}
+              onChange={(e) => setCancelConfirmed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-red-500"
+            />
+            <span className="text-[12px] font-semibold leading-5 text-slate-300">
+              I confirm that I have not paid and want to cancel this trade.
+            </span>
+          </label>
         </div>
 
         {/* Footer action */}
         <div className="border-t border-white/[0.06] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <button
             type="button"
-            disabled={!!actionLoading || !mobileCancelReason.trim()}
+            disabled={!!actionLoading || !mobileCancelReason.trim() || !cancelConfirmed}
             onClick={async () => {
-              if (!mobileCancelReason.trim()) return;
+              if (!mobileCancelReason.trim() || !cancelConfirmed) return;
               await onAction("cancel", { reason: mobileCancelReason.trim() }, "cancel");
               setShowCancelForm(false);
             }}
             className="h-12 w-full rounded-full bg-red-500 text-sm font-black text-white disabled:opacity-50 hover:bg-red-600 transition-colors"
           >
-            {actionLoading === "cancel" ? "Cancelling…" : "Confirm Cancel"}
+            {actionLoading === "cancel" ? "Cancelling…" : "Cancel trade"}
           </button>
         </div>
       </div>
