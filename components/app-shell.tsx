@@ -461,7 +461,8 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
 function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
   const { balance, currency } = useWalletBalance();
-  const [hidden, setHidden] = useState(true);
+  // Header/home balance is shown by default; a saved preference still wins.
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("balance-hidden");
@@ -752,6 +753,8 @@ function MobileMenuDrawer({
 }) {
   const { isSignedIn, signOut } = useSupabaseAuth();
   const { balance, currency } = useWalletBalance();
+  // Sidebar balance is masked by default every time the drawer opens.
+  const [balanceHidden, setBalanceHidden] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -939,20 +942,35 @@ function MobileMenuDrawer({
 
           {isSignedIn && (
             <div className="mb-4 rounded-2xl bg-white/[0.03] p-4 ring-1 ring-white/[0.07]">
-              <button
-                type="button"
-                onClick={() => onOpenWallet()}
-                className="flex w-full items-center gap-3 text-left"
-              >
-                <span className="min-w-0 flex-1">
+              <div className="flex w-full items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => onOpenWallet()}
+                  className="min-w-0 flex-1 text-left"
+                >
                   <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Wallet balance</span>
                   <span className="mt-0.5 block text-[22px] font-black leading-none tabular-nums text-white">
-                    {balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    {balanceHidden ? "＊＊＊＊" : balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                     <span className="ml-1.5 text-[12px] font-bold text-slate-500">{currency}</span>
                   </span>
-                </span>
-                <Icon name="chevron_right" className="text-[18px] text-slate-600" />
-              </button>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBalanceHidden((v) => !v)}
+                  aria-label={balanceHidden ? "Show balance" : "Hide balance"}
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition hover:text-white"
+                >
+                  <Icon name={balanceHidden ? "visibility_closed" : "visibility"} className="text-[17px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenWallet()}
+                  aria-label="Open wallet"
+                  className="grid h-8 w-8 shrink-0 place-items-center text-slate-600 transition hover:text-white"
+                >
+                  <Icon name="chevron_right" className="text-[18px]" />
+                </button>
+              </div>
               <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/[0.06] pt-4">
                 {([
                   { tab: "deposit", label: "Deposit", icon: "arrow_downward" },
