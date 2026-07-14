@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement, p2pMakerReceives } from "@/lib/p2p/crypto-balance";
+import { createP2POrderEventMessage, orderExpiredSystemText } from "@/lib/p2p/order-events";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       } else if (order.ad.side === "BUY") {
         await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), Number(order.cryptoAmount));
       }
+      await createP2POrderEventMessage(tx, {
+        orderId: order.id,
+        senderId: order.buyerId,
+        content: orderExpiredSystemText(order.crypto),
+      });
     });
     order.status = "EXPIRED" as typeof order.status;
   }

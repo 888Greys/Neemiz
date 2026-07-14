@@ -8,6 +8,7 @@ import { defaultNetwork, lockUserCrypto, unlockUserCrypto, isKesCoin, lockKesCoi
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
+import { createP2POrderEventMessage, orderExpiredSystemText } from "@/lib/p2p/order-events";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
 export async function GET(req: Request) {
@@ -71,6 +72,11 @@ export async function GET(req: Request) {
           } else if (order.ad.side === "BUY") {
             await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), amt);
           }
+          await createP2POrderEventMessage(tx, {
+            orderId: order.id,
+            senderId: order.buyerId,
+            content: orderExpiredSystemText(order.crypto),
+          });
         }
       });
     }

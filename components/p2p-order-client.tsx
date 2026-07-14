@@ -328,12 +328,16 @@ function Chat({ orderId, currentUserId, readOnly, mode }: { orderId: string; cur
           // Order events (payment marked, released, cancelled, disputed, …) render
           // as a centred "System message" block, not a chat bubble.
           if (m.isSystem) {
+            // Expiry-related events are amber warnings; other events are neutral.
+            const warn = /expir/i.test(m.content);
             return (
               <div key={m.id} className="my-3 flex flex-col items-center">
-                <div className="max-w-[88%] rounded-xl border border-white/[0.06] bg-white/[0.03] px-3.5 py-2.5 text-center">
-                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">System message</p>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-[12px] font-semibold leading-5 text-slate-300">{m.content}</p>
-                  <p className="mt-1 text-[10px] font-semibold text-slate-600">
+                <div className={`max-w-[88%] rounded-xl border px-3.5 py-2.5 text-center ${
+                  warn ? "border-amber-500/25 bg-amber-500/10" : "border-white/[0.06] bg-white/[0.03]"
+                }`}>
+                  <p className={`text-[10px] font-black uppercase tracking-[0.14em] ${warn ? "text-amber-400/80" : "text-slate-500"}`}>System message</p>
+                  <p className={`mt-1 whitespace-pre-wrap break-words text-[12px] font-semibold leading-5 ${warn ? "text-amber-100/90" : "text-slate-300"}`}>{m.content}</p>
+                  <p className={`mt-1 text-[10px] font-semibold ${warn ? "text-amber-500/60" : "text-slate-600"}`}>
                     {new Date(m.createdAt).toLocaleString([], { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>

@@ -15,6 +15,7 @@
 import { db } from "@/lib/db";
 import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
 import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
+import { createP2POrderEventMessage, orderExpiredSystemText, ORDER_EXPIRING_SOON_TEXT } from "@/lib/p2p/order-events";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,31 @@ export async function GET(req: Request) {
   if (auth !== `Bearer ${secret}`) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const now = new Date();
+
+  // ── About-to-expire warnings ────────────────────────────────────────────────
+  // PENDING orders with <=10 min left get a one-time "about to expire" system
+  // message. Dedup by checking for an existing warning so repeated cron runs
+  // (every ~2 min) don't spam it.
+  let warned = 0;
+  const soon = new Date(now.getTime() + 10 * 60 * 1000);
+  const nearExpiry = await db.p2POrder.findMany({
+    where:  { status: "PENDING", expiresAt: { gt: now, lte: soon } },
+    select: { id: true, buyerId: true },
+    take:   200,
+  });
+  for (const order of nearExpiry) {
+    try {
+      const already = await db.p2PMessage.count({
+        where: { orderId: order.id, isSystem: true, content: ORDER_EXPIRING_SOON_TEXT },
+      });
+      if (already > 0) continue;
+      await db.p2PMessage.create({
+        data: { orderId: order.id, senderId: order.buyerId, isSystem: true, content: ORDER_EXPIRING_SOON_TEXT },
+      });
+      warned++;
+    } catch { /* non-critical */ }
+  }
+
   const stale = await db.p2POrder.findMany({
     where:  { status: "PENDING", expiresAt: { lt: now } },
     include: { ad: { select: { side: true } } },
@@ -68,6 +94,11 @@ export async function GET(req: Request) {
         } else if (order.ad.side === "BUY") {
           await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), amt);
         }
+        await createP2POrderEventMessage(tx, {
+          orderId: order.id,
+          senderId: order.buyerId,
+          content: orderExpiredSystemText(order.crypto),
+        });
         return true;
       });
 
@@ -94,6 +125,7 @@ export async function GET(req: Request) {
   return Response.json({
     ok: true,
     scanned: stale.length,
+    warned,
     expired,
     deactivatedUnbackedKesMerchants: deactivatedMerchantIds.length,
     errors,
