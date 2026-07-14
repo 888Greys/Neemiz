@@ -489,7 +489,9 @@ function MobileP2POrderView({
   onAction: (endpoint: string, body: object, label: string) => Promise<void>;
   onSubmitFeedback: (rating: number, comment: string) => void;
 }) {
-  const [showChat, setShowChat] = useState(false);
+  // Chat-dominant (Noones-style): the order opens straight into the chat; the
+  // details + trade actions live behind the "More actions" bar.
+  const [showChat, setShowChat] = useState(true);
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [mobileCancelReason, setMobileCancelReason] = useState("");
   const [cancelConfirmed, setCancelConfirmed] = useState(false);
@@ -547,28 +549,59 @@ function MobileP2POrderView({
     </span>
   ) : null;
 
-  // ── Chat overlay ──────────────────────────────────────────────────────────
+  // ── Chat overlay (primary, chat-dominant) ──────────────────────────────────
   if (showChat) {
+    const stageLabel =
+      order.status === "PENDING"   ? "Trade started" :
+      order.status === "PAID"      ? "Payment marked" :
+      order.status === "RELEASED"  ? "Trade completed" :
+      order.status === "DISPUTED"  ? "Dispute open" :
+      order.status === "CANCELLED" ? "Trade cancelled" :
+      order.status === "EXPIRED"   ? "Trade expired" : "Trade";
     return (
       <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#151518] text-white">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
             type="button"
-            onClick={() => setShowChat(false)}
+            onClick={onBack}
+            aria-label="Back"
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white"
           >
             <Icon name="arrow_back" className="text-[21px]" />
           </button>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-black">{order.seller.displayName}</p>
             <p className="text-[11px] text-slate-500">Order #{orderId.slice(0, 8).toUpperCase()}</p>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowChat(false)}
+            aria-label="Order details"
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
+          >
+            <Icon name="info" className="text-[20px]" />
+          </button>
         </div>
         {/* Chat body */}
         <div className="flex-1 min-h-0">
           <Chat orderId={orderId} currentUserId={currentUserId} readOnly={chatReadOnly} mode="mobile" />
         </div>
+        {/* More actions bar → reveals order details + trade actions */}
+        <button
+          type="button"
+          onClick={() => setShowChat(false)}
+          className="flex shrink-0 items-center justify-between gap-2 border-t border-white/[0.08] bg-[#18191f] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 text-left"
+        >
+          <span className="flex items-center gap-2 text-[13px] font-bold text-white">
+            <Icon name="lock" className="text-[15px] text-slate-400" />
+            {stageLabel}
+          </span>
+          <span className="flex items-center gap-1 text-[12px] font-bold text-[#8bc3ff]">
+            More actions
+            <Icon name="expand_more" className="text-[16px]" />
+          </span>
+        </button>
       </div>
     );
   }
