@@ -125,8 +125,14 @@ const formatReleaseTime = (minutes: number) => {
   return `${(minutes / 60).toFixed(1)}h`;
 };
 
-const formatMinutes = (minutes?: number) =>
-  `${(Number.isFinite(minutes) && (minutes as number) > 0 ? (minutes as number) : 0).toFixed(2)} Minute(s)`;
+// Minutes (float) → "5m 1s" style used on the merchant profile.
+const formatDuration = (minutes?: number) => {
+  if (!Number.isFinite(minutes) || (minutes as number) <= 0) return "—";
+  const totalSeconds = Math.round((minutes as number) * 60);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+};
 
 const daysAgo = (value?: string) => {
   if (!value) return "—";
@@ -159,11 +165,9 @@ function VerifiedSeal({ className = "h-[15px] w-[15px]" }: { className?: string 
 // ─── Merchant Profile Modal ──────────────────────────────────────────────────
 
 function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onClose: () => void }) {
-  const router = useRouter();
   const [profile, setProfile] = useState<MerchantProfile | null>(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<"info" | "ads" | "feedback">("info");
-  const [following, setFollowing] = useState(false);
+  const [tab, setTab] = useState<"info" | "feedback">("info");
 
   useEffect(() => {
     let cancelled = false;
@@ -187,69 +191,42 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
     return () => { cancelled = true; };
   }, [merchant.id]);
 
-  const viewOffers = (offer?: MerchantOffer) => {
-    const crypto = offer?.crypto ?? profile?.offers[0]?.crypto;
-    const side = offer?.side ?? profile?.offers[0]?.side;
-    const params = new URLSearchParams();
-    if (crypto) params.set("crypto", crypto);
-    if (side === "BUY") params.set("side", "SELL");
-    onClose();
-    router.push(`/p2p${params.toString() ? `?${params.toString()}` : ""}`);
-  };
-
   const source = profile ?? merchant;
-  const offers = profile?.offers ?? [];
 
-  // Derived stats (real where the API provides them; "—" placeholders for the
-  // 30d split / counterparties / deposit fields that arrive with the feedback work).
+  // Real where the API provides it; graceful "—" placeholders for fields the
+  // backend hasn't started sending yet (country / IP / trust / partners).
   const completedTrades = Number(profile?.completedTrades ?? merchant.completedTrades ?? 0);
   const totalTrades = Number(profile?.totalTrades ?? merchant.totalTrades ?? completedTrades);
   const completionRate = totalTrades > 0 ? (completedTrades / totalTrades) * 100 : 0;
   const avgRelease = profile?.avgReleaseTime ?? merchant.avgReleaseTime;
-  const adsCount = profile?.activeAds ?? offers.length;
   const feedback = profile?.feedback ?? [];
   const feedbackCount = profile?.feedbackCount ?? 0;
   const feedbackAverage = profile?.feedbackAverage ?? 0;
   const positiveFeedbackRate = profile?.positiveFeedbackRate ?? 0;
-  const joined = profile?.joinedAt ?? merchant.joinedAt;
-  const kycOk = (profile?.kycStatus ?? "").toLowerCase().includes("verif") || (profile?.isVerified ?? true);
+  const positiveFeedbacks = Math.round((feedbackCount * positiveFeedbackRate) / 100);
+  const negativeFeedbacks = Math.max(0, feedbackCount - positiveFeedbacks);
+  const online = source.isOnline;
 
-  const verifications = [
-    { label: "Email", ok: true },
-    { label: "SMS", ok: true },
-    { label: "KYC", ok: kycOk },
-    { label: "Address", ok: true },
+  // "Country" / "IP location" / "Trusted by" / "Blocked by" / trade-partner /
+  // pay-time data isn't in the profile payload yet — show a dash placeholder so
+  // the layout matches and fills in automatically once the API returns them.
+  const dash = "—";
+
+  const identityStats: { label: string; value: ReactNode; icon: string; iconClass: string }[] = [
+    { label: "Positive feedbacks", value: positiveFeedbacks.toLocaleString(), icon: "thumb_up", iconClass: "text-[#05b957]" },
+    { label: "Negative feedbacks", value: negativeFeedbacks.toLocaleString(), icon: "thumb_down", iconClass: "text-red-400" },
+    { label: "Country", value: dash, icon: "flag", iconClass: "text-slate-400" },
+    { label: "IP location", value: dash, icon: "public", iconClass: "text-slate-400" },
+    { label: "Trusted by", value: dash, icon: "handshake", iconClass: "text-slate-400" },
+    { label: "Blocked by", value: dash, icon: "block", iconClass: "text-slate-400" },
   ];
 
-  const tabs = [
-    { key: "info" as const, label: "Info" },
-    { key: "ads" as const, label: `Ads (${adsCount})` },
-    { key: "feedback" as const, label: `Feedback(${feedbackCount})` },
-  ];
-
-  const infoStats: { label: string; value: ReactNode; accent?: string }[] = [
-    { label: "30d Trades", value: completedTrades.toLocaleString() },
-    { label: "30d Completion Rate", value: `${completionRate.toFixed(1)}%` },
-    { label: "Avg. Release Time", value: formatMinutes(avgRelease) },
-    { label: "Avg. Pay Time", value: "—" },
-    { label: "Positive Feedback", value: `${positiveFeedbackRate.toFixed(1)}%` },
-    { label: "Avg. Rating", value: feedbackCount > 0 ? `${feedbackAverage.toFixed(1)} / 5` : "—" },
-  ];
-
-  const tradeStats: { label: string; value: ReactNode }[] = [
-    { label: "Trade Type", value: <span className="underline decoration-dotted underline-offset-2">Multi-Product Trader</span> },
-    { label: "Registered", value: daysAgo(joined) },
-    { label: "First Trade", value: "—" },
-    { label: "Trading Counterparties", value: "—" },
-    {
-      label: "All Trades",
-      value: (
-        <span className="block text-right">
-          {totalTrades.toLocaleString()} Time(s)
-          <span className="block text-[11px] font-semibold text-slate-500">Buy — | Sell —</span>
-        </span>
-      ),
-    },
+  const tradingStats: { label: string; value: ReactNode }[] = [
+    { label: "Trade partners", value: dash },
+    { label: "Trades released", value: completedTrades.toLocaleString() },
+    { label: "Trade success", value: totalTrades > 0 ? `${completionRate.toFixed(1)}%` : dash },
+    { label: "Avg. time to payment", value: dash },
+    { label: "Avg. time to release", value: formatDuration(avgRelease) },
   ];
 
   return (
@@ -258,164 +235,105 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
       onClick={onClose}
     >
       <div
-        className="flex h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] w-full max-w-4xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#151518] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
+        className="flex h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] w-full max-w-md flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#151518] text-white shadow-2xl sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {/* ── Header (matches ad-row surface — no blue banner / share) ── */}
-          <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-3 sm:px-5">
+          {/* ── Header ── */}
+          <div className="flex shrink-0 items-center justify-between px-4 py-3.5 sm:px-5">
+            <p className="text-[15px] font-black text-white">Profile information</p>
             <button
               type="button"
               onClick={onClose}
-              className="grid h-9 w-9 place-items-center rounded-xl bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
+              className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
               aria-label="Close"
             >
-              <Icon name="arrow_back" className="text-[20px]" />
+              <Icon name="close" className="text-[18px]" />
             </button>
-            <p className="text-[13px] font-black text-white">Merchant</p>
-            <span className="w-9" aria-hidden />
           </div>
 
-          {/* ── Identity ── */}
-          <div className="shrink-0 px-4 pt-4 sm:px-5">
-            <div className="flex items-center justify-between gap-3">
-              <MerchantAvatar
-                id={source.id ?? source.displayName}
-                name={source.displayName}
-                avatarUrl={source.avatarUrl}
-                size={56}
-                online={source.isOnline}
-                onlineRingClass="border-[#151518]"
-              />
-              <button
-                type="button"
-                onClick={() => setFollowing((f) => !f)}
-                className={`inline-flex items-center gap-1 rounded-xl px-3 py-2 text-[12px] font-black ring-1 transition ${
-                  following
-                    ? "bg-white/[0.06] text-slate-200 ring-white/[0.08]"
-                    : "bg-white/[0.04] text-white ring-white/[0.08] hover:bg-white/[0.08]"
-                }`}
-              >
-                <Icon name={following ? "check" : "person_add"} className="text-[15px]" />
-                {following ? "Following" : "Follow"}
-              </button>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-5">
+            {error && (
+              <div className="mb-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-semibold text-slate-300">
+                Showing available merchant data. {error}
+              </div>
+            )}
+
+            {/* ── Identity card ── */}
+            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+              <div className="flex items-center gap-3">
+                <MerchantAvatar
+                  id={source.id ?? source.displayName}
+                  name={source.displayName}
+                  avatarUrl={source.avatarUrl}
+                  size={48}
+                  online={online}
+                  onlineRingClass="border-[#1a1b1f]"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="truncate text-[15px] font-black">{source.displayName}</h3>
+                    {(profile?.isVerified ?? true) && <VerifiedSeal className="h-[15px] w-[15px] shrink-0" />}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] font-semibold text-slate-400">
+                    <span className="text-[#05b957]">{completionRate.toFixed(0)}%</span>
+                    <span className="text-slate-600">·</span>
+                    <span>{totalTrades.toLocaleString()} Trades</span>
+                    <span className="text-slate-600">·</span>
+                    <span className={online ? "text-[#05b957]" : "text-slate-500"}>
+                      {online ? "Active now" : "Offline"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <h3 className="truncate text-lg font-black">{source.displayName}</h3>
-              {(profile?.isVerified ?? true) && <VerifiedSeal className="h-[17px] w-[17px]" />}
-            </div>
-
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
-              <span className="inline-flex items-center gap-1 font-bold text-[#8bc3ff]">
-                <VerifiedSeal className="h-[13px] w-[13px]" />
-                Verified Merchant
-              </span>
-              <span className="text-slate-600">|</span>
-              <span className="text-slate-300 underline decoration-dotted underline-offset-2">Deposit: — USDT</span>
-            </div>
-
-            <div className="mt-2 flex flex-wrap items-center gap-x-3.5 gap-y-1">
-              {verifications.map((v) => (
-                <span key={v.label} className="flex items-center gap-0.5 text-[11px] font-semibold">
-                  <Icon name="check_circle" className={`text-[11px] ${v.ok ? "text-[#087cff]" : "text-slate-600"}`} />
-                  <span className={v.ok ? "text-slate-200" : "text-slate-600"}>{v.label}</span>
-                </span>
+            {/* ── Identity stats grid ── */}
+            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4">
+              {identityStats.map((row) => (
+                <div key={row.label}>
+                  <p className="text-[11px] font-semibold text-slate-500">{row.label}</p>
+                  <p className="mt-1 flex items-center gap-1.5 text-[15px] font-black text-white">
+                    <Icon name={row.icon} className={`text-[16px] ${row.iconClass}`} />
+                    {row.value}
+                  </p>
+                </div>
               ))}
             </div>
 
             {/* ── Tabs ── */}
-            <div className="mt-3 flex items-center gap-6 border-b border-white/[0.08]">
-              {tabs.map((t) => (
+            <div className="mt-5 flex items-center gap-2">
+              {([
+                { key: "info" as const, label: "Trading info" },
+                { key: "feedback" as const, label: "Recent feedbacks" },
+              ]).map((t) => (
                 <button
                   key={t.key}
                   type="button"
                   onClick={() => setTab(t.key)}
-                  className={`relative -mb-px pb-2 text-[13px] font-bold transition ${
-                    tab === t.key ? "text-white" : "text-slate-500 hover:text-slate-300"
+                  className={`rounded-lg px-3.5 py-2 text-[13px] font-bold transition ${
+                    tab === t.key
+                      ? "bg-[#05b957] text-white"
+                      : "bg-white/[0.05] text-slate-300 hover:bg-white/[0.08]"
                   }`}
                 >
                   {t.label}
-                  {tab === t.key && <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-[#087cff]" />}
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* ── Tab content ── */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-3 pt-2 sm:px-5">
-            {error && (
-              <div className="mb-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-[11px] font-semibold text-slate-300">
-                Showing available merchant data. {error}
-              </div>
-            )}
-            {tab === "info" ? (
-              <>
-                <div className="divide-y divide-white/[0.05]">
-                  {infoStats.map((row) => (
-                    <div key={row.label} className="flex items-center justify-between py-2">
-                      <span className="text-[12px] text-slate-500">{row.label}</span>
-                      <span className="text-[13px] font-bold text-white">{row.value}</span>
+            {/* ── Tab content ── */}
+            <div className="mt-4">
+              {tab === "info" ? (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-4">
+                  {tradingStats.map((row) => (
+                    <div key={row.label}>
+                      <p className="text-[11px] font-semibold text-slate-500">{row.label}</p>
+                      <p className="mt-1 text-[15px] font-black text-white">{row.value}</p>
                     </div>
                   ))}
                 </div>
-
-                <div className="mt-1 divide-y divide-white/[0.05] border-t border-white/[0.05]">
-                  {tradeStats.map((row) => (
-                    <div key={row.label} className="flex items-start justify-between py-2">
-                      <span className="text-[12px] text-slate-500">{row.label}</span>
-                      <span className="text-[13px] font-bold text-white">{row.value}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  className="mt-3 w-full text-center text-[13px] font-bold text-slate-300 transition hover:text-white"
-                >
-                  Block
-                </button>
-
-                <div className="mt-2 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <Icon name="verified_user" className="text-[16px] text-[#8bc3ff]" />
-                    <p className="text-[13px] font-bold text-slate-200">Nezeem Risk Management</p>
-                  </div>
-                  <p className="mt-1 text-[11px] leading-4 text-slate-500">
-                    To reduce your trading risk, the verified advertiser has already paid a deposit as collateral.
-                  </p>
-                </div>
-              </>
-            ) : tab === "ads" ? (
-              offers.length === 0 ? (
-                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-4 text-center text-xs font-semibold text-slate-500">
-                  No active offers right now.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {offers.map((offer) => (
-                    <button
-                      key={offer.id}
-                      type="button"
-                      onClick={() => viewOffers(offer)}
-                      className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
-                    >
-                      <span className={`rounded-lg px-2 py-1 text-[10px] font-black ${offer.side === "SELL" ? "bg-[#05b957]/15 text-[#05b957]" : "bg-red-500/15 text-red-300"}`}>
-                        {offer.side === "SELL" ? "Buy" : "Sell"}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-black text-white">{offer.crypto} at {formatFiat(offer.pricePerUnit, offer.fiat)}</p>
-                        <p className="text-[11px] font-semibold text-slate-500">
-                          {formatFiat(offer.minLimit, offer.fiat)} - {formatFiat(offer.maxLimit, offer.fiat, { symbol: false })} limits
-                        </p>
-                      </div>
-                      <Icon name="chevron_right" className="text-[17px] text-slate-600" />
-                    </button>
-                  ))}
-                </div>
-              )
-            ) : (
-              feedback.length === 0 ? (
+              ) : feedback.length === 0 ? (
                 <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-8 text-center text-xs font-semibold text-slate-500">
                   No feedback yet. Completed traders can leave feedback after settlement.
                 </div>
@@ -450,8 +368,8 @@ function MerchantProfileModal({ merchant, onClose }: { merchant: AdMerchant; onC
                     </div>
                   ))}
                 </div>
-              )
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
