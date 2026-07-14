@@ -476,6 +476,36 @@ function MobileP2POrderView({
   const currentUserId = order.isBuyer ? order.buyer.id : order.seller.userId;
   const chatReadOnly = order.status === "RELEASED";
 
+  // ── Unread chat counter ─────────────────────────────────────────────────────
+  // Polls the order's messages while the chat is closed so the "Chat" button can
+  // show how many messages from the counterparty haven't been read yet. Opening
+  // the chat marks them read (GET ?read=1 inside <Chat/>), so we reset to 0.
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const refreshUnread = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/p2p/orders/${orderId}/messages`, { cache: "no-store" });
+      if (!res.ok) return;
+      const msgs: { sender: { id: string } | null; readAt: string | null }[] = await res.json();
+      setUnreadCount(msgs.filter((m) => m.sender?.id !== currentUserId && !m.readAt).length);
+    } catch { /* ignore — badge just stays as-is */ }
+  }, [orderId, currentUserId]);
+
+  useEffect(() => {
+    if (showChat) { setUnreadCount(0); return; }
+    refreshUnread();
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") refreshUnread();
+    }, 12_000);
+    return () => clearInterval(timer);
+  }, [showChat, refreshUnread]);
+
+  const chatBadge = unreadCount > 0 ? (
+    <span className="grid h-[17px] min-w-[17px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-black leading-none text-white">
+      {unreadCount > 99 ? "99+" : unreadCount}
+    </span>
+  ) : null;
+
   // ── Chat overlay ──────────────────────────────────────────────────────────
   if (showChat) {
     return (
@@ -649,9 +679,9 @@ function MobileP2POrderView({
               <button
                 type="button"
                 onClick={() => setShowChat(true)}
-                className="rounded-lg bg-[#087cff] px-3.5 py-1.5 text-xs font-black text-white transition-colors hover:bg-[#0570e8]"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#087cff] px-3.5 py-1.5 text-xs font-black text-white transition-colors hover:bg-[#0570e8]"
               >
-                Chat
+                Chat{chatBadge}
               </button>
             </div>
             <div className="space-y-3">
@@ -785,9 +815,9 @@ function MobileP2POrderView({
               <button
                 type="button"
                 onClick={() => setShowChat(true)}
-                className="rounded-lg bg-[#087cff] px-3.5 py-1.5 text-xs font-black text-white transition-colors hover:bg-[#0570e8]"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#087cff] px-3.5 py-1.5 text-xs font-black text-white transition-colors hover:bg-[#0570e8]"
               >
-                Chat
+                Chat{chatBadge}
               </button>
             </div>
             <div className="space-y-3">
@@ -867,9 +897,9 @@ function MobileP2POrderView({
           <button
             type="button"
             onClick={() => setShowChat(true)}
-            className="shrink-0 rounded-lg bg-[#087cff] px-4 py-2 text-xs font-black text-white transition-colors hover:bg-[#087cff]/80"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[#087cff] px-4 py-2 text-xs font-black text-white transition-colors hover:bg-[#087cff]/80"
           >
-            Chat
+            Chat{chatBadge}
           </button>
         )}
       </div>
@@ -924,9 +954,9 @@ function MobileP2POrderView({
           <button
             type="button"
             onClick={() => setShowChat(true)}
-            className="rounded-full bg-[#087cff] px-4 py-2 text-xs font-black text-white hover:bg-[#0570e8] transition-colors"
+            className="inline-flex items-center gap-1.5 rounded-full bg-[#087cff] px-4 py-2 text-xs font-black text-white hover:bg-[#0570e8] transition-colors"
           >
-            Contact Trader
+            Contact Trader{chatBadge}
           </button>
         </div>
       )}
