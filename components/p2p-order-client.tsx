@@ -495,6 +495,7 @@ function MobileP2POrderView({
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [mobileCancelReason, setMobileCancelReason] = useState("");
   const [cancelConfirmed, setCancelConfirmed] = useState(false);
+  const [showActions, setShowActions] = useState(false);
   const [showDisputeScreen, setShowDisputeScreen] = useState(false);
   const [mobileDisputeReason, setMobileDisputeReason] = useState("");
   const [showReleaseConfirm, setShowReleaseConfirm] = useState(false);
@@ -550,15 +551,28 @@ function MobileP2POrderView({
   ) : null;
 
   // ── Chat overlay (primary, chat-dominant) ──────────────────────────────────
-  if (showChat) {
-    const stageLabel =
-      order.status === "PENDING"   ? "Trade started" :
-      order.status === "PAID"      ? "Payment marked" :
-      order.status === "RELEASED"  ? "Trade completed" :
-      order.status === "DISPUTED"  ? "Dispute open" :
-      order.status === "CANCELLED" ? "Trade cancelled" :
-      order.status === "EXPIRED"   ? "Trade expired" : "Trade";
+  const stageLabel =
+    order.status === "PENDING"   ? "Trade started" :
+    order.status === "PAID"      ? "Payment marked" :
+    order.status === "RELEASED"  ? "Trade completed" :
+    order.status === "DISPUTED"  ? "Dispute open" :
+    order.status === "CANCELLED" ? "Trade cancelled" :
+    order.status === "EXPIRED"   ? "Trade expired" : "Trade";
+
+  // Contextual primary action, shown to whichever party is on turn (buyer or
+  // seller, depending on the ad side). Reuses the existing handlers verbatim.
+  const primary =
+    canMarkPaid
+      ? { label: actionLoading === "paid" ? "Confirming…" : "Mark as Paid", onClick: () => onAction("paid", { paymentRef: paidRef || null, }, "paid") }
+      : canRelease
+        ? { label: releaseButtonLabel(order, actionLoading === "release"), onClick: () => { setShowActions(false); setShowChat(false); setReleaseChoice("none"); setShowReleaseConfirm(true); } }
+        : null;
+
+  const copyText = (value: string) => { navigator.clipboard?.writeText(value).then(() => toast.success("Copied")).catch(() => {}); };
+
+  if (showChat && !showCancelForm && !showDisputeScreen) {
     return (
+      <>
       <div className="lg:hidden fixed inset-0 z-[60] flex flex-col bg-[#151518] text-white">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-white/[0.06] px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
@@ -576,7 +590,7 @@ function MobileP2POrderView({
           </div>
           <button
             type="button"
-            onClick={() => setShowChat(false)}
+            onClick={() => setShowActions(true)}
             aria-label="Order details"
             className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
           >
@@ -587,10 +601,23 @@ function MobileP2POrderView({
         <div className="flex-1 min-h-0">
           <Chat orderId={orderId} currentUserId={currentUserId} readOnly={chatReadOnly} mode="mobile" />
         </div>
-        {/* More actions bar → reveals order details + trade actions */}
+        {/* Primary action pill (whichever party is on turn) */}
+        {primary && (
+          <div className="shrink-0 border-t border-white/[0.06] bg-[#151518] px-4 pt-3">
+            <button
+              type="button"
+              disabled={!!actionLoading}
+              onClick={primary.onClick}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[#05b957] text-sm font-black text-white transition hover:bg-[#06d169] disabled:opacity-50"
+            >
+              {primary.label}
+            </button>
+          </div>
+        )}
+        {/* More actions bar → opens the Actions sheet */}
         <button
           type="button"
-          onClick={() => setShowChat(false)}
+          onClick={() => setShowActions(true)}
           className="flex shrink-0 items-center justify-between gap-2 border-t border-white/[0.08] bg-[#18191f] px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 text-left"
         >
           <span className="flex items-center gap-2 text-[13px] font-bold text-white">
@@ -603,6 +630,105 @@ function MobileP2POrderView({
           </span>
         </button>
       </div>
+
+      {/* ── Actions bottom sheet ── */}
+      {showActions && (
+        <div className="lg:hidden fixed inset-0 z-[70] flex items-end bg-black/65" onClick={() => setShowActions(false)}>
+          <div
+            className="flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-2xl border-t border-white/10 bg-[#151518] text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex shrink-0 items-center justify-between px-4 py-3.5">
+              <p className="text-[15px] font-black">Actions</p>
+              <button type="button" onClick={() => setShowActions(false)} aria-label="Close" className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white">
+                <Icon name="close" className="text-[18px]" />
+              </button>
+            </div>
+
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {/* Status */}
+              <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-3 text-[13px] font-bold">
+                <Icon name="lock" className="text-[15px] text-slate-400" />
+                {stageLabel}
+              </div>
+
+              {/* Offer terms */}
+              {order.ad.terms?.trim() && (
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3.5">
+                  <p className="mb-1 text-[11px] font-black uppercase tracking-wide text-slate-500">Offer terms</p>
+                  <p className="whitespace-pre-wrap text-[12px] leading-5 text-slate-300">{order.ad.terms}</p>
+                </div>
+              )}
+
+              {/* Primary action + cancel */}
+              {(primary || canCancel) && (
+                <div className="space-y-2">
+                  {primary && (
+                    <button
+                      type="button"
+                      disabled={!!actionLoading}
+                      onClick={() => { setShowActions(false); primary.onClick(); }}
+                      className="flex h-12 w-full items-center justify-center rounded-full bg-[#05b957] text-sm font-black text-white transition hover:bg-[#06d169] disabled:opacity-50"
+                    >
+                      {primary.label}
+                    </button>
+                  )}
+                  {canCancel && (
+                    <button
+                      type="button"
+                      onClick={() => { setShowActions(false); setShowCancelForm(true); }}
+                      className="flex h-12 w-full items-center justify-center rounded-full border border-white/[0.12] bg-white/[0.03] text-sm font-black text-white transition hover:bg-white/[0.06]"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Trade actions */}
+              {canDispute && (
+                <div className="rounded-xl border border-white/[0.06] bg-white/[0.03]">
+                  <p className="px-3.5 pb-1 pt-3 text-[11px] font-black uppercase tracking-wide text-slate-500">Trade actions</p>
+                  <button
+                    type="button"
+                    onClick={() => { setShowActions(false); setShowDisputeScreen(true); }}
+                    className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-white/[0.03]"
+                  >
+                    <Icon name="support_agent" className="text-[20px] text-slate-400" />
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-bold text-white">Report a problem</span>
+                      <span className="block text-[11px] text-slate-500">Open a dispute for this order</span>
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {/* Trade information */}
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3.5">
+                <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-slate-500">Trade information</p>
+                <div className="space-y-2.5 text-[12px]">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-slate-500">Order ID</span>
+                    <button type="button" onClick={() => copyText(orderId.toUpperCase())} className="flex items-center gap-1.5 font-mono font-bold text-white">
+                      {orderId.slice(0, 12).toUpperCase()}
+                      <Icon name="content_copy" className="text-[13px] text-slate-500" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-slate-500">Rate</span>
+                    <span className="font-bold text-white">{formatFiat(Number(order.pricePerUnit), order.ad.fiat)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-slate-500">Amount</span>
+                    <span className="font-bold text-white">{formatFiat(Number(order.fiatAmount), order.ad.fiat, { decimals: 2 })}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
