@@ -2123,7 +2123,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
             <button onClick={step === 0 ? onClose : () => setStep((s) => s - 1)} className="flex h-10 w-10 items-center justify-center rounded-full text-slate-200 transition hover:bg-white/[0.06] active:scale-95">
               <Icon name="arrow_back" className="text-[20px]" />
             </button>
-            <h3 className="text-[15px] font-black tracking-wide text-white">{isEditing ? "Edit ad" : "Post ad"}</h3>
+            <h3 className="text-[15px] font-black tracking-wide text-white">{isEditing ? "Edit offer" : "Create an offer"}</h3>
             <span className="h-10 w-10" aria-hidden />
           </div>
 
@@ -2712,6 +2712,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               <div className="flex items-center justify-between"><span className="text-slate-500">Amount</span><span className="font-black text-white">{totalAmountNum > 0 ? `${totalAmountNum.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto}` : "--"}</span></div>
               <div className="flex items-center justify-between"><span className="text-slate-500">Order limits</span><span className="font-black text-white">{form.minLimit && form.maxLimit ? `${form.fiat} ${Number(form.minLimit).toLocaleString()} – ${Number(form.maxLimit).toLocaleString()}` : "--"}</span></div>
               <div className="flex items-center justify-between"><span className="text-slate-500">Payment</span><span className="font-black text-white">{form.paymentMethods.length ? form.paymentMethods.map((m) => paymentMethodLabel(m)).join(", ") : "--"}</span></div>
+              <div className="flex items-center justify-between border-t border-white/[0.06] pt-1.5"><span className="text-slate-500">Platform fee</span><span className="font-black text-[#05b957]">Applied per completed trade</span></div>
             </div>
           </div>
           </div>
@@ -2730,9 +2731,13 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
             )}
             <button onClick={step === 2 ? submit : goNext}
               disabled={step === 2 && (submitting || paymentMethodsLoading || exceedsSellableBalance)}
-              className={`flex h-12 items-center justify-center gap-2 rounded-xl bg-[#087cff] text-[13px] font-black text-white shadow-lg shadow-[#087cff]/20 transition-all hover:bg-[#1a78ff] active:scale-[0.98] disabled:opacity-50 ${step > 0 ? "flex-1" : "w-full"}`}>
+              className={`flex h-12 items-center justify-center gap-2 rounded-xl text-[13px] font-black text-white shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 ${
+                step === 2
+                  ? "bg-[#05b957] shadow-[#05b957]/25 hover:bg-[#06d169]"
+                  : "bg-[#087cff] shadow-[#087cff]/20 hover:bg-[#1a78ff]"
+              } ${step > 0 ? "flex-1" : "w-full"}`}>
               {step === 2
-                ? (submitting ? <LoadingDots label={isEditing ? "Saving" : "Creating"} /> : isEditing ? "Save Changes" : "Post ad")
+                ? (submitting ? <LoadingDots label={isEditing ? "Saving" : "Creating"} /> : isEditing ? "Save Changes" : "Place an offer")
                 : "Next"}
             </button>
           </div>
