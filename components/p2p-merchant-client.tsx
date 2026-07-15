@@ -1144,6 +1144,7 @@ function DepositSection() {
   const [e2wAmount, setE2wAmount]         = useState("");
   const [e2wLoading, setE2wLoading]       = useState(false);
   const [mobileBalanceCrypto, setMobileBalanceCrypto] = useState("USDT");
+  const [showZeroBalances, setShowZeroBalances] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -1231,8 +1232,25 @@ function DepositSection() {
   const e2wEscrowBal = Number(
     movableEscrowBalances.find((b) => b.crypto === e2wCrypto)?.available ?? 0,
   );
-  const formatCoinAmount = (crypto: string, amount: number) =>
-    Number(amount).toFixed(crypto === "KES" ? 2 : 6);
+  const formatCoinAmount = (crypto: string, amount: number) => {
+    const n = Number(amount);
+    if (!Number.isFinite(n)) return "0";
+    if (crypto === "KES" || isActiveLocalCoin(crypto)) {
+      return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    }
+    if (n >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+    if (n >= 1) return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+    return n.toFixed(6).replace(/\.?0+$/, "") || "0";
+  };
+
+  const activePanel = fundOpen ? "fund" : e2wOpen ? "wallet" : open ? "receive" : null;
+
+  function setPanel(panel: "fund" | "wallet" | "receive" | null) {
+    setFundOpen(panel === "fund");
+    setE2wOpen(panel === "wallet");
+    setOpen(panel === "receive");
+    if (panel !== "receive") setAddress(null);
+  }
 
   const balanceSymbols = [
     ...P2P_SYMBOLS,
@@ -1347,84 +1365,88 @@ function DepositSection() {
     ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(address)}&bgcolor=0a0f1a&color=ffffff&margin=2`
     : null;
 
-  return (
-    <div className="mb-3 overflow-hidden rounded-lg border border-white/[0.06] bg-[#18191f]">
-      {/* Header */}
-      <div className="flex flex-col gap-3 border-b border-white/[0.06] px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:py-2.5">
-        <div className="min-w-0">
-          <h2 className="text-base font-black text-white">Wallet &amp; Escrow</h2>
-          <p className="mt-0.5 text-xs leading-4 text-slate-500">Receive crypto, fund escrow, and track KES Coin backed by your fiat wallet.</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:items-center">
-          <button
-            onClick={() => { setFundOpen((v) => !v); setE2wOpen(false); setOpen(false); }}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-[#05b957] px-2 py-2 text-[11px] font-black text-white shadow-lg shadow-[#05b957]/20 transition-colors hover:bg-[#28af52] lg:h-9 lg:px-4 lg:text-sm"
-          >
-            <Icon name="arrow_upward" className="text-base" />
-            <span className="whitespace-nowrap">Fund Escrow</span>
-          </button>
-          <button
-            onClick={() => { setE2wOpen((v) => !v); setFundOpen(false); setOpen(false); }}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2 py-2 text-[11px] font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9 lg:px-3 lg:text-sm"
-          >
-            <Icon name="arrow_downward" className="text-base" />
-            <span className="whitespace-nowrap">To Wallet</span>
-          </button>
-          <button
-            onClick={() => { setOpen((v) => !v); setFundOpen(false); setE2wOpen(false); setAddress(null); }}
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-2 py-2 text-[11px] font-black text-slate-300 transition-colors hover:bg-white/[0.08] lg:h-9 lg:px-3 lg:text-sm"
-          >
-            <Icon name="qr_code" className="text-base" />
-            <span className="whitespace-nowrap">Receive</span>
-          </button>
-        </div>
-      </div>
+  const visibleBalanceRows = showZeroBalances
+    ? balanceTableRows
+    : balanceTableRows.filter(
+        (row) => row.walletAvailable > 0 || row.escrowAvailable > 0 || row.walletLocked > 0 || row.escrowLocked > 0,
+      );
 
-      {/* Fund Escrow panel */}
+  const actionBtn = (id: "fund" | "wallet" | "receive", label: string, icon: string) => {
+    const on = activePanel === id;
+    return (
+      <button
+        type="button"
+        onClick={() => setPanel(on ? null : id)}
+        className={`flex h-11 flex-1 items-center justify-center gap-2 rounded-xl text-[13px] font-bold transition sm:flex-none sm:px-5 ${
+          on
+            ? "bg-[#087cff] text-white shadow-lg shadow-[#087cff]/25"
+            : "border border-white/[0.1] bg-white/[0.04] text-slate-300 hover:border-white/20 hover:bg-white/[0.07] hover:text-white"
+        }`}
+      >
+        <Icon name={icon} className="text-[18px]" />
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-[20px] font-bold tracking-tight text-white">Wallet &amp; Escrow</h2>
+            <p className="mt-1 max-w-xl text-[13px] leading-5 text-slate-500">
+              Receive crypto into your wallet, fund escrow to back sell ads, or move escrow back anytime.
+            </p>
+          </div>
+          <div className="flex w-full gap-2 sm:w-auto">
+            {actionBtn("fund", "Fund Escrow", "arrow_upward")}
+            {actionBtn("wallet", "To Wallet", "arrow_downward")}
+            {actionBtn("receive", "Receive", "qr_code")}
+          </div>
+        </div>
+
       {fundOpen && (
-        <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
-          <p className="text-xs text-slate-400 mb-3">Move crypto from your wallet to merchant escrow so you can list sell ads.</p>
+        <div className="mt-4 rounded-xl border border-white/[0.07] bg-[#0d0f14] p-4">
+          <p className="mb-3 text-[12px] text-slate-400">Move crypto from your wallet to merchant escrow so you can list sell ads.</p>
           {fundableWalletBalances.length === 0 ? (
-            <p className="text-slate-600 text-sm">No fundable wallet crypto to move. KES Coin uses fiat wallet balance automatically.</p>
+            <p className="text-[13px] text-slate-500">No fundable wallet crypto to move. KES Coin uses fiat wallet balance automatically.</p>
           ) : (
-          <div className="grid gap-3 sm:grid-cols-[160px_160px_minmax(0,1fr)_140px] sm:items-end">
-            {/* Crypto — driven by actual wallet holdings */}
+          <div className="grid gap-3 sm:grid-cols-[160px_160px_minmax(0,1fr)_160px] sm:items-end">
             <div>
-              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
-              <div className="flex gap-1.5 flex-wrap">
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Crypto</label>
+              <div className="flex flex-wrap gap-1.5">
                 {walletCryptos.map((c) => {
                   const firstNet = walletBalances.find((b) => b.crypto === c)?.network ?? "TRC20";
                   return (
-                    <button key={c} onClick={() => { setFundCrypto(c); setFundNetwork(firstNet); }}
-                      className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${
-                        fundCrypto === c ? "bg-[#05b957]/15 border-[#05b957] text-[#05b957]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                    <button key={c} type="button" onClick={() => { setFundCrypto(c); setFundNetwork(firstNet); }}
+                      className={`rounded-lg border px-3 py-2 text-[12px] font-bold transition ${
+                        fundCrypto === c ? "border-[#087cff] bg-[#087cff]/15 text-[#87b7ff]" : "border-white/[0.08] bg-white/[0.04] text-slate-400 hover:border-white/20"
                       }`}>{c}</button>
                   );
                 })}
               </div>
             </div>
-            {/* Network — show only if multiple networks exist for selected crypto */}
             {fundNetworks.length > 1 && (
             <div>
-              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Network</label>
-              <div className="flex gap-1.5 flex-wrap">
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Network</label>
+              <div className="flex flex-wrap gap-1.5">
                 {fundNetworks.map((n) => (
-                  <button key={n} onClick={() => setFundNetwork(n)}
-                    className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${
-                      fundNetwork === n ? "bg-[#087cff]/15 border-[#087cff] text-[#087cff]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                  <button key={n} type="button" onClick={() => setFundNetwork(n)}
+                    className={`rounded-lg border px-3 py-2 text-[12px] font-bold transition ${
+                      fundNetwork === n ? "border-[#087cff] bg-[#087cff]/15 text-[#87b7ff]" : "border-white/[0.08] bg-white/[0.04] text-slate-400 hover:border-white/20"
                     }`}>{n}</button>
                 ))}
               </div>
             </div>
             )}
-            {/* Amount */}
             <div>
-              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
                 Amount
                 {fundWalletBal > 0 && (
-                  <button onClick={() => setFundAmount(String(fundWalletBal))}
+                  <button type="button" onClick={() => setFundAmount(String(fundWalletBal))}
                     className="ml-2 normal-case text-[#087cff] hover:underline">
-                    max {fundWalletBal.toFixed(4)}
+                    max {formatCoinAmount(fundCrypto, fundWalletBal)}
                   </button>
                 )}
               </label>
@@ -1433,52 +1455,47 @@ function DepositSection() {
                 value={fundAmount}
                 onChange={(e) => setFundAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none focus:border-[#087cff]/40 transition-colors"
+                className="h-11 w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-[14px] text-white outline-none placeholder:text-slate-600 focus:border-[#087cff]/50"
               />
             </div>
-            {/* Submit */}
             <button
+              type="button"
               onClick={fundEscrow}
               disabled={funding || !fundAmount}
-              className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#05b957] px-4 text-sm font-black text-white transition-all hover:bg-[#28af52] disabled:opacity-50"
+              className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#087cff] px-4 text-[13px] font-bold text-white transition hover:bg-[#0570e8] disabled:opacity-50"
             >
-              {funding
-                ? <LoadingDots label="Moving" />
-                : <><Icon name="arrow_forward" className="text-base" /> Move to Escrow</>}
+              {funding ? <LoadingDots label="Moving" /> : <><Icon name="arrow_forward" className="text-[18px]" /> Move to Escrow</>}
             </button>
           </div>
           )}
         </div>
       )}
 
-      {/* Escrow → Wallet panel */}
       {e2wOpen && (
-        <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
-          <p className="text-xs text-slate-400 mb-3">Move crypto from your merchant escrow back into your normal wallet.</p>
+        <div className="mt-4 rounded-xl border border-white/[0.07] bg-[#0d0f14] p-4">
+          <p className="mb-3 text-[12px] text-slate-400">Move crypto from your merchant escrow back into your normal wallet.</p>
           {movableEscrowBalances.length === 0 ? (
-            <p className="text-slate-600 text-sm">No movable blockchain crypto in escrow. KES Coin is already backed by the fiat wallet.</p>
+            <p className="text-[13px] text-slate-500">No movable blockchain crypto in escrow. KES Coin is already backed by the fiat wallet.</p>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)_140px] sm:items-end">
-              {/* Crypto selector */}
+            <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)_160px] sm:items-end">
               <div>
-                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
-                <div className="flex gap-1.5 flex-wrap">
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Crypto</label>
+                <div className="flex flex-wrap gap-1.5">
                   {movableEscrowBalances.map((b) => (
-                    <button key={b.crypto} onClick={() => setE2wCrypto(b.crypto)}
-                      className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${
-                        e2wCrypto === b.crypto ? "bg-[#05b957]/15 border-[#05b957] text-[#05b957]" : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                    <button key={b.crypto} type="button" onClick={() => setE2wCrypto(b.crypto)}
+                      className={`rounded-lg border px-3 py-2 text-[12px] font-bold transition ${
+                        e2wCrypto === b.crypto ? "border-[#087cff] bg-[#087cff]/15 text-[#87b7ff]" : "border-white/[0.08] bg-white/[0.04] text-slate-400 hover:border-white/20"
                       }`}>{b.crypto}</button>
                   ))}
                 </div>
               </div>
-              {/* Amount */}
               <div>
-                <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">
+                <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">
                   Amount
                   {e2wEscrowBal > 0 && (
-                    <button onClick={() => setE2wAmount(String(e2wEscrowBal))}
+                    <button type="button" onClick={() => setE2wAmount(String(e2wEscrowBal))}
                       className="ml-2 normal-case text-[#087cff] hover:underline">
-                      max {e2wEscrowBal.toFixed(4)}
+                      max {formatCoinAmount(e2wCrypto, e2wEscrowBal)}
                     </button>
                   )}
                 </label>
@@ -1487,40 +1504,37 @@ function DepositSection() {
                   value={e2wAmount}
                   onChange={(e) => setE2wAmount(e.target.value)}
                   placeholder="0.00"
-                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none focus:border-[#087cff]/40 transition-colors"
+                  className="h-11 w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 text-[14px] text-white outline-none placeholder:text-slate-600 focus:border-[#087cff]/50"
                 />
               </div>
-              {/* Submit */}
               <button
+                type="button"
                 onClick={escrowToWallet}
                 disabled={e2wLoading || !e2wAmount}
-                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#087cff] px-4 text-sm font-black text-white transition-all hover:bg-[#0570e8] disabled:opacity-50"
+                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#087cff] px-4 text-[13px] font-bold text-white transition hover:bg-[#0570e8] disabled:opacity-50"
               >
-                {e2wLoading
-                  ? <LoadingDots label="Moving" />
-                  : <><Icon name="arrow_downward" className="text-base" /> Move to Wallet</>}
+                {e2wLoading ? <LoadingDots label="Moving" /> : <><Icon name="arrow_downward" className="text-[18px]" /> Move to Wallet</>}
               </button>
             </div>
           )}
         </div>
       )}
 
-      {/* Deposit address panel */}
       {open && (
-        <div className="border-b border-white/[0.06] bg-white/[0.02] p-4">
-          {/* Crypto + Network selectors */}
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)_220px] lg:items-end">
+        <div className="mt-4 rounded-xl border border-white/[0.07] bg-[#0d0f14] p-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)_180px] lg:items-end">
             <div>
-              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Crypto</label>
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Crypto</label>
               <div className="flex gap-1.5">
                 {["USDT"].map((c) => (
                   <button
                     key={c}
+                    type="button"
                     onClick={() => handleCryptoChange(c)}
-                    className={`flex-1 rounded-xl border py-2 text-xs font-black transition-all ${
+                    className={`flex-1 rounded-lg border py-2.5 text-[12px] font-bold transition ${
                       crypto === c
-                        ? "bg-[#05b957]/15 border-[#05b957] text-[#05b957]"
-                        : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                        ? "border-[#087cff] bg-[#087cff]/15 text-[#87b7ff]"
+                        : "border-white/[0.08] bg-white/[0.04] text-slate-400 hover:border-white/20"
                     }`}
                   >
                     {c}
@@ -1529,16 +1543,17 @@ function DepositSection() {
               </div>
             </div>
             <div>
-              <label className="text-xs font-bold text-slate-500 mb-1.5 block uppercase tracking-wide">Network</label>
-              <div className="flex gap-1.5 flex-wrap">
+              <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-slate-500">Network</label>
+              <div className="flex flex-wrap gap-1.5">
                 {NETWORK_OPTIONS[crypto].map((n) => (
                   <button
                     key={n}
+                    type="button"
                     onClick={() => { setNetwork(n); setAddress(null); }}
-                    className={`rounded-xl border px-3 py-2 text-xs font-black transition-all ${
+                    className={`rounded-lg border px-3 py-2.5 text-[12px] font-bold transition ${
                       network === n
-                        ? "bg-[#087cff]/15 border-[#087cff] text-[#087cff]"
-                        : "bg-white/[0.04] border-white/[0.08] text-slate-400 hover:border-white/20"
+                        ? "border-[#087cff] bg-[#087cff]/15 text-[#87b7ff]"
+                        : "border-white/[0.08] bg-white/[0.04] text-slate-400 hover:border-white/20"
                     }`}
                   >
                     {n}
@@ -1546,266 +1561,246 @@ function DepositSection() {
                 ))}
               </div>
             </div>
-
-            {/* Get address button */}
             {!address && (
               <button
+                type="button"
                 onClick={fetchAddress}
                 disabled={addrLoading}
-                className="flex h-10 items-center justify-center gap-2 rounded-xl bg-[#05b957] px-4 text-sm font-black text-white transition-all hover:bg-[#28af52] disabled:opacity-50"
+                className="flex h-11 items-center justify-center gap-2 rounded-xl bg-[#087cff] px-4 text-[13px] font-bold text-white transition hover:bg-[#0570e8] disabled:opacity-50"
               >
-                {addrLoading
-                  ? <LoadingDots label="Generating" />
-                  : <><Icon name="qr_code" className="text-base" /> Get Address</>}
+                {addrLoading ? <LoadingDots label="Generating" /> : <><Icon name="qr_code" className="text-[18px]" /> Get Address</>}
               </button>
             )}
           </div>
 
-          {/* Address display */}
           {address && (
             <div className="mt-4 space-y-3">
-              {/* Warning */}
-              <div className="flex items-start gap-2 bg-amber-500/8 border border-amber-500/20 rounded-xl px-4 py-3">
-                <Icon name="warning" className="text-amber-400 text-sm shrink-0 mt-0.5" />
-                <p className="text-amber-300 text-xs leading-relaxed">{NETWORK_WARN[network]}</p>
+              <div className="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/[0.08] px-4 py-3">
+                <Icon name="warning" className="mt-0.5 shrink-0 text-[16px] text-amber-400" />
+                <p className="text-[12px] leading-relaxed text-amber-200">{NETWORK_WARN[network]}</p>
               </div>
-
-              {/* QR + Address */}
-              <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 sm:flex-row">
-                {/* QR code */}
+              <div className="flex flex-col items-center gap-4 rounded-xl border border-white/[0.07] bg-white/[0.03] p-4 sm:flex-row">
                 {qrUrl && (
-                  <div className="shrink-0 w-[120px] h-[120px] rounded-xl overflow-hidden border border-white/10 bg-white p-1.5">
+                  <div className="h-[120px] w-[120px] shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white p-1.5">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={qrUrl} alt="Deposit QR" width={120} height={120} className="w-full h-full" />
+                    <img src={qrUrl} alt="Deposit QR" width={120} height={120} className="h-full w-full" />
                   </div>
                 )}
-
-                <div className="flex-1 min-w-0 text-center sm:text-left">
-                  <p className="text-slate-500 text-xs mb-2 font-bold uppercase tracking-wide">
+                <div className="min-w-0 flex-1 text-center sm:text-left">
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">
                     Your {crypto} ({network}) deposit address
                   </p>
-                  <p className="font-mono text-white text-xs sm:text-sm break-all leading-relaxed mb-3">
+                  <p className="mb-3 break-all font-mono text-[12px] leading-relaxed text-white sm:text-[13px]">
                     {address}
                   </p>
                   <button
+                    type="button"
                     onClick={copyAddress}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all mx-auto sm:mx-0 ${
+                    className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[12px] font-bold transition ${
                       copied
-                        ? "bg-[#05b957]/20 border border-[#05b957] text-[#05b957]"
-                        : "bg-white/[0.07] border border-white/10 text-white hover:bg-white/[0.12]"
+                        ? "border border-[#05b957]/40 bg-[#05b957]/15 text-[#05b957]"
+                        : "border border-white/10 bg-white/[0.07] text-white hover:bg-white/[0.12]"
                     }`}
                   >
-                    <Icon name={copied ? "check" : "content_copy"} className="text-sm" />
+                    <Icon name={copied ? "check" : "content_copy"} className="text-[14px]" />
                     {copied ? "Copied!" : "Copy Address"}
                   </button>
                 </div>
               </div>
-
-              {/* Auto-detect notice */}
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#05b957] animate-pulse shrink-0" />
-                Detected automatically on-chain. Funds credit to your wallet within 1–5 minutes — then use Fund Escrow to move them.
-              </div>
-
-              <button
-                onClick={() => { setAddress(null); setOpen(false); }}
-                className="w-full py-2 text-xs text-slate-500 hover:text-slate-300 transition-colors"
-              >
-                Done
-              </button>
+              <p className="flex items-center gap-2 text-[12px] text-slate-500">
+                <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[#05b957]" />
+                Detected on-chain automatically. Funds credit to your wallet in 1–5 minutes — then Fund Escrow to list ads.
+              </p>
             </div>
           )}
         </div>
       )}
-
-      {/* Wallet + Escrow balance rows */}
-      <div className="border-b border-white/[0.06] bg-white/[0.01] px-3 py-3 lg:hidden">
-        <label className="mb-2 block text-[10px] font-black uppercase tracking-wide text-slate-500">Asset</label>
-        <div className="relative mb-3">
-          <select
-            value={selectedMobileBalance?.crypto ?? mobileBalanceCrypto}
-            onChange={(event) => setMobileBalanceCrypto(event.target.value)}
-            className="h-12 w-full appearance-none rounded-xl border border-white/[0.08] bg-[#18191f] pl-12 pr-10 text-sm font-black text-white outline-none focus:border-[#087cff]/50"
-          >
-            {mobileSelectableBalances.map((row) => (
-              <option key={row.crypto} value={row.crypto} style={{ background: "#18191f", color: "#fff" }}>
-                {row.crypto} · {P2P_CRYPTOS.find((coin) => coin.symbol === row.crypto)?.name ?? "Crypto"}
-              </option>
-            ))}
-          </select>
-          {selectedMobileMeta?.icon ? (
-            <img src={selectedMobileMeta.icon} alt="" className="pointer-events-none absolute left-3 top-1/2 h-6 w-6 -translate-y-1/2 rounded-full" />
-          ) : (
-            <div className="pointer-events-none absolute left-3 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full bg-white/[0.06] text-[10px] font-black text-slate-400">
-              {selectedMobileBalance?.crypto?.slice(0, 1) ?? "?"}
-            </div>
-          )}
-          <Icon name="expand_more" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-lg text-slate-500" />
-        </div>
-
-        {selectedMobileBalance && (
-          <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]">
-            <div className="flex items-center justify-between border-b border-white/[0.05] px-3 py-3">
-              <div className="flex min-w-0 items-center gap-2.5">
-                {selectedMobileMeta?.icon && <img src={selectedMobileMeta.icon} alt="" className="h-8 w-8 shrink-0 rounded-full" />}
-                <div className="min-w-0">
-                  <p className="text-sm font-black text-white">{selectedMobileBalance.crypto}</p>
-                  <p className="truncate text-[10px] font-semibold text-slate-600">{selectedMobileBalance.network}</p>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 divide-x divide-white/[0.05]">
-              <div className="px-3 py-3">
-                <p className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
-                  <Icon name="account_balance_wallet" className="text-[13px]" />
-                  Wallet
-                </p>
-                <p className={selectedMobileBalance.walletAvailable > 0 ? "text-base font-black text-white" : "text-base font-black text-slate-700"}>
-                  {formatCoinAmount(selectedMobileBalance.crypto, selectedMobileBalance.walletAvailable)}
-                </p>
-              </div>
-              <div className="px-3 py-3">
-                <p className="mb-1 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wide text-slate-500">
-                  <Icon name="lock" className="text-[13px]" />
-                  Escrow
-                </p>
-                <p className={selectedMobileBalance.escrowAvailable > 0 ? "text-base font-black text-white" : "text-base font-black text-slate-700"}>
-                  {formatCoinAmount(selectedMobileBalance.crypto, selectedMobileBalance.escrowAvailable)}
-                </p>
-              </div>
-            </div>
-            {(selectedMobileBalance.walletLocked + selectedMobileBalance.escrowLocked) > 0 && (
-              <div className="border-t border-white/[0.05] px-3 py-2 text-[11px] font-bold text-amber-400">
-                {formatCoinAmount(selectedMobileBalance.crypto, selectedMobileBalance.walletLocked + selectedMobileBalance.escrowLocked)} locked in active orders
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      <div className="hidden border-b border-white/[0.06] bg-white/[0.01] px-4 py-3 lg:block">
-        <div className="mb-3 flex items-start justify-between gap-3">
+      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Balances</p>
-            <p className="mt-0.5 text-[11px] leading-4 text-slate-600">
-              Deposits land in wallet. Escrow backs ads; locked funds are in active orders.
+            <h3 className="text-[15px] font-bold text-white">Balances</h3>
+            <p className="mt-0.5 text-[12px] text-slate-500">
+              Wallet holds deposits. Escrow backs your ads. Locked is in open orders.
             </p>
           </div>
-          <div className="flex items-center gap-2 text-slate-600">
-            <Icon name="account_balance_wallet" className="text-lg" />
-            <Icon name="lock" className="text-lg" />
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowZeroBalances((v) => !v)}
+            className="rounded-lg border border-white/[0.08] px-3 py-1.5 text-[11px] font-bold text-slate-400 transition hover:border-white/20 hover:text-white"
+          >
+            {showZeroBalances ? "Hide empty" : "Show all assets"}
+          </button>
         </div>
 
-        <div className="max-h-[320px] overflow-auto rounded-lg border border-white/[0.06] [scrollbar-width:thin]">
-          <table className="w-full min-w-[720px] text-left text-xs">
-            <thead className="sticky top-0 z-10 bg-[#14141c] text-[10px] font-black uppercase tracking-wide text-slate-600">
-              <tr className="border-b border-white/[0.06]">
-                <th className="px-3 py-2">Asset</th>
-                <th className="px-3 py-2">Network</th>
-                <th className="px-3 py-2 text-right">Wallet</th>
-                <th className="px-3 py-2 text-right">Escrow</th>
-                <th className="px-3 py-2 text-right">Locked</th>
+        <div className="space-y-2 lg:hidden">
+          {(visibleBalanceRows.length ? visibleBalanceRows : []).map((row) => {
+            const meta = P2P_CRYPTOS.find((c) => c.symbol === row.crypto);
+            const locked = row.walletLocked + row.escrowLocked;
+            return (
+              <div key={row.crypto} className="rounded-xl border border-white/[0.07] bg-[#0d0f14] p-3.5">
+                <div className="mb-3 flex items-center gap-2.5">
+                  {meta?.icon ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={meta.icon} alt="" className="h-8 w-8 rounded-full" />
+                  ) : (
+                    <span className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.06] text-[11px] font-bold text-slate-400">
+                      {row.crypto.slice(0, 1)}
+                    </span>
+                  )}
+                  <div>
+                    <p className="text-[14px] font-bold text-white">{row.crypto}</p>
+                    <p className="text-[11px] text-slate-500">{row.network}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase text-slate-500">Wallet</p>
+                    <p className="mt-0.5 text-[13px] font-bold text-white">{formatCoinAmount(row.crypto, row.walletAvailable)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase text-slate-500">Escrow</p>
+                    <p className="mt-0.5 text-[13px] font-bold text-white">{formatCoinAmount(row.crypto, row.escrowAvailable)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase text-slate-500">Locked</p>
+                    <p className={`mt-0.5 text-[13px] font-bold ${locked > 0 ? "text-amber-400" : "text-slate-600"}`}>
+                      {formatCoinAmount(row.crypto, locked)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {visibleBalanceRows.length === 0 && (
+            <p className="py-8 text-center text-[13px] text-slate-500">No balances yet — receive crypto or show all assets.</p>
+          )}
+        </div>
+
+        <div className="hidden overflow-hidden rounded-xl border border-white/[0.07] lg:block">
+          <table className="w-full text-left text-[13px]">
+            <thead className="border-b border-white/[0.07] bg-white/[0.02] text-[11px] uppercase tracking-wider text-slate-500">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Asset</th>
+                <th className="px-4 py-3 font-semibold">Network</th>
+                <th className="px-4 py-3 text-right font-semibold">Wallet</th>
+                <th className="px-4 py-3 text-right font-semibold">Escrow</th>
+                <th className="px-4 py-3 text-right font-semibold">Locked</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.05]">
-              {balanceTableRows.map((row) => {
-                const lockedTotal = row.walletLocked + row.escrowLocked;
-                const hasValue = row.walletAvailable > 0 || row.escrowAvailable > 0 || lockedTotal > 0;
-                return (
-                  <tr key={row.crypto} className="bg-white/[0.015] transition hover:bg-white/[0.035]">
-                    <td className="px-3 py-2.5">
-                      <span className={hasValue ? "font-black text-white" : "font-black text-slate-600"}>{row.crypto}</span>
-                    </td>
-                    <td className="max-w-[220px] truncate px-3 py-2.5 font-semibold text-slate-600">{row.network}</td>
-                    <td className={row.walletAvailable > 0 ? "px-3 py-2.5 text-right font-black text-white" : "px-3 py-2.5 text-right font-black text-slate-700"}>
-                      {formatCoinAmount(row.crypto, row.walletAvailable)}
-                    </td>
-                    <td className={row.escrowAvailable > 0 ? "px-3 py-2.5 text-right font-black text-white" : "px-3 py-2.5 text-right font-black text-slate-700"}>
-                      {formatCoinAmount(row.crypto, row.escrowAvailable)}
-                    </td>
-                    <td className={lockedTotal > 0 ? "px-3 py-2.5 text-right font-black text-amber-400" : "px-3 py-2.5 text-right font-black text-slate-700"}>
-                      {formatCoinAmount(row.crypto, lockedTotal)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="hidden gap-2 border-b border-white/[0.06] px-4 py-3 text-[11px] text-slate-500 sm:grid sm:grid-cols-3">
-        <div className="flex items-start gap-2">
-          <Icon name="download" className="mt-0.5 text-sm text-[#087cff]" />
-          <span>Receive crypto to wallet addresses.</span>
-        </div>
-        <div className="flex items-start gap-2">
-          <Icon name="arrow_upward" className="mt-0.5 text-sm text-[#05b957]" />
-          <span>Fund escrow for crypto ads. KES Coin uses fiat wallet automatically.</span>
-        </div>
-        <div className="flex items-start gap-2">
-          <Icon name="percent" className="mt-0.5 text-sm text-amber-400" />
-          <span>Trade fees are deducted on release.</span>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between border-b border-white/[0.05] px-4 py-2.5">
-        <div>
-          <p className="text-xs font-black text-white">Recent Escrow Movements</p>
-          <p className="mt-0.5 text-[11px] text-slate-600">Funds moved into merchant escrow.</p>
-        </div>
-      </div>
-
-      {/* Escrow movement history table */}
-      {loading ? (
-        <div className="flex items-center justify-center py-5">
-          <div className="w-5 h-5 border-2 border-white/10 border-t-[#05b957] rounded-full animate-spin" />
-        </div>
-      ) : deposits.length === 0 ? (
-        <div className="flex min-h-[78px] flex-col items-center justify-center px-4 py-3 text-center">
-          <Icon name="account_balance_wallet" className="mb-2 text-2xl text-slate-700" />
-          <p className="text-slate-500 text-sm">No escrow movements yet</p>
-          <p className="text-slate-600 text-xs mt-1">Use Fund Escrow above to move wallet crypto here</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-white/[0.05]">
-                {[
-                  { h: "Date",    hide: false },
-                  { h: "Crypto",  hide: false },
-                  { h: "Amount",  hide: false },
-                  { h: "Network", hide: true },
-                  { h: "TX Hash", hide: true },
-                  { h: "Status",  hide: false },
-                ].map(({ h, hide }) => (
-                  <th key={h} className={`px-3 py-3 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest sm:px-4 ${hide ? "hidden sm:table-cell" : ""}`}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {deposits.map((d, i) => (
-                <tr key={d.id} className={`${i < deposits.length - 1 ? "border-b border-white/[0.04]" : ""} hover:bg-white/[0.02] transition-colors`}>
-                  <td className="px-3 py-3 text-slate-500 text-xs whitespace-nowrap sm:px-4">{new Date(d.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short" })}</td>
-                  <td className="px-3 py-3 text-white font-black text-xs sm:px-4">{d.crypto}</td>
-                  <td className="px-3 py-3 text-white font-black text-xs sm:px-4 sm:text-sm">{Number(d.amount).toFixed(6)}</td>
-                  <td className="hidden px-3 py-3 text-slate-400 text-xs sm:table-cell sm:px-4">{d.network}</td>
-                  <td className="hidden px-3 py-3 font-mono text-slate-500 text-xs sm:table-cell sm:px-4">
-                    {d.txHash ? (
-                      <span title={d.txHash}>{d.txHash.length > 14 ? `${d.txHash.slice(0, 7)}…${d.txHash.slice(-7)}` : d.txHash}</span>
-                    ) : (
-                      <span className="text-slate-700">—</span>
-                    )}
+              {visibleBalanceRows.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                    No balances yet — receive crypto or show all assets.
                   </td>
-                  <td className="px-3 py-3 sm:px-4"><Badge status={d.status} /></td>
                 </tr>
-              ))}
+              ) : (
+                visibleBalanceRows.map((row) => {
+                  const meta = P2P_CRYPTOS.find((c) => c.symbol === row.crypto);
+                  const locked = row.walletLocked + row.escrowLocked;
+                  return (
+                    <tr key={row.crypto} className="transition hover:bg-white/[0.02]">
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-2.5">
+                          {meta?.icon ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={meta.icon} alt="" className="h-7 w-7 rounded-full" />
+                          ) : (
+                            <span className="grid h-7 w-7 place-items-center rounded-full bg-white/[0.06] text-[10px] font-bold text-slate-400">
+                              {row.crypto.slice(0, 1)}
+                            </span>
+                          )}
+                          <span className="font-bold text-white">{row.crypto}</span>
+                        </div>
+                      </td>
+                      <td className="max-w-[200px] truncate px-4 py-3.5 text-slate-500">{row.network}</td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-white">
+                        {formatCoinAmount(row.crypto, row.walletAvailable)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-white">
+                        {formatCoinAmount(row.crypto, row.escrowAvailable)}
+                      </td>
+                      <td className={`whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums ${locked > 0 ? "text-amber-400" : "text-slate-600"}`}>
+                        {formatCoinAmount(row.crypto, locked)}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
-      )}
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        {[
+          { icon: "download", text: "Receive crypto to your wallet address first." },
+          { icon: "arrow_upward", text: "Fund escrow to back sell ads. Local coins use fiat wallet automatically." },
+          { icon: "percent", text: "Trade fees are deducted when the order releases." },
+        ].map((t) => (
+          <div key={t.text} className="flex items-start gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
+            <Icon name={t.icon} className="mt-0.5 text-[16px] text-[#087cff]" />
+            <span className="text-[12px] leading-5 text-slate-400">{t.text}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025]">
+        <div className="border-b border-white/[0.06] px-4 py-3.5 sm:px-5">
+          <p className="text-[14px] font-bold text-white">Recent escrow movements</p>
+          <p className="mt-0.5 text-[12px] text-slate-500">Funds moved into merchant escrow.</p>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
+          </div>
+        ) : deposits.length === 0 ? (
+          <div className="flex min-h-[100px] flex-col items-center justify-center px-4 py-8 text-center">
+            <Icon name="account_balance_wallet" className="mb-2 text-[28px] text-slate-700" />
+            <p className="text-[13px] text-slate-500">No escrow movements yet</p>
+            <p className="mt-1 text-[12px] text-slate-600">Use Fund Escrow above to move wallet crypto here</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-white/[0.05] text-[11px] uppercase tracking-wider text-slate-500">
+                  {[
+                    { h: "Date", hide: false },
+                    { h: "Crypto", hide: false },
+                    { h: "Amount", hide: false },
+                    { h: "Network", hide: true },
+                    { h: "TX Hash", hide: true },
+                    { h: "Status", hide: false },
+                  ].map(({ h, hide }) => (
+                    <th key={h} className={`px-4 py-3 text-left font-semibold ${hide ? "hidden sm:table-cell" : ""}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {deposits.map((d, i) => (
+                  <tr key={d.id} className={`${i < deposits.length - 1 ? "border-b border-white/[0.04]" : ""} hover:bg-white/[0.02]`}>
+                    <td className="whitespace-nowrap px-4 py-3 text-slate-500">{new Date(d.createdAt).toLocaleDateString("en-KE", { day: "2-digit", month: "short" })}</td>
+                    <td className="px-4 py-3 font-bold text-white">{d.crypto}</td>
+                    <td className="px-4 py-3 font-semibold tabular-nums text-white">{formatCoinAmount(d.crypto, Number(d.amount))}</td>
+                    <td className="hidden px-4 py-3 text-slate-400 sm:table-cell">{d.network}</td>
+                    <td className="hidden px-4 py-3 font-mono text-[11px] text-slate-500 sm:table-cell">
+                      {d.txHash ? (
+                        <span title={d.txHash}>{d.txHash.length > 14 ? `${d.txHash.slice(0, 7)}…${d.txHash.slice(-7)}` : d.txHash}</span>
+                      ) : (
+                        <span className="text-slate-700">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3"><Badge status={d.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -2966,9 +2961,9 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const adPageCount = Math.max(1, Math.ceil(filteredAds.length / adsPerPage));
   const visibleAds = filteredAds.slice((adPage - 1) * adsPerPage, adPage * adsPerPage);
 
-  // Ads + profile match the browse market width; payments/wallet stay phone-width.
+  // Ads + profile + escrow match the browse market width; payments stay phone-width.
   // Ads/profile/payments/wallet hide the dashboard chrome (they have their own headers).
-  const phoneShell = section === "payments" || section === "wallet";
+  const phoneShell = section === "payments";
   const hideDashboardChrome =
     section === "ads" || section === "profile" || section === "payments" || section === "wallet";
 
