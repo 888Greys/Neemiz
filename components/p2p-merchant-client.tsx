@@ -2449,24 +2449,6 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
             document.body,
           )}
 
-          {pickerMounted && (
-            <PaymentMethodsSheet
-              open={paySheetOpen}
-              fiat={form.fiat}
-              multi
-              allowAll={false}
-              value={form.paymentMethods}
-              onClose={() => setPaySheetOpen(false)}
-              onConfirm={(codes) => {
-                if (!Array.isArray(codes)) return;
-                f(
-                  "paymentMethods",
-                  codes.filter((c) => ALL_PAYMENT_CODES.has(c)),
-                );
-              }}
-            />
-          )}
-
           <div>
             <label className="mb-2 block text-[11px] font-black uppercase tracking-wide text-slate-400">Price type</label>
             <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl bg-white/[0.04] p-1">
@@ -2789,6 +2771,26 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           </div>
         </div>
       </div>
+
+      {/* Portaled outside step panels — button lives on step 2 (amount & methods). */}
+      {pickerMounted && createPortal(
+        <PaymentMethodsSheet
+          open={paySheetOpen}
+          fiat={form.fiat}
+          multi
+          allowAll={false}
+          value={form.paymentMethods}
+          onClose={() => setPaySheetOpen(false)}
+          onConfirm={(codes) => {
+            if (!Array.isArray(codes)) return;
+            f(
+              "paymentMethods",
+              codes.filter((c) => ALL_PAYMENT_CODES.has(c)),
+            );
+          }}
+        />,
+        document.body,
+      )}
     </div>
   );
 }
