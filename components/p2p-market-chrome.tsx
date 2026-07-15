@@ -228,9 +228,9 @@ export function SelectCoinSheet({
   const filtered = term ? coins.filter((c) => c.toLowerCase().includes(term)) : coins;
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/65" onClick={onClose}>
+    <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/65 sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:max-h-[min(32rem,80dvh)] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between px-4 py-3">
@@ -334,9 +334,9 @@ export function PaymentMethodsSheet({
   );
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/65" onClick={onClose}>
+    <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/65 sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl bg-[#1c1c1e] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:max-h-[min(32rem,80dvh)] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3">
@@ -485,9 +485,9 @@ export function AmountFilterSheet({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/65" onClick={onClose}>
+    <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/65 sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-t-2xl bg-[#1c1c1e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4"
+        className="w-full max-w-lg rounded-t-2xl bg-[#1c1c1e] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

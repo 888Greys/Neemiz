@@ -131,7 +131,7 @@ function MyAdsEmptyShell({
   const [activeMode, setActiveMode] = useState(false);
 
   return (
-    <div className="mx-auto w-full max-w-lg px-3 pb-10 pt-1 sm:max-w-xl sm:px-4">
+    <div className="mx-auto w-full max-w-6xl px-3 pb-10 pt-1 sm:px-4">
       <div className="mb-1 flex items-center justify-between py-2">
         <Link
           href="/p2p"
@@ -2140,7 +2140,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/90 backdrop-blur-md p-0 sm:items-center sm:p-4" onClick={onClose}>
-      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[440px] flex-col overflow-hidden border-white/10 bg-[#151518] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl sm:border" onClick={(e) => e.stopPropagation()}>
+      <div className="no-scrollbar flex h-[100dvh] w-full max-w-[440px] flex-col overflow-hidden border-white/10 bg-[#151518] shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-xl sm:rounded-2xl sm:border md:max-w-2xl" onClick={(e) => e.stopPropagation()}>
         {/* ── Header + stepper ── */}
         <div className="shrink-0 border-b border-white/[0.07] bg-[#151518] px-4 pb-5 pt-[calc(1.1rem+env(safe-area-inset-top))]">
           <div className="mb-6 flex items-center justify-between">
@@ -2244,9 +2244,9 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           </div>
 
           {pickerMounted && cryptoOpen && !isEditing && createPortal(
-            <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/65" onClick={() => setCryptoOpen(false)}>
+            <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/65 sm:items-center sm:p-4" onClick={() => setCryptoOpen(false)}>
               <div
-                className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 bg-[#151518] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 bg-[#151518] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:max-h-[min(32rem,80dvh)] sm:rounded-2xl"
                 onClick={(e) => e.stopPropagation()}
               >
               <div className="flex shrink-0 items-center justify-between px-4 py-3">
@@ -2325,9 +2325,9 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           )}
 
           {pickerMounted && fiatOpen && createPortal(
-            <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/65" onClick={() => setFiatOpen(false)}>
+            <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/65 sm:items-center sm:p-4" onClick={() => setFiatOpen(false)}>
               <div
-                className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 bg-[#151518] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+                className="flex max-h-[88dvh] w-full max-w-lg flex-col rounded-t-2xl border border-white/10 bg-[#151518] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:max-h-[min(32rem,80dvh)] sm:rounded-2xl"
                 onClick={(e) => e.stopPropagation()}
               >
               <div className="flex shrink-0 items-center justify-between px-4 py-3">
@@ -2962,14 +2962,18 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const adPageCount = Math.max(1, Math.ceil(filteredAds.length / adsPerPage));
   const visibleAds = filteredAds.slice((adPage - 1) * adsPerPage, adPage * adsPerPage);
 
-  const cleanSection = section === "ads" || section === "profile" || section === "payments" || section === "wallet";
+  // Ads match the browse market width; profile/payments/wallet stay phone-width.
+  // Ads/profile/payments/wallet hide the dashboard chrome (they have their own headers).
+  const phoneShell = section === "profile" || section === "payments" || section === "wallet";
+  const hideDashboardChrome =
+    section === "ads" || section === "profile" || section === "payments" || section === "wallet";
 
   return (
-    <div className={`mx-auto w-full px-3 py-4 sm:px-4 ${cleanSection ? "max-w-lg sm:max-w-xl" : "max-w-6xl"}`}>
+    <div className={`mx-auto w-full px-3 py-4 sm:px-4 ${phoneShell ? "max-w-lg sm:max-w-xl" : "max-w-6xl"}`}>
       {createOpen && <CreateAdModal onClose={() => setCreate(false)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
       {editingAd && <CreateAdModal ad={editingAd} onClose={() => setEditingAd(null)} onCreated={loadAds} onSetupPayments={goToAddPayment} />}
 
-      {!cleanSection && (
+      {!hideDashboardChrome && (
       <>
       {/* Merchant header */}
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -3277,23 +3281,23 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
               const dotColor = P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)?.color ?? "#087cff";
               return (
-                <div key={ad.id} className="relative grid w-full grid-cols-[minmax(0,1fr)_44px] gap-3 rounded-lg bg-white/[0.03] px-3 py-2.5 ring-1 ring-white/[0.07] transition hover:bg-white/[0.03] hover:ring-white/[0.14] sm:px-4 lg:items-center">
-                  <div className="min-w-0">
-                    {/* Row 1: crypto dot + name + side badge + status */}
+                <div key={ad.id} className="relative grid w-full grid-cols-[minmax(0,1fr)_44px] gap-3 rounded-xl bg-white/[0.03] px-3 py-3 ring-1 ring-white/[0.07] transition hover:bg-white/[0.04] hover:ring-white/[0.14] sm:px-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_44px] lg:items-center lg:gap-4 lg:py-4">
+                  <div className="min-w-0 lg:contents">
+                    {/* Advertiser / asset */}
                     <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-0">
                       {P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)?.icon ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)!.icon} alt={ad.crypto} className="h-5 w-5 shrink-0 rounded-full" />
+                        <img src={P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)!.icon} alt={ad.crypto} className="h-5 w-5 shrink-0 rounded-full lg:h-8 lg:w-8" />
                       ) : (
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-black" style={{ backgroundColor: dotColor }}>
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-black lg:h-8 lg:w-8" style={{ backgroundColor: dotColor }}>
                           {ad.crypto.charAt(0)}
                         </div>
                       )}
-                      <span className="text-[12px] font-black text-white">{ad.crypto}</span>
-                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+                      <span className="text-[12px] font-black text-white lg:text-[15px]">{ad.crypto}</span>
+                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-black lg:text-[10px] ${
                         ad.side === "SELL" ? "bg-red-500/12 text-red-400" : "bg-[#05b957]/12 text-[#05b957]"
                       }`}>{ad.side}</span>
-                      <span className={`ml-auto flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-black ${
+                      <span className={`ml-auto flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-black lg:ml-0 ${
                         ad.isActive ? "bg-[#05b957]/10 text-[#05b957]" : "bg-white/[0.05] text-slate-500"
                       }`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${ad.isActive ? "bg-[#05b957] animate-pulse" : "bg-slate-600"}`} />
@@ -3301,51 +3305,49 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                       </span>
                     </div>
 
-                    {/* Row 2: large price */}
+                    {/* Price */}
                     <div className="mb-2.5 lg:mb-0">
-                      <p className="flex items-center gap-1.5 text-[10px] font-semibold leading-3 text-white/45">
+                      <p className="flex items-center gap-1.5 text-[10px] font-semibold leading-3 text-white/45 lg:text-[11px]">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={flagUrl(ad.fiat)} alt="" className="h-3.5 w-5 rounded-sm object-cover" />
                         {ad.fiat}
                       </p>
-                      <p className="text-[16px] font-black leading-tight text-white tabular-nums lg:text-base">
+                      <p className="text-[16px] font-black leading-tight text-white tabular-nums lg:text-[20px]">
                         {formatFiat(Number(ad.pricePerUnit), ad.fiat, { symbol: false, decimals: 2 })}
                       </p>
                     </div>
 
-                    {/* Row 3: limits + quantity */}
-                    <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40 lg:flex lg:flex-wrap lg:gap-x-4 lg:space-y-0">
+                    {/* Limits + quantity + payments */}
+                    <div className="space-y-0.5 text-[10px] font-semibold leading-4 text-white/40 lg:space-y-1 lg:text-[12px] lg:leading-5">
                       <p>Limits <span className="text-white/65">{formatFiat(Number(ad.minLimit), ad.fiat, { symbol: false })} – {formatFiat(Number(ad.maxLimit), ad.fiat, { symbol: false })} {ad.fiat}</span></p>
                       <p>{ad.side === "SELL" ? "Quantity" : "Buying"} <span className="text-white/65">{Number(ad.availableAmount).toLocaleString("en-US", { maximumFractionDigits: 4 })} {ad.crypto}</span></p>
-                    </div>
-
-                    {/* Row 4: payment methods */}
-                    <div className="mt-1.5 flex min-w-0 flex-wrap gap-x-2 gap-y-1 lg:mt-1">
-                      {ad.paymentMethods.map((m) => (
-                        <span key={m} className="flex items-center gap-1 text-[10px] font-semibold text-white/45">
-                          <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
-                          {pmLabel(m)}
-                        </span>
-                      ))}
+                      <div className="mt-1.5 flex min-w-0 flex-wrap gap-x-2 gap-y-1 lg:mt-1">
+                        {ad.paymentMethods.map((m) => (
+                          <span key={m} className="flex items-center gap-1 text-[10px] font-semibold text-white/45 lg:text-[11px]">
+                            <span className={`h-3 w-0.5 rounded-full ${m === "MPESA" ? "bg-[#05b957]" : "bg-[#f59e0b]"}`} />
+                            {pmLabel(m)}
+                          </span>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Fill bar */}
-                    <div className="mt-2 flex items-center gap-2 lg:mt-1">
-                      <div className="h-1 w-20 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div className="mt-2 flex items-center gap-2 lg:mt-0">
+                      <div className="h-1 w-20 overflow-hidden rounded-full bg-white/[0.06] lg:w-28">
                         <div className="h-full rounded-full bg-[#087cff] transition-all" style={{ width: `${fillPct}%` }} />
                       </div>
-                      <span className="text-[10px] text-white/30">{fillPct.toFixed(0)}% filled</span>
+                      <span className="text-[10px] text-white/30 lg:text-[11px]">{fillPct.toFixed(0)}% filled</span>
                     </div>
 
                     {/* Validation error */}
                     {ad.validationError && (
-                      <div className="mt-2 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.08] px-2 py-1.5 text-[10px] font-semibold text-[#f59e0b]">
+                      <div className="mt-2 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.08] px-2 py-1.5 text-[10px] font-semibold text-[#f59e0b] lg:col-span-4">
                         {ad.validationError}
                       </div>
                     )}
                   </div>
 
-                  <div className="flex items-start justify-end">
+                  <div className="flex items-start justify-end lg:items-center">
                     <button
                       type="button"
                       onClick={() => setOpenAdMenu((current) => current === ad.id ? null : ad.id)}
