@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
+import { useCurrency } from "@/lib/currency-context";
 import { Icon } from "@/components/icon";
 import Link from "next/link";
-import { MONEY_LOCALE, CURRENCY_SYMBOL } from "@/lib/currency";
 
 const QUICK_LINKS = [
   { href: "/wallet", icon: "account_balance_wallet", label: "Wallet & Deposits", sub: "Manage your funds" },
@@ -23,7 +23,8 @@ const SETTINGS = [
 export function ProfileClient() {
   const { user, isLoaded, isSignedIn, signOut } = useSupabaseAuth();
   const router = useRouter();
-  const { balance, currency } = useWalletBalance();
+  const { balance } = useWalletBalance();
+  const { format: formatDisplay } = useCurrency();
 
   if (!isLoaded) {
     return (
@@ -56,7 +57,7 @@ export function ProfileClient() {
   const email = user.email;
   const phone = user.phone ?? meta.phone_number;
   const isVerified = user.email_confirmed_at != null;
-  const fmtBalance = `${currency === "KES" ? CURRENCY_SYMBOL : currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`;
+  const fmtBalance = formatDisplay(balance);
   const memberSince = user.created_at
     ? new Date(user.created_at).toLocaleDateString("en-KE", { month: "long", year: "numeric" })
     : "—";

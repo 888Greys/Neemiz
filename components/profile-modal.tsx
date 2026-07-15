@@ -1350,6 +1350,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const { user, signOut } = useSupabaseAuth();
   const router = useRouter();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
+  const { format: formatDisplay, code: displayCode, currency: displayCurrency } = useCurrency();
   const [view, setView] = useState<ProfileView>(initialView ?? "main");
   const [editingUsername, setEditingUsername] = useState(false);
   const [usernameInput, setUsernameInput] = useState("");
@@ -1366,7 +1367,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const email       = user?.email;
   const phone       = user?.phone ?? meta.phone_number ?? null;
   const isVerified  = user?.email_confirmed_at != null;
-  const fmtBalance  = `${currency === "KES" ? CURRENCY_SYMBOL : currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`;
+  const fmtBalance  = formatDisplay(balance);
   const memberId    = user?.id?.slice(-8).toUpperCase() ?? "—";
 
   const back = useCallback(() => {
@@ -1416,8 +1417,6 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
       setUsernameSaving(false);
     }
   }
-
-  const { code: displayCode, currency: displayCurrency } = useCurrency();
 
   const MENU = [
     { icon: "confirmation_number", label: "Promotion code",  sub: "Code activation",                 action: () => setView("promotion-codes") },

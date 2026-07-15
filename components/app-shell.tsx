@@ -21,6 +21,7 @@ import { PhonePromptModal } from "@/components/phone-prompt-modal";
 import { readNavRecents, trackNavRecent, type NavRecent } from "@/lib/nav-recents";
 import { COMPANY } from "@/lib/company";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
+import { useCurrency } from "@/lib/currency-context";
 
 const LoginModal = dynamic(
   () => import("@/components/login-modal").then((mod) => mod.LoginModal),
@@ -452,7 +453,8 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 }
 
 function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
-  const { balance, currency } = useWalletBalance();
+  const { balance } = useWalletBalance();
+  const { convert, currency: displayCurrency, code } = useCurrency();
   // Header/home balance is shown by default; a saved preference still wins.
   const [hidden, setHidden] = useState(false);
 
@@ -469,6 +471,11 @@ function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
     });
   };
 
+  const shown = convert(balance).toLocaleString(displayCurrency.locale, {
+    minimumFractionDigits: displayCurrency.decimals,
+    maximumFractionDigits: displayCurrency.decimals,
+  });
+
   return (
     <div className="flex items-center gap-1 rounded-full bg-[#18191d] py-1 pl-3 pr-1.5 ring-1 ring-white/[0.08]">
       <button
@@ -479,9 +486,9 @@ function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
         className="flex items-baseline gap-1 text-left"
       >
         <span className="text-[13px] font-black tabular-nums text-white">
-          {hidden ? "＊＊＊" : balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          {hidden ? "＊＊＊" : shown}
         </span>
-        <span className="text-[10px] font-bold text-slate-400">{currency}</span>
+        <span className="text-[10px] font-bold text-slate-400">{code}</span>
       </button>
       <button
         type="button"
@@ -684,7 +691,8 @@ function MobileMenuDrawer({
   recents: NavRecent[];
 }) {
   const { isSignedIn, signOut } = useSupabaseAuth();
-  const { balance, currency } = useWalletBalance();
+  const { balance } = useWalletBalance();
+  const { convert, currency: displayCurrency, code: displayCode } = useCurrency();
   // Sidebar balance is masked by default every time the drawer opens.
   const [balanceHidden, setBalanceHidden] = useState(true);
   const router = useRouter();
@@ -877,8 +885,13 @@ function MobileMenuDrawer({
                 >
                   <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Wallet balance</span>
                   <span className="mt-0.5 block text-[22px] font-black leading-none tabular-nums text-white">
-                    {balanceHidden ? "＊＊＊＊" : balance.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    <span className="ml-1.5 text-[12px] font-bold text-slate-500">{currency}</span>
+                    {balanceHidden
+                      ? "＊＊＊＊"
+                      : convert(balance).toLocaleString(displayCurrency.locale, {
+                          minimumFractionDigits: displayCurrency.decimals,
+                          maximumFractionDigits: displayCurrency.decimals,
+                        })}
+                    <span className="ml-1.5 text-[12px] font-bold text-slate-500">{displayCode}</span>
                   </span>
                 </button>
                 <button

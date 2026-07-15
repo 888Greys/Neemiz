@@ -677,9 +677,8 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
   function reset() { setDeposit({ step: "idle" }); setAmount(""); setError(""); pollCount.current = 0; }
 
-  const fmtBalance = currency === "KES"
-    ? formatDisplay(balance)
-    : `${currency} ${balance.toLocaleString(MONEY_LOCALE, { minimumFractionDigits: 2 })}`;
+  // Ledger is always KES — convert via the active display currency.
+  const fmtBalance = formatDisplay(balance);
   const kesCoinAvailable = currency === "KES" ? balance : 0;
 
   // Crypto balance for currently selected withdraw asset
