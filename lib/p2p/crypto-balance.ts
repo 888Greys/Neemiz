@@ -7,6 +7,7 @@
 
 import { TransactionStatus, TransactionType, type Prisma } from "@prisma/client";
 import { getPromoLockedKes, assertRealDepositForWithdrawal } from "@/lib/promo-lock";
+import { isActiveLocalCoin } from "@/lib/p2p/local-coins";
 
 // The tx parameter accepts either the full PrismaClient or a transaction client.
 type TxClient = Omit<
@@ -358,6 +359,10 @@ export async function settleCryptoEscrowRelease(
  * Update this as new networks are added.
  */
 export function defaultNetwork(crypto: string): string {
+  const sym = crypto.toUpperCase();
+  // Local coins (KES, UGX, TZS, …) are in-app currencies whose "network" is
+  // simply their own currency code, so escrow balance rows key deterministically.
+  if (isActiveLocalCoin(sym)) return sym;
   const map: Record<string, string> = {
     KES:   KES_NETWORK,
     USDT:  "TRC20",

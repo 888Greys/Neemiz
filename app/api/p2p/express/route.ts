@@ -9,8 +9,9 @@ import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
+import { ACTIVE_LOCAL_COIN_CODES } from "@/lib/p2p/local-coins";
 
-const VALID_CRYPTOS = new Set(["USDT", "USDC", "BTC", "ETH", "BNB", "KES"]);
+const VALID_CRYPTOS = new Set(["USDT", "USDC", "BTC", "ETH", "BNB", ...ACTIVE_LOCAL_COIN_CODES]);
 const VALID_FIATS   = new Set(FIAT_CURRENCIES.map((f) => f.code));
 
 /**

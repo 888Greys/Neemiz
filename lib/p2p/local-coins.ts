@@ -7,11 +7,13 @@
  * (UG Coin ↔ UGX, TZ Coin ↔ TZS, …), each 1:1 to its local currency.
  *
  * ── Activation ──
- * A coin is `active` only once the platform can actually hold and move that
- * currency — i.e. the account has a wallet balance in that currency plus deposit
- * and withdrawal rails for it. Today the wallet is KES-only, so KES is the only
- * active coin; the rest are defined and ready to switch on as the multi-currency
- * wallet work lands (flip `active: true`). Nothing offers a coin we can't back.
+ * An `active` coin is listed everywhere and tradeable on P2P. KES is special:
+ * it aliases the user's fiat wallet (User.walletBalance) so M-Pesa deposits fund
+ * it and P2P sells count as withdrawals. Every OTHER active local coin rides the
+ * generic crypto escrow rails instead (UserCryptoBalance + P2PCryptoBalance),
+ * pegged 1:1 to its local currency — an in-app balance with no on-chain deposit/
+ * withdraw. Balances are seeded directly (admin/house merchant) since there is no
+ * external rail; from there they trade like any other P2P asset.
  *
  * The coin's P2P symbol IS its ISO-4217 currency code (KES, UGX, …); the `name`
  * is the display label (KES Coin, UG Coin, …).
@@ -31,12 +33,12 @@ export type LocalCoin = {
 
 export const LOCAL_COINS: LocalCoin[] = [
   { currency: "KES", name: "KES Coin", region: "Kenya",        flagCode: "ke", active: true },
-  { currency: "UGX", name: "UG Coin",  region: "Uganda",       flagCode: "ug", active: false },
-  { currency: "TZS", name: "TZ Coin",  region: "Tanzania",     flagCode: "tz", active: false },
-  { currency: "NGN", name: "NG Coin",  region: "Nigeria",      flagCode: "ng", active: false },
-  { currency: "GHS", name: "GH Coin",  region: "Ghana",        flagCode: "gh", active: false },
-  { currency: "ZAR", name: "ZA Coin",  region: "South Africa", flagCode: "za", active: false },
-  { currency: "RWF", name: "RW Coin",  region: "Rwanda",       flagCode: "rw", active: false },
+  { currency: "UGX", name: "UG Coin",  region: "Uganda",       flagCode: "ug", active: true },
+  { currency: "TZS", name: "TZ Coin",  region: "Tanzania",     flagCode: "tz", active: true },
+  { currency: "NGN", name: "NG Coin",  region: "Nigeria",      flagCode: "ng", active: true },
+  { currency: "GHS", name: "GH Coin",  region: "Ghana",        flagCode: "gh", active: true },
+  { currency: "ZAR", name: "ZA Coin",  region: "South Africa", flagCode: "za", active: true },
+  { currency: "RWF", name: "RW Coin",  region: "Rwanda",       flagCode: "rw", active: true },
 ];
 
 /** Coins that are live (currently just KES). */
@@ -44,6 +46,15 @@ export const ACTIVE_LOCAL_COINS = LOCAL_COINS.filter((c) => c.active);
 
 /** The set of currency codes that are live local coins — for O(1) checks. */
 export const ACTIVE_LOCAL_COIN_SYMBOLS = new Set(ACTIVE_LOCAL_COINS.map((c) => c.currency));
+
+/** Live local-coin currency codes, in registry order — for building UI/whitelist arrays. */
+export const ACTIVE_LOCAL_COIN_CODES = ACTIVE_LOCAL_COINS.map((c) => c.currency);
+
+/** Flag icon URL for a local coin (its P2P coin icon), or null if unknown. */
+export function localCoinIconUrl(currency?: string | null): string | null {
+  const coin = localCoinForCurrency(currency);
+  return coin ? `https://flagcdn.com/w80/${coin.flagCode}.png` : null;
+}
 
 export function localCoinForCurrency(currency?: string | null): LocalCoin | null {
   if (!currency) return null;

@@ -9,9 +9,11 @@ import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
 import { assertKesSellBacking } from "@/lib/p2p/ad-backing";
+import { ACTIVE_LOCAL_COIN_CODES, isActiveLocalCoin } from "@/lib/p2p/local-coins";
 
-// "KES" is the in-app KES Coin, backed 1:1 by fiat wallet balance.
-const VALID_CRYPTOS = ["USDT", "USDC", "BTC", "ETH", "BNB", "KES"];
+// Real cryptos plus every active in-app local coin (KES, UG, TZ, …). Local coins
+// are 1:1-pegged in-app currencies that trade over the same escrow rails.
+const VALID_CRYPTOS = [...new Set(["USDT", "USDC", "BTC", "ETH", "BNB", ...ACTIVE_LOCAL_COIN_CODES])];
 const VALID_SIDES: AdSide[] = ["BUY", "SELL"];
 const VALID_FIATS = new Set(FIAT_CURRENCIES.map((f) => f.code));
 
@@ -167,10 +169,10 @@ export async function POST(req: Request) {
 
     if (!Number.isFinite(pricePerUnitNum) || pricePerUnitNum <= 0)
       return Response.json({ error: "Invalid price per unit" }, { status: 400 });
-    // Guard against fat-fingering KES Coin like a crypto (e.g. 130) — keep its
-    // spread within ±100% of the 1:1 peg.
-    if (isKesCoin(crypto as string) && (pricePerUnitNum < 0.5 || pricePerUnitNum > 2))
-      return Response.json({ error: "KES Coin price must be between 0.50 and 2.00 (max ±100% spread on the 1:1 peg)." }, { status: 400 });
+    // Guard against fat-fingering a 1:1-pegged local coin like a crypto (e.g. 130)
+    // — keep its spread within ±100% of the 1:1 peg.
+    if (isActiveLocalCoin(crypto as string) && (pricePerUnitNum < 0.5 || pricePerUnitNum > 2))
+      return Response.json({ error: `${(crypto as string).toUpperCase()} Coin price must be between 0.50 and 2.00 (max ±100% spread on the 1:1 peg).` }, { status: 400 });
     if (!Number.isFinite(totalAmountNum) || totalAmountNum <= 0)
       return Response.json({ error: "Invalid total amount" }, { status: 400 });
 

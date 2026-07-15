@@ -18,6 +18,7 @@ import {
   paymentChipLabel,
 } from "@/components/p2p-market-chrome";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
+import { ACTIVE_LOCAL_COINS } from "@/lib/p2p/local-coins";
 import { paymentMethodsForFiat, paymentMethodLabel, ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
 import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
@@ -1333,12 +1334,13 @@ const CRYPTO_ICONS: Record<string, string> = {
   BTC:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
   ETH:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
   BNB:   "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
-  KES:   "https://flagcdn.com/w80/ke.png",
+  // Local coins (KES, UG, TZ, …) use their country flag as the coin icon.
+  ...Object.fromEntries(ACTIVE_LOCAL_COINS.map((c) => [c.currency, `https://flagcdn.com/w80/${c.flagCode}.png`])),
 };
 
 // All cryptos supported for P2P (must match the ads API's VALID_CRYPTOS).
-// "KES" is the in-app KES Coin, backed 1:1 by fiat wallet balance.
-const CRYPTOS   = ["USDT", "USDC", "BTC", "ETH", "BNB", "KES"];
+// Local coins (KES, UG, TZ, …) are 1:1-pegged in-app currencies.
+const CRYPTOS   = ["USDT", "USDC", "BTC", "ETH", "BNB", ...ACTIVE_LOCAL_COINS.map((c) => c.currency)];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 

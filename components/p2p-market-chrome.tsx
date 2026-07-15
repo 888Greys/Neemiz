@@ -10,6 +10,7 @@ import {
   paymentMethodLabel,
   paymentMethodsForFiat,
 } from "@/lib/p2p/payment-methods";
+import { ACTIVE_LOCAL_COINS } from "@/lib/p2p/local-coins";
 
 export const P2P_COIN_ICONS: Record<string, string> = {
   USDT: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
@@ -17,10 +18,11 @@ export const P2P_COIN_ICONS: Record<string, string> = {
   BTC:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/btc.svg",
   ETH:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/eth.svg",
   BNB:  "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/bnb.svg",
-  KES:  "https://flagcdn.com/w80/ke.png",
+  // Local coins (KES, UG, TZ, …) use their country flag as the coin icon.
+  ...Object.fromEntries(ACTIVE_LOCAL_COINS.map((c) => [c.currency, `https://flagcdn.com/w80/${c.flagCode}.png`])),
 };
 
-export const P2P_MAIN_COINS = ["USDT", "USDC", "BTC", "ETH", "BNB", "KES"] as const;
+export const P2P_MAIN_COINS = ["USDT", "USDC", "BTC", "ETH", "BNB", ...ACTIVE_LOCAL_COINS.map((c) => c.currency)] as const;
 
 const flagUrl = (code: string) =>
   `https://flagcdn.com/w40/${code.slice(0, 2).toLowerCase()}.png`;
