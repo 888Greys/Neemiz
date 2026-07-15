@@ -25,6 +25,26 @@ export function Admin2FAClient({ totpEnabled, adminEmail }: Props) {
   const [verifyError, setVerifyError]       = useState("");
   const [copied, setCopied]                 = useState(false);
 
+  const [emailSending, setEmailSending]     = useState(false);
+  const [emailSentTo, setEmailSentTo]       = useState("");
+  const [emailError, setEmailError]         = useState("");
+
+  async function sendEmailCode() {
+    setEmailSending(true);
+    setEmailError("");
+    setEmailSentTo("");
+    try {
+      const res  = await fetch("/api/admin/2fa/email-code", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not send code");
+      setEmailSentTo(data.sentTo ?? "your email");
+    } catch (err) {
+      setEmailError(err instanceof Error ? err.message : "Could not send code");
+    } finally {
+      setEmailSending(false);
+    }
+  }
+
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { inputRef.current?.focus(); }, [setupData, totpEnabled]);
@@ -93,7 +113,7 @@ export function Admin2FAClient({ totpEnabled, adminEmail }: Props) {
             </div>
             <h1 className="text-[22px] font-black text-white tracking-tight">Two-factor auth</h1>
             <p className="mt-1.5 text-sm text-slate-500">
-              Enter the code from your authenticator app
+              Enter the code from your authenticator app, or email yourself one
             </p>
           </div>
 
@@ -129,6 +149,31 @@ export function Admin2FAClient({ totpEnabled, adminEmail }: Props) {
             >
               {verifyLoading ? <Spinner /> : "Continue to Admin"}
             </button>
+
+            {/* Email fallback — for when the authenticator app isn't available. */}
+            <div className="pt-1 text-center">
+              <button
+                type="button"
+                onClick={sendEmailCode}
+                disabled={emailSending}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 transition hover:text-slate-300 disabled:opacity-50"
+              >
+                {emailSending ? <Spinner /> : <Icon name="mail" size={13} />}
+                Send code to email
+              </button>
+              {emailSentTo && (
+                <p className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-[#31c45d]">
+                  <Icon name="check" size={13} />
+                  Code sent to {emailSentTo}
+                </p>
+              )}
+              {emailError && (
+                <p className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-red-400">
+                  <Icon name="error" size={13} />
+                  {emailError}
+                </p>
+              )}
+            </div>
           </div>
 
           <p className="mt-5 text-center text-xs text-slate-700">

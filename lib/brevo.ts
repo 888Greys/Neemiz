@@ -26,6 +26,18 @@ async function sendEmail(to: string, toName: string, subject: string, htmlConten
   if (!res.ok) throw new Error(`Resend send failed: ${await res.text()}`);
 }
 
+/** Admin login one-time code (email fallback when the authenticator is unavailable). */
+export async function sendAdminLoginCodeEmail(to: string, code: string) {
+  const html = `
+    <div style="font-family:system-ui,Segoe UI,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+      <h2 style="margin:0 0 8px;color:#0f172a">Nezeem admin login code</h2>
+      <p style="color:#475569;margin:0 0 16px">Use this code to sign in to the admin panel. It expires in 10 minutes.</p>
+      <div style="font-size:32px;font-weight:800;letter-spacing:8px;background:#f1f5f9;border-radius:12px;padding:18px;text-align:center;color:#0f172a">${escapeHtml(code)}</div>
+      <p style="color:#94a3b8;font-size:12px;margin:16px 0 0">If you didn't request this, ignore this email and consider rotating your admin credentials.</p>
+    </div>`;
+  await sendEmail(to, "Admin", "Your Nezeem admin login code", html);
+}
+
 export async function waitForEmailDelivery(
   label: string,
   emails: Array<Promise<unknown> | null | undefined>,

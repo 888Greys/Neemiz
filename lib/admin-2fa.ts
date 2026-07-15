@@ -59,6 +59,8 @@ export function totpUri(secret: string, email: string, issuer = "Nezeem Admin"):
 // ─── Admin session cookie ─────────────────────────────────────────────────────
 
 const COOKIE_NAME = "__nezeem_a2fa";
+// Holds the email-fallback OTP challenge (separate from the user-facing one).
+export const ADMIN_EMAIL_OTP_COOKIE = "__nezeem_admin_email_otp";
 const TTL_MS = 8 * 60 * 60 * 1000; // 8 hours
 
 function cookieSecret(): string {
