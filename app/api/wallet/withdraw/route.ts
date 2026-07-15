@@ -424,7 +424,10 @@ export async function GET() {
       resetsAt: null,
       phoneVerifyRequired,
       phoneVerified,
+      // Prefill only — admins may withdraw to any Safaricom number.
       boundPhone,
+      phoneLocked: false,
+      isAdmin: true,
     }, { headers: { "Cache-Control": "no-store" } });
   }
 
@@ -450,5 +453,7 @@ export async function GET() {
     phoneVerifyRequired,
     phoneVerified,
     boundPhone,
+    phoneLocked: Boolean(boundPhone),
+    isAdmin: false,
   }, { headers: { "Cache-Control": "no-store" } });
 }

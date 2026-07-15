@@ -197,6 +197,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   const [wdLimit, setWdLimit] = useState<{
     limit: number; used: number; remaining: number; resetsAt: string | null;
     phoneVerifyRequired?: boolean; phoneVerified?: boolean; boundPhone?: string | null;
+    phoneLocked?: boolean; isAdmin?: boolean;
   } | null>(null);
   const loadWdLimit = useCallback(() => {
     fetch("/api/wallet/withdraw", { cache: "no-store" })
@@ -207,8 +208,13 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
         // Once a number is bound (first withdrawal / mpesa / SMS verify), it is
         // locked for life — prefill it and render the field read-only. Does NOT
         // depend on Twilio/phoneVerified, so the lock holds even without SMS.
-        if (d.boundPhone) {
-          setWdPhone(d.boundPhone.startsWith("254") ? `0${d.boundPhone.slice(3)}` : d.boundPhone);
+        // Admins stay editable (phoneLocked: false) so they can test any number.
+        if (!d.boundPhone) return;
+        const local = d.boundPhone.startsWith("254") ? `0${d.boundPhone.slice(3)}` : d.boundPhone;
+        if (d.phoneLocked === false) {
+          setWdPhone((prev) => prev || local);
+        } else {
+          setWdPhone(local);
         }
       })
       .catch(() => {});
@@ -216,7 +222,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
   // ── First-withdrawal SMS verification modal ──
   const [phoneVerifyOpen, setPhoneVerifyOpen] = useState(false);
-  const phoneLocked = Boolean(wdLimit?.boundPhone);
+  const phoneLocked = wdLimit?.phoneLocked ?? Boolean(wdLimit?.boundPhone && !wdLimit?.isAdmin);
 
   // ── "Notify me when M-Pesa withdrawals reopen" opt-in (while paused) ──
   const [notifyState, setNotifyState] = useState<"idle" | "loading" | "subscribed">("idle");
@@ -1219,6 +1225,11 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       {phoneLocked && (
                         <p className="mt-2 text-[12px] font-medium text-slate-600">
                           Locked to your account. Contact support to change it.
+                        </p>
+                      )}
+                      {!phoneLocked && wdLimit?.isAdmin && (
+                        <p className="mt-2 text-[12px] font-medium text-slate-600">
+                          Admin: you can withdraw to any Safaricom number.
                         </p>
                       )}
                     </section>

@@ -34,9 +34,9 @@ export async function POST(req: Request) {
 
   // Locked-for-life: once a withdrawal number is set it is bound to the account
   // permanently. Changing it to a DIFFERENT number is refused (SIM swap / mule
-  // rerouting needs support/admin). This mirrors the phone/verify-otp lock and
-  // closes the bypass where this route could overwrite an already-bound number.
-  if (dbUser.phone) {
+  // rerouting needs support/admin). Admins are exempt so they can test payouts
+  // to arbitrary numbers without support tickets.
+  if (dbUser.phone && !dbUser.isAdmin) {
     return Response.json(
       { error: "Your withdrawal number is locked and can't be changed. Contact support to update it." },
       { status: 409 },
@@ -48,6 +48,9 @@ export async function POST(req: Request) {
   } catch (err) {
     // Unique constraint — the number is linked to a different account.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      // Admins may still withdraw to that number (withdraw route doesn't re-bind);
+      // just don't steal another account's phone row.
+      if (dbUser.isAdmin) return Response.json({ phone: dbUser.phone, unbound: true });
       return Response.json({ error: "This mobile number is already registered." }, { status: 409 });
     }
     throw err;
