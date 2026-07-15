@@ -1,7 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 
 // Constants
-const PROD_LOCAL_URL = "postgresql://postgres:[REPLACED_DB_PASSWORD]@127.0.0.1:5436/postgres";
 const APP_URL = "https://www.nezeem.com";
 const SENDER_EMAIL = "noreply@nezeem.com";
 const SENDER_NAME = "Nezeem";
@@ -113,11 +112,15 @@ async function main() {
     process.exit(1);
   }
 
-  // Setup Prisma client
+  // Setup Prisma client — DATABASE_URL must be provided in the environment.
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL env var is required to run this script.");
+  }
   const db = new PrismaClient({
     datasources: {
       db: {
-        url: process.env.DATABASE_URL || PROD_LOCAL_URL
+        url: databaseUrl
       }
     }
   });
