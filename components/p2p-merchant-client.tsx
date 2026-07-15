@@ -2142,6 +2142,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed");
       toast.success(isEditing ? "Ad updated successfully!" : "Ad created successfully!");
+      window.dispatchEvent(new CustomEvent("wallet-refresh"));
       onCreated();
       onClose();
     } catch (err: unknown) {
@@ -2922,6 +2923,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed");
+      window.dispatchEvent(new CustomEvent("wallet-refresh"));
       toast.success(!ad.isActive ? "Ad reactivated" : "Ad paused");
     } catch (err: unknown) {
       setAds(previousAds);
@@ -2936,6 +2938,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed to delete ad");
       setAds((current) => current.filter((item) => item.id !== ad.id));
+      window.dispatchEvent(new CustomEvent("wallet-refresh"));
       toast.success("Ad deleted");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete ad");

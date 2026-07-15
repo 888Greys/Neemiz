@@ -265,7 +265,10 @@ export async function DELETE(req: Request) {
       const orderCount = await tx.p2POrder.count({ where: { adId: ad.id } });
       if (orderCount > 0) throw new Error("AD_HAS_ORDERS");
 
-      if (ad.side === "SELL" && !isWalletBackedCoin(ad.crypto)) {
+      // Only unlock when the ad still held a live reserve. Pausing already
+      // returns funds to available — unlocking again would steal from other
+      // active SELL ads that share the same locked pool.
+      if (ad.isActive && ad.side === "SELL" && !isWalletBackedCoin(ad.crypto)) {
         const reserve = p2pMakerLock(Number(ad.availableAmount), Number(ad.feeRate));
         await unlockOnChainSellReserve(tx, {
           userId: dbUser.id,
