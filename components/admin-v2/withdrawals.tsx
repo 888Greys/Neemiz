@@ -122,7 +122,7 @@ function History() {
                   <tr key={w.id} className="transition-colors hover:bg-[#1c1b1c]">
                     <td className="whitespace-nowrap px-4 py-3 text-[#c2c6d6]">{new Date(w.createdAt).toLocaleString()}</td>
                     <td className="px-4 py-3">
-                      <Link href={`/admin/users/${w.user.id}`} target="_blank" className="font-semibold text-[#e5e2e3] hover:text-[#adc6ff]">
+                      <Link href={`/admin/new/users/${w.user.id}`} target="_blank" className="font-semibold text-[#e5e2e3] hover:text-[#adc6ff]">
                         {w.user.username ? `@${w.user.username}` : w.user.email ?? w.user.phone ?? "—"}
                       </Link>
                     </td>
@@ -272,7 +272,7 @@ export function AdminV2Withdrawals() {
                         <p className="text-[13px] font-semibold text-[#e5e2e3]">{w.user.email ?? w.user.phone ?? "—"}</p>
                         <div className="mt-0.5 flex items-center justify-end gap-1.5">
                           {w.user.username && <span className="text-[11px] text-[#8c909f]">@{w.user.username}</span>}
-                          <Link href={`/admin/users/${w.user.id}`} target="_blank" className="inline-flex items-center gap-0.5 rounded bg-[#4d8eff]/12 px-1.5 py-0.5 text-[9px] font-bold text-[#adc6ff] ring-1 ring-[#4d8eff]/20 transition-colors hover:bg-[#4d8eff]/20">Inspect</Link>
+                          <Link href={`/admin/new/users/${w.user.id}`} target="_blank" className="inline-flex items-center gap-0.5 rounded bg-[#4d8eff]/12 px-1.5 py-0.5 text-[9px] font-bold text-[#adc6ff] ring-1 ring-[#4d8eff]/20 transition-colors hover:bg-[#4d8eff]/20">Inspect</Link>
                         </div>
                         {!isSell && msisdn && <p className="av2-mono text-[11px] text-[#8c909f]">+{msisdn}</p>}
                         <p className="text-[10px] text-[#8c909f]">{new Date(w.createdAt).toLocaleString()}</p>

@@ -108,7 +108,7 @@ function KpiCard({
 function MarketCard({ m }: { m: MarketMetric }) {
   const isP2P = m.key === "p2p";
   return (
-    <Link href={`/admin/markets/${m.key}`} className="av2-card flex flex-col rounded-lg p-0 transition-colors hover:border-[#3b82f6]/40">
+    <Link href={`/admin/new/markets/${m.key}`} className="av2-card flex flex-col rounded-lg p-0 transition-colors hover:border-[#3b82f6]/40">
       <div className="flex items-center justify-between rounded-t-lg border-b border-[#424754]/50 bg-[#1c1b1c] p-4">
         <div className="flex items-center gap-2">
           <Icon name={MARKET_ICON[m.key]} size={18} className="text-[#c2c6d6]" />
