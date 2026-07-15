@@ -14,7 +14,6 @@ import { BroadcastBanner } from "@/components/broadcast-banner";
 import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import type { ProfileView } from "@/components/profile-modal";
-import { CurrencySwitcher } from "@/components/currency-switcher";
 import { peekPendingPromo, redeemPromoClient } from "@/lib/pending-promo";
 import { PromoSuccessHost, showPromoSuccess } from "@/components/promo-success";
 import { NavBadgeContext } from "@/lib/nav-badge-context";
@@ -277,9 +276,6 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
               >
                 <Icon name="account_balance_wallet" className="text-[20px]" />
               </button>
-              <div className="hidden md:block">
-                <CurrencySwitcher />
-              </div>
               {/* Small profile icon (mobile) */}
               <button
                 type="button"
