@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/icon";
 import { KycRequestsTab, DisputesTab, DepositsTab, CryptoWalletsTab } from "@/components/admin-p2p-client";
 import { AdminV2GrantCoin } from "@/components/admin-v2/grant-coin";
+import { AdminV2P2PBlocked } from "@/components/admin-v2/p2p-blocked";
 
 // P2P Ops, restyled to the Stitch layout: header + bento metric cards + tab bar.
 // The four tab bodies are the existing, fully-wired components (KYC, disputes,
 // deposits, crypto wallets) — their tables are recoloured by the .admin-v2
 // theme bridge. Real pending counts drive the metric cards + tab pills.
 
-type Tab = "kyc" | "disputes" | "deposits" | "wallets" | "coins";
+type Tab = "kyc" | "disputes" | "deposits" | "wallets" | "coins" | "access";
 interface Counts { kyc: number; disputes: number; deposits: number }
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
@@ -19,6 +20,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "deposits", label: "Deposits", icon: "south_america" },
   { id: "wallets", label: "Crypto Addresses", icon: "account_balance_wallet" },
   { id: "coins", label: "Grant Coin", icon: "toll" },
+  { id: "access", label: "P2P Access", icon: "block" },
 ];
 
 function Bento({ label, value, icon, tone, note }: { label: string; value: number; icon: string; tone: string; note: string }) {
@@ -113,6 +115,7 @@ export function AdminV2P2P() {
       {tab === "deposits" && <DepositsTab onAction={fetchCounts} />}
       {tab === "wallets" && <CryptoWalletsTab />}
       {tab === "coins" && <AdminV2GrantCoin />}
+      {tab === "access" && <AdminV2P2PBlocked />}
     </div>
   );
 }

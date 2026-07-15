@@ -8,18 +8,36 @@ import { db } from "@/lib/db";
  * Source: `system_settings.p2p_blocked_users` — a comma-separated list of
  * emails. Empty/absent = nobody blocked. 10s cache.
  */
+export const P2P_BLOCKED_KEY = "p2p_blocked_users";
+
 const CACHE_TTL_MS = 10_000;
 let cache: { set: Set<string>; expires: number } | null = null;
+
+/**
+ * Drop the cached list so the next read hits the DB. Called by the admin route
+ * after a change, so the toggle is felt immediately in THIS process. Other
+ * cluster workers (WEB_CONCURRENCY) keep their own cache and converge within
+ * CACHE_TTL_MS — a block is never more than 10s from taking effect everywhere.
+ */
+export function invalidateP2pBlockedCache() {
+  cache = null;
+}
+
+/** Parse the stored comma-separated list into normalised emails. */
+export function parseP2pBlockedList(value: string | null | undefined): string[] {
+  if (!value) return [];
+  return [...new Set(value.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean))];
+}
 
 export async function p2pBlockedEmails(): Promise<Set<string>> {
   if (cache && cache.expires > Date.now()) return cache.set;
   let set = new Set<string>();
   try {
     const row = await db.systemSetting.findUnique({
-      where: { key: "p2p_blocked_users" },
+      where: { key: P2P_BLOCKED_KEY },
       select: { value: true },
     });
-    if (row?.value) set = new Set(row.value.split(",").map((e) => e.trim().toLowerCase()).filter(Boolean));
+    if (row?.value) set = new Set(parseP2pBlockedList(row.value));
   } catch {
     // Table/flag missing — nobody blocked.
   }
