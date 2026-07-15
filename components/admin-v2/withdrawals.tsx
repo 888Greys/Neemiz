@@ -191,8 +191,16 @@ export function AdminV2Withdrawals() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#ffb786]">Financial</p>
-          <h2 className="mt-1 text-[32px] font-semibold tracking-[-0.02em] text-[#e5e2e3]">Withdrawals &amp; Approvals</h2>
-          <p className="mt-1 max-w-2xl text-[13px] text-[#c2c6d6]">Review payouts awaiting approval, and monitor every withdrawal across the platform.</p>
+          <h2 className="mt-1 text-[32px] font-semibold tracking-[-0.02em] text-[#e5e2e3]">
+            {tab === "today" ? "Today's money" : "Withdrawals & Approvals"}
+          </h2>
+          <p className="mt-1 max-w-2xl text-[13px] text-[#c2c6d6]">
+            {tab === "today"
+              ? "Deposits and payouts for the day — filter by type, page through the list."
+              : tab === "approvals"
+                ? "Payouts that need owner review before money leaves."
+                : "Full withdrawal history across Lipa Haraka and crypto."}
+          </p>
         </div>
         {tab === "approvals" && (
           <button onClick={load} className="av2-card flex items-center gap-1.5 rounded-md px-3 py-2 text-[10px] font-bold text-[#c2c6d6] transition-colors hover:text-[#e5e2e3]">
@@ -202,7 +210,7 @@ export function AdminV2Withdrawals() {
       </div>
 
       <div className="mb-6 flex gap-1 border-b border-[#424754]">
-        {([["today", "Today"], ["approvals", "Approvals"], ["history", "History"]] as const).map(([key, label]) => (
+        {([["today", "Today's money"], ["approvals", "Approvals"], ["history", "History"]] as const).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}

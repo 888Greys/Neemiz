@@ -17,7 +17,7 @@ const NAV: NavItem[] = [
   { label: "Cockpit", icon: "dashboard", href: "/admin/new" },
   { label: "Players", icon: "groups", href: "/admin/new/players" },
   { label: "P2P Ops", icon: "swap_horiz", href: "/admin/new/p2p" },
-  { label: "Withdrawals", icon: "payments", href: "/admin/new/withdrawals" },
+  { label: "Cash & payouts", icon: "payments", href: "/admin/new/withdrawals" },
   { label: "Markets", icon: "storefront", href: "/admin/new/markets/sports" },
   { label: "Broadcast", icon: "campaign", href: "/admin/new/broadcast" },
   { label: "Money", icon: "account_balance", href: "/admin/new/money" },

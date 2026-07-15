@@ -50,6 +50,8 @@ function KpiCard({ label, value, icon, tone, note }: { label: string; value: str
 }
 
 function ProviderPanel({ title, rows, total }: { title: string; rows: ProviderRow[]; total: number }) {
+  const label = (p: string) =>
+    ({ lipaharaka: "Lipa Haraka", megapay: "MegaPay", pesapal: "Pesapal", relworx: "Relworx", crypto: "Crypto in", self_custody: "Crypto out", crypto_sell: "Crypto sell" } as Record<string, string>)[p] ?? p;
   return (
     <div className="av2-card overflow-hidden rounded-lg">
       <div className="flex h-11 items-center border-b border-[#424754]/50 px-4">
@@ -64,7 +66,7 @@ function ProviderPanel({ title, rows, total }: { title: string; rows: ProviderRo
             return (
               <div key={r.provider} className="px-4 py-2.5">
                 <div className="flex items-center justify-between text-[12px]">
-                  <span className="font-semibold capitalize text-[#e5e2e3]">{r.provider}</span>
+                  <span className="font-semibold text-[#e5e2e3]">{label(r.provider)}</span>
                   <span className="av2-mono text-[#e5e2e3]">{money(r.amount)}</span>
                 </div>
                 <div className="mt-1.5 flex items-center gap-2">
@@ -105,10 +107,10 @@ function Cashflow() {
   return (
     <>
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Net Deposits" value={money(t.netCashflow)} icon="account_balance_wallet" tone={t.netCashflow >= 0 ? "up" : "down"} note={`over ${data.days}d`} />
-        <KpiCard label="Total Deposits" value={money(t.deposits)} icon="south_america" tone="up" note="completed in" />
-        <KpiCard label="Total Withdrawals" value={money(t.withdrawals)} icon="payments" tone="down" note="paid out" />
-        <KpiCard label="GGR (House Rev)" value={money(t.ggr)} icon="show_chart" tone="up" note={`${money(t.fees)} fees`} />
+        <KpiCard label="Net Deposits" value={money(t.netCashflow)} icon="account_balance_wallet" tone={t.netCashflow >= 0 ? "up" : "down"} note={`last ${data.days} day${data.days === 1 ? "" : "s"}`} />
+        <KpiCard label="Total Deposits" value={money(t.deposits)} icon="south_america" tone="up" note="completed inflows" />
+        <KpiCard label="Total Withdrawals" value={money(t.withdrawals)} icon="payments" tone="down" note="completed payouts" />
+        <KpiCard label="GGR (House Rev)" value={money(t.ggr)} icon="show_chart" tone="up" note={`${money(t.fees)} in fees`} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

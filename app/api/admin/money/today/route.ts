@@ -37,45 +37,68 @@ const REAL_MONEY_PROVIDERS = [
 ] as string[];
 
 /**
- * GET /api/admin/money/today?range=today|7d
+ * GET /api/admin/money/today
+ *   ?range=today|7d
+ *   &type=ALL|DEPOSIT|WITHDRAWAL
+ *   &page=1&pageSize=20
  *
- * A self-contained view of deposits + withdrawals so the owner never has to
- * open the Lipa Haraka dashboard to see the day's money. Returns per-status
- * totals for each type plus the recent rows (both types), newest first.
- *
- * Scoped to live rails (Lipa Haraka + crypto + legacy mega/relworx/pesapal).
- * Crypto amounts are shown in native units; status totals are KES-equivalent.
+ * Summary tiles always cover the full window (both sides). The table is
+ * filtered + paginated so the owner isn't staring at a 100-row wall.
  */
 export async function GET(req: Request) {
   if (!(await requireAdmin())) return Response.json({ error: "Forbidden" }, { status: 403 });
 
-  const range = new URL(req.url).searchParams.get("range") === "7d" ? "7d" : "today";
+  const url = new URL(req.url);
+  const range = url.searchParams.get("range") === "7d" ? "7d" : "today";
+  const typeParam = (url.searchParams.get("type") ?? "ALL").toUpperCase();
+  const type = typeParam === "DEPOSIT" || typeParam === "WITHDRAWAL" ? typeParam : "ALL";
+  const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+  const pageSize = Math.min(50, Math.max(10, parseInt(url.searchParams.get("pageSize") ?? "20", 10) || 20));
+
   const since = range === "7d"
     ? new Date(nairobiMidnight(0).getTime() - 6 * 86_400_000)
     : nairobiMidnight(0);
 
-  const [rows] = await Promise.all([
+  const baseWhere = {
+    type: { in: ["DEPOSIT", "WITHDRAWAL"] as ("DEPOSIT" | "WITHDRAWAL")[] },
+    provider: { in: REAL_MONEY_PROVIDERS },
+    createdAt: { gte: since },
+  };
+  const rowWhere = {
+    ...baseWhere,
+    ...(type === "ALL" ? {} : { type: type as "DEPOSIT" | "WITHDRAWAL" }),
+  };
+
+  const [grouped, total, rows] = await Promise.all([
+    db.transaction.groupBy({
+      by: ["type", "status", "currency"],
+      where: baseWhere,
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+    db.transaction.count({ where: rowWhere }),
     db.transaction.findMany({
-      where: {
-        type: { in: ["DEPOSIT", "WITHDRAWAL"] },
-        provider: { in: REAL_MONEY_PROVIDERS },
-        createdAt: { gte: since },
-      },
+      where: rowWhere,
       orderBy: { createdAt: "desc" },
-      take: 100,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
       include: { user: { select: { username: true, phone: true, email: true } } },
     }),
   ]);
 
-  const rates = await buildKesRateTable(rows.map((r) => r.currency));
+  const currencies = [
+    ...grouped.map((g) => g.currency),
+    ...rows.map((r) => r.currency),
+  ];
+  const rates = await buildKesRateTable(currencies);
 
   const deposits = emptyByStatus();
   const withdrawals = emptyByStatus();
-  for (const r of rows) {
-    const target = r.type === "DEPOSIT" ? deposits : withdrawals;
-    const kes = kesAmount(r.amount, r.currency, rates);
-    const bucket = (target[r.status] ??= { count: 0, total: 0 });
-    bucket.count += 1;
+  for (const g of grouped) {
+    const target = g.type === "DEPOSIT" ? deposits : withdrawals;
+    const kes = kesAmount(g._sum.amount, g.currency, rates);
+    const bucket = (target[g.status] ??= { count: 0, total: 0 });
+    bucket.count += g._count._all;
     bucket.total += kes;
   }
 
@@ -110,10 +133,14 @@ export async function GET(req: Request) {
   return Response.json(
     {
       range,
+      type,
       since: since.toISOString(),
       deposits: roundBuckets(deposits),
       withdrawals: roundBuckets(withdrawals),
       net: Math.round(net * 100) / 100,
+      page,
+      pageSize,
+      total,
       rows: mappedRows,
     },
     { headers: { "Cache-Control": "no-store" } },
