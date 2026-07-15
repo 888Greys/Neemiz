@@ -574,7 +574,7 @@ function P2PUserProfile({
       onClick: () =>
         requireAuth(() => {
           if (approved) router.push("/p2p/merchant?tab=wallet");
-          else toast.info("Become an advertiser first to use escrow");
+          else toast.info("Become an advertiser first to sell crypto");
         }),
     },
     {
@@ -1395,19 +1395,17 @@ function DepositSection() {
       <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-4 sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-[20px] font-bold tracking-tight text-white">Wallet &amp; Escrow</h2>
+            <h2 className="text-[20px] font-bold tracking-tight text-white">Wallet</h2>
             <p className="mt-1 max-w-xl text-[13px] leading-5 text-slate-500">
-              Receive crypto into your wallet, fund escrow to back sell ads, or move escrow back anytime.
+              One wallet for deposits and sells. Listing a sell ad locks that amount until it fills or you pause it.
             </p>
           </div>
           <div className="flex w-full gap-2 sm:w-auto">
-            {actionBtn("fund", "Fund Escrow", "arrow_upward")}
-            {actionBtn("wallet", "To Wallet", "arrow_downward")}
             {actionBtn("receive", "Receive", "qr_code")}
           </div>
         </div>
 
-      {fundOpen && (
+      {false && fundOpen && (
         <div className="mt-4 rounded-xl border border-white/[0.07] bg-[#0d0f14] p-4">
           <p className="mb-3 text-[12px] text-slate-400">Move crypto from your wallet to merchant escrow so you can list sell ads.</p>
           {fundableWalletBalances.length === 0 ? (
@@ -1472,7 +1470,7 @@ function DepositSection() {
         </div>
       )}
 
-      {e2wOpen && (
+      {false && e2wOpen && (
         <div className="mt-4 rounded-xl border border-white/[0.07] bg-[#0d0f14] p-4">
           <p className="mb-3 text-[12px] text-slate-400">Move crypto from your merchant escrow back into your normal wallet.</p>
           {movableEscrowBalances.length === 0 ? (
@@ -1610,7 +1608,7 @@ function DepositSection() {
               </div>
               <p className="flex items-center gap-2 text-[12px] text-slate-500">
                 <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-[#05b957]" />
-                Detected on-chain automatically. Funds credit to your wallet in 1–5 minutes — then Fund Escrow to list ads.
+                Detected on-chain automatically. Funds credit to your wallet in 1–5 minutes — then list a sell ad to lock what you want to sell.
               </p>
             </div>
           )}
@@ -1623,7 +1621,7 @@ function DepositSection() {
           <div>
             <h3 className="text-[15px] font-bold text-white">Balances</h3>
             <p className="mt-0.5 text-[12px] text-slate-500">
-              Wallet holds deposits. Escrow backs your ads. Locked is in open orders.
+              Available to sell. Locked is reserved in active sell ads or open orders.
             </p>
           </div>
           <button
@@ -1655,14 +1653,10 @@ function DepositSection() {
                     <p className="text-[11px] text-slate-500">{row.network}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="grid grid-cols-2 gap-2 text-center">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase text-slate-500">Wallet</p>
-                    <p className="mt-0.5 text-[13px] font-bold text-white">{formatCoinAmount(row.crypto, row.walletAvailable)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase text-slate-500">Escrow</p>
-                    <p className="mt-0.5 text-[13px] font-bold text-white">{formatCoinAmount(row.crypto, row.escrowAvailable)}</p>
+                    <p className="text-[10px] font-semibold uppercase text-slate-500">Available</p>
+                    <p className="mt-0.5 text-[13px] font-bold text-white">{formatCoinAmount(row.crypto, row.walletAvailable + row.escrowAvailable)}</p>
                   </div>
                   <div>
                     <p className="text-[10px] font-semibold uppercase text-slate-500">Locked</p>
@@ -1685,15 +1679,14 @@ function DepositSection() {
               <tr>
                 <th className="px-4 py-3 font-semibold">Asset</th>
                 <th className="px-4 py-3 font-semibold">Network</th>
-                <th className="px-4 py-3 text-right font-semibold">Wallet</th>
-                <th className="px-4 py-3 text-right font-semibold">Escrow</th>
+                <th className="px-4 py-3 text-right font-semibold">Available</th>
                 <th className="px-4 py-3 text-right font-semibold">Locked</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.05]">
               {visibleBalanceRows.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-10 text-center text-slate-500">
+                  <td colSpan={4} className="px-4 py-10 text-center text-slate-500">
                     No balances yet — receive crypto or show all assets.
                   </td>
                 </tr>
@@ -1718,10 +1711,7 @@ function DepositSection() {
                       </td>
                       <td className="max-w-[200px] truncate px-4 py-3.5 text-slate-500">{row.network}</td>
                       <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-white">
-                        {formatCoinAmount(row.crypto, row.walletAvailable)}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums text-white">
-                        {formatCoinAmount(row.crypto, row.escrowAvailable)}
+                        {formatCoinAmount(row.crypto, row.walletAvailable + row.escrowAvailable)}
                       </td>
                       <td className={`whitespace-nowrap px-4 py-3.5 text-right font-semibold tabular-nums ${locked > 0 ? "text-amber-400" : "text-slate-600"}`}>
                         {formatCoinAmount(row.crypto, locked)}
@@ -1738,7 +1728,7 @@ function DepositSection() {
       <div className="grid gap-2 sm:grid-cols-3">
         {[
           { icon: "download", text: "Receive crypto to your wallet address first." },
-          { icon: "arrow_upward", text: "Fund escrow to back sell ads. Local coins use fiat wallet automatically." },
+          { icon: "lock", text: "Sell ads lock the listed amount from your wallet until filled or paused." },
           { icon: "percent", text: "Trade fees are deducted when the order releases." },
         ].map((t) => (
           <div key={t.text} className="flex items-start gap-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3">
@@ -1748,23 +1738,13 @@ function DepositSection() {
         ))}
       </div>
 
+      {deposits.length > 0 && (
       <div className="overflow-hidden rounded-2xl border border-white/[0.07] bg-white/[0.025]">
         <div className="border-b border-white/[0.06] px-4 py-3.5 sm:px-5">
-          <p className="text-[14px] font-bold text-white">Recent escrow movements</p>
-          <p className="mt-0.5 text-[12px] text-slate-500">Funds moved into merchant escrow.</p>
+          <p className="text-[14px] font-bold text-white">Recent movements</p>
+          <p className="mt-0.5 text-[12px] text-slate-500">Historical escrow transfers (legacy).</p>
         </div>
-        {loading ? (
-          <div className="flex justify-center py-10">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
-          </div>
-        ) : deposits.length === 0 ? (
-          <div className="flex min-h-[100px] flex-col items-center justify-center px-4 py-8 text-center">
-            <Icon name="account_balance_wallet" className="mb-2 text-[28px] text-slate-700" />
-            <p className="text-[13px] text-slate-500">No escrow movements yet</p>
-            <p className="mt-1 text-[12px] text-slate-600">Use Fund Escrow above to move wallet crypto here</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead>
                 <tr className="border-b border-white/[0.05] text-[11px] uppercase tracking-wider text-slate-500">
@@ -1800,8 +1780,8 @@ function DepositSection() {
               </tbody>
             </table>
           </div>
-        )}
       </div>
+      )}
     </div>
   );
 }
@@ -1880,14 +1860,15 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     );
   }, [fiatQuery]);
 
-  // Coins the merchant actually holds (escrow for blockchain assets; fiat wallet backs KES Coin).
+  // Coins the merchant can sell: wallet holdings (on-chain + local) and fiat KES.
   const heldSymbols = useMemo(() => {
     const held = new Set<string>();
+    for (const b of walletCoinBalances) {
+      if (b.available > 0) held.add(b.crypto);
+    }
+    // Legacy escrow available (pre one-wallet) still counts until auto-drained.
     for (const b of escrowBalances) {
       if (b.crypto !== "KES" && Number(b.available) > 0) held.add(b.crypto);
-    }
-    for (const b of walletCoinBalances) {
-      if (b.crypto !== "KES" && isActiveLocalCoin(b.crypto) && b.available > 0) held.add(b.crypto);
     }
     if (Number(fiatBalance) > 0) held.add("KES");
     return held;
@@ -2088,9 +2069,16 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     ? Math.floor(totalAmountNum * priceNum * 100) / 100
     : 0;
   const selectedEscrow = escrowBalances.find((balance) => balance.crypto === form.crypto);
+  const walletAvailForCrypto = walletCoinBalances
+    .filter((b) => b.crypto === form.crypto)
+    .reduce((sum, b) => sum + Number(b.available), 0);
+  // On-chain sells lock amount + platform fee (~2%) from wallet at ad create.
+  // merchant/balance returns wallet available (and auto-drains legacy escrow).
+  const ON_CHAIN_FEE_RATE = 0.02;
+  const onChainAvailable = Math.max(walletAvailForCrypto, Number(selectedEscrow?.available ?? 0));
   const sellableBalance = isActiveLocalCoin(form.crypto)
     ? Math.max(0, (localSellableBySymbol.get(form.crypto) ?? 0) / 1.01)
-    : Number(selectedEscrow?.available ?? 0);
+    : Math.max(0, onChainAvailable / (1 + ON_CHAIN_FEE_RATE));
   const exceedsSellableBalance = !isEditing && form.side === "SELL" && totalAmountNum > sellableBalance;
   const requiredKesBacking = totalAmountNum > 0 ? parseFloat((totalAmountNum * 1.01).toFixed(2)) : 0;
   const needsKesBacking = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesBacking > 0 && fiatBalance < requiredKesBacking;
@@ -2123,7 +2111,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           ? `You can sell up to ${fmtEscrowAmt(sellableBalance)} ${form.crypto}`
           : isActiveLocalCoin(form.crypto)
           ? `Top up your KES wallet to sell ${form.crypto}`
-          : `No ${form.crypto} in escrow yet`,
+          : `No ${form.crypto} in your wallet yet`,
       );
     }
 
@@ -2170,7 +2158,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     if (step === 1) {
       if (!isEditing && totalAmountNum <= 0) return toast.error(`Enter the total ${form.crypto} amount`);
       if (needsKesBacking) return toast.error(`Top up your fiat wallet first. This KES Coin sell ad needs KSh ${requiredKesBacking.toLocaleString("en-KE")}.`);
-      if (exceedsSellableBalance) return toast.error(`You can sell up to ${sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto} from escrow.`);
+      if (exceedsSellableBalance) return toast.error(`You can sell up to ${sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto} from your wallet.`);
       if (!form.minLimit || !form.maxLimit) return toast.error("Enter min and max order limits");
       // Payment methods are optional — no "select at least one" gate.
       return setStep(2);
@@ -2332,12 +2320,18 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                   const escrowAvail = !isActiveLocalCoin(c.symbol)
                     ? escrowBalances.find((b) => b.crypto === c.symbol)
                     : undefined;
+                  const walletAvail = !isActiveLocalCoin(c.symbol)
+                    ? walletCoinBalances
+                        .filter((b) => b.crypto === c.symbol)
+                        .reduce((sum, b) => sum + Number(b.available), 0)
+                    : 0;
+                  const onChainAvail = Math.max(walletAvail, Number(escrowAvail?.available ?? 0));
                   const availLabel = localAvail != null
                     ? `${localAvail.toLocaleString("en-US", { maximumFractionDigits: 2 })} avail`
-                    : escrowAvail && Number(escrowAvail.available) > 0
-                    ? `${Number(escrowAvail.available).toLocaleString("en-US", { maximumFractionDigits: 8 })} escrow`
+                    : onChainAvail > 0
+                    ? `${onChainAvail.toLocaleString("en-US", { maximumFractionDigits: 8 })} wallet`
                     : !isActiveLocalCoin(c.symbol) && restrictToHeld
-                    ? "Fund escrow to sell"
+                    ? "Deposit to sell"
                     : null;
                   return (
                   <div key={c.symbol}>
@@ -2626,11 +2620,11 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold">
                   <span className={sellableBalance > 0 ? "text-[#05b957]" : "text-amber-300"}>
                     {sellableBalance > 0
-                      ? `${fmtEscrowAmt(sellableBalance)} ${form.crypto} ready in escrow`
-                      : `No ${form.crypto} in escrow yet`}
+                      ? `${fmtEscrowAmt(sellableBalance)} ${form.crypto} ready in wallet`
+                      : `No ${form.crypto} in your wallet yet`}
                   </span>
                   {Number(selectedEscrow?.locked ?? 0) > 0 && (
-                    <span className="text-right text-amber-300">{fmtEscrowAmt(Number(selectedEscrow?.locked))} locked in orders</span>
+                    <span className="text-right text-amber-300">{fmtEscrowAmt(Number(selectedEscrow?.locked))} locked in ads/orders</span>
                   )}
                 </div>
               )}
@@ -2638,7 +2632,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 <p className="mt-1.5 text-[11px] font-semibold leading-snug text-amber-300/90">
                   {sellableBalance > 0
                     ? `That’s more than you can sell — max is ${fmtEscrowAmt(sellableBalance)} ${form.crypto}.`
-                    : `Fund escrow with ${form.crypto} before setting an amount.`}
+                    : `Deposit ${form.crypto} to your wallet before setting an amount.`}
                 </p>
               )}
             </div>
@@ -3199,7 +3193,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             <button onClick={() => setSection("wallet")} className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4 text-left transition hover:border-[#05b957]/25 hover:bg-[#18191f]">
               <Icon name="account_balance_wallet" className="text-xl text-[#05b957]" />
               <p className="mt-3 text-sm font-black text-white">Manage liquidity</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">Fund escrow, withdraw to wallet, receive crypto and review movements.</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">Receive crypto and manage balances. Sell ads lock from this wallet.</p>
             </button>
             <button onClick={() => setSection("ads")} className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4 text-left transition hover:border-[#087cff]/25 hover:bg-[#18191f]">
               <Icon name="campaign" className="text-xl text-[#087cff]" />

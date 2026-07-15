@@ -4,7 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
 import { autoApproveIfDue } from "@/lib/p2p/merchant-approval";
-import { isKesCoin, isWalletBackedCoin, defaultNetwork, kesLockAmount, p2pFeeRate, p2pMakerLock } from "@/lib/p2p/crypto-balance";
+import { isKesCoin, isWalletBackedCoin, defaultNetwork, kesLockAmount, p2pFeeRate, p2pMakerLock, lockUserCrypto } from "@/lib/p2p/crypto-balance";
 import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
@@ -288,37 +288,30 @@ export async function POST(req: Request) {
       }
     }
 
-    // Crypto SELL ads lock the merchant's crypto up-front. Wallet-backed coins
-    // (KES + in-app local coins) do not: they are escrowed per order from the
-    // giver's own balance.
+    // On-chain crypto SELL ads lock the listed amount (+ platform fee) in the
+    // merchant's UserCryptoBalance at create time — one wallet, no separate escrow.
     if (side === "SELL" && !isWalletBackedCoin(crypto as string)) {
-      // Maker-pays: the merchant escrows the sale amount PLUS the platform fee,
-      // so buyers receive the full amount and Nezeem's cut comes from the maker.
-      // The rate is stamped on the ad so release charges exactly what was reserved.
       const feeRate    = p2pFeeRate();
-      const lockAmount = p2pMakerLock(totalAmountNum, feeRate); // totalAmount * (1 + feeRate)
-      // Lock balance + create ad atomically — if ad creation fails, balance stays intact
+      const lockAmount = p2pMakerLock(totalAmountNum, feeRate);
+      const network    = defaultNetwork(crypto as string);
       const ad = await db.$transaction(async (tx) => {
-        const balance = await tx.p2PCryptoBalance.findUnique({
-          where: { merchantId_crypto: { merchantId: merchant.id, crypto: crypto as string } },
-        });
-        if (!balance || Number(balance.available) < lockAmount) {
-          throw new Error("INSUFFICIENT_BALANCE");
+        try {
+          await lockUserCrypto(tx, dbUser.id, crypto as string, network, lockAmount);
+        } catch (err) {
+          if ((err as Error).message === "INSUFFICIENT_CRYPTO_BALANCE") throw new Error("INSUFFICIENT_BALANCE");
+          throw err;
         }
-        await tx.p2PCryptoBalance.update({
-          where: { merchantId_crypto: { merchantId: merchant.id, crypto: crypto as string } },
-          data: {
-            locked:    { increment: lockAmount },
-            available: { decrement: lockAmount },
-          },
-        });
         return tx.p2PAd.create({ data: { ...adData, feeRate } });
       }).catch((err: unknown) => {
         if ((err as Error).message === "INSUFFICIENT_BALANCE") return null;
         throw err;
       });
 
-      if (!ad) return Response.json({ error: `Insufficient ${crypto} balance — you need ${lockAmount} ${crypto} (amount + ${(feeRate * 100).toFixed(0)}% fee) in escrow. Deposit first.` }, { status: 400 });
+      if (!ad) {
+        return Response.json({
+          error: `Insufficient ${crypto} in your wallet — you need ${lockAmount} ${crypto} (amount + ${(feeRate * 100).toFixed(0)}% fee). Deposit first.`,
+        }, { status: 400 });
+      }
       if (dbUser.email) {
         sendAdCreatedEmail(dbUser.email, merchant.displayName, {
           side: side as "BUY" | "SELL",

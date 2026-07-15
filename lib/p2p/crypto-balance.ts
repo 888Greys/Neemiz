@@ -389,15 +389,16 @@ export async function bookCryptoFee(
 }
 
 /**
- * Settle a real-crypto (non-KES) escrow release for a completed/dispute-won
- * trade, applying the maker-pays fee. Returns what the crypto receiver was
- * credited (for messaging). Throws INSUFFICIENT_LOCKED_CRYPTO if escrow is short.
+ * Settle a real-crypto (non-KES) trade release, applying the maker-pays fee.
+ * Returns what the crypto receiver was credited. Throws INSUFFICIENT_LOCKED_CRYPTO
+ * if the reserved balance is short.
  *
- *  - SELL: debit the merchant's reserved escrow (amount + fee), credit the buyer
- *    the full amount, book the fee. `sellFeeRate` is the ad's stored feeRate —
- *    0 for legacy ads, which therefore pay no fee and only debit the principal.
- *  - BUY: unlock the taker's full amount, credit the merchant amount − fee, book
- *    the fee (always at the current rate; this matches pre-existing behaviour).
+ *  - SELL: consume the merchant's locked reserve (amount + fee) from their
+ *    UserCryptoBalance (one-wallet). Falls back to legacy P2PCryptoBalance for
+ *    ads that locked merchant escrow before the migration. Credits the buyer
+ *    the full amount; books the fee.
+ *  - BUY: unlock the taker's full amount, credit the merchant amount − fee into
+ *    their UserCryptoBalance (one-wallet), book the fee.
  */
 export async function settleCryptoEscrowRelease(
   tx: TxClient,
@@ -409,23 +410,36 @@ export async function settleCryptoEscrowRelease(
 ): Promise<{ receiverGets: number }> {
   if (p.isMerchantSell) {
     const fee  = p2pFeeOf(p.amount, p.sellFeeRate);
-    const draw = round8(p.amount + fee); // what leaves the merchant's escrow
+    const draw = round8(p.amount + fee);
 
-    const escrowBalance = await tx.p2PCryptoBalance.findUnique({
-      where: { merchantId_crypto: { merchantId: p.merchantId, crypto: p.crypto } },
+    // One-wallet path: ad creation locked UserCryptoBalance.
+    const fromWallet = await tx.userCryptoBalance.updateMany({
+      where: {
+        userId: p.merchantUserId,
+        crypto: p.crypto,
+        network: p.network,
+        locked: { gte: draw },
+      },
+      data: { locked: { decrement: draw } },
     });
-    if (!escrowBalance) {
-      // Legacy order with no escrow row — settle the principal from the merchant
-      // wallet (no fee was reserved, so none is taken).
-      await debitUserCrypto(tx, p.merchantUserId, p.crypto, p.network, p.amount);
-    } else {
-      const debited = await tx.p2PCryptoBalance.updateMany({
-        where: { merchantId: p.merchantId, crypto: p.crypto, locked: { gte: draw }, total: { gte: draw } },
-        data:  { locked: { decrement: draw }, total: { decrement: draw } },
+
+    if (fromWallet.count === 0) {
+      // Legacy merchant-escrow ads (pre one-wallet migration).
+      const escrowBalance = await tx.p2PCryptoBalance.findUnique({
+        where: { merchantId_crypto: { merchantId: p.merchantId, crypto: p.crypto } },
       });
-      if (debited.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
+      if (!escrowBalance) {
+        await debitUserCrypto(tx, p.merchantUserId, p.crypto, p.network, p.amount);
+      } else {
+        const debited = await tx.p2PCryptoBalance.updateMany({
+          where: { merchantId: p.merchantId, crypto: p.crypto, locked: { gte: draw }, total: { gte: draw } },
+          data:  { locked: { decrement: draw }, total: { decrement: draw } },
+        });
+        if (debited.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
+      }
     }
-    await creditUserCrypto(tx, p.buyerId, p.crypto, p.network, p.amount); // taker made whole
+
+    await creditUserCrypto(tx, p.buyerId, p.crypto, p.network, p.amount);
     await bookCryptoFee(tx, {
       crypto: p.crypto, network: p.network, feeAmount: fee, orderId: p.orderId, payerUserId: p.merchantUserId,
       feeKesAmount: Number.isFinite(p.feeKesPerCrypto) ? fee * p.feeKesPerCrypto! : undefined,
@@ -433,7 +447,7 @@ export async function settleCryptoEscrowRelease(
     return { receiverGets: p.amount };
   }
 
-  // BUY ad: taker delivers the full amount; merchant receives amount − fee.
+  // BUY ad: taker delivers the full amount; merchant receives amount − fee in wallet.
   const fee = p2pFeeOf(p.amount);
   const unlocked = await tx.userCryptoBalance.updateMany({
     where: { userId: p.buyerId, crypto: p.crypto, network: p.network, locked: { gte: p.amount } },
@@ -442,16 +456,52 @@ export async function settleCryptoEscrowRelease(
   if (unlocked.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
 
   const makerReceives = p2pMakerReceives(p.amount);
-  await tx.p2PCryptoBalance.upsert({
-    where:  { merchantId_crypto: { merchantId: p.merchantId, crypto: p.crypto } },
-    create: { merchantId: p.merchantId, crypto: p.crypto, total: makerReceives, available: makerReceives, locked: 0 },
-    update: { total: { increment: makerReceives }, available: { increment: makerReceives } },
-  });
+  await creditUserCrypto(tx, p.merchantUserId, p.crypto, p.network, makerReceives);
   await bookCryptoFee(tx, {
     crypto: p.crypto, network: p.network, feeAmount: fee, orderId: p.orderId, payerUserId: p.merchantUserId,
     feeKesAmount: Number.isFinite(p.feeKesPerCrypto) ? fee * p.feeKesPerCrypto! : undefined,
   });
   return { receiverGets: makerReceives };
+}
+
+/**
+ * Unlock an on-chain SELL ad reserve (pause / delete). Prefers UserCryptoBalance
+ * (one-wallet); falls back to legacy P2PCryptoBalance for older ads.
+ */
+export async function unlockOnChainSellReserve(
+  tx: TxClient,
+  input: { userId: string; merchantId: string; crypto: string; amount: number },
+) {
+  const network = defaultNetwork(input.crypto);
+  const amount = round8(input.amount);
+  if (!(amount > 0)) return;
+
+  const fromWallet = await tx.userCryptoBalance.updateMany({
+    where: {
+      userId: input.userId,
+      crypto: input.crypto,
+      network,
+      locked: { gte: amount },
+    },
+    data: {
+      locked: { decrement: amount },
+      available: { increment: amount },
+    },
+  });
+  if (fromWallet.count > 0) return;
+
+  const fromEscrow = await tx.p2PCryptoBalance.updateMany({
+    where: {
+      merchantId: input.merchantId,
+      crypto: input.crypto,
+      locked: { gte: amount },
+    },
+    data: {
+      locked: { decrement: amount },
+      available: { increment: amount },
+    },
+  });
+  if (fromEscrow.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
 }
 
 /**

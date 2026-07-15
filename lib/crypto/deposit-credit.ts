@@ -111,7 +111,7 @@ export async function creditOnChainDeposit(input: OnChainDepositCreditInput): Pr
           type:   "wallet_deposit",
           title:  "Crypto deposit received",
           body:   input.user.merchantProfile
-            ? `${amount.toFixed(8)} ${input.crypto} (${input.network}) credited to your wallet. Go to Merchant Center to fund your escrow.`
+            ? `${amount.toFixed(8)} ${input.crypto} (${input.network}) credited to your wallet. You can list a sell ad anytime — the amount locks from your wallet.`
             : `${amount.toFixed(8)} ${input.crypto} (${input.network}) credited to your wallet.`,
           link:   input.user.merchantProfile ? "/p2p/merchant" : "/dashboard",
         },
