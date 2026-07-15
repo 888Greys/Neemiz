@@ -40,11 +40,6 @@ const WalletSheet = dynamic(
   { ssr: false },
 );
 
-const tempAssets = {
-  appInstall: "https://v3.bundlecdn.com/b02632/plain/bonus/app-install/phone-small-v1.png",
-  freebet: "https://v3.bundlecdn.com/b02632/plain/betting/brand-freebet.png",
-};
-
 type AppShellProps = {
   children: React.ReactNode;
   rightPanel?: React.ReactNode;
