@@ -25,8 +25,8 @@ export async function POST(req: Request) {
   const amount = Number(body.amount);
   const username = typeof body.username === "string" && body.username.trim() ? body.username.trim() : null;
 
-  if (!isActiveLocalCoin(crypto) || isKesCoin(crypto)) {
-    return Response.json({ error: "crypto must be an active in-app local coin (not KES)." }, { status: 400 });
+  if (!isActiveLocalCoin(crypto)) {
+    return Response.json({ error: "crypto must be an active in-app local coin." }, { status: 400 });
   }
   if (!Number.isFinite(amount) || amount <= 0) {
     return Response.json({ error: "amount must be a positive number." }, { status: 400 });
@@ -37,6 +37,42 @@ export async function POST(req: Request) {
     ? await db.user.findUnique({ where: { username }, select: { id: true, username: true } })
     : await db.user.findUnique({ where: { id: adminUserId }, select: { id: true, username: true } });
   if (!target) return Response.json({ error: `No user found for username "${username}".` }, { status: 404 });
+
+  if (isKesCoin(crypto)) {
+    await db.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: target.id },
+        data: { walletBalance: { increment: amount } },
+      });
+      await tx.transaction.create({
+        data: {
+          userId:    target.id,
+          type:      TransactionType.DEPOSIT,
+          amount,
+          currency:  "KES",
+          status:    TransactionStatus.COMPLETED,
+          reference: `admin-grant-kes-${target.id}-${Date.now()}`,
+          provider:  "admin_incoin_grant",
+          metadata:  { action: "admin_grant", asset: "KES", grantedBy: adminUserId },
+        },
+      });
+    });
+
+    const user = await db.user.findUnique({
+      where: { id: target.id },
+      select: { walletBalance: true },
+    });
+
+    return Response.json({
+      ok: true,
+      username: target.username,
+      crypto: "KES",
+      network: "KES",
+      granted: amount,
+      available: Number(user?.walletBalance ?? 0),
+      locked: 0,
+    });
+  }
 
   const network = defaultNetwork(crypto);
   await db.$transaction(async (tx) => {
