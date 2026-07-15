@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { debitUserCrypto } from "@/lib/p2p/crypto-balance";
+import { isActiveLocalCoin } from "@/lib/p2p/local-coins";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
 const VALID_NETWORKS: Record<string, string[]> = {
@@ -12,6 +13,14 @@ const VALID_NETWORKS: Record<string, string[]> = {
   ETH:  ["ERC20"],
   BNB:  ["BEP20"],
 };
+
+// In-app local coins (KES excluded — fiat-wallet-backed) fund escrow on their own
+// currency-code "network", matching defaultNetwork(). e.g. UGX/UGX, TZS/TZS.
+function isValidFundNetwork(crypto: string, network: string): boolean {
+  const sym = crypto.toUpperCase();
+  if (VALID_NETWORKS[sym]?.includes(network)) return true;
+  return isActiveLocalCoin(sym) && sym !== "KES" && network.toUpperCase() === sym;
+}
 
 // POST /api/p2p/merchant/fund — move crypto from normal wallet into merchant escrow
 export async function POST(req: Request) {
@@ -40,7 +49,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid amount" }, { status: 400 });
     }
 
-    if (!VALID_NETWORKS[crypto]?.includes(network)) {
+    if (!isValidFundNetwork(crypto, network)) {
       return Response.json({ error: `Invalid network for ${crypto}` }, { status: 400 });
     }
 
