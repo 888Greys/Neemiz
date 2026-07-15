@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
 import { assertKesSellBacking, deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
 import { isKesCoin, isWalletBackedCoin, p2pMakerLock, lockUserCrypto, unlockOnChainSellReserve, defaultNetwork } from "@/lib/p2p/crypto-balance";
+import { ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
 import { OrderStatus } from "@prisma/client";
 
 const OPEN_ORDER_STATUSES: OrderStatus[] = ["PENDING", "PAID", "DISPUTED"];
@@ -109,16 +110,11 @@ export async function PATCH(req: Request) {
   if (!Number.isFinite(paymentWindow) || paymentWindow < 5 || paymentWindow > 180) {
     return Response.json({ error: "Payment window must be 5-180 minutes" }, { status: 400 });
   }
-  // If the ad DOES list methods, each must still be saved in Merchant Center.
-  // No methods is fine — payment is arranged in chat (matches ad creation).
+  // If the ad DOES list methods, each must be a known catalogue code (same as
+  // browse). Saved Merchant Center accounts are optional extras for checkout.
   if (paymentMethods.length > 0) {
-    const savedPaymentMethods = await db.p2PPaymentMethod.findMany({
-      where: { merchantId: merchant.id, isActive: true },
-      select: { name: true },
-    });
-    const savedPaymentCodes = new Set(savedPaymentMethods.map((method) => method.name).filter(Boolean));
-    if (paymentMethods.some((method) => !savedPaymentCodes.has(method))) {
-      return Response.json({ error: "This ad uses a payment method that is not saved in your Merchant Center." }, { status: 400 });
+    if (paymentMethods.some((method) => !ALL_PAYMENT_CODES.has(method))) {
+      return Response.json({ error: "Unknown payment method on this ad." }, { status: 400 });
     }
   }
 

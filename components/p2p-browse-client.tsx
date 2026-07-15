@@ -1608,7 +1608,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
         fiat={fiat}
         value={payment}
         onClose={() => setPaySheetOpen(false)}
-        onConfirm={setPayment}
+        onConfirm={(code) => setPayment(typeof code === "string" ? code : "")}
       />
       <AmountFilterSheet
         open={amountSheetOpen}

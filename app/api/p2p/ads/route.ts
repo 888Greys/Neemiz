@@ -12,6 +12,7 @@ import { assertKesSellBacking } from "@/lib/p2p/ad-backing";
 import { ACTIVE_LOCAL_COIN_CODES, isActiveLocalCoin } from "@/lib/p2p/local-coins";
 import { getFxRatesToKES } from "@/lib/p2p/fx";
 import { fundLocalCoinShortfallFromKes, reservedKesForMerchant } from "@/lib/p2p/local-coin-convert";
+import { ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
 
 // Real cryptos plus every active in-app local coin (KES, UG, TZ, …). Local coins
 // are 1:1-pegged in-app currencies that trade over the same escrow rails.
@@ -145,16 +146,11 @@ export async function POST(req: Request) {
     const requestedPaymentMethods = Array.from(new Set(
       (Array.isArray(paymentMethods) ? paymentMethods : []).filter((method): method is string => typeof method === "string"),
     ));
-    const savedPaymentMethods = await db.p2PPaymentMethod.findMany({
-      where: { merchantId: merchant.id, isActive: true },
-      select: { name: true },
-    });
-    const savedPaymentCodes = new Set(savedPaymentMethods.map((method) => method.name).filter(Boolean));
-    const missingPaymentMethods = requestedPaymentMethods.filter((method) => !savedPaymentCodes.has(method));
-    // No saved methods is fine — the ad simply carries none and payment is
-    // arranged in chat. If the merchant DID list methods, they must be saved.
-    if (missingPaymentMethods.length > 0) {
-      return Response.json({ error: "This ad uses a payment method that is not saved in your Merchant Center." }, { status: 400 });
+    // Ads may list any known rail (same catalogue as browse). Account details
+    // in Merchant Center are optional — missing ones are arranged in chat.
+    const unknownPaymentMethods = requestedPaymentMethods.filter((method) => !ALL_PAYMENT_CODES.has(method));
+    if (unknownPaymentMethods.length > 0) {
+      return Response.json({ error: `Unknown payment method: ${unknownPaymentMethods[0]}` }, { status: 400 });
     }
     const fiatCode = typeof fiat === "string" && VALID_FIATS.has(fiat) ? fiat : DEFAULT_FIAT;
     if (side === "SELL" && (minLimit == null || maxLimit == null)) {

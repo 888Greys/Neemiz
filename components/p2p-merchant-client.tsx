@@ -12,7 +12,7 @@ import { P2PSubNav } from "@/components/p2p-subnav";
 import { Icon } from "@/components/icon";
 import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { paymentMethodLabel, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
+import { paymentMethodLabel, accountIdentifierLabel, ALL_PAYMENT_CODES, methodAllowedForFiat } from "@/lib/p2p/payment-methods";
 import { MARKETS, type Market } from "@/lib/payments/country-methods";
 import { ACTIVE_LOCAL_COINS, isActiveLocalCoin } from "@/lib/p2p/local-coins";
 import { PaymentLogo } from "@/components/p2p/payment-logo";
@@ -25,6 +25,7 @@ import {
   countryFlagUrl,
 } from "@/lib/payments/world-countries";
 import { convertFromKes } from "@/lib/currency-config";
+import { PaymentMethodsSheet } from "@/components/p2p-market-chrome";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
 
@@ -1813,8 +1814,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const [fiatQuery, setFiatQuery] = useState("");
   const [pickerMounted, setPickerMounted] = useState(false);
   const [spotRate, setSpotRate] = useState<number | null>(null);
-  const [savedPaymentMethods, setSavedPaymentMethods] = useState<PayMethod[]>([]);
-  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
+  const [paySheetOpen, setPaySheetOpen] = useState(false);
   const [escrowBalances, setEscrowBalances] = useState<CryptoBalance[]>([]);
   // In-app local coins + on-chain sells both read from the user wallet.
   const [walletCoinBalances, setWalletCoinBalances] = useState<{ crypto: string; available: number }[]>([]);
@@ -1837,11 +1837,11 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   }, []);
 
   useEffect(() => {
-    if (!cryptoOpen && !fiatOpen) return;
+    if (!cryptoOpen && !fiatOpen && !paySheetOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
-  }, [cryptoOpen, fiatOpen]);
+  }, [cryptoOpen, fiatOpen, paySheetOpen]);
 
   const fiatCountry = useMemo(
     () => findCountryByCurrency(form.fiat) ?? WORLD_COUNTRIES.find((c) => c.currency === form.fiat),
@@ -1929,25 +1929,6 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
       profitMarginPct: isActiveLocalCoin(first.symbol) ? "0" : "",
     }));
   }, [restrictToHeld, heldSymbols, form.crypto]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/p2p/merchant/payment-methods")
-      .then((response) => response.ok ? response.json() : [])
-      .then((methods: PayMethod[]) => {
-        if (cancelled) return;
-        setSavedPaymentMethods(methods);
-        const savedCodes = new Set(methods.map((method) => method.name));
-        setForm((current) => ({
-          ...current,
-          paymentMethods: current.paymentMethods.filter((method) => savedCodes.has(method)),
-        }));
-      })
-      .finally(() => {
-        if (!cancelled) setPaymentMethodsLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -2439,11 +2420,10 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                       key={c.code}
                       type="button"
                       onClick={() => {
-                        const allowed = new Set(savedPaymentMethods.map((m) => m.name));
                         setForm((p) => ({
                           ...p,
                           fiat: c.currency,
-                          paymentMethods: p.paymentMethods.filter((m) => allowed.has(m)),
+                          paymentMethods: p.paymentMethods.filter((m) => methodAllowedForFiat(m, c.currency)),
                           pricePerUnit: p.crypto === "KES" ? p.pricePerUnit : "",
                           profitMarginPct: p.crypto === "KES" ? p.profitMarginPct : "",
                         }));
@@ -2467,6 +2447,24 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               </div>
             </div>,
             document.body,
+          )}
+
+          {pickerMounted && (
+            <PaymentMethodsSheet
+              open={paySheetOpen}
+              fiat={form.fiat}
+              multi
+              allowAll={false}
+              value={form.paymentMethods}
+              onClose={() => setPaySheetOpen(false)}
+              onConfirm={(codes) => {
+                if (!Array.isArray(codes)) return;
+                f(
+                  "paymentMethods",
+                  codes.filter((c) => ALL_PAYMENT_CODES.has(c)),
+                );
+              }}
+            />
           )}
 
           <div>
@@ -2693,93 +2691,42 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           </p>
 
           <div className="lg:col-span-2">
-            <label className="text-[11px] font-black text-slate-500 mb-1 block uppercase tracking-wide">
+            <label className="mb-1 block text-[11px] font-black uppercase tracking-wide text-slate-500">
               Payment methods <span className="font-semibold normal-case text-slate-600">(optional)</span>
             </label>
-            {!paymentMethodsLoading && savedPaymentMethods.length > 0 && (
-              <p className="mb-2 text-[11px] leading-4 text-slate-500">
-                Optional — leave unselected to agree the payment method with the buyer in chat.
-              </p>
-            )}
-            {paymentMethodsLoading ? (
-              <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-xs font-semibold text-slate-500">
-                Loading saved payment methods...
-              </div>
-            ) : savedPaymentMethods.length === 0 ? (
-              <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3">
-                <p className="text-xs font-black text-slate-300">Payment methods (optional)</p>
-                <p className="mt-1 text-[11px] leading-4 text-slate-400">
-                  You can post this ad now and agree the payment method with the buyer in chat, or add a saved account so it shows on the ad.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => (onSetupPayments ?? onClose)()}
-                  className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-lg bg-white/10 px-3 text-xs font-black text-white"
-                >
-                  <Icon name="add" className="text-sm" />
-                  Add payment method
-                </button>
-              </div>
-            ) : (
-              <>
-                {/* Noones-style: the merchant's saved methods are surfaced
-                    directly as selectable rows — tap to toggle onto the ad.
-                    No "browse all world methods" catch-all category. */}
-                <div className="space-y-1.5">
-                  {Array.from(new Map(savedPaymentMethods.map((m) => [m.name, m])).values()).map((m) => {
-                    const selected = form.paymentMethods.includes(m.name);
-                    const detail = m.bankName?.trim()
-                      ? `${m.bankName} · ${maskAccountNo(m.accountNo)}`
-                      : maskAccountNo(m.accountNo);
-                    return (
-                      <button
-                        key={m.name}
-                        type="button"
-                        onClick={() =>
-                          f(
-                            "paymentMethods",
-                            selected
-                              ? form.paymentMethods.filter((x) => x !== m.name)
-                              : [...form.paymentMethods, m.name],
-                          )
-                        }
-                        className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition active:scale-[0.99] ${
-                          selected
-                            ? "border-[#087cff]/60 bg-[#087cff]/[0.08]"
-                            : "border-white/[0.08] bg-white/[0.03] hover:border-white/20"
-                        }`}
-                      >
-                        <PaymentLogo code={m.name} size={30} />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-bold text-white">
-                            {paymentMethodLabel(m.name)}
-                          </span>
-                          {detail && (
-                            <span className="block truncate text-[11px] font-medium text-slate-500">{detail}</span>
-                          )}
-                        </span>
-                        <span
-                          className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border transition ${
-                            selected ? "border-[#087cff] bg-[#087cff]" : "border-white/25"
-                          }`}
-                        >
-                          {selected && <Icon name="check" className="text-[14px] text-white" />}
-                        </span>
-                      </button>
-                    );
-                  })}
-
-                  <button
-                    type="button"
-                    onClick={() => (onSetupPayments ?? onClose)()}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/15 py-2.5 text-[12px] font-bold text-slate-300 transition hover:border-white/30 hover:text-white"
-                  >
-                    <Icon name="add" className="text-[16px]" />
-                    Add payment method
-                  </button>
-                </div>
-              </>
-            )}
+            <p className="mb-2 text-[11px] leading-4 text-slate-500">
+              Same rails as browse — pick which methods buyers can use. Leave empty to agree in chat.
+            </p>
+            <button
+              type="button"
+              onClick={() => setPaySheetOpen(true)}
+              className="flex w-full items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-3 text-left transition hover:border-white/20"
+            >
+              <Icon name="account_balance_wallet" className="text-[20px] text-slate-400" />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-bold text-white">
+                  {form.paymentMethods.length === 0
+                    ? "All payment methods"
+                    : form.paymentMethods.length === 1
+                    ? paymentMethodLabel(form.paymentMethods[0])
+                    : `${form.paymentMethods.length} methods selected`}
+                </span>
+                <span className="block truncate text-[11px] font-medium text-slate-500">
+                  {form.paymentMethods.length === 0
+                    ? "Tap to choose M-Pesa, bank, cards…"
+                    : form.paymentMethods.map((m) => paymentMethodLabel(m)).join(", ")}
+                </span>
+              </span>
+              <Icon name="expand_more" className="shrink-0 text-[22px] text-slate-500" />
+            </button>
+            <button
+              type="button"
+              onClick={() => (onSetupPayments ?? onClose)()}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/15 py-2.5 text-[12px] font-bold text-slate-300 transition hover:border-white/30 hover:text-white"
+            >
+              <Icon name="add" className="text-[16px]" />
+              Save account details (for buyers to pay you)
+            </button>
           </div>
           </div>
           )}
@@ -2829,7 +2776,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               </button>
             )}
             <button onClick={step === 2 ? submit : goNext}
-              disabled={step === 2 && (submitting || paymentMethodsLoading || exceedsSellableBalance)}
+              disabled={step === 2 && (submitting || exceedsSellableBalance)}
               className={`flex h-12 items-center justify-center gap-2 rounded-xl text-[13px] font-black text-white shadow-lg transition-all active:scale-[0.98] disabled:opacity-50 ${
                 step === 2
                   ? "bg-[#05b957] shadow-[#05b957]/25 hover:bg-[#06d169]"

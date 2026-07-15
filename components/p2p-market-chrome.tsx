@@ -299,7 +299,8 @@ export function SelectCoinSheet({
   );
 }
 
-/** Payment methods bottom sheet — All / Popular / Other + Reset / Confirm. */
+/** Payment methods bottom sheet — All / Popular / Other + Reset / Confirm.
+ *  Single-select for browse filters; multi-select for create-ad rails. */
 export function PaymentMethodsSheet({
   open,
   fiat,
@@ -307,20 +308,26 @@ export function PaymentMethodsSheet({
   onClose,
   onConfirm,
   allowAll = true,
+  multi = false,
 }: {
   open: boolean;
   fiat: string;
-  value: string;
+  /** Single: selected code ("" = All). Multi: selected codes. */
+  value: string | string[];
   onClose: () => void;
-  onConfirm: (code: string) => void;
+  onConfirm: (code: string | string[]) => void;
   allowAll?: boolean;
+  /** When true, tap toggles methods and Confirm returns string[]. */
+  multi?: boolean;
 }) {
   const [q, setQ] = useState("");
-  const [draft, setDraft] = useState(value);
+  const [draftSingle, setDraftSingle] = useState(typeof value === "string" ? value : "");
+  const [draftMulti, setDraftMulti] = useState<string[]>(Array.isArray(value) ? value : []);
 
   useEffect(() => {
     if (open) {
-      setDraft(value);
+      setDraftSingle(typeof value === "string" ? value : "");
+      setDraftMulti(Array.isArray(value) ? [...value] : []);
       setQ("");
     }
   }, [open, value]);
@@ -337,22 +344,31 @@ export function PaymentMethodsSheet({
     !term || label.toLowerCase().includes(term) || code.toLowerCase().includes(term);
   const popularFiltered = popular.filter((m) => match(m.label, m.value));
   const otherFiltered = other.filter((m) => match(m.label, m.value));
-  const showAll = allowAll && (!term || "all".includes(term));
+  const showAll = !multi && allowAll && (!term || "all".includes(term));
 
   if (!open) return null;
 
-  const Row = ({ code, label }: { code: string; label: string }) => (
-    <button
-      type="button"
-      onClick={() => setDraft(code)}
-      className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
-        draft === code ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
-      }`}
-    >
-      <span className="flex-1 text-[14px] font-semibold text-white">{label}</span>
-      {draft === code && <Icon name="check" className="shrink-0 text-[20px] text-white" />}
-    </button>
-  );
+  function toggleMulti(code: string) {
+    setDraftMulti((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code],
+    );
+  }
+
+  const Row = ({ code, label }: { code: string; label: string }) => {
+    const selected = multi ? draftMulti.includes(code) : draftSingle === code;
+    return (
+      <button
+        type="button"
+        onClick={() => (multi ? toggleMulti(code) : setDraftSingle(code))}
+        className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
+          selected ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
+        }`}
+      >
+        <span className="flex-1 text-[14px] font-semibold text-white">{label}</span>
+        {selected && <Icon name="check" className="shrink-0 text-[20px] text-white" />}
+      </button>
+    );
+  };
 
   return (
     <div className="fixed inset-0 z-[130] flex items-end justify-center bg-black/65 sm:items-center sm:p-4" onClick={onClose}>
@@ -361,7 +377,12 @@ export function PaymentMethodsSheet({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3">
-          <h2 className="text-[17px] font-bold text-white">Payment Methods</h2>
+          <h2 className="text-[17px] font-bold text-white">
+            Payment Methods
+            {multi && draftMulti.length > 0 && (
+              <span className="ml-2 text-[13px] font-semibold text-slate-500">{draftMulti.length}</span>
+            )}
+          </h2>
           <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-white/[0.06]" aria-label="Close">
             <Icon name="close" className="text-[18px]" />
           </button>
@@ -400,14 +421,20 @@ export function PaymentMethodsSheet({
         <div className="grid grid-cols-2 gap-3 border-t border-white/[0.06] px-4 py-3">
           <button
             type="button"
-            onClick={() => setDraft(allowAll ? "" : (popular[0]?.value ?? ""))}
+            onClick={() => {
+              if (multi) setDraftMulti([]);
+              else setDraftSingle(allowAll ? "" : (popular[0]?.value ?? ""));
+            }}
             className="h-12 rounded-full border border-white/25 text-[14px] font-bold text-white transition hover:bg-white/[0.04]"
           >
             Reset
           </button>
           <button
             type="button"
-            onClick={() => { onConfirm(draft); onClose(); }}
+            onClick={() => {
+              onConfirm(multi ? draftMulti : draftSingle);
+              onClose();
+            }}
             className="h-12 rounded-full bg-[#087cff] text-[14px] font-bold text-white transition hover:bg-[#0570e8]"
           >
             Confirm

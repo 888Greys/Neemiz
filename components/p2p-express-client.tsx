@@ -140,7 +140,7 @@ export function P2PExpressClient({ defaultFiat = "KES" }: { defaultFiat?: string
         onClose={() => setPaySheetOpen(false)}
         allowAll={false}
         onConfirm={(code) => {
-          if (!code) return;
+          if (typeof code !== "string" || !code) return;
           setPayment(code);
           setPaymentPicked(true);
         }}
