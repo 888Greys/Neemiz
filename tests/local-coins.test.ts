@@ -8,11 +8,11 @@ import {
 } from "@/lib/p2p/local-coins";
 
 describe("local coins registry", () => {
-  it("only KES is live today (others need per-currency wallets)", () => {
-    expect(ACTIVE_LOCAL_COINS.map((c) => c.currency)).toEqual(["KES"]);
+  it("all defined local coins are active except excluded crypto symbols", () => {
     expect(isActiveLocalCoin("KES")).toBe(true);
     expect(isActiveLocalCoin("kes")).toBe(true); // case-insensitive
-    expect(isActiveLocalCoin("UGX")).toBe(false); // defined but not active
+    expect(isActiveLocalCoin("UGX")).toBe(true); // now active!
+    expect(isActiveLocalCoin("TZS")).toBe(true); // now active!
     expect(isActiveLocalCoin("BTC")).toBe(false);
   });
 
