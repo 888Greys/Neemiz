@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { requireOwnerAdmin } from "@/lib/admin-guard";
-import { creditUserCrypto, defaultNetwork, isActiveLocalCoin, isKesCoin } from "@/lib/p2p/crypto-balance";
+import { creditUserCrypto, defaultNetwork, isKesCoin } from "@/lib/p2p/crypto-balance";
+import { isActiveLocalCoin } from "@/lib/p2p/local-coins";
 import { TransactionType, TransactionStatus } from "@prisma/client";
 
 // POST /api/admin/p2p/grant-coin — owner-admin tops up an in-app local coin
