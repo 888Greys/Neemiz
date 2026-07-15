@@ -27,7 +27,7 @@ interface GrantResult {
   locked:    number;
 }
 
-const GRANTABLE = ACTIVE_LOCAL_COINS.filter((c) => c.currency !== "KES");
+const GRANTABLE = ACTIVE_LOCAL_COINS;
 
 export function AdminV2GrantCoin() {
   const [crypto, setCrypto]     = useState(GRANTABLE[0]?.currency ?? "UGX");
