@@ -52,7 +52,7 @@ export function validateP2PAd(input: P2PAdGuardInput): string | null {
   }
 
   const totalValue = (input.totalAmount ?? input.availableAmount) * input.pricePerUnit;
-  if (input.maxLimit > totalValue) {
+  if (input.maxLimit > totalValue + 0.01) {
     return `Maximum order limit cannot exceed listed value of KSh ${totalValue.toFixed(2)}`;
   }
 
