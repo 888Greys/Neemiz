@@ -285,7 +285,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
               <div className="hidden md:block">
                 <CurrencySwitcher />
               </div>
-              {/* Small profile icon (mobile — desktop has it in the sidebar) */}
+              {/* Small profile icon (mobile) */}
               <button
                 type="button"
                 onClick={() => setProfileOpen(true)}
@@ -296,7 +296,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
                 <Icon name="person" fill className="text-[18px] sm:text-[20px]" />
               </button>
               <NotificationsBell />
-              {/* Profile — desktop, top-right (easier to find than the sidebar) */}
+              {/* Profile — desktop, top-right */}
               <button
                 type="button"
                 onClick={() => setProfileOpen(true)}
@@ -336,7 +336,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             sidebarCollapsed ? "w-[78px]" : "w-[280px]"
           }`}
         >
-          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} tab={currentTab} recents={recents} onOpenWallet={() => openWallet()} onOpenPromotionCodes={() => openProfile("promotion-codes")} onOpenProfile={() => { setProfileInitialView(undefined); setProfileOpen(true); }} />
+          <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} pathname={pathname} tab={currentTab} recents={recents} />
         </aside>
         )}
 
@@ -581,18 +581,11 @@ function sidebarItemActive(pathname: string, href: string, tab = "") {
 
 function Sidebar({
   collapsed,
-  onOpenWallet,
-  onOpenPromotionCodes,
-  onOpenProfile,
   pathname,
   tab,
-  recents,
 }: {
   collapsed: boolean;
   onToggle: () => void;
-  onOpenWallet: () => void;
-  onOpenPromotionCodes: () => void;
-  onOpenProfile: () => void;
   pathname: string;
   tab: string;
   recents: NavRecent[];
@@ -616,59 +609,6 @@ function Sidebar({
           <StandaloneSidebarItem collapsed={collapsed} href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} tab={tab} badge="HOT" />
           <StandaloneSidebarItem collapsed={collapsed} href="/lucky-spin" icon="casino" label="Lucky Spin" pathname={pathname} tab={tab} />
         </div>
-
-        <div className={`${collapsed ? "mx-1" : "-mx-4"} my-4 border-t border-white/10`} />
-
-        <div className="space-y-0.5">
-          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="account_balance_wallet" label="Wallet" pathname={pathname} tab={tab} onClick={onOpenWallet} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/wallet" icon="confirmation_number" label="Promotion code" pathname={pathname} tab={tab} onClick={onOpenPromotionCodes} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/dashboard" icon="campaign" label="Promotions" pathname={pathname} tab={tab} onClick={() => toast.info("Promotions", "Seasonal promotions and free bets are launching soon!")} />
-        </div>
-      </div>
-
-      <div className={`border-t border-white/10 ${collapsed ? "p-2" : "p-4"}`}>
-        <button
-          type="button"
-          onClick={() => toast.info("Nezeem for Windows", "The desktop app is coming soon! You'll be notified on launch.")}
-          className={`mb-2 flex w-full items-center rounded-2xl bg-[#32343b] transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-1 focus-visible:ring-offset-[#1b1c20] ${collapsed ? "justify-center p-2" : "gap-2.5 p-2.5"}`}
-        >
-          <span
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500 bg-cover bg-center text-white"
-            style={{ backgroundImage: `url(${tempAssets.appInstall})` }}
-          >
-            <Icon name="desktop_windows" fill className="text-[21px]" />
-          </span>
-          {!collapsed && (
-            <>
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block text-xs font-black leading-4">Nezeem for Windows</span>
-                <span className="block text-[11px] leading-4 text-slate-300">Instant access to the platform</span>
-              </span>
-              <Icon name="chevron_right" className="text-[22px] text-slate-300" />
-            </>
-          )}
-        </button>
-
-        <button
-          type="button"
-          onClick={onOpenProfile}
-          className={`flex w-full items-center rounded-2xl bg-white/[0.03] ring-1 ring-white/[0.07] transition hover:bg-white/[0.04] ${
-            collapsed ? "justify-center p-2" : "gap-3 px-3 py-2.5"
-          }`}
-        >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#087cff]/15 text-[#75b8ff]">
-            <Icon name="person" fill className="text-[18px]" />
-          </span>
-          {!collapsed && (
-            <>
-              <span className="min-w-0 flex-1 text-left">
-                <span className="block text-[13px] font-black text-white">Profile</span>
-                <span className="block text-[10px] font-bold text-slate-500">Account & security</span>
-              </span>
-              <Icon name="chevron_right" className="text-[16px] text-slate-600" />
-            </>
-          )}
-        </button>
       </div>
     </div>
   );
