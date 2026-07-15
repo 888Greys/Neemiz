@@ -1816,10 +1816,10 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const [savedPaymentMethods, setSavedPaymentMethods] = useState<PayMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
   const [escrowBalances, setEscrowBalances] = useState<CryptoBalance[]>([]);
-  // In-app local coins sell straight from the merchant's own wallet (like KES),
-  // so we also read the wallet balances to know which coins can back a sell ad.
+  // In-app local coins + on-chain sells both read from the user wallet.
   const [walletCoinBalances, setWalletCoinBalances] = useState<{ crypto: string; available: number }[]>([]);
   const [balancesLoading, setBalancesLoading] = useState(true);
+  const [walletBalancesLoading, setWalletBalancesLoading] = useState(true);
   const [fxToKes, setFxToKes] = useState<Record<string, number> | null>(null);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -1864,11 +1864,11 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const heldSymbols = useMemo(() => {
     const held = new Set<string>();
     for (const b of walletCoinBalances) {
-      if (b.available > 0) held.add(b.crypto);
+      if (Number(b.available) > 0) held.add(b.crypto.toUpperCase());
     }
-    // Legacy escrow available (pre one-wallet) still counts until auto-drained.
+    // merchant/balance also surfaces wallet + any legacy escrow available.
     for (const b of escrowBalances) {
-      if (b.crypto !== "KES" && Number(b.available) > 0) held.add(b.crypto);
+      if (b.crypto !== "KES" && Number(b.available) > 0) held.add(b.crypto.toUpperCase());
     }
     if (Number(fiatBalance) > 0) held.add("KES");
     return held;
@@ -1884,17 +1884,18 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
         map.set(sym, Math.max(0, Number(fiatBalance)));
         continue;
       }
-      const own = walletCoinBalances.find((b) => b.crypto === sym)?.available ?? 0;
+      const own = walletCoinBalances
+        .filter((b) => b.crypto.toUpperCase() === sym)
+        .reduce((sum, b) => sum + Number(b.available), 0);
       const fromKes = convertFromKes(Number(fiatBalance), sym, rates);
-      map.set(sym, Math.max(0, Number(own) + fromKes));
+      map.set(sym, Math.max(0, own + fromKes));
     }
     return map;
   }, [fxToKes, fiatBalance, walletCoinBalances]);
 
-  // For SELL ads: full list stays in on-chain → in-app order. Unheld on-chain
-  // coins stay visible (disabled) so blockchain assets always lead the sheet.
-  // BUY ads may pick any supported coin.
-  const restrictToHeld = form.side === "SELL" && !isEditing && !balancesLoading;
+  // Wait for BOTH wallet + merchant balance so USDT isn't greyed out while still loading.
+  const balancesReady = !balancesLoading && !walletBalancesLoading;
+  const restrictToHeld = form.side === "SELL" && !isEditing && balancesReady;
 
   const sellableCryptos = useMemo(() => P2P_CRYPTOS, []);
 
@@ -1909,7 +1910,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   function canPickCrypto(symbol: string): boolean {
     if (!restrictToHeld) return true;
     if (isActiveLocalCoin(symbol)) return true;
-    return heldSymbols.has(symbol);
+    return heldSymbols.has(symbol.toUpperCase());
   }
 
   // On a fresh SELL ad, jump off unheld real crypto onto a held coin or KES.
@@ -1968,12 +1969,21 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
       .then((data: unknown) => {
         if (cancelled || !data) return;
         const rows = Array.isArray(data) ? data : ((data as { balances?: unknown }).balances ?? []);
-        const list = (rows as Array<{ crypto: string; available: number | string }>).map((b) => ({
-          crypto: b.crypto, available: Number(b.available),
-        }));
-        setWalletCoinBalances(list);
+        // Sum available across networks so USDT/TRC20 + USDT/ERC20 both count.
+        const byCrypto = new Map<string, number>();
+        for (const row of rows as Array<{ crypto: string; available: number | string }>) {
+          const sym = String(row.crypto ?? "").toUpperCase();
+          if (!sym) continue;
+          byCrypto.set(sym, (byCrypto.get(sym) ?? 0) + Number(row.available));
+        }
+        setWalletCoinBalances(
+          [...byCrypto.entries()].map(([crypto, available]) => ({ crypto, available })),
+        );
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setWalletBalancesLoading(false);
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -2070,7 +2080,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     : 0;
   const selectedEscrow = escrowBalances.find((balance) => balance.crypto === form.crypto);
   const walletAvailForCrypto = walletCoinBalances
-    .filter((b) => b.crypto === form.crypto)
+    .filter((b) => b.crypto.toUpperCase() === form.crypto.toUpperCase())
     .reduce((sum, b) => sum + Number(b.available), 0);
   // On-chain sells lock amount + platform fee (~2%) from wallet at ad create.
   // merchant/balance returns wallet available (and auto-drains legacy escrow).
@@ -2322,11 +2332,13 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                     : undefined;
                   const walletAvail = !isActiveLocalCoin(c.symbol)
                     ? walletCoinBalances
-                        .filter((b) => b.crypto === c.symbol)
+                        .filter((b) => b.crypto.toUpperCase() === c.symbol.toUpperCase())
                         .reduce((sum, b) => sum + Number(b.available), 0)
                     : 0;
                   const onChainAvail = Math.max(walletAvail, Number(escrowAvail?.available ?? 0));
-                  const availLabel = localAvail != null
+                  const availLabel = !balancesReady
+                    ? "Loading…"
+                    : localAvail != null
                     ? `${localAvail.toLocaleString("en-US", { maximumFractionDigits: 2 })} avail`
                     : onChainAvail > 0
                     ? `${onChainAvail.toLocaleString("en-US", { maximumFractionDigits: 8 })} wallet`
@@ -2590,7 +2602,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 </label>
                 {form.side === "SELL" && (
                   <span className="text-right text-[10px] font-semibold text-slate-500">
-                    {balancesLoading
+                    {balancesLoading || walletBalancesLoading
                       ? "Loading balance..."
                       : <>Available <strong className="text-white">{sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} {form.crypto}</strong></>}
                   </span>
@@ -2608,7 +2620,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 {form.side === "SELL" && (
                   <button
                     type="button"
-                    disabled={balancesLoading || sellableBalance <= 0}
+                    disabled={!balancesReady || sellableBalance <= 0}
                     onClick={() => f("totalAmount", String(Number(sellableBalance.toFixed(8))))}
                     className="ml-2 rounded-lg bg-[#087cff]/15 px-2.5 py-1.5 text-[11px] font-black text-[#55aaff] transition hover:bg-[#087cff]/25 disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -2616,7 +2628,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                   </button>
                 )}
               </div>
-              {form.side === "SELL" && !balancesLoading && (
+              {form.side === "SELL" && balancesReady && (
                 <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold">
                   <span className={sellableBalance > 0 ? "text-[#05b957]" : "text-amber-300"}>
                     {sellableBalance > 0
