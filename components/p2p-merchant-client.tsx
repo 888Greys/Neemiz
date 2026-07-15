@@ -24,6 +24,7 @@ import {
   findCountryByCurrency,
   countryFlagUrl,
 } from "@/lib/payments/world-countries";
+import { convertFromKes } from "@/lib/currency-config";
 
 // ─── Supported P2P cryptos ────────────────────────────────────────────────────
 
@@ -1839,9 +1840,21 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   // so we also read the wallet balances to know which coins can back a sell ad.
   const [walletCoinBalances, setWalletCoinBalances] = useState<{ crypto: string; available: number }[]>([]);
   const [balancesLoading, setBalancesLoading] = useState(true);
+  const [fxToKes, setFxToKes] = useState<Record<string, number> | null>(null);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
 
   useEffect(() => { setPickerMounted(true); }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/p2p/fx")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { toKES?: Record<string, number> } | null) => {
+        if (!cancelled && d?.toKES) setFxToKes(d.toKES);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!cryptoOpen && !fiatOpen) return;
@@ -1873,8 +1886,6 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     for (const b of escrowBalances) {
       if (b.crypto !== "KES" && Number(b.available) > 0) held.add(b.crypto);
     }
-    // In-app local coins are sold per-order straight from the wallet (no escrow
-    // funding), so a wallet balance is enough to list a sell ad.
     for (const b of walletCoinBalances) {
       if (b.crypto !== "KES" && isActiveLocalCoin(b.crypto) && b.available > 0) held.add(b.crypto);
     }
@@ -1882,13 +1893,32 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     return held;
   }, [escrowBalances, walletCoinBalances, fiatBalance]);
 
-  // For SELL ads you can only list coins you hold. BUY ads may reference any supported coin.
-  // While balances load, or when editing an existing ad, don't restrict the list.
+  // Sellable amount per in-app coin: own balance + KES converted at FX.
+  const localSellableBySymbol = useMemo(() => {
+    const map = new Map<string, number>();
+    const rates = fxToKes ?? { KES: 1 };
+    for (const c of ACTIVE_LOCAL_COINS) {
+      const sym = c.currency;
+      if (sym === "KES") {
+        map.set(sym, Math.max(0, Number(fiatBalance)));
+        continue;
+      }
+      const own = walletCoinBalances.find((b) => b.crypto === sym)?.available ?? 0;
+      const fromKes = convertFromKes(Number(fiatBalance), sym, rates);
+      map.set(sym, Math.max(0, Number(own) + fromKes));
+    }
+    return map;
+  }, [fxToKes, fiatBalance, walletCoinBalances]);
+
+  // For SELL ads: real crypto must be held; all in-app local coins stay listed
+  // (funded from KES via FX). BUY ads may reference any supported coin.
   const restrictToHeld = form.side === "SELL" && !isEditing && !balancesLoading;
 
   const sellableCryptos = useMemo(() => {
     if (!restrictToHeld) return P2P_CRYPTOS;
-    return P2P_CRYPTOS.filter((c) => heldSymbols.has(c.symbol) || c.symbol === form.crypto);
+    return P2P_CRYPTOS.filter(
+      (c) => isActiveLocalCoin(c.symbol) || heldSymbols.has(c.symbol) || c.symbol === form.crypto,
+    );
   }, [restrictToHeld, heldSymbols, form.crypto]);
 
   const filteredCryptos = useMemo(() => {
@@ -1899,12 +1929,15 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     );
   }, [cryptoQuery, sellableCryptos]);
 
-  // On a fresh SELL ad, if the selected coin isn't one the merchant holds, jump to the first held coin.
+  // On a fresh SELL ad, jump off unheld real crypto onto a held coin or KES.
   useEffect(() => {
     if (!restrictToHeld) return;
-    if (heldSymbols.size === 0) return;
+    if (isActiveLocalCoin(form.crypto)) return;
     if (heldSymbols.has(form.crypto)) return;
-    const first = P2P_CRYPTOS.find((c) => heldSymbols.has(c.symbol));
+    const first =
+      P2P_CRYPTOS.find((c) => heldSymbols.has(c.symbol)) ??
+      P2P_CRYPTOS.find((c) => c.symbol === "KES") ??
+      P2P_CRYPTOS.find((c) => isActiveLocalCoin(c.symbol));
     if (!first) return;
     setForm((p) => ({
       ...p,
@@ -2011,12 +2044,16 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
 
 
   // Reference rate for the margin readout. Real cryptos use a live market rate;
-  // KES Coin is pegged 1:1 to fiat (no market) so its reference is always 1.00,
-  // and the merchant's % is a spread on top of the peg (their cash-in/out rate).
+  // in-app local coins are pegged 1:1 (no market) so reference is always 1.00.
   useEffect(() => {
     let cancelled = false;
-    if (form.crypto === "KES") {
+    if (isActiveLocalCoin(form.crypto)) {
       setSpotRate(1);
+      setForm((p) => {
+        if (isEditing && Number(p.pricePerUnit) > 0) return p;
+        if (Number(p.pricePerUnit) > 0 && p.crypto === form.crypto) return p;
+        return { ...p, pricePerUnit: p.pricePerUnit || "1", profitMarginPct: p.profitMarginPct || "0" };
+      });
       return () => { cancelled = true; };
     }
     setSpotRate(null);
@@ -2044,14 +2081,14 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const priceNum = Number(form.pricePerUnit) || 0;
   const marginPct = spotRate && priceNum > 0 ? ((priceNum / spotRate) - 1) * 100 : null;
   const canUseMarginPricing = !!spotRate;
-  const isKesCoinForm = form.crypto === "KES"; // pegged 1:1 reference; merchant sets a spread %
+  const isKesCoinForm = isActiveLocalCoin(form.crypto); // pegged 1:1; merchant sets a spread %
   const totalAmountNum = Number(form.totalAmount) || 0;
   const fullOrderValue = totalAmountNum > 0 && priceNum > 0
     ? Math.floor(totalAmountNum * priceNum * 100) / 100
     : 0;
   const selectedEscrow = escrowBalances.find((balance) => balance.crypto === form.crypto);
-  const sellableBalance = form.crypto === "KES"
-    ? Math.max(0, fiatBalance / 1.01)
+  const sellableBalance = isActiveLocalCoin(form.crypto)
+    ? Math.max(0, (localSellableBySymbol.get(form.crypto) ?? 0) / 1.01)
     : Number(selectedEscrow?.available ?? 0);
   const exceedsSellableBalance = !isEditing && form.side === "SELL" && totalAmountNum > sellableBalance;
   const requiredKesBacking = totalAmountNum > 0 ? parseFloat((totalAmountNum * 1.01).toFixed(2)) : 0;
@@ -2083,6 +2120,8 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
       return toast.error(
         sellableBalance > 0
           ? `You can sell up to ${fmtEscrowAmt(sellableBalance)} ${form.crypto}`
+          : isActiveLocalCoin(form.crypto)
+          ? `Top up your KES wallet to sell ${form.crypto}`
           : `No ${form.crypto} in escrow yet`,
       );
     }
@@ -2281,17 +2320,29 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                       {cryptoQuery.trim()
                         ? "No coins match"
                         : restrictToHeld
-                        ? "No crypto in your balance to sell"
+                        ? "No crypto in escrow to sell"
                         : "No coins available"}
                     </p>
                     {!cryptoQuery.trim() && restrictToHeld && (
                       <p className="mx-auto mt-1 max-w-[16rem] text-[11px] leading-4 text-slate-500">
-                        Fund your merchant escrow (or top up your fiat wallet for KES Coin) to list a sell ad.
+                        In-app coins (KES, NGN, …) are always listed — funded from your KES at live FX. Real crypto needs escrow first.
                       </p>
                     )}
                   </div>
                 )}
-                {filteredCryptos.map((c) => (
+                {filteredCryptos.map((c) => {
+                  const localAvail = isActiveLocalCoin(c.symbol)
+                    ? localSellableBySymbol.get(c.symbol)
+                    : undefined;
+                  const escrowAvail = !isActiveLocalCoin(c.symbol)
+                    ? escrowBalances.find((b) => b.crypto === c.symbol)
+                    : undefined;
+                  const availLabel = localAvail != null
+                    ? `${localAvail.toLocaleString("en-US", { maximumFractionDigits: 2 })} avail`
+                    : escrowAvail
+                    ? `${Number(escrowAvail.available).toLocaleString("en-US", { maximumFractionDigits: 8 })} escrow`
+                    : null;
+                  return (
                   <button
                     key={c.symbol}
                     type="button"
@@ -2299,8 +2350,8 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                       setForm((p) => ({
                         ...p,
                         crypto: c.symbol,
-                        pricePerUnit: c.symbol === "KES" ? "1" : "",
-                        profitMarginPct: c.symbol === "KES" ? "0" : "",
+                        pricePerUnit: isActiveLocalCoin(c.symbol) ? "1" : "",
+                        profitMarginPct: isActiveLocalCoin(c.symbol) ? "0" : "",
                       }));
                       setCryptoOpen(false);
                     }}
@@ -2312,11 +2363,15 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                     <img src={c.icon} alt="" className="h-8 w-8 shrink-0 rounded-full object-cover ring-1 ring-white/10" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-[14px] font-bold text-white">{c.symbol}</span>
-                      <span className="block truncate text-[12px] font-semibold text-slate-500">{c.name}</span>
+                      <span className="block truncate text-[12px] font-semibold text-slate-500">
+                        {c.name}
+                        {availLabel ? ` · ${availLabel}` : ""}
+                      </span>
                     </span>
                     {form.crypto === c.symbol && <Icon name="check" className="shrink-0 text-[18px] text-white" />}
                   </button>
-                ))}
+                  );
+                })}
               </div>
               </div>
             </div>,
@@ -2442,7 +2497,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                 </span>
                 <span className="text-slate-500">
                   {isKesCoinForm
-                    ? ` spread on 1:1 · ${formatFiat(spotRate!, form.fiat)}/KES Coin`
+                    ? ` spread on 1:1 · ${formatFiat(spotRate!, form.fiat)}/${form.crypto} Coin`
                     : ` vs live market · ${formatFiat(spotRate!, form.fiat)}/${form.crypto}`}
                 </span>
               </p>
@@ -2479,7 +2534,8 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               </p>
             ) : isKesCoinForm ? (
               <p className="mt-1.5 text-[10px] font-semibold text-slate-500">
-                KES Coin is pegged 1:1. Your % is the spread buyers pay on top.
+                {form.crypto} Coin is pegged 1:1. Your % is the spread buyers pay on top.
+                {form.crypto !== "KES" ? " Sell inventory is funded from your KES at live FX." : ""}
               </p>
             ) : (
               <p className="mt-1.5 text-[10px] font-semibold text-slate-500">

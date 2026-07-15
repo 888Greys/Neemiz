@@ -4,11 +4,12 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
-import { defaultNetwork, lockUserCrypto, unlockUserCrypto, kesLockAmount, isWalletBackedCoin, lockWalletCoin, unlockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, lockUserCrypto, unlockUserCrypto, kesLockAmount, isWalletBackedCoin, isKesCoin, lockWalletCoin, unlockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
 import { createP2POrderEventMessage, orderExpiredSystemText } from "@/lib/p2p/order-events";
+import { reservedKesForMerchant } from "@/lib/p2p/local-coin-convert";
 
 // GET /api/p2p/orders — list all orders where the user is buyer or seller
 export async function GET(req: Request) {
@@ -235,9 +236,17 @@ export async function POST(req: Request) {
         // Wallet-backed coin (KES or in-app local coin): escrow comes per-order
         // from whoever is giving it — the merchant on a SELL ad, the taker on a
         // BUY ad — straight from their own balance (no ad-creation escrow).
+        // Non-KES local coins may top up from free KES at FX inside lockWalletCoin.
         const giverUserId = ad.side === "SELL" ? ad.merchant.userId : dbUser.id;
         const lockedAmount = kesLockAmount(cryptoAmountNum);
-        await lockWalletCoin(tx, giverUserId, ad.crypto, lockedAmount);
+        let reservedKes = 0;
+        if (!isKesCoin(ad.crypto)) {
+          const giverMerchantId = ad.side === "SELL"
+            ? ad.merchantId
+            : (await tx.merchantProfile.findUnique({ where: { userId: giverUserId }, select: { id: true } }))?.id;
+          if (giverMerchantId) reservedKes = await reservedKesForMerchant(giverMerchantId);
+        }
+        await lockWalletCoin(tx, giverUserId, ad.crypto, lockedAmount, { reservedKes });
         const createdOrder = await tx.p2POrder.create({
           data: {
             adId:         adId as string,
@@ -293,6 +302,7 @@ export async function POST(req: Request) {
       if (msg === "INSUFFICIENT_FIAT_BALANCE") return "INSUFFICIENT_FIAT_BALANCE" as const;
       if (msg === "PROMO_LOCKED") return "PROMO_LOCKED" as const;
       if (msg === "NO_DEPOSIT_GATE") return "NO_DEPOSIT_GATE" as const;
+      if (msg === "NO_FX_RATE") return "NO_FX_RATE" as const;
       throw err;
     });
 
@@ -308,14 +318,17 @@ export async function POST(req: Request) {
         code: "NO_DEPOSIT_GATE",
       }, { status: 400 });
     }
+    if (order === "NO_FX_RATE") {
+      return Response.json({ error: `No FX rate available for ${ad.crypto}. Try again shortly.` }, { status: 503 });
+    }
     if (order === "INSUFFICIENT_CRYPTO_BALANCE") {
       return Response.json({ error: `Insufficient ${ad.crypto} balance to sell.` }, { status: 400 });
     }
     if (order === "INSUFFICIENT_FIAT_BALANCE") {
       return Response.json({
         error: ad.side === "SELL"
-          ? "The merchant doesn't have enough fiat wallet balance to back this KES Coin order right now."
-          : "Insufficient fiat wallet balance to sell KES Coin.",
+          ? `The merchant doesn't have enough ${ad.crypto === "KES" ? "fiat wallet" : `${ad.crypto} / KES`} balance to back this order right now.`
+          : `Insufficient balance to sell ${ad.crypto}. Top up KES or hold ${ad.crypto}.`,
       }, { status: 400 });
     }
     if (!order) return Response.json({ error: "Insufficient ad liquidity" }, { status: 400 });

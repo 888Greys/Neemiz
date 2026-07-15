@@ -4,12 +4,13 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { isP2PAdTradable } from "@/lib/p2p/ad-guards";
-import { kesLockAmount, isWalletBackedCoin, lockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
+import { kesLockAmount, isWalletBackedCoin, isKesCoin, lockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
 import { ACTIVE_LOCAL_COIN_CODES } from "@/lib/p2p/local-coins";
+import { reservedKesForMerchant } from "@/lib/p2p/local-coin-convert";
 
 const VALID_CRYPTOS = new Set(["USDT", "USDC", "BTC", "ETH", "BNB", ...ACTIVE_LOCAL_COIN_CODES]);
 const VALID_FIATS   = new Set(FIAT_CURRENCIES.map((f) => f.code));
@@ -113,7 +114,10 @@ export async function POST(req: Request) {
       // from the merchant's own balance. It is not locked up-front like crypto ads.
       if (isWalletBackedCoin(match.crypto)) {
         const lockedAmount = kesLockAmount(cryptoAmount);
-        await lockWalletCoin(tx, match.merchant.userId, match.crypto, lockedAmount);
+        const reservedKes = !isKesCoin(match.crypto)
+          ? await reservedKesForMerchant(match.merchantId)
+          : 0;
+        await lockWalletCoin(tx, match.merchant.userId, match.crypto, lockedAmount, { reservedKes });
         const createdOrder = await tx.p2POrder.create({
           data: {
             adId:          match.id,

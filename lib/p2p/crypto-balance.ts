@@ -230,9 +230,28 @@ export function isWalletBackedCoin(crypto: string): boolean {
   return isActiveLocalCoin(crypto);
 }
 
-/** Lock `amount` (fee-inclusive) into escrow from the giver's own balance. */
-export async function lockWalletCoin(tx: TxClient, userId: string, crypto: string, amount: number) {
+/**
+ * Lock `amount` (fee-inclusive) into escrow from the giver's own balance.
+ * Non-KES in-app local coins may top up any shortfall from free fiat KES at FX
+ * (see lib/p2p/local-coin-convert) so a merchant can sell NGN/UGX/… from KES.
+ */
+export async function lockWalletCoin(
+  tx: TxClient,
+  userId: string,
+  crypto: string,
+  amount: number,
+  opts?: { reservedKes?: number },
+) {
   if (isKesCoin(crypto)) return lockKesCoinBalance(tx, userId, amount);
+  if (isActiveLocalCoin(crypto)) {
+    const { fundLocalCoinShortfallFromKes } = await import("@/lib/p2p/local-coin-convert");
+    await fundLocalCoinShortfallFromKes(tx, {
+      userId,
+      crypto,
+      needAmount: amount,
+      reservedKes: opts?.reservedKes,
+    });
+  }
   await lockUserCrypto(tx, userId, crypto, defaultNetwork(crypto), amount);
 }
 

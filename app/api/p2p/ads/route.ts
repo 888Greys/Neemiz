@@ -10,6 +10,8 @@ import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
 import { assertKesSellBacking } from "@/lib/p2p/ad-backing";
 import { ACTIVE_LOCAL_COIN_CODES, isActiveLocalCoin } from "@/lib/p2p/local-coins";
+import { getFxRatesToKES } from "@/lib/p2p/fx";
+import { fundLocalCoinShortfallFromKes, reservedKesForMerchant } from "@/lib/p2p/local-coin-convert";
 
 // Real cryptos plus every active in-app local coin (KES, UG, TZ, …). Local coins
 // are 1:1-pegged in-app currencies that trade over the same escrow rails.
@@ -230,18 +232,58 @@ export async function POST(req: Request) {
     }
 
     // In-app local coin (non-KES) SELL ad: escrowed per order from the merchant's
-    // own UserCryptoBalance wallet — no up-front reservation, just like KES. Guard
-    // that the wallet currently covers this ad's escrow (amount + 1% fee).
+    // own UserCryptoBalance. Merchants may fund any shortfall from free fiat KES
+    // at live FX so one KES balance can back NGN/UGX/… sell ads.
     if (side === "SELL" && isWalletBackedCoin(crypto as string) && !isKesCoin(crypto as string)) {
-      const net = defaultNetwork(crypto as string);
-      const bal = await db.userCryptoBalance.findUnique({
-        where: { userId_crypto_network: { userId: dbUser.id, crypto: crypto as string, network: net } },
-        select: { available: true },
-      });
       const need = kesLockAmount(totalAmountNum);
-      if (Number(bal?.available ?? 0) < need) {
+      const rates = await getFxRatesToKES();
+      const reservedKes = await reservedKesForMerchant(merchant.id);
+      const funded = await db.$transaction(async (tx) => {
+        try {
+          await fundLocalCoinShortfallFromKes(tx, {
+            userId: dbUser.id,
+            crypto: crypto as string,
+            needAmount: need,
+            reservedKes,
+            toKES: rates.toKES,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "";
+          if (
+            msg === "INSUFFICIENT_FIAT_BALANCE" ||
+            msg === "PROMO_LOCKED" ||
+            msg === "NO_DEPOSIT_GATE" ||
+            msg === "NO_FX_RATE"
+          ) {
+            return msg;
+          }
+          throw err;
+        }
+        const net = defaultNetwork(crypto as string);
+        const bal = await tx.userCryptoBalance.findUnique({
+          where: { userId_crypto_network: { userId: dbUser.id, crypto: crypto as string, network: net } },
+          select: { available: true },
+        });
+        if (Number(bal?.available ?? 0) < need) return "INSUFFICIENT_COIN";
+        return null;
+      });
+
+      if (funded === "NO_FX_RATE") {
+        return Response.json({ error: `No FX rate available for ${crypto}. Try again shortly.` }, { status: 503 });
+      }
+      if (funded === "PROMO_LOCKED") {
         return Response.json({
-          error: `Insufficient ${crypto} balance. This sell ad needs ${need} ${crypto} (amount + 1% fee) in your wallet.`,
+          error: "Promo credit cannot fund cross-market sell ads. Deposit real funds first.",
+        }, { status: 400 });
+      }
+      if (funded === "NO_DEPOSIT_GATE") {
+        return Response.json({
+          error: "Make a deposit with your own funds before selling in-app coins on P2P.",
+        }, { status: 400 });
+      }
+      if (funded === "INSUFFICIENT_FIAT_BALANCE" || funded === "INSUFFICIENT_COIN") {
+        return Response.json({
+          error: `Insufficient balance. This sell ad needs ${need} ${crypto} (amount + 1% fee). Top up KES or hold ${crypto} — your free KES converts at live FX.`,
         }, { status: 400 });
       }
     }
