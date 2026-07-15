@@ -10,7 +10,7 @@ import {
   paymentMethodLabel,
   paymentMethodsForFiat,
 } from "@/lib/p2p/payment-methods";
-import { ACTIVE_LOCAL_COINS } from "@/lib/p2p/local-coins";
+import { ACTIVE_LOCAL_COINS, isActiveLocalCoin } from "@/lib/p2p/local-coins";
 
 export const P2P_COIN_ICONS: Record<string, string> = {
   USDT: "https://cdn.jsdelivr.net/npm/cryptocurrency-icons@0.18.1/svg/color/usdt.svg",
@@ -252,23 +252,44 @@ export function SelectCoinSheet({
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          {filtered.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => { onChange(c); onClose(); }}
-              className={`flex w-full items-center gap-3 px-4 py-3.5 text-left ${
-                c === value ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
-              }`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {P2P_COIN_ICONS[c]
-                ? <img src={P2P_COIN_ICONS[c]} alt="" className="h-8 w-8 rounded-full" />
-                : <span className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.08] text-[11px] font-bold text-slate-300">ALL</span>}
-              <span className="flex-1 text-[15px] font-bold text-white">{p2pCoinLabel(c)}</span>
-              {c === value && <Icon name="check" className="text-[20px] text-white" />}
-            </button>
-          ))}
+          {filtered.map((c, index) => {
+            const prev = filtered[index - 1];
+            const isLocal = c !== "__ALL__" && isActiveLocalCoin(c);
+            const isChain = c !== "__ALL__" && !isLocal;
+            const showChainHead =
+              !term && isChain && filtered.slice(0, index).every((x) => x === "__ALL__");
+            const showInAppHead =
+              !term && isLocal && (index === 0 || (prev != null && (prev === "__ALL__" || !isActiveLocalCoin(prev))));
+
+            return (
+              <div key={c}>
+                {showChainHead && (
+                  <p className="px-4 pb-1 pt-3 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    On-chain crypto
+                  </p>
+                )}
+                {showInAppHead && (
+                  <p className="px-4 pb-1 pt-3 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    In-app coins
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { onChange(c); onClose(); }}
+                  className={`flex w-full items-center gap-3 px-4 py-3.5 text-left ${
+                    c === value ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {P2P_COIN_ICONS[c]
+                    ? <img src={P2P_COIN_ICONS[c]} alt="" className="h-8 w-8 rounded-full" />
+                    : <span className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.08] text-[11px] font-bold text-slate-300">ALL</span>}
+                  <span className="flex-1 text-[15px] font-bold text-white">{p2pCoinLabel(c)}</span>
+                  {c === value && <Icon name="check" className="text-[20px] text-white" />}
+                </button>
+              </div>
+            );
+          })}
           {filtered.length === 0 && (
             <p className="py-12 text-center text-[13px] text-slate-500">No coins match “{q}”</p>
           )}

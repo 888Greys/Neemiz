@@ -1910,16 +1910,12 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     return map;
   }, [fxToKes, fiatBalance, walletCoinBalances]);
 
-  // For SELL ads: real crypto must be held; all in-app local coins stay listed
-  // (funded from KES via FX). BUY ads may reference any supported coin.
+  // For SELL ads: full list stays in on-chain → in-app order. Unheld on-chain
+  // coins stay visible (disabled) so blockchain assets always lead the sheet.
+  // BUY ads may pick any supported coin.
   const restrictToHeld = form.side === "SELL" && !isEditing && !balancesLoading;
 
-  const sellableCryptos = useMemo(() => {
-    if (!restrictToHeld) return P2P_CRYPTOS;
-    return P2P_CRYPTOS.filter(
-      (c) => isActiveLocalCoin(c.symbol) || heldSymbols.has(c.symbol) || c.symbol === form.crypto,
-    );
-  }, [restrictToHeld, heldSymbols, form.crypto]);
+  const sellableCryptos = useMemo(() => P2P_CRYPTOS, []);
 
   const filteredCryptos = useMemo(() => {
     const q = cryptoQuery.trim().toLowerCase();
@@ -1929,11 +1925,16 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     );
   }, [cryptoQuery, sellableCryptos]);
 
+  function canPickCrypto(symbol: string): boolean {
+    if (!restrictToHeld) return true;
+    if (isActiveLocalCoin(symbol)) return true;
+    return heldSymbols.has(symbol);
+  }
+
   // On a fresh SELL ad, jump off unheld real crypto onto a held coin or KES.
   useEffect(() => {
     if (!restrictToHeld) return;
-    if (isActiveLocalCoin(form.crypto)) return;
-    if (heldSymbols.has(form.crypto)) return;
+    if (canPickCrypto(form.crypto)) return;
     const first =
       P2P_CRYPTOS.find((c) => heldSymbols.has(c.symbol)) ??
       P2P_CRYPTOS.find((c) => c.symbol === "KES") ??
@@ -2316,21 +2317,15 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
                 {filteredCryptos.length === 0 && (
                   <div className="px-6 py-12 text-center">
-                    <p className="text-[13px] font-semibold text-slate-400">
-                      {cryptoQuery.trim()
-                        ? "No coins match"
-                        : restrictToHeld
-                        ? "No crypto in escrow to sell"
-                        : "No coins available"}
-                    </p>
-                    {!cryptoQuery.trim() && restrictToHeld && (
-                      <p className="mx-auto mt-1 max-w-[16rem] text-[11px] leading-4 text-slate-500">
-                        In-app coins (KES, NGN, …) are always listed — funded from your KES at live FX. Real crypto needs escrow first.
-                      </p>
-                    )}
+                    <p className="text-[13px] font-semibold text-slate-400">No coins match</p>
                   </div>
                 )}
-                {filteredCryptos.map((c) => {
+                {filteredCryptos.map((c, index) => {
+                  const prev = filteredCryptos[index - 1];
+                  const showOnChainHeader = index === 0 && !isActiveLocalCoin(c.symbol);
+                  const showInAppHeader =
+                    isActiveLocalCoin(c.symbol) && (!prev || !isActiveLocalCoin(prev.symbol));
+                  const pickable = canPickCrypto(c.symbol);
                   const localAvail = isActiveLocalCoin(c.symbol)
                     ? localSellableBySymbol.get(c.symbol)
                     : undefined;
@@ -2339,14 +2334,28 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                     : undefined;
                   const availLabel = localAvail != null
                     ? `${localAvail.toLocaleString("en-US", { maximumFractionDigits: 2 })} avail`
-                    : escrowAvail
+                    : escrowAvail && Number(escrowAvail.available) > 0
                     ? `${Number(escrowAvail.available).toLocaleString("en-US", { maximumFractionDigits: 8 })} escrow`
+                    : !isActiveLocalCoin(c.symbol) && restrictToHeld
+                    ? "Fund escrow to sell"
                     : null;
                   return (
+                  <div key={c.symbol}>
+                    {showOnChainHeader && (
+                      <p className="px-4 pb-1 pt-3 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        On-chain crypto
+                      </p>
+                    )}
+                    {showInAppHeader && (
+                      <p className="px-4 pb-1 pt-3 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        In-app coins · from KES
+                      </p>
+                    )}
                   <button
-                    key={c.symbol}
                     type="button"
+                    disabled={!pickable}
                     onClick={() => {
+                      if (!pickable) return;
                       setForm((p) => ({
                         ...p,
                         crypto: c.symbol,
@@ -2355,8 +2364,12 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                       }));
                       setCryptoOpen(false);
                     }}
-                    className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.04] ${
-                      form.crypto === c.symbol ? "bg-white/[0.08]" : ""
+                    className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition ${
+                      !pickable
+                        ? "cursor-not-allowed opacity-45"
+                        : form.crypto === c.symbol
+                        ? "bg-white/[0.08] hover:bg-white/[0.04]"
+                        : "hover:bg-white/[0.04]"
                     }`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2368,8 +2381,9 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
                         {availLabel ? ` · ${availLabel}` : ""}
                       </span>
                     </span>
-                    {form.crypto === c.symbol && <Icon name="check" className="shrink-0 text-[18px] text-white" />}
+                    {form.crypto === c.symbol && pickable && <Icon name="check" className="shrink-0 text-[18px] text-white" />}
                   </button>
+                  </div>
                   );
                 })}
               </div>
