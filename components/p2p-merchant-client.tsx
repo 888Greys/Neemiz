@@ -3279,11 +3279,9 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
           <div className="space-y-2">
             {visibleAds.map((ad) => {
               const pmLabel = (m: string) => paymentMethodLabel(m);
-              const filled = Number(ad.totalAmount) - Number(ad.availableAmount);
-              const fillPct = Number(ad.totalAmount) > 0 ? (filled / Number(ad.totalAmount)) * 100 : 0;
               const dotColor = P2P_CRYPTOS.find((c) => c.symbol === ad.crypto)?.color ?? "#087cff";
               return (
-                <div key={ad.id} className="relative grid w-full grid-cols-[minmax(0,1fr)_44px] gap-3 rounded-xl bg-white/[0.03] px-3 py-3 ring-1 ring-white/[0.07] transition hover:bg-white/[0.04] hover:ring-white/[0.14] sm:px-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)_44px] lg:items-center lg:gap-4 lg:py-4">
+                <div key={ad.id} className="relative grid w-full grid-cols-[minmax(0,1fr)_44px] gap-3 rounded-xl bg-white/[0.03] px-3 py-3 ring-1 ring-white/[0.07] transition hover:bg-white/[0.04] hover:ring-white/[0.14] sm:px-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.4fr)_44px] lg:items-center lg:gap-4 lg:py-4">
                   <div className="min-w-0 lg:contents">
                     {/* Advertiser / asset */}
                     <div className="mb-1.5 flex min-w-0 items-center gap-2 lg:mb-0">
@@ -3333,17 +3331,9 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
                       </div>
                     </div>
 
-                    {/* Fill bar */}
-                    <div className="mt-2 flex items-center gap-2 lg:mt-0">
-                      <div className="h-1 w-20 overflow-hidden rounded-full bg-white/[0.06] lg:w-28">
-                        <div className="h-full rounded-full bg-[#087cff] transition-all" style={{ width: `${fillPct}%` }} />
-                      </div>
-                      <span className="text-[10px] text-white/30 lg:text-[11px]">{fillPct.toFixed(0)}% filled</span>
-                    </div>
-
                     {/* Validation error */}
                     {ad.validationError && (
-                      <div className="mt-2 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.08] px-2 py-1.5 text-[10px] font-semibold text-[#f59e0b] lg:col-span-4">
+                      <div className="mt-2 rounded-lg border border-[#f59e0b]/20 bg-[#f59e0b]/[0.08] px-2 py-1.5 text-[10px] font-semibold text-[#f59e0b] lg:col-span-3">
                         {ad.validationError}
                       </div>
                     )}

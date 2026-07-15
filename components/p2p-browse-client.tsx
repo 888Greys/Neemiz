@@ -1128,7 +1128,7 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
 
 // ─── Ad Row ──────────────────────────────────────────────────────────────────
 
-const AD_COLS = "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)_120px]";
+const AD_COLS = "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.2fr)_120px]";
 const AD_GRID = `lg:grid ${AD_COLS} lg:items-center lg:gap-4`;
 
 function AdCard({
@@ -1231,14 +1231,6 @@ function AdCard({
         </div>
       </div>
 
-      {/* ── Available ── */}
-      <div className="mt-2 min-w-0 lg:mt-0">
-        <p className="lg:hidden text-[9px] font-bold uppercase tracking-wide text-white/35">Available</p>
-        <p className="text-[11px] font-bold text-white/80 tabular-nums">
-          {ad.availableAmount.toLocaleString("en-US", { maximumFractionDigits: 2 })} <span className="text-white/45">{ad.crypto}</span>
-        </p>
-      </div>
-
       {/* ── Trade ── */}
       <div className="mt-2 flex items-center justify-end lg:mt-0">
         <button
@@ -1283,7 +1275,6 @@ function OffersTable({
         <span>Advertiser</span>
         <span>Price</span>
         <span>Payment</span>
-        <span>Available</span>
         <span className="text-right">Trade</span>
       </div>
       {ads.map((ad) => (
