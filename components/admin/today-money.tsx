@@ -6,11 +6,12 @@ import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 
 // Today's deposits + withdrawals at a glance, so the owner never has to open the
 // Lipa Haraka dashboard to see the day's money. Shared by both admin shells.
+// Summary tiles are KES-equivalent; rows show native currency (KES / USDT / …).
 
 type Bucket = { count: number; total: number };
 interface TodayRow {
-  id: string; type: string; amount: number; status: string;
-  provider: string | null; reference: string | null;
+  id: string; type: string; amount: number; amountKes?: number; currency?: string;
+  status: string; provider: string | null; reference: string | null;
   phone: string | null; username: string | null; createdAt: string;
 }
 interface TodayData {
@@ -21,7 +22,15 @@ interface TodayData {
   rows: TodayRow[];
 }
 
-const money = (n: number) => `${CURRENCY_SYMBOL} ${Number(n).toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 0 })}`;
+const kes = (n: number) => `${CURRENCY_SYMBOL} ${Number(n).toLocaleString(MONEY_LOCALE, { maximumFractionDigits: 0 })}`;
+
+function formatAmount(r: TodayRow) {
+  const code = (r.currency || "KES").toUpperCase();
+  const decimals = code === "KES" ? 0 : code === "BTC" ? 8 : 2;
+  const native = `${Number(r.amount).toLocaleString(MONEY_LOCALE, { maximumFractionDigits: decimals })} ${code}`;
+  if (code === "KES") return native;
+  return native;
+}
 
 const STATUS_STYLES: Record<string, string> = {
   COMPLETED: "bg-emerald-500/12 text-emerald-400",
@@ -38,8 +47,8 @@ function StatTile({ label, count, total, tone }: { label: string; count: number;
   return (
     <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
       <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
-      <p className={`mt-1 text-[18px] font-black ${tone}`}>{money(total)}</p>
-      <p className="text-[10px] font-semibold text-slate-500">{count.toLocaleString()} txns</p>
+      <p className={`mt-1 text-[18px] font-black ${tone}`}>{kes(total)}</p>
+      <p className="text-[10px] font-semibold text-slate-500">{count.toLocaleString()} txns · ≈ KES</p>
     </div>
   );
 }
@@ -103,6 +112,7 @@ export function TodayMoney() {
                   <tr>
                     <th className="px-3 py-2.5 font-black">Time</th>
                     <th className="px-3 py-2.5 font-black">Type</th>
+                    <th className="px-3 py-2.5 font-black">Rail</th>
                     <th className="px-3 py-2.5 font-black">Phone / user</th>
                     <th className="px-3 py-2.5 text-right font-black">Amount</th>
                     <th className="px-3 py-2.5 font-black">Status</th>
@@ -111,7 +121,7 @@ export function TodayMoney() {
                 </thead>
                 <tbody className="divide-y divide-white/[0.05]">
                   {(data?.rows ?? []).length === 0 ? (
-                    <tr><td colSpan={6} className="px-3 py-10 text-center text-[12px] text-slate-500">No transactions {range === "today" ? "today" : "in the last 7 days"}.</td></tr>
+                    <tr><td colSpan={7} className="px-3 py-10 text-center text-[12px] text-slate-500">No transactions {range === "today" ? "today" : "in the last 7 days"}.</td></tr>
                   ) : (
                     (data?.rows ?? []).map((r) => (
                       <tr key={r.id} className="hover:bg-white/[0.02]">
@@ -124,10 +134,11 @@ export function TodayMoney() {
                             {r.type === "DEPOSIT" ? "Deposit" : "Withdrawal"}
                           </span>
                         </td>
+                        <td className="px-3 py-2.5 capitalize text-slate-400">{r.provider ?? "—"}</td>
                         <td className="px-3 py-2.5 text-slate-300">
                           {r.phone ?? "—"}{r.username ? <span className="ml-1 text-slate-600">@{r.username}</span> : null}
                         </td>
-                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-black text-white">{money(r.amount)}</td>
+                        <td className="whitespace-nowrap px-3 py-2.5 text-right font-black text-white">{formatAmount(r)}</td>
                         <td className="px-3 py-2.5"><StatusBadge status={r.status} /></td>
                         <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">{r.reference || "—"}</td>
                       </tr>

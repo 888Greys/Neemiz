@@ -5,9 +5,14 @@ import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
 import { nairobiMidnight, nairobiDayKey, nairobiHourKey } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
-
-const REAL_DEPOSIT_PROVIDERS = ["megapay", "lipaharaka"];
-const REAL_WITHDRAWAL_PROVIDERS = ["relworx", "megapay", "lipaharaka"];
+import {
+  ADMIN_CRYPTO_DEPOSIT_PROVIDERS,
+  ADMIN_CRYPTO_WITHDRAWAL_PROVIDERS,
+  ADMIN_FIAT_DEPOSIT_PROVIDERS,
+  ADMIN_FIAT_WITHDRAWAL_PROVIDERS,
+  buildKesRateTable,
+  kesAmount,
+} from "@/lib/admin/real-money";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -41,35 +46,49 @@ export async function GET(req: Request) {
   const excludedIds = await getExcludedUserIds();
   const notExcluded = excludedIds.length ? { userId: { notIn: excludedIds } } : {};
 
-  const [deposits, withdrawals, betStakes, betWins, fees, p2pFees] = await Promise.all([
-    // Real cash received through the configured payment gateway.
-    db.transaction.groupBy({
-      by: ["createdAt"],
+  const [fiatDeposits, cryptoDeposits, fiatWithdrawals, cryptoWithdrawals, betStakes, betWins, fees, p2pFees] = await Promise.all([
+    // Fiat KES rails (Lipa Haraka primary) + on-chain crypto (valued to KES below).
+    db.transaction.findMany({
       where: {
         type: "DEPOSIT",
         status: "COMPLETED",
         currency: "KES",
-        provider: { in: REAL_DEPOSIT_PROVIDERS },
+        provider: { in: [...ADMIN_FIAT_DEPOSIT_PROVIDERS] },
         createdAt: { gte: since },
         ...notExcluded,
       },
-      _sum: { amount: true },
-      _count: true,
+      select: { createdAt: true, amount: true, currency: true },
     }),
-    // Real provider-confirmed cash payouts. Internal transfers and held payouts
-    // must not be reported as money leaving the platform.
-    db.transaction.groupBy({
-      by: ["createdAt"],
+    db.transaction.findMany({
+      where: {
+        type: "DEPOSIT",
+        status: "COMPLETED",
+        provider: { in: [...ADMIN_CRYPTO_DEPOSIT_PROVIDERS] },
+        createdAt: { gte: since },
+        ...notExcluded,
+      },
+      select: { createdAt: true, amount: true, currency: true },
+    }),
+    db.transaction.findMany({
       where: {
         type: "WITHDRAWAL",
         status: "COMPLETED",
         currency: "KES",
-        provider: { in: REAL_WITHDRAWAL_PROVIDERS },
+        provider: { in: [...ADMIN_FIAT_WITHDRAWAL_PROVIDERS] },
         createdAt: { gte: since },
         ...notExcluded,
       },
-      _sum: { amount: true },
-      _count: true,
+      select: { createdAt: true, amount: true, currency: true },
+    }),
+    db.transaction.findMany({
+      where: {
+        type: "WITHDRAWAL",
+        status: "COMPLETED",
+        provider: { in: [...ADMIN_CRYPTO_WITHDRAWAL_PROVIDERS] },
+        createdAt: { gte: since },
+        ...notExcluded,
+      },
+      select: { createdAt: true, amount: true, currency: true },
     }),
     // Bet stakes
     db.transaction.groupBy({
@@ -85,13 +104,13 @@ export async function GET(req: Request) {
       _sum: { amount: true },
       _count: true,
     }),
-    // Fees are earned only when a real provider payout completes.
+    // Fees are earned only when a fiat KES provider payout completes (5%).
     db.transaction.aggregate({
       where: {
         type: "WITHDRAWAL",
         status: "COMPLETED",
         currency: "KES",
-        provider: { in: REAL_WITHDRAWAL_PROVIDERS },
+        provider: { in: [...ADMIN_FIAT_WITHDRAWAL_PROVIDERS] },
         createdAt: { gte: since },
         ...notExcluded,
       },
@@ -110,11 +129,16 @@ export async function GET(req: Request) {
     }),
   ]);
 
+  const deposits = [...fiatDeposits, ...cryptoDeposits];
+  const withdrawals = [...fiatWithdrawals, ...cryptoWithdrawals];
+  const moneyRates = await buildKesRateTable(deposits.concat(withdrawals).map((t) => t.currency));
+
   // Build a map of date → aggregated values
   type DayData = {
     date: string;
     deposits: number;
     withdrawals: number;
+    fiatWithdrawals: number;
     betStakes: number;
     betWins: number;
     p2pFees: number;
@@ -130,11 +154,12 @@ export async function GET(req: Request) {
   const step = hourly ? 3_600_000 : 86_400_000;
   for (let i = 0; i < buckets; i++) {
     const k = key(new Date(since.getTime() + i * step));
-    dayMap[k] = { date: k, deposits: 0, withdrawals: 0, betStakes: 0, betWins: 0, p2pFees: 0, grossProfit: 0 };
+    dayMap[k] = { date: k, deposits: 0, withdrawals: 0, fiatWithdrawals: 0, betStakes: 0, betWins: 0, p2pFees: 0, grossProfit: 0 };
   }
 
-  for (const r of deposits)    { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].deposits    += Number(r._sum.amount ?? 0); }
-  for (const r of withdrawals) { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].withdrawals += Number(r._sum.amount ?? 0); }
+  for (const r of deposits)    { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].deposits    += kesAmount(r.amount, r.currency, moneyRates); }
+  for (const r of withdrawals) { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].withdrawals += kesAmount(r.amount, r.currency, moneyRates); }
+  for (const r of fiatWithdrawals) { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].fiatWithdrawals += Number(r.amount) || 0; }
   for (const r of betStakes)   { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].betStakes   += Number(r._sum.amount ?? 0); }
   for (const r of betWins)     { const k = key(r.createdAt); if (dayMap[k]) dayMap[k].betWins     += Number(r._sum.amount ?? 0); }
   for (const r of p2pFees) {
@@ -145,9 +170,14 @@ export async function GET(req: Request) {
   }
 
   const days_data = Object.values(dayMap).map((d) => ({
-    ...d,
-    // House profit = bet stakes - bet wins paid + withdrawal fees + P2P fees.
-    grossProfit: parseFloat((d.betStakes - d.betWins + d.withdrawals * 0.05 + d.p2pFees).toFixed(2)),
+    date: d.date,
+    deposits: d.deposits,
+    withdrawals: d.withdrawals,
+    betStakes: d.betStakes,
+    betWins: d.betWins,
+    p2pFees: d.p2pFees,
+    // House profit = bet stakes - bet wins paid + fiat withdrawal fees + P2P fees.
+    grossProfit: parseFloat((d.betStakes - d.betWins + d.fiatWithdrawals * 0.05 + d.p2pFees).toFixed(2)),
   }));
 
   // Totals for the period

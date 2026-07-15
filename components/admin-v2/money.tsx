@@ -154,7 +154,7 @@ export function AdminV2Money({ initialTab = "cashflow" }: { initialTab?: "cashfl
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h2 className="text-[32px] font-semibold tracking-[-0.02em] text-[#e5e2e3]">Money Treasury</h2>
-          <p className="mt-1 text-[14px] text-[#c2c6d6]">Real-time treasury monitoring and cashflow visibility.</p>
+          <p className="mt-1 text-[14px] text-[#c2c6d6]">Lipa Haraka + crypto deposits/withdrawals (crypto valued ≈ KES).</p>
         </div>
       </div>
 

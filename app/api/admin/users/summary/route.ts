@@ -4,12 +4,17 @@ import { db } from "@/lib/db";
 import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { nairobiMidnight } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
+import {
+  ADMIN_CRYPTO_DEPOSIT_PROVIDERS,
+  ADMIN_CRYPTO_WITHDRAWAL_PROVIDERS,
+  ADMIN_FIAT_DEPOSIT_PROVIDERS,
+  ADMIN_FIAT_WITHDRAWAL_PROVIDERS,
+  buildKesRateTable,
+  kesAmount,
+} from "@/lib/admin/real-money";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const REAL_DEPOSIT_PROVIDERS = ["megapay", "lipaharaka"];
-const REAL_WITHDRAWAL_PROVIDERS = ["relworx", "megapay", "lipaharaka"];
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -35,8 +40,10 @@ export async function GET() {
     newToday,
     suspended,
     held,
-    deposits,
-    withdrawals,
+    fiatDeposits,
+    cryptoDeposits,
+    fiatWithdrawals,
+    cryptoWithdrawals,
     bets,
     aviator, binary, forex, accumulator, directional, leveraged, polymarket,
   ] = await Promise.all([
@@ -44,13 +51,21 @@ export async function GET() {
     db.user.count({ where: { createdAt: { gte: startOfDay } } }),
     db.user.count({ where: { isActive: false } }),
     db.user.aggregate({ _sum: { walletBalance: true } }),
-    db.transaction.aggregate({
-      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: REAL_DEPOSIT_PROVIDERS } },
-      _sum: { amount: true }, _count: true,
+    db.transaction.findMany({
+      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: [...ADMIN_FIAT_DEPOSIT_PROVIDERS] } },
+      select: { amount: true, currency: true },
     }),
-    db.transaction.aggregate({
-      where: { type: "WITHDRAWAL", status: "COMPLETED", currency: "KES", provider: { in: REAL_WITHDRAWAL_PROVIDERS } },
-      _sum: { amount: true }, _count: true,
+    db.transaction.findMany({
+      where: { type: "DEPOSIT", status: "COMPLETED", provider: { in: [...ADMIN_CRYPTO_DEPOSIT_PROVIDERS] } },
+      select: { amount: true, currency: true },
+    }),
+    db.transaction.findMany({
+      where: { type: "WITHDRAWAL", status: "COMPLETED", currency: "KES", provider: { in: [...ADMIN_FIAT_WITHDRAWAL_PROVIDERS] } },
+      select: { amount: true, currency: true },
+    }),
+    db.transaction.findMany({
+      where: { type: "WITHDRAWAL", status: "COMPLETED", provider: { in: [...ADMIN_CRYPTO_WITHDRAWAL_PROVIDERS] } },
+      select: { amount: true, currency: true },
     }),
     db.bet.count(),
     db.aviatorBet.count(),
@@ -62,6 +77,12 @@ export async function GET() {
     db.polymarketBet.count(),
   ]);
 
+  const depRows = [...fiatDeposits, ...cryptoDeposits];
+  const wdRows = [...fiatWithdrawals, ...cryptoWithdrawals];
+  const rates = await buildKesRateTable(depRows.concat(wdRows).map((t) => t.currency));
+  const sumKes = (rows: { amount: unknown; currency: string }[]) =>
+    rows.reduce((s, r) => s + kesAmount(r.amount, r.currency, rates), 0);
+
   const gamesPlayed = aviator + binary + forex + accumulator + directional + leveraged + polymarket;
 
   return Response.json({
@@ -69,8 +90,8 @@ export async function GET() {
     newToday,
     suspended,
     totalHeld: Number(held._sum?.walletBalance ?? 0),
-    deposits:    { count: deposits._count,    amount: Number(deposits._sum?.amount ?? 0) },
-    withdrawals: { count: withdrawals._count, amount: Number(withdrawals._sum?.amount ?? 0) },
+    deposits:    { count: depRows.length, amount: Math.round(sumKes(depRows) * 100) / 100 },
+    withdrawals: { count: wdRows.length, amount: Math.round(sumKes(wdRows) * 100) / 100 },
     bets,
     gamesPlayed,
     gamesBreakdown: { aviator, binary, forex, accumulator, directional, leveraged, polymarket },

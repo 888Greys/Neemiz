@@ -3,9 +3,15 @@ import { requireOwnerAdmin } from "@/lib/admin-guard";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
 import { rangeWindow, nairobiDayKey, EAT_OFFSET_MS } from "@/lib/admin/metrics";
 import { TransactionStatus } from "@prisma/client";
+import {
+  ADMIN_CRYPTO_DEPOSIT_PROVIDERS,
+  ADMIN_CRYPTO_WITHDRAWAL_PROVIDERS,
+  ADMIN_FIAT_DEPOSIT_PROVIDERS,
+  ADMIN_FIAT_WITHDRAWAL_PROVIDERS,
+  accumulateMoneyFlow,
+  buildKesRateTable,
+} from "@/lib/admin/real-money";
 
-const REAL_DEPOSIT_PROVIDERS = ["megapay", "lipaharaka"];
-const REAL_WITHDRAWAL_PROVIDERS = ["relworx", "megapay", "lipaharaka"];
 const WITHDRAWAL_FEE_RATE = 0.05;
 
 const dayKey = nairobiDayKey;
@@ -13,7 +19,8 @@ const dayKey = nairobiDayKey;
 // Money screen feed (Phase 3). Cashflow consolidation: deposits vs withdrawals
 // with a daily series, provider breakdown, fee revenue, ledger GGR, the
 // real-vs-test float split, and the pending-payout queue. Real-money only
-// (genuine providers, excluded test/suspended accounts).
+// (genuine providers, excluded test/suspended accounts). Includes Lipa Haraka
+// KES rails and on-chain crypto (valued to KES).
 export async function GET(req: Request) {
   if (!await requireOwnerAdmin()) return Response.json({ error: "Forbidden" }, { status: 403 });
 
@@ -29,26 +36,39 @@ export async function GET(req: Request) {
 
   const excludedIds = await getExcludedUserIds();
   const notExcluded = excludedIds.length ? { userId: { notIn: excludedIds } } : {};
+  const rangeFilter = { createdAt: { gte: since, lt: window.end }, ...notExcluded };
 
-  const [depositTx, withdrawalTx, p2pFeeTx, betStakes, betWins, pending, realFloat, testFloat] = await Promise.all([
+  const [fiatDeposits, cryptoDeposits, fiatWithdrawals, cryptoWithdrawals, p2pFeeTx, betStakes, betWins, pending, realFloat, testFloat] = await Promise.all([
     db.transaction.findMany({
-      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: REAL_DEPOSIT_PROVIDERS }, createdAt: { gte: since, lt: window.end }, ...notExcluded },
-      select: { createdAt: true, amount: true, provider: true },
+      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: [...ADMIN_FIAT_DEPOSIT_PROVIDERS] }, ...rangeFilter },
+      select: { createdAt: true, amount: true, provider: true, currency: true },
     }),
     db.transaction.findMany({
-      where: { type: "WITHDRAWAL", status: "COMPLETED", currency: "KES", provider: { in: REAL_WITHDRAWAL_PROVIDERS }, createdAt: { gte: since, lt: window.end }, ...notExcluded },
-      select: { createdAt: true, amount: true, provider: true },
+      where: { type: "DEPOSIT", status: "COMPLETED", provider: { in: [...ADMIN_CRYPTO_DEPOSIT_PROVIDERS] }, ...rangeFilter },
+      select: { createdAt: true, amount: true, provider: true, currency: true },
     }),
     db.transaction.findMany({
-      where: { provider: "p2p_fee", status: "COMPLETED", createdAt: { gte: since, lt: window.end }, ...notExcluded },
+      where: { type: "WITHDRAWAL", status: "COMPLETED", currency: "KES", provider: { in: [...ADMIN_FIAT_WITHDRAWAL_PROVIDERS] }, ...rangeFilter },
+      select: { createdAt: true, amount: true, provider: true, currency: true },
+    }),
+    db.transaction.findMany({
+      where: { type: "WITHDRAWAL", status: "COMPLETED", provider: { in: [...ADMIN_CRYPTO_WITHDRAWAL_PROVIDERS] }, ...rangeFilter },
+      select: { createdAt: true, amount: true, provider: true, currency: true },
+    }),
+    db.transaction.findMany({
+      where: { provider: "p2p_fee", status: "COMPLETED", ...rangeFilter },
       select: { metadata: true },
     }),
-    db.transaction.aggregate({ where: { type: "BET_STAKE", status: "COMPLETED", createdAt: { gte: since, lt: window.end }, ...notExcluded }, _sum: { amount: true } }),
-    db.transaction.aggregate({ where: { type: "BET_WIN", status: "COMPLETED", createdAt: { gte: since, lt: window.end }, ...notExcluded }, _sum: { amount: true } }),
+    db.transaction.aggregate({ where: { type: "BET_STAKE", status: "COMPLETED", ...rangeFilter }, _sum: { amount: true } }),
+    db.transaction.aggregate({ where: { type: "BET_WIN", status: "COMPLETED", ...rangeFilter }, _sum: { amount: true } }),
     db.transaction.aggregate({ where: { type: "WITHDRAWAL", status: "PENDING_APPROVAL" as TransactionStatus }, _sum: { amount: true }, _count: true }),
     db.user.aggregate({ where: excludedIds.length ? { id: { notIn: excludedIds } } : {}, _sum: { walletBalance: true }, _count: true }),
     db.user.aggregate({ where: excludedIds.length ? { id: { in: excludedIds } } : { id: "__none__" }, _sum: { walletBalance: true }, _count: true }),
   ]);
+
+  const depositTx = [...fiatDeposits, ...cryptoDeposits];
+  const withdrawalTx = [...fiatWithdrawals, ...cryptoWithdrawals];
+  const rates = await buildKesRateTable(depositTx.concat(withdrawalTx).map((t) => t.currency));
 
   // Seed every day in range so the chart has no gaps.
   const series: Record<string, { date: string; deposits: number; withdrawals: number; net: number }> = {};
@@ -57,27 +77,13 @@ export async function GET(req: Request) {
     series[dayKey(d)] = { date: dayKey(d), deposits: 0, withdrawals: 0, net: 0 };
   }
 
-  const depByProvider: Record<string, { amount: number; count: number }> = {};
-  let totalDeposits = 0;
-  for (const t of depositTx) {
-    const amt = Number(t.amount);
-    totalDeposits += amt;
-    const k = dayKey(t.createdAt); if (series[k]) { series[k].deposits += amt; series[k].net += amt; }
-    const p = t.provider ?? "unknown";
-    (depByProvider[p] ??= { amount: 0, count: 0 }).amount += amt;
-    depByProvider[p].count += 1;
-  }
-
-  const wdByProvider: Record<string, { amount: number; count: number }> = {};
-  let totalWithdrawals = 0;
-  for (const t of withdrawalTx) {
-    const amt = Number(t.amount);
-    totalWithdrawals += amt;
-    const k = dayKey(t.createdAt); if (series[k]) { series[k].withdrawals += amt; series[k].net -= amt; }
-    const p = t.provider ?? "unknown";
-    (wdByProvider[p] ??= { amount: 0, count: 0 }).amount += amt;
-    wdByProvider[p].count += 1;
-  }
+  const { totalDeposits, totalWithdrawals, depByProvider, wdByProvider } = accumulateMoneyFlow(
+    depositTx,
+    withdrawalTx,
+    rates,
+    dayKey,
+    series,
+  );
 
   let p2pFees = 0;
   for (const t of p2pFeeTx) {
@@ -86,7 +92,10 @@ export async function GET(req: Request) {
     if (Number.isFinite(fee) && fee >= 0) p2pFees += fee;
   }
 
-  const withdrawalFees = totalWithdrawals * WITHDRAWAL_FEE_RATE;
+  // Withdrawal fee revenue only on fiat KES payouts (5% Lipa Haraka rail).
+  let fiatWithdrawalKes = 0;
+  for (const t of fiatWithdrawals) fiatWithdrawalKes += Number(t.amount) || 0;
+  const withdrawalFees = fiatWithdrawalKes * WITHDRAWAL_FEE_RATE;
   const ggr = Number(betStakes._sum.amount ?? 0) - Number(betWins._sum.amount ?? 0);
 
   const round = (n: number) => Math.round(n * 100) / 100;

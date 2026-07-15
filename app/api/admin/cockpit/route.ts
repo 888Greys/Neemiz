@@ -6,9 +6,14 @@ import { getExcludedUserIds } from "@/lib/admin-excluded";
 import { getMarketScorecards, rangeWindow, nairobiHourKey, nairobiDayKey, EAT_OFFSET_MS } from "@/lib/admin/metrics";
 import { cookies } from "next/headers";
 import { TransactionStatus } from "@prisma/client";
-
-const REAL_DEPOSIT_PROVIDERS = ["megapay", "lipaharaka"];
-const REAL_WITHDRAWAL_PROVIDERS = ["relworx", "megapay", "lipaharaka"];
+import {
+  ADMIN_CRYPTO_DEPOSIT_PROVIDERS,
+  ADMIN_CRYPTO_WITHDRAWAL_PROVIDERS,
+  ADMIN_FIAT_DEPOSIT_PROVIDERS,
+  ADMIN_FIAT_WITHDRAWAL_PROVIDERS,
+  buildKesRateTable,
+  kesAmount,
+} from "@/lib/admin/real-money";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -35,11 +40,14 @@ export async function GET(req: Request) {
 
   const excludedIds = await getExcludedUserIds();
   const notExcluded = excludedIds.length ? { userId: { notIn: excludedIds } } : {};
+  const rangeFilter = { createdAt: { gte: window.start, lt: window.end }, ...notExcluded };
 
   const [
     markets,
-    depositsToday,
-    withdrawalsToday,
+    fiatDeposits,
+    cryptoDeposits,
+    fiatWithdrawals,
+    cryptoWithdrawals,
     walletLiability,
     signupsToday,
     signups7d,
@@ -49,16 +57,23 @@ export async function GET(req: Request) {
     pendingKyc,
     pendingDeposits,
     unsettledSports,
-    flowRows,
   ] = await Promise.all([
     getMarketScorecards({ window, country: "KE" }),
-    db.transaction.aggregate({
-      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: REAL_DEPOSIT_PROVIDERS }, createdAt: { gte: window.start, lt: window.end }, ...notExcluded },
-      _sum: { amount: true }, _count: true,
+    db.transaction.findMany({
+      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: [...ADMIN_FIAT_DEPOSIT_PROVIDERS] }, ...rangeFilter },
+      select: { amount: true, currency: true, createdAt: true, type: true },
     }),
-    db.transaction.aggregate({
-      where: { type: "WITHDRAWAL", status: "COMPLETED", currency: "KES", provider: { in: REAL_WITHDRAWAL_PROVIDERS }, createdAt: { gte: window.start, lt: window.end }, ...notExcluded },
-      _sum: { amount: true },
+    db.transaction.findMany({
+      where: { type: "DEPOSIT", status: "COMPLETED", provider: { in: [...ADMIN_CRYPTO_DEPOSIT_PROVIDERS] }, ...rangeFilter },
+      select: { amount: true, currency: true, createdAt: true, type: true },
+    }),
+    db.transaction.findMany({
+      where: { type: "WITHDRAWAL", status: "COMPLETED", currency: "KES", provider: { in: [...ADMIN_FIAT_WITHDRAWAL_PROVIDERS] }, ...rangeFilter },
+      select: { amount: true, currency: true, createdAt: true, type: true },
+    }),
+    db.transaction.findMany({
+      where: { type: "WITHDRAWAL", status: "COMPLETED", provider: { in: [...ADMIN_CRYPTO_WITHDRAWAL_PROVIDERS] }, ...rangeFilter },
+      select: { amount: true, currency: true, createdAt: true, type: true },
     }),
     // What the house owes genuine players right now.
     db.user.aggregate({
@@ -81,19 +96,10 @@ export async function GET(req: Request) {
     // Settlement health: sports bets stuck PENDING past 24h (the known
     // getFixtureDetail stateId-5 bug). Surfaced so the owner sees it bite.
     db.bet.count({ where: { status: "PENDING", createdAt: { lt: dayAgo } } }),
-    // Cashflow movements within the window, for the deposits/withdrawals trend.
-    db.transaction.findMany({
-      where: {
-        OR: [
-          { type: "DEPOSIT", provider: { in: REAL_DEPOSIT_PROVIDERS } },
-          { type: "WITHDRAWAL", provider: { in: REAL_WITHDRAWAL_PROVIDERS } },
-        ],
-        status: "COMPLETED", currency: "KES",
-        createdAt: { gte: window.start, lt: window.end }, ...notExcluded,
-      },
-      select: { type: true, amount: true, createdAt: true },
-    }),
   ]);
+
+  const flowRows = [...fiatDeposits, ...cryptoDeposits, ...fiatWithdrawals, ...cryptoWithdrawals];
+  const rates = await buildKesRateTable(flowRows.map((r) => r.currency));
 
   // Trend series: hourly buckets for a single Nairobi day (≤ ~25h window, i.e.
   // "Today" or a picked day) so the owner sees the 12am→12am shape; daily
@@ -120,28 +126,36 @@ export async function GET(req: Request) {
       seriesMap[k] = { t: k, deposits: 0, withdrawals: 0, net: 0 };
     }
   }
+
+  let deposits = 0;
+  let withdrawals = 0;
+  let depositsCount = 0;
   for (const r of flowRows) {
+    const amt = kesAmount(r.amount, r.currency, rates);
     const k = hourly ? nairobiHourKey(r.createdAt) : nairobiDayKey(r.createdAt);
     const b = seriesMap[k];
-    if (!b) continue;
-    const amt = Number(r.amount);
-    if (r.type === "DEPOSIT") { b.deposits += amt; b.net += amt; }
-    else { b.withdrawals += amt; b.net -= amt; }
+    if (r.type === "DEPOSIT") {
+      deposits += amt;
+      depositsCount += 1;
+      if (b) { b.deposits += amt; b.net += amt; }
+    } else {
+      withdrawals += amt;
+      if (b) { b.withdrawals += amt; b.net -= amt; }
+    }
   }
   const series = Object.values(seriesMap);
 
   const ggrToday = markets.reduce((s, m) => s + m.ggr, 0);
-  const deposits = Number(depositsToday._sum.amount ?? 0);
-  const withdrawals = Number(withdrawalsToday._sum.amount ?? 0);
   const peak30d = Number(peakRows[0]?.peak ?? 0);
+  const round = (n: number) => Math.round(n * 100) / 100;
 
   return Response.json({
     asOf: new Date().toISOString(),
     money: {
-      netDepositsToday: deposits - withdrawals,
-      depositsToday: deposits,
-      depositsCount: depositsToday._count,
-      withdrawalsToday: withdrawals,
+      netDepositsToday: round(deposits - withdrawals),
+      depositsToday: round(deposits),
+      depositsCount,
+      withdrawalsToday: round(withdrawals),
       ggrToday,
       walletLiability: Number(walletLiability._sum.walletBalance ?? 0),
       playerCount: walletLiability._count,

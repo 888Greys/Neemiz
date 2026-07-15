@@ -5,10 +5,12 @@ import { verifyAdminToken, COOKIE_NAME } from "@/lib/admin-2fa";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
 import { cookies } from "next/headers";
 import { TransactionStatus } from "@prisma/client";
-
-// Only real cash received through a payment gateway counts as a deposit.
-// Manual/test top-ups (no real provider) must not inflate the metrics.
-const REAL_DEPOSIT_PROVIDERS = ["megapay", "lipaharaka"];
+import {
+  ADMIN_CRYPTO_DEPOSIT_PROVIDERS,
+  ADMIN_FIAT_DEPOSIT_PROVIDERS,
+  buildKesRateTable,
+  kesAmount,
+} from "@/lib/admin/real-money";
 
 export async function GET() {
   const supabase = await createClient();
@@ -63,9 +65,11 @@ export async function GET() {
     openDisputes,
     pendingDeposits,
     totalMerchants,
-    depositsToday,
+    depositsTodayFiat,
+    depositsTodayCrypto,
     activeOrders,
-    totalDepositsMonth,
+    totalDepositsMonthFiat,
+    totalDepositsMonthCrypto,
     pendingWithdrawals,
     realWalletBalance,
     testWalletBalance,
@@ -86,16 +90,22 @@ export async function GET() {
     db.p2PDispute.count({ where: { status: "OPEN" } }),
     db.p2PCryptoDeposit.count({ where: { status: "PENDING" } }),
     db.merchantProfile.count({ where: { kycStatus: "APPROVED" } }),
-    db.transaction.aggregate({
-      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: REAL_DEPOSIT_PROVIDERS }, createdAt: { gte: startOfDay } },
-      _sum: { amount: true },
-      _count: true,
+    db.transaction.findMany({
+      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: [...ADMIN_FIAT_DEPOSIT_PROVIDERS] }, createdAt: { gte: startOfDay } },
+      select: { amount: true, currency: true },
+    }),
+    db.transaction.findMany({
+      where: { type: "DEPOSIT", status: "COMPLETED", provider: { in: [...ADMIN_CRYPTO_DEPOSIT_PROVIDERS] }, createdAt: { gte: startOfDay } },
+      select: { amount: true, currency: true },
     }),
     db.p2POrder.count({ where: { status: { in: ["PENDING", "PAID"] } } }),
-    db.transaction.aggregate({
-      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: REAL_DEPOSIT_PROVIDERS }, createdAt: { gte: startOfMonth } },
-      _sum: { amount: true },
-      _count: true,
+    db.transaction.findMany({
+      where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: [...ADMIN_FIAT_DEPOSIT_PROVIDERS] }, createdAt: { gte: startOfMonth } },
+      select: { amount: true, currency: true },
+    }),
+    db.transaction.findMany({
+      where: { type: "DEPOSIT", status: "COMPLETED", provider: { in: [...ADMIN_CRYPTO_DEPOSIT_PROVIDERS] }, createdAt: { gte: startOfMonth } },
+      select: { amount: true, currency: true },
     }),
     db.transaction.count({ where: { type: "WITHDRAWAL", status: "PENDING_APPROVAL" as TransactionStatus } }),
     db.user.aggregate({ where: { id: { notIn: testUserIds } }, _sum: { walletBalance: true }, _count: true }),
@@ -144,6 +154,12 @@ export async function GET() {
     `,
   ]);
 
+  const depToday = [...depositsTodayFiat, ...depositsTodayCrypto];
+  const depMonth = [...totalDepositsMonthFiat, ...totalDepositsMonthCrypto];
+  const depRates = await buildKesRateTable(depToday.concat(depMonth).map((t) => t.currency));
+  const sumKes = (rows: { amount: unknown; currency: string }[]) =>
+    rows.reduce((s, r) => s + kesAmount(r.amount, r.currency, depRates), 0);
+
   return Response.json({
     totalUsers,
     newUsersToday,
@@ -154,12 +170,12 @@ export async function GET() {
     activeOrders,
     pendingWithdrawals,
     depositsToday: {
-      count:  depositsToday._count,
-      amount: Number(depositsToday._sum.amount ?? 0),
+      count:  depToday.length,
+      amount: Math.round(sumKes(depToday) * 100) / 100,
     },
     depositsMonth: {
-      count:  totalDepositsMonth._count,
-      amount: Number(totalDepositsMonth._sum.amount ?? 0),
+      count:  depMonth.length,
+      amount: Math.round(sumKes(depMonth) * 100) / 100,
     },
     totalWalletBalance: Number(realWalletBalance._sum.walletBalance ?? 0),
     realWalletCount: realWalletBalance._count,

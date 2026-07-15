@@ -153,7 +153,7 @@ function History() {
 }
 
 export function AdminV2Withdrawals() {
-  const [tab, setTab] = useState<"today" | "approvals" | "history">("approvals");
+  const [tab, setTab] = useState<"today" | "approvals" | "history">("today");
   const [items, setItems] = useState<PendingWithdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState<string | null>(null);
