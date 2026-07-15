@@ -57,12 +57,30 @@ const nextConfig = {
     ];
   },
   async redirects() {
+    // The redesigned console (/admin/new/*) is now the only admin UI. Every
+    // legacy /admin/* screen forwards to its counterpart so bookmarks and the
+    // in-app links that still point at the old paths keep working. The old
+    // pages + AdminShell remain in the tree but are unreachable — deleting them
+    // is a separate cleanup. Kept temporary (307) until that lands.
+    //
+    // NOT redirected: /admin/2fa (the gate itself) and /admin/new/* (the target).
+    const legacyAdmin = ["p2p", "players", "money", "crypto", "risk", "ops", "withdrawals", "broadcast"]
+      .map((s) => ({ source: `/admin/${s}`, destination: `/admin/new/${s}`, permanent: false }));
+
     return [
       {
         source: "/",
         destination: "/dashboard",
         permanent: false,
       },
+      { source: "/admin", destination: "/admin/new", permanent: false },
+      ...legacyAdmin,
+      { source: "/admin/markets/:key", destination: "/admin/new/markets/:key", permanent: false },
+      { source: "/admin/users/:id", destination: "/admin/new/users/:id", permanent: false },
+      // These two were already redirect stubs to tabs on other screens; point
+      // them at the same tabs on the new console rather than through the old one.
+      { source: "/admin/profits", destination: "/admin/new/money?tab=pnl", permanent: false },
+      { source: "/admin/users", destination: "/admin/new/players?tab=directory", permanent: false },
     ];
   },
   images: {

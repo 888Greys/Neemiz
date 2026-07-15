@@ -1342,10 +1342,22 @@ const CRYPTO_ICONS: Record<string, string> = {
 // Local coins (KES, UG, TZ, …) are 1:1-pegged in-app currencies.
 const CRYPTOS   = ["USDT", "USDC", "BTC", "ETH", "BNB", ...ACTIVE_LOCAL_COINS.map((c) => c.currency)];
 
+// Coin filter options. COIN_FILTER_ALL is a filter-only pseudo-coin (never a
+// tradeable asset, so deliberately NOT in CRYPTOS). It is the default, so the
+// market isn't pre-narrowed to a single asset; pushUrl() omits it from the URL
+// as the implicit default, and the ads request drops the crypto param entirely.
+//
+// NB: the sentinel must not collide with an ISO-4217 code, because LOCAL_COINS
+// is derived from the world-currency catalogue. "ALL" is NOT safe — it is the
+// Albanian Lek (isActiveLocalCoin("ALL") === true), so using it as the sentinel
+// would filter the market down to ALL Coin and show nothing.
+const COIN_FILTER_ALL = "__ALL__";
+const COIN_FILTER_OPTIONS = [COIN_FILTER_ALL, ...CRYPTOS];
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const VALID_SIDES   = ["BUY", "SELL"] as const;
-const VALID_CRYPTOS_SET = new Set(CRYPTOS);
+const VALID_CRYPTOS_SET = new Set(COIN_FILTER_OPTIONS);
 const VALID_PAYMENTS_SET = new Set<string>(["", ...Array.from(ALL_PAYMENT_CODES)]);
 const VALID_FIAT_SET = new Set(FIAT_CURRENCIES.map((f) => f.code));
 
@@ -1362,7 +1374,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     : "SELL";
   const initCrypto  = VALID_CRYPTOS_SET.has(searchParams?.get("crypto") ?? "")
     ? searchParams?.get("crypto")!
-    : "USDT";
+    : COIN_FILTER_ALL;
   const initPayment = VALID_PAYMENTS_SET.has(searchParams?.get("payment") ?? "")
     ? (searchParams?.get("payment") ?? "")
     : "";
@@ -1386,7 +1398,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     const p = new URLSearchParams();
     // Default market side is Sell — only write side when it differs.
     if (newTab !== "SELL")    p.set("side",    newTab);
-    if (newCrypto !== "ALL")  p.set("crypto",  newCrypto);
+    if (newCrypto !== COIN_FILTER_ALL) p.set("crypto", newCrypto);
     if (newPayment)           p.set("payment", newPayment);
     if (newFiat !== "KES")    p.set("fiat",    newFiat);
     const qs = p.toString();
@@ -1420,9 +1432,11 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     pushUrl(tab, crypto, nextPayment, f);
   }, [tab, crypto, payment, pushUrl]);
 
+  // Omit `crypto` entirely for the ALL filter — the API only narrows by crypto
+  // when the param is present and valid, so leaving it off returns every coin.
   const adsKey = `/api/p2p/ads?${new URLSearchParams({
     side:   tab === "BUY" ? "SELL" : "BUY",
-    crypto,
+    ...(crypto === COIN_FILTER_ALL ? {} : { crypto }),
     fiat,
     ...(payment ? { payment } : {}),
   })}`;
@@ -1450,42 +1464,29 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   useEffect(() => { fetchAds(true); }, [fetchAds]);
 
-  // On first load: if Buy has no ads, flip to Sell; also auto-pick the crypto
-  // with the most inventory so the list isn't blank.
+  // On first load: if Buy has no ads, flip to Sell so the list isn't blank.
+  //
+  // The crypto is no longer auto-picked here. That existed to escape a blank
+  // list when the default (USDT) had no inventory; the coin filter now defaults
+  // to ALL, which shows every asset's ads, so there is nothing to escape from —
+  // and auto-picking would immediately narrow ALL back down to one coin.
   const autoPickedRef = useRef(false);
   useEffect(() => {
     if (autoPickedRef.current) return;
     const explicitSide = (VALID_SIDES as readonly string[]).includes(searchParams?.get("side") ?? "");
-    const explicitCrypto = VALID_CRYPTOS_SET.has(searchParams?.get("crypto") ?? "");
     autoPickedRef.current = true;
 
     async function bootstrap() {
       // Prefer Sell inventory when Buy is empty (unless user forced Buy via URL).
       if (!explicitSide && tab === "BUY") {
         try {
-          const buyRes = await fetch(`/api/p2p/ads?${new URLSearchParams({ side: "SELL", fiat, crypto })}`);
+          const buyRes = await fetch(`/api/p2p/ads?${new URLSearchParams({
+            side: "SELL", fiat, ...(crypto === COIN_FILTER_ALL ? {} : { crypto }),
+          })}`);
           const buyAds = buyRes.ok ? await buyRes.json() : [];
-          if (!Array.isArray(buyAds) || buyAds.length === 0) {
-            setTab("SELL");
-            return; // setTab triggers a fresh fetch; crypto bootstrap can wait
-          }
+          if (!Array.isArray(buyAds) || buyAds.length === 0) setTab("SELL");
         } catch { /* keep Buy */ }
       }
-
-      if (explicitCrypto) return;
-      const merchantSide = tab === "BUY" ? "SELL" : "BUY";
-      try {
-        const res = await fetch(`/api/p2p/ads?${new URLSearchParams({ side: merchantSide, fiat })}`);
-        const all: Ad[] = res.ok ? await res.json() : [];
-        if (!Array.isArray(all) || all.length === 0) return;
-        const counts = all.reduce<Record<string, number>>((acc, a) => {
-          acc[a.crypto] = (acc[a.crypto] ?? 0) + 1;
-          return acc;
-        }, {});
-        if ((counts[crypto] ?? 0) > 0) return;
-        const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0];
-        if (best && best !== crypto) setCrypto(best);
-      } catch { /* keep default */ }
     }
 
     void bootstrap();
@@ -1535,7 +1536,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   useEffect(() => {
     let cancelled = false;
     setSpotRate(null);
-    if (crypto === "ALL") return () => { cancelled = true; };
+    if (crypto === COIN_FILTER_ALL) return () => { cancelled = true; };
     fetch(`/api/p2p/spot?crypto=${crypto}&fiat=${fiat}`)
       .then((r) => r.ok ? r.json() : null)
       .then((d: { rate?: number | null } | null) => {
@@ -1560,7 +1561,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
 
   // Keep a single headline reference price for the selected asset, but do not
   // expose the margin of individual merchant offers to other users.
-  const marketRef = crypto === "ALL"
+  const marketRef = crypto === COIN_FILTER_ALL
     ? 0
     : spotRate ?? median(visibleAds.filter((ad) => ad.crypto === crypto).map((ad) => ad.pricePerUnit));
   const rateIsLive = spotRate != null;
@@ -1600,7 +1601,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
         value={crypto}
         onClose={() => setCoinSheetOpen(false)}
         onChange={setCrypto}
-        coins={CRYPTOS}
+        coins={COIN_FILTER_OPTIONS}
       />
       <PaymentMethodsSheet
         open={paySheetOpen}

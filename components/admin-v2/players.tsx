@@ -82,7 +82,7 @@ function LeaderPanel({ title, icon, rows, metric }: { title: string; icon: strin
       ) : (
         <div className="divide-y divide-[#27272a]">
           {rows.map((r) => (
-            <Link key={r.id} href={`/admin/users/${r.id}`} className="flex items-center justify-between px-4 py-2.5 text-[12px] transition-colors hover:bg-[#353436]">
+            <Link key={r.id} href={`/admin/new/users/${r.id}`} className="flex items-center justify-between px-4 py-2.5 text-[12px] transition-colors hover:bg-[#353436]">
               <span className="truncate font-semibold text-[#e5e2e3]">@{r.name}</span>
               <span className="av2-mono ml-3 shrink-0 text-[#adc6ff]">{metric === "balance" ? money(r.balance) : ago(r.joined)}</span>
             </Link>
@@ -322,7 +322,7 @@ function Directory() {
                     </td>
                     <td className="py-3 pl-3 pr-4">
                       <div className="flex items-center justify-end gap-2">
-                        <Link href={`/admin/users/${u.id}`} className="rounded border border-[#4d8eff]/30 bg-[#4d8eff]/10 px-3 py-1.5 text-[10px] font-bold text-[#adc6ff] hover:bg-[#4d8eff]/20">Inspect</Link>
+                        <Link href={`/admin/new/users/${u.id}`} className="rounded border border-[#4d8eff]/30 bg-[#4d8eff]/10 px-3 py-1.5 text-[10px] font-bold text-[#adc6ff] hover:bg-[#4d8eff]/20">Inspect</Link>
                         {!u.isAdmin && (
                           <button
                             onClick={() => toggleSuspend(u)}

@@ -24,6 +24,16 @@ export const P2P_COIN_ICONS: Record<string, string> = {
 
 export const P2P_MAIN_COINS = ["USDT", "USDC", "BTC", "ETH", "BNB", ...ACTIVE_LOCAL_COINS.map((c) => c.currency)] as const;
 
+/**
+ * Display label for a coin filter value. "__ALL__" is a filter-only pseudo-coin
+ * (see COIN_FILTER_ALL in p2p-browse-client) with no icon, so it reads as
+ * "All coins" rather than a bare code. The sentinel is deliberately not a
+ * 3-letter code: "ALL" is a real coin here (Albanian Lek).
+ */
+export function p2pCoinLabel(code: string): string {
+  return code === "__ALL__" ? "All coins" : code;
+}
+
 const flagUrl = (code: string) =>
   `https://flagcdn.com/w40/${code.slice(0, 2).toLowerCase()}.png`;
 
@@ -252,8 +262,10 @@ export function SelectCoinSheet({
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={P2P_COIN_ICONS[c]} alt="" className="h-8 w-8 rounded-full" />
-              <span className="flex-1 text-[15px] font-bold text-white">{c}</span>
+              {P2P_COIN_ICONS[c]
+                ? <img src={P2P_COIN_ICONS[c]} alt="" className="h-8 w-8 rounded-full" />
+                : <span className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.08] text-[11px] font-bold text-slate-300">ALL</span>}
+              <span className="flex-1 text-[15px] font-bold text-white">{p2pCoinLabel(c)}</span>
               {c === value && <Icon name="check" className="text-[20px] text-white" />}
             </button>
           ))}
@@ -429,7 +441,7 @@ export function P2PFilterRow({
         {P2P_COIN_ICONS[crypto] && (
           <img src={P2P_COIN_ICONS[crypto]} alt="" className="h-4 w-4 rounded-full" />
         )}
-        {crypto}
+        {p2pCoinLabel(crypto)}
       </Chip>
       <Chip onClick={onAmount}>{amountLabel}</Chip>
       <Chip onClick={onPayment} className="min-w-0 max-w-[42vw]">
