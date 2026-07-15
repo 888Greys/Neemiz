@@ -2056,9 +2056,14 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const canUseMarginPricing = !!spotRate;
   const isKesCoinForm = isActiveLocalCoin(form.crypto); // pegged 1:1; merchant sets a spread %
   const totalAmountNum = Number(form.totalAmount) || 0;
-  const fullOrderValue = totalAmountNum > 0 && priceNum > 0
-    ? Math.floor(totalAmountNum * priceNum * 100) / 100
-    : 0;
+  const maxLimitNum = Number(form.maxLimit) || 0;
+  // Create flow: ad size is implied by max order ÷ unit price (no separate "total" field).
+  // Edit flow: keep the listed total from the existing ad.
+  const effectiveTotalAmount = isEditing
+    ? totalAmountNum
+    : priceNum > 0 && maxLimitNum > 0
+      ? Math.floor((maxLimitNum / priceNum) * 1e8) / 1e8
+      : 0;
   const selectedEscrow = escrowBalances.find((balance) => balance.crypto === form.crypto);
   const walletAvailForCrypto = walletCoinBalances
     .filter((b) => b.crypto.toUpperCase() === form.crypto.toUpperCase())
@@ -2070,8 +2075,15 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const sellableBalance = isActiveLocalCoin(form.crypto)
     ? Math.max(0, (localSellableBySymbol.get(form.crypto) ?? 0) / 1.01)
     : Math.max(0, onChainAvailable / (1 + ON_CHAIN_FEE_RATE));
-  const exceedsSellableBalance = !isEditing && form.side === "SELL" && totalAmountNum > sellableBalance;
-  const requiredKesBacking = totalAmountNum > 0 ? parseFloat((totalAmountNum * 1.01).toFixed(2)) : 0;
+  // Max-order shortcut: full fiat value of what's sellable (create) or already listed (edit).
+  const fullOrderValue = (() => {
+    if (priceNum <= 0) return 0;
+    if (isEditing && totalAmountNum > 0) return Math.floor(totalAmountNum * priceNum * 100) / 100;
+    if (form.side === "SELL" && sellableBalance > 0) return Math.floor(sellableBalance * priceNum * 100) / 100;
+    return 0;
+  })();
+  const exceedsSellableBalance = !isEditing && form.side === "SELL" && effectiveTotalAmount > sellableBalance;
+  const requiredKesBacking = effectiveTotalAmount > 0 ? parseFloat((effectiveTotalAmount * 1.01).toFixed(2)) : 0;
   const needsKesBacking = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesBacking > 0 && fiatBalance < requiredKesBacking;
   const priceRangeMin = spotRate ? spotRate * 0.8 : priceNum > 0 ? priceNum * 0.8 : null;
   const priceRangeMax = spotRate ? spotRate * 2 : priceNum > 0 ? priceNum * 2 : null;
@@ -2081,7 +2093,6 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     // Payment methods are optional — merchants can arrange the rail in chat.
     if (
       !form.pricePerUnit ||
-      !form.totalAmount ||
       !form.minLimit || !form.maxLimit
     )
       return toast.error("Please fill all required fields");
@@ -2092,6 +2103,9 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     const profitMarginPct = Number(form.profitMarginPct);
     if (priceMode === "MARKET" && canUseMarginPricing && (!Number.isFinite(profitMarginPct) || profitMarginPct <= -100)) {
       return toast.error("Margin must be greater than -100%");
+    }
+    if (!isEditing && effectiveTotalAmount <= 0) {
+      return toast.error(`Enter a max order so we can size the ${form.crypto} amount`);
     }
     if (needsKesBacking) {
       return toast.error(`Top up your fiat wallet first. This KES Coin sell ad needs KSh ${requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee.`);
@@ -2117,7 +2131,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           crypto: form.crypto,
           fiat: form.fiat,
           pricePerUnit: Number(form.pricePerUnit),
-          totalAmount: Number(form.totalAmount),
+          totalAmount: isEditing ? Number(form.totalAmount) : effectiveTotalAmount,
           minLimit,
           maxLimit,
           paymentMethods: form.paymentMethods,
@@ -2147,11 +2161,12 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
       return setStep(1);
     }
     if (step === 1) {
-      if (!isEditing && totalAmountNum <= 0) return toast.error(`Enter the total ${form.crypto} amount`);
+      if (!form.minLimit || !form.maxLimit) return toast.error("Enter min and max order limits");
+      if (!isEditing && effectiveTotalAmount <= 0) return toast.error("Enter a valid max order amount");
       if (needsKesBacking) return toast.error(`Top up your fiat wallet first. This KES Coin sell ad needs KSh ${requiredKesBacking.toLocaleString("en-KE")}.`);
       if (exceedsSellableBalance) return toast.error(`You can sell up to ${sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto} from your wallet.`);
-      if (!form.minLimit || !form.maxLimit) return toast.error("Enter min and max order limits");
       // Payment methods are optional — no "select at least one" gate.
+      if (!isEditing) f("totalAmount", String(effectiveTotalAmount));
       return setStep(2);
     }
   }
@@ -2574,66 +2589,23 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           {/* ════ STEP 2 — Set Amount & Method ════ */}
           {step === 1 && (
           <div className="grid gap-5">
-          {!isEditing && (
-            <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-3">
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <label className="text-[11px] font-black uppercase tracking-wide text-slate-500">
-                  Total {form.crypto} to {form.side === "SELL" ? "sell" : "buy"}
-                </label>
-                {form.side === "SELL" && (
-                  <span className="text-right text-[10px] font-semibold text-slate-500">
-                    {balancesLoading || walletBalancesLoading
-                      ? "Loading balance..."
-                      : <>Available <strong className="text-white">{sellableBalance.toLocaleString("en-US", { maximumFractionDigits: 8 })} {form.crypto}</strong></>}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center rounded-xl border border-white/[0.08] bg-[#15161d] pr-2 focus-within:border-[#087cff]/40">
-                <input
-                  type="number"
-                  value={form.totalAmount}
-                  onChange={(e) => f("totalAmount", e.target.value)}
-                  placeholder={form.crypto === "BTC" ? "e.g. 0.001" : form.crypto === "ETH" ? "e.g. 0.01" : "e.g. 10"}
-                  className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm text-white placeholder:text-slate-700 outline-none"
-                />
-                <span className="text-xs font-black text-slate-500">{form.crypto}</span>
-                {form.side === "SELL" && (
-                  <button
-                    type="button"
-                    disabled={!balancesReady || sellableBalance <= 0}
-                    onClick={() => f("totalAmount", String(Number(sellableBalance.toFixed(8))))}
-                    className="ml-2 rounded-lg bg-[#087cff]/15 px-2.5 py-1.5 text-[11px] font-black text-[#55aaff] transition hover:bg-[#087cff]/25 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Max
-                  </button>
-                )}
-              </div>
-              {form.side === "SELL" && balancesReady && (
-                <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold">
-                  <span className={sellableBalance > 0 ? "text-[#05b957]" : "text-amber-300"}>
-                    {sellableBalance > 0
-                      ? `${fmtEscrowAmt(sellableBalance)} ${form.crypto} ready in wallet`
-                      : `No ${form.crypto} in your wallet yet`}
-                  </span>
-                  {Number(selectedEscrow?.locked ?? 0) > 0 && (
-                    <span className="text-right text-amber-300">{fmtEscrowAmt(Number(selectedEscrow?.locked))} locked in ads/orders</span>
-                  )}
-                </div>
-              )}
-              {exceedsSellableBalance && !needsKesBacking && (
-                <p className="mt-1.5 text-[11px] font-semibold leading-snug text-amber-300/90">
-                  {sellableBalance > 0
-                    ? `That’s more than you can sell — max is ${fmtEscrowAmt(sellableBalance)} ${form.crypto}.`
-                    : `Deposit ${form.crypto} to your wallet before setting an amount.`}
-                </p>
-              )}
-            </div>
-          )}
-
           {needsKesBacking && (
             <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[12px] font-bold text-amber-300 lg:col-span-2">
               Top up your fiat wallet first. This KES Coin sell ad needs KSh {requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee; you have KSh {fiatBalance.toLocaleString("en-KE")}.
             </div>
+          )}
+
+          {form.side === "SELL" && !isEditing && balancesReady && sellableBalance <= 0 && (
+            <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[12px] font-bold text-amber-300">
+              No {form.crypto} in your wallet yet — deposit before listing a sell ad.
+            </div>
+          )}
+
+          {exceedsSellableBalance && !needsKesBacking && (
+            <p className="text-[11px] font-semibold leading-snug text-amber-300/90">
+              Max order is above what you can sell — available {fmtEscrowAmt(sellableBalance)} {form.crypto}
+              {fullOrderValue > 0 ? ` (≈ ${form.fiat} ${fullOrderValue.toLocaleString("en-KE", { maximumFractionDigits: 2 })})` : ""}.
+            </p>
           )}
 
           <div className="grid grid-cols-2 gap-3 lg:col-span-2">
@@ -2669,7 +2641,10 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
             </div>
           </div>
           <p className="-mt-1 text-[10px] text-slate-600 lg:col-span-2">
-            Order limits apply to both buy and sell ads. Max fills the full backed value of {fullOrderValue > 0 ? `${form.fiat} ${fullOrderValue.toLocaleString("en-KE", { maximumFractionDigits: 2 })}` : "the ad"}.
+            Ad size follows your max order
+            {form.side === "SELL" && !isEditing && fullOrderValue > 0
+              ? ` · Max fills your wallet (≈ ${form.fiat} ${fullOrderValue.toLocaleString("en-KE", { maximumFractionDigits: 2 })})`
+              : ""}.
           </p>
 
           <div className="lg:col-span-2">
@@ -2737,7 +2712,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
             <div className="space-y-1.5 text-[12px]">
               <div className="flex items-center justify-between"><span className="text-slate-500">You want to</span><span className={`font-black ${form.side === "BUY" ? "text-[#05b957]" : "text-red-400"}`}>{form.side === "BUY" ? "Buy" : "Sell"} {form.crypto}</span></div>
               <div className="flex items-center justify-between"><span className="text-slate-500">Price</span><span className="font-black text-white">{priceNum > 0 ? formatFiat(priceNum, form.fiat) : "--"}</span></div>
-              <div className="flex items-center justify-between"><span className="text-slate-500">Amount</span><span className="font-black text-white">{totalAmountNum > 0 ? `${totalAmountNum.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto}` : "--"}</span></div>
+              <div className="flex items-center justify-between"><span className="text-slate-500">Amount</span><span className="font-black text-white">{effectiveTotalAmount > 0 ? `${effectiveTotalAmount.toLocaleString("en-US", { maximumFractionDigits: 8 })} ${form.crypto}` : "--"}</span></div>
               <div className="flex items-center justify-between"><span className="text-slate-500">Order limits</span><span className="font-black text-white">{form.minLimit && form.maxLimit ? `${form.fiat} ${Number(form.minLimit).toLocaleString()} – ${Number(form.maxLimit).toLocaleString()}` : "--"}</span></div>
               <div className="flex items-center justify-between"><span className="text-slate-500">Payment</span><span className="font-black text-white">{form.paymentMethods.length ? form.paymentMethods.map((m) => paymentMethodLabel(m)).join(", ") : "--"}</span></div>
               <div className="flex items-center justify-between border-t border-white/[0.06] pt-1.5"><span className="text-slate-500">Platform fee</span><span className="font-black text-[#05b957]">Applied per completed trade</span></div>
