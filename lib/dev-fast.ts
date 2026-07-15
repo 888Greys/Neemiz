@@ -12,6 +12,8 @@ export const DEV_FAST_WALLET_STATE = {
 export const DEV_FAST_P2P_STATS = {
   volume24h: 0,
   trades24h: 0,
+  tradesAllTime: 0,
+  trades: 0,
   activeOffers: 0,
   onlineMerchants: 0,
   avgReleaseMin: 0,

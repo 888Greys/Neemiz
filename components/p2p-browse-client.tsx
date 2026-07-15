@@ -1497,7 +1497,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const [stats, setStats] = useState<{
     onlineMerchants: number;
     activeOffers: number;
-    trades24h: number;
+    trades: number;
     avgReleaseMin: number;
   } | null>(null);
   useEffect(() => {
@@ -1509,7 +1509,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
         setStats({
           onlineMerchants: Number(d.onlineMerchants) || 0,
           activeOffers: Number(d.activeOffers) || 0,
-          trades24h: Number(d.trades24h) || 0,
+          trades: Number(d.trades ?? d.tradesAllTime ?? d.trades24h) || 0,
           avgReleaseMin: Number(d.avgReleaseMin) || 0,
         });
       })
@@ -1634,7 +1634,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
               <span className="tabular-nums text-white">{stats.activeOffers}</span> offers
             </span>
             <span>
-              <span className="tabular-nums text-white">{stats.trades24h}</span> trades · 24h
+              <span className="tabular-nums text-white">{stats.trades}</span> trades
             </span>
             {stats.avgReleaseMin > 0 && (
               <span>

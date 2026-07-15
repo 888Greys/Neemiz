@@ -5,13 +5,14 @@ export const dynamic = "force-dynamic";
 // GET /api/p2p/stats — public platform stats for the P2P browse page
 export async function GET() {
   try {
-    // Rolling 24h window — robust around midnight (unlike a since-midnight cut).
+    // Rolling 24h window — used for volume until we switch the trade counter back.
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     const [
       volume24hAgg,
       onlineMerchants,
       releaseStats,
+      tradesAllTime,
       trades24h,
       activeOffers,
     ] = await Promise.all([
@@ -32,7 +33,13 @@ export async function GET() {
         where: { isVerified: true, completedTrades: { gt: 0 } },
       }),
 
-      // Trades completed in the last 24h (RELEASED orders)
+      // All-time completed trades — shown on the browse page while traffic is low.
+      // Flip the UI back to trades24h once daily volume is healthy.
+      db.p2POrder.count({
+        where: { status: "RELEASED" },
+      }),
+
+      // Trades completed in the last 24h (kept for a future switch-back)
       db.p2POrder.count({
         where: { status: "RELEASED", releasedAt: { gte: since } },
       }),
@@ -47,7 +54,10 @@ export async function GET() {
 
     return Response.json({
       volume24h:      Number(volume24hAgg._sum.fiatAmount ?? 0),
+      tradesAllTime,
       trades24h,
+      // Prefer all-time on the public browse strip for now.
+      trades:         tradesAllTime,
       activeOffers,
       onlineMerchants,
       avgReleaseMin:  avgRelease,

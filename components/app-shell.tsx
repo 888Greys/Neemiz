@@ -45,12 +45,13 @@ type AppShellProps = {
   mainBg?: string;
   hideFooter?: boolean;
   fullHeight?: boolean;
+  /** Desktop left rail — off by default (top nav covers the same links). Pass false to restore. */
   hideSidebar?: boolean;
   /** Full-bleed game surfaces: no logo/bell header, no mobile bottom nav. */
   immersive?: boolean;
 };
 
-export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = false, immersive = false }: AppShellProps) {
+export function AppShell({ children, rightPanel, mainBg, hideFooter = false, fullHeight = false, hideSidebar = true, immersive = false }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -331,7 +332,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </aside>
         )}
 
-        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto ${immersive ? "pb-0 lg:overflow-hidden lg:pl-0" : `lg:pl-3 lg:pb-0 ${fullHeight ? "pb-20 lg:overflow-hidden" : "pb-32"}`} ${mainBg ?? "bg-background"}`}>
+        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto ${immersive ? "pb-0 lg:overflow-hidden lg:pl-0" : `lg:pb-0 ${fullHeight ? "pb-20 lg:overflow-hidden" : "pb-32"}`} ${mainBg ?? "bg-background"}`}>
           {fullHeight ? (
             <div className={`h-full min-w-0 max-w-full overflow-x-hidden ${immersive ? "sm:h-[calc(100vh-3rem)] lg:h-[calc(100vh-5rem)]" : "lg:h-[calc(100vh-5rem)]"}`}>{children}</div>
           ) : (
@@ -701,13 +702,12 @@ function MobileMenuDrawer({
     if (stored) setLang(stored);
   }, []);
 
+  // Ads / Orders live in the P2P bottom bar — keep P2P itself as a product escape hatch.
   const exploreItems: Array<{ href: string; icon: string; label: string; badge?: string }> = [
     { href: "/sports", icon: "sports_soccer", label: "Sports" },
     { href: "/sports?tab=live", icon: "sensors", label: "Live" },
     { href: "/my-bets", icon: "receipt_long", label: "My Bets" },
     { href: "/p2p", icon: "swap_horiz", label: "P2P" },
-    { href: "/p2p/merchant?tab=ads", icon: "campaign", label: "Ads" },
-    { href: "/p2p/orders", icon: "list_alt", label: "Orders" },
     { href: "/predictions", icon: "online_prediction", label: "Polymarket" },
     { href: "/binary", icon: "candlestick_chart", label: "Binary" },
     { href: "/forex", icon: "currency_exchange", label: "Forex" },
@@ -716,7 +716,6 @@ function MobileMenuDrawer({
   ];
 
   const quickChips = [
-    { label: "P2P Trading", href: "/p2p" },
     { label: "Aviator", href: "/aviator" },
     { label: "Binary", href: "/binary" },
     { label: "Forex", href: "/forex" },
@@ -725,9 +724,6 @@ function MobileMenuDrawer({
   ];
 
   const shortcuts = [
-    { label: "P2P Market", icon: "swap_horiz", href: "/p2p" },
-    { label: "My Ads", icon: "campaign", href: "/p2p/merchant?tab=ads" },
-    { label: "Orders", icon: "list_alt", href: "/p2p/orders" },
     { label: "My Bets", icon: "receipt_long", href: "/my-bets" },
   ];
 
