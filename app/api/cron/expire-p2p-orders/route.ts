@@ -14,7 +14,7 @@
  */
 import { db } from "@/lib/db";
 import { defaultNetwork, unlockUserCrypto, kesLockAmount, isWalletBackedCoin, unlockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
-import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
+import { deactivateUnbackedLocalCoinSellAds } from "@/lib/p2p/ad-backing";
 import { createP2POrderEventMessage, orderExpiredSystemText, ORDER_EXPIRING_SOON_TEXT } from "@/lib/p2p/order-events";
 
 export const runtime = "nodejs";
@@ -121,14 +121,14 @@ export async function GET(req: Request) {
     }
   }
 
-  const deactivatedMerchantIds = await deactivateUnbackedKesSellAds();
+  const deactivatedMerchantIds = await deactivateUnbackedLocalCoinSellAds();
 
   return Response.json({
     ok: true,
     scanned: stale.length,
     warned,
     expired,
-    deactivatedUnbackedKesMerchants: deactivatedMerchantIds.length,
+    deactivatedUnbackedLocalCoinMerchants: deactivatedMerchantIds.length,
     errors,
   });
 }

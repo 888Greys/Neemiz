@@ -7,7 +7,7 @@ import { validateP2PAd } from "@/lib/p2p/ad-guards";
 import { defaultNetwork, lockUserCrypto, unlockUserCrypto, kesLockAmount, isWalletBackedCoin, isKesCoin, lockWalletCoin, unlockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
-import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
+import { deactivateUnbackedLocalCoinSellAds } from "@/lib/p2p/ad-backing";
 import { createP2POrderEventMessage, orderExpiredSystemText } from "@/lib/p2p/order-events";
 import { reservedKesForMerchant } from "@/lib/p2p/local-coin-convert";
 
@@ -158,7 +158,7 @@ export async function POST(req: Request) {
     if (p2pDenied) return p2pDenied;
     const restriction = await assertCanCreateP2POrder(dbUser.id);
     if (restriction) return restriction;
-    await deactivateUnbackedKesSellAds();
+    await deactivateUnbackedLocalCoinSellAds();
 
     let body: Record<string, unknown>;
     try {

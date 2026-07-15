@@ -8,7 +8,7 @@ import { kesLockAmount, isWalletBackedCoin, isKesCoin, lockWalletCoin, recordWal
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
-import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
+import { deactivateUnbackedLocalCoinSellAds } from "@/lib/p2p/ad-backing";
 import { ACTIVE_LOCAL_COIN_CODES } from "@/lib/p2p/local-coins";
 import { reservedKesForMerchant } from "@/lib/p2p/local-coin-convert";
 
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     const p2pDenied = await p2pBlockedResponse(dbUser.email);
     if (p2pDenied) return p2pDenied;    const restriction = await assertCanCreateP2POrder(dbUser.id);
     if (restriction) return restriction;
-    await deactivateUnbackedKesSellAds();
+    await deactivateUnbackedLocalCoinSellAds();
 
     let body: Record<string, unknown>;
     try { body = await req.json(); }

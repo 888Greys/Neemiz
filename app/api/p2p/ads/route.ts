@@ -8,11 +8,13 @@ import { isKesCoin, isWalletBackedCoin, defaultNetwork, kesLockAmount, p2pFeeRat
 import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
-import { assertKesSellBacking } from "@/lib/p2p/ad-backing";
+import { assertKesSellBacking, assertLocalCoinSellBacking } from "@/lib/p2p/ad-backing";
 import { ACTIVE_LOCAL_COIN_CODES, isActiveLocalCoin } from "@/lib/p2p/local-coins";
 import { getFxRatesToKES } from "@/lib/p2p/fx";
 import { fundLocalCoinShortfallFromKes, reservedKesForMerchant } from "@/lib/p2p/local-coin-convert";
 import { ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
+import { convertToKes } from "@/lib/currency-config";
+import { getPromoLockedKes, assertRealDepositForWithdrawal } from "@/lib/promo-lock";
 
 // Real cryptos plus every active in-app local coin (KES, UG, TZ, …). Local coins
 // are 1:1-pegged in-app currencies that trade over the same escrow rails.
@@ -234,53 +236,58 @@ export async function POST(req: Request) {
       const need = kesLockAmount(totalAmountNum);
       const rates = await getFxRatesToKES();
       const reservedKes = await reservedKesForMerchant(merchant.id);
-      const funded = await db.$transaction(async (tx) => {
-        try {
-          await fundLocalCoinShortfallFromKes(tx, {
-            userId: dbUser.id,
-            crypto: crypto as string,
-            needAmount: need,
-            reservedKes,
-            toKES: rates.toKES,
-          });
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : "";
-          if (
-            msg === "INSUFFICIENT_FIAT_BALANCE" ||
-            msg === "PROMO_LOCKED" ||
-            msg === "NO_DEPOSIT_GATE" ||
-            msg === "NO_FX_RATE"
-          ) {
-            return msg;
-          }
-          throw err;
-        }
-        const net = defaultNetwork(crypto as string);
-        const bal = await tx.userCryptoBalance.findUnique({
-          where: { userId_crypto_network: { userId: dbUser.id, crypto: crypto as string, network: net } },
-          select: { available: true },
-        });
-        if (Number(bal?.available ?? 0) < need) return "INSUFFICIENT_COIN";
-        return null;
+
+      // Perform dry-run checks for backing
+      const backing = await assertLocalCoinSellBacking({
+        userId: dbUser.id,
+        merchantId: merchant.id,
+        walletBalance: Number(dbUser.walletBalance ?? 0),
+        crypto: crypto as string,
+        side: side as AdSide,
+        availableAmount: totalAmountNum,
       });
 
-      if (funded === "NO_FX_RATE") {
-        return Response.json({ error: `No FX rate available for ${crypto}. Try again shortly.` }, { status: 503 });
-      }
-      if (funded === "PROMO_LOCKED") {
-        return Response.json({
-          error: "Promo credit cannot fund cross-market sell ads. Deposit real funds first.",
-        }, { status: 400 });
-      }
-      if (funded === "NO_DEPOSIT_GATE") {
-        return Response.json({
-          error: "Make a deposit with your own funds before selling in-app coins on P2P.",
-        }, { status: 400 });
-      }
-      if (funded === "INSUFFICIENT_FIAT_BALANCE" || funded === "INSUFFICIENT_COIN") {
+      if (backing) {
         return Response.json({
           error: `Insufficient balance. This sell ad needs ${need} ${crypto} (amount + 1% fee). Top up KES or hold ${crypto} — your free KES converts at live FX.`,
         }, { status: 400 });
+      }
+
+      // Check if there's a shortfall that requires KES funding, and check gates against it
+      const net = defaultNetwork(crypto as string);
+      const bal = await db.userCryptoBalance.findUnique({
+        where: { userId_crypto_network: { userId: dbUser.id, crypto: crypto as string, network: net } },
+        select: { available: true },
+      });
+      const haveCoin = Number(bal?.available ?? 0);
+      const shortfall = Math.max(0, need - haveCoin);
+
+      if (shortfall > 0) {
+        const kesNeeded = convertToKes(shortfall, crypto as string, rates.toKES);
+        if (!rates.toKES[crypto as string] || rates.toKES[crypto as string] <= 0) {
+          return Response.json({ error: `No FX rate available for ${crypto}. Try again shortly.` }, { status: 503 });
+        }
+
+        try {
+          await assertRealDepositForWithdrawal(db, dbUser.id, dbUser.isAdmin);
+          const promoLocked = await getPromoLockedKes(db, dbUser.id, Number(dbUser.walletBalance));
+          if (promoLocked > 0 && kesNeeded > Number(dbUser.walletBalance) - promoLocked + 1e-9) {
+            throw new Error("PROMO_LOCKED");
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "";
+          if (msg === "NO_DEPOSIT_GATE") {
+            return Response.json({
+              error: "Make a deposit with your own funds before selling in-app coins on P2P.",
+            }, { status: 400 });
+          }
+          if (msg === "PROMO_LOCKED") {
+            return Response.json({
+              error: "Promo credit cannot fund cross-market sell ads. Deposit real funds first.",
+            }, { status: 400 });
+          }
+          throw err;
+        }
       }
     }
 

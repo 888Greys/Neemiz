@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
-import { assertKesSellBacking, deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
+import { assertLocalCoinSellBacking, deactivateUnbackedLocalCoinSellAds } from "@/lib/p2p/ad-backing";
 import { isKesCoin, isWalletBackedCoin, p2pMakerLock, lockUserCrypto, unlockOnChainSellReserve, defaultNetwork } from "@/lib/p2p/crypto-balance";
 import { ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
 import { OrderStatus } from "@prisma/client";
@@ -18,7 +18,7 @@ export async function GET() {
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
   const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
   if (!merchant) return Response.json([], { status: 200 });
-  await deactivateUnbackedKesSellAds();
+  await deactivateUnbackedLocalCoinSellAds();
 
   const ads = await db.p2PAd.findMany({
     where: { merchantId: merchant.id },
@@ -129,7 +129,8 @@ export async function PATCH(req: Request) {
     });
     if (guardError) return Response.json({ error: guardError }, { status: 400 });
 
-    const backing = await assertKesSellBacking({
+    const backing = await assertLocalCoinSellBacking({
+      userId: dbUser.id,
       merchantId: merchant.id,
       walletBalance: Number(dbUser.walletBalance ?? 0),
       crypto: ad.crypto,
@@ -139,7 +140,7 @@ export async function PATCH(req: Request) {
     });
     if (backing) {
       return Response.json({
-        error: `Insufficient backing. Active KES sell inventory requires KSh ${backing.required.toLocaleString("en-KE")}, but your wallet has KSh ${backing.available.toLocaleString("en-KE")}.`,
+        error: `Insufficient backing. Active local coin sell inventory requires KSh ${backing.required.toLocaleString("en-KE")}, but your wallet has KSh ${backing.available.toLocaleString("en-KE")}.`,
       }, { status: 400 });
     }
   }
