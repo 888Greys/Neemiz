@@ -50,15 +50,19 @@ needed AS (
 )
 UPDATE user_crypto_balances ucb
 SET
-  available = ucb.available + GREATEST(0, ucb.locked - COALESCE(n.need, 0)),
-  locked    = LEAST(ucb.locked, COALESCE(n.need, 0)),
+  available = ucb.available + GREATEST(0, ucb.locked - COALESCE(sub.need, 0)),
+  locked    = LEAST(ucb.locked, COALESCE(sub.need, 0)),
   updated_at = CURRENT_TIMESTAMP
-FROM on_chain oc
-LEFT JOIN needed n
-  ON n.user_id = ucb.user_id
- AND n.crypto = upper(ucb.crypto)
-WHERE upper(ucb.crypto) = oc.crypto
-  AND ucb.locked > COALESCE(n.need, 0);
+FROM (
+  SELECT u.id, n.need
+  FROM user_crypto_balances u
+  JOIN on_chain oc ON upper(u.crypto) = oc.crypto
+  LEFT JOIN needed n
+    ON n.user_id = u.user_id
+   AND n.crypto = upper(u.crypto)
+) sub
+WHERE ucb.id = sub.id
+  AND ucb.locked > COALESCE(sub.need, 0);
 
 -- Legacy merchant escrow rows (pre one-wallet). Same excess formula keyed by
 -- merchant_id → user via merchant_profiles.
@@ -78,14 +82,18 @@ ad_need AS (
 )
 UPDATE p2p_crypto_balances pcb
 SET
-  available = pcb.available + GREATEST(0, pcb.locked - COALESCE(n.need, 0)),
-  locked    = LEAST(pcb.locked, COALESCE(n.need, 0)),
-  total     = (pcb.available + GREATEST(0, pcb.locked - COALESCE(n.need, 0)))
-              + LEAST(pcb.locked, COALESCE(n.need, 0)),
+  available = pcb.available + GREATEST(0, pcb.locked - COALESCE(sub.need, 0)),
+  locked    = LEAST(pcb.locked, COALESCE(sub.need, 0)),
+  total     = (pcb.available + GREATEST(0, pcb.locked - COALESCE(sub.need, 0)))
+              + LEAST(pcb.locked, COALESCE(sub.need, 0)),
   updated_at = CURRENT_TIMESTAMP
-FROM on_chain oc
-LEFT JOIN ad_need n
-  ON n.merchant_id = pcb.merchant_id
- AND n.crypto = upper(pcb.crypto)
-WHERE upper(pcb.crypto) = oc.crypto
-  AND pcb.locked > COALESCE(n.need, 0);
+FROM (
+  SELECT p.id, n.need
+  FROM p2p_crypto_balances p
+  JOIN on_chain oc ON upper(p.crypto) = oc.crypto
+  LEFT JOIN ad_need n
+    ON n.merchant_id = p.merchant_id
+   AND n.crypto = upper(p.crypto)
+) sub
+WHERE pcb.id = sub.id
+  AND pcb.locked > COALESCE(sub.need, 0);
