@@ -606,7 +606,7 @@ function P2PUserProfile({
 
   return (
     <>
-      <div className="mx-auto w-full max-w-lg px-3 pb-10 pt-1 sm:max-w-xl sm:px-4">
+      <div className="mx-auto w-full max-w-6xl px-3 pb-10 pt-1 sm:px-4">
         <div className="mb-4 flex items-center justify-between py-2">
           <Link
             href="/p2p"
@@ -624,125 +624,129 @@ function P2PUserProfile({
           </a>
         </div>
 
-        <div className="mb-5 flex flex-col items-center text-center">
-          <MerchantAvatar
-            id={nickname}
-            name={nickname}
-            avatarUrl={user?.user_metadata?.avatar_url || profile?.avatarUrl}
-            size={72}
-            rounded="full"
-            className="mb-3 h-[72px] w-[72px]"
-          />
-          <div className="flex items-center gap-1.5">
-            <h1 className="text-[20px] font-bold text-white">{nickname}</h1>
-            <button
-              type="button"
-              onClick={() =>
-                requireAuth(() => {
-                  if (!profile?.applied) setSheetOpen(true);
-                  else toast.info("Nickname can only be set once");
-                })
-              }
-              className="grid h-7 w-7 place-items-center rounded-full text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
-              aria-label="Edit nickname"
-            >
-              <Icon name="edit" className="text-[16px]" />
-            </button>
-          </div>
-
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
-            {(
-              [
-                { label: "Email", ok: emailOk, onClick: undefined as undefined | (() => void) },
-                { label: "SMS", ok: phoneOk, onClick: undefined },
-                { label: "Identity", ok: identityOk, onClick: undefined },
-                { label: "Deposit", ok: depositOk, onClick: () => requireAuth(() => openWallet()) },
-              ] as const
-            ).map((badge) => (
+        <div className="lg:grid lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)] lg:items-start lg:gap-6">
+          <div className="mb-5 flex flex-col items-center text-center lg:mb-0 lg:rounded-xl lg:border lg:border-white/[0.07] lg:bg-white/[0.025] lg:px-5 lg:py-6">
+            <MerchantAvatar
+              id={nickname}
+              name={nickname}
+              avatarUrl={user?.user_metadata?.avatar_url || profile?.avatarUrl}
+              size={72}
+              rounded="full"
+              className="mb-3 h-[72px] w-[72px]"
+            />
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-[20px] font-bold text-white">{nickname}</h1>
               <button
-                key={badge.label}
                 type="button"
-                disabled={!badge.onClick}
-                onClick={badge.onClick}
-                className="inline-flex items-center gap-1 text-[11px] text-slate-400 disabled:cursor-default"
+                onClick={() =>
+                  requireAuth(() => {
+                    if (!profile?.applied) setSheetOpen(true);
+                    else toast.info("Nickname can only be set once");
+                  })
+                }
+                className="grid h-7 w-7 place-items-center rounded-full text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
+                aria-label="Edit nickname"
               >
-                <Icon
-                  name={badge.ok ? "check_circle" : "error"}
-                  className={`text-[14px] ${badge.ok ? "text-[#05b957]" : "text-slate-600"}`}
-                />
-                {badge.label}
+                <Icon name="edit" className="text-[16px]" />
               </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mb-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3.5">
-          {[
-            ["Completed Order(s) in 30 Days", `${completed} Order(s)`],
-            ["Completion Rate Within 30 Days", `${completion.toFixed(0)}%`],
-            ["Avg. Release Time", release > 0 ? `${release.toFixed(0)} Minute(s)` : "—"],
-            ["Positive Feedback", feedbackCount > 0 ? `${positive.toFixed(0)}%` : "—"],
-            ["All Trades", `${totalTrades.toLocaleString()} Time(s)`],
-            ["Registered", registered],
-          ].map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between gap-3 py-2 text-[13px]">
-              <span className="text-slate-500">{label}</span>
-              <span className="font-semibold text-white">{value}</span>
             </div>
-          ))}
-        </div>
 
-        <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
-          {menuItems.map((item, i) => (
-            <button
-              key={item.label}
-              type="button"
-              onClick={item.onClick}
-              className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.03] ${
-                i > 0 ? "border-t border-white/[0.06]" : ""
-              }`}
-            >
-              <Icon name={item.icon} className="text-[20px] text-slate-300" />
-              <span className="flex-1 text-[14px] font-semibold text-white">{item.label}</span>
-              {item.right ?? <Icon name="chevron_right" className="text-[18px] text-slate-600" />}
-            </button>
-          ))}
-        </div>
-
-        {showFeedback && (
-          <div className="mt-3 overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
-            {feedback.length === 0 ? (
-              <p className="px-4 py-6 text-center text-[13px] text-slate-500">No written feedback yet.</p>
-            ) : (
-              feedback.map((item, i) => (
-                <div
-                  key={item.id}
-                  className={`px-4 py-3.5 ${i > 0 ? "border-t border-white/[0.06]" : ""}`}
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
+              {(
+                [
+                  { label: "Email", ok: emailOk, onClick: undefined as undefined | (() => void) },
+                  { label: "SMS", ok: phoneOk, onClick: undefined },
+                  { label: "Identity", ok: identityOk, onClick: undefined },
+                  { label: "Deposit", ok: depositOk, onClick: () => requireAuth(() => openWallet()) },
+                ] as const
+              ).map((badge) => (
+                <button
+                  key={badge.label}
+                  type="button"
+                  disabled={!badge.onClick}
+                  onClick={badge.onClick}
+                  className="inline-flex items-center gap-1 text-[11px] text-slate-400 disabled:cursor-default"
                 >
-                  <div className="flex items-center gap-2">
-                    <MerchantAvatar
-                      id={item.fromUser.displayName}
-                      name={item.fromUser.displayName}
-                      avatarUrl={item.fromUser.imageUrl}
-                      size={32}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-semibold text-white">{item.fromUser.displayName}</p>
-                      <p className="text-[11px] font-bold text-[#05b957]">
-                        {"★".repeat(item.rating)}
-                        {"☆".repeat(5 - item.rating)}
-                      </p>
-                    </div>
-                    <span className="text-[10px] text-slate-600">
-                      {new Date(item.createdAt).toLocaleDateString("en-KE", { month: "short", day: "2-digit" })}
-                    </span>
-                  </div>
-                  {item.comment && <p className="mt-2 text-[12px] leading-5 text-slate-400">{item.comment}</p>}
+                  <Icon
+                    name={badge.ok ? "check_circle" : "error"}
+                    className={`text-[14px] ${badge.ok ? "text-[#05b957]" : "text-slate-600"}`}
+                  />
+                  {badge.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="min-w-0 space-y-3">
+            <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3.5 sm:px-5">
+              {[
+                ["Completed Order(s) in 30 Days", `${completed} Order(s)`],
+                ["Completion Rate Within 30 Days", `${completion.toFixed(0)}%`],
+                ["Avg. Release Time", release > 0 ? `${release.toFixed(0)} Minute(s)` : "—"],
+                ["Positive Feedback", feedbackCount > 0 ? `${positive.toFixed(0)}%` : "—"],
+                ["All Trades", `${totalTrades.toLocaleString()} Time(s)`],
+                ["Registered", registered],
+              ].map(([label, value]) => (
+                <div key={label} className="flex items-center justify-between gap-3 py-2 text-[13px] sm:py-2.5 sm:text-[14px]">
+                  <span className="text-slate-500">{label}</span>
+                  <span className="font-semibold text-white">{value}</span>
                 </div>
-              ))
+              ))}
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
+              {menuItems.map((item, i) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={item.onClick}
+                  className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.03] sm:px-5 ${
+                    i > 0 ? "border-t border-white/[0.06]" : ""
+                  }`}
+                >
+                  <Icon name={item.icon} className="text-[20px] text-slate-300" />
+                  <span className="flex-1 text-[14px] font-semibold text-white">{item.label}</span>
+                  {item.right ?? <Icon name="chevron_right" className="text-[18px] text-slate-600" />}
+                </button>
+              ))}
+            </div>
+
+            {showFeedback && (
+              <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
+                {feedback.length === 0 ? (
+                  <p className="px-4 py-6 text-center text-[13px] text-slate-500">No written feedback yet.</p>
+                ) : (
+                  feedback.map((item, i) => (
+                    <div
+                      key={item.id}
+                      className={`px-4 py-3.5 sm:px-5 ${i > 0 ? "border-t border-white/[0.06]" : ""}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MerchantAvatar
+                          id={item.fromUser.displayName}
+                          name={item.fromUser.displayName}
+                          avatarUrl={item.fromUser.imageUrl}
+                          size={32}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-semibold text-white">{item.fromUser.displayName}</p>
+                          <p className="text-[11px] font-bold text-[#05b957]">
+                            {"★".repeat(item.rating)}
+                            {"☆".repeat(5 - item.rating)}
+                          </p>
+                        </div>
+                        <span className="text-[10px] text-slate-600">
+                          {new Date(item.createdAt).toLocaleDateString("en-KE", { month: "short", day: "2-digit" })}
+                        </span>
+                      </div>
+                      {item.comment && <p className="mt-2 text-[12px] leading-5 text-slate-400">{item.comment}</p>}
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
       </div>
 
       <SetNicknameSheet
@@ -2962,9 +2966,9 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const adPageCount = Math.max(1, Math.ceil(filteredAds.length / adsPerPage));
   const visibleAds = filteredAds.slice((adPage - 1) * adsPerPage, adPage * adsPerPage);
 
-  // Ads match the browse market width; profile/payments/wallet stay phone-width.
+  // Ads + profile match the browse market width; payments/wallet stay phone-width.
   // Ads/profile/payments/wallet hide the dashboard chrome (they have their own headers).
-  const phoneShell = section === "profile" || section === "payments" || section === "wallet";
+  const phoneShell = section === "payments" || section === "wallet";
   const hideDashboardChrome =
     section === "ads" || section === "profile" || section === "payments" || section === "wallet";
 
