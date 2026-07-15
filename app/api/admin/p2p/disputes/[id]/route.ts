@@ -4,13 +4,13 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import {
   defaultNetwork,
-  isKesCoin,
+  isWalletBackedCoin,
   kesLockAmount,
   kesPayoutAmount,
-  recordKesWalletMovement,
-  releaseKesCoinBalance,
+  recordWalletCoinMovement,
+  releaseWalletCoin,
   settleCryptoEscrowRelease,
-  unlockKesCoinBalance,
+  unlockWalletCoin,
   unlockUserCrypto,
 } from "@/lib/p2p/crypto-balance";
 import { convertToKES, getFxRatesToKES } from "@/lib/p2p/fx";
@@ -194,7 +194,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const cryptoBuyerWins = resolution === "CRYPTO_BUYER_WINS";
   const network = defaultNetwork(order.crypto);
   const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
-  const feeKesPerCrypto = cryptoBuyerWins && !isKesCoin(order.crypto)
+  const feeKesPerCrypto = cryptoBuyerWins && !isWalletBackedCoin(order.crypto)
     ? convertToKES(Number(order.pricePerUnit), order.ad.fiat, (await getFxRatesToKES()).toKES)
     : 0;
 
@@ -220,11 +220,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         data:  { availableAmount: { increment: cryptoAmt } },
       });
 
-      if (isKesCoin(order.crypto)) {
+      if (isWalletBackedCoin(order.crypto)) {
         const refundAmount = kesLockAmount(cryptoAmt);
-        await unlockKesCoinBalance(tx, kesGiverUserId, refundAmount);
-        await recordKesWalletMovement(tx, {
+        await unlockWalletCoin(tx, kesGiverUserId, order.crypto, refundAmount);
+        await recordWalletCoinMovement(tx, {
           userId: kesGiverUserId,
+          crypto: order.crypto,
           amount: refundAmount,
           action: "refund",
           orderId: order.id,
@@ -241,11 +242,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         data: { status: "RELEASED", escrowReleased: true, releasedAt: new Date() },
       });
 
-      if (isKesCoin(order.crypto)) {
+      if (isWalletBackedCoin(order.crypto)) {
         const payoutAmount = kesPayoutAmount(cryptoAmt);
-        await releaseKesCoinBalance(tx, kesGiverUserId, kesReceiverUserId, kesLockAmount(cryptoAmt), payoutAmount);
-        await recordKesWalletMovement(tx, {
+        await releaseWalletCoin(tx, kesGiverUserId, kesReceiverUserId, order.crypto, kesLockAmount(cryptoAmt), payoutAmount);
+        await recordWalletCoinMovement(tx, {
           userId: kesReceiverUserId,
+          crypto: order.crypto,
           amount: payoutAmount,
           action: "release",
           orderId: order.id,

@@ -217,6 +217,87 @@ export const kesLockAmount   = (amount: number) => parseFloat((amount * (1 + KES
 /** What the receiver is paid (order amount − their 1% fee). */
 export const kesPayoutAmount = (amount: number) => parseFloat((amount * (1 - KES_FEE_RATE)).toFixed(2));
 
+// ─── Wallet-backed coins (KES + other in-app local coins) ────────────────────
+// A "wallet-backed" P2P coin is escrowed PER-ORDER directly from the giver's own
+// balance — there is no merchant P2P escrow reservation at ad creation. KES uses
+// the fiat wallet (User.walletBalance); every other in-app local coin uses its
+// UserCryptoBalance(crypto / crypto) row. They all share KES's 1%/1% pegged fee
+// model (kesLockAmount / kesPayoutAmount). This is what makes an in-app coin sell
+// "like KES Coin": hold it in your wallet and sell straight from there.
+
+/** True for any coin escrowed per-order from the giver's own balance (KES + in-app coins). */
+export function isWalletBackedCoin(crypto: string): boolean {
+  return isActiveLocalCoin(crypto);
+}
+
+/** Lock `amount` (fee-inclusive) into escrow from the giver's own balance. */
+export async function lockWalletCoin(tx: TxClient, userId: string, crypto: string, amount: number) {
+  if (isKesCoin(crypto)) return lockKesCoinBalance(tx, userId, amount);
+  await lockUserCrypto(tx, userId, crypto, defaultNetwork(crypto), amount);
+}
+
+/** Refund a locked amount back to the giver (cancel / expire / dispute refund). */
+export async function unlockWalletCoin(tx: TxClient, userId: string, crypto: string, amount: number) {
+  if (isKesCoin(crypto)) return unlockKesCoinBalance(tx, userId, amount);
+  await unlockUserCrypto(tx, userId, crypto, defaultNetwork(crypto), amount);
+}
+
+/**
+ * Complete an escrow transfer: consume the giver's locked `lockedAmount` and pay
+ * the receiver `payoutAmount`; the platform keeps the difference (the 2% spread).
+ */
+export async function releaseWalletCoin(
+  tx: TxClient,
+  giverUserId: string,
+  receiverUserId: string,
+  crypto: string,
+  lockedAmount: number,
+  payoutAmount: number,
+) {
+  if (isKesCoin(crypto)) {
+    return releaseKesCoinBalance(tx, giverUserId, receiverUserId, lockedAmount, payoutAmount);
+  }
+  const network = defaultNetwork(crypto);
+  // The giver's balance was moved available→locked at order creation; consume the
+  // whole locked amount here (the fee stays out of circulation) and pay the receiver.
+  await tx.userCryptoBalance.updateMany({
+    where: { userId: giverUserId, crypto, network },
+    data:  { locked: { decrement: lockedAmount } },
+  });
+  await creditUserCrypto(tx, receiverUserId, crypto, network, payoutAmount);
+}
+
+/** Audit row for a wallet-backed-coin escrow movement (generalises recordKesWalletMovement). */
+export async function recordWalletCoinMovement(
+  tx: TxClient,
+  input: {
+    userId: string;
+    crypto: string;
+    amount: number;
+    action: "lock" | "refund" | "release";
+    orderId: string;
+    role: "giver" | "receiver";
+  },
+) {
+  if (isKesCoin(input.crypto)) {
+    return recordKesWalletMovement(tx, {
+      userId: input.userId, amount: input.amount, action: input.action, orderId: input.orderId, role: input.role,
+    });
+  }
+  await tx.transaction.create({
+    data: {
+      userId:    input.userId,
+      type:      input.action === "refund" ? TransactionType.REFUND : input.action === "release" ? TransactionType.DEPOSIT : TransactionType.WITHDRAWAL,
+      amount:    input.amount,
+      currency:  input.crypto,
+      status:    TransactionStatus.COMPLETED,
+      reference: `p2p-${input.crypto.toLowerCase()}-${input.action}-${input.orderId}-${input.userId}`,
+      provider:  "p2p_incoin_escrow",
+      metadata:  { action: input.action, orderId: input.orderId, role: input.role, asset: input.crypto, rate: 1 },
+    },
+  });
+}
+
 // ─── Real-crypto P2P platform fee (maker-pays / Binance-style) ───────────────
 // The MAKER (the merchant who posts the ad) bears the fee; the TAKER is always
 // made whole. Configurable via P2P_FEE_RATE (set 0 to run a zero-fee promo).

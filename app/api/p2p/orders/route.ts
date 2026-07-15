@@ -4,7 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
-import { defaultNetwork, lockUserCrypto, unlockUserCrypto, isKesCoin, lockKesCoinBalance, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, lockUserCrypto, unlockUserCrypto, kesLockAmount, isWalletBackedCoin, lockWalletCoin, unlockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
 import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
@@ -54,15 +54,16 @@ export async function GET(req: Request) {
             where: { id: order.adId },
             data:  { availableAmount: { increment: amt } },
           });
-          if (isKesCoin(order.crypto)) {
+          if (isWalletBackedCoin(order.crypto)) {
             const giverUserId = order.ad.side === "SELL"
               ? (await tx.merchantProfile.findUnique({ where: { id: order.sellerId }, select: { userId: true } }))?.userId
               : order.buyerId;
             if (giverUserId) {
               const refundAmount = kesLockAmount(amt);
-              await unlockKesCoinBalance(tx, giverUserId, refundAmount);
-              await recordKesWalletMovement(tx, {
+              await unlockWalletCoin(tx, giverUserId, order.crypto, refundAmount);
+              await recordWalletCoinMovement(tx, {
                 userId: giverUserId,
+                crypto: order.crypto,
                 amount: refundAmount,
                 action: "refund",
                 orderId: order.id,
@@ -230,12 +231,13 @@ export async function POST(req: Request) {
       });
       if (reserved.count === 0) throw new Error("INSUFFICIENT_AD_LIQUIDITY");
 
-      if (isKesCoin(ad.crypto)) {
-        // KES Coin is backed 1:1 by fiat. Escrow comes from whoever is giving
-        // it: the merchant on a SELL ad, the taker on a BUY ad.
+      if (isWalletBackedCoin(ad.crypto)) {
+        // Wallet-backed coin (KES or in-app local coin): escrow comes per-order
+        // from whoever is giving it — the merchant on a SELL ad, the taker on a
+        // BUY ad — straight from their own balance (no ad-creation escrow).
         const giverUserId = ad.side === "SELL" ? ad.merchant.userId : dbUser.id;
         const lockedAmount = kesLockAmount(cryptoAmountNum);
-        await lockKesCoinBalance(tx, giverUserId, lockedAmount);
+        await lockWalletCoin(tx, giverUserId, ad.crypto, lockedAmount);
         const createdOrder = await tx.p2POrder.create({
           data: {
             adId:         adId as string,
@@ -249,8 +251,9 @@ export async function POST(req: Request) {
             expiresAt:    new Date(Date.now() + ad.paymentWindow * 60 * 1000),
           },
         });
-        await recordKesWalletMovement(tx, {
+        await recordWalletCoinMovement(tx, {
           userId: giverUserId,
+          crypto: ad.crypto,
           amount: lockedAmount,
           action: "lock",
           orderId: createdOrder.id,

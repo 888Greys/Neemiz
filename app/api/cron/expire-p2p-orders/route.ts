@@ -13,7 +13,7 @@
  *  - BUY ad: unlock the buyer's escrowed crypto.
  */
 import { db } from "@/lib/db";
-import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, unlockUserCrypto, kesLockAmount, isWalletBackedCoin, unlockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
 import { deactivateUnbackedKesSellAds } from "@/lib/p2p/ad-backing";
 import { createP2POrderEventMessage, orderExpiredSystemText, ORDER_EXPIRING_SOON_TEXT } from "@/lib/p2p/order-events";
 
@@ -76,15 +76,16 @@ export async function GET(req: Request) {
           data:  { availableAmount: { increment: amt } },
         });
 
-        if (isKesCoin(order.crypto)) {
+        if (isWalletBackedCoin(order.crypto)) {
           const giverUserId = order.ad.side === "SELL"
             ? (await tx.merchantProfile.findUnique({ where: { id: order.sellerId }, select: { userId: true } }))?.userId
             : order.buyerId;
           if (giverUserId) {
             const refundAmount = kesLockAmount(amt);
-            await unlockKesCoinBalance(tx, giverUserId, refundAmount);
-            await recordKesWalletMovement(tx, {
+            await unlockWalletCoin(tx, giverUserId, order.crypto, refundAmount);
+            await recordWalletCoinMovement(tx, {
               userId: giverUserId,
+              crypto: order.crypto,
               amount: refundAmount,
               action: "refund",
               orderId: order.id,

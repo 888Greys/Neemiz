@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, unlockUserCrypto, kesLockAmount, isWalletBackedCoin, unlockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
 import { getP2PCancellationUsage } from "@/lib/p2p/cancellation-policy";
 import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
@@ -83,16 +83,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         where: { id: order.adId },
         data:  { availableAmount: { increment: cryptoAmt } },
       });
-      if (isKesCoin(order.crypto)) {
-        // Refund the escrowed KES Coin fiat backing to whoever gave it.
+      if (isWalletBackedCoin(order.crypto)) {
+        // Refund the escrowed wallet-backed coin to whoever gave it.
         const giverUserId = order.ad.side === "SELL"
           ? (await tx.merchantProfile.findUnique({ where: { id: order.sellerId }, select: { userId: true } }))?.userId
           : order.buyerId;
         if (giverUserId) {
           const refundAmount = kesLockAmount(cryptoAmt);
-          await unlockKesCoinBalance(tx, giverUserId, refundAmount);
-          await recordKesWalletMovement(tx, {
+          await unlockWalletCoin(tx, giverUserId, order.crypto, refundAmount);
+          await recordWalletCoinMovement(tx, {
             userId: giverUserId,
+            crypto: order.crypto,
             amount: refundAmount,
             action: "refund",
             orderId: order.id,

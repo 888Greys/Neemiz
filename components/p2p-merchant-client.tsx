@@ -14,7 +14,7 @@ import { toast } from "@/lib/toast";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { paymentMethodLabel, accountIdentifierLabel } from "@/lib/p2p/payment-methods";
 import { MARKETS, type Market } from "@/lib/payments/country-methods";
-import { ACTIVE_LOCAL_COINS } from "@/lib/p2p/local-coins";
+import { ACTIVE_LOCAL_COINS, isActiveLocalCoin } from "@/lib/p2p/local-coins";
 import { PaymentLogo } from "@/components/p2p/payment-logo";
 import { LoadingDots } from "@/components/loading-dots";
 import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
@@ -1836,6 +1836,9 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const [savedPaymentMethods, setSavedPaymentMethods] = useState<PayMethod[]>([]);
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true);
   const [escrowBalances, setEscrowBalances] = useState<CryptoBalance[]>([]);
+  // In-app local coins sell straight from the merchant's own wallet (like KES),
+  // so we also read the wallet balances to know which coins can back a sell ad.
+  const [walletCoinBalances, setWalletCoinBalances] = useState<{ crypto: string; available: number }[]>([]);
   const [balancesLoading, setBalancesLoading] = useState(true);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -1871,9 +1874,14 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     for (const b of escrowBalances) {
       if (b.crypto !== "KES" && Number(b.available) > 0) held.add(b.crypto);
     }
+    // In-app local coins are sold per-order straight from the wallet (no escrow
+    // funding), so a wallet balance is enough to list a sell ad.
+    for (const b of walletCoinBalances) {
+      if (b.crypto !== "KES" && isActiveLocalCoin(b.crypto) && b.available > 0) held.add(b.crypto);
+    }
     if (Number(fiatBalance) > 0) held.add("KES");
     return held;
-  }, [escrowBalances, fiatBalance]);
+  }, [escrowBalances, walletCoinBalances, fiatBalance]);
 
   // For SELL ads you can only list coins you hold. BUY ads may reference any supported coin.
   // While balances load, or when editing an existing ad, don't restrict the list.
@@ -1902,8 +1910,8 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     setForm((p) => ({
       ...p,
       crypto: first.symbol,
-      pricePerUnit: first.symbol === "KES" ? "1" : "",
-      profitMarginPct: first.symbol === "KES" ? "0" : "",
+      pricePerUnit: isActiveLocalCoin(first.symbol) ? "1" : "",
+      profitMarginPct: isActiveLocalCoin(first.symbol) ? "0" : "",
     }));
   }, [restrictToHeld, heldSymbols, form.crypto]);
 
@@ -1936,6 +1944,22 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
       .finally(() => {
         if (!cancelled) setBalancesLoading(false);
       });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/crypto/balance")
+      .then((response) => response.ok ? response.json() : null)
+      .then((data: unknown) => {
+        if (cancelled || !data) return;
+        const rows = Array.isArray(data) ? data : ((data as { balances?: unknown }).balances ?? []);
+        const list = (rows as Array<{ crypto: string; available: number | string }>).map((b) => ({
+          crypto: b.crypto, available: Number(b.available),
+        }));
+        setWalletCoinBalances(list);
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
 

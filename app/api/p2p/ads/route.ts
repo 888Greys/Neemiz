@@ -4,7 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
 import { autoApproveIfDue } from "@/lib/p2p/merchant-approval";
-import { isKesCoin, p2pFeeRate, p2pMakerLock } from "@/lib/p2p/crypto-balance";
+import { isKesCoin, isWalletBackedCoin, defaultNetwork, kesLockAmount, p2pFeeRate, p2pMakerLock } from "@/lib/p2p/crypto-balance";
 import { AdSide } from "@prisma/client";
 import { sendAdCreatedEmail } from "@/lib/brevo";
 import { FIAT_CURRENCIES, DEFAULT_FIAT } from "@/lib/p2p/currencies";
@@ -229,9 +229,27 @@ export async function POST(req: Request) {
       }
     }
 
-    // Crypto SELL ads lock the merchant's crypto up-front. KES Coin SELL ads do
-    // not: KES is fiat-backed and escrowed per order from User.walletBalance.
-    if (side === "SELL" && !isKesCoin(crypto as string)) {
+    // In-app local coin (non-KES) SELL ad: escrowed per order from the merchant's
+    // own UserCryptoBalance wallet — no up-front reservation, just like KES. Guard
+    // that the wallet currently covers this ad's escrow (amount + 1% fee).
+    if (side === "SELL" && isWalletBackedCoin(crypto as string) && !isKesCoin(crypto as string)) {
+      const net = defaultNetwork(crypto as string);
+      const bal = await db.userCryptoBalance.findUnique({
+        where: { userId_crypto_network: { userId: dbUser.id, crypto: crypto as string, network: net } },
+        select: { available: true },
+      });
+      const need = kesLockAmount(totalAmountNum);
+      if (Number(bal?.available ?? 0) < need) {
+        return Response.json({
+          error: `Insufficient ${crypto} balance. This sell ad needs ${need} ${crypto} (amount + 1% fee) in your wallet.`,
+        }, { status: 400 });
+      }
+    }
+
+    // Crypto SELL ads lock the merchant's crypto up-front. Wallet-backed coins
+    // (KES + in-app local coins) do not: they are escrowed per order from the
+    // giver's own balance.
+    if (side === "SELL" && !isWalletBackedCoin(crypto as string)) {
       // Maker-pays: the merchant escrows the sale amount PLUS the platform fee,
       // so buyers receive the full amount and Nezeem's cut comes from the maker.
       // The rate is stamped on the ad so release charges exactly what was reserved.

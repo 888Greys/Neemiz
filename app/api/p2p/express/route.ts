@@ -4,7 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { isP2PAdTradable } from "@/lib/p2p/ad-guards";
-import { isKesCoin, lockKesCoinBalance, kesLockAmount, recordKesWalletMovement } from "@/lib/p2p/crypto-balance";
+import { kesLockAmount, isWalletBackedCoin, lockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
@@ -109,11 +109,11 @@ export async function POST(req: Request) {
       });
       if (reserved.count === 0) throw new Error("INSUFFICIENT_AD_LIQUIDITY");
 
-      // KES Coin SELL ad: escrow from the merchant's fiat wallet. It is not
-      // locked up-front like blockchain crypto ads.
-      if (isKesCoin(match.crypto)) {
+      // Wallet-backed coin (KES or in-app local coin) SELL ad: escrow per-order
+      // from the merchant's own balance. It is not locked up-front like crypto ads.
+      if (isWalletBackedCoin(match.crypto)) {
         const lockedAmount = kesLockAmount(cryptoAmount);
-        await lockKesCoinBalance(tx, match.merchant.userId, lockedAmount);
+        await lockWalletCoin(tx, match.merchant.userId, match.crypto, lockedAmount);
         const createdOrder = await tx.p2POrder.create({
           data: {
             adId:          match.id,
@@ -127,8 +127,9 @@ export async function POST(req: Request) {
             expiresAt:     new Date(Date.now() + match.paymentWindow * 60 * 1000),
           },
         });
-        await recordKesWalletMovement(tx, {
+        await recordWalletCoinMovement(tx, {
           userId: match.merchant.userId,
+          crypto: match.crypto,
           amount: lockedAmount,
           action: "lock",
           orderId: createdOrder.id,
@@ -163,6 +164,7 @@ export async function POST(req: Request) {
       const msg = (err as Error).message;
       if (msg === "INSUFFICIENT_AD_LIQUIDITY") return null;
       if (msg === "INSUFFICIENT_FIAT_BALANCE") return "INSUFFICIENT_FIAT_BALANCE" as const;
+      if (msg === "INSUFFICIENT_CRYPTO_BALANCE") return "INSUFFICIENT_CRYPTO_BALANCE" as const;
       if (msg === "PROMO_LOCKED") return "PROMO_LOCKED" as const;
       if (msg === "NO_DEPOSIT_GATE") return "NO_DEPOSIT_GATE" as const;
       throw err;
@@ -176,6 +178,9 @@ export async function POST(req: Request) {
     }
     if (order === "INSUFFICIENT_FIAT_BALANCE") {
       return Response.json({ error: "That merchant does not have enough fiat wallet balance to back this KES Coin order." }, { status: 409 });
+    }
+    if (order === "INSUFFICIENT_CRYPTO_BALANCE") {
+      return Response.json({ error: `That merchant does not have enough ${match.crypto} balance to back this order right now.` }, { status: 409 });
     }
     if (!order) {
       return Response.json({ error: "That offer was just taken — try again" }, { status: 409 });

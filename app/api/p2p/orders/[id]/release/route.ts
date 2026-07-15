@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { defaultNetwork, isKesCoin, releaseKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement, settleCryptoEscrowRelease } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, isWalletBackedCoin, releaseWalletCoin, kesLockAmount, kesPayoutAmount, recordWalletCoinMovement, settleCryptoEscrowRelease } from "@/lib/p2p/crypto-balance";
 import { convertToKES, getFxRatesToKES } from "@/lib/p2p/fx";
 import { sendTradeCompletedEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
@@ -55,7 +55,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
     // The executed ad price is immutable on the order. Convert it once while
     // booking the fee so admin P&L is stable even when crypto prices move later.
-    const feeKesPerCrypto = isKesCoin(order.crypto)
+    const feeKesPerCrypto = isWalletBackedCoin(order.crypto)
       ? 0
       : convertToKES(Number(order.pricePerUnit), order.ad.fiat, (await getFxRatesToKES()).toKES);
 
@@ -79,20 +79,22 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
       if (!merchant) throw new Error("MERCHANT_NOT_FOUND");
 
-      if (isKesCoin(order.crypto)) {
-        // KES coin keeps its own 1%/1% split. The giver was escrowed amount+1% at
-        // order creation; pay the receiver amount-1% (platform keeps the 2%).
+      if (isWalletBackedCoin(order.crypto)) {
+        // Wallet-backed coin (KES or in-app) keeps the 1%/1% split. The giver was
+        // escrowed amount+1% at order creation; pay the receiver amount-1%.
         const receiverUserId = isMerchantSell ? order.buyerId : merchant.userId;
         const payoutAmount = kesPayoutAmount(cryptoAmt);
-        await releaseKesCoinBalance(
+        await releaseWalletCoin(
           tx,
           isMerchantSell ? merchant.userId : order.buyerId,
           receiverUserId,
+          order.crypto,
           kesLockAmount(cryptoAmt),
           payoutAmount,
         );
-        await recordKesWalletMovement(tx, {
+        await recordWalletCoinMovement(tx, {
           userId: receiverUserId,
+          crypto: order.crypto,
           amount: payoutAmount,
           action: "release",
           orderId: order.id,
