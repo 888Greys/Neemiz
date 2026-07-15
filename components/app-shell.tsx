@@ -260,6 +260,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
               <TopNavLink href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} />
               <TopNavLink href="/p2p" icon="swap_horiz" label="P2P" pathname={pathname} />
               <TopNavLink href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} />
+              <TopNavLink href="/lucky-spin" icon="casino" label="Spin" pathname={pathname} />
               <TopNavLink href="/predictions" icon="online_prediction" label="Polymarket" pathname={pathname} />
               <TopNavLink href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} />
               <TopNavLink href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} />
