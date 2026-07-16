@@ -8,6 +8,7 @@
  */
 
 import { TransactionStatus, TransactionType, type Prisma } from "@prisma/client";
+import { db } from "@/lib/db";
 import { convertToKes } from "@/lib/currency-config";
 import { getFxRatesToKES } from "@/lib/p2p/fx";
 import {

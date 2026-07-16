@@ -39,6 +39,9 @@ vi.mock("@/lib/p2p/fx", () => ({
 describe("P2P Local Coin Backing & Escrow Calculations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // clearAllMocks doesn't reset mockResolvedValue implementations, so re-assert
+    // the default (no admin grants) before every test; grant tests override it.
+    (db.transaction.groupBy as any).mockResolvedValue([]);
   });
 
   it("identifies active local coins correctly as wallet-backed", () => {
@@ -63,7 +66,7 @@ describe("P2P Local Coin Backing & Escrow Calculations", () => {
     ]);
 
     (db.userCryptoBalance.findMany as any).mockResolvedValue([
-      { crypto: "TZS", network: "TRC20", available: 150000 }, // TRC20 is default for TZS fallback
+      { crypto: "TZS", network: "TZS", available: 150000 }, // local-coin network is its own currency code
     ]);
 
     const requiredKes = await getTotalKesReservedForMerchant("user-123", "merchant-123");
@@ -84,7 +87,7 @@ describe("P2P Local Coin Backing & Escrow Calculations", () => {
     
     (db.p2PAd.findMany as any).mockResolvedValue([]); // no other ads
     (db.userCryptoBalance.findMany as any).mockResolvedValue([
-      { crypto: "TZS", network: "TRC20", available: 50000 },
+      { crypto: "TZS", network: "TZS", available: 50000 },
     ]);
 
     const result = await assertLocalCoinSellBacking({
@@ -104,7 +107,7 @@ describe("P2P Local Coin Backing & Escrow Calculations", () => {
   it("assertLocalCoinSellBacking passes if wallet balance is sufficient", async () => {
     (db.p2PAd.findMany as any).mockResolvedValue([]);
     (db.userCryptoBalance.findMany as any).mockResolvedValue([
-      { crypto: "TZS", network: "TRC20", available: 50000 },
+      { crypto: "TZS", network: "TZS", available: 50000 },
     ]);
 
     const result = await assertLocalCoinSellBacking({
@@ -127,7 +130,7 @@ describe("P2P Local Coin Backing & Escrow Calculations", () => {
       { crypto: "TZS", availableAmount: 100000 },
     ]);
     (db.userCryptoBalance.findMany as any).mockResolvedValue([
-      { crypto: "TZS", network: "TRC20", available: 150000 },
+      { crypto: "TZS", network: "TZS", available: 150000 },
     ]);
     // 150,000 TZS were granted → backing-eligible balance is 0.
     (db.transaction.groupBy as any).mockResolvedValue([
