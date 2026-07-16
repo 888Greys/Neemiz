@@ -90,11 +90,17 @@ export function P2PMarketTabs({
 export function FiatPill({ value, onChange }: { value: string; onChange: (code: string) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const current = FIAT_CURRENCIES.find((f) => f.code === value) ?? FIAT_CURRENCIES[0];
+
+  const allCurrenciesOption = { code: "__ALL__", name: "All Currencies", symbol: "ALL" };
+  const current = value === "__ALL__" 
+    ? allCurrenciesOption 
+    : (FIAT_CURRENCIES.find((f) => f.code === value) ?? FIAT_CURRENCIES[0]);
+
   const term = q.trim().toLowerCase();
+  const list = [allCurrenciesOption, ...FIAT_CURRENCIES];
   const filtered = term
-    ? FIAT_CURRENCIES.filter((f) => f.code.toLowerCase().includes(term) || f.name.toLowerCase().includes(term))
-    : FIAT_CURRENCIES;
+    ? list.filter((f) => f.code.toLowerCase().includes(term) || f.name.toLowerCase().includes(term))
+    : list;
 
   return (
     <>
@@ -103,7 +109,7 @@ export function FiatPill({ value, onChange }: { value: string; onChange: (code: 
         onClick={() => setOpen(true)}
         className="flex items-center gap-1 rounded-full bg-white/[0.08] py-1.5 pl-2.5 pr-2 text-[13px] font-bold text-white transition hover:bg-white/[0.12]"
       >
-        {current.code}
+        {current.code === "__ALL__" ? "ALL" : current.code}
         <Icon name="expand_more" className="text-[16px] text-slate-400" />
       </button>
       {open && (
@@ -138,9 +144,15 @@ export function FiatPill({ value, onChange }: { value: string; onChange: (code: 
                   onClick={() => { onChange(f.code); setOpen(false); setQ(""); }}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left ${f.code === value ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"}`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={flagUrl(f.code)} alt="" className="h-5 w-7 rounded-sm object-cover" />
-                  <span className="text-[14px] font-bold text-white">{f.code}</span>
+                  {f.code === "__ALL__" ? (
+                    <div className="flex h-5 w-7 shrink-0 items-center justify-center rounded-sm bg-white/10">
+                      <Icon name="public" className="text-[14px] text-slate-400" />
+                    </div>
+                  ) : (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={flagUrl(f.code)} alt="" className="h-5 w-7 rounded-sm object-cover" />
+                  )}
+                  <span className="text-[14px] font-bold text-white">{f.code === "__ALL__" ? "ALL" : f.code}</span>
                   <span className="truncate text-[12px] text-slate-500">{f.name}</span>
                   {f.code === value && <Icon name="check" className="ml-auto text-[18px] text-white" />}
                 </button>

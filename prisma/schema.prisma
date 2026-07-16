@@ -1073,3 +1073,20 @@ model AdminAuditLog {
 
   @@map("admin_audit_logs")
 }
+
+model SecurityUserAudit {
+  id              BigInt    @id @default(autoincrement())
+  userId          String    @map("user_id")
+  username        String?
+  email           String?
+  action          String
+  changedFields   String[]  @map("changed_fields")
+  oldValues       Json?     @map("old_values")
+  newValues       Json      @map("new_values")
+  dbUser          String    @default(dbgenerated("current_user")) @map("db_user")
+  applicationName String?   @default(dbgenerated("current_setting('application_name', true)")) @map("application_name")
+  clientAddr      String?   @map("client_addr") @db.Inet
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("security_user_audit")
+}

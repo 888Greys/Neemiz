@@ -1350,7 +1350,7 @@ const COIN_FILTER_OPTIONS = [COIN_FILTER_ALL, ...CRYPTOS];
 const VALID_SIDES   = ["BUY", "SELL"] as const;
 const VALID_CRYPTOS_SET = new Set(COIN_FILTER_OPTIONS);
 const VALID_PAYMENTS_SET = new Set<string>(["", ...Array.from(ALL_PAYMENT_CODES)]);
-const VALID_FIAT_SET = new Set(FIAT_CURRENCIES.map((f) => f.code));
+const VALID_FIAT_SET = new Set(["__ALL__", ...FIAT_CURRENCIES.map((f) => f.code)]);
 
 export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string }) {
   const { isSignedIn }   = useSupabaseAuth();
@@ -1428,7 +1428,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
   const adsKey = `/api/p2p/ads?${new URLSearchParams({
     side:   tab === "BUY" ? "SELL" : "BUY",
     ...(crypto === COIN_FILTER_ALL ? {} : { crypto }),
-    fiat,
+    ...(fiat === "__ALL__" ? {} : { fiat }),
     ...(payment ? { payment } : {}),
   })}`;
 

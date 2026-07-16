@@ -93,7 +93,7 @@ export function getFiat(code: string | null | undefined): FiatCurrency {
 
 /** True only for a fiat we actually support (used to validate user/cookie input). */
 export function isSupportedFiat(code: string | null | undefined): boolean {
-  return !!code && BY_CODE.has(code);
+  return !!code && (code === "__ALL__" || BY_CODE.has(code));
 }
 
 // ─── Geo detection ────────────────────────────────────────────────────────────
