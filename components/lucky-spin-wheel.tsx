@@ -8,6 +8,7 @@ import { useAuthModal } from "@/lib/auth-modal-context";
 import { useCurrency } from "@/lib/currency-context";
 import { placed, outcomeWin, outcomeLose } from "@/lib/game-feel";
 import { toast } from "@/lib/toast";
+import { celebrateWin } from "@/components/aviator/win-celebration";
 
 // Must match the server SEGMENTS in /api/wheel/spin exactly (same order/index).
 const WHEEL_SEGS = [
@@ -126,7 +127,11 @@ export function LuckySpinWheel() {
       refreshBalance();
       window.dispatchEvent(new Event("wallet-refresh"));
       if (data.multiplier === 0 || data.netChange < 0) outcomeLose();
-      else outcomeWin();
+      else {
+        outcomeWin();
+        // Same confetti + count-up badge the rest of the app uses.
+        celebrateWin({ amount: data.winAmount, multiplier: data.multiplier });
+      }
     }, SPIN_MS);
   }
 
@@ -164,13 +169,31 @@ export function LuckySpinWheel() {
                 <stop offset="0%" stopColor="#2b3a52" />
                 <stop offset="100%" stopColor="#0d1017" />
               </radialGradient>
+              {/* Glossy 3-D sheen: a soft off-centre highlight over the whole face. */}
+              <radialGradient id="wheel-sheen" cx="38%" cy="30%" r="75%">
+                <stop offset="0%" stopColor="#ffffff" stopOpacity="0.28" />
+                <stop offset="42%" stopColor="#ffffff" stopOpacity="0.05" />
+                <stop offset="100%" stopColor="#000000" stopOpacity="0.28" />
+              </radialGradient>
+              {/* Metallic rim gradient. */}
+              <linearGradient id="wheel-rim" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#eaf2ff" />
+                <stop offset="18%" stopColor="#8fb3e6" />
+                <stop offset="50%" stopColor="#2b3a52" />
+                <stop offset="82%" stopColor="#8fb3e6" />
+                <stop offset="100%" stopColor="#dbe7fb" />
+              </linearGradient>
             </defs>
 
             {WHEEL_SEGS.map((seg, i) => {
               const mid = i * DEG + DEG / 2;
+              const isWinner = !!result && !spinning && result.segmentIndex === i;
               return (
-                <g key={i}>
+                <g key={i} style={isWinner ? { filter: "brightness(1.35) saturate(1.2)" } : undefined}>
                   <path d={slicePath(i)} fill={seg.fill} stroke="#0b0d12" strokeWidth="1.5" />
+                  {isWinner && (
+                    <path d={slicePath(i)} fill="#ffffff" fillOpacity="0.12" stroke="#f5b942" strokeWidth="2.5" />
+                  )}
                   <g transform={`rotate(${mid},${CX},${CY})`}>
                     <text
                       x={CX}
@@ -193,6 +216,10 @@ export function LuckySpinWheel() {
               );
             })}
 
+            {/* Metallic rim + glossy sheen over the whole face (3-D depth). */}
+            <circle cx={CX} cy={CY} r={R} fill="none" stroke="url(#wheel-rim)" strokeWidth="4" />
+            <circle cx={CX} cy={CY} r={R - 2} fill="url(#wheel-sheen)" pointerEvents="none" />
+
             {/* Center hub */}
             <circle cx={CX} cy={CY} r="20" fill="url(#hub)" stroke="#1e2a3a" strokeWidth="2" />
             <circle cx={CX} cy={CY} r="9" fill="#087cff" />
@@ -210,24 +237,33 @@ export function LuckySpinWheel() {
             <div className="w-full bg-red-500/10 px-1 py-2 text-center">
               <p className="text-[12px] font-bold text-red-400">{error}</p>
             </div>
-          ) : result ? (
-            <div
-              className={`w-full px-1 py-2 text-center duration-300 animate-in fade-in zoom-in-95 ${
-                !won ? "bg-red-500/10" : big ? "bg-amber-500/10" : "bg-emerald-500/10"
-              }`}
-            >
-              <p className={`text-[11px] font-black uppercase tracking-wide ${!won ? "text-red-400" : big ? "text-amber-400" : "text-emerald-400"}`}>
-                {result.multiplier === 0 ? "No win" : big ? `Big win · ${result.label}` : won ? `You won · ${result.label}` : "Partial return"}
-              </p>
-              <p className={`text-xl font-black tabular-nums ${!won ? "text-red-400" : big ? "text-amber-400" : "text-emerald-400"}`}>
-                {result.multiplier === 0
-                  ? `${format(result.stake)} lost`
-                  : won
-                    ? `+${format(result.netChange)}`
-                    : `${format(result.winAmount)} back`}
-              </p>
-            </div>
-          ) : (
+          ) : result ? (() => {
+            const noWin = result.multiplier === 0;              // ×0 — full stake lost (red)
+            const partial = !won && !noWin;                     // e.g. ×0.5 — some back, net down (neutral, NOT red)
+            const tone = noWin
+              ? { text: "text-red-400", bg: "bg-red-500/10", ring: "ring-red-500/20" }
+              : partial
+                ? { text: "text-sky-300", bg: "bg-sky-500/10", ring: "ring-sky-400/20" }
+                : big
+                  ? { text: "text-amber-300", bg: "bg-amber-500/10", ring: "ring-amber-400/25" }
+                  : { text: "text-emerald-400", bg: "bg-emerald-500/10", ring: "ring-emerald-500/20" };
+            const heading = noWin ? "No win" : big ? "Big win" : partial ? "Partial return" : "You won";
+            const amountText = noWin
+              ? `−${format(result.stake)}`
+              : partial
+                ? `${format(result.winAmount)} back`
+                : `+${format(result.netChange)}`;
+            return (
+              <div
+                className={`mx-auto flex items-center justify-center gap-2 rounded-full px-3.5 py-1.5 ring-1 duration-300 animate-in fade-in zoom-in-95 ${tone.bg} ${tone.ring}`}
+              >
+                <span className={`text-[10px] font-black uppercase tracking-wider ${tone.text}`}>
+                  {heading}{!noWin && ` · ${result.label}`}
+                </span>
+                <span className={`text-[15px] font-black tabular-nums ${tone.text}`}>{amountText}</span>
+              </div>
+            );
+          })() : (
             <div className="flex w-full items-center justify-between px-0.5 py-1">
               <span className="text-[11px] font-bold text-slate-500">Balance</span>
               {isSignedIn ? (

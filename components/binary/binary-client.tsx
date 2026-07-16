@@ -25,6 +25,7 @@ import { Icon } from "@/components/icon";
 import { LiveTickChart, type LiveChartTheme } from "@/components/charts/live-tick-chart";
 import { toast } from "@/lib/toast";
 import { placed } from "@/lib/game-feel";
+import { celebrateWin } from "@/components/aviator/win-celebration";
 
 // Blue/white theme for the shared live chart engine.
 const BINARY_THEME: LiveChartTheme = {
@@ -1115,7 +1116,9 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       window.dispatchEvent(new Event("wallet-refresh"));
     }
     if (won) {
-      toast.cashout(`+${money(data.winAmount ?? trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${exitDigit}`);
+      const credited = data.winAmount ?? trade.payout;
+      toast.cashout(`+${money(credited)} — Trade won!`, `${trade.side} · Exit digit: ${exitDigit}`);
+      celebrateWin({ amount: credited, multiplier: trade.stake > 0 ? credited / trade.stake : undefined });
     } else {
       toast.loss("Trade lost", `${trade.side} · Exit digit: ${exitDigit}`);
     }
@@ -1129,11 +1132,17 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ tradeId: trade.id }),
       });
-      const data = await res.json() as { won?: boolean; winAmount?: number; exitDigit?: number; error?: string };
+      const data = await res.json() as { won?: boolean; winAmount?: number; exitDigit?: number; error?: string; pending?: boolean };
       if (!res.ok) {
-        // 503 = live feed momentarily down; leave the trade open so the next
-        // interval retries (the server's settleBefore window bounds this).
-        if (res.status !== 503) console.error("binary settle failed:", data.error);
+        // Server already finalized (another tab / cron / realtime race) — drop from Open.
+        if (res.status === 409 && /already settled/i.test(data.error ?? "")) {
+          settledIds.current.add(trade.id);
+          setOpenTrades((cur) => cur.filter((t) => t.id !== trade.id));
+          setTab("closed");
+          return false;
+        }
+        // 503 / not-ready: leave open; fast poll retries within settleBefore.
+        if (res.status !== 503 && !data.pending) console.error("binary settle failed:", data.error);
         return false;
       }
       applyBinarySettled(trade, {
@@ -1148,8 +1157,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     }
   }, [applyBinarySettled]);
 
-  // Demo digit settle stays fast; live real trades rely on Realtime push with a
-  // long poll as fallback (cron is the abandoned-browser safety net).
+  // Demo digit settle stays fast; live real trades use Realtime + a short poll
+  // so Open clears as soon as the contract is due (not after a 15s lag).
   useEffect(() => {
     const id = setInterval(() => {
       const now = Date.now();
@@ -1181,6 +1190,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         setDemoBalance((b) => won ? b + trade.payout : b);
         if (won) {
           toast.cashout(`+${money(trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${digit}`);
+          celebrateWin({ amount: trade.payout, multiplier: trade.stake > 0 ? trade.payout / trade.stake : undefined });
         } else {
           toast.loss("Trade lost", `${trade.side} · Exit digit: ${digit}`);
         }
@@ -1190,7 +1200,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     }, 500);
 
     return () => clearInterval(id);
-  }, [isLive]);
+  }, [isLive, money]);
 
   useEffect(() => {
     if (!isLive) return;
@@ -1204,7 +1214,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         inFlightRef.current.add(trade.id);
         settleReal(trade).finally(() => inFlightRef.current.delete(trade.id));
       }
-    }, 15_000);
+    }, 1_000);
     return () => clearInterval(id);
   }, [isLive, settleReal]);
 
@@ -1246,6 +1256,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           setLiveBalance((b) => b + payout);
           window.dispatchEvent(new Event("wallet-refresh"));
           toast.cashout(`+${money(payout)} — Accumulator closed!`, `${data.ticksSurvived ?? pos.ticksSurvived} ticks · ${pos.market}`);
+          if (payout > pos.stake) celebrateWin({ amount: payout, multiplier: payout / pos.stake });
         } else {
           toast.loss("Accumulator busted", `Hit the barrier after ${data.ticksSurvived ?? pos.ticksSurvived} ticks.`);
         }
@@ -1265,6 +1276,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         if (!busted) {
           setDemoBalance((b) => b + payout);
           toast.cashout(`+${money(payout)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
+          if (payout > pos.stake) celebrateWin({ amount: payout, multiplier: payout / pos.stake });
         } else {
           toast.loss("Accumulator busted", `Hit the barrier after ${pos.ticksSurvived} ticks.`);
         }
@@ -1393,6 +1405,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
           setLiveBalance((b) => b + payout);
           window.dispatchEvent(new Event("wallet-refresh"));
           toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
+          if (payout > pos.stake) celebrateWin({ amount: payout, multiplier: payout / pos.stake });
         } else {
           toast.loss(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
@@ -1418,6 +1431,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         if (payout > 0) {
           setDemoBalance((b) => b + payout);
           toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
+          if (payout > pos.stake) celebrateWin({ amount: payout, multiplier: payout / pos.stake });
         } else {
           toast.loss(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
@@ -1527,9 +1541,11 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       setLiveBalance((b) => b + data.winAmount!);
       window.dispatchEvent(new Event("wallet-refresh"));
       toast.cashout(`+${money(data.winAmount)} — ${t.side} won!`, t.market);
-    } else {
+      celebrateWin({ amount: data.winAmount, multiplier: t.stake > 0 ? data.winAmount / t.stake : undefined });
+    } else if (!won) {
       toast.loss(`${t.side} lost`, t.market);
     }
+    setTab("closed");
   }, [money]);
 
   const settleDirReal = useCallback(async (t: DirTrade) => {
@@ -1540,9 +1556,15 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
       });
       const data = await res.json() as { won?: boolean; winAmount?: number; pending?: boolean; error?: string };
       if (!res.ok) {
-        // Exit tick not available yet (or transient) — retry shortly. The cron
-        // is the ultimate backstop if the browser goes away.
-        setDirTrades((cur) => cur.map((x) => x.id === t.id ? { ...x, settlesAt: Date.now() + (data.pending ? 2000 : 5000) } : x));
+        // Already finalized elsewhere — clear Open so it doesn't sit at 0s forever.
+        if (res.status === 409 && /already settled/i.test(data.error ?? "")) {
+          dirSettled.current.add(t.id);
+          setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
+          setTab("closed");
+          return;
+        }
+        // Exit tick not ready yet — nudge countdown and retry on the next 1s poll.
+        setDirTrades((cur) => cur.map((x) => x.id === t.id ? { ...x, settlesAt: Date.now() + (data.pending ? 800 : 1500) } : x));
         return;
       }
       applyDirSettled(t, { won: !!data.won, winAmount: data.winAmount });
@@ -1551,7 +1573,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     }
   }, [applyDirSettled]);
 
-  // Demo directional settle stays fast; live uses Realtime + 15s poll fallback.
+  // Demo directional settle stays fast; live uses Realtime + 1s poll fallback.
   useEffect(() => {
     const id = setInterval(() => {
       const open = dirTradesRef.current.filter((t) => t.status === "open" && !t.isReal);
@@ -1576,12 +1598,13 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
             settledAt: new Date(),
           }),
         ], cur).slice(0, 40));
-        if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${money(res.credit)} — ${t.side} won!`, t.market); }
+        if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${money(res.credit)} — ${t.side} won!`, t.market); celebrateWin({ amount: res.credit, multiplier: t.stake > 0 ? res.credit / t.stake : undefined }); }
         else { toast.loss(`${t.side} lost`, t.market); }
+        setTab("closed");
       }
     }, 500);
     return () => clearInterval(id);
-  }, []);
+  }, [money]);
 
   useEffect(() => {
     if (!isLive) return;
@@ -1593,7 +1616,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         dirInFlight.current.add(t.id);
         settleDirReal(t).finally(() => dirInFlight.current.delete(t.id));
       }
-    }, 15_000);
+    }, 1_000);
     return () => clearInterval(id);
   }, [isLive, settleDirReal]);
 
@@ -2778,23 +2801,39 @@ function PositionRow({ pos }: { pos: OpenPositionView }) {
     return () => clearInterval(id);
   }, [hasCountdown]);
   const secondsLeft = pos.settlesAt != null ? Math.max(0, Math.ceil((pos.settlesAt - now) / 1000)) : 0;
+  // Countdown hit 0 but the row is still in Open — waiting on settle / server confirm.
+  const settling = hasCountdown && secondsLeft === 0;
   const profit = pos.value - pos.stake;
 
   return (
-    <div className="border border-white/[0.07] bg-black/25 p-3">
+    <div className={`border bg-black/25 p-3 transition ${settling ? "border-amber-400/35" : "border-white/[0.07]"}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="truncate text-sm font-black text-white">{pos.title}</div>
           <div className="truncate text-[11px] font-bold text-slate-500">{pos.subtitle}</div>
         </div>
-        <span className="shrink-0 rounded bg-sky-400/10 px-2 py-1 text-[10px] font-black text-sky-300">
-          {hasCountdown ? `${secondsLeft}s` : "LIVE"}
+        <span
+          className={`shrink-0 rounded px-2 py-1 text-[10px] font-black ${
+            settling
+              ? "animate-settle-pulse bg-amber-400/15 text-amber-300 ring-1 ring-amber-400/50"
+              : hasCountdown
+                ? "bg-sky-400/10 text-sky-300"
+                : "bg-emerald-400/10 text-emerald-300"
+          }`}
+          title={settling ? "Settling…" : undefined}
+        >
+          {hasCountdown ? (settling ? "0s" : `${secondsLeft}s`) : "LIVE"}
         </span>
       </div>
       <div className="mt-3 flex items-center justify-between text-xs font-black">
         <span className="text-slate-500">Stake {money(pos.stake)}</span>
         <span className={profit >= 0 ? "text-emerald-300" : "text-red-300"}>{money(pos.value)}</span>
       </div>
+      {settling && (
+        <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-amber-400/80 animate-settle-pulse">
+          Settling…
+        </p>
+      )}
     </div>
   );
 }

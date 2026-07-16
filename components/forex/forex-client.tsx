@@ -21,6 +21,7 @@ import { Icon } from "@/components/icon";
 import { LiveTickChart, type LivePoint, type LiveChartTheme } from "@/components/charts/live-tick-chart";
 import { toast } from "@/lib/toast";
 import { placed } from "@/lib/game-feel";
+import { celebrateWin } from "@/components/aviator/win-celebration";
 
 // Green FX Pro theme for the shared live chart engine (matches the Binary feel).
 const FOREX_THEME: LiveChartTheme = {
@@ -919,7 +920,11 @@ export function ForexClient() {
       // Win = green, loss = red.
       const pl = data.profitLoss;
       if (typeof pl === "number") {
-        if (pl >= 0) toast.cashout(`Closed +${format(pl)}`, trade.symbol);
+        if (pl >= 0) {
+          toast.cashout(`Closed +${format(pl)}`, trade.symbol);
+          // Forex P/L has no single clean multiplier — celebrate the profit amount.
+          if (pl > 0) celebrateWin({ amount: pl, label: "Closed in profit!" });
+        }
         else toast.loss(`Closed −${format(Math.abs(pl))}`, trade.symbol);
       }
       // Prepend to local history so user sees it immediately without a refresh

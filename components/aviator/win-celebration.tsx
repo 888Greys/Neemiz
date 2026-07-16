@@ -13,9 +13,10 @@ import { useCurrency } from "@/lib/currency-context";
 export type WinCelebrationTier = "default" | "big";
 
 export type WinCelebrationPayload = {
-  multiplier: number;
+  multiplier?: number; // optional — games without a clean multiplier (forex) omit it
   amount: number; // canonical KES
   tier?: WinCelebrationTier;
+  label?: string; // small caption above the amount (default "You won!")
 };
 
 export type WinCelebrationHandle = {
@@ -32,7 +33,7 @@ const BIG_AMOUNT_KES = 5_000;
 
 function resolveTier(p: WinCelebrationPayload): WinCelebrationTier {
   if (p.tier) return p.tier;
-  if (p.multiplier >= BIG_MULT || p.amount >= BIG_AMOUNT_KES) return "big";
+  if ((p.multiplier ?? 0) >= BIG_MULT || p.amount >= BIG_AMOUNT_KES) return "big";
   return "default";
 }
 
@@ -105,6 +106,7 @@ function WinBadge({
   const display = convert(badge.amount);
   const counted = useCountUp(display, true, 600, reduced);
   const big = badge.tier === "big";
+  const hasMultiplier = typeof badge.multiplier === "number" && badge.multiplier > 0;
   const life = big ? 3500 : 2500;
 
   useEffect(() => {
@@ -138,16 +140,29 @@ function WinBadge({
           </p>
         )}
         <p className={`text-[11px] font-bold ${big ? "text-[#f5b942]/80" : "text-[#31c45d]/80"}`}>
-          You cashed out!
+          {badge.label ?? "You won!"}
         </p>
-        <p
-          className={`mt-0.5 font-black tabular-nums leading-none ${
-            big ? "text-[42px] text-[#f5b942] sm:text-[48px]" : "text-[34px] text-[#31c45d] sm:text-[40px]"
-          }`}
-        >
-          {badge.multiplier.toFixed(2)}×
-        </p>
-        <p className="mt-1.5 text-[15px] font-black tabular-nums text-white">{amountLabel}</p>
+        {hasMultiplier ? (
+          <>
+            <p
+              className={`mt-0.5 font-black tabular-nums leading-none ${
+                big ? "text-[42px] text-[#f5b942] sm:text-[48px]" : "text-[34px] text-[#31c45d] sm:text-[40px]"
+              }`}
+            >
+              {badge.multiplier!.toFixed(2)}×
+            </p>
+            <p className="mt-1.5 text-[15px] font-black tabular-nums text-white">{amountLabel}</p>
+          </>
+        ) : (
+          // No multiplier (e.g. forex P/L) — the amount itself is the hero number.
+          <p
+            className={`mt-0.5 font-black tabular-nums leading-none text-white ${
+              big ? "text-[36px] sm:text-[42px]" : "text-[30px] sm:text-[34px]"
+            }`}
+          >
+            {amountLabel}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -204,7 +219,9 @@ export const WinCelebration = forwardRef<WinCelebrationHandle, { soundEnabled: b
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       setBadges((prev) => [...prev, { ...payload, id, tier }]);
       setLiveMsg(
-        `Cashed out at ${payload.multiplier.toFixed(2)} times for ${payload.amount.toFixed(2)}`,
+        payload.multiplier
+          ? `Cashed out at ${payload.multiplier.toFixed(2)} times for ${payload.amount.toFixed(2)}`
+          : `You won ${payload.amount.toFixed(2)}`,
       );
 
       if (soundEnabledRef.current && !prefersReducedMotion()) {
@@ -280,4 +297,42 @@ export function RollingBalance({
   }, [value, reduced]);
 
   return <span className={className}>{format(display)}</span>;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+ * Global win celebration — one overlay mounted app-wide (in layout), driven by
+ * an imperative bus so any game (binary, forex, digits, wheel…) can trigger the
+ * same confetti + count-up badge with a single call, from outside React:
+ *
+ *   import { celebrateWin } from "@/components/aviator/win-celebration";
+ *   celebrateWin({ amount: winAmountKes, multiplier });   // amount is canonical KES
+ *
+ * Sound + haptic are NOT fired here — every game already routes wins through
+ * toast.cashout(), which plays them centrally (see lib/toast.tsx). Aviator keeps
+ * its own in-canvas WinCelebration, so it must NOT also call celebrateWin().
+ * ────────────────────────────────────────────────────────────────────────── */
+
+type WinBusListener = (payload: WinCelebrationPayload) => void;
+const winBusListeners = new Set<WinBusListener>();
+
+/** Fire the global win celebration. `amount` is canonical KES. Safe to call from anywhere. */
+export function celebrateWin(payload: WinCelebrationPayload) {
+  if (!(payload.amount > 0)) return; // never celebrate a zero/negative outcome
+  winBusListeners.forEach((fn) => fn(payload));
+}
+
+/** Mount once (layout). Renders a fixed, centered, silent WinCelebration overlay. */
+export function GlobalWinCelebration() {
+  const ref = useRef<WinCelebrationHandle | null>(null);
+  useEffect(() => {
+    const listener: WinBusListener = (payload) => ref.current?.fire(payload);
+    winBusListeners.add(listener);
+    return () => { winBusListeners.delete(listener); };
+  }, []);
+  return (
+    <div className="pointer-events-none fixed inset-0 z-[9998]">
+      {/* soundEnabled=false: toast.cashout already plays the win sound centrally. */}
+      <WinCelebration ref={ref} soundEnabled={false} />
+    </div>
+  );
 }

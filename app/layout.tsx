@@ -4,6 +4,7 @@ import { Plus_Jakarta_Sans, JetBrains_Mono, Pacifico } from "next/font/google";
 import { PageTransition } from "./page-transition";
 import { NavigationFeedback } from "@/components/navigation-feedback";
 import { Toaster } from "@/lib/toast";
+import { GlobalWinCelebration } from "@/components/aviator/win-celebration";
 import { VersionWatcher } from "@/components/version-watcher";
 import { SupabaseAuthProvider } from "@/lib/supabase/auth-context";
 import { CurrencyProvider } from "@/lib/currency-context";
@@ -58,6 +59,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <PageTransition>{children}</PageTransition>
             </Suspense>
             <Toaster />
+            <GlobalWinCelebration />
             <VersionWatcher />
           </CurrencyProvider>
         </SupabaseAuthProvider>

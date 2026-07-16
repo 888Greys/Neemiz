@@ -171,9 +171,12 @@ export function DigitPanel({
                   <button key={d} type="button" onClick={() => setTargetDigit(d)}
                     className={`relative rounded-md py-1.5 font-mono text-[14px] font-black transition sm:py-2 sm:text-[15px] ${
                       active ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
+                             : isLast ? "bg-[#2a2410] text-amber-200 ring-2 ring-amber-400/80 shadow-[0_0_14px_rgba(245,185,66,0.45)]"
                              : "bg-[#0f1319] text-slate-400 hover:text-white"
                     }`}>
-                    {d}
+                    {/* Live last digit: the highlight pops onto the current digit each
+                        tick (key changes → animation re-fires), so it visibly "moves". */}
+                    <span key={isLast ? `l${lastDigit}` : "s"} className={isLast ? "inline-block animate-digit-pop" : undefined}>{d}</span>
                     {isLast && <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-400" />}
                   </button>
                 );
@@ -332,9 +335,10 @@ function MobileDerivDigits({
                   <button key={d} type="button" onClick={() => setTargetDigit(d)}
                     className={`relative rounded-2xl py-2.5 font-mono text-[16px] font-black transition active:scale-95 ${
                       active ? "bg-[#3a414d] text-white ring-1 ring-sky-400/60"
+                             : isLast ? "bg-[#2a2410] text-amber-200 ring-2 ring-amber-400/80 shadow-[0_0_16px_rgba(245,185,66,0.5)]"
                              : "bg-[#0f1319] text-slate-400"
                     }`}>
-                    {d}
+                    <span key={isLast ? `l${lastDigit}` : "s"} className={isLast ? "inline-block animate-digit-pop" : undefined}>{d}</span>
                     {isLast && <span className="absolute bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-amber-400" />}
                   </button>
                 );
