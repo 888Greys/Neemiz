@@ -258,11 +258,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           role: "receiver",
         });
 
-        // Book the 2% fee
+        // Book the 2% fee. The KES valuation is reporting-only — never let a
+        // missing FX rate throw here, or it would roll back an already-decided
+        // dispute payout. Book the fee without a KES value instead.
         const feeAmount = parseFloat((lockAmount - payoutAmount).toFixed(8));
-        const feeKesAmount = isKesCoin(order.crypto)
-          ? feeAmount
-          : convertToKES(feeAmount, order.crypto, rates.toKES);
+        let feeKesAmount: number | undefined;
+        if (isKesCoin(order.crypto)) {
+          feeKesAmount = feeAmount;
+        } else {
+          try {
+            feeKesAmount = convertToKES(feeAmount, order.crypto, rates.toKES);
+          } catch {
+            feeKesAmount = undefined;
+          }
+        }
 
         await bookCryptoFee(tx, {
           crypto: order.crypto,
