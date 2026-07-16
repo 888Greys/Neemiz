@@ -27,7 +27,46 @@ export interface FxRates {
   live: boolean;
 }
 
+// Last-known-good rates are persisted to SystemSetting so a provider outage
+// falls back to the full recent (~160-currency) snapshot instead of the tiny
+// static table below. Without this, ~135 active in-app coins would have no rate
+// during an outage and every order-creation / backing check for them would
+// refuse (NO_FX_RATE), stranding those markets.
+const FX_CACHE_KEY = "p2p_fx_last_good";
+const FX_PERSIST_INTERVAL_MS = 55 * 60_000; // ~hourly — matches the fetch revalidate
+
+// db is imported dynamically so this module stays safe to import from client
+// components that only use the pure convert helpers below.
+async function readLastGoodRates(): Promise<{ toKES: Record<string, number>; ageMs: number } | null> {
+  try {
+    const { db } = await import("@/lib/db");
+    const row = await db.systemSetting.findUnique({ where: { key: FX_CACHE_KEY } });
+    if (!row) return null;
+    const parsed = JSON.parse(row.value) as { toKES?: Record<string, number> };
+    if (!parsed?.toKES || typeof parsed.toKES !== "object") return null;
+    return { toKES: parsed.toKES, ageMs: Date.now() - new Date(row.updatedAt).getTime() };
+  } catch {
+    return null;
+  }
+}
+
+async function saveLastGoodRates(toKES: Record<string, number>): Promise<void> {
+  try {
+    const { db } = await import("@/lib/db");
+    const value = JSON.stringify({ toKES });
+    await db.systemSetting.upsert({
+      where:  { key: FX_CACHE_KEY },
+      update: { value },
+      create: { key: FX_CACHE_KEY, value },
+    });
+  } catch {
+    /* best-effort cache; never block a rate lookup on it */
+  }
+}
+
 export async function getFxRatesToKES(): Promise<FxRates> {
+  const lastGood = await readLastGoodRates();
+
   try {
     // open.er-api.com returns rates as "units of <code> per 1 KES"
     const res = await fetch("https://open.er-api.com/v6/latest/KES", { next: { revalidate: 3600 } });
@@ -52,6 +91,11 @@ export async function getFxRatesToKES(): Promise<FxRates> {
     for (const [code, v] of Object.entries(FALLBACK_KES_PER_UNIT)) {
       if (!(code in toKES)) toKES[code] = v;
     }
+    // Refresh the persisted snapshot at most ~hourly so we don't hammer the row
+    // on every call (this runs even on fetch cache hits).
+    if (!lastGood || lastGood.ageMs > FX_PERSIST_INTERVAL_MS) {
+      await saveLastGoodRates(toKES);
+    }
     return {
       base: "KES",
       toKES,
@@ -59,7 +103,10 @@ export async function getFxRatesToKES(): Promise<FxRates> {
       live: true,
     };
   } catch {
-    return { base: "KES", toKES: { ...FALLBACK_KES_PER_UNIT }, asOf: new Date().toISOString(), live: false };
+    // Provider down: prefer the full last-known-good snapshot, backstopped by the
+    // static table for anything it lacks (or if we've never fetched live yet).
+    const toKES = { ...FALLBACK_KES_PER_UNIT, ...(lastGood?.toKES ?? {}) };
+    return { base: "KES", toKES, asOf: new Date().toISOString(), live: false };
   }
 }
 

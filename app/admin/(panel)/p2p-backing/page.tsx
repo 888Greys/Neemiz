@@ -5,6 +5,7 @@ import { kesLockAmount, defaultNetwork, isKesCoin } from "@/lib/p2p/crypto-balan
 import { isActiveLocalCoin } from "@/lib/p2p/local-coins";
 import { convertToKes } from "@/lib/currency-config";
 import { getFxRatesToKES } from "@/lib/p2p/fx";
+import { getGrantedLocalCoinHoldings } from "@/lib/p2p/ad-backing";
 
 export const metadata = { title: "P2P Backing · Nezeem" };
 export const dynamic = "force-dynamic";
@@ -64,10 +65,13 @@ export default async function AdminP2PBackingPage({
       where: { userId: target.id },
       select: { crypto: true, network: true, available: true },
     });
+    // Granted (unbacked) coin does not count as backing — mirror the server logic.
+    const granted = await getGrantedLocalCoinHoldings(target.id);
     const balanceMap = new Map<string, number>();
     for (const cb of cryptoBalances) {
       if (cb.network === defaultNetwork(cb.crypto)) {
-        balanceMap.set(cb.crypto.toUpperCase(), Number(cb.available));
+        const code = cb.crypto.toUpperCase();
+        balanceMap.set(code, Math.max(0, Number(cb.available) - (granted.get(code) ?? 0)));
       }
     }
 

@@ -3,6 +3,47 @@ import { isKesCoin, kesLockAmount, defaultNetwork } from "@/lib/p2p/crypto-balan
 import { isActiveLocalCoin } from "@/lib/p2p/local-coins";
 import { convertToKES, getFxRatesToKES } from "@/lib/p2p/fx";
 
+/**
+ * Total in-app local coin an admin has GRANTED to a user (per coin), summed from
+ * the `admin_incoin_grant` ledger rows. Granted coin is an unbacked marketing
+ * instrument with no offsetting KES liability, so it must NOT count as backing
+ * for a sell ad — otherwise a merchant could sell phantom coin for real
+ * off-platform cash. Only coin the merchant genuinely holds (deposited / bought /
+ * KES-converted) backs a sale; the granted portion requires real KES to back it.
+ * KES grants are excluded here (they credit the fiat wallet, governed separately).
+ */
+export async function getGrantedLocalCoinHoldings(userId: string): Promise<Map<string, number>> {
+  const grants = await db.transaction.groupBy({
+    by: ["currency"],
+    where: { userId, provider: "admin_incoin_grant" },
+    _sum: { amount: true },
+  });
+  const map = new Map<string, number>();
+  for (const g of grants) {
+    const code = g.currency.toUpperCase();
+    if (isKesCoin(code)) continue;
+    const amt = Number(g._sum.amount ?? 0);
+    if (amt > 0) map.set(code, amt);
+  }
+  return map;
+}
+
+/** Build the backing-eligible coin balance map: held balance minus granted (unbacked) coin. */
+function buildBackedBalanceMap(
+  cryptoBalances: { crypto: string; network: string; available: unknown }[],
+  granted: Map<string, number>,
+): Map<string, number> {
+  const balanceMap = new Map<string, number>();
+  for (const cb of cryptoBalances) {
+    if (cb.network === defaultNetwork(cb.crypto)) {
+      const code = cb.crypto.toUpperCase();
+      const backed = Math.max(0, Number(cb.available) - (granted.get(code) ?? 0));
+      balanceMap.set(code, backed);
+    }
+  }
+  return balanceMap;
+}
+
 export async function getActiveKesSellBacking(merchantId: string, excludeAdId?: string) {
   const aggregate = await db.p2PAd.aggregate({
     where: {
@@ -49,12 +90,8 @@ export async function getTotalKesReservedForMerchant(
     select: { crypto: true, network: true, available: true },
   });
 
-  const balanceMap = new Map<string, number>();
-  for (const cb of cryptoBalances) {
-    if (cb.network === defaultNetwork(cb.crypto)) {
-      balanceMap.set(cb.crypto.toUpperCase(), Number(cb.available));
-    }
-  }
+  const granted = await getGrantedLocalCoinHoldings(userId);
+  const balanceMap = buildBackedBalanceMap(cryptoBalances, granted);
 
   let totalKesRequired = 0;
 
@@ -157,18 +194,14 @@ export async function assertLocalCoinSellBacking(input: {
       { crypto: input.crypto, availableAmount: input.availableAmount },
     ];
 
-    // 2. Fetch crypto balances
+    // 2. Fetch crypto balances (granted, unbacked coin excluded from backing)
     const cryptoBalances = await db.userCryptoBalance.findMany({
       where: { userId: input.userId },
       select: { crypto: true, network: true, available: true },
     });
 
-    const balanceMap = new Map<string, number>();
-    for (const cb of cryptoBalances) {
-      if (cb.network === defaultNetwork(cb.crypto)) {
-        balanceMap.set(cb.crypto.toUpperCase(), Number(cb.available));
-      }
-    }
+    const granted = await getGrantedLocalCoinHoldings(input.userId);
+    const balanceMap = buildBackedBalanceMap(cryptoBalances, granted);
 
     let totalKesRequired = 0;
 

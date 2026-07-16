@@ -13,6 +13,10 @@ vi.mock("@/lib/db", () => ({
       findMany: vi.fn(),
       findFirst: vi.fn(),
     },
+    transaction: {
+      // No admin grants by default; individual tests override this.
+      groupBy: vi.fn().mockResolvedValue([]),
+    },
   },
 }));
 
@@ -113,5 +117,26 @@ describe("P2P Local Coin Backing & Escrow Calculations", () => {
     });
 
     expect(result).toBeNull();
+  });
+
+  it("excludes admin-granted (unbacked) coin from backing so it can't be sold for free", async () => {
+    // Merchant holds 150,000 TZS, but ALL of it was admin-granted (phantom).
+    // Selling 100,000 TZS (need 101,000) must therefore require real KES backing
+    // for the full amount, not treat the granted coin as coverage.
+    (db.p2PAd.findMany as any).mockResolvedValue([
+      { crypto: "TZS", availableAmount: 100000 },
+    ]);
+    (db.userCryptoBalance.findMany as any).mockResolvedValue([
+      { crypto: "TZS", network: "TRC20", available: 150000 },
+    ]);
+    // 150,000 TZS were granted → backing-eligible balance is 0.
+    (db.transaction.groupBy as any).mockResolvedValue([
+      { currency: "TZS", _sum: { amount: 150000 } },
+    ]);
+
+    const requiredKes = await getTotalKesReservedForMerchant("user-123", "merchant-123");
+
+    // Full 101,000 TZS shortfall (0 backing) * 0.05 = 5,050 KES required.
+    expect(requiredKes).toBe(5050);
   });
 });
