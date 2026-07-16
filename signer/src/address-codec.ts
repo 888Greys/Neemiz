@@ -41,8 +41,9 @@ export function p2pkhFromPubKey(publicKeyHex: string, version = 0x00): string {
   return base58Encode(Buffer.concat([versioned, hash256(versioned).subarray(0, 4)]));
 }
 
-export const btcP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x00);
-export const ltcP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x30);
+export const btcP2PKHFromPubKey  = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x00);
+export const ltcP2PKHFromPubKey  = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x30);
+export const dogeP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x1e);
 
 export function base58Decode(s: string): Buffer {
   let num = 0n;
@@ -78,3 +79,6 @@ export const btcAddressToHash160 = (addr: string) => p2pkhToHash160(addr, [0x00]
 
 /** legacy P2PKH Litecoin address (L…) → 20-byte hash160. */
 export const ltcAddressToHash160 = (addr: string) => p2pkhToHash160(addr, [0x30]);
+
+/** legacy P2PKH Dogecoin address (D…) → 20-byte hash160. */
+export const dogeAddressToHash160 = (addr: string) => p2pkhToHash160(addr, [0x1e]);

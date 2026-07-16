@@ -511,6 +511,58 @@ export const checkBTCDeposits = (address: string, opts: DepositCheckOptions = {}
 export const checkLTCDeposits = (address: string, opts: DepositCheckOptions = {}) =>
   checkEsploraDeposits(LTC_EXPLORERS, address, opts);
 
+// ─── Dogecoin via BlockCypher ─────────────────────────────────────────────────
+// DOGE has no reliable public Esplora endpoint, so deposit detection uses the
+// BlockCypher address API (different JSON shape). Values are koinu (1e8 = 1 DOGE).
+// NOTE: unverified in-repo — smoke-test against real DOGE before flipping live.
+const DOGE_API = process.env.DOGE_API ?? "https://api.blockcypher.com/v1/doge/main";
+const BLOCKCYPHER_TOKEN = process.env.BLOCKCYPHER_TOKEN ?? "";
+
+function dogeUrl(path: string): string {
+  if (!BLOCKCYPHER_TOKEN) return `${DOGE_API}${path}`;
+  return `${DOGE_API}${path}${path.includes("?") ? "&" : "?"}token=${BLOCKCYPHER_TOKEN}`;
+}
+
+interface BlockcypherRef {
+  tx_hash: string;
+  tx_output_n: number;
+  value: number;
+  confirmations?: number;
+  confirmed?: string;
+}
+
+export async function checkDOGEDeposits(
+  address: string,
+  opts:    DepositCheckOptions = {},
+): Promise<DepositTx[]> {
+  const res = await fetch(dogeUrl(`/addrs/${address}?limit=50`), { cache: "no-store" });
+  if (!res.ok) return [];
+  const data = await res.json() as { txrefs?: BlockcypherRef[]; unconfirmed_txrefs?: BlockcypherRef[] };
+  const refs = [...(data.txrefs ?? []), ...(data.unconfirmed_txrefs ?? [])];
+
+  const txs = refs
+    .filter((r) => r.tx_output_n >= 0 && r.value > 0) // received outputs only (spends have tx_output_n = -1)
+    .map((r) => {
+      const parsed = r.confirmed ? Date.parse(r.confirmed) : NaN;
+      return {
+        txHash:    r.tx_hash,
+        amount:    (r.value / 1e8).toFixed(8),
+        from:      "",
+        timestamp: Number.isNaN(parsed) ? Date.now() : parsed,
+        logIndex:  String(r.tx_output_n),
+        confirmed: (r.confirmations ?? 0) > 0,
+      };
+    });
+  return opts.txHash ? txs.filter((t) => t.txHash === opts.txHash) : txs;
+}
+
+async function getDOGEBalance(address: string): Promise<number> {
+  const res = await fetch(dogeUrl(`/addrs/${address}/balance`), { cache: "no-store" });
+  if (!res.ok) return 0;
+  const data = await res.json() as { final_balance?: number };
+  return (data.final_balance ?? 0) / 1e8;
+}
+
 // ─── Unified dispatcher ───────────────────────────────────────────────────────
 
 export async function checkDeposits(
@@ -521,6 +573,7 @@ export async function checkDeposits(
 ): Promise<DepositTx[]> {
   if (network === "BITCOIN") return checkBTCDeposits(address, opts);
   if (network === "LITECOIN") return checkLTCDeposits(address, opts);
+  if (network === "DOGECOIN") return checkDOGEDeposits(address, opts);
   if (network === "TRC20") {
     if (crypto === "TRX") return checkTronTRXDeposits(address, opts);
     return checkTronTRC20Deposits(address, crypto, opts);
@@ -595,6 +648,7 @@ export async function tryGetOnChainBalance(
     let bal: number;
     if (network === "BITCOIN")            bal = await getBTCBalance(address);
     else if (network === "LITECOIN")      bal = await getLTCBalance(address);
+    else if (network === "DOGECOIN")      bal = await getDOGEBalance(address);
     else if (network === "TRC20" && crypto === "TRX") bal = await getTRXBalance(address);
     else if (network === "TRC20")         bal = await getTRC20Balance(address, crypto);
     else                                  bal = await getEVMBalance(address, crypto, network);

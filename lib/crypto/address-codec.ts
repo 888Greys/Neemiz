@@ -53,3 +53,6 @@ export const btcP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publ
 
 /** secp256k1 public key → legacy P2PKH Litecoin address (L…). */
 export const ltcP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x30);
+
+/** secp256k1 public key → legacy P2PKH Dogecoin address (D…). */
+export const dogeP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x1e);

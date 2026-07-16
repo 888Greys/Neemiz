@@ -268,8 +268,36 @@ LTC listed live end-to-end, reusing the **BTC UTXO rail** with **no new xpub/see
 4. **Smoke test** a tiny real LTC deposit + withdrawal and confirm on the explorer
    before announcing.
 
-**Not yet wired (still `soon`):** DOGE, BCH (new explorer adapter / CashAddr),
-SOL (ed25519 + new lib), XRP (binary codec + destination-tag redesign).
+## Phase B (partial) — Dogecoin (DOGE): WIRED, pending smoke test
+
+DOGE is fully plumbed end-to-end but deliberately **left `soon` / not in the
+allowlists**, because its explorer path is new and could not be exercised in-repo.
+
+- **Address / key:** reuses the BTC secp256k1 key (like LTC), re-encoded with
+  DOGE's P2PKH version byte `0x1e` (`D…`). `deriveDOGEAddress`, `getOrCreateDepositAddress`
+  DOGE branch, signer `keys.ts` maps `DOGECOIN`→coin path 0.
+- **Withdrawal:** the signer's `broadcastUTXO` now takes a pluggable **provider**.
+  BTC/LTC use the Esplora provider; DOGE uses a **BlockCypher provider** (UTXO
+  list / fee / broadcast — different JSON shape, koinu = 1e8). Tx build/sign is
+  the same proven secp256k1 UTXO code. Per-chain `dust` (DOGE 1,000,000 koinu).
+- **Deposit detection:** `checkDOGEDeposits` + `getDOGEBalance` via BlockCypher.
+  `checkDeposits`/`tryGetOnChainBalance` route `DOGECOIN`.
+- **Pre-staged:** `MIN_WITHDRAWAL.DOGE`, `NETWORK_LABEL.DOGECOIN`, address tests.
+
+**⚠️ DOGE requires (before flipping live) — a signer redeploy + smoke test AND:**
+1. `BLOCKCYPHER_TOKEN` env on both the app and the signer (BlockCypher free tier
+   is heavily rate-limited without a token). Optional `DOGE_API` override.
+2. Fund the DOGE hot wallet (index-0 key, DOGE-encoded).
+3. **Verify the BlockCypher provider against real DOGE** — deposit detection JSON,
+   fee estimation (koinu/kB → koinu/vByte), and the `/txs/push` broadcast shape.
+4. **The one-line go-live flip** (after smoke test passes):
+   - `wallet-deposit-options.ts`: DOGE → `enabled: true, soon: false`, add
+     `VALID_CRYPTO_DEPOSIT_NETWORKS.DOGE = ["DOGECOIN"]`.
+   - `wallet-withdraw-options.ts`: add DOGE asset + `VALID_CRYPTO_WITHDRAW_NETWORKS.DOGE`.
+   - Update the two option tests (move DOGE from the `soon` set to live).
+
+**Not yet wired (still `soon`):** BCH (CashAddr + explorer), SOL (ed25519 + new
+lib), XRP (binary codec + destination-tag redesign).
 
 ## Out of scope
 

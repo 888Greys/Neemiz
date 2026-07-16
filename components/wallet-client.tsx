@@ -1363,6 +1363,7 @@ const NETWORK_LABEL: Record<string, string> = {
   POLYGON: "Polygon",
   BITCOIN: "Bitcoin",
   LITECOIN: "Litecoin",
+  DOGECOIN: "Dogecoin",
   ETHEREUM: "Ethereum",
   ERC20: "Ethereum",
   BEP20: "BNB Smart Chain",

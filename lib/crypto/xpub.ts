@@ -14,7 +14,7 @@
  * script (scripts/derive-xpubs.ts) proves this before cutover.
  */
 import { HDNodeWallet } from "ethers";
-import { evmToTron, btcP2PKHFromPubKey, ltcP2PKHFromPubKey } from "./address-codec";
+import { evmToTron, btcP2PKHFromPubKey, ltcP2PKHFromPubKey, dogeP2PKHFromPubKey } from "./address-codec";
 
 function requireXpub(name: string): string {
   const v = process.env[name];
@@ -59,6 +59,11 @@ export function ltcAddressFromXpub(xpub: string, index: number): string {
   return ltcP2PKHFromPubKey(accountNode(xpub).deriveChild(index).publicKey);
 }
 
+/** Dogecoin reuses the BTC account xpub, re-encoded with DOGE's version byte (D…). */
+export function dogeAddressFromXpub(xpub: string, index: number): string {
+  return dogeP2PKHFromPubKey(accountNode(xpub).deriveChild(index).publicKey);
+}
+
 // ── Env-bound derivation used by the app ──
 
 export function deriveEVMAddress(index: number): string {
@@ -77,6 +82,10 @@ export function deriveLTCAddress(index: number): string {
   return ltcAddressFromXpub(requireXpub("MASTER_XPUB_BTC"), index);
 }
 
+export function deriveDOGEAddress(index: number): string {
+  return dogeAddressFromXpub(requireXpub("MASTER_XPUB_BTC"), index);
+}
+
 /**
  * Derive a deposit address for a given HD index + on-chain network.
  * Mirrors the network→curve mapping used at deposit time.
@@ -85,6 +94,7 @@ export function deriveAddress(index: number, network: string): string {
   if (network === "TRC20")    return deriveTronAddress(index);
   if (network === "BITCOIN")  return deriveBTCAddress(index);
   if (network === "LITECOIN") return deriveLTCAddress(index);
+  if (network === "DOGECOIN") return deriveDOGEAddress(index);
   return deriveEVMAddress(index); // ERC20 / BEP20 / POLYGON share one EVM address
 }
 

@@ -10,7 +10,7 @@
 import { ethers } from "ethers";
 import { createHash } from "crypto";
 import { getHotEVMKey, getHotTronKey, resolveUserKey } from "./keys";
-import { btcAddressToHash160, ltcAddressToHash160 } from "./address-codec";
+import { btcAddressToHash160, ltcAddressToHash160, dogeAddressToHash160 } from "./address-codec";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -252,23 +252,89 @@ async function broadcastTron(fromTronAddress: string, to: string, crypto: string
 // paid out of the BTC being moved. Signing is pure secp256k1 (ethers SigningKey)
 // + manual sighash/DER, so the signer needs no extra Bitcoin dependency.
 
-const BTC_API = process.env.BTC_API ?? "https://blockstream.info/api";
-const LTC_API = process.env.LTC_API ?? "https://litecoinspace.org/api";
-const DUST_SATS = 546;
-
-// Per-UTXO-chain config. LTC is byte-identical to BTC (legacy P2PKH, secp256k1,
-// 1e8 base units) — only the Esplora base URL and the address decoder differ.
-interface UtxoChain {
-  api: string;
-  addressToHash160: (addr: string) => Buffer;
-  explorer: (txid: string) => string;
-}
-const UTXO_CHAINS: Record<string, UtxoChain> = {
-  BITCOIN:  { api: BTC_API, addressToHash160: btcAddressToHash160, explorer: (t) => `https://mempool.space/tx/${t}` },
-  LITECOIN: { api: LTC_API, addressToHash160: ltcAddressToHash160, explorer: (t) => `https://litecoinspace.org/tx/${t}` },
-};
+const BTC_API  = process.env.BTC_API  ?? "https://blockstream.info/api";
+const LTC_API  = process.env.LTC_API  ?? "https://litecoinspace.org/api";
+const DOGE_API = process.env.DOGE_API ?? "https://api.blockcypher.com/v1/doge/main";
+const BLOCKCYPHER_TOKEN = process.env.BLOCKCYPHER_TOKEN ?? "";
 
 interface Utxo { txid: string; vout: number; value: number; }
+
+// A UTXO transaction is built + signed identically for every legacy-P2PKH,
+// secp256k1, 1e8-base-unit chain (BTC/LTC/DOGE). Only three things differ per
+// chain: where to read UTXOs / fee / broadcast (the provider), how to decode an
+// address (version byte), and the dust threshold.
+interface UtxoProvider {
+  listUtxos(address: string): Promise<Utxo[]>;
+  feeRateSatPerVb(): Promise<number>;
+  broadcastHex(hex: string): Promise<string>; // returns txid
+}
+interface UtxoChain {
+  addressToHash160: (addr: string) => Buffer;
+  explorer: (txid: string) => string;
+  provider: UtxoProvider;
+  dust: number;
+}
+
+async function esploraFetch<T>(api: string, path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${api}${path}`, init);
+  if (!res.ok) throw new Error(`UTXO API ${path} -> HTTP ${res.status}`);
+  const text = await res.text();
+  try { return JSON.parse(text) as T; } catch { return text as unknown as T; }
+}
+
+// Esplora / Blockstream-shape API (BTC via blockstream+mempool, LTC via litecoinspace).
+function esploraProvider(api: string): UtxoProvider {
+  return {
+    listUtxos: (addr) => esploraFetch<Utxo[]>(api, `/address/${addr}/utxo`),
+    feeRateSatPerVb: async () => {
+      const fe = await esploraFetch<Record<string, number>>(api, `/fee-estimates`);
+      return Math.max(Math.ceil(fe["2"] ?? fe["3"] ?? 2), 2);
+    },
+    broadcastHex: async (hex) => esploraFetch<string>(api, `/tx`, { method: "POST", body: hex }),
+  };
+}
+
+// BlockCypher-shape API (Dogecoin has no reliable public Esplora endpoint).
+// NOTE: unverified in-repo — must be smoke-tested against real DOGE before going
+// live. Values are koinu (1e8 = 1 DOGE), same base unit as satoshis.
+function blockcypherProvider(base: string, token: string): UtxoProvider {
+  const q = token ? `token=${token}` : "";
+  const withQ = (path: string) => `${base}${path}${q ? (path.includes("?") ? `&${q}` : `?${q}`) : ""}`;
+  return {
+    listUtxos: async (addr) => {
+      const res = await fetch(withQ(`/addrs/${addr}?unspentOnly=true&limit=2000`));
+      if (!res.ok) throw new Error(`DOGE API /addrs -> HTTP ${res.status}`);
+      const data = await res.json() as { txrefs?: { tx_hash: string; tx_output_n: number; value: number }[] };
+      return (data.txrefs ?? [])
+        .filter((r) => r.tx_output_n >= 0 && r.value > 0)
+        .map((r) => ({ txid: r.tx_hash, vout: r.tx_output_n, value: r.value }));
+    },
+    feeRateSatPerVb: async () => {
+      const res = await fetch(withQ(``));
+      if (!res.ok) throw new Error(`DOGE API / -> HTTP ${res.status}`);
+      const data = await res.json() as { medium_fee_per_kb?: number };
+      const perKb = data.medium_fee_per_kb ?? 1_000_000; // koinu/kB (min relay ≈ 0.01 DOGE/kB)
+      return Math.max(Math.ceil(perKb / 1000), 1000);     // koinu/vByte, floored at min relay
+    },
+    broadcastHex: async (hex) => {
+      const res  = await fetch(withQ(`/txs/push`), {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ tx: hex }),
+      });
+      const data = await res.json() as { tx?: { hash?: string }; error?: string; errors?: { error: string }[] };
+      const hash = data.tx?.hash;
+      if (!hash) throw new Error(`DOGE broadcast failed: ${data.error ?? data.errors?.[0]?.error ?? "unknown"}`);
+      return hash;
+    },
+  };
+}
+
+const UTXO_CHAINS: Record<string, UtxoChain> = {
+  BITCOIN:  { addressToHash160: btcAddressToHash160,  explorer: (t) => `https://mempool.space/tx/${t}`,     provider: esploraProvider(BTC_API),  dust: 546 },
+  LITECOIN: { addressToHash160: ltcAddressToHash160,  explorer: (t) => `https://litecoinspace.org/tx/${t}`, provider: esploraProvider(LTC_API),  dust: 546 },
+  DOGECOIN: { addressToHash160: dogeAddressToHash160, explorer: (t) => `https://dogechain.info/tx/${t}`,    provider: blockcypherProvider(DOGE_API, BLOCKCYPHER_TOKEN), dust: 1_000_000 },
+};
 
 const btcSha256d = (b: Buffer) => createHash("sha256").update(createHash("sha256").update(b).digest()).digest();
 const u32le = (n: number) => { const b = Buffer.alloc(4); b.writeUInt32LE(n >>> 0); return b; };
@@ -296,13 +362,6 @@ function derSig(rHex: string, sHex: string): Buffer {
   return Buffer.concat([Buffer.from([0x30, body.length]), body]);
 }
 
-async function esploraFetch<T>(api: string, path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${api}${path}`, init);
-  if (!res.ok) throw new Error(`UTXO API ${path} -> HTTP ${res.status}`);
-  const text = await res.text();
-  try { return JSON.parse(text) as T; } catch { return text as unknown as T; }
-}
-
 // Serialize the tx; when `scriptForInput` is set (index >= 0) that input carries
 // the prevout script (for sighash), all others are empty — legacy SIGHASH_ALL.
 function serializeBtcTx(
@@ -324,21 +383,20 @@ function serializeBtcTx(
   return Buffer.concat(parts);
 }
 
-// Spend a legacy-P2PKH UTXO chain (BTC or LTC). Self-paying: the miner fee is
-// paid out of the coin being moved — no hot-wallet gas top-up. Identical tx
-// construction for both chains; `chain` carries the API base + address decoder.
+// Spend a legacy-P2PKH UTXO chain (BTC / LTC / DOGE). Self-paying: the miner fee
+// is paid out of the coin being moved — no hot-wallet gas top-up. Identical tx
+// construction across chains; `chain` carries the provider, address decoder, dust.
 async function broadcastUTXO(chain: UtxoChain, fromAddress: string, to: string, amountCoin: number, userPrivKey: string): Promise<string> {
-  const { api, addressToHash160 } = chain;
+  const { provider, addressToHash160, dust } = chain;
   const sendSats = BigInt(Math.round(amountCoin * 1e8));
-  if (sendSats <= BigInt(DUST_SATS)) throw new Error("Amount below dust");
+  if (sendSats <= BigInt(dust)) throw new Error("Amount below dust");
 
-  const utxos = (await esploraFetch<Utxo[]>(api, `/address/${fromAddress}/utxo`))
+  const utxos = (await provider.listUtxos(fromAddress))
     .filter((u) => u.value > 0)
     .sort((a, b) => b.value - a.value);
   if (utxos.length === 0) throw new Error("No spendable UTXOs at deposit address");
 
-  const feeEst = await esploraFetch<Record<string, number>>(api, `/fee-estimates`);
-  const feeRate = Math.max(Math.ceil(feeEst["2"] ?? feeEst["3"] ?? 2), 2); // sat/vB, floor 2
+  const feeRate = await provider.feeRateSatPerVb();
 
   const fromH160 = addressToHash160(fromAddress);
   const toScript = p2pkhScript(addressToHash160(to));
@@ -366,11 +424,11 @@ async function broadcastUTXO(chain: UtxoChain, fromAddress: string, to: string, 
     outValue = inValue - fee;
     change = 0n;
     sendMinusFee = true;
-    if (outValue <= BigInt(DUST_SATS)) throw new Error("Balance too low to cover network fee");
+    if (outValue <= BigInt(dust)) throw new Error("Balance too low to cover network fee");
   }
 
   const outputs = [{ script: toScript, value: outValue }];
-  if (!sendMinusFee && change > BigInt(DUST_SATS)) outputs.push({ script: fromScript, value: change });
+  if (!sendMinusFee && change > BigInt(dust)) outputs.push({ script: fromScript, value: change });
 
   // Sign each input with SIGHASH_ALL.
   const signingKey = new ethers.SigningKey(userPrivKey);
@@ -386,7 +444,7 @@ async function broadcastUTXO(chain: UtxoChain, fromAddress: string, to: string, 
   });
 
   const finalTx = serializeBtcTx(chosen, outputs, scriptSigs).toString("hex");
-  const txid = await esploraFetch<string>(api, `/tx`, { method: "POST", body: finalTx });
+  const txid = await provider.broadcastHex(finalTx);
   if (!/^[0-9a-f]{64}$/.test(txid)) throw new Error(`Broadcast failed: ${txid}`);
   return txid;
 }
