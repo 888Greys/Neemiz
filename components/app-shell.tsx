@@ -14,6 +14,7 @@ import { BroadcastBanner } from "@/components/broadcast-banner";
 import { AuthModalContext } from "@/lib/auth-modal-context";
 import { BetslipProvider, useBetslip } from "@/lib/betslip-context";
 import type { ProfileView } from "@/components/profile-modal";
+import { OPEN_PROFILE_EVENT, type OpenProfileView } from "@/lib/open-profile";
 import { peekPendingPromo, redeemPromoClient } from "@/lib/pending-promo";
 import { PromoSuccessHost, showPromoSuccess } from "@/components/promo-success";
 import { NavBadgeContext } from "@/lib/nav-badge-context";
@@ -22,6 +23,7 @@ import { readNavRecents, trackNavRecent, type NavRecent } from "@/lib/nav-recent
 import { COMPANY } from "@/lib/company";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useCurrency } from "@/lib/currency-context";
+import { BalanceVisibilityProvider, useBalanceVisibility } from "@/lib/balance-visibility";
 
 const LoginModal = dynamic(
   () => import("@/components/login-modal").then((mod) => mod.LoginModal),
@@ -172,6 +174,16 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     setProfileOpen(true);
   }
 
+  useEffect(() => {
+    function onOpenProfile(e: Event) {
+      const detail = (e as CustomEvent<{ view?: OpenProfileView }>).detail;
+      const view = detail?.view;
+      openProfile(view ? (view as ProfileView) : undefined);
+    }
+    window.addEventListener(OPEN_PROFILE_EVENT, onOpenProfile);
+    return () => window.removeEventListener(OPEN_PROFILE_EVENT, onOpenProfile);
+  }, []);
+
   function openWallet(tab: "home" | "deposit" | "send" | "withdraw" | "history" = "home") {
     setWalletInitialTab(tab);
     setWalletOpen(true);
@@ -206,8 +218,10 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     <BetslipProvider>
     <AuthModalContext.Provider value={{ openLogin: () => setLoginOpen(true), openRegister: () => setRegisterOpen(true), openWallet: () => setWalletOpen(true) }}>
     <NavBadgeContext.Provider value={navBadgeContext}>
+    <BalanceVisibilityProvider>
     <div className="min-h-screen overflow-x-hidden bg-background text-on-surface">
-      <header className={`${immersive ? "hidden sm:flex" : "flex"} fixed z-50 items-center overflow-visible left-3 right-3 top-[max(0.5rem,env(safe-area-inset-top))] h-10 rounded-full border border-white/[0.05] bg-[#18191d]/50 px-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:left-0 lg:right-0 lg:top-0 lg:h-20 lg:max-w-[100vw] lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-b lg:border-white/[0.06] lg:bg-[#151518] lg:px-0 lg:shadow-none lg:backdrop-blur-none`}>
+      {/* Same top chrome on every surface — logo, balance, profile, bell */}
+      <header className="flex fixed z-50 items-center overflow-visible left-3 right-3 top-[max(0.5rem,env(safe-area-inset-top))] h-10 rounded-full border border-white/[0.05] bg-[#18191d]/50 px-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.25)] backdrop-blur-xl lg:left-0 lg:right-0 lg:top-0 lg:h-20 lg:max-w-[100vw] lg:rounded-none lg:border-x-0 lg:border-t-0 lg:border-b lg:border-white/[0.06] lg:bg-[#151518] lg:px-0 lg:shadow-none lg:backdrop-blur-none">
         {!hideSidebar && (
         <div
           className={`hidden h-full shrink-0 items-center border-r border-white/10 px-3 transition-[width] duration-300 ease-out lg:flex ${
@@ -323,7 +337,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </div>
       </header>
 
-      <div className={`flex h-screen overflow-hidden ${immersive ? "pt-0 sm:pt-14 lg:pt-20" : "pt-14 lg:pt-20"}`}>
+      <div className="flex h-screen overflow-hidden pt-14 lg:pt-20">
         {!hideSidebar && (
         <aside
           className={`hidden shrink-0 overflow-hidden border-r border-white/[0.06] bg-[#151518] transition-[width] duration-300 ease-out lg:block ${
@@ -336,7 +350,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
         <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto ${immersive ? "pb-0 lg:overflow-hidden lg:pl-0" : `lg:pb-0 ${fullHeight ? "pb-20 lg:overflow-hidden" : "pb-32"}`} ${mainBg ?? "bg-background"}`}>
           {fullHeight ? (
-            <div className={`h-full min-w-0 max-w-full overflow-x-hidden ${immersive ? "sm:h-[calc(100vh-3rem)] lg:h-[calc(100vh-5rem)]" : "lg:h-[calc(100vh-5rem)]"}`}>{children}</div>
+            <div className="h-full min-w-0 max-w-full overflow-x-hidden lg:h-[calc(100vh-5rem)]">{children}</div>
           ) : (
             <div className="flex min-h-screen min-w-0 max-w-full flex-col overflow-x-hidden">
               <BroadcastBanner />
@@ -376,10 +390,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           const active = isPanelTab
             ? pathname.startsWith(activePath) && currentPanel === item.panel
             : isQueryTab
-              ? pathname.startsWith(activePath) && (
-                  currentTab === item.tab ||
-                  (item.label === "Profile" && (currentTab === "payments" || currentTab === "wallet"))
-                )
+              ? pathname.startsWith(activePath) && currentTab === item.tab
               : item.label === "P2P"
                 ? pathNow === "/p2p" || pathNow.startsWith("/p2p/express")
                 : item.label === "Orders"
@@ -447,6 +458,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
       </nav>
       )}
     </div>
+    </BalanceVisibilityProvider>
     </NavBadgeContext.Provider>
     </AuthModalContext.Provider>
     </BetslipProvider>
@@ -456,21 +468,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
   const { balance } = useWalletBalance();
   const { convert, currency: displayCurrency, code } = useCurrency();
-  // Header/home balance is shown by default; a saved preference still wins.
-  const [hidden, setHidden] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("balance-hidden");
-    if (stored !== null) setHidden(stored === "true");
-  }, []);
-
-  const toggle = () => {
-    setHidden((prev) => {
-      const next = !prev;
-      localStorage.setItem("balance-hidden", String(next));
-      return next;
-    });
-  };
+  const { hidden, toggle } = useBalanceVisibility();
 
   const shown = convert(balance).toLocaleString(displayCurrency.locale, {
     minimumFractionDigits: displayCurrency.decimals,
@@ -486,15 +484,19 @@ function HeaderBalanceChip({ onOpen }: { onOpen: () => void }) {
         title="Wallet"
         className="flex items-baseline gap-1 text-left"
       >
-        <span className="text-[13px] font-black tabular-nums text-white">
-          {hidden ? "＊＊＊" : shown}
+        <span className="text-[13px] font-black tabular-nums tracking-wide text-white">
+          {hidden ? "* * *" : shown}
         </span>
         <span className="text-[10px] font-bold text-slate-400">{code}</span>
       </button>
       <button
         type="button"
-        onClick={toggle}
+        onClick={(e) => {
+          e.stopPropagation();
+          toggle();
+        }}
         aria-label={hidden ? "Show balance" : "Hide balance"}
+        title={hidden ? "Show balance" : "Hide balance"}
         className="grid h-5 w-5 shrink-0 place-items-center rounded-full text-slate-500 transition hover:text-white"
       >
         <Icon name={hidden ? "visibility_closed" : "visibility"} className="text-[12px]" />
@@ -694,8 +696,7 @@ function MobileMenuDrawer({
   const { isSignedIn, signOut } = useSupabaseAuth();
   const { balance } = useWalletBalance();
   const { convert, currency: displayCurrency, code: displayCode } = useCurrency();
-  // Sidebar balance is masked by default every time the drawer opens.
-  const [balanceHidden, setBalanceHidden] = useState(true);
+  const { hidden: balanceHidden, toggle: toggleBalanceHidden } = useBalanceVisibility();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -885,9 +886,9 @@ function MobileMenuDrawer({
                   className="min-w-0 flex-1 text-left"
                 >
                   <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Wallet balance</span>
-                  <span className="mt-0.5 block text-[22px] font-black leading-none tabular-nums text-white">
+                  <span className="mt-0.5 block text-[22px] font-black leading-none tabular-nums tracking-wide text-white">
                     {balanceHidden
-                      ? "＊＊＊＊"
+                      ? "* * * *"
                       : convert(balance).toLocaleString(displayCurrency.locale, {
                           minimumFractionDigits: displayCurrency.decimals,
                           maximumFractionDigits: displayCurrency.decimals,
@@ -897,7 +898,7 @@ function MobileMenuDrawer({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setBalanceHidden((v) => !v)}
+                  onClick={toggleBalanceHidden}
                   aria-label={balanceHidden ? "Show balance" : "Hide balance"}
                   className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition hover:text-white"
                 >

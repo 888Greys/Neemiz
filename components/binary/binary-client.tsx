@@ -1818,8 +1818,7 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
 
         <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:h-[52svh] sm:min-h-[520px] sm:max-h-none sm:flex-none sm:rounded sm:border xl:order-none xl:h-auto xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#18191f]">
-            {/* Desktop header (market select + price). Mobile uses the Deriv-style
-                market row placed below the trade-type pills instead. */}
+            {/* Desktop header (market select + price). Wallet lives in the shared app shell. */}
             <div className="hidden shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-white/[0.07] px-2 py-1 sm:flex sm:px-4 sm:py-2">
               <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
                 <select
@@ -1850,18 +1849,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
             </div>
 
             <div className="relative min-h-0 flex-1">
-              {/* Mobile trade-type quick bar (Deriv-style) — floats over the chart's
-                  faded top (no solid bar) so it reads as part of the graph. The
-                  active type is outlined; "View all" opens the full picker. */}
+              {/* Mobile trade-type quick bar — wallet is in the shared shell header. */}
               <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 overflow-x-auto bg-gradient-to-b from-[#151518] via-[#151518]/70 to-transparent px-2 pb-5 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
-                <button
-                  type="button"
-                  onClick={() => router.push("/dashboard")}
-                  aria-label="Back to home"
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-white/60 ring-1 ring-white/[0.06] transition active:scale-95 sm:hidden"
-                >
-                  <Icon name="arrow_back" className="text-[15px]" />
-                </button>
                 {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
                   <button
                     key={t.id}

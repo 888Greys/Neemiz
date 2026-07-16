@@ -13,6 +13,7 @@ import { CurrencySwitcher } from "@/components/currency-switcher";
 import { PromoSuccessCard, PromoNoticeCard, promoNoticeFromStatus, type PromoNoticeKind } from "@/components/promo-success";
 import { useCurrency } from "@/lib/currency-context";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { useBalanceVisibility } from "@/lib/balance-visibility";
 
 export type ProfileView =
   | "main"
@@ -1358,6 +1359,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const [usernameError, setUsernameError] = useState("");
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
+  const { hidden: balanceHidden, toggle: toggleBalanceHidden } = useBalanceVisibility();
 
   const meta        = user?.user_metadata ?? {};
   const displayName = currentUsername ?? meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
@@ -1535,7 +1537,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <Icon name="alternate_email" fill className="shrink-0 text-[14px] text-slate-500" />
-                        <p className="truncate text-[14px] font-bold text-white">@{displayName}</p>
+                        <p className="truncate text-[14px] font-bold text-white">{displayName}</p>
                       </div>
                       <button
                         type="button"
@@ -1557,9 +1559,20 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                     </p>
                     <CurrencySwitcher />
                   </div>
-                  <p className="mt-2 text-[1.75rem] font-black leading-none tracking-tight text-white sm:text-[2rem]">
-                    {fmtBalance}
-                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <p className="text-[1.75rem] font-black leading-none tracking-tight text-white sm:text-[2rem]">
+                      {balanceHidden ? "* * *" : fmtBalance}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={toggleBalanceHidden}
+                      aria-label={balanceHidden ? "Show balance" : "Hide balance"}
+                      title={balanceHidden ? "Show balance" : "Hide balance"}
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
+                    >
+                      <Icon name={balanceHidden ? "visibility_closed" : "visibility"} className="text-[18px]" />
+                    </button>
+                  </div>
                   <div className="mt-8 grid grid-cols-4 gap-2">
                     {[
                       { label: "Deposit", icon: "arrow_downward", action: () => { onClose(); onOpenWallet("deposit"); } },

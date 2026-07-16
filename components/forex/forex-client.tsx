@@ -32,8 +32,6 @@ const FOREX_THEME: LiveChartTheme = {
 import { ValuePickerSheet } from "@/components/binary/panels/digit-panel";
 import { useNavBadge } from "@/lib/nav-badge-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
-import { useAuthModal } from "@/lib/auth-modal-context";
-
 type Direction = "buy" | "sell";
 type StreamStatus = "connecting" | "live" | "fallback";
 type ForexSection = "funding" | "trade" | "discover";
@@ -567,7 +565,6 @@ function ForexNativeTabBar({
 export function ForexClient() {
   const { format } = useMoney(); // KES amounts → active display currency
   const wallet = useWalletBalance();
-  const { openWallet } = useAuthModal();
   const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
   const [direction, setDirection] = useState<Direction>("buy");
   const [size, setSize] = useState(10000);
@@ -991,35 +988,6 @@ export function ForexClient() {
 
   return (
     <div className="flex h-full min-h-0 max-w-full flex-col overflow-hidden bg-[#0c0c0e] text-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:block sm:h-auto sm:min-h-full sm:overflow-x-hidden sm:pb-8 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
-      {/* Native top chrome — replaces logo / bell / wallet shell header */}
-      <header className="grid shrink-0 grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 border-b border-white/[0.06] bg-[#0c0c0e] px-2 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:hidden">
-        <Link
-          href="/dashboard"
-          aria-label="Back to home"
-          className="grid h-9 w-9 place-items-center rounded-full text-slate-300 transition active:bg-white/[0.06]"
-        >
-          <Icon name="arrow_back" className="text-[20px]" />
-        </Link>
-        <button
-          type="button"
-          onClick={() => router.replace(`${pathname}?panel=markets`, { scroll: false })}
-          className="min-w-0 text-center"
-        >
-          <div className="truncate text-[15px] font-black tracking-tight text-white">
-            {selectedMarket.symbol.replace("/", "")}
-          </div>
-          <div className="truncate text-[10px] font-medium text-slate-500">{selectedMarket.name}</div>
-        </button>
-        <button
-          type="button"
-          onClick={() => openWallet()}
-          aria-label="Open wallet"
-          className="grid h-9 w-9 place-items-center rounded-full text-[#087cff] transition active:bg-white/[0.06]"
-        >
-          <Icon name="account_balance_wallet" fill className="text-[20px]" />
-        </button>
-      </header>
-
       {streamStatus === "fallback" && (() => {
         const isClosed = /closed|presently closed|market.*open/i.test(streamError ?? "");
         return isClosed ? (

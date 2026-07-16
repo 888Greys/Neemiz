@@ -1738,24 +1738,9 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
   return (
     <div className="flex flex-col gap-0 text-white">
 
-      {/* Quiet intro — land here before market controls */}
+      {/* ── Search ──────────────────────────────────────────────────────── */}
       {!selectedMarket && tab === "browse" && (
-        <div className="mb-5 overflow-hidden rounded-2xl border border-white/[0.06] bg-[#18191f] px-4 py-5 sm:px-6 sm:py-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#75b8ff]">
-            Nezeem Predictions
-          </p>
-          <h1 className="mt-1.5 text-[22px] font-black tracking-tight text-white sm:text-[26px]">
-            Trade what happens next
-          </h1>
-          <p className="mt-1.5 max-w-xl text-[13px] font-medium leading-relaxed text-slate-400">
-            Real-world markets. Pick Yes or No, cash out when you&apos;re ahead.
-          </p>
-        </div>
-      )}
-
-      {/* ── Search + balance bar ─────────────────────────────────────────── */}
-      {!selectedMarket && <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 flex-1 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-[#18191f] px-4">
+        <div className="mb-4 flex h-10 items-center gap-2.5 rounded-xl border border-white/[0.06] bg-[#18191f] px-4">
           <Search className="h-4 w-4 shrink-0 text-white/25" />
           <input
             value={search}
@@ -1763,21 +1748,13 @@ export function PolymarketClient({ userId, balance: initialBalance, initialMarke
             placeholder="Search markets…"
             className="flex-1 bg-transparent text-[13px] font-semibold text-white outline-none placeholder:text-white/25"
           />
-          {search && <button onClick={() => setSearch("")} className="text-[11px] text-white/30 hover:text-white/60">✕</button>}
+          {search && (
+            <button type="button" onClick={() => setSearch("")} className="text-[11px] text-white/30 hover:text-white/60">
+              ✕
+            </button>
+          )}
         </div>
-        <div className="hidden h-10 items-center gap-2 rounded-xl border border-white/[0.06] bg-[#18191f] px-4 sm:flex">
-          <span className="text-[11px] font-black uppercase tracking-widest text-white/25">Balance</span>
-          <span className="font-black text-white">{format(balance)}</span>
-        </div>
-        <button
-          onClick={() => tab === "my-bets" ? goBackToMarkets() : viewMyBets()}
-          className={`h-10 rounded-xl px-4 text-[13px] font-black transition ${
-            tab === "my-bets" ? "bg-[#087cff] text-white" : "border border-white/[0.06] bg-[#18191f] text-white/50 hover:text-white"
-          }`}
-        >
-          My Bets
-        </button>
-      </div>}
+      )}
 
       {/* ── Category nav strip ───────────────────────────────────────────── */}
       {tab === "browse" && !selectedMarket && (

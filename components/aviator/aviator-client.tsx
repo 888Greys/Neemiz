@@ -11,7 +11,7 @@ import { RollingBalance } from "./win-celebration";
 import { toast } from "@/lib/toast";
 import { placed, isSoundEnabled, setSoundEnabled as setGameSound } from "@/lib/game-feel";
 import { Icon } from "@/components/icon";
-import { useMoney, useCurrency } from "@/lib/currency-context";
+import { useMoney } from "@/lib/currency-context";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import type {
   AviatorRoundState,
@@ -90,13 +90,6 @@ function mapStatus(s: string): AviatorRoundState {
 
 export function AviatorClient({ userId, username, balance: initialBalance }: Props) {
   const { format } = useMoney();
-  const { convert, currency, code } = useCurrency();
-  // Spribe-style balance: bare number + currency code, e.g. "7,733.87 USD".
-  const spribeBalance = (kes: number) =>
-    `${convert(kes).toLocaleString(currency.locale, {
-      minimumFractionDigits: currency.decimals,
-      maximumFractionDigits: currency.decimals,
-    })} ${code}`;
   const router = useRouter();
   const { openWallet } = useAuthModal();
   const [round,      setRound]      = useState<AviatorRound | null>(null);
@@ -583,40 +576,7 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
     <div className="relative flex h-full w-full min-h-0 flex-col overflow-hidden bg-[#151518]">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-3 lg:p-3">
         <section className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto lg:overflow-hidden pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-0">
-          {/* Mobile Top Header: Back, Balance (Spribe-style), Menu */}
-          <div className="flex shrink-0 items-center justify-between px-2 py-1.5 sm:hidden">
-            <button
-              type="button"
-              onClick={() => router.push("/dashboard")}
-              aria-label="Back to home"
-              className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.04] text-white/60 ring-1 ring-white/[0.06] transition active:scale-95"
-            >
-              <Icon name="arrow_back" className="text-[18px]" />
-            </button>
-            {userId && (
-              <button
-                type="button"
-                onClick={() => openWallet()}
-                aria-label="Open wallet"
-                className="flex items-baseline gap-1 font-sans tracking-tight transition active:scale-95"
-              >
-                <RollingBalance
-                  value={balance}
-                  className="text-[15px] font-bold tabular-nums text-[#31c45d]"
-                  format={spribeBalance}
-                />
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              aria-label="Open menu"
-              className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.06] text-white/70 ring-1 ring-white/[0.06] transition active:scale-95 hover:text-white"
-            >
-              <Icon name="menu" className="text-[18px]" />
-            </button>
-          </div>
-
+          {/* Wallet / profile live in the shared app shell header on every page. */}
           <AviatorTicker liveBets={liveBets} />
 
           <div className="flex min-w-0 shrink-0 items-center gap-1.5 px-2 pb-1">

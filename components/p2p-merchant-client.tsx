@@ -119,8 +119,6 @@ interface Ad {
 // Reflects the merchant's real stage so the journey feels alive and trackable.
 // current = index of the in-progress step; everything before it is complete.
 
-const NICKNAME_MAX = 15;
-
 /** Bybit-style My Ads empty shell (Active / All + Active Mode + empty CTA). */
 function MyAdsEmptyShell({
   onPost,
@@ -244,114 +242,27 @@ function MyAdsEmptyShell({
   );
 }
 
-function SetNicknameSheet({
-  open,
-  onClose,
-  onConfirm,
-  submitting,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: (nickname: string) => void;
-  submitting: boolean;
-}) {
-  const [nickname, setNickname] = useState("");
-
-  useEffect(() => {
-    if (open) setNickname("");
-  }, [open]);
-
-  if (!open) return null;
-
-  const trimmed = nickname.trim();
-  const canSubmit = trimmed.length >= 2 && trimmed.length <= NICKNAME_MAX && !submitting;
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/65"
-        aria-label="Close"
-        onClick={onClose}
-      />
-      <div className="relative z-10 w-full max-w-lg rounded-t-2xl border border-white/10 bg-[#151518] px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4 shadow-2xl sm:rounded-2xl sm:pb-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[17px] font-bold text-white">Set Nickname</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-full text-slate-400 transition hover:bg-white/[0.06] hover:text-white"
-            aria-label="Close"
-          >
-            <Icon name="close" className="text-[20px]" />
-          </button>
-        </div>
-
-        <div className="mb-4 flex gap-2.5 rounded-xl bg-[#087cff]/10 px-3.5 py-3">
-          <Icon name="error" className="mt-0.5 shrink-0 text-[18px] text-[#087cff]" />
-          <p className="text-[12px] leading-5 text-[#087cff]">
-            Please note that your nickname can only be set once and can not be modified after confirmation.
-          </p>
-        </div>
-
-        <p className="mb-4 text-[13px] leading-5 text-slate-300">
-          Please set a nickname first before posting your ad. Your nickname will be displayed on the advertisement list.
-        </p>
-
-        <label className="mb-1.5 block text-[12px] font-medium text-slate-500">Nickname</label>
-        <div className="relative mb-5">
-          <input
-            autoFocus
-            type="text"
-            value={nickname}
-            maxLength={NICKNAME_MAX}
-            onChange={(e) => setNickname(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && canSubmit) onConfirm(trimmed);
-            }}
-            placeholder="Enter your nickname."
-            className="w-full rounded-xl border border-transparent bg-white/[0.06] px-3.5 py-3.5 pr-14 text-[14px] text-white placeholder:text-slate-500 outline-none focus:border-[#087cff]/40"
-          />
-          <span className="pointer-events-none absolute bottom-3 right-3.5 text-[11px] tabular-nums text-slate-500">
-            {nickname.length}/{NICKNAME_MAX}
-          </span>
-        </div>
-
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={() => onConfirm(trimmed)}
-          className="flex h-12 w-full items-center justify-center rounded-full bg-[#087cff] text-[15px] font-bold text-white transition hover:bg-[#0570e8] disabled:opacity-40 active:scale-[0.99]"
-        >
-          {submitting ? <LoadingDots label="Confirming" /> : "Confirm"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function ApplyLanding({ onApplied }: { onApplied: () => void }) {
   const { isSignedIn } = useSupabaseAuth();
   const { openLogin } = useAuthModal();
-  const [sheetOpen, setSheetOpen] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  async function confirmNickname(displayName: string) {
+  async function applyAsMerchant() {
     if (!isSignedIn) {
       openLogin();
       return;
     }
+    if (submitting) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/p2p/merchant/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName }),
+        body: JSON.stringify({}),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success("Nickname set. Verification usually completes within the hour.");
-      setSheetOpen(false);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok && res.status !== 409) throw new Error(data.error ?? "Failed");
+      toast.success("Advertiser application submitted. Verification usually completes within the hour.");
       onApplied();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -361,15 +272,16 @@ function ApplyLanding({ onApplied }: { onApplied: () => void }) {
   }
 
   return (
-    <>
-      <MyAdsEmptyShell onPost={() => setSheetOpen(true)} />
-      <SetNicknameSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        onConfirm={confirmNickname}
-        submitting={submitting}
-      />
-    </>
+    <MyAdsEmptyShell
+      onPost={() => { void applyAsMerchant(); }}
+      banner={
+        submitting ? (
+          <div className="mt-3 rounded-xl bg-[#087cff]/10 px-3.5 py-3 ring-1 ring-[#087cff]/25">
+            <p className="text-[13px] font-bold text-[#087cff]">Submitting application…</p>
+          </div>
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -407,7 +319,7 @@ function ApplicationStatus({ status, onRefresh }: { status: MerchantStatus; onRe
               <p className="mt-0.5 text-[12px] leading-5 text-slate-400">
                 {isRejected
                   ? status.kycNote || "Please contact support if you believe this is a mistake."
-                  : `Nickname “${status.displayName}” is set. Approval usually completes within the hour.`}
+                  : "Your advertiser application is under review. Approval usually completes within the hour."}
               </p>
               {isRejected && (
                 <button
@@ -423,341 +335,6 @@ function ApplicationStatus({ status, onRefresh }: { status: MerchantStatus; onRe
         </div>
       }
     />
-  );
-}
-
-/** Bybit-style P2P profile (not the main app Profile modal). */
-function P2PUserProfile({
-  status,
-  onApply,
-  onOpenPayments,
-  paymentCount = 0,
-}: {
-  status: MerchantStatus | null;
-  onApply?: () => void;
-  onOpenPayments?: () => void;
-  paymentCount?: number;
-}) {
-  const router = useRouter();
-  const { isSignedIn, user } = useSupabaseAuth();
-  const { openLogin, openWallet } = useAuthModal();
-  const { balance: fiatBalance } = useWalletBalance();
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [profile, setProfile] = useState<MerchantStatus | null>(status);
-  const [showFeedback, setShowFeedback] = useState(false);
-
-  useEffect(() => {
-    setProfile(status);
-  }, [status]);
-
-  useEffect(() => {
-    if (!isSignedIn || !status?.applied) return;
-    fetch("/api/p2p/merchant/profile", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data: MerchantStatus | null) => {
-        if (data) setProfile((current) => ({ ...current, ...data, applied: true }));
-      })
-      .catch(() => {});
-  }, [isSignedIn, status?.applied, status?.kycStatus]);
-
-  const nickname =
-    profile?.displayName?.trim() ||
-    (user?.user_metadata?.full_name as string | undefined)?.trim() ||
-    (user?.email ? user.email.split("@")[0] : null) ||
-    "User";
-
-  const completed = Number(profile?.completedTrades ?? 0);
-  const totalTrades = Number(profile?.totalTrades ?? completed);
-  const completion = Number(profile?.completionRate ?? 0);
-  const release = Number(profile?.avgReleaseTime ?? 0);
-  const positive = Number(profile?.positiveFeedbackRate ?? 0);
-  const feedbackCount = Number(profile?.feedbackCount ?? 0);
-  const feedbackAverage = Number(profile?.feedbackAverage ?? 0);
-  const feedback = profile?.feedback ?? [];
-  const approved = profile?.applied && profile.kycStatus === "APPROVED";
-  const pending = profile?.applied && profile.kycStatus === "PENDING";
-  const rejected = profile?.applied && profile.kycStatus === "REJECTED";
-  const registered = profile?.createdAt
-    ? `${Math.max(0, Math.floor((Date.now() - new Date(profile.createdAt).getTime()) / 86_400_000)).toLocaleString()} Day(s)`
-    : "—";
-
-  const emailOk = !!(user?.email && !user.email.endsWith("@phone.nezeem.com"));
-  const phoneOk = !!(user?.phone || user?.user_metadata?.phone_number || user?.email?.endsWith("@phone.nezeem.com"));
-  const identityOk = !!approved;
-  const depositOk = Number(fiatBalance) > 0;
-
-  async function confirmNickname(displayName: string) {
-    if (!isSignedIn) {
-      openLogin();
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/p2p/merchant/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success("Nickname set. Verification usually completes within the hour.");
-      setSheetOpen(false);
-      onApply?.();
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function requireAuth(fn: () => void) {
-    if (!isSignedIn) {
-      openLogin();
-      return;
-    }
-    fn();
-  }
-
-  const advertiserRight = !profile?.applied ? (
-    <span className="text-[13px] font-bold text-[#087cff]">Apply Now &gt;</span>
-  ) : pending ? (
-    <span className="text-[13px] font-semibold text-[#087cff]">Under review</span>
-  ) : rejected ? (
-    <span className="text-[13px] font-semibold text-red-400">Not approved</span>
-  ) : (
-    <Icon name="chevron_right" className="text-[18px] text-slate-600" />
-  );
-
-  const menuItems: Array<{
-    icon: string;
-    label: string;
-    right?: ReactNode;
-    onClick: () => void;
-  }> = [
-    {
-      icon: "receipt_long",
-      label: "Orders",
-      onClick: () => requireAuth(() => router.push("/p2p/orders")),
-    },
-    {
-      icon: "campaign",
-      label: "My Ads",
-      onClick: () =>
-        requireAuth(() => {
-          if (!profile?.applied) setSheetOpen(true);
-          else if (approved) router.push("/p2p/merchant?tab=ads");
-          else if (pending) toast.info("Advertiser application is under review");
-          else toast.error("Application was not approved");
-        }),
-    },
-    {
-      icon: "account_balance_wallet",
-      label: "Payment Method",
-      right: (
-        <span className="flex items-center gap-1.5">
-          {paymentCount > 0 && (
-            <span className="text-[13px] font-semibold text-slate-400">{paymentCount}</span>
-          )}
-          <Icon name="chevron_right" className="text-[18px] text-slate-600" />
-        </span>
-      ),
-      onClick: () =>
-        requireAuth(() => {
-          if (approved && onOpenPayments) onOpenPayments();
-          else if (approved) router.push("/p2p/merchant?tab=payments");
-          else toast.info("Become an advertiser first to manage payment methods");
-        }),
-    },
-    {
-      icon: "account_balance",
-      label: "Escrow",
-      onClick: () =>
-        requireAuth(() => {
-          if (approved) router.push("/p2p/merchant?tab=wallet");
-          else toast.info("Become an advertiser first to sell crypto");
-        }),
-    },
-    {
-      icon: "badge",
-      label: "Advertiser",
-      right: advertiserRight,
-      onClick: () =>
-        requireAuth(() => {
-          if (!profile?.applied) setSheetOpen(true);
-          else if (approved) router.push("/p2p/merchant?tab=ads");
-          else if (pending) toast.info("Advertiser application is under review");
-          else toast.error("Application was not approved");
-        }),
-    },
-  ];
-
-  if (feedbackCount > 0 || feedback.length > 0) {
-    menuItems.push({
-      icon: "thumb_up",
-      label: "Feedback",
-      right: (
-        <span className="flex items-center gap-1 text-[13px] font-semibold text-slate-400">
-          {feedbackAverage > 0 ? `${feedbackAverage.toFixed(1)} / 5` : `${positive.toFixed(0)}%`}
-          <Icon name="chevron_right" className="text-[18px] text-slate-600" />
-        </span>
-      ),
-      onClick: () => setShowFeedback((v) => !v),
-    });
-  }
-
-  return (
-    <>
-      <div className="mx-auto w-full max-w-6xl px-3 pb-10 pt-1 sm:px-4">
-        <div className="mb-4 flex items-center justify-between py-2">
-          <Link
-            href="/p2p"
-            prefetch={false}
-            className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/[0.06]"
-            aria-label="Back"
-          >
-            <Icon name="arrow_back" className="text-[22px]" />
-          </Link>
-          <a
-            href="mailto:support@nezeem.com"
-            className="text-[13px] font-semibold text-slate-300 transition hover:text-white"
-          >
-            Help &amp; Support
-          </a>
-        </div>
-
-        <div className="lg:grid lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)] lg:items-start lg:gap-6">
-          <div className="mb-5 flex flex-col items-center text-center lg:mb-0 lg:rounded-xl lg:border lg:border-white/[0.07] lg:bg-white/[0.025] lg:px-5 lg:py-6">
-            <MerchantAvatar
-              id={nickname}
-              name={nickname}
-              avatarUrl={user?.user_metadata?.avatar_url || profile?.avatarUrl}
-              size={72}
-              rounded="full"
-              className="mb-3 h-[72px] w-[72px]"
-            />
-            <div className="flex items-center gap-1.5">
-              <h1 className="text-[20px] font-bold text-white">{nickname}</h1>
-              <button
-                type="button"
-                onClick={() =>
-                  requireAuth(() => {
-                    if (!profile?.applied) setSheetOpen(true);
-                    else toast.info("Nickname can only be set once");
-                  })
-                }
-                className="grid h-7 w-7 place-items-center rounded-full text-slate-500 transition hover:bg-white/[0.06] hover:text-white"
-                aria-label="Edit nickname"
-              >
-                <Icon name="edit" className="text-[16px]" />
-              </button>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
-              {(
-                [
-                  { label: "Email", ok: emailOk, onClick: undefined as undefined | (() => void) },
-                  { label: "SMS", ok: phoneOk, onClick: undefined },
-                  { label: "Identity", ok: identityOk, onClick: undefined },
-                  { label: "Deposit", ok: depositOk, onClick: () => requireAuth(() => openWallet()) },
-                ] as const
-              ).map((badge) => (
-                <button
-                  key={badge.label}
-                  type="button"
-                  disabled={!badge.onClick}
-                  onClick={badge.onClick}
-                  className="inline-flex items-center gap-1 text-[11px] text-slate-400 disabled:cursor-default"
-                >
-                  <Icon
-                    name={badge.ok ? "check_circle" : "error"}
-                    className={`text-[14px] ${badge.ok ? "text-[#05b957]" : "text-slate-600"}`}
-                  />
-                  {badge.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="min-w-0 space-y-3">
-            <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3.5 sm:px-5">
-              {[
-                ["Completed Order(s) in 30 Days", `${completed} Order(s)`],
-                ["Completion Rate Within 30 Days", `${completion.toFixed(0)}%`],
-                ["Avg. Release Time", release > 0 ? `${release.toFixed(0)} Minute(s)` : "—"],
-                ["Positive Feedback", feedbackCount > 0 ? `${positive.toFixed(0)}%` : "—"],
-                ["All Trades", `${totalTrades.toLocaleString()} Time(s)`],
-                ["Registered", registered],
-              ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between gap-3 py-2 text-[13px] sm:py-2.5 sm:text-[14px]">
-                  <span className="text-slate-500">{label}</span>
-                  <span className="font-semibold text-white">{value}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
-              {menuItems.map((item, i) => (
-                <button
-                  key={item.label}
-                  type="button"
-                  onClick={item.onClick}
-                  className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-white/[0.03] sm:px-5 ${
-                    i > 0 ? "border-t border-white/[0.06]" : ""
-                  }`}
-                >
-                  <Icon name={item.icon} className="text-[20px] text-slate-300" />
-                  <span className="flex-1 text-[14px] font-semibold text-white">{item.label}</span>
-                  {item.right ?? <Icon name="chevron_right" className="text-[18px] text-slate-600" />}
-                </button>
-              ))}
-            </div>
-
-            {showFeedback && (
-              <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
-                {feedback.length === 0 ? (
-                  <p className="px-4 py-6 text-center text-[13px] text-slate-500">No written feedback yet.</p>
-                ) : (
-                  feedback.map((item, i) => (
-                    <div
-                      key={item.id}
-                      className={`px-4 py-3.5 sm:px-5 ${i > 0 ? "border-t border-white/[0.06]" : ""}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <MerchantAvatar
-                          id={item.fromUser.displayName}
-                          name={item.fromUser.displayName}
-                          avatarUrl={item.fromUser.imageUrl}
-                          size={32}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-semibold text-white">{item.fromUser.displayName}</p>
-                          <p className="text-[11px] font-bold text-[#05b957]">
-                            {"★".repeat(item.rating)}
-                            {"☆".repeat(5 - item.rating)}
-                          </p>
-                        </div>
-                        <span className="text-[10px] text-slate-600">
-                          {new Date(item.createdAt).toLocaleDateString("en-KE", { month: "short", day: "2-digit" })}
-                        </span>
-                      </div>
-                      {item.comment && <p className="mt-2 text-[12px] leading-5 text-slate-400">{item.comment}</p>}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <SetNicknameSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        onConfirm={confirmNickname}
-        submitting={submitting}
-      />
-    </>
   );
 }
 
@@ -1029,7 +606,7 @@ function PaymentMethodsSection({ openSignal = 0 }: { openSignal?: number }) {
     <div id="merchant-payment-methods" className="scroll-mt-24">
       <div className="mb-1 flex items-center justify-between py-1">
         <Link
-          href="/p2p/merchant?tab=profile"
+          href="/p2p/merchant?tab=ads"
           prefetch={false}
           className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/[0.06]"
           aria-label="Back"
@@ -2799,17 +2376,27 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const { user } = useSupabaseAuth();
   const [ads, setAds]           = useState<Ad[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [merchantProfile, setMerchantProfile] = useState<MerchantStatus>(status);
   const [createOpen, setCreate] = useState(false);
   const [editingAd, setEditingAd] = useState<Ad | null>(null);
-  const [section, setSection] = useState<"overview" | "profile" | "wallet" | "payments" | "ads">("overview");
+  const [section, setSection] = useState<"overview" | "reputation" | "wallet" | "payments" | "ads">("overview");
+  const [rep, setRep] = useState<MerchantStatus>(status);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   // Deep-link from bottom nav Ads tab: /p2p/merchant?tab=ads
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get("tab");
-    if (tab === "ads" || tab === "payments" || tab === "wallet" || tab === "profile" || tab === "overview") {
+    if (tab === "ads" || tab === "payments" || tab === "wallet" || tab === "overview" || tab === "reputation") {
       setSection(tab);
     }
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/p2p/merchant/profile", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: MerchantStatus | null) => {
+        if (data) setRep((current) => ({ ...current, ...data, applied: true }));
+      })
+      .catch(() => {});
   }, []);
   // Bumped to jump from an ad's "Add payment method" straight into the Payment
   // Methods tab with the add form open.
@@ -2828,7 +2415,6 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   const [adFilter, setAdFilter] = useState<"ALL" | "ACTIVE" | "PAUSED" | "EXHAUSTED">("ACTIVE");
   const [adPage, setAdPage] = useState(1);
   const [openAdMenu, setOpenAdMenu] = useState<string | null>(null);
-  const [paymentCount, setPaymentCount] = useState(0);
 
   // Editable display name
   const [displayName, setDisplayName] = useState(status.displayName ?? "");
@@ -2847,7 +2433,6 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error ?? "Failed");
-      setMerchantProfile((current) => ({ ...current, displayName: n }));
       setDisplayName(n); setEditingName(false);
       toast.success("Display name updated");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
@@ -2888,7 +2473,6 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ avatarUrl: publicUrl }),
       }).catch(() => {});
-      setMerchantProfile((current) => ({ ...current, avatarUrl: publicUrl }));
 
       toast.success("Profile picture updated");
     } catch (err) {
@@ -2906,24 +2490,6 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   }, []);
 
   useEffect(() => { loadAds(); }, [loadAds]);
-
-  useEffect(() => {
-    fetch("/api/p2p/merchant/payment-methods")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: unknown) => setPaymentCount(Array.isArray(list) ? list.length : 0))
-      .catch(() => setPaymentCount(0));
-  }, []);
-
-  const loadMerchantProfile = useCallback(async () => {
-    try {
-      const r = await fetch("/api/p2p/merchant/profile", { cache: "no-store" });
-      if (r.ok) setMerchantProfile(await r.json());
-    } catch {
-      /* keep initial profile payload */
-    }
-  }, []);
-
-  useEffect(() => { loadMerchantProfile(); }, [loadMerchantProfile]);
 
   useEffect(() => {
     fetch("/api/p2p/fx")
@@ -2990,7 +2556,19 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
   // Ads/profile/payments/wallet hide the dashboard chrome (they have their own headers).
   const phoneShell = section === "payments";
   const hideDashboardChrome =
-    section === "ads" || section === "profile" || section === "payments" || section === "wallet";
+    section === "ads" || section === "payments" || section === "wallet" || section === "reputation";
+
+  const completed = Number(rep.completedTrades ?? status.completedTrades ?? 0);
+  const totalTrades = Number(rep.totalTrades ?? status.totalTrades ?? completed);
+  const completion = Number(rep.completionRate ?? status.completionRate ?? 0);
+  const release = Number(rep.avgReleaseTime ?? status.avgReleaseTime ?? 0);
+  const positive = Number(rep.positiveFeedbackRate ?? 0);
+  const feedbackCount = Number(rep.feedbackCount ?? 0);
+  const feedbackAverage = Number(rep.feedbackAverage ?? 0);
+  const feedback = rep.feedback ?? [];
+  const registeredDays = (rep.createdAt ?? status.createdAt)
+    ? Math.max(0, Math.floor((Date.now() - new Date((rep.createdAt ?? status.createdAt)!).getTime()) / 86_400_000))
+    : null;
 
   return (
     <div className={`mx-auto w-full px-3 py-4 sm:px-4 ${phoneShell ? "max-w-lg sm:max-w-xl" : "max-w-6xl"}`}>
@@ -3077,7 +2655,7 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
       <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl border border-white/[0.07] bg-[#101118] p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {([
           ["overview", "Overview", "dashboard"],
-          ["profile", "Profile", "person"],
+          ["reputation", "Reputation", "star"],
           ["wallet", "Escrow", "account_balance_wallet"],
           ["payments", "Payments", "payments"],
           ["ads", `Ads · ${ads.length}`, "campaign"],
@@ -3161,28 +2739,118 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
               <p className="mt-3 text-sm font-black text-white">Manage ads</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">{activeAds.length} active, {exhaustedAds.length} exhausted or needing attention.</p>
             </button>
-            <button onClick={() => setSection("payments")} className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4 text-left transition hover:border-amber-400/25 hover:bg-[#18191f]">
-              <Icon name="payments" className="text-xl text-amber-400" />
-              <p className="mt-3 text-sm font-black text-white">Payment rails</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">Control the M-Pesa, Airtel Money and bank accounts shown in orders.</p>
+            <button onClick={() => setSection("reputation")} className="rounded-xl border border-white/[0.07] bg-[#18191f] p-4 text-left transition hover:border-[#087cff]/25 hover:bg-[#18191f]">
+              <Icon name="star" className="text-xl text-[#087cff]" />
+              <p className="mt-3 text-sm font-black text-white">Reputation</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {feedbackCount > 0
+                  ? `${feedbackAverage.toFixed(1)}/5 · ${completion.toFixed(0)}% completion`
+                  : "Completion rate, release time, and trader feedback."}
+              </p>
             </button>
           </div>
         </>
       )}
 
-      {section === "profile" && (
-        <P2PUserProfile
-          status={merchantProfile}
-          onOpenPayments={goToAddPayment}
-          paymentCount={paymentCount}
-        />
+      {section === "reputation" && (
+        <div className="mx-auto w-full max-w-6xl">
+          <div className="mb-3 flex items-center justify-between py-1">
+            <button
+              type="button"
+              onClick={() => {
+                setSection("ads");
+                if (typeof window !== "undefined") {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("tab", "ads");
+                  window.history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
+                }
+              }}
+              className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/[0.06]"
+              aria-label="Back"
+            >
+              <Icon name="arrow_back" className="text-[22px]" />
+            </button>
+            <h2 className="text-[17px] font-bold text-white">Reputation</h2>
+            <span className="w-9" />
+          </div>
+          <p className="mb-4 text-center text-[12px] font-medium text-slate-500">
+            What buyers see on your ads — completion, release speed, and feedback.
+          </p>
+
+          <div className="mb-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3.5 sm:px-5">
+            {[
+              ["Completed orders (30d)", `${completed} Order(s)`],
+              ["Completion rate", `${completion.toFixed(0)}%`],
+              ["Avg. release time", release > 0 ? `${release.toFixed(0)} Minute(s)` : "—"],
+              ["Positive feedback", feedbackCount > 0 ? `${positive.toFixed(0)}%` : "—"],
+              ["All trades", `${totalTrades.toLocaleString()} Time(s)`],
+              ["Registered", registeredDays != null ? `${registeredDays.toLocaleString()} Day(s)` : "—"],
+              ["Rating", feedbackCount > 0 ? `${feedbackAverage.toFixed(1)} / 5 · ${feedbackCount} review${feedbackCount === 1 ? "" : "s"}` : "No reviews yet"],
+            ].map(([label, value]) => (
+              <div key={label} className="flex items-center justify-between gap-3 py-2 text-[13px] sm:py-2.5 sm:text-[14px]">
+                <span className="text-slate-500">{label}</span>
+                <span className="font-semibold text-white">{value}</span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowFeedback((v) => !v)}
+            className="mb-3 flex w-full items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-4 py-3.5 text-left transition hover:bg-white/[0.03]"
+          >
+            <Icon name="thumb_up" className="text-[20px] text-slate-300" />
+            <span className="flex-1 text-[14px] font-semibold text-white">Recent feedback</span>
+            <span className="text-[13px] font-semibold text-slate-400">
+              {feedbackCount > 0 ? (feedbackAverage > 0 ? `${feedbackAverage.toFixed(1)} / 5` : `${positive.toFixed(0)}%`) : "—"}
+            </span>
+            <Icon name={showFeedback ? "expand_less" : "expand_more"} className="text-[18px] text-slate-600" />
+          </button>
+
+          {showFeedback && (
+            <div className="overflow-hidden rounded-xl border border-white/[0.07] bg-white/[0.025]">
+              {feedback.length === 0 ? (
+                <p className="px-4 py-6 text-center text-[13px] text-slate-500">
+                  No written feedback yet. Buyers can leave reviews after a completed trade.
+                </p>
+              ) : (
+                feedback.map((item, i) => (
+                  <div
+                    key={item.id}
+                    className={`px-4 py-3.5 sm:px-5 ${i > 0 ? "border-t border-white/[0.06]" : ""}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MerchantAvatar
+                        id={item.fromUser.displayName}
+                        name={item.fromUser.displayName}
+                        avatarUrl={item.fromUser.imageUrl}
+                        size={32}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13px] font-semibold text-white">{item.fromUser.displayName}</p>
+                        <p className="text-[11px] font-bold text-[#05b957]">
+                          {"★".repeat(item.rating)}
+                          {"☆".repeat(5 - item.rating)}
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-slate-600">
+                        {new Date(item.createdAt).toLocaleDateString("en-KE", { month: "short", day: "2-digit" })}
+                      </span>
+                    </div>
+                    {item.comment && <p className="mt-2 text-[12px] leading-5 text-slate-400">{item.comment}</p>}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {section === "wallet" && (
         <div>
           <div className="mb-3 flex items-center justify-between py-1">
             <Link
-              href="/p2p/merchant?tab=profile"
+              href="/p2p/merchant?tab=ads"
               prefetch={false}
               className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/[0.06]"
               aria-label="Back"
@@ -3209,15 +2877,59 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
             <Icon name="arrow_back" className="text-[22px]" />
           </Link>
           <h2 className="text-[17px] font-bold text-white">My Ads</h2>
-          <button
-            type="button"
-            onClick={() => setCreate(true)}
-            className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.12] text-white transition hover:bg-white/[0.06]"
-            aria-label="Post ad"
-          >
-            <Icon name="add" className="text-[20px]" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setSection("reputation");
+                setShowFeedback(true);
+                if (typeof window !== "undefined") {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("tab", "reputation");
+                  window.history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
+                }
+              }}
+              className="grid h-9 w-9 place-items-center rounded-full text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
+              aria-label="Reputation & feedback"
+              title="Reputation & feedback"
+            >
+              <Icon name="star" className="text-[20px]" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreate(true)}
+              className="grid h-9 w-9 place-items-center rounded-full border border-white/[0.12] text-white transition hover:bg-white/[0.06]"
+              aria-label="Post ad"
+            >
+              <Icon name="add" className="text-[20px]" />
+            </button>
+          </div>
         </div>
+
+        {/* Quick reputation snapshot — full details via the star button */}
+        <button
+          type="button"
+          onClick={() => {
+            setSection("reputation");
+            if (typeof window !== "undefined") {
+              const url = new URL(window.location.href);
+              url.searchParams.set("tab", "reputation");
+              window.history.replaceState({}, "", url.pathname + "?" + url.searchParams.toString());
+            }
+          }}
+          className="mb-3 flex w-full items-center gap-3 rounded-xl border border-white/[0.07] bg-white/[0.025] px-3.5 py-3 text-left transition hover:bg-white/[0.04]"
+        >
+          <Icon name="star" className="text-[20px] text-[#087cff]" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-bold text-white">Reputation</span>
+            <span className="block text-[11px] font-medium text-slate-500">
+              {feedbackCount > 0
+                ? `${feedbackAverage.toFixed(1)}/5 · ${completion.toFixed(0)}% completion · ${feedbackCount} review${feedbackCount === 1 ? "" : "s"}`
+                : `${completion.toFixed(0)}% completion · tap for ratings & feedback`}
+            </span>
+          </span>
+          <Icon name="chevron_right" className="text-[18px] text-slate-600" />
+        </button>
 
         <div className="mb-3 flex items-end gap-5 border-b border-white/[0.08]">
           {(
@@ -3423,11 +3135,11 @@ function MerchantDashboard({ status }: { status: MerchantStatus }) {
 
 export function P2PMerchantClient() {
   const { isSignedIn } = useSupabaseAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const tab = searchParams.get("tab");
   const [status, setStatus] = useState<MerchantStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [paymentCount, setPaymentCount] = useState(0);
 
   const check = useCallback(async () => {
     try { const r = await fetch("/api/p2p/merchant/apply"); setStatus(await r.json()); }
@@ -3439,14 +3151,6 @@ export function P2PMerchantClient() {
     else setLoading(false);
   }, [isSignedIn, check]);
 
-  useEffect(() => {
-    if (!isSignedIn) { setPaymentCount(0); return; }
-    fetch("/api/p2p/merchant/payment-methods")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((list: unknown) => setPaymentCount(Array.isArray(list) ? list.length : 0))
-      .catch(() => setPaymentCount(0));
-  }, [isSignedIn, status?.applied, status?.kycStatus]);
-
   // While an application is pending, poll so the "Under Review" screen
   // clears on its own once auto-verification kicks in (no manual refresh).
   useEffect(() => {
@@ -3455,24 +3159,27 @@ export function P2PMerchantClient() {
     return () => clearInterval(interval);
   }, [status?.applied, status?.kycStatus, check]);
 
-  const showProfile = tab === "profile";
+  // Legacy /p2p/merchant?tab=profile → Ads (account Profile lives in shared app chrome).
+  useEffect(() => {
+    if (tab !== "profile") return;
+    router.replace("/p2p/merchant?tab=ads");
+  }, [tab, router]);
+
+  if (tab === "profile") {
+    return (
+      <>
+        <P2PSubNav />
+        <div className="flex min-h-[260px] items-center justify-center px-4 py-5">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
       <P2PSubNav />
-      {showProfile ? (
-        loading && isSignedIn ? (
-          <div className="flex min-h-[260px] items-center justify-center px-4 py-5">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
-          </div>
-        ) : (
-          <P2PUserProfile
-            status={isSignedIn ? status : null}
-            onApply={check}
-            paymentCount={paymentCount}
-          />
-        )
-      ) : !isSignedIn ? (
+      {!isSignedIn ? (
         <ApplyLanding onApplied={check} />
       ) : loading || !status ? (
         <div className="flex min-h-[260px] items-center justify-center px-4 py-5 sm:px-6 lg:px-8">

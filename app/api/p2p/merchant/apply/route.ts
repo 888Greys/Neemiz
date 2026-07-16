@@ -4,7 +4,34 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { sendMerchantApplicationEmail } from "@/lib/brevo";
 import { autoApproveIfDue } from "@/lib/p2p/merchant-approval";
 
+function resolveMerchantDisplayName(
+  bodyName: unknown,
+  dbUser: { username: string | null; firstName: string | null; lastName: string | null; email: string | null },
+  authUser: { email?: string | null; user_metadata?: Record<string, unknown> | null },
+): string {
+  const fromBody = typeof bodyName === "string" ? bodyName.trim() : "";
+  if (fromBody.length >= 2 && fromBody.length <= 50) return fromBody;
+
+  const meta = authUser.user_metadata ?? {};
+  const metaName =
+    (typeof meta.username === "string" && meta.username.trim()) ||
+    (typeof meta.full_name === "string" && meta.full_name.trim()) ||
+    (typeof meta.first_name === "string" && meta.first_name.trim()) ||
+    "";
+  const full =
+    [dbUser.firstName, dbUser.lastName].filter(Boolean).join(" ").trim() ||
+    dbUser.username?.trim() ||
+    metaName ||
+    dbUser.email?.split("@")[0]?.trim() ||
+    authUser.email?.split("@")[0]?.trim() ||
+    "Trader";
+
+  const sliced = full.slice(0, 50).trim();
+  return sliced.length >= 2 ? sliced : "Trader";
+}
+
 // POST /api/p2p/merchant/apply — submit merchant application
+// Display name is taken from the Nezeem account — merchants no longer set a separate nickname.
 export async function POST(req: Request) {
   try {
     const supabase = await createClient();
@@ -16,23 +43,13 @@ export async function POST(req: Request) {
     const existing = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
     if (existing) return Response.json({ error: "Application already submitted", status: existing.kycStatus }, { status: 409 });
 
-    let displayName: string | undefined;
-    let kycDocumentUrl: string | undefined;
-    try {
-      const body = await req.json();
-      displayName    = body.displayName;
-      kycDocumentUrl = body.kycDocumentUrl;
-    } catch {
-      return Response.json({ error: "Invalid request body" }, { status: 400 });
-    }
-
-    if (!displayName || typeof displayName !== "string") {
-      return Response.json({ error: "Display name required" }, { status: 400 });
-    }
-    const trimmed = displayName.trim();
-    if (trimmed.length < 2 || trimmed.length > 50) {
-      return Response.json({ error: "Display name must be 2–50 characters" }, { status: 400 });
-    }
+    const body = (await req.json().catch(() => ({}))) as {
+      displayName?: unknown;
+      kycDocumentUrl?: unknown;
+    };
+    const kycDocumentUrl =
+      typeof body.kycDocumentUrl === "string" ? body.kycDocumentUrl : undefined;
+    const trimmed = resolveMerchantDisplayName(body.displayName, dbUser, user);
 
     const merchant = await db.merchantProfile.create({
       data: {
