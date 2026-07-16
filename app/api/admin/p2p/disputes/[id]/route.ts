@@ -236,6 +236,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         });
       } else if (order.ad.side === "BUY") {
         await unlockUserCrypto(tx, buyerId, order.crypto, defaultNetwork(order.crypto), cryptoAmt);
+      } else if (order.ad.side === "SELL") {
+        const feeRate = Number(order.ad.feeRate ?? 0.02);
+        const lockAmount = cryptoAmt * (1 + feeRate);
+        await unlockUserCrypto(tx, sellerUserId, order.crypto, defaultNetwork(order.crypto), lockAmount);
       }
 
     } else {

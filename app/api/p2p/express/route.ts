@@ -4,13 +4,11 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { isP2PAdTradable } from "@/lib/p2p/ad-guards";
-import { kesLockAmount, isWalletBackedCoin, isKesCoin, lockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
+import { kesLockAmount, isWalletBackedCoin, isKesCoin, lockWalletCoin, recordWalletCoinMovement, lockUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
 import { sendNewP2POrderEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { FIAT_CURRENCIES } from "@/lib/p2p/currencies";
 import { assertCanCreateP2POrder } from "@/lib/p2p/cancellation-policy";
-import { deactivateUnbackedLocalCoinSellAds } from "@/lib/p2p/ad-backing";
 import { ACTIVE_LOCAL_COIN_CODES } from "@/lib/p2p/local-coins";
-import { reservedKesForMerchant } from "@/lib/p2p/local-coin-convert";
 
 const VALID_CRYPTOS = new Set(["USDT", "USDC", "BTC", "ETH", "BNB", ...ACTIVE_LOCAL_COIN_CODES]);
 const VALID_FIATS   = new Set(FIAT_CURRENCIES.map((f) => f.code));
@@ -39,7 +37,6 @@ export async function POST(req: Request) {
     const p2pDenied = await p2pBlockedResponse(dbUser.email);
     if (p2pDenied) return p2pDenied;    const restriction = await assertCanCreateP2POrder(dbUser.id);
     if (restriction) return restriction;
-    await deactivateUnbackedLocalCoinSellAds();
 
     let body: Record<string, unknown>;
     try { body = await req.json(); }
@@ -114,10 +111,7 @@ export async function POST(req: Request) {
       // from the merchant's own balance. It is not locked up-front like crypto ads.
       if (isWalletBackedCoin(match.crypto)) {
         const lockedAmount = kesLockAmount(cryptoAmount);
-        const reservedKes = !isKesCoin(match.crypto)
-          ? await reservedKesForMerchant(match.merchantId)
-          : 0;
-        await lockWalletCoin(tx, match.merchant.userId, match.crypto, lockedAmount, { reservedKes });
+        await lockWalletCoin(tx, match.merchant.userId, match.crypto, lockedAmount, {});
         const createdOrder = await tx.p2POrder.create({
           data: {
             adId:          match.id,
@@ -145,6 +139,10 @@ export async function POST(req: Request) {
         });
         return createdOrder;
       }
+
+      const feeRate = Number(match.feeRate);
+      const lockAmount = cryptoAmount * (1 + feeRate);
+      await lockUserCrypto(tx, match.merchant.userId, match.crypto, defaultNetwork(match.crypto), lockAmount);
 
       const createdOrder = await tx.p2POrder.create({
         data: {

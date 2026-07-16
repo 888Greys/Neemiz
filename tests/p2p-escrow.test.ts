@@ -1,17 +1,23 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { getTotalKesReservedForMerchant, assertLocalCoinSellBacking } from "@/lib/p2p/ad-backing";
+import { recalcMerchantAdAmounts } from "@/lib/p2p/ad-backing";
 import { isWalletBackedCoin } from "@/lib/p2p/crypto-balance";
 import { db } from "@/lib/db";
 
 // Mock @/lib/db
 vi.mock("@/lib/db", () => ({
   db: {
-    p2PAd: {
-      findMany: vi.fn(),
+    merchantProfile: {
+      findUnique: vi.fn(),
+    },
+    user: {
+      findUnique: vi.fn(),
     },
     userCryptoBalance: {
+      findUnique: vi.fn(),
+    },
+    p2PAd: {
       findMany: vi.fn(),
-      findFirst: vi.fn(),
+      update: vi.fn(),
     },
     transaction: {
       // No admin grants by default; individual tests override this.
@@ -20,23 +26,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-// Mock fx rate feed
-vi.mock("@/lib/p2p/fx", () => ({
-  getFxRatesToKES: vi.fn().mockResolvedValue({
-    toKES: {
-      KES: 1,
-      TZS: 0.05, // 1 TZS = 0.05 KES
-      UGX: 0.03, // 1 UGX = 0.03 KES
-    },
-  }),
-  convertToKES: (amount: number, currency: string, toKES: Record<string, number>) => {
-    const rate = toKES[currency];
-    if (!rate || rate <= 0) throw new Error("NO_FX_RATE");
-    return amount * rate;
-  },
-}));
-
-describe("P2P Local Coin Backing & Escrow Calculations", () => {
+describe("P2P Local Coin Escrow Definitions & Ad Recalculation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // clearAllMocks doesn't reset mockResolvedValue implementations, so re-assert
@@ -51,95 +41,67 @@ describe("P2P Local Coin Backing & Escrow Calculations", () => {
     expect(isWalletBackedCoin("USDT")).toBe(false); // real crypto (not in-app local coin)
   });
 
-  it("getTotalKesReservedForMerchant calculates correct backing and prevents double-counting coin balance", async () => {
-    // Merchant has 2 active TZS sell ads: each for 100,000 TZS.
-    // Seller fee is 1%. Total need per ad is 101,000 TZS.
-    // Merchant holds a total of 150,000 TZS in their user crypto balance.
-    // Expected behavior:
-    // First ad needs 101,000 TZS. Covered by 150,000 TZS balance. Shortfall = 0. Remaining TZS balance = 49,000 TZS.
-    // Second ad needs 101,000 TZS. Covered by remaining 49,000 TZS. Shortfall = 52,000 TZS.
-    // 52,000 TZS converted to KES at 0.05 rate = 2,600 KES required.
-    
+  it("recalcMerchantAdAmounts does not update ads if availableAmount is <= freeBalance", async () => {
+    (db.merchantProfile.findUnique as any).mockResolvedValue({ userId: "user-123" });
+    (db.user.findUnique as any).mockResolvedValue({ walletBalance: 5000 });
     (db.p2PAd.findMany as any).mockResolvedValue([
-      { crypto: "TZS", availableAmount: 100000 },
-      { crypto: "TZS", availableAmount: 100000 },
+      { id: "ad-1", availableAmount: 3000 },
+      { id: "ad-2", availableAmount: 4000 },
     ]);
 
-    (db.userCryptoBalance.findMany as any).mockResolvedValue([
-      { crypto: "TZS", network: "TZS", available: 150000 }, // local-coin network is its own currency code
-    ]);
+    await recalcMerchantAdAmounts("merchant-123", "KES");
 
-    const requiredKes = await getTotalKesReservedForMerchant("user-123", "merchant-123");
-    
-    // First ad shortfall: 0 KES.
-    // Second ad shortfall: (101000 - 49000) * 0.05 = 52000 * 0.05 = 2600 KES.
-    // Total KES backing required should be exactly 2600 KES.
-    expect(requiredKes).toBe(2600);
+    expect(db.p2PAd.update).not.toHaveBeenCalled();
   });
 
-  it("assertLocalCoinSellBacking rejects ad creation if wallet balance is insufficient", async () => {
-    // Proposed ad: 200,000 TZS SELL.
-    // Need: 202,000 TZS.
-    // Merchant holds: 50,000 TZS.
-    // Shortfall: 152,000 TZS -> 152,000 * 0.05 = 7,600 KES.
-    // Merchant has no other active ads.
-    // Wallet has only 5,000 KES.
-    
-    (db.p2PAd.findMany as any).mockResolvedValue([]); // no other ads
-    (db.userCryptoBalance.findMany as any).mockResolvedValue([
-      { crypto: "TZS", network: "TZS", available: 50000 },
-    ]);
-
-    const result = await assertLocalCoinSellBacking({
-      userId: "user-123",
-      merchantId: "merchant-123",
-      walletBalance: 5000,
-      crypto: "TZS",
-      side: "SELL",
-      availableAmount: 200000,
-    });
-
-    expect(result).not.toBeNull();
-    expect(result?.required).toBe(7600);
-    expect(result?.shortfall).toBe(2600);
-  });
-
-  it("assertLocalCoinSellBacking passes if wallet balance is sufficient", async () => {
-    (db.p2PAd.findMany as any).mockResolvedValue([]);
-    (db.userCryptoBalance.findMany as any).mockResolvedValue([
-      { crypto: "TZS", network: "TZS", available: 50000 },
-    ]);
-
-    const result = await assertLocalCoinSellBacking({
-      userId: "user-123",
-      merchantId: "merchant-123",
-      walletBalance: 8000, // sufficient to back 7,600 KES shortfall
-      crypto: "TZS",
-      side: "SELL",
-      availableAmount: 200000,
-    });
-
-    expect(result).toBeNull();
-  });
-
-  it("excludes admin-granted (unbacked) coin from backing so it can't be sold for free", async () => {
-    // Merchant holds 150,000 TZS, but ALL of it was admin-granted (phantom).
-    // Selling 100,000 TZS (need 101,000) must therefore require real KES backing
-    // for the full amount, not treat the granted coin as coverage.
+  it("recalcMerchantAdAmounts updates or deactivates ads if availableAmount is > freeBalance", async () => {
+    (db.merchantProfile.findUnique as any).mockResolvedValue({ userId: "user-123" });
+    (db.user.findUnique as any).mockResolvedValue({ walletBalance: 2000 });
     (db.p2PAd.findMany as any).mockResolvedValue([
-      { crypto: "TZS", availableAmount: 100000 },
+      { id: "ad-1", availableAmount: 3000 },
+      { id: "ad-2", availableAmount: 1500 }, // untouched
     ]);
-    (db.userCryptoBalance.findMany as any).mockResolvedValue([
-      { crypto: "TZS", network: "TZS", available: 150000 },
+
+    await recalcMerchantAdAmounts("merchant-123", "KES");
+
+    expect(db.p2PAd.update).toHaveBeenCalledTimes(1);
+    expect(db.p2PAd.update).toHaveBeenCalledWith({
+      where: { id: "ad-1" },
+      data: { availableAmount: 2000 },
+    });
+  });
+
+  it("recalcMerchantAdAmounts deactivates ads if freeBalance <= 0", async () => {
+    (db.merchantProfile.findUnique as any).mockResolvedValue({ userId: "user-123" });
+    (db.user.findUnique as any).mockResolvedValue({ walletBalance: 0 });
+    (db.p2PAd.findMany as any).mockResolvedValue([
+      { id: "ad-1", availableAmount: 3000 },
     ]);
-    // 150,000 TZS were granted → backing-eligible balance is 0.
+
+    await recalcMerchantAdAmounts("merchant-123", "KES");
+
+    expect(db.p2PAd.update).toHaveBeenCalledWith({
+      where: { id: "ad-1" },
+      data: { isActive: false, availableAmount: 0 },
+    });
+  });
+
+  it("excludes admin-granted (unbacked) coin from free balance when capping ads", async () => {
+    (db.merchantProfile.findUnique as any).mockResolvedValue({ userId: "user-123" });
+    (db.userCryptoBalance.findUnique as any).mockResolvedValue({ available: 150000 });
+    // 50,000 TZS were admin-granted -> backing-eligible balance is 100,000 TZS.
     (db.transaction.groupBy as any).mockResolvedValue([
-      { currency: "TZS", _sum: { amount: 150000 } },
+      { currency: "TZS", _sum: { amount: 50000 } },
+    ]);
+    (db.p2PAd.findMany as any).mockResolvedValue([
+      { id: "ad-1", availableAmount: 120000 },
     ]);
 
-    const requiredKes = await getTotalKesReservedForMerchant("user-123", "merchant-123");
+    await recalcMerchantAdAmounts("merchant-123", "TZS");
 
-    // Full 101,000 TZS shortfall (0 backing) * 0.05 = 5,050 KES required.
-    expect(requiredKes).toBe(5050);
+    expect(db.p2PAd.update).toHaveBeenCalledWith({
+      where: { id: "ad-1" },
+      data: { availableAmount: 100000 },
+    });
   });
 });

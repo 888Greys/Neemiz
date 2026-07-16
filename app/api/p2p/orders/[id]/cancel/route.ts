@@ -102,6 +102,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         }
       } else if (order.ad.side === "BUY") {
         await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), cryptoAmt);
+      } else if (order.ad.side === "SELL") {
+        const feeRate = Number(order.ad.feeRate ?? 0.02);
+        const lockAmount = cryptoAmt * (1 + feeRate);
+        const merchantUserId = order.seller?.userId ??
+          (await tx.merchantProfile.findUnique({ where: { id: order.sellerId }, select: { userId: true } }))?.userId;
+        if (merchantUserId) {
+          await unlockUserCrypto(tx, merchantUserId, order.crypto, defaultNetwork(order.crypto), lockAmount);
+        }
       }
       await createP2POrderEventMessage(tx, {
         orderId: order.id,

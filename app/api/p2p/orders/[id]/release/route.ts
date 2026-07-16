@@ -5,6 +5,7 @@ import { defaultNetwork, isWalletBackedCoin, releaseWalletCoin, kesLockAmount, k
 import { convertToKES, getFxRatesToKES } from "@/lib/p2p/fx";
 import { sendTradeCompletedEmail, waitForEmailDelivery } from "@/lib/brevo";
 import { createP2POrderEventMessage } from "@/lib/p2p/order-events";
+import { recalcMerchantAdAmounts } from "@/lib/p2p/ad-backing";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 
 // POST /api/p2p/orders/[id]/release — merchant confirms fiat received & releases crypto
@@ -169,6 +170,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
         content: `${creditedAmount.toFixed(6)} ${order.crypto} released. Trade completed.`,
       });
     });
+
+    // After trade settles, recalculate sibling ad amounts so buyers see
+    // accurate availability (shared-balance-pool model).
+    await recalcMerchantAdAmounts(order.sellerId, order.crypto).catch((e) =>
+      console.error("recalcMerchantAdAmounts:", e),
+    );
 
     // Fetch both recipients and wait for Resend before the invocation ends.
     const emailOpts = {

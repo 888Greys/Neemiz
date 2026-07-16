@@ -466,46 +466,6 @@ export async function settleCryptoEscrowRelease(
 }
 
 /**
- * Unlock an on-chain SELL ad reserve (pause / delete). Prefers UserCryptoBalance
- * (one-wallet); falls back to legacy P2PCryptoBalance for older ads.
- */
-export async function unlockOnChainSellReserve(
-  tx: TxClient,
-  input: { userId: string; merchantId: string; crypto: string; amount: number },
-) {
-  const network = defaultNetwork(input.crypto);
-  const amount = round8(input.amount);
-  if (!(amount > 0)) return;
-
-  const fromWallet = await tx.userCryptoBalance.updateMany({
-    where: {
-      userId: input.userId,
-      crypto: input.crypto,
-      network,
-      locked: { gte: amount },
-    },
-    data: {
-      locked: { decrement: amount },
-      available: { increment: amount },
-    },
-  });
-  if (fromWallet.count > 0) return;
-
-  const fromEscrow = await tx.p2PCryptoBalance.updateMany({
-    where: {
-      merchantId: input.merchantId,
-      crypto: input.crypto,
-      locked: { gte: amount },
-    },
-    data: {
-      locked: { decrement: amount },
-      available: { increment: amount },
-    },
-  });
-  if (fromEscrow.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
-}
-
-/**
  * Infer the default network for a given crypto symbol.
  * Update this as new networks are added.
  */

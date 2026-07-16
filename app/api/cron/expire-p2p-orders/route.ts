@@ -14,7 +14,6 @@
  */
 import { db } from "@/lib/db";
 import { defaultNetwork, unlockUserCrypto, kesLockAmount, isWalletBackedCoin, unlockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
-import { deactivateUnbackedLocalCoinSellAds } from "@/lib/p2p/ad-backing";
 import { createP2POrderEventMessage, orderExpiredSystemText, ORDER_EXPIRING_SOON_TEXT } from "@/lib/p2p/order-events";
 
 export const runtime = "nodejs";
@@ -53,7 +52,7 @@ export async function GET(req: Request) {
 
   const stale = await db.p2POrder.findMany({
     where:  { status: "PENDING", expiresAt: { lt: now } },
-    include: { ad: { select: { side: true } } },
+    include: { ad: { select: { side: true, feeRate: true } } },
     take:   200,
   });
 
@@ -94,6 +93,14 @@ export async function GET(req: Request) {
           }
         } else if (order.ad.side === "BUY") {
           await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), amt);
+        } else if (order.ad.side === "SELL") {
+          // On-chain crypto: refund merchant's per-order escrow lock
+          const feeRate = Number(order.ad.feeRate ?? 0.02);
+          const lockAmount = amt * (1 + feeRate);
+          const merchantUserId = (await tx.merchantProfile.findUnique({ where: { id: order.sellerId }, select: { userId: true } }))?.userId;
+          if (merchantUserId) {
+            await unlockUserCrypto(tx, merchantUserId, order.crypto, defaultNetwork(order.crypto), lockAmount);
+          }
         }
         await createP2POrderEventMessage(tx, {
           orderId: order.id,
@@ -121,14 +128,12 @@ export async function GET(req: Request) {
     }
   }
 
-  const deactivatedMerchantIds = await deactivateUnbackedLocalCoinSellAds();
-
   return Response.json({
     ok: true,
     scanned: stale.length,
     warned,
     expired,
-    deactivatedUnbackedLocalCoinMerchants: deactivatedMerchantIds.length,
+    deactivatedUnbackedLocalCoinMerchants: 0,
     errors,
   });
 }

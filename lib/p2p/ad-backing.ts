@@ -1,7 +1,5 @@
 import { db } from "@/lib/db";
-import { isKesCoin, kesLockAmount, defaultNetwork } from "@/lib/p2p/crypto-balance";
-import { isActiveLocalCoin } from "@/lib/p2p/local-coins";
-import { convertToKES, getFxRatesToKES } from "@/lib/p2p/fx";
+import { isKesCoin, defaultNetwork } from "@/lib/p2p/crypto-balance";
 
 /**
  * Total in-app local coin an admin has GRANTED to a user (per coin), summed from
@@ -28,278 +26,75 @@ export async function getGrantedLocalCoinHoldings(userId: string): Promise<Map<s
   return map;
 }
 
-/** Build the backing-eligible coin balance map: held balance minus granted (unbacked) coin. */
-function buildBackedBalanceMap(
-  cryptoBalances: { crypto: string; network: string; available: unknown }[],
-  granted: Map<string, number>,
-): Map<string, number> {
-  const balanceMap = new Map<string, number>();
-  for (const cb of cryptoBalances) {
-    if (cb.network === defaultNetwork(cb.crypto)) {
-      const code = cb.crypto.toUpperCase();
-      const backed = Math.max(0, Number(cb.available) - (granted.get(code) ?? 0));
-      balanceMap.set(code, backed);
-    }
-  }
-  return balanceMap;
-}
-
-export async function getActiveKesSellBacking(merchantId: string, excludeAdId?: string) {
-  const aggregate = await db.p2PAd.aggregate({
-    where: {
-      merchantId,
-      side: "SELL",
-      crypto: "KES",
-      isActive: true,
-      availableAmount: { gt: 0 },
-      ...(excludeAdId ? { id: { not: excludeAdId } } : {}),
-    },
-    _sum: { availableAmount: true },
-  });
-  return kesLockAmount(Number(aggregate._sum.availableAmount ?? 0));
-}
-
 /**
- * Helper to compute the total KES backing required for all of a merchant's active ads (KES + local coins).
- * Accounts for local coin shortfalls converted to KES, correctly decrementing coin holdings to avoid double-counting.
+ * After a trade settles, recalculate sibling SELL ad amounts so buyers see
+ * accurate availability. Each ad is capped at the merchant's free balance.
+ *
+ * - KES Coin: free balance = User.walletBalance
+ * - Non-KES local coins: free balance = UserCryptoBalance.available - getGrantedLocalCoinHoldings
+ * - On-chain crypto: free balance = UserCryptoBalance.available
+ *
+ * Ads with availableAmount already <= freeBalance are left untouched.
+ * Ads whose available would be <= 0 are deactivated.
  */
-export async function getTotalKesReservedForMerchant(
-  userId: string,
+export async function recalcMerchantAdAmounts(
   merchantId: string,
-  excludeAdId?: string,
-  toKES?: Record<string, number>,
-): Promise<number> {
-  const rates = toKES ? { toKES } : await getFxRatesToKES();
+  crypto: string,
+): Promise<void> {
+  const merchant = await db.merchantProfile.findUnique({
+    where: { id: merchantId },
+    select: { userId: true },
+  });
+  if (!merchant) return;
 
+  // Determine the merchant's free (unlocked) balance for this asset.
+  let freeBalance: number;
+
+  if (isKesCoin(crypto)) {
+    const user = await db.user.findUnique({
+      where: { id: merchant.userId },
+      select: { walletBalance: true },
+    });
+    freeBalance = Number(user?.walletBalance ?? 0);
+  } else {
+    const network = defaultNetwork(crypto);
+    const bal = await db.userCryptoBalance.findUnique({
+      where: { userId_crypto_network: { userId: merchant.userId, crypto, network } },
+      select: { available: true },
+    });
+    const available = Number(bal?.available ?? 0);
+    const grants = await getGrantedLocalCoinHoldings(merchant.userId);
+    const grantedAmount = grants.get(crypto.toUpperCase()) ?? 0;
+    freeBalance = Math.max(0, available - grantedAmount);
+  }
+
+  // Find active SELL ads for this merchant + crypto that are over the free balance.
   const ads = await db.p2PAd.findMany({
     where: {
       merchantId,
       side: "SELL",
+      crypto,
       isActive: true,
-      availableAmount: { gt: 0 },
-      ...(excludeAdId ? { id: { not: excludeAdId } } : {}),
     },
-    select: {
-      crypto: true,
-      availableAmount: true,
-    },
+    select: { id: true, availableAmount: true },
   });
-
-  const cryptoBalances = await db.userCryptoBalance.findMany({
-    where: { userId },
-    select: { crypto: true, network: true, available: true },
-  });
-
-  const granted = await getGrantedLocalCoinHoldings(userId);
-  const balanceMap = buildBackedBalanceMap(cryptoBalances, granted);
-
-  let totalKesRequired = 0;
 
   for (const ad of ads) {
-    const cryptoSym = ad.crypto.toUpperCase();
-    const need = kesLockAmount(Number(ad.availableAmount));
+    const current = Number(ad.availableAmount);
+    if (current <= freeBalance) continue;
 
-    if (isKesCoin(cryptoSym)) {
-      totalKesRequired += need;
-    } else if (isActiveLocalCoin(cryptoSym)) {
-      const haveCoin = balanceMap.get(cryptoSym) ?? 0;
-      const shortfall = Math.max(0, need - haveCoin);
-      
-      // Consume target coin balance so it cannot be double-counted by sibling ads
-      balanceMap.set(cryptoSym, Math.max(0, haveCoin - need));
-
-      if (shortfall > 0) {
-        totalKesRequired += convertToKES(shortfall, cryptoSym, rates.toKES);
-      }
+    if (freeBalance <= 0) {
+      // No balance left — deactivate the ad
+      await db.p2PAd.update({
+        where: { id: ad.id },
+        data: { isActive: false, availableAmount: 0 },
+      });
+    } else {
+      // Cap at merchant's free balance
+      await db.p2PAd.update({
+        where: { id: ad.id },
+        data: { availableAmount: freeBalance },
+      });
     }
   }
-
-  return parseFloat(totalKesRequired.toFixed(2));
-}
-
-export async function assertKesSellBacking(input: {
-  userId: string;
-  merchantId: string;
-  walletBalance: number;
-  crypto: string;
-  side: "BUY" | "SELL";
-  availableAmount: number;
-  excludeAdId?: string;
-}) {
-  if (input.side !== "SELL" || !isKesCoin(input.crypto)) return null;
-  
-  try {
-    const rates = await getFxRatesToKES();
-    const existingBacking = await getTotalKesReservedForMerchant(
-      input.userId,
-      input.merchantId,
-      input.excludeAdId,
-      rates.toKES
-    );
-    const required = parseFloat((existingBacking + kesLockAmount(input.availableAmount)).toFixed(2));
-    if (input.walletBalance >= required) return null;
-    return {
-      required,
-      available: input.walletBalance,
-      shortfall: parseFloat((required - input.walletBalance).toFixed(2)),
-    };
-  } catch (err) {
-    if ((err as Error).message === "NO_FX_RATE") {
-      return {
-        error: "NO_FX_RATE",
-        required: 0,
-        available: input.walletBalance,
-        shortfall: 0,
-      };
-    }
-    throw err;
-  }
-}
-
-/**
- * Asserts combined backing (target local coin + KES) for local coin SELL ads.
- * Calculates KES shortfall from all active local coin ads and ensures KES balance is sufficient.
- */
-export async function assertLocalCoinSellBacking(input: {
-  userId: string;
-  merchantId: string;
-  walletBalance: number;
-  crypto: string;
-  side: "BUY" | "SELL";
-  availableAmount: number;
-  excludeAdId?: string;
-}) {
-  if (input.side !== "SELL" || !isActiveLocalCoin(input.crypto)) return null;
-
-  try {
-    const rates = await getFxRatesToKES();
-
-    // 1. Fetch other active ads of all coins (KES + local)
-    const otherAds = await db.p2PAd.findMany({
-      where: {
-        merchantId: input.merchantId,
-        side: "SELL",
-        isActive: true,
-        availableAmount: { gt: 0 },
-        ...(input.excludeAdId ? { id: { not: input.excludeAdId } } : {}),
-      },
-      select: {
-        crypto: true,
-        availableAmount: true,
-      },
-    });
-
-    const allProposedAds = [
-      ...otherAds.map((a) => ({ crypto: a.crypto, availableAmount: Number(a.availableAmount) })),
-      { crypto: input.crypto, availableAmount: input.availableAmount },
-    ];
-
-    // 2. Fetch crypto balances (granted, unbacked coin excluded from backing)
-    const cryptoBalances = await db.userCryptoBalance.findMany({
-      where: { userId: input.userId },
-      select: { crypto: true, network: true, available: true },
-    });
-
-    const granted = await getGrantedLocalCoinHoldings(input.userId);
-    const balanceMap = buildBackedBalanceMap(cryptoBalances, granted);
-
-    let totalKesRequired = 0;
-
-    for (const ad of allProposedAds) {
-      const cryptoSym = ad.crypto.toUpperCase();
-      const need = kesLockAmount(ad.availableAmount);
-
-      if (isKesCoin(cryptoSym)) {
-        totalKesRequired += need;
-      } else if (isActiveLocalCoin(cryptoSym)) {
-        const haveCoin = balanceMap.get(cryptoSym) ?? 0;
-        const shortfall = Math.max(0, need - haveCoin);
-        
-        // Update the balance map to consume the coin
-        balanceMap.set(cryptoSym, Math.max(0, haveCoin - need));
-
-        if (shortfall > 0) {
-          totalKesRequired += convertToKES(shortfall, cryptoSym, rates.toKES);
-        }
-      }
-    }
-
-    const required = parseFloat(totalKesRequired.toFixed(2));
-    const available = input.walletBalance;
-
-    if (available < required) {
-      return {
-        required,
-        available,
-        shortfall: parseFloat((required - available).toFixed(2)),
-      };
-    }
-
-    return null;
-  } catch (err) {
-    if ((err as Error).message === "NO_FX_RATE") {
-      return {
-        error: "NO_FX_RATE",
-        required: 0,
-        available: input.walletBalance,
-        shortfall: 0,
-      };
-    }
-    throw err;
-  }
-}
-
-/**
- * Scans all merchants and deactivates any active local coin ads if their
- * KES wallet balance cannot back the shortfall across their active local coin sell inventory.
- */
-export async function deactivateUnbackedLocalCoinSellAds() {
-  const merchants = await db.merchantProfile.findMany({
-    where: {
-      ads: {
-        some: {
-          side: "SELL",
-          isActive: true,
-          availableAmount: { gt: 0 },
-        },
-      },
-    },
-    select: {
-      id: true,
-      userId: true,
-      user: {
-        select: {
-          walletBalance: true,
-        },
-      },
-    },
-  });
-
-  if (merchants.length === 0) return [];
-
-  const deactivatedMerchantIds: string[] = [];
-
-  for (const merchant of merchants) {
-    try {
-      const walletBalance = Number(merchant.user.walletBalance ?? 0);
-      const totalKesRequired = await getTotalKesReservedForMerchant(merchant.userId, merchant.id);
-      
-      if (walletBalance < totalKesRequired) {
-        await db.p2PAd.updateMany({
-          where: {
-            merchantId: merchant.id,
-            side: "SELL",
-            isActive: true,
-            availableAmount: { gt: 0 },
-          },
-          data: { isActive: false },
-        });
-        deactivatedMerchantIds.push(merchant.id);
-      }
-    } catch (err) {
-      console.error(`Skipping deactivation check for merchant ${merchant.id} due to rate error:`, err);
-    }
-  }
-
-  return deactivatedMerchantIds;
 }

@@ -55,7 +55,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
           },
         },
       },
-      ad: { select: { fiat: true, paymentMethods: true, paymentWindow: true, side: true, terms: true } },
+      ad: { select: { fiat: true, paymentMethods: true, paymentWindow: true, side: true, terms: true, feeRate: true } },
     },
   });
 
@@ -90,6 +90,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         });
       } else if (order.ad.side === "BUY") {
         await unlockUserCrypto(tx, order.buyerId, order.crypto, defaultNetwork(order.crypto), Number(order.cryptoAmount));
+      } else if (order.ad.side === "SELL") {
+        const feeRate = Number(order.ad.feeRate ?? 0.02);
+        const lockAmount = Number(order.cryptoAmount) * (1 + feeRate);
+        await unlockUserCrypto(tx, order.seller.userId, order.crypto, defaultNetwork(order.crypto), lockAmount);
       }
       await createP2POrderEventMessage(tx, {
         orderId: order.id,

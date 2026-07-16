@@ -2,8 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
-import { assertLocalCoinSellBacking, deactivateUnbackedLocalCoinSellAds } from "@/lib/p2p/ad-backing";
-import { isKesCoin, isWalletBackedCoin, p2pMakerLock, lockUserCrypto, unlockOnChainSellReserve, defaultNetwork } from "@/lib/p2p/crypto-balance";
 import { ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
 import { OrderStatus } from "@prisma/client";
 
@@ -18,7 +16,6 @@ export async function GET() {
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
   const merchant = await db.merchantProfile.findUnique({ where: { userId: dbUser.id } });
   if (!merchant) return Response.json([], { status: 200 });
-  await deactivateUnbackedLocalCoinSellAds();
 
   const ads = await db.p2PAd.findMany({
     where: { merchantId: merchant.id },
@@ -89,11 +86,6 @@ export async function PATCH(req: Request) {
   ));
   const terms = body.terms == null ? ad.terms : String(body.terms || "");
   const isActive = typeof body.isActive === "boolean" ? body.isActive : ad.isActive;
-  // On-chain SELL ads lock wallet (or legacy escrow) at create — pause/resume must unlock/relock.
-  // Wallet-backed local coins lock per-order and have no ad-level reserve.
-  const isOnChainSell = ad.side === "SELL" && !isWalletBackedCoin(ad.crypto);
-  const isPausing = isOnChainSell && ad.isActive && !isActive;
-  const isResuming = isOnChainSell && !ad.isActive && isActive;
 
   if (!Number.isFinite(pricePerUnit) || pricePerUnit <= 0) {
     return Response.json({ error: "Invalid price per unit" }, { status: 400 });
@@ -129,20 +121,6 @@ export async function PATCH(req: Request) {
     });
     if (guardError) return Response.json({ error: guardError }, { status: 400 });
 
-    const backing = await assertLocalCoinSellBacking({
-      userId: dbUser.id,
-      merchantId: merchant.id,
-      walletBalance: Number(dbUser.walletBalance ?? 0),
-      crypto: ad.crypto,
-      side: ad.side,
-      availableAmount: Number(ad.availableAmount),
-      excludeAdId: ad.id,
-    });
-    if (backing) {
-      return Response.json({
-        error: `Insufficient backing. Active local coin sell inventory requires KSh ${backing.required.toLocaleString("en-KE")}, but your wallet has KSh ${backing.available.toLocaleString("en-KE")}.`,
-      }, { status: 400 });
-    }
   }
 
   const adUpdate = {
@@ -157,58 +135,18 @@ export async function PATCH(req: Request) {
 
   let updated;
   try {
-    updated = isPausing || isResuming
-      ? await db.$transaction(async (tx) => {
-          // Taking the ad row lock first prevents a concurrent order creation
-          // from reserving inventory after the no-open-orders check.
-          const stateChanged = await tx.p2PAd.updateMany({
-            where: { id: ad.id, isActive: ad.isActive },
-            data: { isActive },
-          });
-          if (stateChanged.count === 0) throw new Error("AD_STATE_CHANGED");
-
-          if (isPausing) {
-            const openOrders = await tx.p2POrder.count({
-              where: { adId: ad.id, status: { in: OPEN_ORDER_STATUSES } },
-            });
-            if (openOrders > 0) throw new Error("OPEN_ORDERS");
-          }
-
-          const reserve = p2pMakerLock(Number(ad.availableAmount), Number(ad.feeRate));
-          if (isPausing) {
-            await unlockOnChainSellReserve(tx, {
-              userId: dbUser.id,
-              merchantId: merchant.id,
-              crypto: ad.crypto,
-              amount: reserve,
-            });
-          } else {
-            try {
-              await lockUserCrypto(tx, dbUser.id, ad.crypto, defaultNetwork(ad.crypto), reserve);
-            } catch (err) {
-              if ((err as Error).message === "INSUFFICIENT_CRYPTO_BALANCE") {
-                throw new Error("INSUFFICIENT_BALANCE");
-              }
-              throw err;
-            }
-          }
-
-          return tx.p2PAd.update({ where: { id: ad.id }, data: adUpdate });
-        })
-      : await db.p2PAd.update({ where: { id: ad.id }, data: adUpdate });
+    if (!isActive && ad.isActive) {
+      // Pausing: ensure no open orders
+      const openOrders = await db.p2POrder.count({
+        where: { adId: ad.id, status: { in: OPEN_ORDER_STATUSES } },
+      });
+      if (openOrders > 0) throw new Error("OPEN_ORDERS");
+    }
+    updated = await db.p2PAd.update({ where: { id: ad.id }, data: adUpdate });
   } catch (err) {
     const message = err instanceof Error ? err.message : "";
     if (message === "OPEN_ORDERS") {
       return Response.json({ error: "This ad has open orders. Resolve them before pausing it." }, { status: 409 });
-    }
-    if (message === "INSUFFICIENT_BALANCE") {
-      return Response.json({ error: `Insufficient ${ad.crypto} in your wallet to resume this ad.` }, { status: 400 });
-    }
-    if (message === "INSUFFICIENT_LOCKED_CRYPTO") {
-      return Response.json({ error: "This ad's locked reserve is unavailable. Contact support." }, { status: 409 });
-    }
-    if (message === "AD_STATE_CHANGED") {
-      return Response.json({ error: "This ad was updated elsewhere. Refresh and try again." }, { status: 409 });
     }
     throw err;
   }
@@ -243,10 +181,6 @@ export async function DELETE(req: Request) {
     select: {
       id: true,
       isActive: true,
-      side: true,
-      crypto: true,
-      availableAmount: true,
-      feeRate: true,
       _count: { select: { orders: true } },
     },
   });
@@ -266,18 +200,6 @@ export async function DELETE(req: Request) {
       const orderCount = await tx.p2POrder.count({ where: { adId: ad.id } });
       if (orderCount > 0) throw new Error("AD_HAS_ORDERS");
 
-      // Only unlock when the ad still held a live reserve. Pausing already
-      // returns funds to available — unlocking again would steal from other
-      // active SELL ads that share the same locked pool.
-      if (ad.isActive && ad.side === "SELL" && !isWalletBackedCoin(ad.crypto)) {
-        const reserve = p2pMakerLock(Number(ad.availableAmount), Number(ad.feeRate));
-        await unlockOnChainSellReserve(tx, {
-          userId: dbUser.id,
-          merchantId: merchant.id,
-          crypto: ad.crypto,
-          amount: reserve,
-        });
-      }
 
       await tx.p2PAd.delete({ where: { id: ad.id } });
     });
@@ -286,9 +208,7 @@ export async function DELETE(req: Request) {
     if (message === "AD_HAS_ORDERS") {
       return Response.json({ error: "This ad has order history and cannot be deleted. Pause it instead." }, { status: 409 });
     }
-    if (message === "INSUFFICIENT_LOCKED_CRYPTO") {
-      return Response.json({ error: "This ad's locked reserve is unavailable. Contact support." }, { status: 409 });
-    }
+
     throw err;
   }
   return Response.json({ ok: true });
