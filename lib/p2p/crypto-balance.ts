@@ -279,10 +279,11 @@ export async function releaseWalletCoin(
   const network = defaultNetwork(crypto);
   // The giver's balance was moved available→locked at order creation; consume the
   // whole locked amount here (the fee stays out of circulation) and pay the receiver.
-  await tx.userCryptoBalance.updateMany({
-    where: { userId: giverUserId, crypto, network },
+  const debited = await tx.userCryptoBalance.updateMany({
+    where: { userId: giverUserId, crypto, network, locked: { gte: lockedAmount } },
     data:  { locked: { decrement: lockedAmount } },
   });
+  if (debited.count === 0) throw new Error("INSUFFICIENT_LOCKED_CRYPTO");
   await creditUserCrypto(tx, receiverUserId, crypto, network, payoutAmount);
 }
 

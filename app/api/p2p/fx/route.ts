@@ -7,6 +7,6 @@ export const runtime = "nodejs";
 export async function GET() {
   const rates = await getFxRatesToKES();
   return Response.json(rates, {
-    headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400" },
+    headers: { "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=300" },
   });
 }

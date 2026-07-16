@@ -64,6 +64,9 @@ export async function getFxRatesToKES(): Promise<FxRates> {
 }
 
 export function convertToKES(amount: number, currency: string, toKES: Record<string, number>): number {
-  const rate = toKES[currency] ?? 1;
+  const rate = toKES[currency];
+  if (!rate || rate <= 0) {
+    throw new Error("NO_FX_RATE");
+  }
   return amount * rate;
 }

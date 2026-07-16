@@ -216,6 +216,7 @@ export async function POST(req: Request) {
 
     if (side === "SELL" && isKesCoin(crypto as string)) {
       const backing = await assertKesSellBacking({
+        userId: dbUser.id,
         merchantId: merchant.id,
         walletBalance: Number(dbUser.walletBalance ?? 0),
         crypto: crypto as string,
@@ -223,6 +224,9 @@ export async function POST(req: Request) {
         availableAmount: totalAmountNum,
       });
       if (backing) {
+        if (backing.error === "NO_FX_RATE") {
+          return Response.json({ error: "FX rate is currently unavailable. Please try again later." }, { status: 400 });
+        }
         return Response.json({
           error: `Insufficient backing. Your active KES sell ads plus this ad require KSh ${backing.required.toLocaleString("en-KE")}, but your wallet has KSh ${backing.available.toLocaleString("en-KE")}.`,
         }, { status: 400 });
@@ -248,8 +252,11 @@ export async function POST(req: Request) {
       });
 
       if (backing) {
+        if (backing.error === "NO_FX_RATE") {
+          return Response.json({ error: "FX rate is currently unavailable. Please try again later." }, { status: 400 });
+        }
         return Response.json({
-          error: `Insufficient balance. This sell ad needs ${need} ${crypto} (amount + 1% fee). Top up KES or hold ${crypto} — your free KES converts at live FX.`,
+          error: `Insufficient backing. Active local coin sell inventory requires KSh ${backing.required.toLocaleString("en-KE")}, but your wallet has KSh ${backing.available.toLocaleString("en-KE")}.`,
         }, { status: 400 });
       }
 

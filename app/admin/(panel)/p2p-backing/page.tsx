@@ -80,6 +80,12 @@ export default async function AdminP2PBackingPage({
         const kes = isKesCoin(sym);
         const haveCoin = kes ? 0 : (balanceMap.get(sym) ?? 0);
         const shortfallCoin = kes ? need : Math.max(0, need - haveCoin);
+
+        // Deduct the coin balance from the balance map to prevent double-counting in display
+        if (!kes) {
+          balanceMap.set(sym, Math.max(0, haveCoin - need));
+        }
+
         const rate = kes ? 1 : (rates.toKES[sym] ?? null);
         const kesReserved = kes
           ? need

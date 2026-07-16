@@ -12,6 +12,8 @@ import {
   settleCryptoEscrowRelease,
   unlockWalletCoin,
   unlockUserCrypto,
+  bookCryptoFee,
+  isKesCoin,
 } from "@/lib/p2p/crypto-balance";
 import { convertToKES, getFxRatesToKES } from "@/lib/p2p/fx";
 import { sendP2POrderStatusEmail, waitForEmailDelivery } from "@/lib/brevo";
@@ -194,8 +196,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const cryptoBuyerWins = resolution === "CRYPTO_BUYER_WINS";
   const network = defaultNetwork(order.crypto);
   const releaseTime = Math.round((Date.now() - new Date(order.createdAt).getTime()) / 60000);
+  const rates = await getFxRatesToKES();
   const feeKesPerCrypto = cryptoBuyerWins && !isWalletBackedCoin(order.crypto)
-    ? convertToKES(Number(order.pricePerUnit), order.ad.fiat, (await getFxRatesToKES()).toKES)
+    ? convertToKES(Number(order.pricePerUnit), order.ad.fiat, rates.toKES)
     : 0;
 
   await db.$transaction(async (tx) => {
@@ -244,7 +247,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       if (isWalletBackedCoin(order.crypto)) {
         const payoutAmount = kesPayoutAmount(cryptoAmt);
-        await releaseWalletCoin(tx, kesGiverUserId, kesReceiverUserId, order.crypto, kesLockAmount(cryptoAmt), payoutAmount);
+        const lockAmount = kesLockAmount(cryptoAmt);
+        await releaseWalletCoin(tx, kesGiverUserId, kesReceiverUserId, order.crypto, lockAmount, payoutAmount);
         await recordWalletCoinMovement(tx, {
           userId: kesReceiverUserId,
           crypto: order.crypto,
@@ -252,6 +256,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           action: "release",
           orderId: order.id,
           role: "receiver",
+        });
+
+        // Book the 2% fee
+        const feeAmount = parseFloat((lockAmount - payoutAmount).toFixed(8));
+        const feeKesAmount = isKesCoin(order.crypto)
+          ? feeAmount
+          : convertToKES(feeAmount, order.crypto, rates.toKES);
+
+        await bookCryptoFee(tx, {
+          crypto: order.crypto,
+          network,
+          feeAmount,
+          orderId: order.id,
+          payerUserId: kesGiverUserId,
+          feeKesAmount,
         });
       } else {
         // Real crypto — same maker-pays settlement as a normal release.

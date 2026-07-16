@@ -17,7 +17,7 @@ import {
   lockKesCoinBalance,
 } from "@/lib/p2p/crypto-balance";
 import { isActiveLocalCoin } from "@/lib/p2p/local-coins";
-import { getActiveKesSellBacking } from "@/lib/p2p/ad-backing";
+import { getActiveKesSellBacking, getTotalKesReservedForMerchant } from "@/lib/p2p/ad-backing";
 
 type TxClient = Omit<
   Prisma.TransactionClient,
@@ -131,5 +131,15 @@ export async function reservedKesForMerchant(
   merchantId: string,
   excludeAdId?: string,
 ): Promise<number> {
-  return getActiveKesSellBacking(merchantId, excludeAdId);
+  const merchant = await db.merchantProfile.findUnique({
+    where: { id: merchantId },
+    select: { userId: true },
+  });
+  if (!merchant) return 0;
+  try {
+    return await getTotalKesReservedForMerchant(merchant.userId, merchantId, excludeAdId);
+  } catch {
+    // If rate fetch fails, fallback to KES-only ads so the order creation doesn't crash completely.
+    return getActiveKesSellBacking(merchantId, excludeAdId);
+  }
 }

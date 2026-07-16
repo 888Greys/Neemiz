@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement, p2pMakerReceives } from "@/lib/p2p/crypto-balance";
+import { defaultNetwork, unlockUserCrypto, isKesCoin, unlockKesCoinBalance, kesLockAmount, kesPayoutAmount, recordKesWalletMovement, p2pMakerReceives, isWalletBackedCoin, unlockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
 import { createP2POrderEventMessage, orderExpiredSystemText } from "@/lib/p2p/order-events";
 
 export const dynamic = "force-dynamic";
@@ -76,12 +76,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         where: { id: order.adId },
         data:  { availableAmount: { increment: Number(order.cryptoAmount) } },
       });
-      if (isKesCoin(order.crypto)) {
+      if (isWalletBackedCoin(order.crypto)) {
         const giverUserId = order.ad.side === "SELL" ? order.seller.userId : order.buyerId;
         const refundAmount = kesLockAmount(Number(order.cryptoAmount));
-        await unlockKesCoinBalance(tx, giverUserId, refundAmount);
-        await recordKesWalletMovement(tx, {
+        await unlockWalletCoin(tx, giverUserId, order.crypto, refundAmount);
+        await recordWalletCoinMovement(tx, {
           userId: giverUserId,
+          crypto: order.crypto,
           amount: refundAmount,
           action: "refund",
           orderId: order.id,
