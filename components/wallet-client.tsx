@@ -53,10 +53,6 @@ type TransferReceipt = {
   reference: string;
 };
 
-// Flag for the local-currency "coin" (e.g. KES, NGN). First two letters of the
-// currency code map to the country flag for most local currencies.
-const flagUrl = (code: string) => `https://flagcdn.com/w40/${code.slice(0, 2).toLowerCase()}.png`;
-
 const COIN_ICON_URL = COIN_URL;
 
 /** Thin wrapper kept for withdraw/history rows that still pass badge codes. */
@@ -694,7 +690,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
     <div className={`w-full bg-[#151518] text-white ${wide ? "lg:min-h-[520px]" : "min-h-[calc(100dvh-8rem)]"}`}>
       {tab === "home" ? (
         <WalletHome
-          balance={isSignedIn ? fmtBalance : "—"}
+          balanceKes={isSignedIn ? balance : 0}
           cryptoBalances={nonZeroBalances}
           cryptoTotalUsdt={cryptoTotalUsdt}
           isSignedIn={!!isSignedIn}
@@ -1374,22 +1370,29 @@ const FIELD_LABEL = "mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text
 const STATUS_PANEL =
   "rounded-2xl bg-white/[0.03] px-6 py-8 text-center ring-1 ring-white/[0.06] animate-in fade-in duration-300";
 
+function fmtCoinAmount(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return "0";
+  const abs = Math.abs(n);
+  const digits = abs >= 1000 ? 2 : abs >= 1 ? 4 : 8;
+  return n.toLocaleString("en-US", { maximumFractionDigits: digits, minimumFractionDigits: 0 });
+}
+
 function WalletHome({
-  balance,
+  balanceKes,
   cryptoBalances,
   cryptoTotalUsdt,
   isSignedIn,
   onLogin,
   onOpen,
 }: {
-  balance: string;
+  balanceKes: number;
   cryptoBalances: CryptoBalance[];
   cryptoTotalUsdt: number;
   isSignedIn: boolean;
   onLogin: () => void;
   onOpen: (tab: WalletTab) => void;
 }) {
-  const { code, currency: displayCurrency } = useCurrency();
+  const { code, currency: displayCurrency, format, toKES } = useCurrency();
   const [pickingCurrency, setPickingCurrency] = useState(false);
   const actions: Array<{ tab: WalletTab; label: string; icon: string }> = [
     { tab: "deposit", label: "Deposit", icon: "arrow_downward" },
@@ -1397,10 +1400,23 @@ function WalletHome({
     { tab: "withdraw", label: "Withdraw", icon: "arrow_upward" },
     { tab: "history", label: "History", icon: "history" },
   ];
+
+  // USDT ≈ USD for FX; convert crypto USDT total into KES then into display currency.
+  const kesPerUsdt = toKES.USD ?? toKES.USDT ?? 0;
+  const cryptoKes = cryptoTotalUsdt * kesPerUsdt;
+  const totalKes = balanceKes + cryptoKes;
+  const totalLabel = isSignedIn ? format(totalKes) : "—";
+  const cashLabel = format(balanceKes);
+  const cryptoFiatLabel = format(cryptoKes);
   const usdtLabel = cryptoTotalUsdt.toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+
+  // One row per coin+network (individual holdings).
+  const assetRows = cryptoBalances
+    .slice()
+    .sort((a, b) => (Number(b.usdtValue ?? 0) - Number(a.usdtValue ?? 0)) || b.available - a.available);
 
   if (pickingCurrency) {
     return (
@@ -1445,11 +1461,18 @@ function WalletHome({
           </button>
         </div>
         <p className={`mt-2 text-[1.75rem] font-black leading-none tracking-tight sm:text-[2rem] ${isSignedIn ? "text-white" : "text-slate-600"}`}>
-          {balance}
+          {totalLabel}
         </p>
-        {isSignedIn && cryptoBalances.length > 0 && (
-          <p className="mt-2 text-[13px] font-semibold text-slate-500">
-            Crypto ≈ <span className="font-black tabular-nums text-white">{usdtLabel} USDT</span>
+        {isSignedIn && (
+          <p className="mt-2 text-[12px] font-semibold leading-relaxed text-slate-500">
+            Cash {cashLabel}
+            {cryptoBalances.length > 0 && (
+              <>
+                <span className="mx-1.5 text-slate-700">·</span>
+                Crypto {cryptoFiatLabel}
+                <span className="text-slate-600"> ({usdtLabel} USDT)</span>
+              </>
+            )}
           </p>
         )}
         {!isSignedIn && (
@@ -1476,46 +1499,81 @@ function WalletHome({
       </div>
 
       <div className="mt-8 border-t border-white/[0.06] pt-6">
-        <div className="mb-3 flex items-baseline justify-between">
+        <div className="mb-1 flex items-baseline justify-between gap-3">
           <h2 className="text-[13px] font-black text-white">Assets</h2>
-          {cryptoBalances.length > 0 && (
+          {isSignedIn && (
             <span className="text-[11px] font-semibold text-slate-500">
-              Combined in USDT · send to pick a coin
+              {1 + assetRows.length} {1 + assetRows.length === 1 ? "asset" : "assets"}
             </span>
           )}
         </div>
-        {cryptoBalances.length ? (
-          <ul className="divide-y divide-white/[0.05]">
-            {/* Bybit-style: one combined crypto line in USDT on home */}
-            <li className="flex items-center justify-between gap-3 py-3.5 first:pt-1">
-              <span className="flex min-w-0 items-center gap-3">
+
+        {!isSignedIn ? (
+          <p className="py-3 text-[13px] font-medium text-slate-500">Log in to view your assets.</p>
+        ) : (
+          <ul className="mt-2">
+            {/* Cash / fiat wallet */}
+            <li className="flex items-center gap-3 py-3.5">
+              <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full ring-1 ring-white/[0.08]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={COIN_ICON_URL.USDT}
-                  alt="USDT"
-                  width={32}
-                  height={32}
-                  className="h-8 w-8 shrink-0 rounded-full"
+                  src="https://flagcdn.com/w80/ke.png"
+                  alt="KES"
+                  width={40}
+                  height={40}
+                  className="h-full w-full object-cover"
                 />
-                <span className="min-w-0">
-                  <span className="block text-[14px] font-black text-white">Crypto</span>
-                  <span className="block text-[11px] font-medium text-slate-500">
-                    {cryptoBalances.length} {cryptoBalances.length === 1 ? "coin" : "coins"} · USDT value
-                  </span>
-                </span>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-bold text-white">Cash</span>
+                <span className="block text-[11px] font-medium text-slate-500">Fiat · betting & P2P</span>
               </span>
               <span className="shrink-0 text-right">
-                <span className="block font-mono text-[13px] font-bold tabular-nums text-white">
-                  {usdtLabel}
-                </span>
-                <span className="block text-[10px] font-semibold text-slate-500">USDT</span>
+                <span className="block text-[14px] font-bold tabular-nums text-white">{cashLabel}</span>
+                <span className="block text-[10px] font-semibold text-slate-500">{code}</span>
               </span>
             </li>
+
+            {assetRows.map((row) => {
+              const icon = COIN_ICON_URL[row.crypto] ?? COIN_ICON_URL.USDT;
+              const usdt = Number(row.usdtValue ?? 0);
+              const fiatApprox = kesPerUsdt > 0 && usdt > 0 ? format(usdt * kesPerUsdt) : null;
+              return (
+                <li
+                  key={`${row.crypto}-${row.network}`}
+                  className="flex items-center gap-3 border-t border-white/[0.05] py-3.5"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={icon}
+                    alt={row.crypto}
+                    width={40}
+                    height={40}
+                    className="h-10 w-10 shrink-0 rounded-full"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-bold text-white">{row.crypto}</span>
+                    <span className="block text-[11px] font-medium text-slate-500">{row.network}</span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block text-[14px] font-bold tabular-nums text-white">
+                      {fmtCoinAmount(row.available)}{" "}
+                      <span className="text-[11px] font-semibold text-slate-400">{row.crypto}</span>
+                    </span>
+                    <span className="block text-[10px] font-semibold text-slate-500">
+                      {fiatApprox ? `≈ ${fiatApprox}` : "—"}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+
+            {assetRows.length === 0 && (
+              <li className="border-t border-white/[0.05] py-4 text-[13px] font-medium text-slate-500">
+                Deposit crypto to add coins here.
+              </li>
+            )}
           </ul>
-        ) : (
-          <p className="py-2 text-[13px] font-medium text-slate-500">
-            Deposit crypto to see balances here.
-          </p>
         )}
       </div>
     </main>

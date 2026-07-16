@@ -1351,7 +1351,7 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const { user, signOut } = useSupabaseAuth();
   const router = useRouter();
   const { balance, currency, refresh: refreshBalance } = useWalletBalance();
-  const { format: formatDisplay, code: displayCode, currency: displayCurrency } = useCurrency();
+  const { format: formatDisplay, code: displayCode, currency: displayCurrency, toKES } = useCurrency();
   const [view, setView] = useState<ProfileView>(initialView ?? "main");
   const [editingUsername, setEditingUsername] = useState(false);
   const [usernameInput, setUsernameInput] = useState("");
@@ -1359,7 +1359,36 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const [usernameError, setUsernameError] = useState("");
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
+  const [cryptoTotalUsdt, setCryptoTotalUsdt] = useState(0);
   const { hidden: balanceHidden, toggle: toggleBalanceHidden } = useBalanceVisibility();
+
+  // Total equity = fiat wallet + crypto (USDT≈USD) in display currency — same as wallet home.
+  useEffect(() => {
+    if (!user) {
+      setCryptoTotalUsdt(0);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/crypto/balance")
+      .then((r) => r.json())
+      .then((data: unknown) => {
+        if (cancelled) return;
+        if (data && typeof data === "object" && "totalUsdt" in data) {
+          setCryptoTotalUsdt(Number((data as { totalUsdt?: number }).totalUsdt ?? 0) || 0);
+          return;
+        }
+        if (Array.isArray(data)) {
+          const sum = data.reduce((acc: number, b: { usdtValue?: number | null }) => acc + (Number(b.usdtValue) || 0), 0);
+          setCryptoTotalUsdt(sum);
+          return;
+        }
+        setCryptoTotalUsdt(0);
+      })
+      .catch(() => {
+        if (!cancelled) setCryptoTotalUsdt(0);
+      });
+    return () => { cancelled = true; };
+  }, [user]);
 
   const meta        = user?.user_metadata ?? {};
   const displayName = currentUsername ?? meta.username ?? meta.first_name ?? user?.email?.split("@")[0] ?? "User";
@@ -1369,7 +1398,13 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
   const email       = user?.email;
   const phone       = user?.phone ?? meta.phone_number ?? null;
   const isVerified  = user?.email_confirmed_at != null;
-  const fmtBalance  = formatDisplay(balance);
+  const kesPerUsdt  = toKES.USD ?? toKES.USDT ?? 0;
+  const cryptoKes   = cryptoTotalUsdt * kesPerUsdt;
+  const totalKes    = balance + cryptoKes;
+  const fmtBalance  = formatDisplay(totalKes);
+  const cashLabel   = formatDisplay(balance);
+  const cryptoFiatLabel = formatDisplay(cryptoKes);
+  const usdtLabel   = cryptoTotalUsdt.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const memberId    = user?.id?.slice(-8).toUpperCase() ?? "—";
 
   const back = useCallback(() => {
@@ -1573,6 +1608,18 @@ export function ProfileModal({ onClose, onOpenWallet, initialView }: Props) {
                       <Icon name={balanceHidden ? "visibility_closed" : "visibility"} className="text-[18px]" />
                     </button>
                   </div>
+                  {!balanceHidden && (
+                    <p className="mt-2 text-[12px] font-semibold leading-relaxed text-slate-500">
+                      Cash {cashLabel}
+                      {cryptoTotalUsdt > 0 && (
+                        <>
+                          <span className="mx-1.5 text-slate-700">·</span>
+                          Crypto {cryptoFiatLabel}
+                          <span className="text-slate-600"> ({usdtLabel} USDT)</span>
+                        </>
+                      )}
+                    </p>
+                  )}
                   <div className="mt-8 grid grid-cols-4 gap-2">
                     {[
                       { label: "Deposit", icon: "arrow_downward", action: () => { onClose(); onOpenWallet("deposit"); } },
