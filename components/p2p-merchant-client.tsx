@@ -1821,6 +1821,10 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   const [balancesLoading, setBalancesLoading] = useState(true);
   const [walletBalancesLoading, setWalletBalancesLoading] = useState(true);
   const [fxToKes, setFxToKes] = useState<Record<string, number> | null>(null);
+  // KES already committed to backing the merchant's active sell ads. Subtracted
+  // from the wallet so the max sellable amount we offer can actually be created
+  // (mirrors the server's getTotalKesReservedForMerchant single source of truth).
+  const [reservedKes, setReservedKes] = useState(0);
   const f = (k: string, v: unknown) => setForm((p) => ({ ...p, [k]: v }));
 
   useEffect(() => { setPickerMounted(true); }, []);
@@ -1835,6 +1839,19 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    // Only relevant when creating a sell ad; editing sizes off the existing ad.
+    if (isEditing) return;
+    let cancelled = false;
+    fetch("/api/p2p/ads/backing")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { reservedKes?: number } | null) => {
+        if (!cancelled && typeof d?.reservedKes === "number") setReservedKes(d.reservedKes);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isEditing]);
 
   useEffect(() => {
     if (!cryptoOpen && !fiatOpen && !paySheetOpen) return;
@@ -1874,24 +1891,29 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     return held;
   }, [escrowBalances, walletCoinBalances, fiatBalance]);
 
-  // Sellable amount per in-app coin: own balance + KES converted at FX.
+  // Free KES = wallet minus what already backs the merchant's active sell ads.
+  // Sizing the sellable amount off this (not the raw wallet) keeps the offered
+  // max within what the server's backing check will actually allow.
+  const freeKes = Math.max(0, Number(fiatBalance) - reservedKes);
+
+  // Sellable amount per in-app coin: own balance + FREE KES converted at FX.
   const localSellableBySymbol = useMemo(() => {
     const map = new Map<string, number>();
     const rates = fxToKes ?? { KES: 1 };
     for (const c of ACTIVE_LOCAL_COINS) {
       const sym = c.currency;
       if (sym === "KES") {
-        map.set(sym, Math.max(0, Number(fiatBalance)));
+        map.set(sym, Math.max(0, freeKes));
         continue;
       }
       const own = walletCoinBalances
         .filter((b) => b.crypto.toUpperCase() === sym)
         .reduce((sum, b) => sum + Number(b.available), 0);
-      const fromKes = convertFromKes(Number(fiatBalance), sym, rates);
+      const fromKes = convertFromKes(freeKes, sym, rates);
       map.set(sym, Math.max(0, own + fromKes));
     }
     return map;
-  }, [fxToKes, fiatBalance, walletCoinBalances]);
+  }, [fxToKes, freeKes, walletCoinBalances]);
 
   // Wait for BOTH wallet + merchant balance so USDT isn't greyed out while still loading.
   const balancesReady = !balancesLoading && !walletBalancesLoading;
@@ -2084,7 +2106,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
   })();
   const exceedsSellableBalance = !isEditing && form.side === "SELL" && effectiveTotalAmount > sellableBalance;
   const requiredKesBacking = effectiveTotalAmount > 0 ? parseFloat((effectiveTotalAmount * 1.01).toFixed(2)) : 0;
-  const needsKesBacking = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesBacking > 0 && fiatBalance < requiredKesBacking;
+  const needsKesBacking = !isEditing && form.side === "SELL" && form.crypto === "KES" && requiredKesBacking > 0 && freeKes < requiredKesBacking;
   const priceRangeMin = spotRate ? spotRate * 0.8 : priceNum > 0 ? priceNum * 0.8 : null;
   const priceRangeMax = spotRate ? spotRate * 2 : priceNum > 0 ? priceNum * 2 : null;
   const highestOrderPrice = spotRate ? spotRate * 1.1 : priceNum > 0 ? priceNum * 1.1 : null;
@@ -2592,7 +2614,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           <div className="grid gap-5">
           {needsKesBacking && (
             <div className="rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[12px] font-bold text-amber-300 lg:col-span-2">
-              Top up your fiat wallet first. This KES Coin sell ad needs KSh {requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee; you have KSh {fiatBalance.toLocaleString("en-KE")}.
+              Top up your fiat wallet first. This KES Coin sell ad needs KSh {requiredKesBacking.toLocaleString("en-KE")} including the 1% seller fee; you have KSh {freeKes.toLocaleString("en-KE")} free{reservedKes > 0 ? ` (KSh ${reservedKes.toLocaleString("en-KE")} is backing your other active sell ads)` : ""}.
             </div>
           )}
 
