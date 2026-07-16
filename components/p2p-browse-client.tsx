@@ -1232,7 +1232,7 @@ function AdCard({
       </div>
 
       {/* ── Trade ── */}
-      <div className="mt-2 flex items-center justify-end lg:mt-0">
+      <div className="col-span-2 mt-2 flex items-center justify-end lg:col-span-1 lg:mt-0">
         <button
           type="button"
           onClick={(event) => {
