@@ -22,6 +22,7 @@ const NAV: NavItem[] = [
   { label: "Broadcast", icon: "campaign", href: "/admin/new/broadcast" },
   { label: "Money", icon: "account_balance", href: "/admin/new/money" },
   { label: "Crypto", icon: "currency_bitcoin", href: "/admin/new/crypto" },
+  { label: "Crypto balances", icon: "toll", href: "/admin/new/crypto-balances" },
   { label: "Risk", icon: "warning", href: "/admin/new/risk" },
   { label: "Ops", icon: "analytics", href: "/admin/new/ops" },
 ];

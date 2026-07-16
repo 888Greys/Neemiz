@@ -48,7 +48,6 @@ const SECTIONS: { name: string; nodes: Node[] }[] = [
       // Money merges cashflow/treasury + the daily P&L statement (two tabs).
       { type: "link", href: "/admin/money", label: "Money", icon: "payments" },
       { type: "link", href: "/admin/crypto", label: "Crypto", icon: "currency_bitcoin" },
-      { type: "link", href: "/admin/crypto-balances", label: "Crypto balances", icon: "account_balance" },
     ],
   },
 ];
