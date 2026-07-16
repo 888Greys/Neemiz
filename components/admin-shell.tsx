@@ -37,6 +37,7 @@ const SECTIONS: { name: string; nodes: Node[] }[] = [
     name: "Operate",
     nodes: [
       { type: "link", href: "/admin/p2p", label: "P2P ops", icon: "handshake" },
+      { type: "link", href: "/admin/p2p-backing", label: "P2P backing", icon: "account_balance_wallet" },
       { type: "link", href: "/admin/withdrawals", label: "Approvals", icon: "approval" },
       { type: "link", href: "/admin/broadcast", label: "Broadcast", icon: "campaign" },
     ],
