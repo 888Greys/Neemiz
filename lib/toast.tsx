@@ -27,13 +27,14 @@ interface ToastItem {
 type Listener = (t: ToastItem) => void;
 const listeners: Set<Listener> = new Set();
 
-function fire(type: ToastType, title: string, description?: string) {
+function fire(type: ToastType, title: string, description?: string, opts?: { silent?: boolean }) {
   const id = Math.random().toString(36).slice(2, 9);
   const item: ToastItem = { id, type, title, description };
   listeners.forEach((fn) => fn(item));
   // Central feedback hub: every game routes wins/losses through the toast, so
   // pairing sound + haptic here gives consistent game feel everywhere for free.
   // Operational errors get a soft warning buzz only (no melody).
+  if (opts?.silent) return;
   if (type === "cashout") { playSound("win"); haptic("success"); }
   else if (type === "loss") { playSound("lose"); haptic("warning"); }
   else if (type === "error") { haptic("warning"); }
@@ -43,7 +44,7 @@ export const toast = {
   success: (title: string, description?: string) => fire("success", title, description),
   error:   (title: string, description?: string) => fire("error",   title, description),
   info:    (title: string, description?: string) => fire("info",    title, description),
-  cashout: (title: string, description?: string) => fire("cashout", title, description),
+  cashout: (title: string, description?: string, opts?: { silent?: boolean }) => fire("cashout", title, description, opts),
   /** Game loss — distinct from operational error: plays the soft "lose" cue. */
   loss:    (title: string, description?: string) => fire("loss",    title, description),
 };
@@ -52,7 +53,8 @@ export const toast = {
 function Card({ item, onRemove }: { item: ToastItem; onRemove: () => void }) {
   const [visible, setVisible] = useState(false);
 
-  const duration = item.type === "error" ? 5000 : 3200;
+  // Wins linger a bit longer so they read like the "RISE placed" place toast.
+  const duration = item.type === "error" ? 5000 : item.type === "cashout" ? 4200 : 3200;
 
   function dismiss() {
     setVisible(false);

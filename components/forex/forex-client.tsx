@@ -920,12 +920,18 @@ export function ForexClient() {
       // Win = green, loss = red.
       const pl = data.profitLoss;
       if (typeof pl === "number") {
-        if (pl >= 0) {
-          toast.cashout(`Closed +${format(pl)}`, trade.symbol);
-          // Forex P/L has no single clean multiplier — celebrate the profit amount.
-          if (pl > 0) celebrateWin({ amount: pl, label: "Closed in profit!" });
+        if (pl > 0) {
+          celebrateWin({
+            amount: pl,
+            label: "Closed in profit!",
+            toastTitle: `${trade.direction === "buy" ? "Buy" : "Sell"} won!`,
+            toastDescription: `+${format(pl)} · ${trade.symbol}`,
+          });
+        } else if (pl === 0) {
+          toast.cashout(`Closed ${format(0)}`, trade.symbol);
+        } else {
+          toast.loss(`Closed −${format(Math.abs(pl))}`, trade.symbol);
         }
-        else toast.loss(`Closed −${format(Math.abs(pl))}`, trade.symbol);
       }
       // Prepend to local history so user sees it immediately without a refresh
       if (trade) {

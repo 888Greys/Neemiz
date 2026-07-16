@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { useCurrency } from "@/lib/currency-context";
+import { toast } from "@/lib/toast";
 
 export type WinCelebrationTier = "default" | "big";
 
@@ -17,6 +18,9 @@ export type WinCelebrationPayload = {
   amount: number; // canonical KES
   tier?: WinCelebrationTier;
   label?: string; // small caption above the amount (default "You won!")
+  /** Top toast title — same style as "RISE placed". Defaults to `label` / "You won!". */
+  toastTitle?: string;
+  toastDescription?: string;
 };
 
 export type WinCelebrationHandle = {
@@ -301,27 +305,30 @@ export function RollingBalance({
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Global win celebration — one overlay mounted app-wide (in layout), driven by
- * an imperative bus so any game (binary, forex, digits, wheel…) can trigger the
- * same confetti + count-up badge with a single call, from outside React:
+ * an imperative bus so any game (binary, forex, digits, wheel…) can trigger:
+ *   1) top toast (same chrome as "RISE placed") + win sound
+ *   2) centered amount badge / confetti
  *
- *   import { celebrateWin } from "@/components/aviator/win-celebration";
- *   celebrateWin({ amount: winAmountKes, multiplier });   // amount is canonical KES
+ *   celebrateWin({ amount: winKes, toastTitle: "RISE won!", toastDescription: "+KSh 16" });
  *
- * Sound + haptic are NOT fired here — every game already routes wins through
- * toast.cashout(), which plays them centrally (see lib/toast.tsx). Aviator keeps
- * its own in-canvas WinCelebration, so it must NOT also call celebrateWin().
+ * Aviator keeps its own in-canvas WinCelebration — do NOT also call celebrateWin().
  * ────────────────────────────────────────────────────────────────────────── */
 
 type WinBusListener = (payload: WinCelebrationPayload) => void;
 const winBusListeners = new Set<WinBusListener>();
 
-/** Fire the global win celebration. `amount` is canonical KES. Safe to call from anywhere. */
+/** Fire toast + sound + center badge. `amount` is canonical KES. */
 export function celebrateWin(payload: WinCelebrationPayload) {
   if (!(payload.amount > 0)) return; // never celebrate a zero/negative outcome
+  // Place-style top pill + win sound (mirrors toast.info + placed() on bet).
+  toast.cashout(
+    payload.toastTitle ?? payload.label ?? "You won!",
+    payload.toastDescription,
+  );
   winBusListeners.forEach((fn) => fn(payload));
 }
 
-/** Mount once (layout). Renders a fixed, centered, silent WinCelebration overlay. */
+/** Mount once (layout). Center badge only — sound comes from toast.cashout above. */
 export function GlobalWinCelebration() {
   const ref = useRef<WinCelebrationHandle | null>(null);
   useEffect(() => {
@@ -331,7 +338,6 @@ export function GlobalWinCelebration() {
   }, []);
   return (
     <div className="pointer-events-none fixed inset-0 z-[9998]">
-      {/* soundEnabled=false: toast.cashout already plays the win sound centrally. */}
       <WinCelebration ref={ref} soundEnabled={false} />
     </div>
   );

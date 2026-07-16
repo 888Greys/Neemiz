@@ -1117,8 +1117,13 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     }
     if (won) {
       const credited = data.winAmount ?? trade.payout;
-      toast.cashout(`+${money(credited)} — Trade won!`, `${trade.side} · Exit digit: ${exitDigit}`);
-      celebrateWin({ amount: credited, multiplier: trade.stake > 0 ? credited / trade.stake : undefined });
+      celebrateWin({
+        amount: credited,
+        multiplier: trade.stake > 0 ? credited / trade.stake : undefined,
+        label: `${trade.side} won!`,
+        toastTitle: `${trade.side} won!`,
+        toastDescription: `+${money(credited)} · Exit digit ${exitDigit}`,
+      });
     } else {
       toast.loss("Trade lost", `${trade.side} · Exit digit: ${exitDigit}`);
     }
@@ -1189,8 +1194,13 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         const won = evaluateTrade(trade.side, digit, trade.targetDigit);
         setDemoBalance((b) => won ? b + trade.payout : b);
         if (won) {
-          toast.cashout(`+${money(trade.payout)} — Trade won!`, `${trade.side} · Exit digit: ${digit}`);
-          celebrateWin({ amount: trade.payout, multiplier: trade.stake > 0 ? trade.payout / trade.stake : undefined });
+          celebrateWin({
+            amount: trade.payout,
+            multiplier: trade.stake > 0 ? trade.payout / trade.stake : undefined,
+            label: `${trade.side} won!`,
+            toastTitle: `${trade.side} won!`,
+            toastDescription: `+${money(trade.payout)} · Exit digit ${digit}`,
+          });
         } else {
           toast.loss("Trade lost", `${trade.side} · Exit digit: ${digit}`);
         }
@@ -1255,8 +1265,17 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         if (!busted && payout > 0) {
           setLiveBalance((b) => b + payout);
           window.dispatchEvent(new Event("wallet-refresh"));
-          toast.cashout(`+${money(payout)} — Accumulator closed!`, `${data.ticksSurvived ?? pos.ticksSurvived} ticks · ${pos.market}`);
-          if (payout > pos.stake) celebrateWin({ amount: payout, multiplier: payout / pos.stake });
+          if (payout > pos.stake) {
+            celebrateWin({
+              amount: payout,
+              multiplier: payout / pos.stake,
+              label: "Accumulator won!",
+              toastTitle: "Accumulator won!",
+              toastDescription: `+${money(payout)} · ${data.ticksSurvived ?? pos.ticksSurvived} ticks · ${pos.market}`,
+            });
+          } else {
+            toast.cashout(`+${money(payout)} — Accumulator closed!`, `${data.ticksSurvived ?? pos.ticksSurvived} ticks · ${pos.market}`);
+          }
         } else {
           toast.loss("Accumulator busted", `Hit the barrier after ${data.ticksSurvived ?? pos.ticksSurvived} ticks.`);
         }
@@ -1275,8 +1294,17 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         ], cur).slice(0, 40));
         if (!busted) {
           setDemoBalance((b) => b + payout);
-          toast.cashout(`+${money(payout)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
-          if (payout > pos.stake) celebrateWin({ amount: payout, multiplier: payout / pos.stake });
+          if (payout > pos.stake) {
+            celebrateWin({
+              amount: payout,
+              multiplier: payout / pos.stake,
+              label: "Accumulator won!",
+              toastTitle: "Accumulator won!",
+              toastDescription: `+${money(payout)} · ${pos.ticksSurvived} ticks`,
+            });
+          } else {
+            toast.cashout(`+${money(payout)} — Accumulator closed!`, `${pos.ticksSurvived} ticks`);
+          }
         } else {
           toast.loss("Accumulator busted", `Hit the barrier after ${pos.ticksSurvived} ticks.`);
         }
@@ -1404,8 +1432,18 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         if (payout > 0) {
           setLiveBalance((b) => b + payout);
           window.dispatchEvent(new Event("wallet-refresh"));
-          toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
-          if (payout > pos.stake) celebrateWin({ amount: payout, multiplier: payout / pos.stake });
+          const kindLabel = pos.kind === "TURBO" ? "Turbo" : "Multiplier";
+          if (payout > pos.stake) {
+            celebrateWin({
+              amount: payout,
+              multiplier: payout / pos.stake,
+              label: `${kindLabel} won!`,
+              toastTitle: `${kindLabel} won!`,
+              toastDescription: `+${money(payout)} · ${pos.market}`,
+            });
+          } else {
+            toast.cashout(`+${money(payout)} — ${kindLabel} closed!`, pos.market);
+          }
         } else {
           toast.loss(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
@@ -1430,8 +1468,18 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         ], cur).slice(0, 40));
         if (payout > 0) {
           setDemoBalance((b) => b + payout);
-          toast.cashout(`+${money(payout)} — ${pos.kind === "TURBO" ? "Turbo" : "Multiplier"} closed!`, pos.market);
-          if (payout > pos.stake) celebrateWin({ amount: payout, multiplier: payout / pos.stake });
+          const kindLabel = pos.kind === "TURBO" ? "Turbo" : "Multiplier";
+          if (payout > pos.stake) {
+            celebrateWin({
+              amount: payout,
+              multiplier: payout / pos.stake,
+              label: `${kindLabel} won!`,
+              toastTitle: `${kindLabel} won!`,
+              toastDescription: `+${money(payout)} · ${pos.market}`,
+            });
+          } else {
+            toast.cashout(`+${money(payout)} — ${kindLabel} closed!`, pos.market);
+          }
         } else {
           toast.loss(`${pos.kind === "TURBO" ? "Turbo knocked out" : "Multiplier stopped out"}`, pos.market);
         }
@@ -1537,12 +1585,22 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
         settledAt: new Date(),
       }),
     ], cur).slice(0, 40));
-    if (won && data.winAmount) {
-      setLiveBalance((b) => b + data.winAmount!);
-      window.dispatchEvent(new Event("wallet-refresh"));
-      toast.cashout(`+${money(data.winAmount)} — ${t.side} won!`, t.market);
-      celebrateWin({ amount: data.winAmount, multiplier: t.stake > 0 ? data.winAmount / t.stake : undefined });
-    } else if (!won) {
+    if (won) {
+      const credited = Number(data.winAmount ?? t.payout) || 0;
+      if (credited > 0 && t.isReal) {
+        setLiveBalance((b) => b + credited);
+        window.dispatchEvent(new Event("wallet-refresh"));
+      }
+      if (credited > 0) {
+        celebrateWin({
+          amount: credited,
+          multiplier: t.stake > 0 ? credited / t.stake : undefined,
+          label: `${t.side} won!`,
+          toastTitle: `${t.side} won!`,
+          toastDescription: `+${money(credited)} · ${t.market}`,
+        });
+      }
+    } else {
       toast.loss(`${t.side} lost`, t.market);
     }
     setTab("closed");
@@ -1598,8 +1656,18 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
             settledAt: new Date(),
           }),
         ], cur).slice(0, 40));
-        if (res.won) { setDemoBalance((b) => b + res.credit); toast.cashout(`+${money(res.credit)} — ${t.side} won!`, t.market); celebrateWin({ amount: res.credit, multiplier: t.stake > 0 ? res.credit / t.stake : undefined }); }
-        else { toast.loss(`${t.side} lost`, t.market); }
+        if (res.won) {
+          setDemoBalance((b) => b + res.credit);
+          celebrateWin({
+            amount: res.credit,
+            multiplier: t.stake > 0 ? res.credit / t.stake : undefined,
+            label: `${t.side} won!`,
+            toastTitle: `${t.side} won!`,
+            toastDescription: `+${money(res.credit)} · ${t.market}`,
+          });
+        } else {
+          toast.loss(`${t.side} lost`, t.market);
+        }
         setTab("closed");
       }
     }, 500);

@@ -6,7 +6,7 @@ import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
 import { useCurrency } from "@/lib/currency-context";
-import { placed, outcomeWin, outcomeLose } from "@/lib/game-feel";
+import { placed, outcomeLose } from "@/lib/game-feel";
 import { toast } from "@/lib/toast";
 import { celebrateWin } from "@/components/aviator/win-celebration";
 
@@ -128,9 +128,14 @@ export function LuckySpinWheel() {
       window.dispatchEvent(new Event("wallet-refresh"));
       if (data.multiplier === 0 || data.netChange < 0) outcomeLose();
       else {
-        outcomeWin();
-        // Same confetti + count-up badge the rest of the app uses.
-        celebrateWin({ amount: data.winAmount, multiplier: data.multiplier });
+        // Toast + win sound + center badge (celebrateWin plays the sound).
+        celebrateWin({
+          amount: data.winAmount,
+          multiplier: data.multiplier,
+          label: "Lucky Spin won!",
+          toastTitle: "Lucky Spin won!",
+          toastDescription: `+${format(data.winAmount)} · ${data.label}`,
+        });
       }
     }, SPIN_MS);
   }
