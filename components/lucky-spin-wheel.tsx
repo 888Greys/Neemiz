@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSupabaseAuth } from "@/lib/supabase/auth-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useAuthModal } from "@/lib/auth-modal-context";
-import { Icon } from "@/components/icon";
 import { useCurrency } from "@/lib/currency-context";
 import { placed, outcomeWin, outcomeLose } from "@/lib/game-feel";
 import { toast } from "@/lib/toast";
@@ -135,12 +134,12 @@ export function LuckySpinWheel() {
   const big = result && result.multiplier >= 5;
 
   return (
-    <div className="relative mx-auto flex h-full w-full max-w-md flex-col items-center justify-between overflow-hidden px-4 py-3">
+    <div className="relative flex h-full w-full flex-col overflow-hidden">
       {/* Ambient glow behind the wheel */}
-      <div className="pointer-events-none absolute left-1/2 top-[26%] h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#087cff]/20 blur-[70px]" />
+      <div className="pointer-events-none absolute left-1/2 top-[22%] h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#087cff]/20 blur-[70px]" />
 
       {/* ── Wheel ── */}
-      <div className="relative z-10 flex shrink-0 items-center justify-center pt-1">
+      <div className="relative z-10 flex shrink-0 items-center justify-center px-4 pt-3">
         {/* Pointer */}
         <div className="absolute -top-1 left-1/2 z-20 -translate-x-1/2 drop-shadow-[0_3px_6px_rgba(0,0,0,.7)]">
           <svg width="26" height="30" viewBox="0 0 26 30" fill="none">
@@ -203,115 +202,113 @@ export function LuckySpinWheel() {
         </div>
       </div>
 
-      {/* ── Controls ── */}
-      <div className="relative z-10 mt-3 flex w-full min-h-0 flex-1 flex-col justify-end gap-2 overflow-hidden">
-        {/* Result / status pill */}
-        {error ? (
-          <div className="w-full rounded-2xl bg-red-500/10 px-4 py-2 text-center ring-1 ring-red-500/25">
-            <p className="text-[12px] font-bold text-red-400">{error}</p>
-          </div>
-        ) : result ? (
-          <div
-            className={`w-full rounded-2xl px-4 py-2.5 text-center ring-1 duration-300 animate-in fade-in zoom-in-95 ${
-              !won ? "bg-red-500/10 ring-red-500/25" : big ? "bg-amber-500/10 ring-amber-500/25" : "bg-emerald-500/10 ring-emerald-500/25"
-            }`}
-          >
-            <p className={`text-[11px] font-black uppercase tracking-wide ${!won ? "text-red-400" : big ? "text-amber-400" : "text-emerald-400"}`}>
-              {result.multiplier === 0 ? "No win" : big ? `Big win · ${result.label}` : won ? `You won · ${result.label}` : "Partial return"}
-            </p>
-            <p className={`text-xl font-black tabular-nums ${!won ? "text-red-400" : big ? "text-amber-400" : "text-emerald-400"}`}>
-              {result.multiplier === 0
-                ? `${format(result.stake)} lost`
-                : won
-                  ? `+${format(result.netChange)}`
-                  : `${format(result.winAmount)} back`}
-            </p>
-          </div>
-        ) : (
-          <div className="flex w-full items-center justify-between rounded-2xl bg-white/[0.04] px-4 py-2.5 ring-1 ring-white/[0.06]">
-            <span className="text-[11px] font-bold text-slate-500">Balance</span>
-            {isSignedIn ? (
-              <Link href="/wallet" className="text-[14px] font-black tabular-nums text-white hover:text-[#75b8ff]">
-                {format(balance)}
-              </Link>
-            ) : (
-              <span className="text-[12px] font-bold text-slate-500">Log in to play</span>
+      {/* ── Controls: full-bleed dock (edge to edge) ── */}
+      <div className="relative z-10 mt-auto w-full border-t border-white/[0.08] bg-[#121316] px-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] pt-3 sm:pb-4">
+        <div className="mx-auto flex w-full max-w-lg flex-col gap-2.5">
+          {/* Result / status */}
+          {error ? (
+            <div className="w-full bg-red-500/10 px-1 py-2 text-center">
+              <p className="text-[12px] font-bold text-red-400">{error}</p>
+            </div>
+          ) : result ? (
+            <div
+              className={`w-full px-1 py-2 text-center duration-300 animate-in fade-in zoom-in-95 ${
+                !won ? "bg-red-500/10" : big ? "bg-amber-500/10" : "bg-emerald-500/10"
+              }`}
+            >
+              <p className={`text-[11px] font-black uppercase tracking-wide ${!won ? "text-red-400" : big ? "text-amber-400" : "text-emerald-400"}`}>
+                {result.multiplier === 0 ? "No win" : big ? `Big win · ${result.label}` : won ? `You won · ${result.label}` : "Partial return"}
+              </p>
+              <p className={`text-xl font-black tabular-nums ${!won ? "text-red-400" : big ? "text-amber-400" : "text-emerald-400"}`}>
+                {result.multiplier === 0
+                  ? `${format(result.stake)} lost`
+                  : won
+                    ? `+${format(result.netChange)}`
+                    : `${format(result.winAmount)} back`}
+              </p>
+            </div>
+          ) : (
+            <div className="flex w-full items-center justify-between px-0.5 py-1">
+              <span className="text-[11px] font-bold text-slate-500">Balance</span>
+              {isSignedIn ? (
+                <span className="text-[14px] font-black tabular-nums text-white">{format(balance)}</span>
+              ) : (
+                <span className="text-[12px] font-bold text-slate-500">Log in to play</span>
+              )}
+            </div>
+          )}
+
+          {/* Stake input + quick multipliers */}
+          <div className="w-full">
+            <div
+              className={`flex items-center gap-2 rounded-xl bg-black/30 px-3 py-2.5 ring-1 transition ${
+                notEnoughFunds ? "ring-red-500/40" : "ring-white/[0.08] focus-within:ring-[#087cff]/50"
+              }`}
+            >
+              <span className="shrink-0 text-[12px] font-black text-slate-500">{currency.symbol}</span>
+              <input
+                type="number"
+                min={convert(MIN_PLAY_AMOUNT)}
+                placeholder="Spin amount"
+                value={amount}
+                onChange={(e) => { setAmount(e.target.value); setError(null); }}
+                className="min-w-0 flex-1 bg-transparent text-[15px] font-black tabular-nums text-white outline-none placeholder:text-slate-600"
+              />
+              <button
+                type="button"
+                onClick={() => { if (balance > 0) setAmount(String(convert(balance))); }}
+                className="shrink-0 rounded-md bg-white/[0.06] px-2 py-1 text-[10px] font-black text-[#75b8ff] transition hover:bg-white/[0.12]"
+              >
+                MAX
+              </button>
+            </div>
+            <div className="mt-2 flex w-full gap-1.5">
+              {([1.5, 2, 3] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setAmount((v) => (parseFloat(v || "0") * m).toFixed(2))}
+                  className="flex-1 rounded-lg bg-white/[0.04] py-2 text-[11px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/15 hover:text-[#75b8ff] active:scale-[0.97]"
+                >
+                  ×{m}
+                </button>
+              ))}
+            </div>
+            {notEnoughFunds && (
+              <p className="mt-1.5 text-[10px] font-bold text-red-400">
+                Insufficient balance — {format(balance)} available
+              </p>
             )}
           </div>
-        )}
 
-        {/* Stake input + quick multipliers */}
-        <div className="w-full rounded-2xl bg-white/[0.04] p-2.5 ring-1 ring-white/[0.06]">
-          <div
-            className={`flex items-center gap-2 rounded-xl bg-black/20 px-3 py-2 ring-1 transition ${
-              notEnoughFunds ? "ring-red-500/40" : "ring-white/[0.06] focus-within:ring-[#087cff]/50"
-            }`}
-          >
-            <span className="shrink-0 text-[12px] font-black text-slate-500">{currency.symbol}</span>
-            <input
-              type="number"
-              min={convert(MIN_PLAY_AMOUNT)}
-              placeholder="Spin amount"
-              value={amount}
-              onChange={(e) => { setAmount(e.target.value); setError(null); }}
-              className="min-w-0 flex-1 bg-transparent text-[15px] font-black tabular-nums text-white outline-none placeholder:text-slate-600"
-            />
+          {/* Action */}
+          {!isSignedIn ? (
             <button
               type="button"
-              onClick={() => { if (balance > 0) setAmount(String(convert(balance))); }}
-              className="shrink-0 rounded-md bg-white/[0.06] px-2 py-1 text-[10px] font-black text-[#75b8ff] transition hover:bg-white/[0.12]"
+              onClick={openLogin}
+              className="w-full rounded-xl bg-[#087cff] py-3.5 text-sm font-black text-white transition hover:bg-[#0570e8] active:scale-[.98]"
             >
-              MAX
+              Log in to Spin
             </button>
-          </div>
-          <div className="mt-2 flex w-full gap-1.5">
-            {([1.5, 2, 3] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setAmount((v) => (parseFloat(v || "0") * m).toFixed(2))}
-                className="flex-1 rounded-lg bg-white/[0.04] py-1.5 text-[11px] font-black text-slate-400 ring-1 ring-white/[0.06] transition hover:bg-[#087cff]/15 hover:text-[#75b8ff] active:scale-[0.97]"
-              >
-                ×{m}
-              </button>
-            ))}
-          </div>
-          {notEnoughFunds && (
-            <p className="mt-1.5 text-[10px] font-bold text-red-400">
-              Insufficient balance — {format(balance)} available
-            </p>
+          ) : notEnoughFunds ? (
+            <Link
+              href="/wallet"
+              className="flex w-full items-center justify-center rounded-xl bg-[#06c96e] py-3.5 text-sm font-black text-white transition hover:bg-[#05b85f] active:scale-[.98]"
+            >
+              Deposit to Spin
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={spin}
+              disabled={spinning || !canSpin}
+              aria-busy={spinning}
+              className="w-full rounded-xl bg-[#087cff] py-3.5 text-sm font-black text-white transition hover:bg-[#0570e8] active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {spinning ? "Spinning…" : "Spin"}
+            </button>
           )}
         </div>
-
-        {/* Action */}
-        {!isSignedIn ? (
-          <button
-            type="button"
-            onClick={openLogin}
-            className="w-full rounded-2xl bg-[#087cff] py-3.5 text-sm font-black text-white shadow-lg shadow-[#087cff]/25 transition hover:bg-[#0570e8] active:scale-[.98]"
-          >
-            Log in to Spin
-          </button>
-        ) : notEnoughFunds ? (
-          <Link
-            href="/wallet"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#06c96e] py-3.5 text-sm font-black text-white shadow-lg shadow-[#06c96e]/25 transition hover:bg-[#05b85f] active:scale-[.98]"
-          >
-            <Icon name="account_balance_wallet" className="h-4 w-4" />
-            Deposit to Spin
-          </Link>
-        ) : (
-          <button
-            type="button"
-            onClick={spin}
-            disabled={spinning || !canSpin}
-            aria-busy={spinning}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-b from-[#1a90ff] to-[#0570e8] py-3.5 text-sm font-black text-white shadow-lg shadow-[#087cff]/30 transition-transform active:scale-[.97] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Icon name="casino" fill className="h-[18px] w-[18px]" />
-            {spinning ? "Spinning…" : "Spin"}
-          </button>
-        )}
       </div>
     </div>
   );

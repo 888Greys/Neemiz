@@ -1849,63 +1849,66 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
             </div>
 
             <div className="relative min-h-0 flex-1">
-              {/* Mobile trade-type quick bar — wallet is in the shared shell header. */}
-              <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 overflow-x-auto bg-gradient-to-b from-[#151518] via-[#151518]/70 to-transparent px-2 pb-5 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:hidden">
-                {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
+              {/* Mobile chrome sits in reserved top pad — no heavy fade over the plot. */}
+              <div className="absolute inset-x-0 top-0 z-20 flex flex-col gap-1 bg-[#151518] px-2 pb-2 pt-2 sm:hidden">
+                <div className="flex items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {recentTypes.map((id) => tradeTypeById(id)).map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => selectTradeType(t.id)}
+                      className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black transition ${
+                        tradeType === t.id ? "bg-white/[0.06] text-white ring-1 ring-white/70" : "bg-white/[0.05] text-slate-400"
+                      }`}
+                    >
+                      {t.label}
+                      {t.hot && <span className="animate-flame text-[12px] leading-none">🔥</span>}
+                    </button>
+                  ))}
                   <button
-                    key={t.id}
                     type="button"
-                    onClick={() => selectTradeType(t.id)}
-                    className={`flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black transition ${
-                      tradeType === t.id ? "bg-white/[0.06] text-white ring-1 ring-white/70" : "bg-white/[0.05] text-slate-400"
-                    }`}
+                    onClick={() => setPickerOpen(true)}
+                    className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black text-sky-400 underline underline-offset-2"
                   >
-                    {t.label}
-                    {t.hot && <span className="animate-flame text-[12px] leading-none">🔥</span>}
+                    View all
                   </button>
-                ))}
+                </div>
                 <button
                   type="button"
-                  onClick={() => setPickerOpen(true)}
-                  className="shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-[12px] font-black text-sky-400 underline underline-offset-2"
+                  onClick={() => setMarketsOpen(true)}
+                  disabled={!!accaPos || !!levPos}
+                  className="flex items-center gap-2.5 px-1 py-0.5 text-left disabled:opacity-50"
                 >
-                  View all
+                  <MarketIcon symbol={market.symbol} size={32} />
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-0.5">
+                      <span className="truncate text-[13px] font-black text-white">{market.symbol}</span>
+                      <Icon name="expand_more" className="text-[18px] text-slate-400" />
+                    </span>
+                    <span className="mt-0.5 flex items-baseline gap-1.5">
+                      <span className="font-mono text-[12px] font-black text-white">{formatQuote(latest.quote)}</span>
+                      <span className={`font-mono text-[10px] font-black ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
+                        {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                      </span>
+                    </span>
+                  </span>
                 </button>
               </div>
 
-              {/* Mobile market header — floats over the chart and fades into it
-                  (Deriv-style): a top-down gradient from the chart bg to clear,
-                  no hard bar/border. Tap to open the markets picker. */}
-              <button
-                type="button"
-                onClick={() => setMarketsOpen(true)}
-                disabled={!!accaPos || !!levPos}
-                className="absolute inset-x-0 top-[44px] z-10 flex items-center gap-2.5 bg-gradient-to-b from-[#151518] via-[#151518]/85 to-transparent px-3 pb-6 pt-1 text-left disabled:opacity-50 sm:hidden"
-              >
-                <MarketIcon symbol={market.symbol} size={32} />
-                <span className="min-w-0">
-                  <span className="flex items-center gap-0.5">
-                    <span className="truncate text-[13px] font-black text-white">{market.symbol}</span>
-                    <Icon name="expand_more" className="text-[18px] text-slate-400" />
-                  </span>
-                  <span className="mt-0.5 flex items-baseline gap-1.5">
-                    <span className="font-mono text-[12px] font-black text-white">{formatQuote(latest.quote)}</span>
-                    <span className={`font-mono text-[10px] font-black ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
-                      {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
-                    </span>
-                  </span>
-                </span>
-              </button>
-
-              <LiveTickChart
-                points={livePoints}
-                theme={BINARY_THEME}
-                lines={chartLines}
-                markers={chartMarkers}
-                formatValue={formatQuote}
-                bucketSeconds={5}
-                storageKey="nz.binary.chartType"
-              />
+              {/* Chart below mobile header so the line never sits under a fade. */}
+              <div className="absolute inset-0 flex flex-col pt-[92px] sm:pt-0">
+                <div className="relative min-h-0 flex-1">
+                  <LiveTickChart
+                    points={livePoints}
+                    theme={BINARY_THEME}
+                    lines={chartLines}
+                    markers={chartMarkers}
+                    formatValue={formatQuote}
+                    bucketSeconds={5}
+                    storageKey="nz.binary.chartType"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Digit-frequency strip — last-100-tick distribution. Click a digit

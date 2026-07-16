@@ -27,7 +27,9 @@ const FOREX_THEME: LiveChartTheme = {
   bg: "#0c0c0e",
   up: "#22c55e", down: "#ef4444",
   areaTop: "rgba(34,197,94,0.22)", areaBottom: "rgba(34,197,94,0.02)",
-  dot: "#22c55e", stub: "rgba(34,197,94,0.9)",
+  // White line + green accents — matches Binary/TagOption readability.
+  lineColor: "#e8f0e9",
+  dot: "#22c55e", stub: "rgba(34,197,94,0.85)",
 };
 import { ValuePickerSheet } from "@/components/binary/panels/digit-panel";
 import { useNavBadge } from "@/lib/nav-badge-context";
@@ -1051,8 +1053,8 @@ export function ForexClient() {
               </div>
             </div>
             <div className="relative min-h-0 flex-1">
-              {/* Mobile quotes strip — bid/ask over the chart (pair title is in the native header) */}
-              <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 bg-gradient-to-b from-[#0c0c0e] via-[#0c0c0e]/80 to-transparent px-3 pb-6 pt-1.5 sm:hidden">
+              {/* Mobile quotes strip — solid bar above the plot (no fade over the line). */}
+              <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 bg-[#0c0c0e] px-3 py-1.5 sm:hidden">
                 <div className="flex items-baseline gap-2 font-mono text-[12px] font-black">
                   <span className="text-[#ef4444]">{formatPrice(selectedMarket, bid)}</span>
                   <span className="text-slate-600">/</span>
@@ -1076,26 +1078,27 @@ export function ForexClient() {
                   </button>
                 )}
               </div>
-              <LiveTickChart
-                points={priceTicks}
-                theme={FOREX_THEME}
-                storageKey="nz.forex.chartType"
-                bucketSeconds={15}
-                formatValue={(v) => formatPrice(selectedMarket, v)}
-                lines={[
-                  { id: "ask", price: ask, color: "#22c55e", title: "" },
-                  { id: "bid", price: bid, color: "#ef4444", title: "" },
-                ]}
-              />
-              {chartCandles.length === 0 && (
-                <div className="absolute inset-0 grid place-items-center bg-[#0c0c0e]/80">
-                  <div className="rounded-lg border border-white/[0.08] bg-[#14151a]/90 px-4 py-3 text-center shadow-2xl shadow-black/30">
-                    <div className="mx-auto mb-2 h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
-                    <p className="text-xs font-black text-white">Loading live candles</p>
-                    <p className="mt-1 text-[11px] font-semibold text-slate-500">Waiting for Deriv history for {selectedMarket.symbol}</p>
-                  </div>
+              <div className="absolute inset-0 flex flex-col pt-9 sm:pt-0">
+                <div className="relative min-h-0 flex-1">
+                  <LiveTickChart
+                    points={priceTicks}
+                    theme={FOREX_THEME}
+                    storageKey="nz.forex.chartType"
+                    bucketSeconds={15}
+                    pricePrecision={selectedMarket.precision}
+                    formatValue={(v) => formatPrice(selectedMarket, v)}
+                  />
+                  {chartCandles.length === 0 && (
+                    <div className="absolute inset-0 grid place-items-center bg-[#0c0c0e]/80">
+                      <div className="rounded-lg border border-white/[0.08] bg-[#14151a]/90 px-4 py-3 text-center shadow-2xl shadow-black/30">
+                        <div className="mx-auto mb-2 h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
+                        <p className="text-xs font-black text-white">Loading live candles</p>
+                        <p className="mt-1 text-[11px] font-semibold text-slate-500">Waiting for Deriv history for {selectedMarket.symbol}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </section>
 

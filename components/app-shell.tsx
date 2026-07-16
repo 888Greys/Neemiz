@@ -377,7 +377,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
       {rightPanel && isSportsPage && <MobileBetslipSheet>{rightPanel}</MobileBetslipSheet>}
       {!immersive && (
-      <nav className="fixed bottom-[max(0.6rem,env(safe-area-inset-bottom))] left-3 right-3 z-50 flex h-14 items-center justify-around gap-1 rounded-2xl border border-white/[0.08] bg-[#1c1c1e]/92 px-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-50 flex h-[calc(3.5rem+env(safe-area-inset-bottom))] items-center justify-around gap-1 border-t border-white/[0.08] bg-[#1c1c1e]/96 px-1 pb-[env(safe-area-inset-bottom)] pt-0.5 backdrop-blur-xl lg:hidden">
         {mobileNav.map((item) => {
           const activePath = item.activePath ?? (item.href ?? "").split("?")[0].split("#")[0];
           // Panel tabs (binary's Markets/Trade/Positions) share one route and are

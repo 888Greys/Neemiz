@@ -56,7 +56,9 @@ const CHART_TYPES: { key: LiveChartType; label: string; icon: string }[] = [
   { key: "bars",    label: "Bars (OHLC)",   icon: "bar_chart" },
 ];
 
-const RIGHT_GAP_BARS = 12;   // whitespace kept right of the live point
+// Modest empty space to the right of the live tip (TagOption-like).
+// Keep this small: gap px ≈ RIGHT_GAP_BARS × barSpacing — too high parks the tip mid-screen.
+const RIGHT_GAP_BARS = 5;
 const VALUE_EASING = 0.16;   // fraction of the price gap closed per frame
 
 function fmtClock(time: Time): string {
@@ -103,8 +105,11 @@ export function LiveTickChart({
   lines,
   markers,
   formatValue,
+  pricePrecision = 2,
   bucketSeconds = 5,
   storageKey,
+  /** Reserve space under floating headers so price never draws into the fade. */
+  topInset = 0,
   minHeightClass = "min-h-[200px] sm:min-h-[260px]",
 }: {
   points: LivePoint[];
@@ -112,8 +117,11 @@ export function LiveTickChart({
   lines?: ChartLine[];
   markers?: ChartMarker[];
   formatValue?: (v: number) => string;
+  /** Series price ticks / axis labels. Forex needs 5 (or 3 for JPY); binary ~2. */
+  pricePrecision?: number;
   bucketSeconds?: number;
   storageKey?: string;
+  topInset?: number;
   minHeightClass?: string;
 }) {
   const [chartType, setChartType] = useState<LiveChartType>("area");
@@ -145,24 +153,43 @@ export function LiveTickChart({
   const tickIntervalRef = useRef<number>(1000);
   // Candle glide state.
   const candleAnimRef = useRef<{ time: Time; open: number; high: number; low: number; target: number; shown: number } | null>(null);
+  const lastDotPosRef = useRef<{ x: number; y: number } | null>(null);
 
   const fmt = formatValue ?? ((v: number) => String(v));
   const isArea = chartType === "area";
+  const precision = Math.max(0, Math.min(8, Math.floor(pricePrecision)));
+  const minMove = Number((10 ** -precision).toFixed(precision));
+  const priceFormat = { type: "price" as const, precision, minMove };
+  // Default zoom: show more history (smaller bar spacing) + keep price mid-pane.
+  const defaultBarSpacing = isArea ? 8 : 6;
 
   // ── Create chart + series for the active type; rebuild on type/theme change ──
   useEffect(() => {
     if (!containerRef.current) return;
     const container = containerRef.current;
+    lastDotPosRef.current = null;
     const chart = createChart(container, {
       width: container.clientWidth,
       height: container.clientHeight,
       autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: theme.bg }, textColor: "#8d99ae", fontFamily: "var(--font-jakarta), sans-serif" },
-      grid: { vertLines: { color: "rgba(148,163,184,0.045)" }, horzLines: { color: "rgba(148,163,184,0.06)" } },
-      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.08, bottom: 0.12 } },
+      layout: { background: { type: ColorType.Solid, color: theme.bg }, textColor: "#94a3b8", fontFamily: "var(--font-jakarta), sans-serif" },
+      // Sparse grid — soft ticks only, no dense white lattice.
+      grid: {
+        vertLines: { visible: true, color: "rgba(148,163,184,0.04)" },
+        horzLines: { visible: true, color: "rgba(148,163,184,0.055)" },
+      },
+      rightPriceScale: {
+        visible: true,
+        borderVisible: false,
+        entireTextOnly: false,
+        ticksVisible: false,
+        minimumWidth: 72,
+        // Equal breathing room so live price sits near vertical center (not jammed to the top).
+        scaleMargins: { top: 0.28, bottom: 0.28 },
+      },
       timeScale: {
         borderVisible: false, timeVisible: true, secondsVisible: true,
-        rightOffset: RIGHT_GAP_BARS, barSpacing: isArea ? 16 : 8, minBarSpacing: 2,
+        rightOffset: RIGHT_GAP_BARS, barSpacing: defaultBarSpacing, minBarSpacing: 2,
         shiftVisibleRangeOnNewBar: false,
         tickMarkFormatter: (t: Time) => fmtClock(t),
       },
@@ -170,20 +197,34 @@ export function LiveTickChart({
       localization: { priceFormatter: (p: number) => fmt(p), timeFormatter: (t: Time) => fmtClock(t) },
     });
 
+    // Extra range pad so a quiet market doesn't look microscopically zoomed-in.
+    // LWC v5: provider receives the base implementation, not the info object.
+    const padAutoscale = (base: () => { priceRange: { minValue: number; maxValue: number } | null } | null) => {
+      const original = base();
+      if (!original?.priceRange) return original;
+      const { minValue, maxValue } = original.priceRange;
+      const span = Math.max(maxValue - minValue, minMove * 40);
+      const mid = (minValue + maxValue) / 2;
+      const half = (span / 2) * 1.35;
+      return { priceRange: { minValue: mid - half, maxValue: mid + half } };
+    };
+
     const ohlc = {
       upColor: theme.up, downColor: theme.down, borderUpColor: theme.up, borderDownColor: theme.down,
       wickUpColor: theme.up, wickDownColor: theme.down, borderVisible: true,
-      priceLineVisible: false, lastValueVisible: false,
+      priceLineVisible: false, lastValueVisible: true, priceFormat,
+      autoscaleInfoProvider: padAutoscale,
     };
     const series: ISeriesApi<"Area" | "Candlestick" | "Bar"> =
       chartType === "area"
         ? chart.addSeries(AreaSeries, {
             lineColor: theme.lineColor ?? theme.up, lineWidth: 2, topColor: theme.areaTop, bottomColor: theme.areaBottom,
-            lastValueVisible: true, priceLineVisible: false,
+            lastValueVisible: true, priceLineVisible: false, priceFormat,
             crosshairMarkerVisible: true, crosshairMarkerRadius: 4,
+            autoscaleInfoProvider: padAutoscale,
           })
         : chartType === "bars"
-        ? chart.addSeries(BarSeries, { upColor: theme.up, downColor: theme.down, thinBars: true, priceLineVisible: false, lastValueVisible: false })
+        ? chart.addSeries(BarSeries, { upColor: theme.up, downColor: theme.down, thinBars: true, priceLineVisible: false, lastValueVisible: true, priceFormat, autoscaleInfoProvider: padAutoscale })
         : chart.addSeries(CandlestickSeries, ohlc);
 
     chartRef.current = chart;
@@ -206,7 +247,7 @@ export function LiveTickChart({
         series.setData(cs as never);
         const l = cs[cs.length - 1];
         if (l) candleAnimRef.current = { time: l.time, open: l.open, high: l.high, low: l.low, target: l.close, shown: l.close };
-        chart.timeScale().scrollToRealTime();
+        chart.timeScale().scrollToPosition(RIGHT_GAP_BARS, false);
       }
     }
 
@@ -222,14 +263,41 @@ export function LiveTickChart({
         const diff = target.value - cur;
         const next = Math.abs(diff) < 1e-9 ? target.value : cur + diff * VALUE_EASING;
         if (next !== cur) { renderValueRef.current = next; (s as ISeriesApi<"Area">).update({ time: target.time, value: next }); }
-        const frac = lastTickAtRef.current ? Math.min(1, (performance.now() - lastTickAtRef.current) / tickIntervalRef.current) : 0;
-        ch.timeScale().scrollToPosition(RIGHT_GAP_BARS + frac, false);
-        // live dot + stub
-        const y = s.priceToCoordinate(renderValueRef.current ?? target.value);
-        const x = ch.timeScale().timeToCoordinate(target.time);
+        // Keep tip near the right edge with a small fixed gap (don't accumulate extra offset).
+        ch.timeScale().scrollToPosition(RIGHT_GAP_BARS, false);
+        // live dot + stub — keep last good coords when LWC briefly returns null mid-scroll
+        const price = renderValueRef.current ?? target.value;
+        let y = s.priceToCoordinate(price);
+        let x = ch.timeScale().timeToCoordinate(target.time);
+        const plotW = containerRef.current?.clientWidth ?? 0;
+        const scaleW = ch.priceScale("right").width();
+        const spacing = ch.timeScale().options().barSpacing ?? defaultBarSpacing;
+        if (x == null && plotW > 0) {
+          x = Math.max(0, plotW - scaleW - RIGHT_GAP_BARS * spacing);
+        }
+        if (y == null && lastDotPosRef.current) y = lastDotPosRef.current.y;
         const dot = dotRef.current, stub = stubRef.current;
-        if (dot) { if (x != null && y != null) { dot.style.transform = `translate(${x}px, ${y}px)`; dot.style.opacity = "1"; } else dot.style.opacity = "0"; }
-        if (stub) { const w = containerRef.current?.clientWidth ?? 0; if (x != null && y != null && w > x) { stub.style.transform = `translate(${x}px, ${y}px)`; stub.style.width = `${w - x}px`; stub.style.opacity = "1"; } else stub.style.opacity = "0"; }
+        if (dot) {
+          if (x != null && y != null) {
+            lastDotPosRef.current = { x, y };
+            dot.style.transform = `translate(${x}px, ${y}px)`;
+            dot.style.opacity = "1";
+          } else if (lastDotPosRef.current) {
+            const p = lastDotPosRef.current;
+            dot.style.transform = `translate(${p.x}px, ${p.y}px)`;
+            dot.style.opacity = "1";
+          }
+        }
+        if (stub) {
+          const endX = Math.max(0, plotW - scaleW);
+          const sx = x ?? lastDotPosRef.current?.x;
+          const sy = y ?? lastDotPosRef.current?.y;
+          if (sx != null && sy != null && endX > sx) {
+            stub.style.transform = `translate(${sx}px, ${sy}px)`;
+            stub.style.width = `${endX - sx}px`;
+            stub.style.opacity = "1";
+          }
+        }
       } else if (chartTypeRef.current !== "heikin") {
         // Candle/bar glide: ease the forming bar's close.
         const a = candleAnimRef.current;
@@ -252,7 +320,7 @@ export function LiveTickChart({
       priceLinesRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartType, theme.bg, theme.up, theme.down]);
+  }, [chartType, theme.bg, theme.up, theme.down, precision, minMove, defaultBarSpacing, topInset]);
 
   // ── New points ──
   useEffect(() => {
@@ -296,7 +364,7 @@ export function LiveTickChart({
       series.setData(cs as never);
       candleAnimRef.current = { time: l.time, open: l.open, high: l.high, low: l.low, target: l.close, shown: candleAnimRef.current?.time === l.time ? candleAnimRef.current.shown : l.open };
     }
-    chart.timeScale().scrollToRealTime();
+    chart.timeScale().scrollToPosition(RIGHT_GAP_BARS, false);
   }, [points, bucketSeconds]);
 
   // ── Overlay lines (bid/ask, barrier, entry, …) ──
@@ -331,7 +399,7 @@ export function LiveTickChart({
   const recenter = () => {
     const ts = chartRef.current?.timeScale();
     if (!ts) return;
-    ts.applyOptions({ barSpacing: isArea ? 16 : 8 });
+    ts.applyOptions({ barSpacing: defaultBarSpacing });
     ts.scrollToPosition(RIGHT_GAP_BARS, false);
   };
   const selectType = (t: LiveChartType) => {
@@ -343,16 +411,19 @@ export function LiveTickChart({
 
   return (
     <div className={`relative h-full overflow-hidden ${minHeightClass}`} style={{ background: theme.bg }}>
-      <div ref={containerRef} className="absolute inset-0" />
+      {/* Plot pane sits below floating headers so price/dot never draw under the fade. */}
+      <div className="absolute inset-x-0 bottom-0" style={{ top: topInset }}>
+        <div ref={containerRef} className="absolute inset-0" />
 
-      {/* dashed price stub — dot to the right edge (area only) */}
-      <div ref={stubRef} className="pointer-events-none absolute left-0 top-0 z-10 h-0 opacity-0 will-change-transform" style={{ borderTop: `1px dashed ${theme.stub}` }} />
-      {/* pulsing live dot (area only) */}
-      <div ref={dotRef} className="pointer-events-none absolute left-0 top-0 z-20 opacity-0 will-change-transform">
-        <span className="relative flex h-3 w-3 -translate-x-1/2 -translate-y-1/2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-50" style={{ background: theme.dot }} />
-          <span className="relative inline-flex h-3 w-3 rounded-full ring-2" style={{ background: theme.dot, borderColor: theme.bg }} />
-        </span>
+        {/* dashed price stub — tip to price scale (area only) */}
+        <div ref={stubRef} className="pointer-events-none absolute left-0 top-0 z-10 h-0 opacity-0 will-change-transform" style={{ borderTop: `1px dashed ${theme.stub}` }} />
+        {/* pulsing live dot (area only) */}
+        <div ref={dotRef} className="pointer-events-none absolute left-0 top-0 z-20 opacity-0 will-change-transform">
+          <span className="relative flex h-3 w-3 -translate-x-1/2 -translate-y-1/2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-50" style={{ background: theme.dot }} />
+            <span className="relative inline-flex h-3 w-3 rounded-full ring-2" style={{ background: theme.dot, borderColor: theme.bg }} />
+          </span>
+        </div>
       </div>
 
       {/* chart-type picker (top-right) */}
