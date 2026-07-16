@@ -24,6 +24,10 @@ const MIN_WITHDRAWAL: Record<string, number> = {
   USDC: 1,
   BTC:  0.0002, // above dust + a typical miner fee
   TRX:  10,     // leaves headroom above the ~0.3 TRX bandwidth/burn fee
+  ETH:  0.005,  // native ETH — headroom above mainnet gas
+  BNB:  0.01,   // native BNB — headroom above BSC gas
+  POL:  2,      // native POL — headroom above Polygon gas
+  LTC:  0.01,   // UTXO — comfortably above dust + a typical LTC miner fee
 };
 
 // Keep the platform fee configurable. It is disabled while withdrawals are

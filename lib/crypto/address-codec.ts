@@ -34,13 +34,22 @@ export function evmToTron(evm: string): string {
   return base58Encode(Buffer.concat([raw, h2.slice(0, 4)]));
 }
 
-/** secp256k1 public key (hex, with or without 0x) → legacy P2PKH Bitcoin address (1…). */
-export function btcP2PKHFromPubKey(publicKeyHex: string): string {
+/**
+ * secp256k1 public key (hex, with or without 0x) → base58check P2PKH address.
+ * `version` is the network's P2PKH version byte: 0x00 Bitcoin (1…), 0x30 Litecoin (L…).
+ */
+export function p2pkhFromPubKey(publicKeyHex: string, version = 0x00): string {
   const pubKey   = Buffer.from(publicKeyHex.replace(/^0x/, ""), "hex");
   const sha      = createHash("sha256").update(pubKey).digest();
   const hash160  = createHash("ripemd160").update(sha).digest();
-  const versioned = Buffer.concat([Buffer.from([0x00]), hash160]);
+  const versioned = Buffer.concat([Buffer.from([version]), hash160]);
   const chk1 = createHash("sha256").update(versioned).digest();
   const chk2 = createHash("sha256").update(chk1).digest();
   return base58Encode(Buffer.concat([versioned, chk2.slice(0, 4)]));
 }
+
+/** secp256k1 public key → legacy P2PKH Bitcoin address (1…). */
+export const btcP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x00);
+
+/** secp256k1 public key → legacy P2PKH Litecoin address (L…). */
+export const ltcP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x30);

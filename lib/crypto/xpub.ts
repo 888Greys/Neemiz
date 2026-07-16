@@ -14,7 +14,7 @@
  * script (scripts/derive-xpubs.ts) proves this before cutover.
  */
 import { HDNodeWallet } from "ethers";
-import { evmToTron, btcP2PKHFromPubKey } from "./address-codec";
+import { evmToTron, btcP2PKHFromPubKey, ltcP2PKHFromPubKey } from "./address-codec";
 
 function requireXpub(name: string): string {
   const v = process.env[name];
@@ -50,6 +50,15 @@ export function btcAddressFromXpub(xpub: string, index: number): string {
   return btcP2PKHFromPubKey(accountNode(xpub).deriveChild(index).publicKey);
 }
 
+/**
+ * Litecoin reuses the BTC account xpub (same secp256k1 child key), re-encoded
+ * with Litecoin's P2PKH version byte (L…). No separate seed/xpub — the signer
+ * derives the identical key from the BTC path and controls the LTC address.
+ */
+export function ltcAddressFromXpub(xpub: string, index: number): string {
+  return ltcP2PKHFromPubKey(accountNode(xpub).deriveChild(index).publicKey);
+}
+
 // ── Env-bound derivation used by the app ──
 
 export function deriveEVMAddress(index: number): string {
@@ -64,13 +73,18 @@ export function deriveBTCAddress(index: number): string {
   return btcAddressFromXpub(requireXpub("MASTER_XPUB_BTC"), index);
 }
 
+export function deriveLTCAddress(index: number): string {
+  return ltcAddressFromXpub(requireXpub("MASTER_XPUB_BTC"), index);
+}
+
 /**
  * Derive a deposit address for a given HD index + on-chain network.
  * Mirrors the network→curve mapping used at deposit time.
  */
 export function deriveAddress(index: number, network: string): string {
-  if (network === "TRC20")   return deriveTronAddress(index);
-  if (network === "BITCOIN") return deriveBTCAddress(index);
+  if (network === "TRC20")    return deriveTronAddress(index);
+  if (network === "BITCOIN")  return deriveBTCAddress(index);
+  if (network === "LITECOIN") return deriveLTCAddress(index);
   return deriveEVMAddress(index); // ERC20 / BEP20 / POLYGON share one EVM address
 }
 

@@ -10,7 +10,7 @@
 import { ethers } from "ethers";
 import { createHash } from "crypto";
 import { getHotEVMKey, getHotTronKey, resolveUserKey } from "./keys";
-import { btcAddressToHash160 } from "./address-codec";
+import { btcAddressToHash160, ltcAddressToHash160 } from "./address-codec";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -253,7 +253,20 @@ async function broadcastTron(fromTronAddress: string, to: string, crypto: string
 // + manual sighash/DER, so the signer needs no extra Bitcoin dependency.
 
 const BTC_API = process.env.BTC_API ?? "https://blockstream.info/api";
+const LTC_API = process.env.LTC_API ?? "https://litecoinspace.org/api";
 const DUST_SATS = 546;
+
+// Per-UTXO-chain config. LTC is byte-identical to BTC (legacy P2PKH, secp256k1,
+// 1e8 base units) — only the Esplora base URL and the address decoder differ.
+interface UtxoChain {
+  api: string;
+  addressToHash160: (addr: string) => Buffer;
+  explorer: (txid: string) => string;
+}
+const UTXO_CHAINS: Record<string, UtxoChain> = {
+  BITCOIN:  { api: BTC_API, addressToHash160: btcAddressToHash160, explorer: (t) => `https://mempool.space/tx/${t}` },
+  LITECOIN: { api: LTC_API, addressToHash160: ltcAddressToHash160, explorer: (t) => `https://litecoinspace.org/tx/${t}` },
+};
 
 interface Utxo { txid: string; vout: number; value: number; }
 
@@ -283,9 +296,9 @@ function derSig(rHex: string, sHex: string): Buffer {
   return Buffer.concat([Buffer.from([0x30, body.length]), body]);
 }
 
-async function btcFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BTC_API}${path}`, init);
-  if (!res.ok) throw new Error(`BTC API ${path} -> HTTP ${res.status}`);
+async function esploraFetch<T>(api: string, path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${api}${path}`, init);
+  if (!res.ok) throw new Error(`UTXO API ${path} -> HTTP ${res.status}`);
   const text = await res.text();
   try { return JSON.parse(text) as T; } catch { return text as unknown as T; }
 }
@@ -311,20 +324,24 @@ function serializeBtcTx(
   return Buffer.concat(parts);
 }
 
-async function broadcastBTC(fromAddress: string, to: string, amountBtc: number, userPrivKey: string): Promise<string> {
-  const sendSats = BigInt(Math.round(amountBtc * 1e8));
-  if (sendSats <= BigInt(DUST_SATS)) throw new Error("BTC amount below dust");
+// Spend a legacy-P2PKH UTXO chain (BTC or LTC). Self-paying: the miner fee is
+// paid out of the coin being moved — no hot-wallet gas top-up. Identical tx
+// construction for both chains; `chain` carries the API base + address decoder.
+async function broadcastUTXO(chain: UtxoChain, fromAddress: string, to: string, amountCoin: number, userPrivKey: string): Promise<string> {
+  const { api, addressToHash160 } = chain;
+  const sendSats = BigInt(Math.round(amountCoin * 1e8));
+  if (sendSats <= BigInt(DUST_SATS)) throw new Error("Amount below dust");
 
-  const utxos = (await btcFetch<Utxo[]>(`/address/${fromAddress}/utxo`))
+  const utxos = (await esploraFetch<Utxo[]>(api, `/address/${fromAddress}/utxo`))
     .filter((u) => u.value > 0)
     .sort((a, b) => b.value - a.value);
-  if (utxos.length === 0) throw new Error("No spendable BTC at deposit address");
+  if (utxos.length === 0) throw new Error("No spendable UTXOs at deposit address");
 
-  const feeEst = await btcFetch<Record<string, number>>(`/fee-estimates`);
+  const feeEst = await esploraFetch<Record<string, number>>(api, `/fee-estimates`);
   const feeRate = Math.max(Math.ceil(feeEst["2"] ?? feeEst["3"] ?? 2), 2); // sat/vB, floor 2
 
-  const fromH160 = btcAddressToHash160(fromAddress);
-  const toScript = p2pkhScript(btcAddressToHash160(to));
+  const fromH160 = addressToHash160(fromAddress);
+  const toScript = p2pkhScript(addressToHash160(to));
   const fromScript = p2pkhScript(fromH160);
   const compressedPub = Buffer.from(new ethers.SigningKey(userPrivKey).compressedPublicKey.slice(2), "hex");
 
@@ -349,7 +366,7 @@ async function broadcastBTC(fromAddress: string, to: string, amountBtc: number, 
     outValue = inValue - fee;
     change = 0n;
     sendMinusFee = true;
-    if (outValue <= BigInt(DUST_SATS)) throw new Error("BTC balance too low to cover network fee");
+    if (outValue <= BigInt(DUST_SATS)) throw new Error("Balance too low to cover network fee");
   }
 
   const outputs = [{ script: toScript, value: outValue }];
@@ -369,8 +386,8 @@ async function broadcastBTC(fromAddress: string, to: string, amountBtc: number, 
   });
 
   const finalTx = serializeBtcTx(chosen, outputs, scriptSigs).toString("hex");
-  const txid = await btcFetch<string>(`/tx`, { method: "POST", body: finalTx });
-  if (!/^[0-9a-f]{64}$/.test(txid)) throw new Error(`BTC broadcast failed: ${txid}`);
+  const txid = await esploraFetch<string>(api, `/tx`, { method: "POST", body: finalTx });
+  if (!/^[0-9a-f]{64}$/.test(txid)) throw new Error(`Broadcast failed: ${txid}`);
   return txid;
 }
 
@@ -389,11 +406,13 @@ export async function broadcastWithdrawal(input: {
   const { hdIndex, fromAddress, to, crypto, network, amount } = input;
   const userPrivKey = resolveUserKey({ hdIndex, fromAddress, network });
 
+  const utxoChain = UTXO_CHAINS[network];
+
   let txHash: string;
   if (network === "TRC20") {
     txHash = await broadcastTron(fromAddress, to, crypto, amount, userPrivKey);
-  } else if (network === "BITCOIN") {
-    txHash = await broadcastBTC(fromAddress, to, amount, userPrivKey);
+  } else if (utxoChain) {
+    txHash = await broadcastUTXO(utxoChain, fromAddress, to, amount, userPrivKey);
   } else if (EVM_CHAINS[network]) {
     txHash = await broadcastEVM(fromAddress, to, crypto, network, amount, userPrivKey);
   } else {
@@ -402,7 +421,7 @@ export async function broadcastWithdrawal(input: {
 
   const explorer =
     network === "TRC20"   ? `https://tronscan.org/#/transaction/${txHash}` :
-    network === "BITCOIN" ? `https://mempool.space/tx/${txHash}` :
+    utxoChain             ? utxoChain.explorer(txHash) :
     network === "BEP20"   ? `https://bscscan.com/tx/${txHash}` :
     network === "POLYGON" ? `https://polygonscan.com/tx/${txHash}` :
                             `https://etherscan.io/tx/${txHash}`;

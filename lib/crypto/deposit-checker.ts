@@ -433,6 +433,12 @@ const BTC_EXPLORERS = [
   "https://mempool.space/api",
 ] as const;
 
+// Litecoin has an Esplora-compatible API (identical JSON shape to Blockstream),
+// so LTC reuses every parser below — only the base URL differs.
+const LTC_EXPLORERS = [
+  "https://litecoinspace.org/api",
+] as const;
+
 function btcDepositOutputs(address: string, tx: Record<string, unknown>, opts: { includeUnconfirmed?: boolean } = {}): DepositTx[] {
   const confirmed = Boolean((tx.status as Record<string, unknown>)?.confirmed);
   if (!confirmed && !opts.includeUnconfirmed) return [];
@@ -460,8 +466,8 @@ function btcDepositOutputs(address: string, tx: Record<string, unknown>, opts: {
   return results;
 }
 
-async function fetchBtcJson(path: string): Promise<unknown | null> {
-  for (const base of BTC_EXPLORERS) {
+async function fetchEsploraJson(bases: readonly string[], path: string): Promise<unknown | null> {
+  for (const base of bases) {
     try {
       const res = await fetch(`${base}${path}`, { cache: "no-store" });
       if (!res.ok) continue;
@@ -473,20 +479,22 @@ async function fetchBtcJson(path: string): Promise<unknown | null> {
   return null;
 }
 
-async function checkBTCDepositByHash(address: string, txHash: string): Promise<DepositTx[]> {
-  const tx = await fetchBtcJson(`/tx/${txHash}`);
-  if (!tx || typeof tx !== "object") return [];
-  // Recovery by hash should include unconfirmed so we can still notify.
-  return btcDepositOutputs(address, tx as Record<string, unknown>, { includeUnconfirmed: true });
-}
+const fetchBtcJson = (path: string) => fetchEsploraJson(BTC_EXPLORERS, path);
 
-export async function checkBTCDeposits(
+// Shared Esplora deposit scan — used by both BTC and LTC (same JSON shape).
+async function checkEsploraDeposits(
+  bases:   readonly string[],
   address: string,
   opts:    DepositCheckOptions = {},
 ): Promise<DepositTx[]> {
-  if (opts.txHash) return checkBTCDepositByHash(address, opts.txHash);
+  if (opts.txHash) {
+    const tx = await fetchEsploraJson(bases, `/tx/${opts.txHash}`);
+    if (!tx || typeof tx !== "object") return [];
+    // Recovery by hash should include unconfirmed so we can still notify.
+    return btcDepositOutputs(address, tx as Record<string, unknown>, { includeUnconfirmed: true });
+  }
 
-  const txs = await fetchBtcJson(`/address/${address}/txs`);
+  const txs = await fetchEsploraJson(bases, `/address/${address}/txs`);
   if (!Array.isArray(txs)) return [];
 
   const results: DepositTx[] = [];
@@ -497,6 +505,12 @@ export async function checkBTCDeposits(
   return results;
 }
 
+export const checkBTCDeposits = (address: string, opts: DepositCheckOptions = {}) =>
+  checkEsploraDeposits(BTC_EXPLORERS, address, opts);
+
+export const checkLTCDeposits = (address: string, opts: DepositCheckOptions = {}) =>
+  checkEsploraDeposits(LTC_EXPLORERS, address, opts);
+
 // ─── Unified dispatcher ───────────────────────────────────────────────────────
 
 export async function checkDeposits(
@@ -506,6 +520,7 @@ export async function checkDeposits(
   opts: DepositCheckOptions = {},
 ): Promise<DepositTx[]> {
   if (network === "BITCOIN") return checkBTCDeposits(address, opts);
+  if (network === "LITECOIN") return checkLTCDeposits(address, opts);
   if (network === "TRC20") {
     if (crypto === "TRX") return checkTronTRXDeposits(address, opts);
     return checkTronTRC20Deposits(address, crypto, opts);
@@ -555,14 +570,17 @@ async function getTRC20Balance(address: string, crypto: string): Promise<number>
   return Number(Object.values(token)[0]) / 1_000_000;
 }
 
-async function getBTCBalance(address: string): Promise<number> {
-  const data = await fetchBtcJson(`/address/${address}`);
+async function getEsploraBalance(bases: readonly string[], address: string): Promise<number> {
+  const data = await fetchEsploraJson(bases, `/address/${address}`);
   if (!data || typeof data !== "object") return 0;
   const stats = (data as { chain_stats?: { funded_txo_sum?: number; spent_txo_sum?: number } }).chain_stats;
   const funded = stats?.funded_txo_sum ?? 0;
   const spent  = stats?.spent_txo_sum  ?? 0;
   return (funded - spent) / 1e8;
 }
+
+const getBTCBalance = (address: string) => getEsploraBalance(BTC_EXPLORERS, address);
+const getLTCBalance = (address: string) => getEsploraBalance(LTC_EXPLORERS, address);
 
 /**
  * Returns the live on-chain balance, or `null` if the RPC/API call failed.
@@ -576,6 +594,7 @@ export async function tryGetOnChainBalance(
   try {
     let bal: number;
     if (network === "BITCOIN")            bal = await getBTCBalance(address);
+    else if (network === "LITECOIN")      bal = await getLTCBalance(address);
     else if (network === "TRC20" && crypto === "TRX") bal = await getTRXBalance(address);
     else if (network === "TRC20")         bal = await getTRC20Balance(address, crypto);
     else                                  bal = await getEVMBalance(address, crypto, network);

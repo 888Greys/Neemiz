@@ -131,11 +131,17 @@ export const CRYPTO_DEPOSIT_ASSETS = [
   // routing; displayNet keeps it visually distinct from the USDT-TRC20 token.
   // LIVE: native-TRX signer deployed to soi 2026-07-10 (self-paying withdrawals).
   { name: "Tron", code: "TRX", network: "TRC20", displayNet: "Tron (native TRX)", min: 10, enabled: true, soon: false },
-  { name: "Ethereum", code: "ETH", network: "ETHEREUM", displayNet: "Ethereum", min: 0.001, enabled: false, soon: true },
-  { name: "BNB", code: "BNB", network: "BEP20", displayNet: "BNB Smart Chain", min: 0.005, enabled: false, soon: true },
-  { name: "Polygon", code: "POL", network: "POLYGON", displayNet: "Polygon (native POL)", min: 1, enabled: false, soon: true },
+  // Native EVM coins — self-paying (fee is the coin itself). They reuse the shared
+  // EVM deposit address, the Etherscan-V2 deposit watcher, and the signer's native
+  // send path (broadcastEVM sends value directly when there is no token contract).
+  // ETH uses network id "ERC20" (chain 1) to reuse that rail; displayNet stays "Ethereum".
+  { name: "Ethereum", code: "ETH", network: "ERC20", displayNet: "Ethereum", min: 0.001, enabled: true, soon: false },
+  { name: "BNB", code: "BNB", network: "BEP20", displayNet: "BNB Smart Chain", min: 0.005, enabled: true, soon: false },
+  { name: "Polygon", code: "POL", network: "POLYGON", displayNet: "Polygon (native POL)", min: 1, enabled: true, soon: false },
   { name: "Solana", code: "SOL", network: "SOLANA", displayNet: "Solana", min: 0.02, enabled: false, soon: true },
-  { name: "Litecoin", code: "LTC", network: "LITECOIN", displayNet: "Litecoin", min: 0.001, enabled: false, soon: true },
+  // Litecoin — UTXO, self-paying (fee in LTC). Reuses the proven BTC signer/tx
+  // builder with LTC's P2PKH version byte + an Esplora-compatible explorer.
+  { name: "Litecoin", code: "LTC", network: "LITECOIN", displayNet: "Litecoin", min: 0.001, enabled: true, soon: false },
   { name: "XRP", code: "XRP", network: "XRPL", displayNet: "XRP Ledger", min: 1, enabled: false, soon: true },
   { name: "Dogecoin", code: "DOGE", network: "DOGECOIN", displayNet: "Dogecoin", min: 10, enabled: false, soon: true },
   { name: "Bitcoin Cash", code: "BCH", network: "BITCOINCASH", displayNet: "Bitcoin Cash", min: 0.001, enabled: false, soon: true },
@@ -146,4 +152,8 @@ export const VALID_CRYPTO_DEPOSIT_NETWORKS: Record<string, string[]> = {
   USDC: ["POLYGON"],
   BTC: ["BITCOIN"],
   TRX: ["TRC20"], // native TRX on Tron (self-paying)
+  ETH: ["ERC20"], // native ETH on Ethereum mainnet (self-paying)
+  BNB: ["BEP20"], // native BNB on BNB Smart Chain (self-paying)
+  POL: ["POLYGON"], // native POL on Polygon (self-paying)
+  LTC: ["LITECOIN"], // UTXO, self-paying (reuses BTC key + signer)
 };

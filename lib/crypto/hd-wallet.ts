@@ -16,7 +16,7 @@
 import { db } from "@/lib/db";
 import { registerMoralisEvmAddress } from "@/lib/crypto/moralis";
 import { registerTatumAddress } from "@/lib/crypto/tatum";
-import { deriveEVMAddress, deriveTronAddress, deriveBTCAddress } from "@/lib/crypto/xpub";
+import { deriveEVMAddress, deriveTronAddress, deriveBTCAddress, deriveLTCAddress } from "@/lib/crypto/xpub";
 
 async function registerRealtimeDepositAddress(address: string, network: string) {
   if (["ERC20", "BEP20", "POLYGON"].includes(network)) {
@@ -82,7 +82,8 @@ export async function getOrCreateDepositAddress(
 
   const isTron = network === "TRC20";
   const isBTC  = network === "BITCOIN";
-  const isEvm  = !isTron && !isBTC;
+  const isLTC  = network === "LITECOIN";
+  const isEvm  = !isTron && !isBTC && !isLTC;
 
   if (isEvm) {
     // Reuse the same EVM address for this user across ERC20/BEP20/POLYGON
@@ -104,6 +105,7 @@ export async function getOrCreateDepositAddress(
   const index   = (await db.cryptoDepositAddress.count()) + 1;
   const address = isTron ? deriveTronAddress(index)
                 : isBTC  ? deriveBTCAddress(index)
+                : isLTC  ? deriveLTCAddress(index)
                 :           deriveEVMAddress(index);
 
   await db.cryptoDepositAddress.create({

@@ -32,13 +32,17 @@ export function evmToTron(evm: string): string {
 const sha256 = (b: Buffer) => createHash("sha256").update(b).digest();
 const hash256 = (b: Buffer) => sha256(sha256(b));
 
-/** secp256k1 compressed public key (hex, with/without 0x) → legacy P2PKH (1…). */
-export function btcP2PKHFromPubKey(publicKeyHex: string): string {
+/** secp256k1 compressed public key (hex, with/without 0x) → base58check P2PKH.
+ *  `version`: 0x00 Bitcoin (1…), 0x30 Litecoin (L…). */
+export function p2pkhFromPubKey(publicKeyHex: string, version = 0x00): string {
   const pubKey    = Buffer.from(publicKeyHex.replace(/^0x/, ""), "hex");
   const hash160   = createHash("ripemd160").update(sha256(pubKey)).digest();
-  const versioned = Buffer.concat([Buffer.from([0x00]), hash160]);
+  const versioned = Buffer.concat([Buffer.from([version]), hash160]);
   return base58Encode(Buffer.concat([versioned, hash256(versioned).subarray(0, 4)]));
 }
+
+export const btcP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x00);
+export const ltcP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x30);
 
 export function base58Decode(s: string): Buffer {
   let num = 0n;
@@ -55,13 +59,22 @@ export function base58Decode(s: string): Buffer {
   return Buffer.concat([Buffer.alloc(leading, 0), bytes]);
 }
 
-/** legacy P2PKH address (1…) → its 20-byte hash160 (validates the checksum). */
-export function btcAddressToHash160(addr: string): Buffer {
+/**
+ * base58check P2PKH address → its 20-byte hash160 (validates checksum + version).
+ * `versions` lists the allowed P2PKH version bytes for the chain being spent.
+ */
+export function p2pkhToHash160(addr: string, versions: number[]): Buffer {
   const full = base58Decode(addr);
-  if (full.length !== 25) throw new Error(`Bad BTC address length: ${addr}`);
+  if (full.length !== 25) throw new Error(`Bad address length: ${addr}`);
   const payload = full.subarray(0, 21);
   const chk     = full.subarray(21);
-  if (!hash256(payload).subarray(0, 4).equals(chk)) throw new Error(`Bad BTC address checksum: ${addr}`);
-  if (payload[0] !== 0x00) throw new Error(`Only legacy P2PKH (1…) addresses supported: ${addr}`);
+  if (!hash256(payload).subarray(0, 4).equals(chk)) throw new Error(`Bad address checksum: ${addr}`);
+  if (!versions.includes(payload[0])) throw new Error(`Unsupported/wrong-network address: ${addr}`);
   return payload.subarray(1);
 }
+
+/** legacy P2PKH Bitcoin address (1…) → 20-byte hash160. */
+export const btcAddressToHash160 = (addr: string) => p2pkhToHash160(addr, [0x00]);
+
+/** legacy P2PKH Litecoin address (L…) → 20-byte hash160. */
+export const ltcAddressToHash160 = (addr: string) => p2pkhToHash160(addr, [0x30]);

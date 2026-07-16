@@ -40,34 +40,46 @@ describe("wallet deposit options", () => {
       network: "POLYGON",
       displayNet: "Polygon",
     });
-    // Live assets: the three stables/BTC plus native TRX (self-paying, signer live).
+    // Live assets: the three stables/BTC, native TRX, plus the native EVM coins
+    // (ETH/BNB/POL) which reuse the shared EVM address + watcher + signer rail.
     expect(CRYPTO_DEPOSIT_ASSETS.filter((a) => a.enabled)).toEqual([
       expect.objectContaining({ code: "USDT", network: "POLYGON", enabled: true }),
       expect.objectContaining({ code: "USDC", network: "POLYGON", enabled: true }),
       expect.objectContaining({ code: "BTC", network: "BITCOIN", enabled: true }),
       expect.objectContaining({ code: "TRX", network: "TRC20", enabled: true }),
+      expect.objectContaining({ code: "ETH", network: "ERC20", enabled: true }),
+      expect.objectContaining({ code: "BNB", network: "BEP20", enabled: true }),
+      expect.objectContaining({ code: "POL", network: "POLYGON", enabled: true }),
+      expect.objectContaining({ code: "LTC", network: "LITECOIN", enabled: true }),
     ]);
   });
 
   it("keeps the still-unwired natives as coming soon (never live until wired)", () => {
     const soon = CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).map((a) => a.code);
-    for (const code of ["ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
+    // Chains that still need new adapters remain soon.
+    for (const code of ["SOL", "XRP", "DOGE", "BCH"]) {
       expect(soon).toContain(code);
     }
-    // TRX is now live, so it must NOT be in the soon set.
-    expect(soon).not.toContain("TRX");
+    // Wired coins must NOT be in the soon set.
+    for (const code of ["TRX", "ETH", "BNB", "POL", "LTC"]) {
+      expect(soon).not.toContain(code);
+    }
     // Every soon asset must be disabled (no accidental live listing).
     expect(CRYPTO_DEPOSIT_ASSETS.filter((a) => a.soon).every((a) => !a.enabled)).toBe(true);
   });
 
-  it("allows address generation for live rails only (TRX now included, others not)", () => {
+  it("allows address generation for wired rails only (EVM natives now included)", () => {
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).toContain("POLYGON");
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDT).not.toContain("BEP20");
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.USDC).toEqual(["POLYGON"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BTC).toEqual(["BITCOIN"]);
     expect(VALID_CRYPTO_DEPOSIT_NETWORKS.TRX).toEqual(["TRC20"]);
-    // Still-unwired natives must have no address-generation allowlist entry yet.
-    for (const code of ["ETH", "BNB", "POL", "SOL", "LTC", "XRP", "DOGE", "BCH"]) {
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.ETH).toEqual(["ERC20"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.BNB).toEqual(["BEP20"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.POL).toEqual(["POLYGON"]);
+    expect(VALID_CRYPTO_DEPOSIT_NETWORKS.LTC).toEqual(["LITECOIN"]);
+    // Chains that still need new adapters have no allowlist entry yet.
+    for (const code of ["SOL", "XRP", "DOGE", "BCH"]) {
       expect(VALID_CRYPTO_DEPOSIT_NETWORKS[code]).toBeUndefined();
     }
   });

@@ -207,6 +207,70 @@ Respect existing kill switch: `CRYPTO_DEPOSITS_ENABLED` must stay fail-closed.
    - `app/api/crypto/withdraw/route.ts`: add `MIN_WITHDRAWAL.TRX` (e.g. 10).
 4. Keep `CRYPTO_DEPOSITS_ENABLED=true` (fail-closed kill switch stays).
 
+## Phase A — native EVM coins (ETH, BNB, POL): SHIPPED
+
+**Code shipped (this PR):** ETH, BNB, POL listed live end-to-end, reusing the
+existing EVM rail with **no signer redeploy** (native sends already work):
+
+- **Address:** shared EVM address (`deriveEVMAddress`, `m/44'/60'/0'/0/N`) — reused
+  across `ERC20`/`BEP20`/`POLYGON` by `getOrCreateDepositAddress`. Registered with
+  Moralis (already whitelisted for those three networks).
+- **Deposit detection:** `checkEVMDeposits` handles native coins (Etherscan-V2
+  `txlist`) via the `EVM_TOKENS` map. Added a native `POL:POLYGON` entry to
+  `lib/crypto/token-registry.ts`; `ETH:ERC20` and `BNB:BEP20` already existed.
+- **Withdrawal:** `broadcastEVM` already sends native value when the crypto has no
+  token contract, and tops up gas in the same coin from the hot wallet (same as
+  Polygon stables). `broadcastWithdrawal` routes `ERC20`/`BEP20`/`POLYGON` to it;
+  explorer URLs already cover all three. **No `signer/` change → no redeploy.**
+- **Catalogue:** ETH uses network id **`ERC20`** (chain 1) to reuse the rail;
+  `displayNet` stays "Ethereum". BNB→`BEP20`, POL→`POLYGON`. Added to
+  `VALID_CRYPTO_DEPOSIT_NETWORKS` / `VALID_CRYPTO_WITHDRAW_NETWORKS`,
+  `CRYPTO_WITHDRAW_ASSETS`, and `MIN_WITHDRAWAL` (ETH 0.005, BNB 0.01, POL 2).
+
+**⚠️ Go-live checklist before flipping traffic on:**
+1. **Signer spend caps** — `policy.ts` per-tx/daily caps fall back to
+   `DEFAULT: 1000` *in units of the coin*. 1000 ETH is ~$2M. Set explicit env
+   caps on the signer host, e.g.
+   `SIGNER_PER_TX_CAP={"ETH":1,"BNB":5,"POL":5000,"BTC":0.05}` and a matching
+   `SIGNER_DAILY_CAP`. (This gap also affects the already-live BTC/TRX rails.)
+2. **Fund the EVM hot wallet** with ETH / BNB / POL for gas top-ups (index 0).
+3. **`ETHERSCAN_API_KEY`** must be set (deposit detection throws without it).
+4. **Smoke test** a tiny real deposit + withdrawal on each of ETH, BNB, POL and
+   confirm the explorer tx before announcing.
+5. Keep `CRYPTO_DEPOSITS_ENABLED=true` (fail-closed kill switch stays).
+
+## Phase B (partial) — Litecoin (LTC): SHIPPED (code)
+
+LTC listed live end-to-end, reusing the **BTC UTXO rail** with **no new xpub/seed**:
+
+- **Address:** LTC reuses the BTC secp256k1 key (same `MASTER_XPUB_BTC` path),
+  re-encoded with Litecoin's P2PKH version byte `0x30` (`L…`). `deriveLTCAddress`
+  in `xpub.ts`; `getOrCreateDepositAddress` treats `LITECOIN` as its own UTXO
+  branch (not EVM-address-reuse). Signer `keys.ts` maps `LITECOIN`→coin path 0
+  and encodes/matches the LTC address, so it controls the key with no new env.
+- **Deposit detection:** `checkLTCDeposits` reuses the Esplora parser against
+  `litecoinspace.org` (identical JSON to Blockstream). `LTC_EXPLORERS` +
+  `getLTCBalance` added; `checkDeposits`/`tryGetOnChainBalance` route `LITECOIN`.
+- **Withdrawal:** signer `broadcastBTC` generalized to `broadcastUTXO(chain,…)`
+  (`UTXO_CHAINS` map: API base + address decoder + explorer). Tx construction,
+  sighash, DER signing are byte-identical to BTC. Self-paying: fee out of the LTC.
+- **Catalogue/route/UI/tests:** LTC flipped live in deposit + withdraw options,
+  `MIN_WITHDRAWAL.LTC=0.01`, `NETWORK_LABEL.LITECOIN`, and tests updated
+  (incl. `tests/ltc-address.test.ts` proving the `L…` encoding).
+
+**⚠️ LTC go-live (in addition to the EVM checklist above):**
+1. **Fund the LTC hot wallet** — the LTC address for HD index 0 (same key as the
+   BTC hot wallet, LTC-encoded) needs a little LTC so max-send withdrawals work.
+2. **Signer redeploy required** — unlike the EVM coins, `signer/` changed
+   (broadcaster/keys/address-codec). Rebuild the signer container on soi.
+3. **`LTC_API`** optional env override (defaults to `https://litecoinspace.org/api`);
+   set a backup Esplora endpoint if desired. Same for `BTC_API`.
+4. **Smoke test** a tiny real LTC deposit + withdrawal and confirm on the explorer
+   before announcing.
+
+**Not yet wired (still `soon`):** DOGE, BCH (new explorer adapter / CashAddr),
+SOL (ed25519 + new lib), XRP (binary codec + destination-tag redesign).
+
 ## Out of scope
 
 - Enabling USDT on TRC20 / ERC20 / BEP20.

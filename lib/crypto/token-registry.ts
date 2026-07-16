@@ -19,6 +19,7 @@ export const EVM_TOKEN_LIST: EvmToken[] = [
   { crypto: "BUSD",  network: "BEP20",   chainId: 56,  contract: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", decimals: 18 },
 
   { crypto: "MATIC", network: "POLYGON", chainId: 137, contract: "", decimals: 18 },
+  { crypto: "POL",   network: "POLYGON", chainId: 137, contract: "", decimals: 18 }, // native POL (renamed MATIC) — self-paying
   { crypto: "USDC",  network: "POLYGON", chainId: 137, contract: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", decimals: 6 },
   { crypto: "USDCE", network: "POLYGON", chainId: 137, contract: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", decimals: 6 },
   { crypto: "USDT",  network: "POLYGON", chainId: 137, contract: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6 },

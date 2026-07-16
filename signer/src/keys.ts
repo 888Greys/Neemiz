@@ -4,7 +4,7 @@
  * deposit address. No database — the web app passes the hdIndex.
  */
 import { HDNodeWallet, Mnemonic, Wallet } from "ethers";
-import { evmToTron, btcP2PKHFromPubKey } from "./address-codec";
+import { evmToTron, btcP2PKHFromPubKey, ltcP2PKHFromPubKey } from "./address-codec";
 
 function getRoot(): HDNodeWallet {
   const phrase = process.env.MASTER_WALLET_MNEMONIC;
@@ -14,7 +14,9 @@ function getRoot(): HDNodeWallet {
 
 function coinPath(network: string): number {
   if (network === "TRC20")   return 195;
-  if (network === "BITCOIN") return 0;
+  // LITECOIN reuses the BTC secp256k1 key (same path); only the address encoding
+  // differs. The signer therefore controls the LTC address without a new xpub.
+  if (network === "BITCOIN" || network === "LITECOIN") return 0;
   return 60; // ERC20 / BEP20 / POLYGON
 }
 
@@ -28,7 +30,8 @@ export function getHotTronKey(): string { return getRoot().derivePath("m/44'/195
 /** The on-chain address a private key controls, in the network's encoding. */
 function addressForKey(privKey: string, network: string): string {
   const wallet = new Wallet(privKey);
-  if (network === "BITCOIN") return btcP2PKHFromPubKey(wallet.signingKey.compressedPublicKey);
+  if (network === "BITCOIN")  return btcP2PKHFromPubKey(wallet.signingKey.compressedPublicKey);
+  if (network === "LITECOIN") return ltcP2PKHFromPubKey(wallet.signingKey.compressedPublicKey);
   return network === "TRC20" ? evmToTron(wallet.address) : wallet.address;
 }
 

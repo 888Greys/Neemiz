@@ -1362,8 +1362,12 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 const NETWORK_LABEL: Record<string, string> = {
   POLYGON: "Polygon",
   BITCOIN: "Bitcoin",
+  LITECOIN: "Litecoin",
   ETHEREUM: "Ethereum",
+  ERC20: "Ethereum",
+  BEP20: "BNB Smart Chain",
   BSC: "BNB Chain",
+  TRC20: "Tron",
   TRON: "Tron",
 };
 
