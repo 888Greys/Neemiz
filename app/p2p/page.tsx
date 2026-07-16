@@ -16,10 +16,9 @@ export const dynamic = "force-dynamic";
 export default function P2PPage() {
   // Manual choice (cookie) wins over auto-detected geo currency.
   const cookieFiat = cookies().get("user_fiat")?.value;
-  const headerList = headers();
   const defaultFiat = isSupportedFiat(cookieFiat)
     ? cookieFiat!
-    : detectFiatFromHeaders((name) => headerList.get(name));
+    : "__ALL__";
 
   return (
     <AppShell rightPanel={<P2PMarketPanel />} hideFooter>
