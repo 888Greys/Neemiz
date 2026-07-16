@@ -4,8 +4,16 @@
  * math only, so this is safe to run anywhere.
  */
 import { createHash } from "crypto";
+import { encodeCashAddr } from "./cashaddr";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+/** secp256k1 public key (hex, with/without 0x) → 20-byte hash160 (RIPEMD160(SHA256)). */
+export function hash160FromPubKey(publicKeyHex: string): Buffer {
+  const pubKey = Buffer.from(publicKeyHex.replace(/^0x/, ""), "hex");
+  const sha    = createHash("sha256").update(pubKey).digest();
+  return createHash("ripemd160").update(sha).digest();
+}
 
 export function base58Encode(buf: Buffer): string {
   const digits: number[] = [0];
@@ -56,3 +64,6 @@ export const ltcP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publ
 
 /** secp256k1 public key → legacy P2PKH Dogecoin address (D…). */
 export const dogeP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x1e);
+
+/** secp256k1 public key → Bitcoin Cash CashAddr (bitcoincash:q…). */
+export const bchP2PKHFromPubKey = (publicKeyHex: string) => encodeCashAddr(hash160FromPubKey(publicKeyHex));

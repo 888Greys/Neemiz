@@ -29,6 +29,7 @@ const MIN_WITHDRAWAL: Record<string, number> = {
   POL:  2,      // native POL — headroom above Polygon gas
   LTC:  0.01,   // UTXO — comfortably above dust + a typical LTC miner fee
   DOGE: 10,     // UTXO — above DOGE dust + fee (still gated: not yet in the withdraw allowlist)
+  BCH:  0.001,  // UTXO — above BCH dust + fee (still gated: not yet in the withdraw allowlist)
 };
 
 // Keep the platform fee configurable. It is disabled while withdrawals are

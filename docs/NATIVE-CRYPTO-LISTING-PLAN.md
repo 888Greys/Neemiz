@@ -296,8 +296,37 @@ allowlists**, because its explorer path is new and could not be exercised in-rep
    - `wallet-withdraw-options.ts`: add DOGE asset + `VALID_CRYPTO_WITHDRAW_NETWORKS.DOGE`.
    - Update the two option tests (move DOGE from the `soon` set to live).
 
-**Not yet wired (still `soon`):** BCH (CashAddr + explorer), SOL (ed25519 + new
-lib), XRP (binary codec + destination-tag redesign).
+## Phase B (partial) — Bitcoin Cash (BCH): WIRED, pending smoke test
+
+BCH is fully plumbed but left `soon` / out of the allowlists (unverified explorer).
+It reuses the BTC secp256k1 key (re-encoded), but has two genuinely new pieces:
+
+- **CashAddr** (`bitcoincash:q…`): hand-rolled bech32-style codec in
+  `lib/crypto/cashaddr.ts` (+ signer copy). **Verified offline** against the
+  canonical spec vector (`tests/cashaddr.test.ts`) — encoding is known-correct.
+  The signer's `bchAddressToHash160` accepts CashAddr (with/without prefix) and
+  falls back to legacy base58 P2PKH for destinations.
+- **BIP143 signing**: BCH replaced the legacy sighash with a BIP143 preimage +
+  `SIGHASH_FORKID` (0x41). `broadcastUTXO` now branches on a per-chain `sighash`
+  strategy (`"legacy"` for BTC/LTC/DOGE, `"bip143"` for BCH via `bip143Sighashes`).
+  The serialized tx format is otherwise identical. **This sighash path is NOT
+  verified in-repo** (no signed-tx vector) — the key smoke-test risk.
+- **Explorer**: Blockchair provider (`blockchairProvider`) for UTXO / fee /
+  broadcast; app deposit detection + balance via Blockchair's address dashboard.
+- **Pre-staged**: `MIN_WITHDRAWAL.BCH`, `NETWORK_LABEL.BITCOINCASH`.
+
+**⚠️ BCH go-live — signer redeploy + smoke test AND:**
+1. `BLOCKCHAIR_KEY` env (app + signer); optional `BCH_API` override. Confirm the
+   exact address format Blockchair expects (prefix vs prefixless CashAddr).
+2. Fund the BCH hot wallet (index-0 key, CashAddr-encoded).
+3. **Verify the BIP143 signature on a real tiny BCH tx** (this is the part that
+   could not be checked offline) + the Blockchair deposit/fee/broadcast shapes.
+4. One-line flip: BCH → `enabled: true, soon: false`,
+   `VALID_CRYPTO_DEPOSIT_NETWORKS.BCH = ["BITCOINCASH"]`, add the withdraw asset +
+   `VALID_CRYPTO_WITHDRAW_NETWORKS.BCH`, update the two option tests.
+
+**Not yet wired (still `soon`):** SOL (ed25519 + new lib), XRP (binary codec +
+destination-tag redesign) — both need a new dependency, out of this stack's scope.
 
 ## Out of scope
 

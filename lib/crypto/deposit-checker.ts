@@ -563,6 +563,51 @@ async function getDOGEBalance(address: string): Promise<number> {
   return (data.final_balance ?? 0) / 1e8;
 }
 
+// ─── Bitcoin Cash via Blockchair ──────────────────────────────────────────────
+// BCH has no reliable public Esplora endpoint; deposit detection uses Blockchair's
+// address dashboard (values in satoshis). NOTE: unverified in-repo — smoke-test
+// against real BCH (incl. the CashAddr the API expects) before flipping live.
+const BCH_API = process.env.BCH_API ?? "https://api.blockchair.com/bitcoin-cash";
+const BLOCKCHAIR_KEY = process.env.BLOCKCHAIR_KEY ?? "";
+
+interface BlockchairAddressData {
+  address?: { balance?: number };
+  utxo?: { transaction_hash: string; index: number; value: number; block_id: number }[];
+}
+
+async function fetchBchDashboard(address: string): Promise<BlockchairAddressData | null> {
+  // Blockchair keys BCH addresses without the "bitcoincash:" prefix.
+  const addr = address.replace(/^bitcoincash:/i, "");
+  const q = BLOCKCHAIR_KEY ? `?key=${BLOCKCHAIR_KEY}` : "";
+  const res = await fetch(`${BCH_API}/dashboards/address/${addr}${q}`, { cache: "no-store" });
+  if (!res.ok) return null;
+  const data = await res.json() as { data?: Record<string, BlockchairAddressData> };
+  return data.data?.[addr] ?? Object.values(data.data ?? {})[0] ?? null;
+}
+
+export async function checkBCHDeposits(
+  address: string,
+  opts:    DepositCheckOptions = {},
+): Promise<DepositTx[]> {
+  const entry = await fetchBchDashboard(address);
+  const txs = (entry?.utxo ?? [])
+    .filter((u) => u.value > 0)
+    .map((u) => ({
+      txHash:    u.transaction_hash,
+      amount:    (u.value / 1e8).toFixed(8),
+      from:      "",
+      timestamp: Date.now(), // Blockchair UTXO rows carry block_id, not a timestamp
+      logIndex:  String(u.index),
+      confirmed: u.block_id > 0,
+    }));
+  return opts.txHash ? txs.filter((t) => t.txHash === opts.txHash) : txs;
+}
+
+async function getBCHBalance(address: string): Promise<number> {
+  const entry = await fetchBchDashboard(address);
+  return (entry?.address?.balance ?? 0) / 1e8;
+}
+
 // ─── Unified dispatcher ───────────────────────────────────────────────────────
 
 export async function checkDeposits(
@@ -574,6 +619,7 @@ export async function checkDeposits(
   if (network === "BITCOIN") return checkBTCDeposits(address, opts);
   if (network === "LITECOIN") return checkLTCDeposits(address, opts);
   if (network === "DOGECOIN") return checkDOGEDeposits(address, opts);
+  if (network === "BITCOINCASH") return checkBCHDeposits(address, opts);
   if (network === "TRC20") {
     if (crypto === "TRX") return checkTronTRXDeposits(address, opts);
     return checkTronTRC20Deposits(address, crypto, opts);
@@ -649,6 +695,7 @@ export async function tryGetOnChainBalance(
     if (network === "BITCOIN")            bal = await getBTCBalance(address);
     else if (network === "LITECOIN")      bal = await getLTCBalance(address);
     else if (network === "DOGECOIN")      bal = await getDOGEBalance(address);
+    else if (network === "BITCOINCASH")   bal = await getBCHBalance(address);
     else if (network === "TRC20" && crypto === "TRX") bal = await getTRXBalance(address);
     else if (network === "TRC20")         bal = await getTRC20Balance(address, crypto);
     else                                  bal = await getEVMBalance(address, crypto, network);

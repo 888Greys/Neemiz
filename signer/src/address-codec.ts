@@ -1,5 +1,6 @@
 /** Pure address encoders (copy of the web app's lib/crypto/address-codec.ts). */
 import { createHash } from "crypto";
+import { encodeCashAddr, decodeCashAddr } from "./cashaddr";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -45,6 +46,13 @@ export const btcP2PKHFromPubKey  = (publicKeyHex: string) => p2pkhFromPubKey(pub
 export const ltcP2PKHFromPubKey  = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x30);
 export const dogeP2PKHFromPubKey = (publicKeyHex: string) => p2pkhFromPubKey(publicKeyHex, 0x1e);
 
+/** secp256k1 compressed public key → Bitcoin Cash CashAddr (bitcoincash:q…). */
+export function bchP2PKHFromPubKey(publicKeyHex: string): string {
+  const pubKey  = Buffer.from(publicKeyHex.replace(/^0x/, ""), "hex");
+  const hash160 = createHash("ripemd160").update(sha256(pubKey)).digest();
+  return encodeCashAddr(hash160);
+}
+
 export function base58Decode(s: string): Buffer {
   let num = 0n;
   for (const c of s) {
@@ -82,3 +90,14 @@ export const ltcAddressToHash160 = (addr: string) => p2pkhToHash160(addr, [0x30]
 
 /** legacy P2PKH Dogecoin address (D…) → 20-byte hash160. */
 export const dogeAddressToHash160 = (addr: string) => p2pkhToHash160(addr, [0x1e]);
+
+/**
+ * Bitcoin Cash destination → 20-byte hash160. Accepts CashAddr (bitcoincash:q…,
+ * with or without prefix) and, as a fallback, legacy base58 P2PKH (version 0x00).
+ */
+export function bchAddressToHash160(addr: string): Buffer {
+  if (/^(bitcoincash:)?[qp][a-z0-9]{40,}$/i.test(addr.trim())) {
+    try { return decodeCashAddr(addr.trim()); } catch { /* fall through to legacy */ }
+  }
+  return p2pkhToHash160(addr.trim(), [0x00]);
+}

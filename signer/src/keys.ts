@@ -4,7 +4,7 @@
  * deposit address. No database — the web app passes the hdIndex.
  */
 import { HDNodeWallet, Mnemonic, Wallet } from "ethers";
-import { evmToTron, btcP2PKHFromPubKey, ltcP2PKHFromPubKey, dogeP2PKHFromPubKey } from "./address-codec";
+import { evmToTron, btcP2PKHFromPubKey, ltcP2PKHFromPubKey, dogeP2PKHFromPubKey, bchP2PKHFromPubKey } from "./address-codec";
 
 function getRoot(): HDNodeWallet {
   const phrase = process.env.MASTER_WALLET_MNEMONIC;
@@ -14,9 +14,9 @@ function getRoot(): HDNodeWallet {
 
 function coinPath(network: string): number {
   if (network === "TRC20")   return 195;
-  // LITECOIN / DOGECOIN reuse the BTC secp256k1 key (same path); only the address
-  // encoding differs. The signer therefore controls those addresses without a new xpub.
-  if (network === "BITCOIN" || network === "LITECOIN" || network === "DOGECOIN") return 0;
+  // LITECOIN / DOGECOIN / BITCOINCASH reuse the BTC secp256k1 key (same path); only
+  // the address encoding differs. The signer controls those addresses without a new xpub.
+  if (network === "BITCOIN" || network === "LITECOIN" || network === "DOGECOIN" || network === "BITCOINCASH") return 0;
   return 60; // ERC20 / BEP20 / POLYGON
 }
 
@@ -33,6 +33,7 @@ function addressForKey(privKey: string, network: string): string {
   if (network === "BITCOIN")  return btcP2PKHFromPubKey(wallet.signingKey.compressedPublicKey);
   if (network === "LITECOIN") return ltcP2PKHFromPubKey(wallet.signingKey.compressedPublicKey);
   if (network === "DOGECOIN") return dogeP2PKHFromPubKey(wallet.signingKey.compressedPublicKey);
+  if (network === "BITCOINCASH") return bchP2PKHFromPubKey(wallet.signingKey.compressedPublicKey);
   return network === "TRC20" ? evmToTron(wallet.address) : wallet.address;
 }
 

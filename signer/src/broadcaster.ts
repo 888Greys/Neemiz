@@ -10,7 +10,7 @@
 import { ethers } from "ethers";
 import { createHash } from "crypto";
 import { getHotEVMKey, getHotTronKey, resolveUserKey } from "./keys";
-import { btcAddressToHash160, ltcAddressToHash160, dogeAddressToHash160 } from "./address-codec";
+import { btcAddressToHash160, ltcAddressToHash160, dogeAddressToHash160, bchAddressToHash160 } from "./address-codec";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -255,7 +255,9 @@ async function broadcastTron(fromTronAddress: string, to: string, crypto: string
 const BTC_API  = process.env.BTC_API  ?? "https://blockstream.info/api";
 const LTC_API  = process.env.LTC_API  ?? "https://litecoinspace.org/api";
 const DOGE_API = process.env.DOGE_API ?? "https://api.blockcypher.com/v1/doge/main";
+const BCH_API  = process.env.BCH_API  ?? "https://api.blockchair.com/bitcoin-cash";
 const BLOCKCYPHER_TOKEN = process.env.BLOCKCYPHER_TOKEN ?? "";
+const BLOCKCHAIR_KEY    = process.env.BLOCKCHAIR_KEY ?? "";
 
 interface Utxo { txid: string; vout: number; value: number; }
 
@@ -273,6 +275,10 @@ interface UtxoChain {
   explorer: (txid: string) => string;
   provider: UtxoProvider;
   dust: number;
+  // "legacy" = original Bitcoin sighash (BTC/LTC/DOGE); "bip143" = BCH's
+  // BIP143 preimage with SIGHASH_FORKID (0x41). Only the sighash + hashtype byte
+  // differ — the serialized tx format is identical.
+  sighash: "legacy" | "bip143";
 }
 
 async function esploraFetch<T>(api: string, path: string, init?: RequestInit): Promise<T> {
@@ -330,10 +336,44 @@ function blockcypherProvider(base: string, token: string): UtxoProvider {
   };
 }
 
+// Blockchair-shape API (Bitcoin Cash). Values in satoshis. Unverified in-repo —
+// smoke-test against real BCH before going live.
+function blockchairProvider(base: string, key: string): UtxoProvider {
+  const q = key ? `?key=${key}` : "";
+  const stripPrefix = (a: string) => a.replace(/^bitcoincash:/i, "");
+  return {
+    listUtxos: async (addr) => {
+      const res = await fetch(`${base}/dashboards/address/${stripPrefix(addr)}${q}`);
+      if (!res.ok) throw new Error(`BCH API /dashboards -> HTTP ${res.status}`);
+      const data = await res.json() as { data?: Record<string, { utxo?: { transaction_hash: string; index: number; value: number }[] }> };
+      const entry = data.data?.[stripPrefix(addr)] ?? Object.values(data.data ?? {})[0];
+      return (entry?.utxo ?? []).map((u) => ({ txid: u.transaction_hash, vout: u.index, value: u.value }));
+    },
+    feeRateSatPerVb: async () => {
+      const res = await fetch(`${base}/stats${q}`);
+      if (!res.ok) throw new Error(`BCH API /stats -> HTTP ${res.status}`);
+      const data = await res.json() as { data?: { suggested_transaction_fee_per_byte_sat?: number } };
+      return Math.max(Math.ceil(data.data?.suggested_transaction_fee_per_byte_sat ?? 1), 1);
+    },
+    broadcastHex: async (hex) => {
+      const res  = await fetch(`${base}/push/transaction${q}`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body:    `data=${hex}`,
+      });
+      const data = await res.json() as { data?: { transaction_hash?: string }; context?: { error?: string } };
+      const hash = data.data?.transaction_hash;
+      if (!hash) throw new Error(`BCH broadcast failed: ${data.context?.error ?? "unknown"}`);
+      return hash;
+    },
+  };
+}
+
 const UTXO_CHAINS: Record<string, UtxoChain> = {
-  BITCOIN:  { addressToHash160: btcAddressToHash160,  explorer: (t) => `https://mempool.space/tx/${t}`,     provider: esploraProvider(BTC_API),  dust: 546 },
-  LITECOIN: { addressToHash160: ltcAddressToHash160,  explorer: (t) => `https://litecoinspace.org/tx/${t}`, provider: esploraProvider(LTC_API),  dust: 546 },
-  DOGECOIN: { addressToHash160: dogeAddressToHash160, explorer: (t) => `https://dogechain.info/tx/${t}`,    provider: blockcypherProvider(DOGE_API, BLOCKCYPHER_TOKEN), dust: 1_000_000 },
+  BITCOIN:     { addressToHash160: btcAddressToHash160,  explorer: (t) => `https://mempool.space/tx/${t}`,     provider: esploraProvider(BTC_API),                        dust: 546,       sighash: "legacy" },
+  LITECOIN:    { addressToHash160: ltcAddressToHash160,  explorer: (t) => `https://litecoinspace.org/tx/${t}`, provider: esploraProvider(LTC_API),                        dust: 546,       sighash: "legacy" },
+  DOGECOIN:    { addressToHash160: dogeAddressToHash160, explorer: (t) => `https://dogechain.info/tx/${t}`,    provider: blockcypherProvider(DOGE_API, BLOCKCYPHER_TOKEN), dust: 1_000_000, sighash: "legacy" },
+  BITCOINCASH: { addressToHash160: bchAddressToHash160,  explorer: (t) => `https://blockchair.com/bitcoin-cash/transaction/${t}`, provider: blockchairProvider(BCH_API, BLOCKCHAIR_KEY), dust: 546, sighash: "bip143" },
 };
 
 const btcSha256d = (b: Buffer) => createHash("sha256").update(createHash("sha256").update(b).digest()).digest();
@@ -383,7 +423,31 @@ function serializeBtcTx(
   return Buffer.concat(parts);
 }
 
-// Spend a legacy-P2PKH UTXO chain (BTC / LTC / DOGE). Self-paying: the miner fee
+// BIP143 sighash preimage (used by Bitcoin Cash with SIGHASH_FORKID). Every input
+// shares hashPrevouts/hashSequence/hashOutputs; only outpoint+scriptCode+value vary.
+// forkId = 0 on BCH mainnet, so the 4-byte sighash type is just `hashType` (0x41).
+function bip143Sighashes(inputs: Utxo[], outputs: { script: Buffer; value: bigint }[], prevoutScript: Buffer, hashType: number): Buffer[] {
+  const hashPrevouts = btcSha256d(Buffer.concat(inputs.map((i) => Buffer.concat([Buffer.from(i.txid, "hex").reverse(), u32le(i.vout)]))));
+  const hashSequence = btcSha256d(Buffer.concat(inputs.map(() => u32le(0xffffffff))));
+  const hashOutputs  = btcSha256d(Buffer.concat(outputs.map((o) => Buffer.concat([u64le(o.value), varint(o.script.length), o.script]))));
+  return inputs.map((inp) => {
+    const preimage = Buffer.concat([
+      u32le(1),                                                     // nVersion
+      hashPrevouts,
+      hashSequence,
+      Buffer.from(inp.txid, "hex").reverse(), u32le(inp.vout),      // this input's outpoint
+      varint(prevoutScript.length), prevoutScript,                 // scriptCode (prevout P2PKH)
+      u64le(BigInt(inp.value)),                                    // prevout value
+      u32le(0xffffffff),                                           // nSequence
+      hashOutputs,
+      u32le(0),                                                    // nLocktime
+      u32le(hashType),                                             // sighash type (forkId=0)
+    ]);
+    return btcSha256d(preimage);
+  });
+}
+
+// Spend a legacy-P2PKH UTXO chain (BTC / LTC / DOGE / BCH). Self-paying: the miner fee
 // is paid out of the coin being moved — no hot-wallet gas top-up. Identical tx
 // construction across chains; `chain` carries the provider, address decoder, dust.
 async function broadcastUTXO(chain: UtxoChain, fromAddress: string, to: string, amountCoin: number, userPrivKey: string): Promise<string> {
@@ -430,15 +494,23 @@ async function broadcastUTXO(chain: UtxoChain, fromAddress: string, to: string, 
   const outputs = [{ script: toScript, value: outValue }];
   if (!sendMinusFee && change > BigInt(dust)) outputs.push({ script: fromScript, value: change });
 
-  // Sign each input with SIGHASH_ALL.
+  // Per-input sighash digest + hashtype byte differ by chain: legacy Bitcoin
+  // sighash (0x01) for BTC/LTC/DOGE, BIP143 + SIGHASH_FORKID (0x41) for BCH.
+  const bip143 = chain.sighash === "bip143";
+  const hashTypeByte = bip143 ? 0x41 : 0x01;
+  const digests = bip143
+    ? bip143Sighashes(chosen, outputs, fromScript, hashTypeByte)
+    : chosen.map((_, idx) => {
+        const scripts = chosen.map((__, j) => (j === idx ? fromScript : null));
+        return btcSha256d(Buffer.concat([serializeBtcTx(chosen, outputs, scripts), u32le(hashTypeByte)]));
+      });
+
   const signingKey = new ethers.SigningKey(userPrivKey);
-  const scriptSigs: Buffer[] = chosen.map((_, idx) => {
-    const scripts = chosen.map((__, j) => (j === idx ? fromScript : null));
-    const preimage = Buffer.concat([serializeBtcTx(chosen, outputs, scripts), u32le(1)]); // hashtype 1
-    const sig = signingKey.sign(btcSha256d(preimage));
+  const scriptSigs: Buffer[] = digests.map((digest) => {
+    const sig = signingKey.sign(digest);
     const der = derSig(sig.r, sig.s);
     return Buffer.concat([
-      varint(der.length + 1), der, Buffer.from([0x01]),
+      varint(der.length + 1), der, Buffer.from([hashTypeByte]),
       varint(compressedPub.length), compressedPub,
     ]);
   });
