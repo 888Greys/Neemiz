@@ -5,7 +5,8 @@ import Link from "next/link";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { Icon } from "@/components/icon";
 
-// Ops triage, built in the Stitch design language, wired to /api/admin/ops.
+// Ops Action Queue — consolidated triage from /api/admin/ops. Replaces the
+// cockpit landing queue after /admin/new started redirecting to Money.
 
 interface Queue { key: string; label: string; icon: string; href: string; count: number; amount: number; oldest: string | null; detail: string }
 interface Ops { queues: Queue[]; totalPending: number }
@@ -38,11 +39,10 @@ export function AdminV2Ops() {
   const active = data.queues.filter((q) => q.count > 0);
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div>
       <div className="mb-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#adc6ff]">Operations</p>
-        <h2 className="mt-1 text-[32px] font-semibold tracking-[-0.02em] text-[#e5e2e3]">Ops</h2>
-        <p className="mt-1 text-[14px] text-[#c2c6d6]">Consolidated triage across every queue requiring review.</p>
+        <h3 className="text-[16px] font-semibold text-[#e5e2e3]">Action Queue</h3>
+        <p className="mt-1 text-[13px] text-[#c2c6d6]">Every queue that needs a human decision — open a row to act.</p>
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -57,7 +57,7 @@ export function AdminV2Ops() {
           </div>
         </div>
         {active.slice(0, 3).map((q) => (
-          <div key={q.key} className="av2-card relative flex h-32 flex-col justify-between overflow-hidden rounded-lg p-4">
+          <Link key={q.key} href={q.href} className="av2-card relative flex h-32 flex-col justify-between overflow-hidden rounded-lg p-4 transition-colors hover:border-[#3b82f6]/40">
             <div className="flex items-start justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-[#c2c6d6]">{q.label}</span>
               <Icon name={q.icon} size={20} className="text-[#adc6ff]" />
@@ -66,7 +66,7 @@ export function AdminV2Ops() {
               <span className="av2-mono text-[32px] font-semibold text-[#e5e2e3]">{q.count}</span>
               <div className="mt-1 text-[13px] text-[#c2c6d6]">oldest {waited(q.oldest)}</div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -86,13 +86,13 @@ export function AdminV2Ops() {
           </thead>
           <tbody className="divide-y divide-[#27272a]">
             {data.queues.map((q) => (
-              <tr key={q.key} className="hover:bg-[#1c1b1c]">
+              <tr key={q.key} className={`hover:bg-[#1c1b1c] ${q.count > 0 ? "bg-red-500/[0.03]" : ""}`}>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <Icon name={q.icon} size={18} className={q.count > 0 ? "text-[#ffb786]" : "text-[#8c909f]"} />
+                    <Icon name={q.icon} size={18} className={q.count > 0 ? "text-red-400" : "text-[#8c909f]"} />
                     <div>
                       <div className="font-semibold text-[#e5e2e3]">{q.label}</div>
-                      <div className="text-[11px] text-[#8c909f]">{q.detail}</div>
+                      <div className={`text-[11px] ${q.count > 0 ? "text-red-400/80" : "text-[#8c909f]"}`}>{q.detail}</div>
                     </div>
                   </div>
                 </td>

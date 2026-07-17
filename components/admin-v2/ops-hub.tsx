@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AdminV2Ops } from "./ops";
 import { AdminV2Withdrawals } from "./withdrawals";
 import { AdminV2P2P } from "./p2p";
@@ -9,6 +10,7 @@ import { LipaRecovery } from "./lipa-recovery";
 
 // One Ops page, tabbed over the existing action components (reused as-is so every
 // mutation keeps working): overview, withdrawal approvals, P2P ops, broadcast.
+// Tab is URL-backed (?tab=) so Action Queue links can deep-link into a queue.
 const TABS: { id: string; label: string; C: React.ComponentType }[] = [
   { id: "overview", label: "Overview", C: AdminV2Ops },
   { id: "withdrawals", label: "Withdrawals", C: AdminV2Withdrawals },
@@ -17,9 +19,27 @@ const TABS: { id: string; label: string; C: React.ComponentType }[] = [
   { id: "recovery", label: "Lipa recovery", C: LipaRecovery },
 ];
 
+const TAB_IDS = new Set(TABS.map((t) => t.id));
+
 export function OpsHub() {
-  const [tab, setTab] = useState("overview");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const raw = searchParams.get("tab") ?? "overview";
+  const tab = TAB_IDS.has(raw) ? raw : "overview";
   const Active = (TABS.find((t) => t.id === tab) ?? TABS[0]).C;
+
+  const setTab = useCallback(
+    (id: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (id === "overview") params.delete("tab");
+      else params.set("tab", id);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-2">
