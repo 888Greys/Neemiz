@@ -45,9 +45,9 @@ describe("first-deposit bonus", () => {
     delete process.env.FIRST_DEPOSIT_BONUS_CAP_KES;
   });
 
-  it("grants 50% on the first real deposit (100 -> 50)", async () => {
+  it("grants 25% on the first real deposit (200 -> 50)", async () => {
     const { tx, redemptionCreate, userUpdate } = mockTx({ priorDeposits: 0 });
-    const bonus = await grantFirstDepositBonus(tx, "u1", 100, "dep1");
+    const bonus = await grantFirstDepositBonus(tx, "u1", 200, "dep1");
     expect(bonus).toBe(50);
     // Recorded as a promo redemption (the play-only lock + once-per-user guard).
     expect(redemptionCreate).toHaveBeenCalledWith({
@@ -75,10 +75,16 @@ describe("first-deposit bonus", () => {
     expect(redemptionCreate).not.toHaveBeenCalled();
   });
 
-  it("caps the bonus (10,000 deposit -> 5,000 cap, not 5,000+)", async () => {
+  it("caps the bonus only when match exceeds CAP (100_000 deposit → 5,000 cap)", async () => {
+    const { tx } = mockTx({ priorDeposits: 0 });
+    const bonus = await grantFirstDepositBonus(tx, "u1", 100_000, "dep1");
+    expect(bonus).toBe(5000);
+  });
+
+  it("grants uncapped 25% when under the cap (10,000 deposit → 2,500)", async () => {
     const { tx } = mockTx({ priorDeposits: 0 });
     const bonus = await grantFirstDepositBonus(tx, "u1", 10_000, "dep1");
-    expect(bonus).toBe(5000);
+    expect(bonus).toBe(2500);
   });
 
   it("no-ops gracefully when the promo code row is missing (migration not applied)", async () => {

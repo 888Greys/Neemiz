@@ -1,4 +1,4 @@
--- Seed the system promo code used to lock the 50% first-deposit bonus.
+-- Seed the system promo code used to lock the first-deposit bonus.
 -- Seeded Off (is_active=false) and amount 0. Admin Active/Off is the kill
 -- switch for auto-grant (lib/first-deposit-bonus.ts). Typed redeem of this
 -- code is always refused (lib/promo-redeem.ts); the server writes
@@ -13,7 +13,7 @@ VALUES (
   NULL,
   0,
   false,
-  'System: 50% first-deposit bonus (play-only)',
+  'System: 25% first-deposit bonus (play-only)',
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
 )

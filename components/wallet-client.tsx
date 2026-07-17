@@ -884,7 +884,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                   <div className="mt-2 flex items-start gap-2 rounded-lg bg-emerald-500/[0.08] px-3 py-2 ring-1 ring-emerald-500/20">
                     <Icon name="redeem" className="mt-px text-[15px] text-emerald-400" />
                     <p className="text-[11px] font-semibold leading-4 text-emerald-300">
-                      First deposit? Get a <span className="font-black">50% bonus</span> to play with — deposit KSh 200, play with KSh 300.
+                      First deposit? Get a <span className="font-black">25% bonus</span> to play with — deposit KSh 200, play with KSh 250.
                     </p>
                   </div>
                 </div>
