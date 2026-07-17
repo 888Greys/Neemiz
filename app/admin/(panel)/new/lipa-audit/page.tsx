@@ -29,6 +29,18 @@ export default async function LipaAuditPage({
       user: { select: { username: true, email: true } } },
   });
 
+  // ── Lifetime reconciliation: where did deposits actually come from, and how
+  //    does total money-in compare to total money-out? ────────────────────────
+  const [depByProvider, wdByProvider] = await Promise.all([
+    db.transaction.groupBy({ by: ["provider"], where: { type: "DEPOSIT", status: "COMPLETED" }, _sum: { amount: true }, _count: { _all: true } }),
+    db.transaction.groupBy({ by: ["provider"], where: { type: "WITHDRAWAL", status: "COMPLETED" }, _sum: { amount: true }, _count: { _all: true } }),
+  ]);
+  const provRows = depByProvider
+    .map((r) => ({ provider: r.provider ?? "(none)", count: r._count._all, sum: Number(r._sum.amount ?? 0) }))
+    .sort((a, b) => b.sum - a.sum);
+  const totalDepIn = provRows.reduce((s, r) => s + r.sum, 0);
+  const totalWdOut = wdByProvider.reduce((s, r) => s + Number(r._sum.amount ?? 0), 0);
+
   const byStatus: Record<string, { count: number; sum: number }> = {};
   for (const d of deps) {
     const s = String(d.status);
@@ -49,6 +61,36 @@ export default async function LipaAuditPage({
           Deposits for {ymd} (Africa/Nairobi). Cross-check FAILED/PENDING rows against Lipa&apos;s
           &ldquo;paid&rdquo; list — any that Lipa shows as paid is an uncredited payer.
         </p>
+      </div>
+
+      {/* Lifetime money-in vs money-out — answers "where did deposits go / come from" */}
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Bento label="Lifetime deposits IN (COMPLETED)" value={`KSh ${fmt(totalDepIn)}`} />
+        <Bento label="Lifetime withdrawals OUT (COMPLETED)" value={`KSh ${fmt(totalWdOut)}`} tone={totalWdOut > totalDepIn ? "warn" : undefined} />
+        <Bento label="Net (in − out)" value={`KSh ${fmt(totalDepIn - totalWdOut)}`} tone={totalDepIn - totalWdOut < 0 ? "warn" : undefined} />
+      </div>
+
+      <div className="mb-8 av2-card overflow-hidden rounded-lg">
+        <div className="border-b border-[#27272a] px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#c2c6d6]">
+          Completed deposits by provider (all time)
+        </div>
+        <table className="av2-mono w-full text-left text-[13px]">
+          <tbody className="divide-y divide-[#27272a]">
+            {provRows.length === 0 && (
+              <tr><td className="px-4 py-3 text-[#8c909f]">No completed deposits recorded.</td></tr>
+            )}
+            {provRows.map((r) => (
+              <tr key={r.provider}>
+                <td className="px-4 py-2 text-[#e5e2e3]">{r.provider}</td>
+                <td className="px-4 py-2 text-right text-[#c2c6d6]">{r.count}</td>
+                <td className="px-4 py-2 text-right text-[#e5e2e3]">KSh {fmt(r.sum)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="border-t border-[#27272a] px-4 py-2 text-[11px] text-[#8c909f]">
+          Compare the <span className="text-[#adc6ff]">lipaharaka</span> row here to Lipa&apos;s dashboard &ldquo;Total collected&rdquo;. A big gap means either deposits came via another channel, or deposits were credited that the provider never collected.
+        </div>
       </div>
 
       <form method="get" className="mb-6 flex gap-2">
