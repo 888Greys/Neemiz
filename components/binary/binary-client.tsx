@@ -2654,17 +2654,20 @@ function BinaryActivityPanel({
   tab, setTab, openPositions, allClosedPositions, transactions, onCollapse,
 }: ActivityPanelProps) {
   return (
-    <>
-      {/* Tab bar */}
-      <div className="flex shrink-0 items-stretch border-b border-white/[0.07] bg-[#18191f] text-xs font-black">
-        {(["open", "closed", "tx"] as const).map((t) => (
+    <div className="flex h-full min-h-0 flex-col bg-[#151518]">
+      <div className="flex shrink-0 items-stretch border-b border-white/[0.06] text-[13px] font-semibold">
+        {([
+          { id: "open" as const, label: openPositions.length ? `Open (${openPositions.length})` : "Open" },
+          { id: "closed" as const, label: allClosedPositions.length ? `Closed (${allClosedPositions.length})` : "Closed" },
+          { id: "tx" as const, label: "Activity" },
+        ]).map((t) => (
           <button
-            key={t}
+            key={t.id}
             type="button"
-            onClick={() => setTab(t)}
-            className={`flex-1 py-2.5 transition ${tab === t ? "border-b-2 border-sky-400 text-sky-300" : "text-slate-500 hover:text-white"}`}
+            onClick={() => setTab(t.id)}
+            className={`flex-1 py-3 transition ${tab === t.id ? "border-b-2 border-white text-white" : "text-slate-500 hover:text-slate-300"}`}
           >
-            {t === "open" ? `Open (${openPositions.length})` : t === "closed" ? `Closed (${allClosedPositions.length})` : "Tx"}
+            {t.label}
           </button>
         ))}
         {onCollapse && (
@@ -2673,46 +2676,59 @@ function BinaryActivityPanel({
             onClick={onCollapse}
             title="Collapse panel"
             aria-label="Collapse panel"
-            className="grid w-9 shrink-0 place-items-center border-l border-white/[0.07] text-slate-500 transition hover:bg-white/[0.04] hover:text-white"
+            className="grid w-10 shrink-0 place-items-center border-l border-white/[0.06] text-slate-500 transition hover:text-white"
           >
             <Icon name="remove" className="text-[18px]" />
           </button>
         )}
       </div>
 
-      {/* Tab content — scrollable */}
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[#18191f]">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {tab === "open" && (
-          <div className="space-y-1.5 p-3">
-            {openPositions.length === 0 ? (
-              <EmptyState title="No open positions" subtitle="Your active contracts will appear here" />
-            ) : (
-              openPositions.map((pos) => <PositionRow key={pos.id} pos={pos} />)
-            )}
-          </div>
+          openPositions.length === 0 ? (
+            <ActivityEmpty icon="candlestick_chart" title="No open positions" subtitle="Place a contract from the ticket to see it here." />
+          ) : (
+            <div className="space-y-1.5 p-3">
+              {openPositions.map((pos) => <PositionRow key={pos.id} pos={pos} />)}
+            </div>
+          )
         )}
         {tab === "closed" && (
-          <div className="space-y-1.5 p-3">
-            {allClosedPositions.length === 0 ? (
-              <EmptyState title="No closed trades" subtitle="Settled contracts will show here" />
-            ) : (
-              allClosedPositions.map((position) => <ClosedPositionRow key={position.id} position={position} />)
-            )}
-          </div>
+          allClosedPositions.length === 0 ? (
+            <ActivityEmpty icon="history" title="No closed trades" subtitle="Settled contracts will show up here." />
+          ) : (
+            <div className="space-y-1.5 p-3">
+              {allClosedPositions.map((position) => <ClosedPositionRow key={position.id} position={position} />)}
+            </div>
+          )
         )}
         {tab === "tx" && (
-          <div className="space-y-1.5 p-3">
-            {transactions.length === 0 ? (
-              <EmptyState title="No transactions" subtitle="Trade activity will appear here" />
-            ) : (
-              transactions.map((item, index) => (
-                <div key={`${item}-${index}`} className="rounded bg-black/25 px-3 py-2 text-xs font-bold text-slate-300">{item}</div>
-              ))
-            )}
-          </div>
+          transactions.length === 0 ? (
+            <ActivityEmpty icon="receipt_long" title="No activity yet" subtitle="Trade activity will appear here." />
+          ) : (
+            <div className="space-y-1.5 p-3">
+              {transactions.map((item, index) => (
+                <div key={`${item}-${index}`} className="rounded-lg px-3 py-2 text-[12px] font-medium text-slate-400">{item}</div>
+              ))}
+            </div>
+          )
         )}
       </div>
-    </>
+    </div>
+  );
+}
+
+function ActivityEmpty({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) {
+  return (
+    <div className="flex h-full min-h-[220px] flex-col items-start justify-center gap-3 px-5 py-10 sm:px-6">
+      <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/[0.04] text-slate-500 ring-1 ring-white/[0.06]">
+        <Icon name={icon} className="text-[22px]" />
+      </span>
+      <div>
+        <p className="text-[15px] font-semibold text-slate-200">{title}</p>
+        <p className="mt-1 max-w-[16rem] text-[12px] font-medium leading-relaxed text-slate-500">{subtitle}</p>
+      </div>
+    </div>
   );
 }
 
@@ -2804,10 +2820,14 @@ function MobilePositions({
 // Centered empty state for the mobile Positions screen (Deriv-style).
 function PositionsEmpty({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-      <Icon name={icon} className="text-[64px] text-slate-700" />
-      <div className="mt-4 text-[15px] font-black text-slate-400">{title}</div>
-      <div className="mt-1 text-[12px] font-bold text-slate-600">{subtitle}</div>
+    <div className="flex h-full flex-col items-start justify-center gap-3 px-6 py-12">
+      <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/[0.04] text-slate-500 ring-1 ring-white/[0.06]">
+        <Icon name={icon} className="text-[22px]" />
+      </span>
+      <div>
+        <div className="text-[15px] font-semibold text-slate-200">{title}</div>
+        <div className="mt-1 max-w-[16rem] text-[12px] font-medium leading-relaxed text-slate-500">{subtitle}</div>
+      </div>
     </div>
   );
 }

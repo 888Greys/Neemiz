@@ -1395,19 +1395,16 @@ function ForexClientInner() {
 
       {/* Mobile Positions — sits above the native forex tab bar */}
       {positionsOpen && (
-        <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] top-0 z-40 flex flex-col overflow-hidden bg-[#0c0c0e] pt-[env(safe-area-inset-top)] sm:hidden">
-          <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-4 py-3">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Forex</p>
-              <h2 className="text-[16px] font-black text-white">Positions</h2>
-            </div>
+        <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] top-0 z-40 flex flex-col overflow-hidden bg-[#151518] pt-[env(safe-area-inset-top)] sm:hidden">
+          <div className="flex shrink-0 items-center justify-between px-4 py-3">
+            <h2 className="text-[16px] font-semibold text-white">Positions</h2>
             <button
               type="button"
               onClick={closePanel}
-              className="grid h-9 w-9 place-items-center rounded-xl bg-white/[0.06] text-slate-300 ring-1 ring-white/[0.06] transition hover:bg-white/[0.1] hover:text-white"
+              className="grid h-8 w-8 place-items-center rounded-full bg-white/[0.05] text-slate-400 transition hover:bg-white/[0.08] hover:text-white"
               aria-label="Close positions"
             >
-              <Icon name="close" className="text-[18px]" />
+              <Icon name="close" className="text-[16px]" />
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -1632,18 +1629,22 @@ function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, clos
   const transactions = useMemo(() => buildForexTransactions(openTrades, forexHistory), [openTrades, forexHistory]);
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col bg-[#151518]">
       <ForexSessionStats openTrades={openTrades} forexHistory={forexHistory} price={price} />
 
-      <div className="flex shrink-0 items-stretch border-b border-white/[0.06] bg-[#151518] text-xs font-black">
-        {(["open", "history", "tx"] as const).map((t) => (
+      <div className="flex shrink-0 items-stretch border-b border-white/[0.06] text-[13px] font-semibold">
+        {([
+          { id: "open" as const, label: openTrades.length ? `Open (${openTrades.length})` : "Open" },
+          { id: "history" as const, label: forexHistory.length ? `Closed (${forexHistory.length})` : "Closed" },
+          { id: "tx" as const, label: "Activity" },
+        ]).map((t) => (
           <button
-            key={t}
+            key={t.id}
             type="button"
-            onClick={() => setTab(t)}
-            className={`flex-1 py-3 transition ${tab === t ? "border-b-2 border-[#087cff] text-white" : "text-slate-500 hover:text-white"}`}
+            onClick={() => setTab(t.id)}
+            className={`flex-1 py-3 transition ${tab === t.id ? "border-b-2 border-white text-white" : "text-slate-500 hover:text-slate-300"}`}
           >
-            {t === "open" ? `Open (${openTrades.length})` : t === "history" ? `Closed (${forexHistory.length})` : "Activity"}
+            {t.label}
           </button>
         ))}
         {onCollapse && (
@@ -1652,57 +1653,63 @@ function ForexActivityPanel({ tab, setTab, openTrades, forexHistory, price, clos
             onClick={onCollapse}
             title="Collapse panel"
             aria-label="Collapse panel"
-            className="grid w-9 shrink-0 place-items-center border-l border-white/[0.06] text-slate-500 transition hover:bg-white/[0.04] hover:text-white"
+            className="grid w-10 shrink-0 place-items-center border-l border-white/[0.06] text-slate-500 transition hover:text-white"
           >
             <Icon name="remove" className="text-[18px]" />
           </button>
         )}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[#151518]">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {tab === "open" && (
-          <div className="space-y-2 p-3">
-            {openTrades.length === 0 ? (
-              <div className="rounded-2xl bg-[#18191f] px-4 py-10 text-center ring-1 ring-white/[0.06]">
-                <p className="text-[13px] font-black text-white">No open positions</p>
-                <p className="mt-1 text-[11px] font-semibold text-slate-500">Open a trade from the chart to see it here.</p>
-              </div>
-            ) : (
-              openTrades.map((trade) => (
+          openTrades.length === 0 ? (
+            <ActivityEmpty icon="candlestick_chart" title="No open positions" subtitle="Buy or sell from the ticket to see a live position here." />
+          ) : (
+            <div className="space-y-2 p-3">
+              {openTrades.map((trade) => (
                 <PositionRow key={trade.id} currentPrice={price} onClose={() => closeTrade(trade.id)} trade={trade} closing={closingId === trade.id} />
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )
         )}
         {tab === "history" && (
-          <div className="space-y-2 p-3">
-            {forexHistory.length === 0 ? (
-              <div className="rounded-2xl bg-[#18191f] px-4 py-10 text-center ring-1 ring-white/[0.06]">
-                <p className="text-[13px] font-black text-white">No closed trades yet</p>
-              </div>
-            ) : (
-              forexHistory.map((trade) => <HistoryRow key={trade.id} trade={trade} />)
-            )}
-          </div>
+          forexHistory.length === 0 ? (
+            <ActivityEmpty icon="history" title="No closed trades" subtitle="Closed trades and P/L will show up here." />
+          ) : (
+            <div className="space-y-2 p-3">
+              {forexHistory.map((trade) => <HistoryRow key={trade.id} trade={trade} />)}
+            </div>
+          )
         )}
         {tab === "tx" && (
-          <div className="space-y-1.5 p-3">
-            {transactions.length === 0 ? (
-              <div className="rounded-2xl bg-[#18191f] px-4 py-10 text-center ring-1 ring-white/[0.06]">
-                <p className="text-[13px] font-black text-white">No activity yet</p>
-              </div>
-            ) : (
-              transactions.map((tx) => <TransactionRow key={tx.id} tx={tx} />)
-            )}
-          </div>
+          transactions.length === 0 ? (
+            <ActivityEmpty icon="receipt_long" title="No activity yet" subtitle="Margin and settlement history will appear here." />
+          ) : (
+            <div className="space-y-1.5 p-3">
+              {transactions.map((tx) => <TransactionRow key={tx.id} tx={tx} />)}
+            </div>
+          )
         )}
       </div>
-    </>
+    </div>
   );
 }
 
-// Session summary — realized result from this session's closed trades plus the
-// live unrealized P/L across open positions. Mirrors Binary's rail stats.
+function ActivityEmpty({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) {
+  return (
+    <div className="flex h-full min-h-[220px] flex-col items-start justify-center gap-3 px-5 py-10 sm:px-6">
+      <span className="grid h-11 w-11 place-items-center rounded-xl bg-white/[0.04] text-slate-500 ring-1 ring-white/[0.06]">
+        <Icon name={icon} className="text-[22px]" />
+      </span>
+      <div>
+        <p className="text-[15px] font-semibold text-slate-200">{title}</p>
+        <p className="mt-1 max-w-[16rem] text-[12px] font-medium leading-relaxed text-slate-500">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+// Session summary — quiet strip (no heavy boxed stats).
 function ForexSessionStats({ openTrades, forexHistory, price }: { openTrades: Trade[]; forexHistory: ClosedTrade[]; price: number }) {
   const { format } = useMoney();
   const wins = forexHistory.filter((t) => (t.profitLoss ?? 0) >= 0).length;
@@ -1714,27 +1721,25 @@ function ForexSessionStats({ openTrades, forexHistory, price }: { openTrades: Tr
   }, 0);
 
   return (
-    <div className="grid shrink-0 grid-cols-3 divide-x divide-white/[0.06] border-b border-white/[0.07] bg-[#151518]">
-      <div className="px-3 py-2">
-        <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">W / L</div>
-        <div className="mt-0.5 font-mono text-sm font-black text-white">
-          <span className="text-[#33d49b]">{wins}</span>
-          <span className="text-slate-600"> / </span>
-          <span className="text-[#ff6171]">{losses}</span>
-        </div>
-      </div>
-      <div className="px-3 py-2">
-        <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Realized</div>
-        <div className={`mt-0.5 font-mono text-sm font-black ${realized > 0 ? "text-[#33d49b]" : realized < 0 ? "text-[#ff6171]" : "text-white"}`}>
+    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-b border-white/[0.06] px-4 py-2.5 text-[12px]">
+      <span className="flex items-baseline gap-1.5">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">W/L</span>
+        <span className="font-medium tabular-nums text-emerald-400">{wins}</span>
+        <span className="text-slate-600">·</span>
+        <span className="font-medium tabular-nums text-red-400">{losses}</span>
+      </span>
+      <span className="flex items-baseline gap-1.5">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Realized</span>
+        <span className={`font-medium tabular-nums ${realized > 0 ? "text-emerald-400" : realized < 0 ? "text-red-400" : "text-slate-300"}`}>
           {realized >= 0 ? "+" : "−"}{format(Math.abs(realized))}
-        </div>
-      </div>
-      <div className="px-3 py-2">
-        <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Open P/L</div>
-        <div className={`mt-0.5 font-mono text-sm font-black ${unrealized > 0 ? "text-[#33d49b]" : unrealized < 0 ? "text-[#ff6171]" : "text-white"}`}>
+        </span>
+      </span>
+      <span className="flex items-baseline gap-1.5">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Open</span>
+        <span className={`font-medium tabular-nums ${unrealized > 0 ? "text-emerald-400" : unrealized < 0 ? "text-red-400" : "text-slate-300"}`}>
           {unrealized >= 0 ? "+" : "−"}{format(Math.abs(unrealized))}
-        </div>
-      </div>
+        </span>
+      </span>
     </div>
   );
 }
