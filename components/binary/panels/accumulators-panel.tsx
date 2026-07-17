@@ -66,7 +66,7 @@ export function AccumulatorsPanel({
         takeProfit={takeProfit} setTakeProfit={setTakeProfit}
         maxPayout={maxPayout}
         onBuy={onBuy} placing={placing} format={format}
-        sigma={sigma}
+        sigma={sigma ?? null}
         stakePresets={stakePresets}
         minStake={minStake}
       />
