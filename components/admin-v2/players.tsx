@@ -93,25 +93,41 @@ function LeaderPanel({ title, icon, rows, metric }: { title: string; icon: strin
   );
 }
 
+const OVERVIEW_RANGES: [string, string][] = [["today", "Today"], ["yesterday", "Yesterday"], ["7d", "7 days"], ["30d", "30 days"]];
+
 function Overview() {
   const [data, setData] = useState<Players | null>(null);
   const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState("30d");
 
   useEffect(() => {
     let live = true;
-    fetch("/api/admin/players?range=30d")
+    setLoading(true);
+    fetch(`/api/admin/players?range=${range}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (live && d) setData(d); })
       .finally(() => live && setLoading(false));
     return () => { live = false; };
-  }, []);
+  }, [range]);
 
-  if (loading && !data) return <div className="flex h-64 items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-white/10 border-t-[#adc6ff]" /></div>;
-  if (!data) return <div className="p-8 text-sm text-red-400">Player data could not be loaded.</div>;
+  const rangeBar = (
+    <div className="mb-4 flex flex-wrap gap-1.5">
+      {OVERVIEW_RANGES.map(([r, label]) => (
+        <button key={r} onClick={() => setRange(r)}
+          className={`rounded-md px-3 py-2 text-[12px] font-semibold transition ${range === r ? "bg-[#3a4a5f] text-[#adc6ff]" : "bg-[#161618] text-[#c2c6d6] hover:text-[#e5e2e3]"}`}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (loading && !data) return <>{rangeBar}<div className="flex h-64 items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-2 border-white/10 border-t-[#adc6ff]" /></div></>;
+  if (!data) return <>{rangeBar}<div className="p-8 text-sm text-red-400">Player data could not be loaded.</div></>;
   const kycTotal = data.kyc.pending + data.kyc.approved + data.kyc.rejected;
 
   return (
     <>
+      {rangeBar}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiTile label="Total Registered Users" value={data.totals.totalUsers.toLocaleString()} extra={<span className="text-[13px] text-[#adc6ff]">+{data.totals.newToday}</span>} />
         <KpiTile label="Active (24h)" value={data.totals.active24h.toLocaleString()} extra={<span className="text-[13px] text-[#c2c6d6]">{data.totals.active7d.toLocaleString()} / 7d</span>} />
