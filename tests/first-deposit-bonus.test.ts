@@ -6,9 +6,15 @@ import { readFileSync, existsSync } from "node:fs";
  * Mock a transaction client for grantFirstDepositBonus.
  *  - priorDeposits: what transaction.count resolves to (prior COMPLETED real deposits)
  *  - hasPromo: whether the FIRSTDEPOSIT promo code row exists
+ *  - isActive: admin Active/Off toggle (default true — required to grant)
  *  - alreadyRedeemed: whether the user already has the bonus redemption
  */
-function mockTx(opts: { priorDeposits: number; hasPromo?: boolean; alreadyRedeemed?: boolean }) {
+function mockTx(opts: {
+  priorDeposits: number;
+  hasPromo?: boolean;
+  isActive?: boolean;
+  alreadyRedeemed?: boolean;
+}) {
   const redemptionCreate = vi.fn().mockResolvedValue({ id: "r1" });
   const userUpdate = vi.fn().mockResolvedValue({});
   const txCreate = vi.fn().mockResolvedValue({});
@@ -18,7 +24,11 @@ function mockTx(opts: { priorDeposits: number; hasPromo?: boolean; alreadyRedeem
       create: txCreate,
     },
     promoCode: {
-      findUnique: vi.fn().mockResolvedValue(opts.hasPromo === false ? null : { id: "promo_first_deposit" }),
+      findUnique: vi.fn().mockResolvedValue(
+        opts.hasPromo === false
+          ? null
+          : { id: "promo_first_deposit", isActive: opts.isActive !== false },
+      ),
     },
     promoRedemption: {
       findUnique: vi.fn().mockResolvedValue(opts.alreadyRedeemed ? { id: "r0" } : null),
@@ -78,11 +88,19 @@ describe("first-deposit bonus", () => {
     expect(redemptionCreate).not.toHaveBeenCalled();
   });
 
+  it("does NOT grant when FIRSTDEPOSIT is Off in admin", async () => {
+    const { tx, redemptionCreate, userUpdate } = mockTx({ priorDeposits: 0, isActive: false });
+    const bonus = await grantFirstDepositBonus(tx, "u1", 100, "dep1");
+    expect(bonus).toBe(0);
+    expect(redemptionCreate).not.toHaveBeenCalled();
+    expect(userUpdate).not.toHaveBeenCalled();
+  });
+
   it("ships a migration that seeds the inactive FIRSTDEPOSIT code", () => {
     const path = "prisma/migrations/20260713010000_first_deposit_bonus_code/migration.sql";
     expect(existsSync(path)).toBe(true);
     const sql = readFileSync(path, "utf8");
     expect(sql).toContain(FIRST_DEPOSIT_BONUS_CODE);
-    expect(sql).toContain("false"); // seeded inactive so it can't be typed in
+    expect(sql).toContain("false"); // seeded Off — Activate in admin to enable
   });
 });

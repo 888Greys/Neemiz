@@ -1,5 +1,6 @@
 import { Prisma, TransactionStatus, TransactionType } from "@prisma/client";
 import { db } from "@/lib/db";
+import { FIRST_DEPOSIT_BONUS_CODE } from "@/lib/first-deposit-bonus";
 
 export type RedeemPromoResult =
   | { ok: true; amount: number; code: string; balance: number }
@@ -20,6 +21,12 @@ export async function redeemPromoCode(
   const code = normalizePromoCode(rawCode);
   if (!code || code.length < 3) {
     return { ok: false, error: "Enter a valid promo code.", status: 400 };
+  }
+
+  // System first-deposit code is auto-granted on deposit only — never typed in,
+  // even when admin Activates it to turn the match bonus on.
+  if (code === FIRST_DEPOSIT_BONUS_CODE) {
+    return { ok: false, error: "Invalid or expired promo code.", status: 404 };
   }
 
   const promo = await db.promoCode.findUnique({ where: { code } });

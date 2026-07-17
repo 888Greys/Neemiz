@@ -13,8 +13,9 @@ import { REAL_DEPOSIT_PROVIDERS } from "@/lib/promo-lock";
  * ever receive it once, which — together with the prior-deposit check — makes
  * it strictly a first-deposit reward. Not farmable.
  *
- * The bonus code row itself is seeded inactive (amount 0) so it can't be typed
- * in as a normal promo code; this helper writes the redemption directly.
+ * Admin Active/Off on the FIRSTDEPOSIT row is the kill switch for auto-grant.
+ * Typed redeem of this code is blocked in promo-redeem (amount is 0 anyway);
+ * this helper writes the redemption directly when isActive is true.
  */
 export const FIRST_DEPOSIT_BONUS_CODE = "FIRSTDEPOSIT";
 
@@ -52,9 +53,10 @@ export async function grantFirstDepositBonus(
 
     const promo = await tx.promoCode.findUnique({
       where: { code: FIRST_DEPOSIT_BONUS_CODE },
-      select: { id: true },
+      select: { id: true, isActive: true },
     });
-    if (!promo) return 0; // migration not applied yet
+    // Off in admin = stop granting. Seeded inactive until ops Activate it.
+    if (!promo || !promo.isActive) return 0;
 
     const bonus = Math.min(Math.floor((depositAmount * PCT) / 100), CAP_KES);
     if (bonus <= 0) return 0;
