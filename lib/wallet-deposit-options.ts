@@ -30,19 +30,8 @@ function walletRowForCode(
   const def = METHOD_REGISTRY[code];
   if (!def) return null;
 
-  // Cards collapse to one Pesapal row (Visa + Mastercard shown via logos in UI).
-  if (def.walletRail === "pesapal") {
-    if (code !== "VISA") return null; // only emit once
-    return {
-      id: "card",
-      code: "VISA",
-      label: "Credit / Debit Card",
-      subtitle: "Visa · Mastercard · International",
-      enabled: opts.pesapalEnabled,
-      soon: !opts.pesapalEnabled,
-      selection: opts.pesapalEnabled ? { kind: "pesapal" } : undefined,
-    };
-  }
+  // Cards (Pesapal) temporarily removed from the wallet deposit picker.
+  if (def.walletRail === "pesapal") return null;
 
   if (def.walletRail === "mpesa") {
     return {
@@ -86,13 +75,8 @@ export function depositRowsForCurrency(
   };
 
   for (const code of market.methods) {
-    // Skip raw MASTERCARD — folded into card row via VISA.
-    if (code === "MASTERCARD" || code === "AMEX") {
-      if (!seen.has("card")) {
-        push(walletRowForCode("VISA", { pesapalEnabled: opts.pesapalEnabled, region: market.region }));
-      }
-      continue;
-    }
+    // Card rails temporarily removed — skip Visa/MC/Amex entirely.
+    if (code === "VISA" || code === "MASTERCARD" || code === "AMEX") continue;
     push(walletRowForCode(code, { pesapalEnabled: opts.pesapalEnabled, region: market.region }));
   }
 

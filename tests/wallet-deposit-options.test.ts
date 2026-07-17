@@ -23,11 +23,13 @@ describe("wallet deposit options", () => {
     expect(byId["crypto-ETH"]).toBeUndefined();
   });
 
-  it("shows Kenya MoMo live and Brazil Pix as soon", () => {
+  it("shows Kenya MoMo live and Brazil Pix as soon, and hides card for now", () => {
     const kes = depositRowsForCurrency("KES", { pesapalEnabled: true });
     expect(kes.find((r) => r.id === "mpesa")).toMatchObject({ enabled: true });
+    expect(kes.find((r) => r.id === "card")).toBeUndefined();
     const brl = depositRowsForCurrency("BRL", { pesapalEnabled: false });
     expect(brl.find((r) => r.code === "PIX")).toMatchObject({ enabled: false, soon: true });
+    expect(brl.find((r) => r.id === "card")).toBeUndefined();
   });
 
   it("keeps legacy DEPOSIT_METHOD_ROWS export usable", () => {

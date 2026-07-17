@@ -40,8 +40,8 @@ export async function POST(req: Request) {
     if (!phone || !amount) {
       return Response.json({ error: "Phone and amount are required" }, { status: 400 });
     }
-    if (!Number.isFinite(amount) || amount < 10 || amount > 150000) {
-      return Response.json({ error: "Amount must be between KSh 10 and KSh 150,000" }, { status: 400 });
+    if (!Number.isFinite(amount) || amount < 200 || amount > 150000) {
+      return Response.json({ error: "Amount must be between KSh 200 and KSh 150,000" }, { status: 400 });
     }
 
     const msisdn = normaliseMsisdn(phone);

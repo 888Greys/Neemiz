@@ -34,8 +34,8 @@ export async function POST(req: Request) {
     const { amountKes, phoneNumber } = body;
     const msisdn = normalizeMsisdn(String(phoneNumber ?? ""));
 
-    if (!Number.isFinite(amountKes) || amountKes < 10) {
-      return Response.json({ error: "Minimum deposit is KSh 10" }, { status: 400 });
+    if (!Number.isFinite(amountKes) || amountKes < 200) {
+      return Response.json({ error: "Minimum deposit is KSh 200" }, { status: 400 });
     }
     if (amountKes > 150_000) {
       return Response.json({ error: "Maximum deposit is KSh 150,000" }, { status: 400 });

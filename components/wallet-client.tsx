@@ -96,10 +96,10 @@ type DepositState =
   | { step: "confirmed"; amount: number; newBalance: number; receipt: string }
   | { step: "failed"; message: string };
 
-// Card / international deposits via Pesapal. Off by default — only rendered
-// where NEXT_PUBLIC_PESAPAL_ENABLED=true (and the server has PESAPAL_* creds),
-// so the option never shows a broken button in environments without Pesapal.
-const PESAPAL_ENABLED = process.env.NEXT_PUBLIC_PESAPAL_ENABLED === "true";
+// Card / international deposits via Pesapal — temporarily removed from the
+// deposit picker. Re-enable by restoring the card row in wallet-deposit-options
+// and wiring NEXT_PUBLIC_PESAPAL_ENABLED again.
+const PESAPAL_ENABLED = false;
 
 type CryptoWithdrawState =
   | { step: "idle" }
@@ -414,7 +414,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
     if (!isSignedIn) { openLogin(); return; }
-    if (Number(amount) < 100) { setError("Minimum deposit is KSh 100."); return; }
+    if (Number(amount) < 200) { setError("Minimum deposit is KSh 200."); return; }
     setError(""); setLoading(true);
     try {
       const res  = await fetch("/api/wallet/deposit/lipaharaka", {
@@ -866,7 +866,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                     <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                     <input
                       type="number"
-                      min="100"
+                      min="200"
                       step="1"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
@@ -880,11 +880,11 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       </button>
                     )}
                   </div>
-                  <p className="mt-2 text-[11px] font-medium text-slate-600">Minimum deposit: KSh 100</p>
+                  <p className="mt-2 text-[11px] font-medium text-slate-600">Minimum deposit: KSh 200</p>
                   <div className="mt-2 flex items-start gap-2 rounded-lg bg-emerald-500/[0.08] px-3 py-2 ring-1 ring-emerald-500/20">
                     <Icon name="redeem" className="mt-px text-[15px] text-emerald-400" />
                     <p className="text-[11px] font-semibold leading-4 text-emerald-300">
-                      First deposit? Get a <span className="font-black">50% bonus</span> to play with — deposit KSh 100, play with KSh 150.
+                      First deposit? Get a <span className="font-black">50% bonus</span> to play with — deposit KSh 200, play with KSh 300.
                     </p>
                   </div>
                 </div>
