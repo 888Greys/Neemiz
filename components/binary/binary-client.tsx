@@ -1942,48 +1942,40 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
 
         <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:h-[52svh] sm:min-h-[520px] sm:max-h-none sm:flex-none sm:rounded sm:border xl:order-none xl:h-auto xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#18191f]">
-            {/* Desktop header — quiet market + quote strip */}
-            <div className="hidden shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-2 sm:flex">
-              <div className="flex min-w-0 items-center gap-3">
-                <label className="relative">
-                  <span className="sr-only">Market</span>
-                  <select
-                    value={market.symbol}
-                    onChange={(event) => setMarketSymbol(event.target.value)}
-                    disabled={!!accaPos || !!levPos}
-                    title={accaPos || levPos ? "Finish your open contract before switching markets" : undefined}
-                    className="h-8 appearance-none rounded-md bg-transparent py-1 pl-1.5 pr-7 text-[13px] font-semibold text-white outline-none transition hover:bg-white/[0.04] disabled:opacity-50"
-                  >
-                    {MARKETS.map((item) => (
-                      <option key={item.symbol} value={item.symbol}>{item.symbol}</option>
-                    ))}
-                  </select>
-                  <Icon name="expand_more" className="pointer-events-none absolute right-0.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400" />
-                </label>
-                <span className="font-mono text-[15px] font-semibold tabular-nums tracking-tight text-white">
-                  {formatQuote(latest.quote)}
-                </span>
-                <span className={`text-[12px] font-semibold tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                  {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
-                </span>
-                {streamStatus === "live" && (
-                  <span className="hidden items-center gap-1.5 text-[11px] font-medium text-slate-500 lg:inline-flex">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                    Live
+            {/* Desktop header — same market chrome as mobile (icon + sheet) */}
+            <div className="hidden shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-2.5 sm:flex">
+              <button
+                type="button"
+                onClick={() => setMarketsOpen(true)}
+                disabled={!!accaPos || !!levPos}
+                title={accaPos || levPos ? "Finish your open contract before switching markets" : undefined}
+                className="flex min-w-0 items-center gap-3 rounded-xl px-1 py-0.5 text-left transition hover:bg-white/[0.03] active:scale-[0.99] disabled:opacity-50"
+              >
+                <MarketIcon symbol={market.symbol} size={36} />
+                <span className="min-w-0">
+                  <span className="flex items-center gap-0.5">
+                    <span className="truncate text-[14px] font-black text-white">{market.symbol}</span>
+                    <Icon name="expand_more" className="text-[18px] text-slate-400" />
                   </span>
-                )}
-                {streamStatus === "fallback" && (
-                  <span className="max-w-[220px] truncate text-[11px] font-medium text-amber-400">
-                    {streamError ?? "Fallback ticks"}
+                  <span className="mt-0.5 flex items-baseline gap-2">
+                    <span className="font-mono text-[13px] font-black tabular-nums text-white">{formatQuote(latest.quote)}</span>
+                    <span className={`font-mono text-[11px] font-black tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                    </span>
+                    {streamStatus === "live" && (
+                      <span className="hidden items-center gap-1 text-[11px] font-medium text-slate-500 lg:inline-flex">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                        Live
+                      </span>
+                    )}
                   </span>
-                )}
-              </div>
-              <div className="hidden shrink-0 items-baseline gap-1.5 text-[12px] md:flex">
-                <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Change</span>
-                <span className={`font-mono font-semibold tabular-nums ${change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                  {change >= 0 ? "+" : ""}{change.toFixed(2)}
                 </span>
-              </div>
+              </button>
+              {streamStatus === "fallback" && (
+                <span className="max-w-[240px] truncate text-[11px] font-medium text-amber-400">
+                  {streamError ?? "Fallback ticks"}
+                </span>
+              )}
             </div>
 
             <div className="relative min-h-0 flex-1">
@@ -2236,8 +2228,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         />
       )}
 
-      {/* Mobile-only: market picker sheet — opened by the bottom-nav Markets tab
-          (?panel=markets). Switching is blocked while a cash-out contract runs. */}
+      {/* Market picker — same sheet on mobile + desktop (icon rows, favourites, search). */}
       {marketsOpen && (
         <MarketsSheet
           markets={MARKETS}
@@ -2388,7 +2379,7 @@ function MarketsSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:items-center sm:justify-center sm:p-6" role="dialog" aria-modal="true">
       <button
         type="button"
         aria-label="Close"
@@ -2396,7 +2387,7 @@ function MarketsSheet({
         className={`absolute inset-0 bg-black/60 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
       />
       <div
-        className={`relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.06] ${
+        className={`relative flex max-h-[85dvh] w-full flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.06] sm:max-h-[min(720px,85vh)] sm:max-w-md sm:rounded-2xl sm:pb-3 ${
           closing ? "animate-sheet-out" : "animate-sheet-in"
         }`}
       >

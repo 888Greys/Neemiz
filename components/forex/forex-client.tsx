@@ -1035,23 +1035,35 @@ function ForexClientInner() {
 
         <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:flex-none sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#18191f]">
-            {/* Desktop chart chrome — quiet strip, shared language with Binary */}
-            <div className="hidden shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-2 sm:flex">
-              <div className="flex min-w-0 items-center gap-3">
-                <PairDropdown markets={MARKETS} selected={selectedMarket} price={price} streamStatus={streamStatus} onSelect={setSelectedSymbol} />
-                <span className="font-mono text-[15px] font-semibold tabular-nums tracking-tight text-white">
-                  {formatPrice(selectedMarket, price)}
-                </span>
-                <span className={`text-[12px] font-semibold tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                  {changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%
-                </span>
-                {streamStatus === "live" && (
-                  <span className="hidden items-center gap-1.5 text-[11px] font-medium text-slate-500 lg:inline-flex">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-                    Live
+            {/* Desktop header — same pair chrome as mobile markets (flags + sheet) */}
+            <div className="hidden shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-2.5 sm:flex">
+              <button
+                type="button"
+                onClick={() => router.replace(`${pathname}?panel=markets`, { scroll: false })}
+                className="flex min-w-0 items-center gap-3 rounded-xl px-1 py-0.5 text-left transition hover:bg-white/[0.03] active:scale-[0.99]"
+              >
+                <PairFlags base={selectedMarket.base} quote={selectedMarket.quote} />
+                <span className="min-w-0">
+                  <span className="flex items-center gap-0.5">
+                    <span className="truncate text-[14px] font-black text-white">{selectedMarket.symbol}</span>
+                    <Icon name="expand_more" className="text-[18px] text-slate-400" />
                   </span>
-                )}
-              </div>
+                  <span className="mt-0.5 flex items-baseline gap-2">
+                    <span className="font-mono text-[13px] font-black tabular-nums text-white">
+                      {formatPrice(selectedMarket, price)}
+                    </span>
+                    <span className={`font-mono text-[11px] font-black tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                      {changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%
+                    </span>
+                    {streamStatus === "live" && (
+                      <span className="hidden items-center gap-1 text-[11px] font-medium text-slate-500 lg:inline-flex">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                        Live
+                      </span>
+                    )}
+                  </span>
+                </span>
+              </button>
               <div className="flex shrink-0 items-center gap-5 text-[12px]">
                 <div className="hidden items-baseline gap-1.5 md:flex">
                   <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Bid</span>
@@ -1071,16 +1083,26 @@ function ForexClientInner() {
               </div>
             </div>
             <div className="relative min-h-0 flex-1">
-              {/* Mobile quotes strip — solid bar above the plot (no fade over the line). */}
+              {/* Mobile quotes strip — market + bid/ask above the plot */}
               <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 bg-[#151518] px-3 py-1.5 sm:hidden">
-                <div className="flex items-baseline gap-2 font-mono text-[12px] font-black">
-                  <span className="text-[#ef4444]">{formatPrice(selectedMarket, bid)}</span>
-                  <span className="text-slate-600">/</span>
-                  <span className="text-[#087cff]">{formatPrice(selectedMarket, ask)}</span>
-                  <span className={`text-[10px] ${changePct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%
+                <button
+                  type="button"
+                  onClick={() => router.replace(`${pathname}?panel=markets`, { scroll: false })}
+                  className="flex min-w-0 items-center gap-2 text-left active:scale-[0.99]"
+                >
+                  <PairFlags base={selectedMarket.base} quote={selectedMarket.quote} />
+                  <span className="min-w-0">
+                    <span className="flex items-center gap-0.5">
+                      <span className="truncate text-[12px] font-black text-white">{selectedMarket.symbol}</span>
+                      <Icon name="expand_more" className="text-[16px] text-slate-400" />
+                    </span>
+                    <span className="flex items-baseline gap-1.5 font-mono text-[11px] font-black">
+                      <span className="text-[#ef4444]">{formatPrice(selectedMarket, bid)}</span>
+                      <span className="text-slate-600">/</span>
+                      <span className="text-[#087cff]">{formatPrice(selectedMarket, ask)}</span>
+                    </span>
                   </span>
-                </div>
+                </button>
                 {openTrades.length > 0 && (
                   <button
                     type="button"
@@ -1398,7 +1420,7 @@ function ForexClientInner() {
         </div>
       )}
 
-      {/* Mobile pair picker — opened by the Markets tab (?panel=markets). */}
+      {/* Pair picker — same sheet on mobile + desktop (flags, favourites, search). */}
       {marketsOpen && (
         <ForexPairSheet
           markets={MARKETS}
@@ -1556,68 +1578,6 @@ function ForexDiscoverNews() {
         )}
       </div>
     </main>
-  );
-}
-
-// Rich pair picker — restores the old watchlist detail (symbol + full name +
-// indicative price) inside a compact dropdown.
-function PairDropdown({ markets, onSelect, price, selected, streamStatus }: {
-  markets: ForexMarket[];
-  onSelect: (symbol: string) => void;
-  price: number;
-  selected: ForexMarket;
-  streamStatus: StreamStatus;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-8 items-center gap-1 rounded-md px-1.5 text-[13px] font-semibold text-white outline-none transition hover:bg-white/[0.04] active:scale-[0.98]"
-      >
-        {selected.symbol}
-        <Icon name="expand_more" className={`text-[16px] text-slate-400 transition ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-64 overflow-hidden rounded-lg border border-white/[0.1] bg-[#18191f] shadow-2xl shadow-black/50">
-          <div className="max-h-[60vh] overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {markets.map((market) => {
-              const isSelected = market.symbol === selected.symbol;
-              const isLive = isSelected && streamStatus === "live";
-              return (
-                <button
-                  key={market.symbol}
-                  type="button"
-                  onClick={() => { onSelect(market.symbol); setOpen(false); }}
-                  className={`flex w-full items-center justify-between gap-3 border-b border-white/[0.05] px-3 py-2.5 text-left transition last:border-0 ${isSelected ? "bg-sky-400/10" : "hover:bg-white/[0.04]"}`}
-                >
-                  <div className="min-w-0">
-                    <div className="text-sm font-black text-white">{market.symbol}</div>
-                    <div className="truncate text-[11px] font-bold text-slate-500">{market.name}</div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="font-mono text-xs font-black text-slate-300">{formatPrice(market, isSelected ? price : market.fallbackPrice)}</div>
-                    <div className={`text-[9px] font-black uppercase tracking-wider ${isLive ? "text-emerald-400" : "text-slate-600"}`}>{isLive ? "● live" : "deriv"}</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -2163,7 +2123,7 @@ function ForexPairSheet({
   );
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:items-center sm:justify-center sm:p-6" role="dialog" aria-modal="true">
       <button
         type="button"
         aria-label="Close"
@@ -2171,7 +2131,7 @@ function ForexPairSheet({
         className={`absolute inset-0 bg-black/60 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
       />
       <div
-        className={`relative flex max-h-[85dvh] flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.06] ${
+        className={`relative flex max-h-[85dvh] w-full flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.06] sm:max-h-[min(720px,85vh)] sm:max-w-md sm:rounded-2xl sm:pb-3 ${
           closing ? "animate-sheet-out" : "animate-sheet-in"
         }`}
       >
