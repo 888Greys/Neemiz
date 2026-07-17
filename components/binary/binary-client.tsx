@@ -676,9 +676,9 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   // Forced USD display for Binary; stakes posted to the server stay KES.
   const { convert, toKes, currency } = useCurrency();
   const money = (kes: number, opts?: Intl.NumberFormatOptions) => fmtMoney(kes, currency, convert, opts);
-  const minStake = useMemo(() => Math.max(1, Math.round(toKes(MIN_PLAY_USD))), [toKes]);
+  const minStake = useMemo(() => Math.max(1, toKes(MIN_PLAY_USD)), [toKes]);
   const stakePresets = useMemo(
-    () => STAKE_PRESETS_USD.map((usd) => Math.max(minStake, Math.round(toKes(usd)))),
+    () => STAKE_PRESETS_USD.map((usd) => Math.max(minStake, toKes(usd))),
     [toKes, minStake],
   );
 

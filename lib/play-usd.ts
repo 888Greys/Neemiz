@@ -17,6 +17,18 @@ export function usdToKesWithRates(amountUsd: number, toKES: Record<string, numbe
   return Math.max(1, Math.ceil(kes));
 }
 
+/**
+ * Accept stakes that land 1 KSh under the ceil'd $1 floor (client used to
+ * Math.round). Returns the stake to debit, or null if out of range.
+ */
+export function normalizePlayStakeKes(stake: number, minKes: number, maxKes: number): number | null {
+  if (!Number.isFinite(stake)) return null;
+  let s = stake;
+  if (s >= minKes - 1 && s < minKes) s = minKes;
+  if (s < minKes || s > maxKes) return null;
+  return s;
+}
+
 export async function minPlayStakeKes(): Promise<number> {
   const fx = await getFxRatesToKES();
   return usdToKesWithRates(MIN_PLAY_USD, fx.toKES);

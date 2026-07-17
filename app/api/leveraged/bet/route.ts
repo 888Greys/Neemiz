@@ -11,7 +11,7 @@ import {
   isValidMultiplier, multiplierStopOutPrice, clampTurboBarrier, turboPayoutPerPoint,
   LEVERAGED_MAX_MULT, type LeveragedDirection,
 } from "@/lib/leveraged";
-import { maxPlayStakeKes, minPlayStakeKes } from "@/lib/play-usd";
+import { maxPlayStakeKes, minPlayStakeKes, normalizePlayStakeKes } from "@/lib/play-usd";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const LOOKBACK_SEC = 120; // pull recent ticks to grab a fresh entry spot
@@ -33,6 +33,7 @@ export async function POST(req: Request) {
   const { market, kind, direction, stake, multiplier, barrierOffset } = body;
   const MIN_STAKE = await minPlayStakeKes();
   const MAX_STAKE = await maxPlayStakeKes();
+  const stakeVal = normalizePlayStakeKes(stake ?? NaN, MIN_STAKE, MAX_STAKE);
 
   if (!market || !VALID_MARKETS.includes(market))
     return Response.json({ error: "Invalid market" }, { status: 400 });
@@ -40,14 +41,13 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid kind" }, { status: 400 });
   if (direction !== "UP" && direction !== "DOWN")
     return Response.json({ error: "Invalid direction" }, { status: 400 });
-  if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
+  if (stakeVal == null)
     return Response.json({ error: `Stake must be between $1 and $500 (about ${CURRENCY_SYMBOL} ${MIN_STAKE.toLocaleString()}–${MAX_STAKE.toLocaleString()})` }, { status: 400 });
   if (kind === "MULTIPLIER" && (!Number.isInteger(multiplier) || !isValidMultiplier(multiplier!)))
     return Response.json({ error: "Invalid multiplier" }, { status: 400 });
   if (kind === "TURBO" && !Number.isFinite(barrierOffset))
     return Response.json({ error: "Invalid barrier" }, { status: 400 });
 
-  const stakeVal = stake!;
   const dir = direction as LeveragedDirection;
   const maxGross = stakeVal * LEVERAGED_MAX_MULT;
   const maxPayout = applyProfitRetention(stakeVal, maxGross);

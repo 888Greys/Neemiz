@@ -48,7 +48,7 @@ const STATUS_LABEL: Record<SessionStatus["status"], string> = {
 
 export function AutoPanel({ currency }: { currency: string }) {
   const { toKes, format } = useCurrency();
-  const minStake = useMemo(() => Math.max(1, Math.round(toKes(MIN_PLAY_USD))), [toKes]);
+  const minStake = useMemo(() => Math.max(1, toKes(MIN_PLAY_USD)), [toKes]);
   // config
   const [market, setMarket] = useState("R_100");
   const [side, setSide] = useState<string>("Even");

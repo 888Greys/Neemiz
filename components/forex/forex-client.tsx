@@ -574,7 +574,7 @@ export function ForexClient() {
 
 function ForexClientInner() {
   const { format, toKes } = useCurrency(); // forced USD via PlayUsdProvider
-  const minMarginKes = useMemo(() => Math.max(1, Math.round(toKes(MIN_PLAY_USD))), [toKes]);
+  const minMarginKes = useMemo(() => Math.max(1, toKes(MIN_PLAY_USD)), [toKes]);
   const wallet = useWalletBalance();
   const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
   const [direction, setDirection] = useState<Direction>("buy");
