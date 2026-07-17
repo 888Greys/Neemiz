@@ -1942,33 +1942,47 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
 
         <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:h-[52svh] sm:min-h-[520px] sm:max-h-none sm:flex-none sm:rounded sm:border xl:order-none xl:h-auto xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#18191f]">
-            {/* Desktop header (market select + price). Wallet lives in the shared app shell. */}
-            <div className="hidden shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-white/[0.07] px-2 py-1 sm:flex sm:px-4 sm:py-2">
-              <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
-                <select
-                  value={market.symbol}
-                  onChange={(event) => setMarketSymbol(event.target.value)}
-                  disabled={!!accaPos || !!levPos}
-                  title={accaPos || levPos ? "Finish your open contract before switching markets" : undefined}
-                  className="hidden h-10 max-w-none rounded border border-white/[0.08] bg-[#18191f] px-3 text-sm font-black text-white outline-none disabled:opacity-50 sm:block"
-                >
-                  {MARKETS.map((item) => (
-                    <option key={item.symbol} value={item.symbol}>{item.symbol}</option>
-                  ))}
-                </select>
-                <div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-[13px] font-black leading-none sm:text-base">{formatQuote(latest.quote)}</span>
-                    <span className={`font-mono text-[10px] font-black sm:text-xs ${changePct >= 0 ? "text-emerald-300" : "text-red-300"}`}>
-                      {change >= 0 ? "+" : ""}{change.toFixed(2)} ({changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%)
-                    </span>
-                  </div>
-                  {streamStatus === "fallback" && (
-                    <div className="mt-1 max-w-[280px] truncate text-[10px] font-bold text-amber-300">
-                      {streamError ?? "Using local fallback ticks"}
-                    </div>
-                  )}
-                </div>
+            {/* Desktop header — quiet market + quote strip */}
+            <div className="hidden shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-2 sm:flex">
+              <div className="flex min-w-0 items-center gap-3">
+                <label className="relative">
+                  <span className="sr-only">Market</span>
+                  <select
+                    value={market.symbol}
+                    onChange={(event) => setMarketSymbol(event.target.value)}
+                    disabled={!!accaPos || !!levPos}
+                    title={accaPos || levPos ? "Finish your open contract before switching markets" : undefined}
+                    className="h-8 appearance-none rounded-md bg-transparent py-1 pl-1.5 pr-7 text-[13px] font-semibold text-white outline-none transition hover:bg-white/[0.04] disabled:opacity-50"
+                  >
+                    {MARKETS.map((item) => (
+                      <option key={item.symbol} value={item.symbol}>{item.symbol}</option>
+                    ))}
+                  </select>
+                  <Icon name="expand_more" className="pointer-events-none absolute right-0.5 top-1/2 -translate-y-1/2 text-[16px] text-slate-400" />
+                </label>
+                <span className="font-mono text-[15px] font-semibold tabular-nums tracking-tight text-white">
+                  {formatQuote(latest.quote)}
+                </span>
+                <span className={`text-[12px] font-semibold tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
+                </span>
+                {streamStatus === "live" && (
+                  <span className="hidden items-center gap-1.5 text-[11px] font-medium text-slate-500 lg:inline-flex">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                    Live
+                  </span>
+                )}
+                {streamStatus === "fallback" && (
+                  <span className="max-w-[220px] truncate text-[11px] font-medium text-amber-400">
+                    {streamError ?? "Fallback ticks"}
+                  </span>
+                )}
+              </div>
+              <div className="hidden shrink-0 items-baseline gap-1.5 text-[12px] md:flex">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Change</span>
+                <span className={`font-mono font-semibold tabular-nums ${change >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {change >= 0 ? "+" : ""}{change.toFixed(2)}
+                </span>
               </div>
             </div>
 

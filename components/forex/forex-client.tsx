@@ -804,19 +804,6 @@ function ForexClientInner() {
   const openTrades = trades;
   const exposure = openTrades.reduce((total, trade) => total + trade.size, 0);
 
-  // Track the direction of the latest tick so the header price can flash
-  // green/red on every move — makes the live feed obviously "alive" even when
-  // forex only ticks a fraction of a pip at a time.
-  const prevPriceRef = useRef(price);
-  const [tickDir, setTickDir] = useState<"up" | "down" | "flat">("flat");
-  const [tickKey, setTickKey] = useState(0);
-  useEffect(() => {
-    const prev = prevPriceRef.current;
-    if (price > prev) setTickDir("up");
-    else if (price < prev) setTickDir("down");
-    if (price !== prev) setTickKey((k) => k + 1);
-    prevPriceRef.current = price;
-  }, [price]);
   const estimatedPnl = openTrades.reduce((total, trade) => {
     const pips = getPips(trade.entry, price, trade);
     return total + (trade.direction === "buy" ? pips : -pips) * (trade.size / 10000);
@@ -1048,26 +1035,38 @@ function ForexClientInner() {
 
         <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:flex-none sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#18191f]">
-            <div className="hidden shrink-0 flex-col gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <PairDropdown markets={MARKETS} selected={selectedMarket} price={price} streamStatus={streamStatus} onSelect={setSelectedSymbol} />
-                  <span className={`rounded px-2 py-1 text-[10px] font-black ${changePct >= 0 ? "bg-emerald-500/10 text-emerald-300" : "bg-red-500/10 text-red-300"}`}>
-                    {changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%
+            {/* Desktop chart chrome — quiet strip, shared language with Binary */}
+            <div className="hidden shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-2 sm:flex">
+              <div className="flex min-w-0 items-center gap-3">
+                <PairDropdown markets={MARKETS} selected={selectedMarket} price={price} streamStatus={streamStatus} onSelect={setSelectedSymbol} />
+                <span className="font-mono text-[15px] font-semibold tabular-nums tracking-tight text-white">
+                  {formatPrice(selectedMarket, price)}
+                </span>
+                <span className={`text-[12px] font-semibold tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {changePct >= 0 ? "+" : ""}{changePct.toFixed(3)}%
+                </span>
+                {streamStatus === "live" && (
+                  <span className="hidden items-center gap-1.5 text-[11px] font-medium text-slate-500 lg:inline-flex">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                    Live
                   </span>
-                  <LiveTicker price={formatPrice(selectedMarket, price)} dir={tickDir} flashKey={tickKey} live={streamStatus === "live"} />
-                </div>
+                )}
               </div>
-              <div className="flex items-center gap-3">
-                <div className="hidden text-right sm:block">
-                  <div className="text-[9px] font-black uppercase tracking-wider text-slate-600">Open P/L</div>
-                  <div className={`font-mono text-sm font-black ${estimatedPnl > 0 ? "text-emerald-300" : estimatedPnl < 0 ? "text-red-300" : "text-white"}`}>
-                    {estimatedPnl >= 0 ? "+" : ""}{estimatedPnl.toFixed(1)} pips
-                  </div>
+              <div className="flex shrink-0 items-center gap-5 text-[12px]">
+                <div className="hidden items-baseline gap-1.5 md:flex">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Bid</span>
+                  <span className="font-mono font-semibold tabular-nums text-red-400">{formatPrice(selectedMarket, bid)}</span>
                 </div>
-                <div className="grid w-full min-w-0 grid-cols-2 gap-2 text-right sm:w-auto">
-                  <QuoteBox label="Bid" value={formatPrice(selectedMarket, bid)} tone="sell" />
-                  <QuoteBox label="Ask" value={formatPrice(selectedMarket, ask)} tone="buy" />
+                <div className="hidden items-baseline gap-1.5 md:flex">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Ask</span>
+                  <span className="font-mono font-semibold tabular-nums text-emerald-400">{formatPrice(selectedMarket, ask)}</span>
+                </div>
+                <div className="flex items-baseline gap-1.5 border-l border-white/[0.06] pl-5">
+                  <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">P/L</span>
+                  <span className={`font-mono font-semibold tabular-nums ${estimatedPnl > 0 ? "text-emerald-400" : estimatedPnl < 0 ? "text-red-400" : "text-slate-300"}`}>
+                    {estimatedPnl >= 0 ? "+" : ""}{estimatedPnl.toFixed(1)}
+                    <span className="ml-0.5 text-[10px] font-medium text-slate-500">pips</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -1121,11 +1120,11 @@ function ForexClientInner() {
             </div>
           </section>
 
-          <section className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.08] bg-[#18191f] px-3 py-1.5 text-[11px] sm:flex sm:px-4">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">Session</span>
-            <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">High</span><span className="font-mono font-black text-emerald-300">{formatPrice(selectedMarket, levels.high)}</span></span>
-            <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">Avg</span><span className="font-mono font-black text-white">{formatPrice(selectedMarket, levels.average)}</span></span>
-            <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">Low</span><span className="font-mono font-black text-red-300">{formatPrice(selectedMarket, levels.low)}</span></span>
+          <section className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.06] bg-[#18191f] px-4 py-1.5 text-[11px] sm:flex">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Session</span>
+            <span className="flex items-center gap-1.5"><span className="text-slate-500">High</span><span className="font-mono font-semibold tabular-nums text-emerald-400">{formatPrice(selectedMarket, levels.high)}</span></span>
+            <span className="flex items-center gap-1.5"><span className="text-slate-500">Avg</span><span className="font-mono font-semibold tabular-nums text-slate-200">{formatPrice(selectedMarket, levels.average)}</span></span>
+            <span className="flex items-center gap-1.5"><span className="text-slate-500">Low</span><span className="font-mono font-semibold tabular-nums text-red-400">{formatPrice(selectedMarket, levels.low)}</span></span>
           </section>
         </main>
 
@@ -1586,11 +1585,10 @@ function PairDropdown({ markets, onSelect, price, selected, streamStatus }: {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex h-9 items-center gap-2 rounded border border-white/[0.08] bg-[#18191f] px-2 text-sm font-black text-white outline-none transition hover:border-white/20 sm:h-10 sm:px-3"
+        className="flex h-8 items-center gap-1 rounded-md px-1.5 text-[13px] font-semibold text-white outline-none transition hover:bg-white/[0.04] active:scale-[0.98]"
       >
-        <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-sky-400/15 text-[9px] font-black text-sky-300">FX</span>
         {selected.symbol}
-        <Icon name="expand_more" className={`text-[18px] text-slate-400 transition ${open ? "rotate-180" : ""}`} />
+        <Icon name="expand_more" className={`text-[16px] text-slate-400 transition ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-64 overflow-hidden rounded-lg border border-white/[0.1] bg-[#18191f] shadow-2xl shadow-black/50">
@@ -2389,38 +2387,6 @@ function ForexPairSheet({
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// Live mid-price pill that flashes green on an up-tick and red on a down-tick.
-// The inner value remounts on `flashKey` so the flash animation replays every
-// tick — makes the feed read as alive even on sub-pip forex moves.
-function LiveTicker({ price, dir, flashKey, live }: { price: string; dir: "up" | "down" | "flat"; flashKey: number; live: boolean }) {
-  const color = dir === "up" ? "#33d49b" : dir === "down" ? "#ff6171" : "#94a3b8";
-  return (
-    <span className="hidden items-center gap-1.5 rounded px-2 py-1 sm:inline-flex" style={{ background: "rgba(255,255,255,0.04)" }}>
-      <style>{`@keyframes fxflash{0%{transform:scale(1.12);opacity:.55}100%{transform:scale(1);opacity:1}}`}</style>
-      <span
-        className={`h-1.5 w-1.5 rounded-full ${live ? "animate-pulse" : ""}`}
-        style={{ background: live ? color : "#64748b" }}
-      />
-      <span
-        key={flashKey}
-        className="font-mono text-[11px] font-black tabular-nums"
-        style={{ color, animation: "fxflash .4s ease-out" }}
-      >
-        {dir === "up" ? "▲" : dir === "down" ? "▼" : "•"} {price}
-      </span>
-    </span>
-  );
-}
-
-function QuoteBox({ label, tone, value }: { label: string; tone: "buy" | "sell"; value: string }) {
-  return (
-    <div className={`min-w-0 overflow-hidden rounded border px-2 py-1 sm:min-w-[80px] ${tone === "buy" ? "border-[#33d49b]/30 bg-[#33d49b]/8" : "border-[#ff6171]/30 bg-[#ff6171]/8"}`}>
-      <div className="text-[8px] font-black uppercase tracking-wider text-slate-500">{label}</div>
-      <div className="truncate font-mono text-xs font-black text-white sm:text-sm">{value}</div>
     </div>
   );
 }
