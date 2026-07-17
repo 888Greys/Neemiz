@@ -15,6 +15,7 @@ type NavItem = { label: string; icon: string; href: string };
 // Every screen now lives inside the redesigned console (/admin/new/*).
 const NAV: NavItem[] = [
   { label: "Cockpit", icon: "dashboard", href: "/admin/new" },
+  { label: "Money cockpit", icon: "savings", href: "/admin/new/money-cockpit" },
   { label: "Players", icon: "groups", href: "/admin/new/players" },
   { label: "P2P Ops", icon: "swap_horiz", href: "/admin/new/p2p" },
   { label: "Cash & payouts", icon: "payments", href: "/admin/new/withdrawals" },
