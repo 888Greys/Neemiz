@@ -84,6 +84,39 @@ export default async function MoneyPage({
         <Bento label="Markets live" value={String(markets.filter((m) => m.turnover > 0).length)} sub="with turnover" />
       </div>
 
+      {/* Per-market GGR breakdown — click a row for full market detail */}
+      <div className="mb-8 av2-card overflow-hidden rounded-lg">
+        <div className="border-b border-[#27272a] px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#c2c6d6]">
+          By market · {range} — where the GGR comes from
+        </div>
+        <div className="overflow-x-auto">
+          <table className="av2-mono w-full min-w-[560px] text-left text-[13px]">
+            <thead>
+              <tr className="border-b border-[#27272a] bg-[#161618] text-[11px] uppercase tracking-wider text-[#c2c6d6]">
+                <th className="px-4 py-2">Market</th>
+                <th className="px-4 py-2 text-right">Turnover</th>
+                <th className="px-4 py-2 text-right">GGR</th>
+                <th className="px-4 py-2 text-right">Margin</th>
+                <th className="px-4 py-2 text-right">Open liability</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#27272a]">
+              {[...markets].sort((a, b) => b.ggr - a.ggr).map((m) => (
+                <tr key={m.key} className="hover:bg-[#1c1b1c]">
+                  <td className="px-4 py-2">
+                    <a href={`/admin/new/markets/${m.key}`} className="text-[#adc6ff] hover:underline">{m.label}</a>
+                  </td>
+                  <td className="px-4 py-2 text-right text-[#c2c6d6]">KSh {fmt(m.turnover)}</td>
+                  <td className={`px-4 py-2 text-right ${m.ggr < 0 ? "text-[#ffb786]" : "text-[#7ee787]"}`}>{m.ggr < 0 ? "−" : "+"}KSh {fmt(Math.abs(m.ggr))}</td>
+                  <td className="px-4 py-2 text-right text-[#8c909f]">{(m.margin * 100).toFixed(1)}%</td>
+                  <td className="px-4 py-2 text-right text-[#c2c6d6]">KSh {fmt(m.openLiability)}{m.liabilityExact ? "" : "≈"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Tabs — money routes, filtered by the same range */}
       <div className="mb-4 flex gap-1.5 border-b border-[#27272a]">
         {TABS.map(([t, label]) => (
