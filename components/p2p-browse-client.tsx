@@ -1256,7 +1256,7 @@ function AdCard({
           ))}
         </div>
         <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-white/45">
-          <Icon name="schedule" className="text-[12px]" />
+          <Icon name="schedule" size={11} className="shrink-0 opacity-80" />
           {ad.paymentWindow} min payment time
         </div>
       </div>
