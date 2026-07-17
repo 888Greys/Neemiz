@@ -24,14 +24,13 @@ import { toast } from "@/lib/toast";
 import { placed } from "@/lib/game-feel";
 import { celebrateWin } from "@/components/aviator/win-celebration";
 
-// Green FX Pro theme for the shared live chart engine (matches the Binary feel).
+// Same chart palette as Binary so desktop Forex/Binary feel like one product.
 const FOREX_THEME: LiveChartTheme = {
-  bg: "#0c0c0e",
-  up: "#22c55e", down: "#ef4444",
-  areaTop: "rgba(34,197,94,0.22)", areaBottom: "rgba(34,197,94,0.02)",
-  // White line + green accents — matches Binary/TagOption readability.
-  lineColor: "#e8f0e9",
-  dot: "#22c55e", stub: "rgba(34,197,94,0.85)",
+  bg: "#151518",
+  up: "#3b82f6", down: "#ef4444",
+  areaTop: "rgba(59,130,246,0.28)", areaBottom: "rgba(59,130,246,0.02)",
+  lineColor: "#e5edf8",
+  dot: "#ffffff", stub: "rgba(59,130,246,0.9)",
 };
 import { ValuePickerSheet } from "@/components/binary/panels/digit-panel";
 import { useNavBadge } from "@/lib/nav-badge-context";
@@ -451,7 +450,7 @@ function TradingViewCandles({
   const activeType = CHART_TYPES.find((t) => t.key === chartType) ?? CHART_TYPES[0];
 
   return (
-    <div className="relative h-full min-h-[240px] overflow-hidden bg-[#0c0c0e] sm:min-h-[280px]">
+    <div className="relative h-full min-h-[240px] overflow-hidden bg-[#18191f] sm:min-h-[280px]">
       <div ref={containerRef} className="absolute inset-0" />
 
       {/* Chart-type picker (top-right) */}
@@ -1009,7 +1008,7 @@ function ForexClientInner() {
   }, [price, trades]);
 
   return (
-    <div className="flex h-full min-h-0 max-w-full flex-col overflow-hidden bg-[#0c0c0e] text-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:block sm:h-auto sm:min-h-full sm:overflow-x-hidden sm:pb-8 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+    <div className="flex h-full min-h-0 max-w-full flex-col overflow-hidden bg-[#151518] text-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:block sm:h-auto sm:min-h-full sm:overflow-x-hidden sm:pb-8 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
       {streamStatus === "fallback" && (() => {
         const isClosed = /closed|presently closed|market.*open/i.test(streamError ?? "");
         return isClosed ? (
@@ -1048,7 +1047,7 @@ function ForexClientInner() {
         </aside>
 
         <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:min-h-[520px] sm:flex-none sm:rounded sm:border xl:order-none xl:min-h-0 xl:rounded-none xl:border-0">
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#0c0c0e]">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#18191f]">
             <div className="hidden shrink-0 flex-col gap-2 border-b border-white/[0.07] px-2 py-1.5 sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -1074,7 +1073,7 @@ function ForexClientInner() {
             </div>
             <div className="relative min-h-0 flex-1">
               {/* Mobile quotes strip — solid bar above the plot (no fade over the line). */}
-              <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 bg-[#0c0c0e] px-3 py-1.5 sm:hidden">
+              <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between gap-2 bg-[#151518] px-3 py-1.5 sm:hidden">
                 <div className="flex items-baseline gap-2 font-mono text-[12px] font-black">
                   <span className="text-[#ef4444]">{formatPrice(selectedMarket, bid)}</span>
                   <span className="text-slate-600">/</span>
@@ -1109,7 +1108,7 @@ function ForexClientInner() {
                     formatValue={(v) => formatPrice(selectedMarket, v)}
                   />
                   {chartCandles.length === 0 && (
-                    <div className="absolute inset-0 grid place-items-center bg-[#0c0c0e]/80">
+                    <div className="absolute inset-0 grid place-items-center bg-[#18191f]/80">
                       <div className="rounded-lg border border-white/[0.08] bg-[#14151a]/90 px-4 py-3 text-center shadow-2xl shadow-black/30">
                         <div className="mx-auto mb-2 h-5 w-5 animate-spin rounded-full border-2 border-white/10 border-t-[#087cff]" />
                         <p className="text-xs font-black text-white">Loading live candles</p>
@@ -1122,7 +1121,7 @@ function ForexClientInner() {
             </div>
           </section>
 
-          <section className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.08] bg-[#0c0c0e] px-3 py-1.5 text-[11px] sm:flex sm:px-4">
+          <section className="hidden shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.08] bg-[#18191f] px-3 py-1.5 text-[11px] sm:flex sm:px-4">
             <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">Session</span>
             <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">High</span><span className="font-mono font-black text-emerald-300">{formatPrice(selectedMarket, levels.high)}</span></span>
             <span className="flex items-center gap-1.5"><span className="font-bold text-slate-500">Avg</span><span className="font-mono font-black text-white">{formatPrice(selectedMarket, levels.average)}</span></span>
@@ -1151,49 +1150,93 @@ function ForexClientInner() {
               onDismissError={() => setTradeError(null)}
               onOpen={() => openTrade()} opening={openingTrade} live={streamStatus === "live"}
             />
-            <div className="hidden sm:flex sm:flex-col xl:h-full xl:min-h-0">
-            <div className="shrink-0 border-b border-white/[0.07] px-3 py-2 sm:px-4 sm:py-3">
-              <div className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Order ticket</div>
-              <div className="mt-1 text-base font-black text-white sm:text-lg">{selectedMarket.symbol} {direction.toUpperCase()}</div>
+            <div className="hidden sm:flex sm:h-full sm:min-h-0 sm:flex-col">
+            {/* Header — mirrors Binary trade-type strip */}
+            <div className="flex shrink-0 items-center gap-2 border-b border-white/[0.07] px-3 py-2.5">
+              <span className="flex items-center gap-0.5">
+                <Icon name="trending_up" className="text-[16px] text-emerald-400" />
+                <Icon name="trending_down" className="text-[16px] text-red-400" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-black text-white">{selectedMarket.symbol}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Forex</p>
+              </div>
             </div>
-            <div className="space-y-2 p-2 sm:space-y-3 sm:p-4 xl:min-h-0 xl:overflow-y-auto">
-              {/* Buy / Sell live-quote toggle — each side shows the price it fills at */}
-              <div className="grid grid-cols-2 gap-2">
-                <QuoteToggle
-                  active={direction === "buy"} tone="buy" label="Buy"
-                  price={formatPrice(selectedMarket, ask)}
-                  onClick={() => setDirection("buy")}
-                />
-                <QuoteToggle
-                  active={direction === "sell"} tone="sell" label="Sell"
-                  price={formatPrice(selectedMarket, bid)}
-                  onClick={() => setDirection("sell")}
-                />
+
+            <div className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto p-2">
+              {/* Buy / Sell — same pill language as Binary Manual/Auto */}
+              <div className="flex shrink-0 gap-1 rounded-lg bg-[#181b22] p-1">
+                {([
+                  { id: "buy" as const, label: "Buy", price: formatPrice(selectedMarket, ask) },
+                  { id: "sell" as const, label: "Sell", price: formatPrice(selectedMarket, bid) },
+                ]).map((opt) => {
+                  const active = direction === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setDirection(opt.id)}
+                      className={`flex-1 rounded-md py-2 transition active:scale-[0.98] ${
+                        active
+                          ? opt.id === "buy"
+                            ? "bg-[#05b957] text-white"
+                            : "bg-red-500 text-white"
+                          : "bg-transparent text-slate-400 hover:bg-white/[0.04] hover:text-white"
+                      }`}
+                    >
+                      <span className="block text-[11px] font-black">{opt.label}</span>
+                      <span className={`block font-mono text-[12px] font-black ${active ? "text-white/90" : "text-slate-500"}`}>
+                        {opt.price}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
-              <div>
-                <div className="mb-2 flex items-end justify-between">
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500" htmlFor="forex-size">
-                    Position size
-                  </label>
-                  <span className="font-mono text-[11px] font-black text-sky-300">{lots.toFixed(2)} lots</span>
+              {/* Size — Binary stake card */}
+              <div className="rounded-lg bg-[#181b22] p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-200">Size</span>
+                  <span className="font-mono text-[10px] font-black text-slate-500">{lots.toFixed(2)} lots</span>
                 </div>
-                <input
-                  id="forex-size"
-                  type="number"
-                  min={1000}
-                  step={1000}
-                  value={size}
-                  onChange={(event) => setSize(Math.max(1000, Number(event.target.value) || 1000))}
-                  className="h-10 w-full rounded border border-white/[0.08] bg-black/25 px-4 font-mono text-base font-black text-white outline-none transition focus:border-[#087cff]/70"
-                />
-                <div className="mt-2 grid grid-cols-5 gap-1 sm:gap-2">
+                <div className="flex gap-1.5">
+                  <div className="flex flex-1 items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]">
+                    <button
+                      type="button"
+                      onClick={() => setSize(Math.max(1000, size - 1000))}
+                      className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white"
+                    >
+                      <Icon name="remove" className="text-[18px]" />
+                    </button>
+                    <input
+                      type="number"
+                      min={1000}
+                      step={1000}
+                      value={size}
+                      onChange={(e) => setSize(Math.max(1000, Number(e.target.value) || 1000))}
+                      className="w-full min-w-0 bg-transparent text-center text-[15px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSize(Math.min(50000, size + 1000))}
+                      className="grid h-9 w-10 place-items-center text-slate-300 hover:text-white"
+                    >
+                      <Icon name="add" className="text-[18px]" />
+                    </button>
+                  </div>
+                  <span className="flex items-center rounded-md bg-[#0f1319] px-3 text-[12px] font-black text-slate-200 ring-1 ring-white/[0.06]">
+                    units
+                  </span>
+                </div>
+                <div className="mt-1.5 grid grid-cols-5 gap-1">
                   {SIZES.map((item) => (
                     <button
                       key={item}
                       type="button"
                       onClick={() => setSize(item)}
-                      className={`rounded px-1 py-2 text-[10px] font-black transition sm:px-2 sm:text-[11px] ${size === item ? "bg-[#087cff] text-white" : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.1] hover:text-white"}`}
+                      className={`rounded-md py-1.5 text-[11px] font-black transition ${
+                        size === item ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
+                      }`}
                     >
                       {item / 1000}K
                     </button>
@@ -1201,14 +1244,49 @@ function ForexClientInner() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <NumberField id="risk-pips" label="Stop loss" suffix="pips" value={riskPips} onChange={setRiskPips} />
-                <NumberField id="target-pips" label="Take profit" suffix="pips" value={targetPips} onChange={setTargetPips} />
+              {/* Stop / Take profit steppers */}
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="rounded-lg bg-[#181b22] p-3">
+                  <p className="mb-2 text-center text-[11px] font-bold text-slate-200">Stop loss</p>
+                  <div className="flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]">
+                    <button type="button" onClick={() => setRiskPips(Math.max(1, riskPips - 1))} className="grid h-9 w-9 place-items-center text-slate-300 hover:text-white">
+                      <Icon name="remove" className="text-[16px]" />
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      value={riskPips}
+                      onChange={(e) => setRiskPips(Math.max(1, Number(e.target.value) || 1))}
+                      className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <button type="button" onClick={() => setRiskPips(riskPips + 1)} className="grid h-9 w-9 place-items-center text-slate-300 hover:text-white">
+                      <Icon name="add" className="text-[16px]" />
+                    </button>
+                  </div>
+                  <p className="mt-1 text-center text-[10px] font-bold text-slate-500">pips</p>
+                </div>
+                <div className="rounded-lg bg-[#181b22] p-3">
+                  <p className="mb-2 text-center text-[11px] font-bold text-slate-200">Take profit</p>
+                  <div className="flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]">
+                    <button type="button" onClick={() => setTargetPips(Math.max(1, targetPips - 1))} className="grid h-9 w-9 place-items-center text-slate-300 hover:text-white">
+                      <Icon name="remove" className="text-[16px]" />
+                    </button>
+                    <input
+                      type="number"
+                      min={1}
+                      value={targetPips}
+                      onChange={(e) => setTargetPips(Math.max(1, Number(e.target.value) || 1))}
+                      className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <button type="button" onClick={() => setTargetPips(targetPips + 1)} className="grid h-9 w-9 place-items-center text-slate-300 hover:text-white">
+                      <Icon name="add" className="text-[16px]" />
+                    </button>
+                  </div>
+                  <p className="mt-1 text-center text-[10px] font-bold text-slate-500">pips</p>
+                </div>
               </div>
 
-              {/* Quick R:R presets — one tap sets both SL and TP to a common
-                  risk/reward shape, so beginners don't have to type pips. */}
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-4 gap-1">
                 {RR_PRESETS.map((preset) => {
                   const active = riskPips === preset.sl && targetPips === preset.tp;
                   return (
@@ -1216,7 +1294,9 @@ function ForexClientInner() {
                       key={preset.label}
                       type="button"
                       onClick={() => { setRiskPips(preset.sl); setTargetPips(preset.tp); }}
-                      className={`rounded px-1 py-1.5 text-[10px] font-black transition ${active ? "bg-[#087cff] text-white" : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.1] hover:text-white"}`}
+                      className={`rounded-md py-1.5 text-[10px] font-black transition ${
+                        active ? "bg-[#3a414d] text-white" : "bg-[#0f1319] text-slate-400 hover:text-white"
+                      }`}
                     >
                       {preset.label}
                     </button>
@@ -1224,61 +1304,67 @@ function ForexClientInner() {
                 })}
               </div>
 
-              {/* Risk / Reward — pip inputs as real money plus the R:R ratio,
-                  packed into one compact row to keep the Open button in view. */}
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Risk</span>
-                  <span className="font-mono text-[11px] font-black text-[#ff6171]">−{format(riskKes)}</span>
+              {/* Stats rows — Binary Strike / Max payout style */}
+              <div className="space-y-1 rounded-lg bg-[#181b22] px-3 py-2 text-[12px]">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-400">Risk</span>
+                  <span className="font-mono font-black text-red-400">−{format(riskKes)}</span>
                 </div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-500">Reward</span>
-                  <span className="font-mono text-[11px] font-black text-[#33d49b]">+{format(rewardKes)}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-400">Reward</span>
+                  <span className="font-mono font-black text-emerald-400">+{format(rewardKes)}</span>
                 </div>
-                <span className={`rounded px-1.5 py-0.5 font-mono text-[10px] font-black ${rrRatio >= 1 ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>
-                  1:{rrRatio.toFixed(2)}
-                </span>
-              </div>
-
-              {/* Entry / SL / TP price chips */}
-              <div className="grid grid-cols-3 gap-2">
-                <PriceChip label="Entry" value={formatPrice(selectedMarket, price)} />
-                <PriceChip label="Stop" value={formatPrice(selectedMarket, stopLoss)} tone="sell" />
-                <PriceChip label="Target" value={formatPrice(selectedMarket, takeProfit)} tone="buy" />
-              </div>
-
-              {/* Margin the server will reserve for this position. */}
-              <div className="flex items-center justify-between rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Margin required</span>
-                <span className="font-mono text-sm font-black text-white">{format(calcMargin(size, minMarginKes))}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-400">R:R</span>
+                  <span className={`font-mono font-black ${rrRatio >= 1 ? "text-emerald-300" : "text-amber-300"}`}>1:{rrRatio.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] pt-1">
+                  <span className="font-bold text-slate-400">Entry</span>
+                  <span className="font-mono font-black text-white">{formatPrice(selectedMarket, price)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-400">Stop</span>
+                  <span className="font-mono font-black text-red-400">{formatPrice(selectedMarket, stopLoss)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-slate-400">Target</span>
+                  <span className="font-mono font-black text-emerald-400">{formatPrice(selectedMarket, takeProfit)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] pt-1">
+                  <span className="font-bold text-slate-400">Margin</span>
+                  <span className="font-mono font-black text-white">{format(calcMargin(size, minMarginKes))}</span>
+                </div>
               </div>
 
               {tradeError && (
-                <div className={`rounded border px-3 py-2 text-xs font-bold ${tradeError.includes("reached") || tradeError.includes("triggered") ? "border-sky-500/30 bg-sky-500/10 text-sky-300" : "border-red-500/30 bg-red-500/10 text-red-300"}`}>
+                <div className={`rounded-lg px-3 py-2 text-xs font-bold ${tradeError.includes("reached") || tradeError.includes("triggered") ? "bg-sky-500/10 text-sky-300 ring-1 ring-sky-500/30" : "bg-red-500/10 text-red-300 ring-1 ring-red-500/30"}`}>
                   {tradeError}
                   <button type="button" onClick={() => setTradeError(null)} className="ml-2 opacity-60 hover:opacity-100">✕</button>
                 </div>
               )}
+            </div>
 
+            <div className="mt-auto hidden shrink-0 border-t border-white/[0.07] p-2 xl:block">
               <button
                 type="button"
                 onClick={() => openTrade()}
                 aria-busy={openingTrade}
-                disabled={streamStatus !== "live"}
-                className={`hidden w-full rounded-lg py-4 text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 xl:block ${
-                  direction === "buy"
-                    ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68] hover:from-[#1ac98a] hover:to-[#13ae73]"
-                    : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b] hover:from-[#f25a69] hover:to-[#e24755]"
+                disabled={streamStatus !== "live" || openingTrade}
+                className={`flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[13px] font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
+                  direction === "buy" ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-400"
                 }`}
               >
-                {streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
+                {openingTrade ? (
+                  "Opening…"
+                ) : streamStatus !== "live" ? (
+                  "Awaiting live feed…"
+                ) : (
+                  <>
+                    <Icon name={direction === "buy" ? "trending_up" : "trending_down"} className="text-[18px]" />
+                    {direction === "buy" ? "BUY" : "SELL"} {selectedMarket.symbol}
+                  </>
+                )}
               </button>
-
-              <p className="hidden text-center text-[10px] font-bold leading-relaxed text-slate-600 xl:block">
-                Watch the pips — green means profit.<br />
-                Your trade closes automatically at Stop Loss / Take Profit.<br />
-                Positions &amp; history live in the panel on the left.
-              </p>
             </div>
             </div>
           </section>
@@ -1331,13 +1417,11 @@ function ForexClientInner() {
           aria-busy={openingTrade}
           disabled={streamStatus !== "live"}
           className={`flex min-h-14 w-full items-center justify-between rounded-lg px-4 text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
-            direction === "buy"
-              ? "bg-gradient-to-b from-[#16b87b] to-[#0f9f68]"
-              : "bg-gradient-to-b from-[#e8505f] to-[#d33d4b]"
+            direction === "buy" ? "bg-[#05b957]" : "bg-red-500"
           }`}
         >
           <span className="text-sm font-black">
-            {streamStatus !== "live" ? "Awaiting live feed…" : `Open ${direction.toUpperCase()} ${selectedMarket.symbol}`}
+            {streamStatus !== "live" ? "Awaiting live feed…" : `${direction === "buy" ? "BUY" : "SELL"} ${selectedMarket.symbol}`}
           </span>
           {streamStatus === "live" && !openingTrade && (
             <span className="font-mono text-sm font-black">{formatPrice(selectedMarket, direction === "buy" ? ask : bid)}</span>
@@ -2337,59 +2421,6 @@ function QuoteBox({ label, tone, value }: { label: string; tone: "buy" | "sell";
     <div className={`min-w-0 overflow-hidden rounded border px-2 py-1 sm:min-w-[80px] ${tone === "buy" ? "border-[#33d49b]/30 bg-[#33d49b]/8" : "border-[#ff6171]/30 bg-[#ff6171]/8"}`}>
       <div className="text-[8px] font-black uppercase tracking-wider text-slate-500">{label}</div>
       <div className="truncate font-mono text-xs font-black text-white sm:text-sm">{value}</div>
-    </div>
-  );
-}
-
-function QuoteToggle({ active, label, onClick, price, tone }: { active: boolean; label: string; onClick: () => void; price: string; tone: "buy" | "sell" }) {
-  const accent = tone === "buy" ? "#0f9f68" : "#d33d4b";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group relative overflow-hidden rounded-lg border px-3 py-1.5 text-left transition active:scale-[0.98] ${
-        active
-          ? tone === "buy"
-            ? "border-[#33d49b]/60 bg-[#0f9f68]/15"
-            : "border-[#ff6171]/60 bg-[#d33d4b]/15"
-          : "border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06]"
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <span className={`text-sm font-black ${active ? "text-white" : "text-slate-400"}`}>{label}</span>
-        <span className="h-2 w-2 rounded-full transition" style={{ background: active ? accent : "rgba(255,255,255,0.15)" }} />
-      </div>
-      <div className={`mt-0.5 font-mono text-sm font-black ${active ? (tone === "buy" ? "text-[#33d49b]" : "text-[#ff6171]") : "text-slate-500"}`}>{price}</div>
-    </button>
-  );
-}
-
-function PriceChip({ label, tone, value }: { label: string; tone?: "buy" | "sell"; value: string }) {
-  return (
-    <div className="rounded-lg border border-white/[0.07] bg-black/25 px-2 py-2 text-center">
-      <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">{label}</div>
-      <div className={`mt-0.5 truncate font-mono text-xs font-black ${tone === "buy" ? "text-[#33d49b]" : tone === "sell" ? "text-[#ff6171]" : "text-white"}`}>{value}</div>
-    </div>
-  );
-}
-
-function NumberField({ id, label, onChange, suffix, value }: { id: string; label: string; onChange: (value: number) => void; suffix: string; value: number }) {
-  return (
-    <div>
-      <label className="mb-2 block text-[11px] font-black uppercase tracking-wider text-slate-500" htmlFor={id}>
-        {label}
-      </label>
-      <div className="flex h-11 items-center rounded border border-white/[0.08] bg-black/25 focus-within:border-[#087cff]/70">
-        <input
-          id={id}
-          type="number"
-          min={1}
-          value={value}
-          onChange={(event) => onChange(Math.max(1, Number(event.target.value) || 1))}
-          className="min-w-0 flex-1 bg-transparent px-3 font-mono text-sm font-black text-white outline-none"
-        />
-        <span className="pr-3 text-[10px] font-black uppercase text-slate-600">{suffix}</span>
-      </div>
     </div>
   );
 }

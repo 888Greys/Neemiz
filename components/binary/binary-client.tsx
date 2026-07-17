@@ -245,6 +245,23 @@ const DEFAULT_TYPE_ORDER: TradeTypeId[] = [
 // Stake presets in USD — converted to KES via PlayUsdProvider.toKes for the ledger.
 const STAKE_PRESETS_USD = [1, 5, 10, 25, 50, 100];
 const DIGITS = Array.from({ length: 10 }, (_, index) => index);
+
+/** Prefer Even/Odd (and other digit types) over Call/Put when available. */
+function pickDefaultTradeType(liveTypes: TradeTypeId[]): TradeTypeId {
+  const preferred: TradeTypeId[] = [
+    "even_odd",
+    "over_under",
+    "matches_differs",
+    "rise_fall",
+    "higher_lower",
+    "touch_no_touch",
+    "accumulators",
+    "vanillas",
+    "turbos",
+    "multipliers",
+  ];
+  return preferred.find((id) => liveTypes.includes(id)) ?? liveTypes[0] ?? "even_odd";
+}
 const TICK_SECONDS = 1;
 const DERIV_WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${process.env.NEXT_PUBLIC_DERIV_APP_ID ?? "1089"}`;
 
@@ -671,10 +688,10 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   // Raw price points for the shared live chart (memoised so it only changes with ticks).
   const livePoints = useMemo(() => ticks.map((t) => ({ time: t.time, value: t.quote })), [ticks]);
   const [family, setFamily] = useState<ContractFamily>(() => {
-    const defaultType = liveTypes[0] ?? "even_odd";
+    const defaultType = pickDefaultTradeType(liveTypes);
     return DIGIT_TYPE_TO_FAMILY[defaultType] ?? "evenOdd";
   });
-  const [tradeType, setTradeType] = useState<TradeTypeId>(() => liveTypes[0] ?? "even_odd");
+  const [tradeType, setTradeType] = useState<TradeTypeId>(() => pickDefaultTradeType(liveTypes));
   // Manual vs. server-driven auto-trader (lib/auto-trade). Self-contained panel.
   const [autoMode, setAutoMode] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
