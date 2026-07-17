@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
 import { grantFirstDepositBonus } from "@/lib/first-deposit-bonus";
+import { normalizeKenyanPhone } from "@/lib/lipaharaka";
 
 function safeEqual(a: string, b: string) {
   return a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -54,6 +55,11 @@ export async function POST(req: Request) {
   const raw = await req.text();
   const verified = (!!secret && matchesSignature(raw, req.headers, secret)) || isTrustedLipaOrigin(req.headers);
   if (!verified) {
+    // Always surface rejected callbacks: signature can't be verified (Lipa quirk)
+    // so we trust their IP, and if that IP ever changes EVERY deposit callback
+    // 401s and payers go uncredited. This one-line warn makes that visible in logs
+    // instead of silent money loss.
+    console.warn(`[lipa-webhook] 401 rejected callback from ip=${req.headers.get("cf-connecting-ip") ?? "?"} — check LIPAHARAKA_CALLBACK_IPS if genuine`);
     // TEMP DIAGNOSTIC (2026-06-20): kept until callbacks are confirmed flowing.
     if (process.env.LIPAHARAKA_WEBHOOK_DEBUG === "true") {
       const hdrs = Object.fromEntries([...req.headers.entries()]);
@@ -67,7 +73,11 @@ export async function POST(req: Request) {
   if (!body) return new Response("Bad request", { status: 400 });
   const reference = String(body.checkout_request_id ?? body.CheckoutRequestID ?? body.withdrawal_id ?? body.withdrawalId ?? body.transaction_id ?? "");
   const amount = Number(body.amount ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "Amount")?.Value);
-  const phone = String(body.phone ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "PhoneNumber")?.Value ?? "");
+  // Normalize the callback phone to the SAME 254XXXXXXXXX shape we store at
+  // initiation. Lipa posts numbers in mixed formats (254…, 0…, +254…); comparing
+  // raw strings here previously 422'd genuine paid callbacks and left the payer
+  // uncredited until the reconcile sweep flipped the deposit to FAILED.
+  const phone = normalizeKenyanPhone(String(body.phone ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "PhoneNumber")?.Value ?? ""));
 
   const statusStr = String(body.status ?? "").toLowerCase();
   const providerMessage = String(body.message ?? body.error ?? body.description ?? "");
@@ -102,7 +112,8 @@ export async function POST(req: Request) {
   const found = tx;
   const meta = found.metadata as { msisdn?: string; payout?: number } | null;
   const expectedAmount = found.type === "WITHDRAWAL" ? Number(meta?.payout) : Number(found.amount);
-  if (expectedAmount !== amount || meta?.msisdn !== phone) return new Response("Rejected", { status: 422 });
+  const storedPhone = normalizeKenyanPhone(String(meta?.msisdn ?? ""));
+  if (expectedAmount !== amount || storedPhone !== phone) return new Response("Rejected", { status: 422 });
 
   const wasFailed = found.status === "FAILED";
   await db.$transaction(async (prisma) => {

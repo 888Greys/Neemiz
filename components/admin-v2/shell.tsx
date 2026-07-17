@@ -24,6 +24,7 @@ const NAV: NavItem[] = [
   { label: "Crypto", icon: "currency_bitcoin", href: "/admin/new/crypto" },
   { label: "Crypto balances", icon: "toll", href: "/admin/new/crypto-balances" },
   { label: "Deposit addresses", icon: "wallet", href: "/admin/new/deposit-addresses" },
+  { label: "Lipa audit", icon: "receipt_long", href: "/admin/new/lipa-audit" },
   { label: "Risk", icon: "warning", href: "/admin/new/risk" },
   { label: "Ops", icon: "analytics", href: "/admin/new/ops" },
 ];
