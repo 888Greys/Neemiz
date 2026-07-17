@@ -18,7 +18,7 @@ import {
   paymentChipLabel,
 } from "@/components/p2p-market-chrome";
 import { formatFiat, FIAT_CURRENCIES } from "@/lib/p2p/currencies";
-import { ACTIVE_LOCAL_COINS } from "@/lib/p2p/local-coins";
+import { ACTIVE_LOCAL_COINS, isActiveLocalCoin } from "@/lib/p2p/local-coins";
 import { paymentMethodsForFiat, paymentMethodLabel, ALL_PAYMENT_CODES } from "@/lib/p2p/payment-methods";
 import { LoadingDots } from "@/components/loading-dots";
 import { MerchantAvatar } from "@/components/p2p-merchant-avatar";
@@ -1132,13 +1132,22 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
 const AD_COLS = "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.2fr)_72px_120px]";
 const AD_GRID = `lg:grid ${AD_COLS} lg:items-center lg:gap-4`;
 
-function formatMarginPct(ad: Ad, spotRate: number | null): { text: string; tone: "pos" | "neg" | "flat" } | null {
+function pairKey(crypto: string, fiat: string) {
+  return `${crypto.toUpperCase()}:${fiat.toUpperCase()}`;
+}
+
+function formatMarginPct(
+  ad: Ad,
+  refByPair: Record<string, number>,
+): { text: string; tone: "pos" | "neg" | "flat" } | null {
   let n: number | null = null;
   if (ad.profitMarginPct != null && Number.isFinite(ad.profitMarginPct)) {
     n = ad.profitMarginPct;
-  } else if (spotRate && spotRate > 0 && ad.pricePerUnit > 0) {
-    // Legacy Fixed ads: derive vs live spot when browsing the same pair.
-    n = ((ad.pricePerUnit / spotRate) - 1) * 100;
+  } else {
+    const ref = refByPair[pairKey(ad.crypto, ad.fiat)];
+    if (ref && ref > 0 && ad.pricePerUnit > 0) {
+      n = ((ad.pricePerUnit / ref) - 1) * 100;
+    }
   }
   if (n == null || !Number.isFinite(n)) return null;
   const rounded = Math.round(n * 100) / 100;
@@ -1151,12 +1160,12 @@ function formatMarginPct(ad: Ad, spotRate: number | null): { text: string; tone:
 
 function AdCard({
   ad,
-  spotRate,
+  refByPair,
   onDetails,
   onMerchantClick,
 }: {
   ad: Ad;
-  spotRate: number | null;
+  refByPair: Record<string, number>;
   onDetails: (ad: Ad) => void;
   onMerchantClick: (merchant: AdMerchant) => void;
 }) {
@@ -1164,7 +1173,7 @@ function AdCard({
   const actionLabel = isMerchantSelling ? "Buy" : "Sell";
   const totalTrades = ad.merchant.totalTrades ?? 0;
   const completionRate = totalTrades > 0 ? (ad.merchant.completedTrades / totalTrades) * 100 : 0;
-  const margin = formatMarginPct(ad, spotRate);
+  const margin = formatMarginPct(ad, refByPair);
 
   return (
     <div
@@ -1290,11 +1299,11 @@ function AdCard({
 // ─── Offers table (one section: promoted or other) ─────────────────────────────
 
 function OffersTable({
-  title, ads, spotRate, onDetails, onMerchantClick, promoted = false,
+  title, ads, refByPair, onDetails, onMerchantClick, promoted = false,
 }: {
   title: string;
   ads: Ad[];
-  spotRate: number | null;
+  refByPair: Record<string, number>;
   onDetails: (ad: Ad) => void;
   onMerchantClick: (merchant: AdMerchant) => void;
   promoted?: boolean;
@@ -1317,7 +1326,7 @@ function OffersTable({
         <span className="text-right">Trade</span>
       </div>
       {ads.map((ad) => (
-        <AdCard key={ad.id} ad={ad} spotRate={spotRate} onDetails={onDetails} onMerchantClick={onMerchantClick} />
+        <AdCard key={ad.id} ad={ad} refByPair={refByPair} onDetails={onDetails} onMerchantClick={onMerchantClick} />
       ))}
     </div>
   );
@@ -1560,21 +1569,39 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     );
   }, [ads, loading, searchParams]);
 
-  // Live spot rate (CoinGecko) for the selected crypto+fiat; null until loaded
-  // or if the provider is unavailable.
-  const [spotRate, setSpotRate] = useState<number | null>(null);
+  // Live spot (or peg) per crypto/fiat pair for margin % on every row — including
+  // when the coin filter is "All". Falls back to median offer price per pair.
+  const [spotByPair, setSpotByPair] = useState<Record<string, number>>({});
   useEffect(() => {
     let cancelled = false;
-    setSpotRate(null);
-    if (crypto === COIN_FILTER_ALL) return () => { cancelled = true; };
-    fetch(`/api/p2p/spot?crypto=${crypto}&fiat=${fiat}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((d: { rate?: number | null } | null) => {
-        if (!cancelled && typeof d?.rate === "number" && d.rate > 0) setSpotRate(d.rate);
-      })
-      .catch(() => { /* fall back to median */ });
+    const pairs = Array.from(new Set(ads.map((a) => pairKey(a.crypto, a.fiat))));
+    if (pairs.length === 0) {
+      setSpotByPair({});
+      return;
+    }
+
+    void Promise.all(
+      pairs.map(async (key) => {
+        const [c, f] = key.split(":") as [string, string];
+        if (isActiveLocalCoin(c)) return [key, 1] as const;
+        try {
+          const r = await fetch(`/api/p2p/spot?crypto=${encodeURIComponent(c)}&fiat=${encodeURIComponent(f)}`);
+          const d = r.ok ? (await r.json()) as { rate?: number | null } : null;
+          if (typeof d?.rate === "number" && d.rate > 0) return [key, d.rate] as const;
+        } catch { /* ignore */ }
+        return [key, null] as const;
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      const next: Record<string, number> = {};
+      for (const [key, rate] of results) {
+        if (rate != null) next[key] = rate;
+      }
+      setSpotByPair(next);
+    });
+
     return () => { cancelled = true; };
-  }, [crypto, fiat]);
+  }, [ads]);
 
   // Amount filter — show only offers whose limits cover the entered amount (in fiat).
   const amountNum = Number(amountInput) || 0;
@@ -1589,11 +1616,30 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   };
 
+  // Reference price for margin: live spot when known, else median of that pair's offers.
+  const refByPair = (() => {
+    const buckets = new Map<string, number[]>();
+    for (const ad of visibleAds) {
+      const key = pairKey(ad.crypto, ad.fiat);
+      if (spotByPair[key]) continue;
+      const list = buckets.get(key) ?? [];
+      list.push(ad.pricePerUnit);
+      buckets.set(key, list);
+    }
+    const out: Record<string, number> = { ...spotByPair };
+    for (const [key, prices] of buckets) {
+      const m = median(prices);
+      if (m > 0) out[key] = m;
+    }
+    return out;
+  })();
+
   // Headline reference price for the selected asset (spot, else median of offers).
   const marketRef = crypto === COIN_FILTER_ALL
     ? 0
-    : spotRate ?? median(visibleAds.filter((ad) => ad.crypto === crypto).map((ad) => ad.pricePerUnit));
-  const rateIsLive = spotRate != null;
+    : spotByPair[pairKey(crypto, fiat)]
+      ?? median(visibleAds.filter((ad) => ad.crypto === crypto).map((ad) => ad.pricePerUnit));
+  const rateIsLive = crypto !== COIN_FILTER_ALL && spotByPair[pairKey(crypto, fiat)] != null;
   const openOrder = (ad: Ad) => {
     if (!isSignedIn) {
       toast.error("Please sign in to trade");
@@ -1701,8 +1747,8 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} />
           ) : (
             <>
-              <OffersTable title="Promoted offers" ads={promoted} spotRate={spotRate} onDetails={openOrder} onMerchantClick={setSelectedMerchant} promoted />
-              <OffersTable title="Other offers" ads={otherAds} spotRate={spotRate} onDetails={openOrder} onMerchantClick={setSelectedMerchant} />
+              <OffersTable title="Promoted offers" ads={promoted} refByPair={refByPair} onDetails={openOrder} onMerchantClick={setSelectedMerchant} promoted />
+              <OffersTable title="Other offers" ads={otherAds} refByPair={refByPair} onDetails={openOrder} onMerchantClick={setSelectedMerchant} />
             </>
           )}
         </div>
