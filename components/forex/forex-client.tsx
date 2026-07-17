@@ -2123,7 +2123,7 @@ function ForexPairSheet({
   );
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:items-center sm:justify-center sm:p-6" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:items-stretch sm:justify-start" role="dialog" aria-modal="true">
       <button
         type="button"
         aria-label="Close"
@@ -2131,7 +2131,7 @@ function ForexPairSheet({
         className={`absolute inset-0 bg-black/60 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
       />
       <div
-        className={`relative flex max-h-[85dvh] w-full flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.06] sm:max-h-[min(720px,85vh)] sm:max-w-md sm:rounded-2xl sm:pb-3 ${
+        className={`relative flex max-h-[85dvh] w-full flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.06] sm:h-full sm:max-h-none sm:w-[min(100%,380px)] sm:rounded-none sm:rounded-r-2xl sm:pb-3 ${
           closing ? "animate-sheet-out" : "animate-sheet-in"
         }`}
       >
