@@ -1,7 +1,7 @@
+import { requireOwnerAdmin } from "@/lib/admin-guard";
 import { db } from "@/lib/db";
-import { AdminV2DepositAddresses, type AddressRow } from "@/components/admin-v2/deposit-addresses";
 
-export const metadata = { title: "Deposit addresses · Nezeem Admin" };
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function family(network: string): string {
@@ -10,13 +10,16 @@ function family(network: string): string {
   return "EVM";
 }
 
-export default async function NewAdminDepositAddressesPage() {
+// Every generated crypto deposit address, for the Treasury → Addresses tab.
+export async function GET() {
+  if (!(await requireOwnerAdmin())) return Response.json({ error: "Forbidden" }, { status: 403 });
+
   const addresses = await db.cryptoDepositAddress.findMany({
     include: { user: { select: { email: true, username: true } } },
     orderBy: [{ network: "asc" }, { createdAt: "asc" }],
   });
 
-  const rows: AddressRow[] = addresses.map((a) => ({
+  const rows = addresses.map((a) => ({
     address: a.address,
     crypto: a.crypto,
     network: a.network,
@@ -25,5 +28,5 @@ export default async function NewAdminDepositAddressesPage() {
     createdAt: a.createdAt.toISOString(),
   }));
 
-  return <AdminV2DepositAddresses rows={rows} />;
+  return Response.json({ rows }, { headers: { "Cache-Control": "no-store" } });
 }

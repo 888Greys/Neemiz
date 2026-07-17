@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { AdminV2Crypto } from "./crypto";
 import { AdminV2CryptoBalances } from "./crypto-balances";
+import { DepositAddressesTab } from "./deposit-addresses-tab";
 
 // Crypto treasury, folded into the Money page as one tab: on-chain exposure
-// (live per-address balances) and system-wide held balances. Both components
-// self-fetch, so they're reused as-is.
+// (live per-address balances), system-wide held balances, and the generated
+// deposit-address register. All self-fetch, so they're reused as-is.
 const SUBTABS: { id: string; label: string; C: React.ComponentType }[] = [
   { id: "exposure", label: "On-chain exposure", C: AdminV2Crypto },
   { id: "balances", label: "System balances", C: AdminV2CryptoBalances },
+  { id: "addresses", label: "Deposit addresses", C: DepositAddressesTab },
 ];
 
 export function CryptoHub() {
