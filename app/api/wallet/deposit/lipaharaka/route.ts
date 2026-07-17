@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { initiateLipaHarakaStk, normalizeKenyanPhone } from "@/lib/lipaharaka";
+import { isOwnerEmail } from "@/lib/admin-allowlist";
 
 // Anti-spam knobs (env-overridable so they can be tuned without a deploy).
 // One account was firing 20 STK pushes over a few hours (bursts of 4 in the
@@ -20,7 +21,6 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null) as { phone?: string; amount?: number } | null;
   const amount = Number(body?.amount);
   const phone = normalizeKenyanPhone(String(body?.phone ?? ""));
-  if (!Number.isInteger(amount) || amount < 200 || amount > 150_000) return Response.json({ error: "Amount must be a whole number between KSh 200 and KSh 150,000" }, { status: 400 });
   if (!/^254[17]\d{8}$/.test(phone)) return Response.json({ error: "Invalid Safaricom number" }, { status: 400 });
   // Reject obviously fake/placeholder numbers (e.g. 254700000000) — they can
   // only ever fail and are a hallmark of endpoint probing.
@@ -28,6 +28,14 @@ export async function POST(req: Request) {
     return Response.json({ error: "Enter the phone number that will receive the M-Pesa prompt." }, { status: 400 });
   }
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
+
+  // Admins can deposit as low as KSh 1 (cheap live testing of the STK/credit
+  // flow); everyone else keeps the KSh 200 minimum. Lipa's own STK floor is 1.
+  const isAdmin = isOwnerEmail(user.email) || Boolean((dbUser as { isAdmin?: boolean }).isAdmin);
+  const minAmount = isAdmin ? 1 : 200;
+  if (!Number.isInteger(amount) || amount < minAmount || amount > 150_000) {
+    return Response.json({ error: `Amount must be a whole number between KSh ${minAmount} and KSh 150,000` }, { status: 400 });
+  }
 
   // ── Anti-spam throttle: look at this user's / this phone's recent deposits ──
   const now = Date.now();

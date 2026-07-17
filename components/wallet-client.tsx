@@ -414,7 +414,8 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   async function handleDeposit(e: React.FormEvent) {
     e.preventDefault();
     if (!isSignedIn) { openLogin(); return; }
-    if (Number(amount) < 200) { setError("Minimum deposit is KSh 200."); return; }
+    const depositMin = wdLimit?.isAdmin ? 1 : 200;
+    if (Number(amount) < depositMin) { setError(`Minimum deposit is KSh ${depositMin}.`); return; }
     setError(""); setLoading(true);
     try {
       const res  = await fetch("/api/wallet/deposit/lipaharaka", {
@@ -866,7 +867,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                     <span className="shrink-0 text-sm font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                     <input
                       type="number"
-                      min="200"
+                      min={wdLimit?.isAdmin ? "1" : "200"}
                       step="1"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
@@ -880,7 +881,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       </button>
                     )}
                   </div>
-                  <p className="mt-2 text-[11px] font-medium text-slate-600">Minimum deposit: KSh 200</p>
+                  <p className="mt-2 text-[11px] font-medium text-slate-600">Minimum deposit: KSh {wdLimit?.isAdmin ? "1" : "200"}</p>
                   <div className="mt-2 flex items-start gap-2 rounded-lg bg-emerald-500/[0.08] px-3 py-2 ring-1 ring-emerald-500/20">
                     <Icon name="redeem" className="mt-px text-[15px] text-emerald-400" />
                     <p className="text-[11px] font-semibold leading-4 text-emerald-300">
