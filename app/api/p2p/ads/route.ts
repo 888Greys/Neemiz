@@ -79,6 +79,7 @@ export async function GET(req: Request) {
       fiat:            ad.fiat,
       featured:        ad.featured,
       pricePerUnit:    Number(ad.pricePerUnit),
+      profitMarginPct: ad.profitMarginPct == null ? null : Number(ad.profitMarginPct),
       availableAmount: Number(ad.availableAmount),
       minLimit:        Number(ad.minLimit),
       maxLimit:        Number(ad.maxLimit),
@@ -128,7 +129,7 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid request body" }, { status: 400 });
     }
 
-    const { side, crypto, fiat, pricePerUnit, totalAmount, minLimit, maxLimit, paymentMethods, paymentWindow, terms } = body;
+    const { side, crypto, fiat, pricePerUnit, totalAmount, minLimit, maxLimit, paymentMethods, paymentWindow, terms, profitMarginPct } = body;
 
     // Payment methods are OPTIONAL: a merchant may post an ad without listing
     // any and agree the payment rail with the buyer in chat.
@@ -187,6 +188,16 @@ export async function POST(req: Request) {
     if (!Number.isFinite(paymentWindowNum) || paymentWindowNum < 5 || paymentWindowNum > 180)
       return Response.json({ error: "Payment window must be 5–180 minutes" }, { status: 400 });
 
+    // Optional Market-mode margin % (null = Fixed / legacy).
+    let marginPct: number | null = null;
+    if (profitMarginPct != null && profitMarginPct !== "") {
+      const n = Number(profitMarginPct);
+      if (!Number.isFinite(n) || n <= -100 || n > 500) {
+        return Response.json({ error: "Margin must be greater than -100% and at most 500%" }, { status: 400 });
+      }
+      marginPct = Math.round(n * 10000) / 10000;
+    }
+
     const guardError = validateP2PAd({
       crypto: crypto as string,
       pricePerUnit: pricePerUnitNum,
@@ -203,6 +214,7 @@ export async function POST(req: Request) {
       crypto:          crypto as string,
       fiat:            fiatCode,
       pricePerUnit:    pricePerUnitNum,
+      profitMarginPct: marginPct,
       totalAmount:     totalAmountNum,
       availableAmount: totalAmountNum,
       minLimit:        minLimitNum,

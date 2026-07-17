@@ -44,6 +44,7 @@ interface Ad {
   fiat: string;
   featured?: boolean;
   pricePerUnit: number;
+  profitMarginPct?: number | null;
   availableAmount: number;
   minLimit: number;
   maxLimit: number;
@@ -1128,15 +1129,34 @@ function OrderModal({ ad, onClose, onMerchantClick }: { ad: Ad; onClose: () => v
 
 // ─── Ad Row ──────────────────────────────────────────────────────────────────
 
-const AD_COLS = "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.2fr)_120px]";
+const AD_COLS = "lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.2fr)_72px_120px]";
 const AD_GRID = `lg:grid ${AD_COLS} lg:items-center lg:gap-4`;
+
+function formatMarginPct(ad: Ad, spotRate: number | null): { text: string; tone: "pos" | "neg" | "flat" } | null {
+  let n: number | null = null;
+  if (ad.profitMarginPct != null && Number.isFinite(ad.profitMarginPct)) {
+    n = ad.profitMarginPct;
+  } else if (spotRate && spotRate > 0 && ad.pricePerUnit > 0) {
+    // Legacy Fixed ads: derive vs live spot when browsing the same pair.
+    n = ((ad.pricePerUnit / spotRate) - 1) * 100;
+  }
+  if (n == null || !Number.isFinite(n)) return null;
+  const rounded = Math.round(n * 100) / 100;
+  if (Math.abs(rounded) < 0.005) return { text: "0%", tone: "flat" };
+  return {
+    text: `${rounded > 0 ? "+" : ""}${rounded.toFixed(2)}%`,
+    tone: rounded > 0 ? "pos" : "neg",
+  };
+}
 
 function AdCard({
   ad,
+  spotRate,
   onDetails,
   onMerchantClick,
 }: {
   ad: Ad;
+  spotRate: number | null;
   onDetails: (ad: Ad) => void;
   onMerchantClick: (merchant: AdMerchant) => void;
 }) {
@@ -1144,6 +1164,7 @@ function AdCard({
   const actionLabel = isMerchantSelling ? "Buy" : "Sell";
   const totalTrades = ad.merchant.totalTrades ?? 0;
   const completionRate = totalTrades > 0 ? (ad.merchant.completedTrades / totalTrades) * 100 : 0;
+  const margin = formatMarginPct(ad, spotRate);
 
   return (
     <div
@@ -1231,6 +1252,22 @@ function AdCard({
         </div>
       </div>
 
+      {/* ── Margin % ── */}
+      <div className="mt-2 min-w-0 justify-self-end text-right lg:mt-0 lg:justify-self-auto lg:text-left">
+        <p className="lg:hidden text-[9px] font-bold uppercase tracking-wide text-white/35">Margin</p>
+        {margin ? (
+          <span
+            className={`text-[13px] font-black tabular-nums ${
+              margin.tone === "neg" ? "text-red-400" : margin.tone === "pos" ? "text-[#05b957]" : "text-white/70"
+            }`}
+          >
+            {margin.text}
+          </span>
+        ) : (
+          <span className="text-[12px] font-semibold text-white/35">—</span>
+        )}
+      </div>
+
       {/* ── Trade ── */}
       <div className="col-span-2 mt-2 flex items-center justify-end lg:col-span-1 lg:mt-0">
         <button
@@ -1253,10 +1290,11 @@ function AdCard({
 // ─── Offers table (one section: promoted or other) ─────────────────────────────
 
 function OffersTable({
-  title, ads, onDetails, onMerchantClick, promoted = false,
+  title, ads, spotRate, onDetails, onMerchantClick, promoted = false,
 }: {
   title: string;
   ads: Ad[];
+  spotRate: number | null;
   onDetails: (ad: Ad) => void;
   onMerchantClick: (merchant: AdMerchant) => void;
   promoted?: boolean;
@@ -1275,10 +1313,11 @@ function OffersTable({
         <span>Advertiser</span>
         <span>Price</span>
         <span>Payment</span>
+        <span>Margin</span>
         <span className="text-right">Trade</span>
       </div>
       {ads.map((ad) => (
-        <AdCard key={ad.id} ad={ad} onDetails={onDetails} onMerchantClick={onMerchantClick} />
+        <AdCard key={ad.id} ad={ad} spotRate={spotRate} onDetails={onDetails} onMerchantClick={onMerchantClick} />
       ))}
     </div>
   );
@@ -1550,8 +1589,7 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   };
 
-  // Keep a single headline reference price for the selected asset, but do not
-  // expose the margin of individual merchant offers to other users.
+  // Headline reference price for the selected asset (spot, else median of offers).
   const marketRef = crypto === COIN_FILTER_ALL
     ? 0
     : spotRate ?? median(visibleAds.filter((ad) => ad.crypto === crypto).map((ad) => ad.pricePerUnit));
@@ -1663,8 +1701,8 @@ export function P2PBrowseClient({ defaultFiat = "KES" }: { defaultFiat?: string 
             <EmptyAds side={tab === "BUY" ? "SELL" : "BUY"} />
           ) : (
             <>
-              <OffersTable title="Promoted offers" ads={promoted} onDetails={openOrder} onMerchantClick={setSelectedMerchant} promoted />
-              <OffersTable title="Other offers" ads={otherAds} onDetails={openOrder} onMerchantClick={setSelectedMerchant} />
+              <OffersTable title="Promoted offers" ads={promoted} spotRate={spotRate} onDetails={openOrder} onMerchantClick={setSelectedMerchant} promoted />
+              <OffersTable title="Other offers" ads={otherAds} spotRate={spotRate} onDetails={openOrder} onMerchantClick={setSelectedMerchant} />
             </>
           )}
         </div>

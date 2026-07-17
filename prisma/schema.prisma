@@ -383,7 +383,10 @@ model P2PAd {
   crypto String // "USDT", "BTC", "ETH"
   fiat   String @default("KES")
 
-  pricePerUnit    Decimal @map("price_per_unit") @db.Decimal(18, 2) // KES per 1 crypto
+  pricePerUnit    Decimal @map("price_per_unit") @db.Decimal(18, 2) // fiat per 1 crypto
+  // Margin % vs live spot when the merchant used Market pricing. Null for Fixed
+  // (or legacy) ads where only pricePerUnit was set.
+  profitMarginPct Decimal? @map("profit_margin_pct") @db.Decimal(8, 4)
   totalAmount     Decimal @map("total_amount") @db.Decimal(18, 8) // total crypto
   availableAmount Decimal @map("available_amount") @db.Decimal(18, 8)
 

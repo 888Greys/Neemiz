@@ -35,6 +35,7 @@ export async function GET() {
       crypto:          ad.crypto,
       fiat:            ad.fiat,
       pricePerUnit,
+      profitMarginPct: ad.profitMarginPct == null ? null : Number(ad.profitMarginPct),
       totalAmount,
       availableAmount,
       minLimit,
@@ -87,6 +88,20 @@ export async function PATCH(req: Request) {
   const terms = body.terms == null ? ad.terms : String(body.terms || "");
   const isActive = typeof body.isActive === "boolean" ? body.isActive : ad.isActive;
 
+  let profitMarginPct: number | null =
+    ad.profitMarginPct == null ? null : Number(ad.profitMarginPct);
+  if (body.profitMarginPct !== undefined) {
+    if (body.profitMarginPct == null || body.profitMarginPct === "") {
+      profitMarginPct = null;
+    } else {
+      const n = Number(body.profitMarginPct);
+      if (!Number.isFinite(n) || n <= -100 || n > 500) {
+        return Response.json({ error: "Margin must be greater than -100% and at most 500%" }, { status: 400 });
+      }
+      profitMarginPct = Math.round(n * 10000) / 10000;
+    }
+  }
+
   if (!Number.isFinite(pricePerUnit) || pricePerUnit <= 0) {
     return Response.json({ error: "Invalid price per unit" }, { status: 400 });
   }
@@ -125,6 +140,7 @@ export async function PATCH(req: Request) {
 
   const adUpdate = {
     pricePerUnit,
+    profitMarginPct,
     minLimit,
     maxLimit,
     paymentMethods,
@@ -154,6 +170,7 @@ export async function PATCH(req: Request) {
   return Response.json({
     id: updated.id,
     pricePerUnit: Number(updated.pricePerUnit),
+    profitMarginPct: updated.profitMarginPct == null ? null : Number(updated.profitMarginPct),
     minLimit: Number(updated.minLimit),
     maxLimit: Number(updated.maxLimit),
     paymentMethods: updated.paymentMethods,

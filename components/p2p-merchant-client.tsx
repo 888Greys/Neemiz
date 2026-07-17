@@ -101,6 +101,7 @@ interface Ad {
   crypto: string;
   fiat: string;
   pricePerUnit: number;
+  profitMarginPct?: number | null;
   availableAmount: number;
   totalAmount: number;
   minLimit: number;
@@ -1374,7 +1375,7 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     crypto: ad?.crypto ?? "USDT",
     fiat: ad?.fiat ?? "KES",
     pricePerUnit: ad ? String(ad.pricePerUnit) : "",
-    profitMarginPct: "",
+    profitMarginPct: ad?.profitMarginPct != null ? String(ad.profitMarginPct) : "",
     totalAmount: ad ? String(ad.totalAmount) : "",
     minLimit: ad ? String(ad.minLimit) : "",
     maxLimit: ad ? String(ad.maxLimit) : "",
@@ -1382,7 +1383,9 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
     paymentWindow: ad ? String(ad.paymentWindow) : "15",
     terms: ad?.terms ?? "",
   });
-  const [priceMode, setPriceMode] = useState<"MARKET" | "FIXED">(ad ? "FIXED" : "MARKET");
+  const [priceMode, setPriceMode] = useState<"MARKET" | "FIXED">(
+    ad?.profitMarginPct != null ? "MARKET" : ad ? "FIXED" : "MARKET",
+  );
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState(0); // 0=Type & Price · 1=Amount & Method · 2=Conditions
   const [cryptoOpen, setCryptoOpen] = useState(false);
@@ -1730,6 +1733,10 @@ function CreateAdModal({ ad, onClose, onCreated, onSetupPayments }: { ad?: Ad | 
           crypto: form.crypto,
           fiat: form.fiat,
           pricePerUnit: Number(form.pricePerUnit),
+          profitMarginPct:
+            priceMode === "MARKET" && Number.isFinite(Number(form.profitMarginPct))
+              ? Number(form.profitMarginPct)
+              : null,
           totalAmount: isEditing ? Number(form.totalAmount) : effectiveTotalAmount,
           minLimit,
           maxLimit,
