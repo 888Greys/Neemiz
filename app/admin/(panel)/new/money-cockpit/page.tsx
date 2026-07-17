@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { getExcludedUserIds } from "@/lib/admin-excluded";
-import { nairobiMidnight, nairobiDayKey, todayWindow } from "@/lib/admin/metrics";
+import { nairobiMidnight, nairobiDayKey, todayWindow, getMarketScorecards } from "@/lib/admin/metrics";
 import { ADMIN_FIAT_DEPOSIT_PROVIDERS, ADMIN_FIAT_WITHDRAWAL_PROVIDERS } from "@/lib/admin/real-money";
 
 export const metadata = { title: "Money · Nezeem Admin" };
@@ -23,7 +23,7 @@ export default async function MoneyCockpitPage() {
 
   const [
     inToday, outToday, failedToday, promoToday, p2pToday,
-    inMonth, outMonth,
+    inMonth, outMonth, markets,
   ] = await Promise.all([
     db.transaction.findMany({ where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: fiatDep }, createdAt: { gte: today.start, lt: today.end }, ...notExcluded }, select: { amount: true } }),
     db.transaction.findMany({ where: { type: "WITHDRAWAL", status: "COMPLETED", currency: "KES", provider: { in: fiatWd }, createdAt: { gte: today.start, lt: today.end }, ...notExcluded }, select: { amount: true } }),
@@ -32,7 +32,12 @@ export default async function MoneyCockpitPage() {
     db.p2POrder.findMany({ where: { status: "RELEASED", createdAt: { gte: today.start, lt: today.end } }, select: { fiatAmount: true } }),
     db.transaction.findMany({ where: { type: "DEPOSIT", status: "COMPLETED", currency: "KES", provider: { in: fiatDep }, createdAt: { gte: monthStart }, ...notExcluded }, select: { amount: true, createdAt: true } }),
     db.transaction.findMany({ where: { type: "WITHDRAWAL", status: "COMPLETED", currency: "KES", provider: { in: fiatWd }, createdAt: { gte: monthStart }, ...notExcluded }, select: { amount: true, createdAt: true } }),
+    getMarketScorecards({ window: today, country: "KE" }),
   ]);
+
+  // House gaming revenue today (GGR) = stakes − payouts across all markets.
+  const ggrToday = markets.reduce((s, m) => s + m.ggr, 0);
+  const turnoverToday = markets.reduce((s, m) => s + m.turnover, 0);
 
   const cashIn = sum(inToday);
   const cashOut = sum(outToday);
@@ -60,14 +65,26 @@ export default async function MoneyCockpitPage() {
         </p>
       </div>
 
-      {/* Hero: the number the owner wants to see */}
-      <div className="mb-4 av2-card rounded-lg p-6">
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-[#c2c6d6]">Net cash flow today (in − out)</div>
-        <div className={`av2-mono mt-1 text-[48px] font-semibold leading-none ${net < 0 ? "text-[#ffb786]" : "text-[#7ee787]"}`}>
-          {net < 0 ? "−" : "+"}KSh {fmt(Math.abs(net))}
+      {/* Hero: the two numbers the owner wants to see — cash and profit */}
+      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="av2-card rounded-lg p-6">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-[#c2c6d6]">Net cash flow today (in − out)</div>
+          <div className={`av2-mono mt-1 text-[44px] font-semibold leading-none ${net < 0 ? "text-[#ffb786]" : "text-[#7ee787]"}`}>
+            {net < 0 ? "−" : "+"}KSh {fmt(Math.abs(net))}
+          </div>
+          <div className="mt-2 text-[13px] text-[#8c909f]">
+            {net >= 0 ? "More real money came in than went out today." : "More paid out than came in today."}
+          </div>
         </div>
-        <div className="mt-2 text-[13px] text-[#8c909f]">
-          {net >= 0 ? "More real money came in than went out today." : "More paid out than came in today."}
+        <div className="av2-card rounded-lg p-6">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-[#c2c6d6]">House gaming revenue today (GGR)</div>
+          <div className={`av2-mono mt-1 text-[44px] font-semibold leading-none ${ggrToday < 0 ? "text-[#ffb786]" : "text-[#7ee787]"}`}>
+            {ggrToday < 0 ? "−" : "+"}KSh {fmt(Math.abs(ggrToday))}
+          </div>
+          <div className="mt-2 text-[13px] text-[#8c909f]">
+            Stakes − payouts across all markets · turnover KSh {fmt(turnoverToday)}
+            {ggrToday < 0 ? " · players are up on the house today" : ""}
+          </div>
         </div>
       </div>
 
