@@ -5,6 +5,7 @@ import { AdminV2Ops } from "./ops";
 import { AdminV2Withdrawals } from "./withdrawals";
 import { AdminV2P2P } from "./p2p";
 import { AdminV2Broadcast } from "./broadcast";
+import { LipaRecovery } from "./lipa-recovery";
 
 // One Ops page, tabbed over the existing action components (reused as-is so every
 // mutation keeps working): overview, withdrawal approvals, P2P ops, broadcast.
@@ -13,6 +14,7 @@ const TABS: { id: string; label: string; C: React.ComponentType }[] = [
   { id: "withdrawals", label: "Withdrawals", C: AdminV2Withdrawals },
   { id: "p2p", label: "P2P ops", C: AdminV2P2P },
   { id: "broadcast", label: "Broadcast", C: AdminV2Broadcast },
+  { id: "recovery", label: "Lipa recovery", C: LipaRecovery },
 ];
 
 export function OpsHub() {
