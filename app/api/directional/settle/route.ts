@@ -24,7 +24,16 @@ export async function POST(req: Request) {
   const trade = await db.directionalTrade.findUnique({ where: { id: tradeId } });
   if (!trade)                     return Response.json({ error: "Trade not found" }, { status: 404 });
   if (trade.userId !== dbUser.id) return Response.json({ error: "Forbidden" }, { status: 403 });
-  if (trade.status !== "PENDING") return Response.json({ error: "Trade already settled" }, { status: 409 });
+  if (trade.status !== "PENDING") {
+    const won = trade.status === "WON";
+    return Response.json({
+      won,
+      winAmount: won ? Number(trade.payout) : 0,
+      exitSpot: trade.exitSpot == null ? null : Number(trade.exitSpot),
+      status: trade.status,
+      alreadySettled: true,
+    });
+  }
 
   if (Date.now() > trade.settleBefore.getTime())
     return Response.json({ error: "Settlement window expired" }, { status: 409 });
@@ -53,8 +62,20 @@ export async function POST(req: Request) {
 
   try {
     const result = await finalizeDirectional(trade, { won: resolution.won, credit: resolution.credit, exitSpot: resolution.exitSpot });
-    if (result.outcome === "already")
+    if (result.outcome === "already") {
+      const fresh = await db.directionalTrade.findUnique({ where: { id: tradeId } });
+      if (fresh && fresh.status !== "PENDING") {
+        const won = fresh.status === "WON";
+        return Response.json({
+          won,
+          winAmount: won ? Number(fresh.payout) : 0,
+          exitSpot: fresh.exitSpot == null ? null : Number(fresh.exitSpot),
+          status: fresh.status,
+          alreadySettled: true,
+        });
+      }
       return Response.json({ error: "Trade already settled" }, { status: 409 });
+    }
     const won = result.outcome === "won";
     return Response.json({ won, winAmount: result.winAmount, exitSpot: result.exitSpot, status: won ? "WON" : "LOST" });
   } catch (err) {

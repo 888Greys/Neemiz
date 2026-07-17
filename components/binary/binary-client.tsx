@@ -1155,10 +1155,10 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         multiplier: trade.stake > 0 ? credited / trade.stake : undefined,
         label: `${trade.side} won!`,
         toastTitle: `${trade.side} won!`,
-        toastDescription: `+${money(credited)} · Exit digit ${exitDigit}`,
+        toastDescription: `${trade.market} · +${money(credited)}`,
       });
     } else {
-      toast.loss("Trade lost", `${trade.side} · Exit digit: ${exitDigit}`);
+      toast.loss(`${trade.side} lost`, `${trade.market} · Exit digit ${exitDigit}`);
     }
     setTab("closed");
   }, [money]);
@@ -1170,15 +1170,10 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ tradeId: trade.id }),
       });
-      const data = await res.json() as { won?: boolean; winAmount?: number; exitDigit?: number; error?: string; pending?: boolean };
+      const data = await res.json() as {
+        won?: boolean; winAmount?: number; exitDigit?: number; error?: string; pending?: boolean; alreadySettled?: boolean; status?: string;
+      };
       if (!res.ok) {
-        // Server already finalized (another tab / cron / realtime race) — drop from Open.
-        if (res.status === 409 && /already settled/i.test(data.error ?? "")) {
-          settledIds.current.add(trade.id);
-          setOpenTrades((cur) => cur.filter((t) => t.id !== trade.id));
-          setTab("closed");
-          return false;
-        }
         // 503 / not-ready: leave open; fast poll retries within settleBefore.
         if (res.status !== 503 && !data.pending) console.error("binary settle failed:", data.error);
         return false;
@@ -1232,10 +1227,10 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
             multiplier: trade.stake > 0 ? trade.payout / trade.stake : undefined,
             label: `${trade.side} won!`,
             toastTitle: `${trade.side} won!`,
-            toastDescription: `+${money(trade.payout)} · Exit digit ${digit}`,
+            toastDescription: `${trade.market} · +${money(trade.payout)}`,
           });
         } else {
-          toast.loss("Trade lost", `${trade.side} · Exit digit: ${digit}`);
+          toast.loss(`${trade.side} lost`, `${trade.market} · Exit digit ${digit}`);
         }
       }
 
@@ -1634,7 +1629,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         });
       }
     } else {
-      toast.loss(`${t.side} lost`, t.market);
+      toast.loss(`${t.side} lost`, `${t.market} · Stake ${money(t.stake)}`);
     }
     setTab("closed");
   }, [money]);
@@ -1645,15 +1640,8 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tradeId: t.id }),
       });
-      const data = await res.json() as { won?: boolean; winAmount?: number; pending?: boolean; error?: string };
+      const data = await res.json() as { won?: boolean; winAmount?: number; pending?: boolean; error?: string; alreadySettled?: boolean };
       if (!res.ok) {
-        // Already finalized elsewhere — clear Open so it doesn't sit at 0s forever.
-        if (res.status === 409 && /already settled/i.test(data.error ?? "")) {
-          dirSettled.current.add(t.id);
-          setDirTrades((cur) => cur.filter((x) => x.id !== t.id));
-          setTab("closed");
-          return;
-        }
         // Exit tick not ready yet — nudge countdown and retry on the next 1s poll.
         setDirTrades((cur) => cur.map((x) => x.id === t.id ? { ...x, settlesAt: Date.now() + (data.pending ? 800 : 1500) } : x));
         return;

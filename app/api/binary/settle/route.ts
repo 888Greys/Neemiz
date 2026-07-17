@@ -23,7 +23,18 @@ export async function POST(req: Request) {
   const trade = await db.binaryTrade.findUnique({ where: { id: tradeId } });
   if (!trade)                        return Response.json({ error: "Trade not found" }, { status: 404 });
   if (trade.userId !== dbUser.id)    return Response.json({ error: "Forbidden" }, { status: 403 });
-  if (trade.status !== "PENDING")    return Response.json({ error: "Trade already settled" }, { status: 409 });
+  // Already settled (cron / other tab / race) — return the outcome so the client
+  // can still show the same top win/loss pill as "Even placed".
+  if (trade.status !== "PENDING") {
+    const won = trade.status === "WON";
+    return Response.json({
+      won,
+      winAmount: won ? Number(trade.payout) : 0,
+      exitDigit: trade.exitDigit ?? 0,
+      status: trade.status,
+      alreadySettled: true,
+    });
+  }
 
   const now = new Date();
   const earliestSettle = new Date(trade.createdAt.getTime() + trade.durationTicks * 1000);
@@ -58,9 +69,22 @@ export async function POST(req: Request) {
 
   try {
     const result = await settleTradeWithDigit(trade, exitDigit);
-    // Another worker (a second tab, or the cron sweep) settled it first.
-    if (result.outcome === "already")
+    // Another worker (a second tab, or the cron sweep) settled it first —
+    // reload and return the stored outcome so the UI can still toast.
+    if (result.outcome === "already") {
+      const fresh = await db.binaryTrade.findUnique({ where: { id: tradeId } });
+      if (fresh && fresh.status !== "PENDING") {
+        const won = fresh.status === "WON";
+        return Response.json({
+          won,
+          winAmount: won ? Number(fresh.payout) : 0,
+          exitDigit: fresh.exitDigit ?? exitDigit,
+          status: fresh.status,
+          alreadySettled: true,
+        });
+      }
       return Response.json({ error: "Trade already settled" }, { status: 409 });
+    }
 
     const won = result.outcome === "won";
     return Response.json({ won, winAmount: result.winAmount, exitDigit, status: won ? "WON" : "LOST" });
