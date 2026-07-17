@@ -1144,7 +1144,7 @@ function ForexClientInner() {
               rrPresets={RR_PRESETS}
               riskKes={riskKes} rewardKes={rewardKes} rrRatio={rrRatio}
               marginKes={calcMargin(size, minMarginKes)}
-              forexBalance={wallet.forexBalance}
+              walletBalance={wallet.balance}
               tradeError={tradeError}
               onDismissError={() => setTradeError(null)}
               onOpen={() => openTrade()} opening={openingTrade} live={streamStatus === "live"}
@@ -1847,7 +1847,7 @@ function MobileForexTicket({
   entryLabel, stopLabel, targetLabel,
   size, setSize, lots, sizePresets,
   riskPips, setRiskPips, targetPips, setTargetPips, rrPresets,
-  riskKes, rewardKes, rrRatio, marginKes, forexBalance,
+  riskKes, rewardKes, rrRatio, marginKes, walletBalance,
   tradeError, onDismissError, onOpen, opening, live,
 }: {
   symbol: string;
@@ -1859,53 +1859,26 @@ function MobileForexTicket({
   targetPips: number; setTargetPips: (v: number) => void;
   rrPresets: { label: string; sl: number; tp: number }[];
   riskKes: number; rewardKes: number; rrRatio: number;
-  marginKes: number; forexBalance: number;
+  marginKes: number; walletBalance: number;
   tradeError: string | null; onDismissError: () => void;
   onOpen: () => void; opening: boolean; live: boolean;
 }) {
   const { format } = useMoney();
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
-  const [sheet, setSheet] = useState<null | "size" | "sl" | "tp" | "rr" | "fund">(null);
-  const [funding, setFunding] = useState(false);
-  const [localFundError, setLocalFundError] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<null | "size" | "sl" | "tp" | "rr">(null);
   const buy = direction === "buy";
-  const needsFunds = forexBalance < marginKes;
+  const needsFunds = walletBalance < marginKes;
   const fieldCard = "flex flex-col items-start rounded-2xl bg-[#12141a] px-3 py-2.5 text-left transition active:scale-[0.99] ring-1 ring-white/[0.05]";
-  const bannerError = tradeError ?? localFundError;
+  const bannerError = tradeError;
 
   // Surface failures immediately — expand dock so the banner is readable.
   useEffect(() => {
     if (tradeError) setExpanded(true);
   }, [tradeError]);
 
-  async function fundForex(amount: number) {
-    setFunding(true);
-    setLocalFundError(null);
-    try {
-      const res = await fetch("/api/forex/funding", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setLocalFundError(typeof data.error === "string" ? data.error : "Funding failed");
-        setExpanded(true);
-        return;
-      }
-      window.dispatchEvent(new Event("wallet-refresh"));
-      setSheet(null);
-    } catch {
-      setLocalFundError("Network error — please try again");
-      setExpanded(true);
-    } finally {
-      setFunding(false);
-    }
-  }
-
   const clearBanner = () => {
     if (tradeError) onDismissError();
-    if (localFundError) setLocalFundError(null);
   };
 
   return (
@@ -1983,24 +1956,22 @@ function MobileForexTicket({
 
           <div className="flex items-center justify-between gap-2 rounded-2xl bg-[#12141a] px-3 py-2.5 ring-1 ring-white/[0.05]">
             <div className="min-w-0">
-              <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">Forex wallet</div>
-              <div className="font-mono text-[13px] font-black text-white">{format(forexBalance)}</div>
+              <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">Wallet</div>
+              <div className="font-mono text-[13px] font-black text-white">{format(walletBalance)}</div>
             </div>
             <div className="text-right">
               <div className="text-[9px] font-black uppercase tracking-wider text-slate-500">Margin</div>
               <div className={`font-mono text-[13px] font-black ${needsFunds ? "text-amber-300" : "text-white"}`}>{format(marginKes)}</div>
             </div>
-            <button
-              type="button"
-              onClick={() => { setLocalFundError(null); setSheet("fund"); }}
-              className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-black transition active:scale-[0.97] ${
-                needsFunds
-                  ? "bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/30"
-                  : "bg-white/[0.06] text-slate-200 ring-1 ring-white/[0.08]"
-              }`}
-            >
-              Fund
-            </button>
+            {needsFunds && (
+              <button
+                type="button"
+                onClick={() => router.push("/wallet")}
+                className="shrink-0 rounded-xl bg-amber-500/15 px-3 py-2 text-[11px] font-black text-amber-200 ring-1 ring-amber-400/30 transition active:scale-[0.97]"
+              >
+                Deposit
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -2009,14 +1980,14 @@ function MobileForexTicket({
       {!expanded && needsFunds && (
         <div className="flex items-center justify-between gap-2 px-3 pb-1">
           <span className="text-[11px] font-bold text-amber-200">
-            Need {format(marginKes - forexBalance)} more margin
+            Need {format(marginKes - walletBalance)} more
           </span>
           <button
             type="button"
-            onClick={() => setSheet("fund")}
+            onClick={() => router.push("/wallet")}
             className="rounded-lg bg-amber-500/15 px-2.5 py-1 text-[11px] font-black text-amber-200 ring-1 ring-amber-400/30 active:scale-[0.97]"
           >
-            Fund
+            Deposit
           </button>
         </div>
       )}
@@ -2031,13 +2002,13 @@ function MobileForexTicket({
             <span>{bannerError}</span>
             <button type="button" onClick={clearBanner} className="shrink-0 opacity-60 hover:opacity-100" aria-label="Dismiss">✕</button>
           </div>
-          {(bannerError.toLowerCase().includes("forex wallet") || bannerError.toLowerCase().includes("insufficient")) && (
+          {bannerError.toLowerCase().includes("insufficient") && (
             <button
               type="button"
-              onClick={() => setSheet("fund")}
+              onClick={() => router.push("/wallet")}
               className="mt-1.5 text-[11px] font-black underline decoration-red-300/50 underline-offset-2"
             >
-              Fund forex wallet
+              Open wallet
             </button>
           )}
         </div>
@@ -2088,64 +2059,6 @@ function MobileForexTicket({
           presets={[15, 20, 30, 45, 60, 100]} min={1} max={1000} integer
           onChange={setTargetPips} onClose={() => setSheet(null)} />
       )}
-      {sheet === "fund" && (
-        <ForexFundSheet
-          marginKes={marginKes}
-          forexBalance={forexBalance}
-          funding={funding}
-          onFund={(amount) => void fundForex(amount)}
-          onClose={() => setSheet(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-function ForexFundSheet({
-  marginKes, forexBalance, funding, onFund, onClose,
-}: {
-  marginKes: number;
-  forexBalance: number;
-  funding: boolean;
-  onFund: (amount: number) => void;
-  onClose: () => void;
-}) {
-  const { format } = useMoney();
-  const shortfall = Math.max(0, marginKes - forexBalance);
-  const presets = Array.from(new Set([
-    Math.max(50, Math.ceil(shortfall) || marginKes),
-    marginKes,
-    marginKes * 2,
-    100,
-    500,
-    1000,
-  ].filter((n) => n > 0))).sort((a, b) => a - b).slice(0, 6);
-
-  return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end lg:hidden" role="dialog" aria-modal="true">
-      <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/60" />
-      <div className="animate-sheet-in relative rounded-t-3xl bg-[#18191f] pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-2xl ring-1 ring-white/10">
-        <div className="flex justify-center pt-2.5"><span className="h-1 w-9 rounded-full bg-white/20" /></div>
-        <div className="px-4 pb-1 pt-2 text-center">
-          <div className="text-[13px] font-black text-white">Fund forex wallet</div>
-          <p className="mt-1 text-[12px] font-semibold text-slate-500">
-            Move money from your main wallet. Balance {format(forexBalance)} · margin {format(marginKes)}
-          </p>
-        </div>
-        <div className="grid grid-cols-3 gap-2 px-4 pb-4 pt-2">
-          {presets.map((amount) => (
-            <button
-              key={amount}
-              type="button"
-              disabled={funding}
-              onClick={() => onFund(amount)}
-              className="rounded-2xl bg-[#12141a] px-3 py-3 text-center ring-1 ring-white/[0.06] transition active:scale-[0.98] disabled:opacity-50"
-            >
-              <span className="font-mono text-[14px] font-black text-white">{format(amount)}</span>
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

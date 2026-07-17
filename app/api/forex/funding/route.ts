@@ -5,16 +5,23 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Forex no longer has a separate wallet. GET reports the main balance; POST
+ * folds any leftover forex_wallet_balance into wallet_balance (idempotent) so
+ * stale clients recover funds, then tells the client to use the main wallet.
+ */
 export async function GET() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email, phone: user.phone });
+  const main = Number(dbUser.walletBalance);
   return Response.json({
-    mainBalance: Number(dbUser.walletBalance),
-    forexBalance: Number(dbUser.forexWalletBalance ?? 0),
+    mainBalance: main,
+    forexBalance: main,
     currency: dbUser.currency,
+    unified: true,
   });
 }
 
@@ -23,44 +30,44 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: { amount?: number };
+  // Amount is ignored — transfers into a Forex sub-wallet are retired.
   try {
-    body = await req.json();
+    await req.json();
   } catch {
-    return Response.json({ error: "Invalid request body" }, { status: 400 });
-  }
-
-  const amount = Math.round(Number(body.amount) * 100) / 100;
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return Response.json({ error: "Enter a valid amount" }, { status: 400 });
+    /* empty body ok */
   }
 
   const dbUser = await getOrCreateUser(user.id, { email: user.email, phone: user.phone });
-  const reference = `forex-funding-${crypto.randomUUID()}`;
+  const reference = `forex-fold-${crypto.randomUUID()}`;
 
   try {
     const result = await db.$transaction(async (tx) => {
-      const debited = await tx.user.updateMany({
-        where: { id: dbUser.id, walletBalance: { gte: amount } },
-        data: {
-          walletBalance: { decrement: amount },
-          forexWalletBalance: { increment: amount },
-        },
+      const current = await tx.user.findUniqueOrThrow({
+        where: { id: dbUser.id },
+        select: { walletBalance: true, forexWalletBalance: true },
       });
-      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
-
-      await tx.transaction.create({
-        data: {
-          userId: dbUser.id,
-          type: TransactionType.WITHDRAWAL,
-          amount,
-          currency: "KES",
-          status: TransactionStatus.COMPLETED,
-          provider: "forex",
-          reference,
-          metadata: { action: "main_to_forex_wallet" },
-        },
-      });
+      const leftover = Number(current.forexWalletBalance ?? 0);
+      if (leftover > 0) {
+        await tx.user.update({
+          where: { id: dbUser.id },
+          data: {
+            walletBalance: { increment: leftover },
+            forexWalletBalance: 0,
+          },
+        });
+        await tx.transaction.create({
+          data: {
+            userId: dbUser.id,
+            type: TransactionType.DEPOSIT,
+            amount: leftover,
+            currency: "KES",
+            status: TransactionStatus.COMPLETED,
+            provider: "forex",
+            reference,
+            metadata: { action: "forex_wallet_folded_into_main" },
+          },
+        });
+      }
 
       const updated = await tx.user.findUniqueOrThrow({
         where: { id: dbUser.id },
@@ -69,16 +76,20 @@ export async function POST(req: Request) {
 
       return {
         mainBalance: Number(updated.walletBalance),
-        forexBalance: Number(updated.forexWalletBalance),
+        forexBalance: Number(updated.walletBalance),
+        folded: leftover,
       };
     });
 
-    return Response.json({ ok: true, ...result, reference });
+    return Response.json({
+      ok: true,
+      ...result,
+      unified: true,
+      message: "Forex uses your main wallet — no transfer needed.",
+      reference,
+    });
   } catch (error) {
-    if (error instanceof Error && error.message === "INSUFFICIENT_BALANCE") {
-      return Response.json({ error: "Insufficient main wallet balance" }, { status: 400 });
-    }
-    console.error("POST /api/forex/funding:", error);
-    return Response.json({ error: "Funding failed" }, { status: 500 });
+    console.error("POST /api/forex/funding:", error instanceof Error ? error.message : error);
+    return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

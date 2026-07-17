@@ -43,7 +43,7 @@ export async function GET() {
       bonusWagerRemaining: null,
       bonusCashoutCap:     null,
       bonusExpiresAt:      null,
-      forexBalance:   Number(dbUser.forexWalletBalance ?? 0),
+      forexBalance:   0, // legacy field; Forex uses main walletBalance
       currency:       dbUser.currency,
       cryptoBalances,
     }, {

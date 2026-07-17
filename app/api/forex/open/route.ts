@@ -4,6 +4,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus, ForexTradeDirection } from "@prisma/client";
 import { getServerForexPrice, forexPrecision, isKnownForexSymbol } from "@/lib/forex-price";
 import { minPlayStakeKes } from "@/lib/play-usd";
+import { spendForPlay } from "@/lib/balance";
 
 // NOTE: entryPrice/stopLoss/takeProfit from the client are NOT trusted for
 // settlement. The entry is sourced server-side from the live Deriv feed; the
@@ -92,15 +93,11 @@ export async function POST(req: Request) {
 
   try {
     const result = await db.$transaction(async (tx) => {
-      const debited = await tx.user.updateMany({
-        where: { id: dbUser.id, forexWalletBalance: { gte: margin } },
-        data: { forexWalletBalance: { decrement: margin } },
-      });
-      if (debited.count === 0) throw new Error("INSUFFICIENT_BALANCE");
+      await spendForPlay(tx, dbUser.id, margin);
 
       const updated = await tx.user.findUniqueOrThrow({
         where: { id: dbUser.id },
-        select: { forexWalletBalance: true },
+        select: { walletBalance: true },
       });
 
       await tx.transaction.create({
@@ -129,7 +126,7 @@ export async function POST(req: Request) {
         },
       });
 
-      return { trade, newBalance: Number(updated.forexWalletBalance) };
+      return { trade, newBalance: Number(updated.walletBalance) };
     });
 
     return Response.json({
@@ -147,7 +144,7 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     if ((err as Error).message === "INSUFFICIENT_BALANCE") {
-      return Response.json({ error: "Insufficient forex wallet balance" }, { status: 400 });
+      return Response.json({ error: "Insufficient wallet balance" }, { status: 400 });
     }
     console.error("POST /api/forex/open:", err instanceof Error ? err.message : err);
     return Response.json({ error: "Internal server error" }, { status: 500 });

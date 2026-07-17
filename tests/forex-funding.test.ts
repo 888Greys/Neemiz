@@ -9,8 +9,8 @@ vi.mock("@/lib/get-or-create-user", () => ({ getOrCreateUser: vi.fn() }));
 
 const tx = {
   user: {
-    updateMany: vi.fn(),
     findUniqueOrThrow: vi.fn(),
+    update: vi.fn(),
   },
   transaction: {
     create: vi.fn(),
@@ -23,7 +23,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-describe("forex funding", () => {
+describe("forex funding (unified main wallet)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(createClient).mockResolvedValue({
@@ -40,34 +40,48 @@ describe("forex funding", () => {
     vi.mocked(db.$transaction).mockImplementation(async (callback) => callback(tx as any));
   });
 
-  function request(amount: number) {
+  function request(amount = 25) {
     return new Request("http://localhost/api/forex/funding", {
       method: "POST",
       body: JSON.stringify({ amount }),
     });
   }
 
-  it("moves funds from main wallet into forex wallet only", async () => {
-    tx.user.updateMany.mockResolvedValue({ count: 1 });
-    tx.user.findUniqueOrThrow.mockResolvedValue({ walletBalance: 75, forexWalletBalance: 25 });
+  it("folds leftover forex balance into the main wallet and skips transfers", async () => {
+    tx.user.findUniqueOrThrow
+      .mockResolvedValueOnce({ walletBalance: 100, forexWalletBalance: 40 })
+      .mockResolvedValueOnce({ walletBalance: 140, forexWalletBalance: 0 });
+    tx.user.update.mockResolvedValue({});
 
     const res = await POST(request(25));
     expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toMatchObject({ ok: true, mainBalance: 75, forexBalance: 25 });
-    expect(tx.user.updateMany).toHaveBeenCalledWith({
-      where: { id: "user_1", walletBalance: { gte: 25 } },
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      unified: true,
+      folded: 40,
+      mainBalance: 140,
+      forexBalance: 140,
+    });
+    expect(tx.user.update).toHaveBeenCalledWith({
+      where: { id: "user_1" },
       data: {
-        walletBalance: { decrement: 25 },
-        forexWalletBalance: { increment: 25 },
+        walletBalance: { increment: 40 },
+        forexWalletBalance: 0,
       },
     });
   });
 
-  it("rejects funding when main wallet has insufficient balance", async () => {
-    tx.user.updateMany.mockResolvedValue({ count: 0 });
+  it("is a no-op when forex wallet is already empty", async () => {
+    tx.user.findUniqueOrThrow.mockResolvedValue({ walletBalance: 100, forexWalletBalance: 0 });
 
-    const res = await POST(request(250));
-    expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toMatchObject({ error: "Insufficient main wallet balance" });
+    const res = await POST(request(50));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({
+      ok: true,
+      unified: true,
+      folded: 0,
+      mainBalance: 100,
+    });
+    expect(tx.user.update).not.toHaveBeenCalled();
   });
 });

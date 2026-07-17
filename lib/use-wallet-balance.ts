@@ -14,6 +14,7 @@ export type CryptoBalance = {
 type WalletState = {
   balance:        number;
   bonusBalance:   number;
+  /** @deprecated Forex uses main `balance`; always 0 after wallet merge. */
   forexBalance:   number;
   currency:       string;
   cryptoBalances: CryptoBalance[];

@@ -28,6 +28,8 @@ model User {
   bonusWagerRemaining Decimal  @default(0.00) @map("bonus_wager_remaining") @db.Decimal(18, 2)
   bonusCashoutCap     Decimal  @default(0.00) @map("bonus_cashout_cap") @db.Decimal(18, 2)
   bonusExpiresAt      DateTime? @map("bonus_expires_at")
+  // Legacy Forex sub-wallet. Funds were folded into walletBalance; open/close
+  // now debit/credit the main wallet only (same as Binary / P2P).
   forexWalletBalance Decimal  @default(0.00) @map("forex_wallet_balance") @db.Decimal(18, 2)
   currency          String    @default("KES")
   isActive          Boolean   @default(true) @map("is_active")

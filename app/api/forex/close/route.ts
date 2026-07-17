@@ -5,6 +5,7 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyForexProfitRetention } from "@/lib/house-retention";
 import { getServerForexPrice } from "@/lib/forex-price";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { creditForPlay } from "@/lib/balance";
 
 // NOTE: closePrice from the client is ignored for settlement. The close price
 // is fetched server-side from the live Deriv feed.
@@ -81,10 +82,7 @@ export async function POST(req: Request) {
       if (claimed.count === 0) throw new Error("ALREADY_CLOSED");
 
       if (returnAmount > 0) {
-        await tx.user.update({
-          where: { id: dbUser.id },
-          data: { forexWalletBalance: { increment: returnAmount } },
-        });
+        await creditForPlay(tx, dbUser.id, returnAmount, "real");
         await tx.transaction.create({
           data: {
             userId: dbUser.id,
@@ -120,7 +118,7 @@ export async function POST(req: Request) {
 
     const updatedUser = await db.user.findUnique({
       where: { id: dbUser.id },
-      select: { forexWalletBalance: true },
+      select: { walletBalance: true },
     });
 
     return Response.json({
@@ -130,7 +128,7 @@ export async function POST(req: Request) {
       returnAmount,
       grossReturnAmount,
       retainedAmount,
-      newBalance: Number(updatedUser?.forexWalletBalance ?? 0),
+      newBalance: Number(updatedUser?.walletBalance ?? 0),
     });
   } catch (err) {
     if (err instanceof Error && err.message === "ALREADY_CLOSED")
