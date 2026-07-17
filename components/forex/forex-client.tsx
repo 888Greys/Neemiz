@@ -2244,8 +2244,8 @@ function ForexPairSheet({
           )}
         </div>
 
-        {/* Discover demoted from bottom nav — still one tap from Markets */}
-        <div className="shrink-0 border-t border-white/[0.06] px-3 pt-2">
+        {/* Discover — mobile markets sheet only */}
+        <div className="shrink-0 border-t border-white/[0.06] px-3 pt-2 sm:hidden">
           <button
             type="button"
             onClick={() => {
