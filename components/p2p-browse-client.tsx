@@ -1261,9 +1261,9 @@ function AdCard({
         </div>
       </div>
 
-      {/* ── Margin % ── */}
-      <div className="mt-2 min-w-0 justify-self-end text-right lg:mt-0 lg:justify-self-auto lg:text-left">
-        <p className="lg:hidden text-[9px] font-bold uppercase tracking-wide text-white/35">Margin</p>
+      {/* ── Margin % (desktop column) ── */}
+      <div className="mt-2 hidden min-w-0 lg:mt-0 lg:block lg:justify-self-auto">
+        <p className="text-[9px] font-bold uppercase tracking-wide text-white/35 lg:hidden">Margin</p>
         {margin ? (
           <span
             className={`text-[13px] font-black tabular-nums ${
@@ -1277,15 +1277,29 @@ function AdCard({
         )}
       </div>
 
-      {/* ── Trade ── */}
-      <div className="col-span-2 mt-2 flex items-center justify-end lg:col-span-1 lg:mt-0">
+      {/* ── Trade (mobile: margin sits left of the action button) ── */}
+      <div className="col-span-2 mt-2 flex items-center justify-between gap-3 lg:col-span-1 lg:mt-0 lg:justify-end">
+        <div className="min-w-0 lg:hidden">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-white/35">Margin</p>
+          {margin ? (
+            <span
+              className={`text-[13px] font-black tabular-nums ${
+                margin.tone === "neg" ? "text-red-400" : margin.tone === "pos" ? "text-[#05b957]" : "text-white/70"
+              }`}
+            >
+              {margin.text}
+            </span>
+          ) : (
+            <span className="text-[12px] font-semibold text-white/35">—</span>
+          )}
+        </div>
         <button
           type="button"
           onClick={(event) => {
             event.stopPropagation();
             onDetails(ad);
           }}
-          className={`flex h-8 w-auto min-w-[96px] items-center justify-center gap-1.5 rounded-lg px-5 text-[12px] font-black text-white transition active:scale-[0.98] lg:min-w-0 lg:px-4 ${
+          className={`flex h-8 w-auto min-w-[96px] shrink-0 items-center justify-center gap-1.5 rounded-lg px-5 text-[12px] font-black text-white transition active:scale-[0.98] lg:min-w-0 lg:px-4 ${
             isMerchantSelling ? "bg-[#05b957] hover:bg-[#06d169]" : "bg-red-500 hover:bg-red-400"
           }`}
         >
