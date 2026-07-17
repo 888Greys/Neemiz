@@ -304,41 +304,21 @@ export function RollingBalance({
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Global win celebration — one overlay mounted app-wide (in layout), driven by
- * an imperative bus so any game (binary, forex, digits, wheel…) can trigger:
- *   1) top toast (same chrome as "RISE placed") + win sound
- *   2) centered amount badge / confetti
+ * Win toast — same top pill as "Even placed" / Aviator cashout. No center badge
+ * behind it (that stacked duplicate looked like a second popup).
  *
- *   celebrateWin({ amount: winKes, toastTitle: "RISE won!", toastDescription: "+KSh 16" });
+ *   celebrateWin({ amount: winKes, toastTitle: "Even won!", toastDescription: "…" });
  *
- * Aviator keeps its own in-canvas WinCelebration — do NOT also call celebrateWin().
+ * Sound + haptic come from toast.cashout. WinCelebration (in-canvas badge) is
+ * available for games that want a local overlay; do not also call celebrateWin
+ * if you fire that overlay yourself.
  * ────────────────────────────────────────────────────────────────────────── */
 
-type WinBusListener = (payload: WinCelebrationPayload) => void;
-const winBusListeners = new Set<WinBusListener>();
-
-/** Fire toast + sound + center badge. `amount` is canonical KES. */
+/** Fire top toast + win sound. `amount` is canonical KES. */
 export function celebrateWin(payload: WinCelebrationPayload) {
   if (!(payload.amount > 0)) return; // never celebrate a zero/negative outcome
-  // Place-style top pill + win sound (mirrors toast.info + placed() on bet).
   toast.cashout(
     payload.toastTitle ?? payload.label ?? "You won!",
     payload.toastDescription,
-  );
-  winBusListeners.forEach((fn) => fn(payload));
-}
-
-/** Mount once (layout). Center badge only — sound comes from toast.cashout above. */
-export function GlobalWinCelebration() {
-  const ref = useRef<WinCelebrationHandle | null>(null);
-  useEffect(() => {
-    const listener: WinBusListener = (payload) => ref.current?.fire(payload);
-    winBusListeners.add(listener);
-    return () => { winBusListeners.delete(listener); };
-  }, []);
-  return (
-    <div className="pointer-events-none fixed inset-0 z-[9998]">
-      <WinCelebration ref={ref} soundEnabled={false} />
-    </div>
   );
 }

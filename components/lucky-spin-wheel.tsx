@@ -128,7 +128,7 @@ export function LuckySpinWheel() {
       window.dispatchEvent(new Event("wallet-refresh"));
       if (data.multiplier === 0 || data.netChange < 0) outcomeLose();
       else {
-        // Toast + win sound + center badge (celebrateWin plays the sound).
+        // Top toast + win sound (same chrome as place / Binary won).
         celebrateWin({
           amount: data.winAmount,
           multiplier: data.multiplier,

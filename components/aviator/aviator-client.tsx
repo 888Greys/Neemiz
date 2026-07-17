@@ -7,12 +7,10 @@ import { AviatorCanvas }   from "./aviator-canvas";
 import { AviatorBetPanel } from "./aviator-bet-panel";
 import { AviatorHistory, VerifyModal } from "./aviator-history";
 import { AviatorLiveBets } from "./aviator-live-bets";
-import { RollingBalance } from "./win-celebration";
 import { toast } from "@/lib/toast";
 import { placed, isSoundEnabled, setSoundEnabled as setGameSound } from "@/lib/game-feel";
 import { Icon } from "@/components/icon";
 import { useMoney } from "@/lib/currency-context";
-import { useAuthModal } from "@/lib/auth-modal-context";
 import type {
   AviatorRoundState,
   AviatorRound,
@@ -91,7 +89,6 @@ function mapStatus(s: string): AviatorRoundState {
 export function AviatorClient({ userId, username, balance: initialBalance }: Props) {
   const { format } = useMoney();
   const router = useRouter();
-  const { openWallet } = useAuthModal();
   const [round,      setRound]      = useState<AviatorRound | null>(null);
   const [liveBets,   setLiveBets]   = useState<AviatorBetPublic[]>([]);
   const [myBets,     setMyBets]     = useState<MyBets>({});
@@ -583,30 +580,16 @@ export function AviatorClient({ userId, username, balance: initialBalance }: Pro
             <div className="min-w-0 flex-1 overflow-hidden">
               <AviatorHistory rounds={history} onVerify={setVerifyRound} />
             </div>
-            {userId && (
-              <button
-                type="button"
-                onClick={() => openWallet()}
-                className="hidden sm:flex shrink-0 items-center gap-1 rounded-full bg-white/[0.05] px-2 py-1 ring-1 ring-white/[0.06] transition active:scale-95 hover:bg-white/[0.1] sm:px-2.5"
-              >
-                <Icon name="account_balance_wallet" className="text-[13px] text-[#31c45d] sm:text-[14px]" />
-                <RollingBalance
-                  value={balance}
-                  className="text-[10px] font-black tabular-nums text-white sm:text-[11px]"
-                  format={(n) => format(n)}
-                />
-              </button>
-            )}
+            {/* Desktop: hamburger for game options (mobile uses bottom-nav Menu for app shell).
+                Wallet lives only in the shared header — no second balance chip here. */}
             <button
               type="button"
-              onClick={() => setMusicEnabled((v) => !v)}
-              className={`hidden sm:grid h-7 w-7 shrink-0 place-items-center rounded-full ring-1 ring-white/[0.06] transition-colors ${
-                musicEnabled ? "bg-white/[0.06] text-[#31c45d]" : "bg-white/[0.06] text-white/35"
-              }`}
-              aria-label={musicEnabled ? "Turn music off" : "Turn music on"}
-              title={musicEnabled ? "Music on" : "Music off"}
+              onClick={() => setMenuOpen(true)}
+              className="hidden sm:grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/70 ring-1 ring-white/[0.06] transition-colors hover:bg-white/[0.1] hover:text-white"
+              aria-label="More options"
+              title="More options"
             >
-              <Icon name={musicEnabled ? "music_note" : "music_off"} className="h-4 w-4" />
+              <Icon name="menu" className="h-4 w-4" />
             </button>
           </div>
 
@@ -752,7 +735,7 @@ function AviatorMenu({
         role="dialog"
         aria-modal="true"
         aria-label="Aviator menu"
-        className="relative z-10 ml-auto mt-12 mr-2 w-[240px] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1c1d23] shadow-[0_12px_40px_rgba(0,0,0,0.6)]"
+        className="relative z-10 ml-auto mt-10 mr-2 w-[240px] overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1c1d23] shadow-[0_12px_40px_rgba(0,0,0,0.6)] sm:mt-2 sm:mr-3"
       >
         {/* Header */}
         <div className="flex items-center gap-2.5 border-b border-white/[0.06] px-3 py-2.5">
