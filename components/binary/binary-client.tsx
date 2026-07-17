@@ -2379,19 +2379,19 @@ function MarketsSheet({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:items-stretch sm:justify-start" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:items-start sm:justify-start sm:pt-[4.75rem] sm:pl-3 sm:pr-3" role="dialog" aria-modal="true">
       <button
         type="button"
         aria-label="Close"
         onClick={requestClose}
-        className={`absolute inset-0 bg-black/60 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
+        className={`absolute inset-0 bg-black/60 sm:bg-black/25 ${closing ? "animate-sheet-backdrop-out" : "animate-sheet-backdrop-in"}`}
       />
       <div
-        className={`relative flex max-h-[85dvh] w-full flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.06] sm:h-full sm:max-h-none sm:w-[min(100%,380px)] sm:rounded-none sm:rounded-r-2xl sm:pb-3 ${
+        className={`relative flex max-h-[85dvh] w-full flex-col rounded-t-3xl bg-[#151518] pb-[calc(env(safe-area-inset-bottom)+0.5rem)] shadow-2xl ring-1 ring-white/[0.08] sm:max-h-[min(560px,72vh)] sm:w-[360px] sm:rounded-2xl sm:pb-2 ${
           closing ? "animate-sheet-out" : "animate-sheet-in"
         }`}
       >
-        <button type="button" onClick={requestClose} className="flex w-full justify-center pt-2.5 pb-1" aria-label="Close sheet">
+        <button type="button" onClick={requestClose} className="flex w-full justify-center pt-2.5 pb-1 sm:hidden" aria-label="Close sheet">
           <span className="h-1 w-9 rounded-full bg-white/20" />
         </button>
 
