@@ -1,11 +1,12 @@
 import { db } from "@/lib/db";
 
-export const metadata = { title: "Cashflow · 7 days · Nezeem Admin" };
+export const metadata = { title: "Lipa Cashflow · 7 days · Nezeem Admin" };
 export const dynamic = "force-dynamic";
 
-// READ-ONLY: deposits vs withdrawals over the last 7 days (Africa/Nairobi days),
-// straight from Nezeem's transaction ledger. Completed = real money moved;
-// failed/pending shown for context. Writes nothing.
+// READ-ONLY: real M-Pesa cash in vs out over the last 7 days, LIPA HARAKA ONLY.
+// Excludes internal ledger movement (coin conversions, admin grants, wallet
+// transfers, P2P escrow) so this reflects actual money through the provider —
+// directly comparable to Lipa's dashboard. Writes nothing.
 
 const TZ_OFFSET_H = 3; // Africa/Nairobi (UTC+3)
 const DAY_MS = 24 * 3600_000;
@@ -15,19 +16,17 @@ const nboDay = (d: Date) => new Date(d.getTime() + TZ_OFFSET_H * 3600_000).toISO
 type Cell = { count: number; sum: number };
 const empty = (): Cell => ({ count: 0, sum: 0 });
 
-export default async function Cashflow7dPage() {
+export default async function LipaCashflow7dPage() {
   const since = new Date(Date.now() - 7 * DAY_MS);
 
   const rows = await db.transaction.findMany({
-    where: { createdAt: { gte: since }, type: { in: ["DEPOSIT", "WITHDRAWAL"] } },
-    select: { type: true, status: true, amount: true, provider: true, createdAt: true },
+    where: { createdAt: { gte: since }, provider: "lipaharaka", type: { in: ["DEPOSIT", "WITHDRAWAL"] } },
+    select: { type: true, status: true, amount: true, createdAt: true },
   });
 
-  // day -> { depDone, depFail, depPend, wdDone, wdFail, wdPend }
   const days: Record<string, {
     depDone: Cell; depFail: Cell; depPend: Cell; wdDone: Cell; wdFail: Cell; wdPend: Cell;
   }> = {};
-  const provider: Record<string, Cell> = {}; // completed deposits by provider (7d)
   const totals = { depDone: empty(), depFail: empty(), depPend: empty(), wdDone: empty(), wdFail: empty(), wdPend: empty() };
 
   for (const r of rows) {
@@ -44,51 +43,45 @@ export default async function Cashflow7dPage() {
     days[day][bucket as keyof (typeof days)[string]].sum += amt;
     totals[bucket as keyof typeof totals].count++;
     totals[bucket as keyof typeof totals].sum += amt;
-    if (isDep && done) {
-      const p = r.provider ?? "(none)";
-      provider[p] ??= empty();
-      provider[p].count++;
-      provider[p].sum += amt;
-    }
   }
 
   const dayKeys = Object.keys(days).sort().reverse();
-  const provRows = Object.entries(provider).map(([p, c]) => ({ p, ...c })).sort((a, b) => b.sum - a.sum);
   const netWeek = totals.depDone.sum - totals.wdDone.sum;
 
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#adc6ff]">Reconciliation</p>
-        <h2 className="mt-1 text-[32px] font-semibold tracking-[-0.02em] text-[#e5e2e3]">Cashflow — last 7 days</h2>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#adc6ff]">Reconciliation · Lipa Haraka only</p>
+        <h2 className="mt-1 text-[32px] font-semibold tracking-[-0.02em] text-[#e5e2e3]">M-Pesa cashflow — last 7 days</h2>
         <p className="mt-1 text-[14px] text-[#c2c6d6]">
-          Deposits vs withdrawals from Nezeem&apos;s ledger (Africa/Nairobi days). &ldquo;Done&rdquo; = COMPLETED (real money moved).
+          Real money through Lipa Haraka (Africa/Nairobi days). Internal ledger movement — coin
+          conversions, admin grants, wallet transfers, escrow — is excluded. &ldquo;Done&rdquo; = COMPLETED.
         </p>
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Bento label="Deposits IN (7d, done)" value={`KSh ${fmt(totals.depDone.sum)}`} sub={`${totals.depDone.count} txns`} />
-        <Bento label="Withdrawals OUT (7d, done)" value={`KSh ${fmt(totals.wdDone.sum)}`} sub={`${totals.wdDone.count} txns`} tone={totals.wdDone.sum > totals.depDone.sum ? "warn" : undefined} />
+        <Bento label="Cash IN (7d, done)" value={`KSh ${fmt(totals.depDone.sum)}`} sub={`${totals.depDone.count} deposits`} />
+        <Bento label="Cash OUT (7d, done)" value={`KSh ${fmt(totals.wdDone.sum)}`} sub={`${totals.wdDone.count} withdrawals`} tone={totals.wdDone.sum > totals.depDone.sum ? "warn" : undefined} />
         <Bento label="Net (in − out)" value={`KSh ${fmt(netWeek)}`} tone={netWeek < 0 ? "warn" : undefined} />
         <Bento label="Failed deposits (7d)" value={String(totals.depFail.count)} sub={`KSh ${fmt(totals.depFail.sum)} attempted`} tone={totals.depFail.count > 0 ? "warn" : undefined} />
       </div>
 
-      <div className="mb-8 av2-card overflow-hidden rounded-lg">
+      <div className="av2-card overflow-hidden rounded-lg">
         <div className="overflow-x-auto">
           <table className="av2-mono w-full min-w-[820px] text-left text-[13px]">
             <thead>
               <tr className="border-b border-[#27272a] bg-[#161618] text-[11px] uppercase tracking-wider text-[#c2c6d6]">
                 <th className="px-4 py-3 font-semibold">Day</th>
-                <th className="px-4 py-3 text-right font-semibold">Deposits ✓</th>
+                <th className="px-4 py-3 text-right font-semibold">Cash in ✓</th>
                 <th className="px-4 py-3 text-right font-semibold">Dep failed</th>
-                <th className="px-4 py-3 text-right font-semibold">Withdrawals ✓</th>
+                <th className="px-4 py-3 text-right font-semibold">Cash out ✓</th>
                 <th className="px-4 py-3 text-right font-semibold">Wd pending</th>
                 <th className="px-4 py-3 text-right font-semibold">Net</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#27272a]">
               {dayKeys.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-[#8c909f]">No deposits or withdrawals in the last 7 days.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-[#8c909f]">No Lipa Haraka activity in the last 7 days.</td></tr>
               )}
               {dayKeys.map((k) => {
                 const d = days[k];
@@ -117,28 +110,8 @@ export default async function Cashflow7dPage() {
             </tfoot>
           </table>
         </div>
-      </div>
-
-      <div className="av2-card overflow-hidden rounded-lg">
-        <div className="border-b border-[#27272a] px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#c2c6d6]">
-          Completed deposits by provider (7 days)
-        </div>
-        <table className="av2-mono w-full text-left text-[13px]">
-          <tbody className="divide-y divide-[#27272a]">
-            {provRows.length === 0 && (
-              <tr><td className="px-4 py-3 text-[#8c909f]">No completed deposits.</td></tr>
-            )}
-            {provRows.map((r) => (
-              <tr key={r.p}>
-                <td className="px-4 py-2 text-[#e5e2e3]">{r.p}</td>
-                <td className="px-4 py-2 text-right text-[#c2c6d6]">{r.count}</td>
-                <td className="px-4 py-2 text-right text-[#e5e2e3]">KSh {fmt(r.sum)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
         <div className="border-t border-[#27272a] px-4 py-2 text-[11px] text-[#8c909f]">
-          Compare the <span className="text-[#adc6ff]">lipaharaka</span> total to Lipa&apos;s &ldquo;Total collected&rdquo; for the same window.
+          Compare Cash IN to Lipa&apos;s &ldquo;Total collected&rdquo; and Cash OUT to Lipa&apos;s &ldquo;Total Withdrawals&rdquo; for the same window.
         </div>
       </div>
     </div>
