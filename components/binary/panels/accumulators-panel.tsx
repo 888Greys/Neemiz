@@ -30,6 +30,8 @@ export function AccumulatorsPanel({
   onBuy, placing,
   position, onCashOut, closing, format,
   sigma,
+  stakePresets = [129, 645, 1290, 3225, 6450, 12900],
+  minStake = 129,
 }: {
   currency: string;
   stake: number; setStake: (v: number) => void;
@@ -39,12 +41,14 @@ export function AccumulatorsPanel({
   onBuy: () => void; placing: boolean;
   position: RunningAccumulator | null;
   onCashOut: () => void; closing: boolean;
-  format: (v: number) => string;
-  sigma: number | null;
+  format: (n: number) => string;
+  sigma?: number | null;
+  stakePresets?: number[];
+  minStake?: number;
 }) {
   const { convert, toKes, currency: cc } = useCurrency();
   const stakeDisplay = Number(convert(stake).toFixed(cc.decimals));
-  const setStakeDisplay = (shown: number) => setStake(Math.max(1, Math.round(toKes(shown))));
+  const setStakeDisplay = (shown: number) => setStake(Math.max(minStake, Math.round(toKes(shown))));
   const maxTicks  = maxTicksFor(growthRate);
   const maxPayout = payoutAtTick(stake, growthRate, maxTicks);
 
@@ -63,6 +67,8 @@ export function AccumulatorsPanel({
         maxPayout={maxPayout}
         onBuy={onBuy} placing={placing} format={format}
         sigma={sigma}
+        stakePresets={stakePresets}
+        minStake={minStake}
       />
 
       {/* ── Desktop (sm+): existing config layout, untouched ── */}
@@ -180,7 +186,7 @@ export function AccumulatorsPanel({
 function MobileAccumulators({
   currency, stake, setStake, growthRate, setGrowthRate,
   takeProfitOn, setTakeProfitOn, takeProfit, setTakeProfit,
-  maxPayout, onBuy, placing, format, sigma,
+  maxPayout, onBuy, placing, format, sigma, stakePresets, minStake,
 }: {
   currency: string;
   stake: number; setStake: (v: number) => void;
@@ -191,6 +197,8 @@ function MobileAccumulators({
   onBuy: () => void; placing: boolean;
   format: (v: number) => string;
   sigma: number | null;
+  stakePresets: number[];
+  minStake: number;
 }) {
   const { convert, currency: cc } = useCurrency();
   const stakeShown = convert(stake).toLocaleString(cc.locale, { maximumFractionDigits: cc.decimals });
@@ -288,7 +296,7 @@ function MobileAccumulators({
         <ValuePickerSheet
           money
           title="Stake" unit={currency} value={stake}
-          presets={[10, 50, 100, 500, 1000, 5000]} min={1} max={1_000_000}
+          presets={stakePresets} min={minStake} max={1_000_000}
           onChange={setStake} onClose={() => setSheet(null)}
         />
       )}

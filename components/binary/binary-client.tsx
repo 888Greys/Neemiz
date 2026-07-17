@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCurrency } from "@/lib/currency-context";
+import { useCurrency, PlayUsdProvider } from "@/lib/currency-context";
 import type { DisplayCurrency } from "@/lib/currency-config";
+import { FALLBACK_USD_KES, MIN_PLAY_USD } from "@/lib/play-usd";
 import { useNavBadge } from "@/lib/nav-badge-context";
 import {
   AreaSeries,
@@ -241,8 +242,8 @@ const DEFAULT_TYPE_ORDER: TradeTypeId[] = [
   "rise_fall", "higher_lower", "touch_no_touch",
 ];
 
-const STAKE_PRESETS_LIVE = [10, 50, 100, 500, 1000, 5000];
-const STAKE_PRESETS_DEMO = [1, 5, 10, 25, 50, 100];
+// Stake presets in USD — converted to KES via PlayUsdProvider.toKes for the ledger.
+const STAKE_PRESETS_USD = [1, 5, 10, 25, 50, 100];
 const DIGITS = Array.from({ length: 10 }, (_, index) => index);
 const TICK_SECONDS = 1;
 const DERIV_WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${process.env.NEXT_PUBLIC_DERIV_APP_ID ?? "1089"}`;
@@ -644,13 +645,25 @@ interface BinaryClientProps {
   liveTypes: TradeTypeId[];
 }
 
-export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }: BinaryClientProps) {
+export function BinaryClient(props: BinaryClientProps) {
+  return (
+    <PlayUsdProvider>
+      <BinaryClientInner {...props} />
+    </PlayUsdProvider>
+  );
+}
+
+function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: BinaryClientProps) {
   const isLive = !!userId;
   const setNavBadge = useNavBadge()?.setBadge;
-  // Display currency: convert KES amounts for display, and convert typed stakes
-  // back to KES (toKes) before they hit the KES-only server.
+  // Forced USD display for Binary; stakes posted to the server stay KES.
   const { convert, toKes, currency } = useCurrency();
   const money = (kes: number, opts?: Intl.NumberFormatOptions) => fmtMoney(kes, currency, convert, opts);
+  const minStake = useMemo(() => Math.max(1, Math.round(toKes(MIN_PLAY_USD))), [toKes]);
+  const stakePresets = useMemo(
+    () => STAKE_PRESETS_USD.map((usd) => Math.max(minStake, Math.round(toKes(usd)))),
+    [toKes, minStake],
+  );
 
   const [marketSymbol, setMarketSymbol] = useState(MARKETS[0].symbol);
   const market = MARKETS.find((item) => item.symbol === marketSymbol) ?? MARKETS[0];
@@ -683,7 +696,10 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
     const fam = DIGIT_TYPE_TO_FAMILY[id];
     if (fam) setFamily(fam);
   }, [liveTypes]);
-  const [stake, setStake] = useState(10);
+  const [stake, setStake] = useState(FALLBACK_USD_KES);
+  useEffect(() => {
+    setStake((s) => (s < minStake ? minStake : s));
+  }, [minStake]);
   const [targetDigit, setTargetDigit] = useState(5);
   const setDigitTarget = useCallback((digit: number) => {
     const next = Math.round(digit);
@@ -2077,6 +2093,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                 closing={accaClosing}
                 format={money}
                 sigma={clientSigma}
+                stakePresets={stakePresets}
+                minStake={minStake}
               />
             ) : isDigitType ? (
               <DigitPanel
@@ -2087,8 +2105,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                 duration={duration} setDuration={setDuration}
                 targetDigit={targetDigit} setTargetDigit={setDigitTarget}
                 lastDigit={latest.digit}
-                stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
-                minStake={isLive ? 10 : 1}
+                stakePresets={stakePresets}
+                minStake={minStake}
                 payoutFor={(side) => displayedPayout(stake, side, targetDigit)}
                 format={money}
                 onTrade={placeTrade}
@@ -2104,8 +2122,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                 secPerTick={Math.max(1, Math.round(market.speedMs / 1000))}
                 strikeOffset={barrierOffset} setStrikeOffset={setBarrierOffset}
                 latestSpot={latest.quote}
-                stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
-                minStake={isLive ? 10 : 1}
+                stakePresets={stakePresets}
+                minStake={minStake}
                 payoutPerPointFor={dirPayoutPerPoint}
                 maxPayout={dirMaxPayout}
                 format={money}
@@ -2128,8 +2146,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                 minBarrierOffset={minBarrierOffset}
                 minDuration={minDurationTicks}
                 latestSpot={latest.quote}
-                stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
-                minStake={isLive ? 10 : 1}
+                stakePresets={stakePresets}
+                minStake={minStake}
                 payoutFor={dirPayoutFor}
                 format={money}
                 formatSpot={formatQuote}
@@ -2152,8 +2170,8 @@ export function BinaryClient({ userId, balance: initialBalance = 0, liveTypes }:
                 payoutPerPoint={levConfigPpp}
                 dangerSpot={levConfigDanger}
                 maxPayout={levMaxPayout}
-                stakePresets={isLive ? STAKE_PRESETS_LIVE : STAKE_PRESETS_DEMO}
-                minStake={isLive ? 10 : 1}
+                stakePresets={stakePresets}
+                minStake={minStake}
                 format={money}
                 formatSpot={formatQuote}
                 onTrade={placeLeveraged}

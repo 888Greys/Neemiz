@@ -2,14 +2,16 @@
 // route and the server stepping cron (/api/cron/auto-trade). No DB or I/O here
 // so it's trivially testable and the engine can't drift from the API.
 
+import { FALLBACK_USD_KES, MAX_PLAY_USD, MIN_PLAY_USD } from "@/lib/play-usd";
+
 export type AutoStrategy = "FIXED" | "MARTINGALE" | "DALEMBERT" | "OSCARS";
 export type AutoSessionStatus =
   | "RUNNING" | "STOPPED" | "DONE_TP" | "DONE_SL" | "DONE_RUNS" | "ERROR";
 
 // Hard guardrails — enforced server-side so a runaway Martingale can't drain a
-// wallet. These mirror the binary/bet route's own MIN/MAX_STAKE.
-export const AUTO_MIN_STAKE = 10;
-export const AUTO_MAX_STAKE = 10_000;
+// wallet. Floored at ~$1 / capped at ~$500 in KES (see lib/play-usd).
+export const AUTO_MIN_STAKE = FALLBACK_USD_KES * MIN_PLAY_USD;
+export const AUTO_MAX_STAKE = FALLBACK_USD_KES * MAX_PLAY_USD;
 export const AUTO_MAX_RUNS_CAP = 500;       // a session can place at most this many trades
 export const AUTO_MAX_MULTIPLIER = 5;       // Martingale factor ceiling
 export const AUTO_MIN_MULTIPLIER = 1.1;

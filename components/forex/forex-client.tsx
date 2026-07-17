@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMoney } from "@/lib/currency-context";
+import { useCurrency, useMoney, PlayUsdProvider } from "@/lib/currency-context";
+import { FALLBACK_USD_KES, MIN_PLAY_USD } from "@/lib/play-usd";
 import {
   AreaSeries,
   BarSeries,
@@ -116,10 +117,9 @@ function pipSize(market: Pick<ForexMarket, "precision">) {
   return market.precision === 3 ? 0.01 : 0.0001;
 }
 
-// Mirror of calcMargin in app/api/forex/open/route.ts so the ticket can show the
-// exact KES the server will reserve before the user commits.
-function calcMargin(size: number) {
-  return Math.max(10, Math.round(size / 100));
+// Mirror of calcMargin in app/api/forex/open/route.ts — size/100 KES, floored at $1.
+function calcMargin(size: number, minKes: number) {
+  return Math.max(minKes, Math.round(size / 100));
 }
 
 function getPips(entry: number, price: number, market: Pick<ForexMarket, "precision">) {
@@ -566,7 +566,16 @@ function ForexNativeTabBar({
 }
 
 export function ForexClient() {
-  const { format } = useMoney(); // KES amounts → active display currency
+  return (
+    <PlayUsdProvider>
+      <ForexClientInner />
+    </PlayUsdProvider>
+  );
+}
+
+function ForexClientInner() {
+  const { format, toKes } = useCurrency(); // forced USD via PlayUsdProvider
+  const minMarginKes = useMemo(() => Math.max(1, Math.round(toKes(MIN_PLAY_USD))), [toKes]);
   const wallet = useWalletBalance();
   const [selectedSymbol, setSelectedSymbol] = useState(DEFAULT_SYMBOL);
   const [direction, setDirection] = useState<Direction>("buy");
@@ -1136,7 +1145,7 @@ export function ForexClient() {
               targetPips={targetPips} setTargetPips={setTargetPips}
               rrPresets={RR_PRESETS}
               riskKes={riskKes} rewardKes={rewardKes} rrRatio={rrRatio}
-              marginKes={calcMargin(size)}
+              marginKes={calcMargin(size, minMarginKes)}
               forexBalance={wallet.forexBalance}
               tradeError={tradeError}
               onDismissError={() => setTradeError(null)}
@@ -1241,7 +1250,7 @@ export function ForexClient() {
               {/* Margin the server will reserve for this position. */}
               <div className="flex items-center justify-between rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Margin required</span>
-                <span className="font-mono text-sm font-black text-white">{format(calcMargin(size))}</span>
+                <span className="font-mono text-sm font-black text-white">{format(calcMargin(size, minMarginKes))}</span>
               </div>
 
               {tradeError && (
@@ -1559,7 +1568,7 @@ function buildForexTransactions(openTrades: Trade[], history: ClosedTrade[]): Fo
     id: `stake-${t.id}`,
     kind: "stake",
     symbol: t.symbol,
-    amount: -(t.margin ?? calcMargin(t.size)),
+    amount: -(t.margin ?? calcMargin(t.size, FALLBACK_USD_KES)),
     at: t.openedAt,
   }));
   const settlements: ForexTx[] = history.map((t) => {

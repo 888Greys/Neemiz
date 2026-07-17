@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icon";
 import { LoadingDots } from "@/components/loading-dots";
+import { useCurrency } from "@/lib/currency-context";
+import { FALLBACK_USD_KES, MIN_PLAY_USD } from "@/lib/play-usd";
 
 // Server-driven binary auto-trader UI. Self-contained: it owns its own config,
 // starts/stops a session, and polls /api/binary/auto/status for live progress.
@@ -45,17 +47,23 @@ const STATUS_LABEL: Record<SessionStatus["status"], string> = {
 };
 
 export function AutoPanel({ currency }: { currency: string }) {
+  const { toKes, format } = useCurrency();
+  const minStake = useMemo(() => Math.max(1, Math.round(toKes(MIN_PLAY_USD))), [toKes]);
   // config
   const [market, setMarket] = useState("R_100");
   const [side, setSide] = useState<string>("Even");
   const [targetDigit, setTargetDigit] = useState(5);
   const [duration, setDuration] = useState(5);
   const [strategy, setStrategy] = useState<string>("FIXED");
-  const [baseStake, setBaseStake] = useState(10);
+  const [baseStake, setBaseStake] = useState(FALLBACK_USD_KES);
   const [multiplier, setMultiplier] = useState(2);
-  const [takeProfit, setTakeProfit] = useState(100);
-  const [stopLoss, setStopLoss] = useState(100);
+  const [takeProfit, setTakeProfit] = useState(FALLBACK_USD_KES);
+  const [stopLoss, setStopLoss] = useState(FALLBACK_USD_KES);
   const [maxRuns, setMaxRuns] = useState(20);
+
+  useEffect(() => {
+    setBaseStake((s) => (s < minStake ? minStake : s));
+  }, [minStake]);
 
   const [session, setSession] = useState<SessionStatus | null>(null);
   const [trades, setTrades] = useState<TradeRow[]>([]);
@@ -221,7 +229,8 @@ export function AutoPanel({ currency }: { currency: string }) {
           <input type="number" min={1} max={30} value={duration} onChange={(e) => setDuration(Math.max(1, Math.min(30, Number(e.target.value))))} className={inputCls} />
         </Field>
         <Field label="Base stake">
-          <input type="number" min={10} value={baseStake} onChange={(e) => setBaseStake(Number(e.target.value))} className={inputCls} />
+          <input type="number" min={minStake} value={baseStake} onChange={(e) => setBaseStake(Math.max(minStake, Number(e.target.value)))} className={inputCls} />
+          <p className="mt-1 text-[10px] font-medium text-slate-600">Min ${MIN_PLAY_USD} (~{format(minStake)})</p>
         </Field>
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   CURRENCY_BY_CODE,
   DEFAULT_CURRENCY,
@@ -39,7 +39,7 @@ export function CurrencyProvider({
 }: {
   initialCode: string;
   toKES: Record<string, number>;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const [code, setCode] = useState(isSupportedCurrency(initialCode) ? initialCode : DEFAULT_CURRENCY);
 
@@ -114,4 +114,31 @@ export function useMoney(): { format: (amountKes: number) => string; code: strin
     return { format: (a: number) => formatInCurrency(a, DEFAULT_CURRENCY), code: DEFAULT_CURRENCY };
   }
   return { format: ctx.format, code: ctx.code };
+}
+
+/**
+ * Lock display/input to USD for Binary & Forex without changing the user's
+ * global currency preference (cookie / account). Ledger amounts stay KES;
+ * convert/toKes use the parent FX map against USD.
+ */
+export function PlayUsdProvider({ children }: { children: ReactNode }) {
+  const parent = useCurrency();
+  const value = useMemo<CurrencyContextValue>(() => {
+    const currency = CURRENCY_BY_CODE.USD;
+    const toKES = parent.toKES;
+    return {
+      code: "USD",
+      currency,
+      toKES,
+      setCurrency: () => {
+        /* locked while on Binary / Forex */
+      },
+      convert: (amountKes: number) => convertFromKes(amountKes, "USD", toKES),
+      toKes: (displayAmount: number) => convertToKes(displayAmount, "USD", toKES),
+      format: (amountKes: number) =>
+        formatInCurrency(convertFromKes(amountKes, "USD", toKES), "USD"),
+    };
+  }, [parent.toKES]);
+
+  return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 }

@@ -14,6 +14,7 @@ import { buildProof, isProvablyFairConfigured, sha256 } from "@/lib/binary/prova
 import { priceDirectionalServer, type FixedKind } from "@/lib/binary/server-price";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 import { registerDue } from "@/lib/settle-due-list";
+import { maxPlayStakeKes, minPlayStakeKes } from "@/lib/play-usd";
 
 const VALID_MARKETS = ["1HZ10V", "1HZ25V", "1HZ50V", "1HZ75V", "1HZ100V", "R_10", "R_25", "R_50", "R_75", "R_100", "JD10"];
 const VALID_KINDS = ["RISE_FALL", "HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"];
@@ -26,8 +27,6 @@ const SIDES_BY_KIND: Record<string, DirectionalSide[]> = {
 // Kinds that take a barrier/strike offset; offset must be non-zero except VANILLA
 // (an at-the-money strike is valid).
 const NEEDS_OFFSET = new Set(["HIGHER_LOWER", "TOUCH_NO_TOUCH", "VANILLA"]);
-const MIN_STAKE = 10;
-const MAX_STAKE = 10_000;
 
 export async function POST(req: Request) {
   const supabase = await createClient();
@@ -41,6 +40,8 @@ export async function POST(req: Request) {
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
 
   const { market, kind, side, stake, durationTicks, barrierOffset } = body;
+  const MIN_STAKE = await minPlayStakeKes();
+  const MAX_STAKE = await maxPlayStakeKes();
 
   if (!market || !VALID_MARKETS.includes(market))
     return Response.json({ error: "Invalid market" }, { status: 400 });
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
   if (!side || !SIDES_BY_KIND[kind].includes(side as DirectionalSide))
     return Response.json({ error: "Invalid side" }, { status: 400 });
   if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)
-    return Response.json({ error: `Stake must be between ${CURRENCY_SYMBOL} ${MIN_STAKE} and ${CURRENCY_SYMBOL} ${MAX_STAKE.toLocaleString()}` }, { status: 400 });
+    return Response.json({ error: `Stake must be between $1 and $500 (about ${CURRENCY_SYMBOL} ${MIN_STAKE.toLocaleString()}–${MAX_STAKE.toLocaleString()})` }, { status: 400 });
   if (!Number.isInteger(durationTicks) || durationTicks! < 1 || durationTicks! > 30)
     return Response.json({ error: "Duration must be 1–30 ticks" }, { status: 400 });
   const offset = barrierOffset == null ? 0 : Number(barrierOffset);

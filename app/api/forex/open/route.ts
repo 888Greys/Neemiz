@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionType, TransactionStatus, ForexTradeDirection } from "@prisma/client";
 import { getServerForexPrice, forexPrecision, isKnownForexSymbol } from "@/lib/forex-price";
+import { minPlayStakeKes } from "@/lib/play-usd";
 
 // NOTE: entryPrice/stopLoss/takeProfit from the client are NOT trusted for
 // settlement. The entry is sourced server-side from the live Deriv feed; the
@@ -33,9 +34,9 @@ function applySpread(price: number, direction: "buy" | "sell", precision: number
   return parseFloat(raw.toFixed(precision));
 }
 
-// Margin = size / 100 KES (e.g. 10K units → 100 KES reserved)
-function calcMargin(size: number) {
-  return Math.max(10, Math.round(size / 100));
+// Margin = size / 100 KES, floored at $1 USD (play currency).
+function calcMargin(size: number, minKes: number) {
+  return Math.max(minKes, Math.round(size / 100));
 }
 
 export async function POST(req: Request) {
@@ -75,7 +76,8 @@ export async function POST(req: Request) {
     return Response.json({ error: "Live price unavailable, try again" }, { status: 503 });
   }
 
-  const margin = calcMargin(size);
+  const minMarginKes = await minPlayStakeKes();
+  const margin = calcMargin(size, minMarginKes);
   const effectiveEntry = applySpread(livePrice, direction, precision);
 
   // SL/TP are kept only as the client's relative offsets re-anchored to the
