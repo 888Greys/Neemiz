@@ -1118,7 +1118,7 @@ function ForexClientInner() {
                   </button>
                 )}
               </div>
-              <div className="absolute inset-0 flex flex-col pt-9 sm:pt-0">
+              <div className="absolute inset-0 flex flex-col pt-12 sm:pt-0">
                 <div className="relative min-h-0 flex-1">
                   <LiveTickChart
                     points={priceTicks}
