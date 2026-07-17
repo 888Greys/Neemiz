@@ -7,7 +7,6 @@ import { TransactionStatus, TransactionType, type LeveragedKind } from "@prisma/
 import { getServerTickHistory } from "@/lib/binary-price";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
-import { isBinaryOptionsInMaintenance, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
 import {
   isValidMultiplier, multiplierStopOutPrice, clampTurboBarrier, turboPayoutPerPoint,
   LEVERAGED_MAX_MULT, type LeveragedDirection,
@@ -22,9 +21,6 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
-
-  if (await isBinaryOptionsInMaintenance())
-    return Response.json({ error: BINARY_MAINTENANCE_MESSAGE }, { status: 503 });
 
   const rl = await rateLimit(`leveraged-bet:${user.id}`, 30, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);

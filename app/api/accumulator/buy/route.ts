@@ -5,7 +5,7 @@ import { spendForPlay } from "@/lib/balance";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { getServerTickHistory } from "@/lib/binary-price";
-import { isBetTypeDisabled, isBinaryOptionsInMaintenance, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
+import { isBetTypeDisabled } from "@/lib/game-guard";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
 import {
   SIGMA_WINDOW, computeSigma, barrierFracFor, maxTicksFor, isValidGrowthRate, payoutAtTick,
@@ -24,8 +24,6 @@ export async function POST(req: Request) {
   const rl = await rateLimit(`accumulator-buy:${user.id}`, 30, 60_000);
   if (!rl.ok) return tooManyRequests(rl.retryAfterSec);
 
-  if (await isBinaryOptionsInMaintenance())
-    return Response.json({ error: BINARY_MAINTENANCE_MESSAGE }, { status: 503 });
   if (await isBetTypeDisabled("accumulator", "ALL"))
     return Response.json({ error: "This game is temporarily unavailable while we complete maintenance." }, { status: 503 });
 

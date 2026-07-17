@@ -7,7 +7,7 @@ import { TransactionStatus, TransactionType } from "@prisma/client";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
 import { vanillaPayoutPerPoint, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
-import { isBetTypeDisabled, isBinaryContractServable, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
+import { isBetTypeDisabled } from "@/lib/game-guard";
 import { getCalibrationTicks } from "@/lib/binary/calibration";
 import { getLiveEntrySpot } from "@/lib/binary-price";
 import { buildProof, isProvablyFairConfigured, sha256 } from "@/lib/binary/provably-fair";
@@ -46,8 +46,6 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid market" }, { status: 400 });
   if (!kind || !VALID_KINDS.includes(kind))
     return Response.json({ error: "Invalid kind" }, { status: 400 });
-  if (!(await isBinaryContractServable("directional", kind)))
-    return Response.json({ error: BINARY_MAINTENANCE_MESSAGE }, { status: 503 });
   if (await isBetTypeDisabled("directional", kind))
     return Response.json({ error: "This contract type is temporarily unavailable while we complete maintenance." }, { status: 503 });
   if (!side || !SIDES_BY_KIND[kind].includes(side as DirectionalSide))

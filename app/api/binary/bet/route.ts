@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { spendForPlay } from "@/lib/balance";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
-import { isBetTypeDisabled, isBinaryContractServable, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
+import { isBetTypeDisabled } from "@/lib/game-guard";
 import { getCalibrationTicks } from "@/lib/binary/calibration";
 import { getLiveEntrySpot } from "@/lib/binary-price";
 import { priceDigitServer, resolveDigitEdgeFloor } from "@/lib/binary/server-price";
@@ -36,8 +36,6 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid market" }, { status: 400 });
   if (!side || !VALID_SIDES.includes(side))
     return Response.json({ error: "Invalid side" }, { status: 400 });
-  if (!(await isBinaryContractServable("binary", side)))
-    return Response.json({ error: BINARY_MAINTENANCE_MESSAGE }, { status: 503 });
   if (await isBetTypeDisabled("binary", side))
     return Response.json({ error: "This bet type is temporarily unavailable while we complete maintenance." }, { status: 503 });
   if (!Number.isFinite(stake) || stake! < MIN_STAKE || stake! > MAX_STAKE)

@@ -1,6 +1,5 @@
 import { AppShell } from "@/components/app-shell";
 import { BinaryClient } from "@/components/binary/binary-client";
-import { BinaryMaintenance } from "@/components/binary/binary-maintenance";
 import { createClient } from "@/lib/supabase/server";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { bettableBinaryTradeTypeIds } from "@/lib/game-guard";
@@ -14,14 +13,6 @@ export default async function BinaryPage() {
     allTypes,
     TRADE_TYPE_LIVE_TOKEN as Record<string, string>,
   )) as TradeTypeId[];
-
-  if (liveTypes.length === 0) {
-    return (
-      <AppShell hideFooter fullHeight hideSidebar immersive>
-        <BinaryMaintenance />
-      </AppShell>
-    );
-  }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();

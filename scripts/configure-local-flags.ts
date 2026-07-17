@@ -16,10 +16,6 @@ async function main() {
 
   const settings = [
     {
-      key: "binary_live_families",
-      value: "directional:RISE_FALL,directional:HIGHER_LOWER,directional:TOUCH_NO_TOUCH",
-    },
-    {
       key: "disabled_bet_types",
       value: "binary:Odd,binary:Even,binary:Matches,binary:Differs,accumulator:ALL",
     },

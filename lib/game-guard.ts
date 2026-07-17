@@ -43,9 +43,6 @@ export async function disabledBetTypes(): Promise<Set<string>> {
 }
 
 export async function isBetTypeDisabled(game: string, type: string): Promise<boolean> {
-  // Explicitly re-enabled families (binary_live_families) win over the kill
-  // switch — otherwise the UI can list a "live" type that every bet rejects.
-  if (await isBinaryFamilyLive(game, type)) return false;
   return (await disabledBetTypes()).has(`${game}:${type}`);
 }
 
@@ -70,102 +67,17 @@ export async function disableBetType(game: string, type: string): Promise<void> 
 }
 
 /**
- * Whole-suite maintenance switch for the binary-options product (the /binary
- * page and every contract it sells: digits, directional, accumulators,
- * multipliers/turbos, vanillas, auto-trader). Used while the pricing spine is
- * rebuilt so the entire product is offline behind one professional maintenance
- * screen — not a half-working game.
- *
- * Defaults to ON (offline) so a deploy alone takes it down. Re-enable WITHOUT a
- * deploy by inserting/updating the `system_settings` row
- * `binary_options_maintenance` to `off` (also accepts `0`/`false`/`disabled`).
- * Any other value — or the row being absent — keeps it in maintenance.
- */
-const BINARY_MAINTENANCE_DEFAULT = true;
-const MAINTENANCE_OFF = new Set(["off", "0", "false", "no", "disabled"]);
-
-export const BINARY_MAINTENANCE_MESSAGE =
-  "Binary is temporarily offline for scheduled maintenance while we upgrade the platform. Your balance is safe and every other market stays open.";
-
-let maintCache: { on: boolean; expires: number } | null = null;
-
-export async function isBinaryOptionsInMaintenance(): Promise<boolean> {
-  if (maintCache && maintCache.expires > Date.now()) return maintCache.on;
-  let on = BINARY_MAINTENANCE_DEFAULT;
-  try {
-    const row = await db.systemSetting.findUnique({
-      where: { key: "binary_options_maintenance" },
-      select: { value: true },
-    });
-    if (row?.value != null) on = !MAINTENANCE_OFF.has(row.value.trim().toLowerCase());
-  } catch {
-    // Table/flag missing — fall back to the default (offline).
-  }
-  maintCache = { on, expires: Date.now() + CACHE_TTL_MS };
-  return on;
-}
-
-/**
- * Per-family re-enable allowlist for the binary-options rebuild. While the
- * suite is in maintenance, specific families that have been rebuilt on the
- * engine-priced path can be brought back one at a time WITHOUT lifting the whole
- * maintenance switch. Tokens are `${game}:${type}`, e.g. "directional:RISE_FALL".
- *
- * Source: `system_settings.binary_live_families` (comma-separated). Defaults to
- * EMPTY — nothing is live until an owner explicitly adds a token, so the product
- * stays fully offline by default even as the wiring lands.
- */
-let liveCache: { set: Set<string>; expires: number } | null = null;
-
-export async function binaryLiveFamilies(): Promise<Set<string>> {
-  if (liveCache && liveCache.expires > Date.now()) return liveCache.set;
-  let set = new Set<string>();
-  try {
-    const row = await db.systemSetting.findUnique({
-      where: { key: "binary_live_families" },
-      select: { value: true },
-    });
-    if (row?.value) set = new Set(row.value.split(",").map((s) => s.trim()).filter(Boolean));
-  } catch {
-    // Table/flag missing — nothing live.
-  }
-  liveCache = { set, expires: Date.now() + CACHE_TTL_MS };
-  return set;
-}
-
-export async function isBinaryFamilyLive(game: string, type: string): Promise<boolean> {
-  return (await binaryLiveFamilies()).has(`${game}:${type}`);
-}
-
-/**
- * Trade-type ids the Binary UI may offer right now. During suite maintenance
- * this is the live-families allowlist; otherwise every catalogue type whose
- * primary token is not kill-switched (live families still override).
+ * Trade-type ids the Binary UI may offer right now: every catalogue type whose
+ * primary token is not kill-switched via `disabled_bet_types`.
  */
 export async function bettableBinaryTradeTypeIds(
   allIds: string[],
   tokenById: Record<string, string>,
 ): Promise<string[]> {
-  const maint = await isBinaryOptionsInMaintenance();
-  const live = await binaryLiveFamilies();
-  if (maint) {
-    return allIds.filter((id) => live.has(tokenById[id] ?? ""));
-  }
   const disabled = await disabledBetTypes();
   return allIds.filter((id) => {
     const token = tokenById[id] ?? "";
     if (!token) return false;
-    if (live.has(token)) return true;
     return !disabled.has(token);
   });
-}
-
-/**
- * Should a specific binary contract be served? True when the suite is not in
- * maintenance, OR the specific family has been explicitly re-enabled. Callers
- * that get `false` return the maintenance 503.
- */
-export async function isBinaryContractServable(game: string, type: string): Promise<boolean> {
-  if (!(await isBinaryOptionsInMaintenance())) return true;
-  return isBinaryFamilyLive(game, type);
 }

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { validateStart } from "@/lib/auto-trade";
 import { stepSession } from "@/lib/auto-trade-engine";
-import { isBinaryOptionsInMaintenance, isBetTypeDisabled, BINARY_MAINTENANCE_MESSAGE } from "@/lib/game-guard";
+import { isBetTypeDisabled } from "@/lib/game-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,9 +12,6 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
-
-  if (await isBinaryOptionsInMaintenance())
-    return Response.json({ error: BINARY_MAINTENANCE_MESSAGE }, { status: 503 });
 
   let body: unknown;
   try { body = await req.json(); } catch { return Response.json({ error: "Invalid body" }, { status: 400 }); }
