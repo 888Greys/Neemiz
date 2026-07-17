@@ -12,21 +12,12 @@ import "./admin-v2.css";
 
 type NavItem = { label: string; icon: string; href: string };
 
-// Every screen now lives inside the redesigned console (/admin/new/*).
+// Lean IA: five pages, money first. Everything else folds in as tabs/sections
+// inside these (crypto, deposit addresses, P2P ops, withdrawals, KYC, broadcast).
 const NAV: NavItem[] = [
-  { label: "Cockpit", icon: "dashboard", href: "/admin/new" },
-  { label: "Money cockpit", icon: "savings", href: "/admin/new/money-cockpit" },
+  { label: "Money", icon: "savings", href: "/admin/new/money-cockpit" },
+  { label: "Liability", icon: "account_balance_wallet", href: "/admin/new/liability" },
   { label: "Players", icon: "groups", href: "/admin/new/players" },
-  { label: "P2P Ops", icon: "swap_horiz", href: "/admin/new/p2p" },
-  { label: "Cash & payouts", icon: "payments", href: "/admin/new/withdrawals" },
-  { label: "Markets", icon: "storefront", href: "/admin/new/markets/sports" },
-  { label: "Broadcast", icon: "campaign", href: "/admin/new/broadcast" },
-  { label: "Money", icon: "account_balance", href: "/admin/new/money" },
-  { label: "Crypto", icon: "currency_bitcoin", href: "/admin/new/crypto" },
-  { label: "Crypto balances", icon: "toll", href: "/admin/new/crypto-balances" },
-  { label: "Deposit addresses", icon: "wallet", href: "/admin/new/deposit-addresses" },
-  { label: "Lipa audit", icon: "receipt_long", href: "/admin/new/lipa-audit" },
-  { label: "Lipa cashflow", icon: "trending_up", href: "/admin/new/cashflow-7d" },
   { label: "Risk", icon: "warning", href: "/admin/new/risk" },
   { label: "Ops", icon: "analytics", href: "/admin/new/ops" },
 ];
