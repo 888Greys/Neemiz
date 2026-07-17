@@ -1,7 +1,6 @@
-import { AdminV2Cockpit } from "@/components/admin-v2/cockpit";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Cockpit · Nezeem Admin" };
-
-export default function NewAdminCockpitPage() {
-  return <AdminV2Cockpit />;
+// The console lands straight on Money — the owner's first screen is the money.
+export default function NewAdminIndexPage() {
+  redirect("/admin/new/money-cockpit");
 }

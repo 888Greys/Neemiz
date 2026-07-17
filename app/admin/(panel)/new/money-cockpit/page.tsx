@@ -6,6 +6,7 @@ import {
   ADMIN_CRYPTO_DEPOSIT_PROVIDERS, ADMIN_CRYPTO_WITHDRAWAL_PROVIDERS,
 } from "@/lib/admin/real-money";
 import { CryptoHub } from "@/components/admin-v2/crypto-hub";
+import { AdminV2Money } from "@/components/admin-v2/money";
 
 export const metadata = { title: "Money · Nezeem Admin" };
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ const fmt = (n: number) => n.toLocaleString("en-KE", { maximumFractionDigits: 0 
 const sum = (rows: { amount: unknown }[]) => rows.reduce((s, r) => s + Number(r.amount), 0);
 
 const RANGES: [string, string][] = [["today", "Today"], ["yesterday", "Yesterday"], ["7d", "Last 7 days"], ["30d", "Last 30 days"]];
-const TABS: [string, string][] = [["lipa", "Lipa Haraka"], ["crypto", "Crypto"], ["p2p", "P2P"], ["treasury", "Treasury"]];
+const TABS: [string, string][] = [["lipa", "Lipa Haraka"], ["crypto", "Crypto"], ["p2p", "P2P"], ["treasury", "Treasury"], ["details", "Payouts & float"]];
 
 export default async function MoneyPage({
   searchParams,
@@ -131,6 +132,7 @@ export default async function MoneyPage({
       {tab === "crypto" && <CryptoTab window={w} notExcluded={notExcluded} />}
       {tab === "p2p" && <P2PTab window={w} />}
       {tab === "treasury" && <CryptoHub />}
+      {tab === "details" && <AdminV2Money initialTab="cashflow" />}
     </div>
   );
 }
