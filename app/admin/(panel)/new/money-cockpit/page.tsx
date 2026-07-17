@@ -105,11 +105,16 @@ export default async function MoneyPage({
 // ── Lipa Haraka: real KES in/out with daily breakdown ────────────────────────
 async function LipaTab({ window: w, notExcluded }: { window: { start: Date; end: Date }; notExcluded: object }) {
   const inWin = { createdAt: { gte: w.start, lt: w.end } };
-  const [deps, wds, failed] = await Promise.all([
+  const [deps, wds, failed, hookRow] = await Promise.all([
     db.transaction.findMany({ where: { type: "DEPOSIT", status: "COMPLETED", provider: "lipaharaka", ...inWin, ...notExcluded }, select: { amount: true, createdAt: true } }),
     db.transaction.findMany({ where: { type: "WITHDRAWAL", status: "COMPLETED", provider: "lipaharaka", ...inWin, ...notExcluded }, select: { amount: true, createdAt: true } }),
     db.transaction.count({ where: { type: "DEPOSIT", status: "FAILED", provider: "lipaharaka", ...inWin, ...notExcluded } }),
+    db.systemSetting.findUnique({ where: { key: "lipa_webhook_status" }, select: { value: true } }),
   ]);
+  let hook: { at?: string; method?: string } = {};
+  try { hook = hookRow?.value ? JSON.parse(hookRow.value) : {}; } catch { /* ignore */ }
+  const hookTone = hook.method === "signature" ? "text-[#7ee787]" : hook.method === "ip" ? "text-[#ffb786]" : hook.method === "rejected" ? "text-[#ff7b72]" : "text-[#8c909f]";
+  const hookLabel = hook.method === "signature" ? "signature verified ✓" : hook.method === "ip" ? "IP fallback (set the webhook secret)" : hook.method === "rejected" ? "REJECTED — secret/IP mismatch" : "no callback seen yet";
   const byDay: Record<string, { in: number; out: number }> = {};
   for (const r of deps) (byDay[nairobiDayKey(r.createdAt)] ??= { in: 0, out: 0 }).in += Number(r.amount);
   for (const r of wds) (byDay[nairobiDayKey(r.createdAt)] ??= { in: 0, out: 0 }).out += Number(r.amount);
@@ -117,8 +122,12 @@ async function LipaTab({ window: w, notExcluded }: { window: { start: Date; end:
   const tIn = sum(deps), tOut = sum(wds);
   return (
     <>
-      <div className="mb-4 text-[13px] text-[#c2c6d6]">
+      <div className="mb-2 text-[13px] text-[#c2c6d6]">
         Cash in <b className="text-[#7ee787]">KSh {fmt(tIn)}</b> · out <b className="text-[#e5e2e3]">KSh {fmt(tOut)}</b> · failed deposits <b className="text-[#ffb786]">{failed}</b>
+      </div>
+      <div className="mb-4 text-[12px] text-[#8c909f]">
+        Webhook: <b className={hookTone}>{hookLabel}</b>
+        {hook.at && <> · last callback {new Date(hook.at).toLocaleString("en-KE")}</>}
       </div>
       <MoneyTable rows={rows} />
     </>

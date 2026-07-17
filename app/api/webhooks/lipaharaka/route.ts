@@ -20,14 +20,13 @@ function matchesSignature(raw: string, headers: Headers, secret: string) {
   });
 }
 
-// Lipa's x-signature is HMAC-SHA256 with our correct secret, but they sign a
-// payload we never receive (confirmed 2026-06-20: the secret matches their
-// dashboard byte-for-byte, yet no arrangement of the delivered fields
-// reproduces the signature; their docs document no signing scheme). So we also
-// accept callbacks that provably originate from Lipa's server IP. cf-connecting-ip
-// is set by Cloudflare and is trustworthy because the origin (nginx:443) is
-// firewalled to Cloudflare IP ranges only — a direct-to-origin request that could
-// spoof this header cannot reach us. Strict tx matching below is the second gate.
+// Signature scheme (per Lipa API v2 docs, 2026-07): X-Signature is
+// HMAC-SHA256 of the RAW request body, keyed with the dashboard WEBHOOK SECRET
+// (a value distinct from the api_key). matchesSignature() implements exactly
+// this — so if verification fails, LIPAHARAKA_CALLBACK_SECRET does not equal the
+// dashboard's webhook secret. As a fallback we also accept callbacks from Lipa's
+// server IP: cf-connecting-ip is trustworthy because the origin (nginx:443) is
+// firewalled to Cloudflare ranges only. Strict tx matching below is the last gate.
 const TRUSTED_CALLBACK_IPS = (process.env.LIPAHARAKA_CALLBACK_IPS ?? "102.130.123.40")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -50,16 +49,27 @@ function parseCallbackBody(raw: string): Record<string, unknown> | null {
   }
 }
 
+// Record how the most recent callback authenticated, so config can be verified
+// from the admin UI (no VPS log access needed). Best-effort — never blocks.
+async function recordWebhookStatus(method: "signature" | "ip" | "rejected") {
+  try {
+    const value = JSON.stringify({ at: new Date().toISOString(), method });
+    await db.systemSetting.upsert({ where: { key: "lipa_webhook_status" }, update: { value }, create: { key: "lipa_webhook_status", value } });
+  } catch { /* ignore */ }
+}
+
 export async function POST(req: Request) {
   const secret = process.env.LIPAHARAKA_CALLBACK_SECRET;
   const raw = await req.text();
-  const verified = (!!secret && matchesSignature(raw, req.headers, secret)) || isTrustedLipaOrigin(req.headers);
+  const sigOk = !!secret && matchesSignature(raw, req.headers, secret);
+  const ipOk = isTrustedLipaOrigin(req.headers);
+  const verified = sigOk || ipOk;
+  await recordWebhookStatus(sigOk ? "signature" : ipOk ? "ip" : "rejected");
   if (!verified) {
-    // Always surface rejected callbacks: signature can't be verified (Lipa quirk)
-    // so we trust their IP, and if that IP ever changes EVERY deposit callback
-    // 401s and payers go uncredited. This one-line warn makes that visible in logs
-    // instead of silent money loss.
-    console.warn(`[lipa-webhook] 401 rejected callback from ip=${req.headers.get("cf-connecting-ip") ?? "?"} — check LIPAHARAKA_CALLBACK_IPS if genuine`);
+    // Always surface rejected callbacks. Once Lipa updated their signing scheme
+    // (v2, 2026-07), a stale secret makes EVERY callback fall through to the IP
+    // check — and if that IP changes too, payers go uncredited silently.
+    console.warn(`[lipa-webhook] 401 rejected callback from ip=${req.headers.get("cf-connecting-ip") ?? "?"} — set LIPAHARAKA_CALLBACK_SECRET to the dashboard webhook secret (or check LIPAHARAKA_CALLBACK_IPS)`);
     // TEMP DIAGNOSTIC (2026-06-20): kept until callbacks are confirmed flowing.
     if (process.env.LIPAHARAKA_WEBHOOK_DEBUG === "true") {
       const hdrs = Object.fromEntries([...req.headers.entries()]);
