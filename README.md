@@ -8,8 +8,10 @@ Nezeem is a mobile-first betting and trading platform built with Next.js, TypeSc
 ## Live URLs
 
 - Production: `https://www.nezeem.com`
-- Admin panel: `https://www.nezeem.com/admin/p2p`
-- VPS: `root@vmi3292677`
+- Admin panel: `https://www.nezeem.com/admin/new`
+- Sister brand (BinaryOptionsKE): `https://binaryoptionske.com` — same codebase, separate DB; see [`docs/BINARYOPTIONSKE.md`](docs/BINARYOPTIONSKE.md)
+- Binary KE ops (Nezeem admin): `https://www.nezeem.com/admin/new/binary-ke`
+- VPS: `root@vmi3292677` (`ssh nez`)
 
 ---
 
@@ -27,6 +29,7 @@ Nezeem is a mobile-first betting and trading platform built with Next.js, TypeSc
 | `/p2p/order/[id]` | Live order page — chat, payment instructions, countdown, release/dispute |
 | `/predictions` | Polymarket-style markets — probability bars, Yes/No trading |
 | `/binary` | Binary options terminal — digit contracts, demo balance, live Deriv charts |
+| `/admin/new/binary-ke` | **Admin** — BinaryOptionsKE sister-brand ops (separate DB metrics) |
 | `/forex` | Forex trading terminal — live candlesticks, order ticket, history |
 | `/aviator` | Aviator crash game — real-time WebSocket, multiplier history, auto cashout |
 | `/wallet` | Full wallet — deposit (M-Pesa + crypto), withdraw (crypto + M-Pesa), history |
@@ -66,7 +69,12 @@ bun run dev        # http://127.0.0.1:3000
 bun run build      # production build
 ```
 
----
+### BinaryOptionsKE locally
+
+Same repo — set `PRODUCT_SURFACE=binary` (and related vars) in `.env.local`.
+Full steps, env list, and ops runbook: [`docs/BINARYOPTIONSKE.md`](docs/BINARYOPTIONSKE.md).
+
+Performance notes: [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md).
 
 ## Project Structure
 

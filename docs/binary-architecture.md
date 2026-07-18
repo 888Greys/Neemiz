@@ -3,6 +3,10 @@
 > Status: **design + foundation landed.** The whole binary-options product is
 > offline for rebuild (see `lib/game-guard.ts` → `isBinaryOptionsInMaintenance`).
 > This doc is the reference we build the rebuild against.
+>
+> **Sister brand (BinaryOptionsKE domain / product surface):** not this file —
+> see [`docs/BINARYOPTIONSKE.md`](./BINARYOPTIONSKE.md) (same image, separate DB,
+> `PRODUCT_SURFACE=binary`).
 
 ## The one law
 
