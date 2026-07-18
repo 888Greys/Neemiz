@@ -217,16 +217,8 @@ export function LiveTickChart({
           dot.style.opacity = "1";
         }
       }
-      if (stub) {
-        const endX = Math.max(0, plotW - scaleW);
-        const sx = x ?? lastDotPosRef.current?.x;
-        const sy = y ?? lastDotPosRef.current?.y;
-        if (sx != null && sy != null && endX > sx) {
-          stub.style.transform = `translate(${sx}px, ${sy}px)`;
-          stub.style.width = `${endX - sx}px`;
-          stub.style.opacity = "1";
-        }
-      }
+      // Full-width native price line is on — keep the tip stub hidden.
+      if (stub) stub.style.opacity = "0";
     };
     rafRef.current = requestAnimationFrame(step);
 
