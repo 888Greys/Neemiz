@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
+import { isBinarySurface } from "@/lib/product-surface";
 
 export default function RootPage() {
-  redirect("/dashboard");
+  redirect(isBinarySurface() ? "/binary" : "/dashboard");
 }

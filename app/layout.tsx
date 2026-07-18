@@ -8,6 +8,8 @@ import { VersionWatcher } from "@/components/version-watcher";
 import { SupabaseAuthProvider } from "@/lib/supabase/auth-context";
 import { CurrencyProvider } from "@/lib/currency-context";
 import { resolveDisplayCurrency } from "@/lib/currency-server";
+import { SiteConfigProvider } from "@/lib/site-config-context";
+import { productSurface, surfaceBrand } from "@/lib/product-surface";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -27,13 +29,19 @@ const pacifico = Pacifico({
   variable: "--font-pacifico",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "Nezeem",
-    template: "%s | Nezeem",
-  },
-  description: "A premium betting, predictions, P2P, forex, binary, and Aviator prototype.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = surfaceBrand();
+  const binary = productSurface() === "binary";
+  return {
+    title: {
+      default: brand,
+      template: `%s | ${brand}`,
+    },
+    description: binary
+      ? `${brand} — binary options trading.`
+      : "A premium betting, predictions, P2P, forex, binary, and Aviator prototype.",
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -43,24 +51,28 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { code: currencyCode, toKES } = await resolveDisplayCurrency();
+  const surface = productSurface();
+  const brand = surfaceBrand();
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" data-surface={surface}>
       <body className={`${jakarta.variable} ${jetBrains.variable} ${pacifico.variable} bg-background text-on-background`}>
-        <SupabaseAuthProvider>
-          <CurrencyProvider initialCode={currencyCode} toKES={toKES}>
-            <Suspense fallback={null}>
-              <NavigationFeedback />
-            </Suspense>
-            {/* Suspense boundary so client hooks that read the URL query
-                (useSearchParams in AppShell's section-aware bottom nav) don't
-                force a CSR bailout / build error on prerendered routes. */}
-            <Suspense fallback={null}>
-              <PageTransition>{children}</PageTransition>
-            </Suspense>
-            <Toaster />
-            <VersionWatcher />
-          </CurrencyProvider>
-        </SupabaseAuthProvider>
+        <SiteConfigProvider surface={surface} brand={brand}>
+          <SupabaseAuthProvider>
+            <CurrencyProvider initialCode={currencyCode} toKES={toKES}>
+              <Suspense fallback={null}>
+                <NavigationFeedback />
+              </Suspense>
+              {/* Suspense boundary so client hooks that read the URL query
+                  (useSearchParams in AppShell's section-aware bottom nav) don't
+                  force a CSR bailout / build error on prerendered routes. */}
+              <Suspense fallback={null}>
+                <PageTransition>{children}</PageTransition>
+              </Suspense>
+              <Toaster />
+              <VersionWatcher />
+            </CurrencyProvider>
+          </SupabaseAuthProvider>
+        </SiteConfigProvider>
       </body>
     </html>
   );

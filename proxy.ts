@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { DEV_AUTH_ENABLED, DEV_COOKIE, devAccountByKey } from "@/lib/dev-auth";
+import { isBinaryAllowedPath, isBinarySurface } from "@/lib/product-surface";
 
 const PROTECTED = [
   "/wallet",
@@ -50,6 +51,26 @@ function clearStaleAuthCookies(request: NextRequest, response: NextResponse) {
 }
 
 export default async function middleware(request: NextRequest) {
+  // Binary-only brand (binaryoptionske.com): strip every non-binary product path.
+  if (isBinarySurface()) {
+    const { pathname } = request.nextUrl;
+    if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/binary";
+      return NextResponse.redirect(url);
+    }
+    if (!isBinaryAllowedPath(pathname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/binary";
+      return NextResponse.redirect(url);
+    }
+    if (pathname === "/" || pathname === "") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/binary";
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Dev-only local auth: gate protected routes off the dev cookie, skip Supabase
   // and 2FA entirely. Hard-gated by NODE_ENV inside DEV_AUTH_ENABLED.
   if (DEV_AUTH_ENABLED) {
@@ -123,5 +144,16 @@ export const config = {
     "/wallet/:path*",
     "/profile/:path*",
     "/admin/:path*",
+    // Binary-surface product gates (no-op on Nezeem when PRODUCT_SURFACE≠binary)
+    "/",
+    "/dashboard/:path*",
+    "/sports/:path*",
+    "/p2p/:path*",
+    "/aviator/:path*",
+    "/forex/:path*",
+    "/polymarket/:path*",
+    "/casino/:path*",
+    "/spin/:path*",
+    "/my-bets/:path*",
   ],
 };

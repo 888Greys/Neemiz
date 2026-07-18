@@ -21,6 +21,7 @@ import { NavBadgeContext } from "@/lib/nav-badge-context";
 import { PhonePromptModal } from "@/components/phone-prompt-modal";
 import { readNavRecents, trackNavRecent, type NavRecent } from "@/lib/nav-recents";
 import { COMPANY } from "@/lib/company";
+import { useIsBinarySurface } from "@/lib/site-config-context";
 import { useWalletBalance } from "@/lib/use-wallet-balance";
 import { useCurrency } from "@/lib/currency-context";
 import { BalanceVisibilityProvider, useBalanceVisibility } from "@/lib/balance-visibility";
@@ -58,6 +59,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const binaryOnly = useIsBinarySurface();
   // Bottom-nav tab set is section-aware (binary gets Markets/Trade/Positions);
   // `currentPanel` drives active-state for same-route panel tabs.
   const mobileNav = getMobileNav(pathname);
@@ -268,16 +270,22 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
         <div className="flex min-w-0 flex-1 items-center justify-between gap-2 lg:gap-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-3 lg:gap-6">
-            <BrandLogo href="/dashboard" size="sm" />
+            <BrandLogo href={binaryOnly ? "/binary" : "/dashboard"} size="sm" />
             <nav className="hidden items-center gap-0.5 rounded-2xl bg-[#18191d] p-1 ring-1 ring-white/[0.06] text-sm font-black md:flex">
-              <TopNavLink href="/dashboard" icon="home" label="Home" pathname={pathname} />
-              <TopNavLink href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} />
-              <TopNavLink href="/p2p" icon="swap_horiz" label="P2P" pathname={pathname} />
-              <TopNavLink href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} />
-              <TopNavLink href="/lucky-spin" icon="casino" label="Spin" pathname={pathname} />
-              <TopNavLink href="/predictions" icon="online_prediction" label="Polymarket" pathname={pathname} />
-              <TopNavLink href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} />
-              <TopNavLink href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} />
+              {binaryOnly ? (
+                <TopNavLink href="/binary" icon="candlestick_chart" label="Trade" pathname={pathname} />
+              ) : (
+                <>
+                  <TopNavLink href="/dashboard" icon="home" label="Home" pathname={pathname} />
+                  <TopNavLink href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} />
+                  <TopNavLink href="/p2p" icon="swap_horiz" label="P2P" pathname={pathname} />
+                  <TopNavLink href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} />
+                  <TopNavLink href="/lucky-spin" icon="casino" label="Spin" pathname={pathname} />
+                  <TopNavLink href="/predictions" icon="online_prediction" label="Polymarket" pathname={pathname} />
+                  <TopNavLink href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} />
+                  <TopNavLink href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} />
+                </>
+              )}
             </nav>
           </div>
           {isSignedIn ? (
@@ -592,6 +600,7 @@ function Sidebar({
   tab: string;
   recents: NavRecent[];
 }) {
+  const binaryOnly = useIsBinarySurface();
   return (
     <div className="relative flex h-full flex-col">
       <div className={`no-scrollbar flex-1 overflow-y-auto py-5 ${collapsed ? "px-2" : "px-4"}`}>
@@ -599,17 +608,23 @@ function Sidebar({
           <p className="mb-1.5 px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-600">Explore</p>
         )}
         <div className="space-y-0.5">
-          <StandaloneSidebarItem collapsed={collapsed} href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/sports?tab=live" icon="sensors" label="Live" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/my-bets" icon="receipt_long" label="My Bets" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/p2p" icon="swap_horiz" label="P2P" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/p2p/merchant?tab=ads" icon="campaign" label="Ads" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/p2p/orders" icon="list_alt" label="Orders" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/polymarket" icon="online_prediction" label="Polymarket" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} tab={tab} />
-          <StandaloneSidebarItem collapsed={collapsed} href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} tab={tab} badge="HOT" />
-          <StandaloneSidebarItem collapsed={collapsed} href="/lucky-spin" icon="casino" label="Lucky Spin" pathname={pathname} tab={tab} />
+          {binaryOnly ? (
+            <StandaloneSidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Trade" pathname={pathname} tab={tab} />
+          ) : (
+            <>
+              <StandaloneSidebarItem collapsed={collapsed} href="/sports" icon="sports_soccer" label="Sports" pathname={pathname} tab={tab} />
+              <StandaloneSidebarItem collapsed={collapsed} href="/sports?tab=live" icon="sensors" label="Live" pathname={pathname} tab={tab} />
+              <StandaloneSidebarItem collapsed={collapsed} href="/my-bets" icon="receipt_long" label="My Bets" pathname={pathname} tab={tab} />
+              <StandaloneSidebarItem collapsed={collapsed} href="/p2p" icon="swap_horiz" label="P2P" pathname={pathname} tab={tab} />
+              <StandaloneSidebarItem collapsed={collapsed} href="/p2p/merchant?tab=ads" icon="campaign" label="Ads" pathname={pathname} tab={tab} />
+              <StandaloneSidebarItem collapsed={collapsed} href="/p2p/orders" icon="list_alt" label="Orders" pathname={pathname} tab={tab} />
+              <StandaloneSidebarItem collapsed={collapsed} href="/polymarket" icon="online_prediction" label="Polymarket" pathname={pathname} tab={tab} />
+              <StandaloneSidebarItem collapsed={collapsed} href="/binary" icon="candlestick_chart" label="Binary" pathname={pathname} tab={tab} />
+              <StandaloneSidebarItem collapsed={collapsed} href="/forex" icon="currency_exchange" label="Forex" pathname={pathname} tab={tab} />
+              <StandaloneSidebarItem collapsed={collapsed} href="/aviator" icon="rocket_launch" label="Aviator" pathname={pathname} tab={tab} badge="HOT" />
+              <StandaloneSidebarItem collapsed={collapsed} href="/lucky-spin" icon="casino" label="Lucky Spin" pathname={pathname} tab={tab} />
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -700,6 +715,7 @@ function MobileMenuDrawer({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const binaryOnly = useIsBinarySurface();
   const tab = searchParams.get("tab") ?? "";
   const isActive = (href: string) => sidebarItemActive(pathname, href, tab);
   const [q, setQ] = useState("");
@@ -713,29 +729,33 @@ function MobileMenuDrawer({
   }, []);
 
   // Ads / Orders live in the P2P bottom bar — keep P2P itself as a product escape hatch.
-  const exploreItems: Array<{ href: string; icon: string; label: string; badge?: string }> = [
-    { href: "/sports", icon: "sports_soccer", label: "Sports" },
-    { href: "/sports?tab=live", icon: "sensors", label: "Live" },
-    { href: "/my-bets", icon: "receipt_long", label: "My Bets" },
-    { href: "/p2p", icon: "swap_horiz", label: "P2P" },
-    { href: "/predictions", icon: "online_prediction", label: "Polymarket" },
-    { href: "/binary", icon: "candlestick_chart", label: "Binary" },
-    { href: "/forex", icon: "currency_exchange", label: "Forex" },
-    { href: "/aviator", icon: "rocket_launch", label: "Aviator", badge: "HOT" },
-    { href: "/lucky-spin", icon: "casino", label: "Lucky Spin" },
-  ];
+  const exploreItems: Array<{ href: string; icon: string; label: string; badge?: string }> = binaryOnly
+    ? [{ href: "/binary", icon: "candlestick_chart", label: "Trade" }]
+    : [
+        { href: "/sports", icon: "sports_soccer", label: "Sports" },
+        { href: "/sports?tab=live", icon: "sensors", label: "Live" },
+        { href: "/my-bets", icon: "receipt_long", label: "My Bets" },
+        { href: "/p2p", icon: "swap_horiz", label: "P2P" },
+        { href: "/predictions", icon: "online_prediction", label: "Polymarket" },
+        { href: "/binary", icon: "candlestick_chart", label: "Binary" },
+        { href: "/forex", icon: "currency_exchange", label: "Forex" },
+        { href: "/aviator", icon: "rocket_launch", label: "Aviator", badge: "HOT" },
+        { href: "/lucky-spin", icon: "casino", label: "Lucky Spin" },
+      ];
 
-  const quickChips = [
-    { label: "Aviator", href: "/aviator" },
-    { label: "Binary", href: "/binary" },
-    { label: "Forex", href: "/forex" },
-    { label: "Sports", href: "/sports" },
-    { label: "Lucky Spin", href: "/lucky-spin" },
-  ];
+  const quickChips = binaryOnly
+    ? [{ label: "Trade", href: "/binary" }]
+    : [
+        { label: "Aviator", href: "/aviator" },
+        { label: "Binary", href: "/binary" },
+        { label: "Forex", href: "/forex" },
+        { label: "Sports", href: "/sports" },
+        { label: "Lucky Spin", href: "/lucky-spin" },
+      ];
 
-  const shortcuts = [
-    { label: "My Bets", icon: "receipt_long", href: "/my-bets" },
-  ];
+  const shortcuts = binaryOnly
+    ? []
+    : [{ label: "My Bets", icon: "receipt_long", href: "/my-bets" }];
 
   const term = q.trim().toLowerCase();
   const filteredExplore = term
