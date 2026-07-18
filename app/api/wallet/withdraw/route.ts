@@ -339,6 +339,8 @@ export async function POST(req: Request) {
     await db.transaction.update({
       where: { id: withdrawalId },
       data:  {
+        // v2: data.withdrawal_id (WD_…). Callback later sends a different
+        // transaction_id — matching falls back to phone + payout amount.
         reference: ack.reference ?? undefined,
         metadata: {
           msisdn,
@@ -346,6 +348,7 @@ export async function POST(req: Request) {
           payout:       payoutKes,
           requestedAt:  new Date().toISOString(),
           lipaWithdrawalId: ack.reference,
+          ...(ack.providerTxnId ? { lipaB2cTxnId: ack.providerTxnId } : {}),
           submittedAt:  new Date().toISOString(),
         },
       },

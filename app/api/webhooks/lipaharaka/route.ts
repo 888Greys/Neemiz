@@ -81,17 +81,21 @@ export async function POST(req: Request) {
   }
   const body = parseCallbackBody(raw);
   if (!body) return new Response("Bad request", { status: 400 });
-  const reference = String(body.checkout_request_id ?? body.CheckoutRequestID ?? body.withdrawal_id ?? body.withdrawalId ?? body.transaction_id ?? body.payment_id ?? "");
+
+  // v2 STK callback: { status, amount, phone, receipt, result_desc, checkout_request_id }
+  // v2 B2C callback: { phone, amount, transaction_id, status }  (no withdrawal_id)
+  // Dashboard UI may still show "paid"; API docs use "completed" — accept both.
+  const reference = String(
+    body.checkout_request_id ?? body.CheckoutRequestID
+    ?? body.withdrawal_id ?? body.withdrawalId
+    ?? body.transaction_id ?? body.payment_id ?? "",
+  );
   const rawAmount = body.amount ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "Amount")?.Value;
   const amount = Number(String(rawAmount ?? "").replace(/,/g, ""));
-  // Normalize the callback phone to the SAME 254XXXXXXXXX shape we store at
-  // initiation. Lipa posts numbers in mixed formats (254…, 0…, +254…); comparing
-  // raw strings here previously 422'd genuine paid callbacks and left the payer
-  // uncredited until the reconcile sweep flipped the deposit to FAILED.
   const phone = normalizeKenyanPhone(String(body.phone ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "PhoneNumber")?.Value ?? ""));
 
   const statusStr = String(body.status ?? "").toLowerCase();
-  const providerMessage = String(body.message ?? body.error ?? body.description ?? "");
+  const providerMessage = String(body.result_desc ?? body.message ?? body.error ?? body.description ?? "");
   const paid = ["paid", "completed", "success", "successful"].includes(statusStr) || Number(body.ResultCode) === 0;
   const failed = !paid && (
     ["fail", "error", "reject", "cancel", "declin"].some((s) => statusStr.includes(s))
@@ -148,7 +152,19 @@ export async function POST(req: Request) {
     if (paid) {
       const claimed = await prisma.transaction.updateMany({
         where: { id: found.id, status: { in: ["PENDING", "FAILED"] } },
-        data:  { status: "COMPLETED", reference: reference || undefined, metadata: { ...(meta ?? {}), receipt: body.receipt ?? "", lipaCallback: true } },
+        data:  {
+          status: "COMPLETED",
+          // STK: persist checkout_request_id. B2C: keep WD_ reference from submit —
+          // v2 callback only sends transaction_id (a different id).
+          ...(found.type === "DEPOSIT" && reference ? { reference } : {}),
+          metadata: {
+            ...(meta ?? {}),
+            receipt: body.receipt ?? (meta as { receipt?: string } | null)?.receipt ?? "",
+            ...(found.type === "WITHDRAWAL" && reference ? { lipaB2cTxnId: reference } : {}),
+            lipaCallback: true,
+            resultDesc: providerMessage || undefined,
+          },
+        },
       });
       if (claimed.count) {
         if (found.type === "DEPOSIT") {
