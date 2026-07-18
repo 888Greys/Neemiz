@@ -207,10 +207,17 @@ export async function refreshFixtureCache(): Promise<RefreshResult> {
         where: { numericId: BigInt(numericId) },
         select: { numericId: true },
       });
-      if (existing) continue;
-      const match = scoreToMatch(numericId, score);
-      await recordFinished(numericId, score.id, score.sport_key, match, 5);
-      resultsRecorded++;
+      if (!existing) {
+        const match = scoreToMatch(numericId, score);
+        await recordFinished(numericId, score.id, score.sport_key, match, 5);
+        resultsRecorded++;
+      }
+      // Scores feed is source of truth for FT — clear stuck "live" cache rows even
+      // when the result was already recorded via TheSportsDB / an earlier run.
+      await db.fixtureCache.updateMany({
+        where: { numericId: BigInt(numericId) },
+        data: { completed: true, category: "upcoming" },
+      });
     }
   }
 
