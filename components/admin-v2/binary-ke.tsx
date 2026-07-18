@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {
+  SISTER_BINARY_BRANDS,
+  sisterBinarySiteUrl,
+  type SisterBinaryBrand,
+} from "@/lib/sister-binary-brands";
 
 type Summary = {
   users: number;
@@ -62,11 +67,22 @@ function statusTone(status: string) {
 }
 
 export function AdminV2BinaryKe() {
+  const [selectedId, setSelectedId] = useState(SISTER_BINARY_BRANDS[0]!.id);
   const [data, setData] = useState<Payload | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
 
+  const selected = SISTER_BINARY_BRANDS.find((b) => b.id === selectedId) ?? SISTER_BINARY_BRANDS[0]!;
+  const siteUrl = sisterBinarySiteUrl(selected);
+
   const load = useCallback(async () => {
+    // Metrics API is wired for BinaryOptionsKE today; other slots are labels until live.
+    if (selected.status !== "live" || selected.id !== "binaryoptionske") {
+      setData(null);
+      setErr("");
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setErr("");
     try {
@@ -85,13 +101,14 @@ export function AdminV2BinaryKe() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selected.id, selected.status]);
 
   useEffect(() => {
     void load();
+    if (selected.status !== "live") return;
     const id = setInterval(() => void load(), 60_000);
     return () => clearInterval(id);
-  }, [load]);
+  }, [load, selected.status]);
 
   const s = data?.summary;
 
@@ -99,30 +116,68 @@ export function AdminV2BinaryKe() {
     <div className="mx-auto max-w-7xl">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#adc6ff]">Sister brand</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#adc6ff]">
+            Sister binary sites
+          </p>
           <h2 className="mt-1 text-[28px] font-semibold tracking-[-0.02em] text-[#e5e2e3]">
-            BinaryOptionsKE
+            Binary brands
           </h2>
           <p className="mt-1 text-[13px] text-[#8c909f]">
-            Separate wallets · shared Lipa merchant · ops from Nezeem
-            {data?.siteUrl ? (
-              <>
-                {" · "}
-                <a href={data.siteUrl} target="_blank" rel="noreferrer" className="text-[#adc6ff] underline-offset-2 hover:underline">
-                  binaryoptionske.com
-                </a>
-              </>
-            ) : null}
+            Four binary-only sites — pick one to view today’s money and trades
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          className="rounded border border-[#424754] bg-[#2a292a] px-3 py-1.5 text-[12px] font-semibold text-[#c2c6d6] hover:bg-[#353436]"
-        >
-          {loading ? "Refreshing…" : "Refresh"}
-        </button>
+        {selected.status === "live" ? (
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="rounded border border-[#424754] bg-[#2a292a] px-3 py-1.5 text-[12px] font-semibold text-[#c2c6d6] hover:bg-[#353436]"
+          >
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+        ) : null}
       </div>
+
+      <div className="mb-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {SISTER_BINARY_BRANDS.map((brand) => (
+          <BrandCard
+            key={brand.id}
+            brand={brand}
+            active={brand.id === selected.id}
+            onSelect={() => setSelectedId(brand.id)}
+          />
+        ))}
+      </div>
+
+      <div className="mb-5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h3 className="text-[18px] font-semibold text-[#e5e2e3]">{selected.name}</h3>
+        {siteUrl ? (
+          <a
+            href={siteUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[13px] font-medium text-[#adc6ff] underline-offset-2 hover:underline"
+          >
+            {selected.domain}
+          </a>
+        ) : (
+          <span className="text-[13px] text-[#8c909f]">Domain not set yet</span>
+        )}
+        <span
+          className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+            selected.status === "live"
+              ? "bg-emerald-500/15 text-emerald-300"
+              : "bg-white/5 text-[#8c909f]"
+          }`}
+        >
+          {selected.status === "live" ? "Live" : "Planned"}
+        </span>
+      </div>
+
+      {selected.status !== "live" ? (
+        <p className="rounded border border-[#424754] bg-[#2a292a] px-4 py-3 text-[13px] text-[#8c909f]">
+          This slot is reserved for the next binary-only domain. Metrics will show here once it is live.
+        </p>
+      ) : null}
 
       {err ? (
         <div className="mb-4 rounded border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-[13px] text-rose-200">
@@ -130,8 +185,8 @@ export function AdminV2BinaryKe() {
         </div>
       ) : null}
 
-      {!s && !loading ? (
-        <p className="text-[13px] text-[#8c909f]">No data yet — set BINARYOPTIONSKE_DATABASE_URL on Nezeem runtime.</p>
+      {!s && !loading && selected.status === "live" ? (
+        <p className="text-[13px] text-[#8c909f]">No metrics yet for this site.</p>
       ) : null}
 
       {s ? (
@@ -227,47 +282,46 @@ export function AdminV2BinaryKe() {
 
           {data?.asOf ? (
             <p className="mt-4 text-[11px] text-[#8c909f]">
-              Day window EAT from {new Date(data.dayStartEAT!).toLocaleString("en-KE")} · refreshed {new Date(data.asOf).toLocaleString("en-KE")}
+              Day window EAT from {new Date(data.dayStartEAT!).toLocaleString("en-KE")} · refreshed{" "}
+              {new Date(data.asOf).toLocaleString("en-KE")}
             </p>
           ) : null}
-
-          <section className="mt-8 rounded border border-[#424754] bg-[#2a292a] px-4 py-4">
-            <h3 className="text-[14px] font-semibold text-[#e5e2e3]">Architecture</h3>
-            <p className="mt-1 text-[12px] text-[#8c909f]">
-              Same Nezeem codebase, separate brand surface — wallets never mix.
-            </p>
-            <ul className="mt-3 space-y-2 text-[12px] leading-relaxed text-[#c2c6d6]">
-              <li>
-                <span className="font-semibold text-[#adc6ff]">Code</span> — one repo/image; container sets{" "}
-                <code className="text-[#e5e2e3]">PRODUCT_SURFACE=binary</code>
-              </li>
-              <li>
-                <span className="font-semibold text-[#adc6ff]">DB</span> — Postgres DB{" "}
-                <code className="text-[#e5e2e3]">binaryoptionske</code> on the same host as Nezeem (separate wallets)
-              </li>
-              <li>
-                <span className="font-semibold text-[#adc6ff]">Auth</span> — shared Supabase Auth/Kong; Google callback allowlisted for{" "}
-                <code className="text-[#e5e2e3]">binaryoptionske.com/auth/callback</code>
-              </li>
-              <li>
-                <span className="font-semibold text-[#adc6ff]">App</span> —{" "}
-                <code className="text-[#e5e2e3]">binaryoptionske-app</code> on{" "}
-                <code className="text-[#e5e2e3]">127.0.0.1:3010</code> behind nginx + Let&apos;s Encrypt
-              </li>
-              <li>
-                <span className="font-semibold text-[#adc6ff]">Money</span> — Lipa deposits on; withdrawals off until unlocked. Shared Lipa merchant → Nezeem webhook dual-credits either DB
-              </li>
-              <li>
-                <span className="font-semibold text-[#adc6ff]">Mail</span> — Resend; Binary surface brands subjects/body as BinaryOptionsKE (add domain in Resend for a matching From address)
-              </li>
-              <li>
-                <span className="font-semibold text-[#adc6ff]">Ops</span> — this page reads{" "}
-                <code className="text-[#e5e2e3]">BINARYOPTIONSKE_DATABASE_URL</code> from Nezeem runtime only
-              </li>
-            </ul>
-          </section>
         </>
       ) : null}
     </div>
+  );
+}
+
+function BrandCard({
+  brand,
+  active,
+  onSelect,
+}: {
+  brand: SisterBinaryBrand;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`rounded border px-3 py-3 text-left transition ${
+        active
+          ? "border-[#adc6ff]/50 bg-[#3a4a5f]/40"
+          : "border-[#424754] bg-[#2a292a] hover:border-[#5a5d66]"
+      }`}
+    >
+      <p className="truncate text-[13px] font-semibold text-[#e5e2e3]">{brand.name}</p>
+      <p className="mt-0.5 truncate text-[11px] text-[#8c909f]">
+        {brand.domain ?? "Domain TBD"}
+      </p>
+      <p
+        className={`mt-2 text-[10px] font-bold uppercase tracking-wide ${
+          brand.status === "live" ? "text-emerald-300" : "text-[#8c909f]"
+        }`}
+      >
+        {brand.status === "live" ? "Live" : "Planned"}
+      </p>
+    </button>
   );
 }
