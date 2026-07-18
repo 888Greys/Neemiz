@@ -31,8 +31,10 @@ export async function POST(req: Request) {
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
+    // Kill switch applies to everyone (incl. admins). Velocity auto-trips it;
+    // owner re-enables from the admin panel when the incident is cleared.
     const killed = await withdrawalsDisabledResponse();
-    if (killed && !dbUser.isAdmin) return killed;
+    if (killed) return killed;
 
     // Phone-verification gate. A user must verify a mobile number by SMS (Twilio
     // Verify) before their FIRST withdrawal; that number is then bound to the
@@ -141,7 +143,8 @@ export async function POST(req: Request) {
     const isMule = !dbUser.isAdmin && (await isMuleFlagged(dbUser.email));
 
     // ── Step 1: deduct balance + create record atomically ──
-    // Gate: amounts > 1,000,000 KES or > 10 withdrawals today require admin approval
+    // Gate: amounts > 1,000,000 KES require approval. Velocity: more than 2
+    // withdrawals in the rolling window auto-trips the global kill switch.
     const { withdrawalId, dbUserId, needsApproval, numberTripped, numberCount, killTripped, distinctUsers } = await db.$transaction(async (tx) => {
       // Race-safe debit FIRST. The conditional updateMany (walletBalance >=
       // amountKes) takes a row lock on the user, which serializes ALL concurrent
@@ -194,10 +197,11 @@ export async function POST(req: Request) {
       // dodge it by routing through an accomplice. Evaluated AFTER the debit so
       // the row lock above has serialized us; if over the cap we throw, rolling
       // back the debit. P2P escrow / crypto are excluded.
-      let priorCount = 0;
+      // Count is also used for the velocity kill (applies to admins too — a
+      // compromised or misused admin account was the 2026-07-18 rapid-B2C pattern).
+      const capWhere = dailyCapWhere(dbUser.id);
+      const priorCount = await tx.transaction.count({ where: capWhere });
       if (!dbUser.isAdmin) {
-        const capWhere = dailyCapWhere(dbUser.id);
-        priorCount = await tx.transaction.count({ where: capWhere });
         const priorSum = await tx.transaction.aggregate({ where: capWhere, _sum: { amount: true } });
         const withdrawnWindow = Number(priorSum._sum?.amount ?? 0);
         if (withdrawnWindow + amountKes > limit) {
@@ -205,18 +209,19 @@ export async function POST(req: Request) {
         }
       }
 
-      // (Removed the "a number may receive cash only once, ever" rule — the
-      // per-account daily limit plus the locked, unique withdrawal number
-      // already bound each account to one number and cap its cash-out, so the
-      // once-per-number block only blocked legitimate repeat withdrawals to a
-      // user's own line.)
+      // Velocity kill: 3rd+ cash-out in the rolling window freezes all platform
+      // withdrawals. priorCount is before this row, so >= 2 ⇒ this is #3+.
+      // Held for review (no B2C) whether the account is admin or not.
+      const MAX_WITHDRAWALS_BEFORE_KILL = 2;
+      const numberCount = priorCount + 1;
+      const numberTripped = priorCount >= MAX_WITHDRAWALS_BEFORE_KILL;
+      const distinctUsers = 1;
+      const killTripped = numberTripped;
 
-      const numberCount = 0;
-      const numberTripped = false;
-      const distinctUsers = 0;
-      const killTripped = false;
-
-      const needsApproval = isMule || (!dbUser.isAdmin && (amountKes > 1_000_000 || priorCount >= 10));
+      const needsApproval =
+        isMule ||
+        killTripped ||
+        (!dbUser.isAdmin && amountKes > 1_000_000);
       const txStatus = needsApproval ? ("PENDING_APPROVAL" as TransactionStatus) : TransactionStatus.PENDING;
 
       const withdrawal = await tx.transaction.create({

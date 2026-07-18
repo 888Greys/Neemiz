@@ -54,10 +54,10 @@ export async function notifyAdminsSuspiciousNumber(info: { msisdn: string; count
 
   const usersNote = info.distinctUsers ? ` from ${info.distinctUsers} accounts` : "";
   const title = info.autoKilled
-    ? "🚨 Withdrawals AUTO-DISABLED — collector number"
+    ? "🚨 Withdrawals AUTO-DISABLED — velocity (>2)"
     : "⚠️ Repeated withdrawals to one number";
   const body = info.autoKilled
-    ? `+${info.msisdn} received ${info.count} withdrawals${usersNote} — all withdrawals have been automatically frozen. Review and re-enable from the kill switch when safe.`
+    ? `Account cash-out #${info.count} to +${info.msisdn}${usersNote} (latest ${CURRENCY_SYMBOL} ${info.amountKes.toLocaleString()}) — all withdrawals frozen. Re-enable from the kill switch when safe.`
     : `+${info.msisdn} has received ${info.count} withdrawals in 24h (latest ${CURRENCY_SYMBOL} ${info.amountKes.toLocaleString()}). ${info.held ? "Held for approval." : "Allowed."}`;
 
   const admins = await db.user.findMany({ where: { isAdmin: true }, select: { id: true } });
