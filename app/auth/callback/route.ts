@@ -8,19 +8,22 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const requestedNext = searchParams.get("next");
+  const reqUrl = new URL(request.url);
+  const isLocal = reqUrl.hostname === "localhost" || reqUrl.hostname === "127.0.0.1";
+  const isPublicBrandHost = /^(www\.)?(nezeem|binaryoptionske)\.com$/i.test(reqUrl.hostname);
+  // Stay on whichever brand host finished OAuth (Binary must not bounce to Nezeem).
+  const appUrl = (isLocal || isPublicBrandHost)
+    ? reqUrl.origin
+    : (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.nezeem.com").replace(/\/+$/, "");
+  const isBinaryHost =
+    process.env.PRODUCT_SURFACE === "binary"
+    || process.env.NEXT_PUBLIC_PRODUCT_SURFACE === "binary"
+    || /binaryoptionske\.com$/i.test(reqUrl.hostname);
+  const defaultNext = isBinaryHost ? "/binary" : "/dashboard";
   const next =
     requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
       ? requestedNext
-      : "/dashboard";
-  // Redirect back to the origin the request actually arrived on when running
-  // locally; otherwise use the configured public URL (prod sits behind a proxy
-  // where the request host isn't the public domain). This keeps local OAuth on
-  // localhost instead of bouncing to www.nezeem.com.
-  const reqUrl = new URL(request.url);
-  const isLocal = reqUrl.hostname === "localhost" || reqUrl.hostname === "127.0.0.1";
-  const appUrl = isLocal
-    ? reqUrl.origin
-    : (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.nezeem.com").replace(/\/+$/, "");
+      : defaultNext;
 
   if (code) {
     const supabase = await createClient();

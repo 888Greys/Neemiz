@@ -10,6 +10,8 @@ import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
 import { loginWithPasskey } from "@/lib/passkey-client";
 import { DEV_AUTH_PUBLIC } from "@/lib/dev-auth";
+import { useIsBinarySurface } from "@/lib/site-config-context";
+import { phoneAuthEmail } from "@/lib/product-surface";
 
 function TgIcon() {
   return (
@@ -28,6 +30,8 @@ type Props = {
 type RecoveryStep = "login" | "email" | "code" | "password";
 
 export function LoginModal({ onClose, onSwitchToRegister }: Props) {
+  const isBinary = useIsBinarySurface();
+  const afterAuthPath = isBinary ? "/binary" : "/dashboard";
   const [tab, setTab]           = useState<"phone" | "email">("email");
   const [country, setCountry]   = useState<Country>(COUNTRIES[0]);
   const [phone, setPhone]       = useState("");
@@ -63,7 +67,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
         return;
       }
       onClose();
-      window.location.href = "/dashboard"; // full nav so server + auth-context pick up the cookie
+      window.location.href = afterAuthPath; // full nav so server + auth-context pick up the cookie
       return;
     }
 
@@ -72,7 +76,9 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
     try {
       // For phone tab we use the phone number as the email identifier
       // (Supabase phone+password requires an SMS provider — use email-style phone for now)
-      const identifier = tab === "email" ? email : `${country.code}${phone}`.replace("+", "") + "@phone.nezeem.com";
+      const identifier = tab === "email"
+        ? email
+        : phoneAuthEmail(`${country.code}${phone}`.replace("+", ""));
 
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: identifier,
@@ -122,7 +128,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
 
       onClose();
       toast.success("Welcome back!", "You have successfully logged in.");
-      router.push("/dashboard");
+      router.push(afterAuthPath);
     } catch {
       setError("Sign-in failed. Please try again.");
     } finally {
@@ -163,7 +169,7 @@ export function LoginModal({ onClose, onSwitchToRegister }: Props) {
 
       onClose();
       toast.success("Welcome back!", "Signed in with your passkey.");
-      router.push("/dashboard");
+      router.push(afterAuthPath);
     } catch {
       setError("Passkey sign-in failed. Please try again.");
     } finally {

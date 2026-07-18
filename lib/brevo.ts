@@ -1,12 +1,30 @@
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
+import { isBinarySurface, surfaceBrand } from "@/lib/product-surface";
 // Transactional email via Resend.
 const RESEND_API_KEY = process.env.RESEND_API_KEY!;
 const SENDER_EMAIL = process.env.MAIL_SENDER_EMAIL ?? process.env.BREVO_SENDER_EMAIL ?? "noreply@nezeem.com";
-const SENDER_NAME = process.env.MAIL_SENDER_NAME ?? process.env.BREVO_SENDER_NAME ?? "Nezeem";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "toxicgreys001@gmail.com";
-const SUPPORT_EMAIL = "support@nezeem.com";
-const SUPPORT_TELEGRAM = "https://t.me/NeezemSupport";
+
+function mailBrand(): string {
+  return process.env.MAIL_SENDER_NAME?.trim()
+    || process.env.BREVO_SENDER_NAME?.trim()
+    || surfaceBrand();
+}
+
+function supportEmail(): string {
+  if (isBinarySurface()) {
+    return (process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@binaryoptionske.com").trim();
+  }
+  return "support@nezeem.com";
+}
+
+function supportTelegram(): string {
+  if (isBinarySurface()) {
+    return (process.env.NEXT_PUBLIC_TELEGRAM_URL ?? "").trim();
+  }
+  return "https://t.me/NeezemSupport";
+}
 
 async function sendEmail(to: string, toName: string, subject: string, htmlContent: string) {
   if (!RESEND_API_KEY) {
@@ -16,7 +34,7 @@ async function sendEmail(to: string, toName: string, subject: string, htmlConten
     method: "POST",
     headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: `${SENDER_NAME} <${SENDER_EMAIL}>`,
+      from: `${mailBrand()} <${SENDER_EMAIL}>`,
       to: [toName ? `${toName} <${to}>` : to],
       subject,
       html: htmlContent,
@@ -94,16 +112,19 @@ function detailBlock(title: string, rows: string) {
 }
 
 function supportLine() {
+  const email = supportEmail();
+  const tg = supportTelegram();
+  const tgBit = tg
+    ? ` or <a href="${tg}" style="color:#1687ff;text-decoration:none;">Telegram</a>`
+    : "";
   return `<p style="margin:0 0 8px;font-size:14px;color:#667085;line-height:1.7;">
     If you need further assistance, please reach out to
-    <a href="mailto:${SUPPORT_EMAIL}" style="color:#1687ff;text-decoration:none;">${SUPPORT_EMAIL}</a>
-    or
-    <a href="${SUPPORT_TELEGRAM}" style="color:#1687ff;text-decoration:none;">Telegram</a>.
+    <a href="mailto:${email}" style="color:#1687ff;text-decoration:none;">${email}</a>${tgBit}.
   </p>`;
 }
 
 function emailClosing() {
-  return `<p style="margin:16px 0 0;font-size:15px;color:#1a1a2e;line-height:1.7;">Nezeem</p>`;
+  return `<p style="margin:16px 0 0;font-size:15px;color:#1a1a2e;line-height:1.7;">${mailBrand()}</p>`;
 }
 
 function verificationCodeBlock(code: string) {
@@ -123,7 +144,9 @@ function ctaButton(href: string, label: string, color = "#1687ff") {
   </table>`;
 }
 
-function emailWrapper(content: string, preheader = "An update from your Nezeem account") {
+function emailWrapper(content: string, preheader?: string) {
+  const brand = mailBrand();
+  const preview = preheader ?? `An update from your ${brand} account`;
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -145,12 +168,12 @@ function emailWrapper(content: string, preheader = "An update from your Nezeem a
   </style>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a2e;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preheader}</div>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preview}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="outer-pad" style="background:#f4f6f8;padding:28px 16px;">
     <tr><td align="center">
       <table role="presentation" width="560" cellpadding="0" cellspacing="0" class="email-shell" style="max-width:560px;width:100%;">
         <tr><td align="left" class="logo-pad" style="padding:0 0 18px;">
-          <a href="${APP_URL}" style="text-decoration:none;font-size:22px;font-weight:800;color:#17192a;">Nezeem</a>
+          <a href="${APP_URL}" style="text-decoration:none;font-size:22px;font-weight:800;color:#17192a;">${brand}</a>
         </td></tr>
         <tr><td class="email-pad" style="background:#ffffff;border:1px solid #e5e8ed;border-radius:8px;padding:32px 28px;">
           ${content}
@@ -430,31 +453,36 @@ export async function sendBusinessMetricAlertEmail(
 
 export async function sendWelcomeEmail(to: string, firstName: string) {
   const name = firstName || "Trader";
+  const brand = mailBrand();
+  const pitch = isBinarySurface()
+    ? `Your ${brand} account is ready. Deposit and trade binary options.`
+    : `Your ${brand} account is ready. You can deposit funds and start trading on sports, predictions, and P2P crypto.`;
   await sendEmail(
     to,
     name,
-    "Welcome to Nezeem",
+    `Welcome to ${brand}`,
     emailWrapper(`
       ${traderGreeting(name)}
-      ${statusParagraph("Your Nezeem account is ready. You can deposit funds and start trading on sports, predictions, and P2P crypto.")}
+      ${statusParagraph(pitch)}
       ${detailBlock("The account information is as follows:", `
         ${detailRow("Status", "Active")}
-        ${detailRow("Platform", "Nezeem", true)}
+        ${detailRow("Platform", brand, true)}
       `)}
       ${ctaButton(`${APP_URL}/wallet`, "Deposit &amp; Start Trading →")}
-    `, "Welcome to Nezeem"),
+    `, `Welcome to ${brand}`),
   );
 }
 
 export async function sendWithdrawReopenedEmail(to: string, firstName: string) {
   const name = firstName || "Trader";
+  const brand = mailBrand();
   await sendEmail(
     to,
     name,
-    "M-Pesa withdrawals are back on Nezeem",
+    `M-Pesa withdrawals are back on ${brand}`,
     emailWrapper(`
       ${traderGreeting(name)}
-      ${statusParagraph("M-Pesa withdrawals are working again. You can withdraw from your Nezeem wallet straight to M-Pesa.")}
+      ${statusParagraph(`M-Pesa withdrawals are working again. You can withdraw from your ${brand} wallet straight to M-Pesa.`)}
       ${detailBlock("The withdrawal service information is as follows:", `
         ${detailRow("Method", "M-Pesa")}
         ${detailRow("Status", "Available", true)}
@@ -470,13 +498,14 @@ export async function sendNewLoginEmail(
   details: { when: string; device: string; ip: string; location?: string },
 ) {
   const display = name || "Trader";
+  const brand = mailBrand();
   await sendEmail(
     to,
     display,
-    "New login to your Nezeem account",
+    `New login to your ${brand} account`,
     emailWrapper(`
       ${traderGreeting(display)}
-      ${statusParagraph("We detected a new sign-in to your Nezeem account. If this was you, no action is needed.")}
+      ${statusParagraph(`We detected a new sign-in to your ${brand} account. If this was you, no action is needed.`)}
       ${detailBlock("The login information is as follows:", `
         ${detailRow("When", escapeHtml(details.when))}
         ${detailRow("Device", escapeHtml(details.device))}
@@ -491,13 +520,14 @@ export async function sendNewLoginEmail(
 /** 6-digit email OTP for login / 2FA challenge. */
 export async function sendEmailOtpCode(to: string, firstName: string, code: string) {
   const name = firstName || "Trader";
+  const brand = mailBrand();
   await sendEmail(
     to,
     name,
-    `${code} is your Nezeem verification code`,
+    `${code} is your ${brand} verification code`,
     emailWrapper(`
       ${traderGreeting(name)}
-      ${statusParagraph("Use this verification code to finish signing in to Nezeem. It expires in 10 minutes.")}
+      ${statusParagraph(`Use this verification code to finish signing in to ${brand}. It expires in 10 minutes.`)}
       ${verificationCodeBlock(code)}
       ${detailBlock("The verification information is as follows:", `
         ${detailRow("Code validity", "10 minutes")}
@@ -506,7 +536,7 @@ export async function sendEmailOtpCode(to: string, firstName: string, code: stri
       <p style="margin:0 0 16px;font-size:13px;color:#8991a3;line-height:1.6;">
         If you didn&apos;t try to sign in, you can ignore this email. Do not share this code with anyone.
       </p>
-    `, "Your Nezeem verification code"),
+    `, `Your ${brand} verification code`),
   );
 }
 
@@ -830,7 +860,7 @@ export async function sendCryptoDepositEmail(
     `${cryptoAmount.toFixed(6)} ${crypto} deposit received`,
     emailWrapper(`
       ${traderGreeting(displayName)}
-      ${statusParagraph(`You've successfully deposited ${escapeHtml(amount)} to your Nezeem account.`)}
+      ${statusParagraph(`You've successfully deposited ${escapeHtml(amount)} to your ${mailBrand()} account.`)}
       ${detailBlock("The deposit information is as follows:", `
         ${detailRow("Deposit amount", escapeHtml(amount))}
         ${detailRow("Chain type", escapeHtml(networkLabel(network)))}

@@ -113,7 +113,12 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
 
   useEffect(() => {
     if (isSignedIn && user) {
-      const hasPhoneInAuth = !!(user.phone || user.user_metadata?.phone_number || user.email?.endsWith("@phone.nezeem.com"));
+      const hasPhoneInAuth = !!(
+        user.phone
+        || user.user_metadata?.phone_number
+        || user.email?.endsWith("@phone.nezeem.com")
+        || user.email?.endsWith("@phone.binaryoptionske.com")
+      );
       if (hasPhoneInAuth) {
         setMissingPhone(false);
         return;

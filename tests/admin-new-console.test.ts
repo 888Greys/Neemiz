@@ -26,7 +26,10 @@ describe("new admin console entry point", () => {
     expect(readFileSync(layout, "utf8")).toContain("AdminV2Shell");
     expect(readFileSync(shell, "utf8")).toContain("/admin/new/money-cockpit");
     expect(readFileSync(shell, "utf8")).toContain("/admin/new/ops");
+    expect(readFileSync(shell, "utf8")).toContain("/admin/new/binary-ke");
     expect(readFileSync(ops, "utf8")).toContain("Action Queue");
     expect(readFileSync(opsApi, "utf8")).toContain("Sports settlements");
+    expect(existsSync("app/admin/(panel)/new/binary-ke/page.tsx")).toBe(true);
+    expect(existsSync("app/api/admin/binary-ke/route.ts")).toBe(true);
   });
 });

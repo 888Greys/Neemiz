@@ -37,6 +37,35 @@ export function surfaceBrand(): string {
 }
 
 /**
+ * Synthetic email domain for phone+password accounts (Supabase has no SMS
+ * provider). Keep brand-specific so Binary accounts never look like Nezeem.
+ */
+export function phoneAuthEmailDomain(): string {
+  if (isBinarySurface()) {
+    return (
+      process.env.NEXT_PUBLIC_PHONE_EMAIL_DOMAIN?.trim() || "phone.binaryoptionske.com"
+    );
+  }
+  return "phone.nezeem.com";
+}
+
+/** e.g. 2547… → 2547…@phone.binaryoptionske.com */
+export function phoneAuthEmail(msisdnDigits: string): string {
+  const digits = msisdnDigits.replace(/\D/g, "");
+  return `${digits}@${phoneAuthEmailDomain()}`;
+}
+
+export function isPhoneAuthEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return (
+    email.endsWith("@phone.nezeem.com") ||
+    email.endsWith("@phone.binaryoptionske.com") ||
+    (!!process.env.NEXT_PUBLIC_PHONE_EMAIL_DOMAIN &&
+      email.endsWith(`@${process.env.NEXT_PUBLIC_PHONE_EMAIL_DOMAIN.trim()}`))
+  );
+}
+
+/**
  * Paths allowed on the Binary-only surface. Everything else → /binary.
  * Keep wallet + Lipa + auth + binary APIs + health/cron.
  */
@@ -51,6 +80,7 @@ export function isBinaryAllowedPath(pathname: string): boolean {
     "/sign-up",
     "/sso-callback",
     "/auth",
+    "/dashboard",
     "/2fa",
     "/suspended",
     "/api/binary",

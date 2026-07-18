@@ -11,6 +11,8 @@ import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
 import { stashPendingPromo, redeemPromoClient } from "@/lib/pending-promo";
 import { showPromoSuccess } from "@/components/promo-success";
+import { useSiteConfig } from "@/lib/site-config-context";
+import { phoneAuthEmail } from "@/lib/product-surface";
 
 
 type Props = {
@@ -19,6 +21,8 @@ type Props = {
 };
 
 export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
+  const { brand, surface } = useSiteConfig();
+  const afterAuthPath = surface === "binary" ? "/binary" : "/dashboard";
   const [tab, setTab]                 = useState<"phone" | "email">("email");
   const [country, setCountry]         = useState<Country>(COUNTRIES[0]);
   const [phone, setPhone]             = useState("");
@@ -45,12 +49,12 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
     stashPendingPromo(promoCode);
     const promo = await redeemPromoClient(promoCode || undefined);
     onClose();
-    toast.success(welcomeMsg, "Welcome to Nezeem 🎉");
+    toast.success(welcomeMsg, `Welcome to ${brand}`);
     if (promo.ok && promo.amount && promo.code) {
       // Slight delay so the register sheet closes first, then celebrate.
       setTimeout(() => showPromoSuccess({ amount: promo.amount!, code: promo.code! }), 350);
     }
-    router.push("/dashboard");
+    router.push(afterAuthPath);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -140,7 +144,7 @@ export function RegisterModal({ onClose, onSwitchToLogin }: Props) {
       } else {
         // Phone tab: register with phone number as email alias + password
         // Full phone auth (SMS OTP) requires Supabase SMS provider (Twilio/Vonage)
-        const phoneEmail = normalized + "@phone.nezeem.com";
+        const phoneEmail = phoneAuthEmail(normalized);
 
         const { error: authError } = await supabase.auth.signUp({
           email: phoneEmail,

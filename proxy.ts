@@ -64,7 +64,7 @@ export default async function middleware(request: NextRequest) {
       url.pathname = "/binary";
       return NextResponse.redirect(url);
     }
-    if (pathname === "/" || pathname === "") {
+    if (pathname === "/" || pathname === "" || pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
       const url = request.nextUrl.clone();
       url.pathname = "/binary";
       return NextResponse.redirect(url);
