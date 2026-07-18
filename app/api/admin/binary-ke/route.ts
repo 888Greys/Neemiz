@@ -11,7 +11,7 @@ async function requireAdmin() {
   if (!user?.email || !isOwnerEmail(user.email)) return null;
   const jar = await cookies();
   const token = jar.get(COOKIE_NAME)?.value;
-  if (!token || !(await verifyAdminToken(token, user.id))) return null;
+  if (!token || !verifyAdminToken(token)) return null;
   return user;
 }
 
