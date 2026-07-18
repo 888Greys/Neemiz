@@ -363,7 +363,8 @@ type ChartMarker = { id: string; time: UTCTimestamp; color: string; text: string
 // Bars of empty space kept to the right of the live point (Deriv-style gap so the
 // pulsing dot sits clear of the price axis). The view scrolls a further bar over
 // each tick interval, then resets when the next tick lands — continuous flow.
-const RIGHT_GAP_BARS = 12;
+/** Small trailing whitespace so the live tip isn’t glued to the price scale. */
+const RIGHT_GAP_BARS = 3;
 const VALUE_EASING = 0.16; // fraction of the price gap closed per animation frame
 
 function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; lines?: ChartLine[]; markers?: ChartMarker[] }) {
@@ -429,9 +430,9 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
       topColor: "rgba(59,130,246,0.28)",
       bottomColor: "rgba(59,130,246,0.02)",
       priceLineColor: "#3b82f6",
-      priceLineWidth: 2,
+      priceLineWidth: 1,
       lastValueVisible: true,
-      priceLineVisible: false, // full-width line replaced by a right-only dashed stub
+      priceLineVisible: true, // full-width guide — reads clearly on wide / half-panel layouts
       crosshairMarkerVisible: true,
       crosshairMarkerRadius: 5,
       crosshairMarkerBorderColor: "#93c5fd",
@@ -469,10 +470,10 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
           : 0;
         chart.timeScale().scrollToPosition(RIGHT_GAP_BARS + frac, false);
 
-        // Pulsing live dot at the line's tip + a dashed price stub from the dot
-        // to the right edge only (no full-width line extending left).
+        // Pulsing live dot at the line tip (full-width price line comes from the series).
         const dot = dotRef.current;
         const stub = stubRef.current;
+        if (stub) stub.style.opacity = "0";
         const y = s.priceToCoordinate(renderValueRef.current ?? target.value);
         const x = chart.timeScale().timeToCoordinate(target.time);
         if (dot) {
@@ -481,16 +482,6 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
             dot.style.opacity = "1";
           } else {
             dot.style.opacity = "0";
-          }
-        }
-        if (stub) {
-          const w = containerRef.current?.clientWidth ?? 0;
-          if (x != null && y != null && w > x) {
-            stub.style.transform = `translate(${x}px, ${y}px)`;
-            stub.style.width = `${w - x}px`;
-            stub.style.opacity = "1";
-          } else {
-            stub.style.opacity = "0";
           }
         }
       }
@@ -1910,12 +1901,19 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#151518] text-white pb-[env(safe-area-inset-bottom)] sm:block sm:h-auto sm:min-h-full sm:overflow-visible sm:pb-4 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
-      <div data-binary-grid="true" className={`relative flex min-h-0 flex-1 flex-col min-w-0 gap-0 overflow-hidden px-0 py-0 sm:grid sm:flex-none sm:overflow-visible sm:px-2 sm:py-2 xl:grid xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#151518] text-white pb-[env(safe-area-inset-bottom)] md:pb-0">
+      <div
+        data-binary-grid="true"
+        className={`relative flex min-h-0 flex-1 flex-col min-w-0 gap-0 overflow-hidden px-0 py-0 md:grid md:gap-0 md:overflow-hidden md:border-b md:border-white/[0.08] ${
+          railOpen
+            ? "xl:grid-cols-[280px_minmax(0,1fr)_minmax(300px,340px)]"
+            : "md:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] xl:grid-cols-[44px_minmax(0,1fr)_minmax(300px,340px)]"
+        }`}
+      >
         {pickerOpen && (
           <TradeTypePicker value={tradeType} onSelect={selectTradeType} onClose={() => setPickerOpen(false)} allowed={new Set(liveTypes)} />
         )}
-        <aside className="order-2 hidden min-h-0 flex-col overflow-hidden rounded border border-white/[0.08] xl:order-none xl:flex xl:rounded-none xl:border-y-0 xl:border-l-0 xl:border-r">
+        <aside className="order-2 hidden min-h-0 flex-col overflow-hidden border-white/[0.08] xl:order-none xl:flex xl:border-y-0 xl:border-l-0 xl:border-r">
           {railOpen ? (
             <BinaryActivityPanel
               tab={tab} setTab={setTab}
@@ -1928,7 +1926,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
           )}
         </aside>
 
-        <main className="order-1 flex min-h-0 flex-1 min-w-0 flex-col overflow-hidden rounded-none border-y border-white/[0.08] sm:h-[52svh] sm:min-h-[520px] sm:max-h-none sm:flex-none sm:rounded sm:border xl:order-none xl:h-auto xl:min-h-0 xl:rounded-none xl:border-0">
+        <main className="order-1 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-y border-white/[0.08] md:order-none md:border-0">
           <section className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[#18191f]">
             {/* Desktop header — same market chrome as mobile (icon + sheet) */}
             <div className="hidden shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-2.5 sm:flex">
@@ -2051,7 +2049,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
           </section>
         </main>
 
-        <aside className="order-2 flex min-h-0 shrink-0 flex-col overflow-hidden rounded-2xl border border-white/[0.08] max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 sm:flex-none sm:max-h-[calc(100svh-8rem)] sm:rounded sm:border xl:order-none xl:max-h-none xl:rounded-none xl:border-y-0 xl:border-r-0 xl:border-l">
+        <aside className="order-2 flex min-h-0 shrink-0 flex-col overflow-hidden border-white/[0.08] max-md:max-h-[min(48svh,420px)] max-md:rounded-t-2xl max-md:border-x-0 max-md:border-b-0 max-md:border-t md:order-none md:max-h-none md:border-y-0 md:border-r-0 md:border-l">
           <section className="relative flex h-full min-h-0 flex-col overflow-hidden bg-[#18191f]">
             {/* Trade-type selector — desktop only; mobile uses the top quick bar */}
             <button

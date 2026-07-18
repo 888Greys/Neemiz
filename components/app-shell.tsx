@@ -408,7 +408,7 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </div>
       </header>
 
-      <div className="flex h-screen overflow-hidden pt-14 lg:pt-20">
+      <div className={`flex overflow-hidden pt-14 lg:pt-20 ${immersive || fullHeight ? "h-[100dvh]" : "h-screen"}`}>
         {!hideSidebar && (
         <aside
           className={`hidden shrink-0 overflow-hidden border-r border-white/[0.06] bg-[#151518] transition-[width] duration-300 ease-out lg:block ${
@@ -419,9 +419,9 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         </aside>
         )}
 
-        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden overflow-y-auto ${immersive ? "pb-0 lg:overflow-hidden lg:pl-0" : `lg:pb-0 ${fullHeight ? "pb-20 lg:overflow-hidden" : "pb-32"}`} ${mainBg ?? "bg-background"}`}>
-          {fullHeight ? (
-            <div className="h-full min-w-0 max-w-full overflow-x-hidden lg:h-[calc(100vh-5rem)]">{children}</div>
+        <main ref={mainRef} data-app-scroll="true" className={`no-scrollbar min-w-0 flex-1 overflow-x-hidden ${immersive || fullHeight ? "overflow-hidden pb-0" : `overflow-y-auto lg:pb-0 pb-32`} ${mainBg ?? "bg-background"}`}>
+          {fullHeight || immersive ? (
+            <div className="h-full min-h-0 min-w-0 max-w-full overflow-hidden">{children}</div>
           ) : (
             <div className="flex min-h-screen min-w-0 max-w-full flex-col overflow-x-hidden">
               <BroadcastBanner />
