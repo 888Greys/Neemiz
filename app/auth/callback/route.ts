@@ -2,23 +2,59 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 
-// This route handles the OAuth redirect from Supabase after Google/GitHub sign-in.
-// Supabase Auth Redirect URL: https://www.nezeem.com/auth/callback
+/**
+ * Resolve the public origin for post-OAuth redirects.
+ * NEXT_PUBLIC_APP_URL is inlined at Docker build time (usually Nezeem), so on
+ * binaryoptionske.com we must prefer X-Forwarded-Host / Host, then runtime
+ * APP_URL / PRODUCT_SURFACE — never the baked Nezeem public URL.
+ */
+function publicAppOrigin(request: Request): { appUrl: string; isBinaryHost: boolean } {
+  const reqUrl = new URL(request.url);
+  const forwardedHost = (
+    request.headers.get("x-forwarded-host")
+    ?? request.headers.get("host")
+    ?? ""
+  )
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  const proto = (
+    request.headers.get("x-forwarded-proto")
+    ?? (reqUrl.protocol === "https:" ? "https" : "http")
+  )
+    .split(",")[0]
+    .trim();
+
+  const host = forwardedHost || reqUrl.hostname;
+  const isLocal = host === "localhost" || host === "127.0.0.1" || host.startsWith("localhost:");
+  const isBinaryHost =
+    process.env.PRODUCT_SURFACE === "binary"
+    || /^(www\.)?binaryoptionske\.com(?::\d+)?$/i.test(host);
+
+  if (!isLocal && host) {
+    return { appUrl: `${proto}://${host}`.replace(/\/+$/, ""), isBinaryHost };
+  }
+
+  if (isBinaryHost) {
+    const runtime = process.env.APP_URL?.trim() || "https://binaryoptionske.com";
+    return { appUrl: runtime.replace(/\/+$/, ""), isBinaryHost: true };
+  }
+
+  const runtime =
+    process.env.APP_URL?.trim()
+    || process.env.NEXT_PUBLIC_APP_URL?.trim()
+    || "https://www.nezeem.com";
+  return { appUrl: runtime.replace(/\/+$/, ""), isBinaryHost: false };
+}
+
+// OAuth redirect after Google/GitHub. Google always returns to shared GoTrue on
+// nezeem.com/supabase-auth first; GoTrue then sends the browser to this route
+// on whichever brand started login (allowlisted redirectTo).
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const requestedNext = searchParams.get("next");
-  const reqUrl = new URL(request.url);
-  const isLocal = reqUrl.hostname === "localhost" || reqUrl.hostname === "127.0.0.1";
-  const isPublicBrandHost = /^(www\.)?(nezeem|binaryoptionske)\.com$/i.test(reqUrl.hostname);
-  // Stay on whichever brand host finished OAuth (Binary must not bounce to Nezeem).
-  const appUrl = (isLocal || isPublicBrandHost)
-    ? reqUrl.origin
-    : (process.env.NEXT_PUBLIC_APP_URL ?? "https://www.nezeem.com").replace(/\/+$/, "");
-  const isBinaryHost =
-    process.env.PRODUCT_SURFACE === "binary"
-    || process.env.NEXT_PUBLIC_PRODUCT_SURFACE === "binary"
-    || /binaryoptionske\.com$/i.test(reqUrl.hostname);
+  const { appUrl, isBinaryHost } = publicAppOrigin(request);
   const defaultNext = isBinaryHost ? "/binary" : "/dashboard";
   const next =
     requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
@@ -29,15 +65,14 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
-      // TEMP DIAGNOSTIC: surface why OAuth code exchange fails (PKCE/cookie/etc).
       const cookieNames = request.headers
         .get("cookie")
         ?.split(";")
         .map((c) => c.trim().split("=")[0])
-        .filter((n) => n.includes("supabase") || n.includes("sb-") || n.includes("auth"))
+        .filter((n) => n.includes("supabase") || n.includes("auth") || n.includes("sb-"))
         .join(",");
       console.error(
-        `[auth/callback] exchange failed host=${new URL(request.url).host} status=${error.status} msg="${error.message}" authCookies=[${cookieNames ?? ""}]`,
+        `[auth/callback] exchange failed host=${new URL(request.url).host} appUrl=${appUrl} status=${error.status} msg="${error.message}" authCookies=[${cookieNames ?? ""}]`,
       );
     }
     if (!error && data.user) {
@@ -50,19 +85,8 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${appUrl}/suspended`);
       }
 
-      // Google/GitHub sign-ins arrive already email-verified (the provider
-      // confirms the address), so there's no OTP to send. But new social
-      // sign-ups still have no withdrawal phone on file. Flag those so the app
-      // shows a brief "Email verified ✓" confirmation and then hard-blocks on
-      // the phone-number step, matching the email-OTP flow's end state.
       const needsPhone = !account || !account.phone;
 
-      // Shrink the session cookie: Google returns several bulky, app-unused
-      // user_metadata keys — `picture` duplicates `avatar_url`, and iss/sub/
-      // provider_id are redundant. They inflate the JWT (embedded in the auth
-      // cookie) and, for heavy-cookie users, help trip the edge proxy's header
-      // size cap. Drop them; keep avatar_url/full_name/name/email. Best effort —
-      // never block login on it.
       const md = (data.user.user_metadata ?? {}) as Record<string, unknown>;
       const BULKY_KEYS = ["picture", "iss", "sub", "provider_id"];
       if (BULKY_KEYS.some((k) => md[k] != null)) {
@@ -77,6 +101,5 @@ export async function GET(request: Request) {
     }
   }
 
-  // On error redirect to home with a message
   return NextResponse.redirect(`${appUrl}/?auth_error=1`);
 }

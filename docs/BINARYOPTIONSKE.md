@@ -161,28 +161,40 @@ share a callback. Dual-DB credit is the pragmatic bridge until then.
 
 ## Auth (Google / email / phone)
 
-### Google bounced to nezeem.com (fixed)
+### Google OAuth bounced to nezeem.com
 
-GoTrue only allowed Nezeem callbacks. Production allowlist (Supabase prod `.env`):
+**Expected hop:** Google’s redirect URI is always shared Auth:
+`https://www.nezeem.com/supabase-auth/auth/v1/callback`. Seeing Nezeem briefly
+in the URL bar during Google login is normal.
+
+**Must end on Binary:** GoTrue then redirects to
+`https://binaryoptionske.com/auth/callback` (allowlisted). Session cookies are
+host-scoped — login must finish on Binary’s host.
+
+**Root cause we hit:** `NEXT_PUBLIC_APP_URL` is **baked at Docker build** (Nezeem).
+`/auth/callback` must prefer `X-Forwarded-Host` / runtime `APP_URL` /
+`PRODUCT_SURFACE=binary`, not the baked public URL. See `app/auth/callback/route.ts`.
+
+GoTrue allowlist (`/opt/supabase-prod/.env` → `ADDITIONAL_REDIRECT_URLS`):
 
 ```text
-ADDITIONAL_REDIRECT_URLS=https://www.nezeem.com/auth/callback,https://nezeem.com/auth/callback,https://binaryoptionske.com/auth/callback,https://www.binaryoptionske.com/auth/callback
+https://www.nezeem.com/auth/callback,https://nezeem.com/auth/callback,https://binaryoptionske.com/auth/callback,https://www.binaryoptionske.com/auth/callback
 ```
 
-→ `GOTRUE_URI_ALLOW_LIST`. Auth container recreated after change.
+#### Do you need Google Cloud “Web client” origins?
 
-Google’s provider redirect still hits
-`https://www.nezeem.com/supabase-auth/auth/v1/callback` (shared Auth API). After
-Google, GoTrue must redirect the **app** back to
-`https://binaryoptionske.com/auth/callback`.
+Usually **no change to Redirect URIs** — keep only:
 
-`app/auth/callback/route.ts`:
+`https://www.nezeem.com/supabase-auth/auth/v1/callback`
 
-- Stays on the brand host that finished OAuth (`binaryoptionske.com` vs Nezeem).
-- Default post-login path: `/binary` on Binary, `/dashboard` on Nezeem.
+Optional (recommended): under the same OAuth client → **Authorized JavaScript origins**, add:
 
-Login/register modals: `redirectTo: ${origin}/auth/callback`, post-auth →
-`/binary` when `useIsBinarySurface()`.
+- `https://binaryoptionske.com`
+- `https://www.binaryoptionske.com`
+
+(Nezeem origins stay as they are.) You do **not** need a second Google OAuth client unless you split Auth later.
+
+Binary runtime should also set non-public `APP_URL=https://binaryoptionske.com` (not only `NEXT_PUBLIC_*`).
 
 ### Phone synthetic emails
 
