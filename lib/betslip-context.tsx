@@ -8,6 +8,8 @@ export type BetSelection = {
   market: string;
   label: string;
   value: string;
+  /** Client timestamp — used to avoid pruning freshly added display-feed picks. */
+  addedAt?: number;
 };
 
 type BetslipContextValue = {
@@ -20,6 +22,8 @@ type BetslipContextValue = {
 };
 
 const STORAGE_KEY = "nezeem_betslip";
+/** Only drop missing-fixture picks after this age (keeps AF-only display ids). */
+const PRUNE_AFTER_MS = 24 * 60 * 60 * 1000;
 
 function loadFromStorage(): BetSelection[] {
   if (typeof window === "undefined") return [];
@@ -40,6 +44,16 @@ export const BetslipContext = createContext<BetslipContextValue>({
   hasBet: () => false,
 });
 
+function fixtureIdFromSelectionId(id: string): string | null {
+  // Selection ids look like `{matchId}-{market}-{key}` (see sports-match-row).
+  const matchId = id.split("-")[0];
+  return matchId && /^\d+$/.test(matchId) ? matchId : null;
+}
+
+function withAddedAt(bet: BetSelection): BetSelection {
+  return { ...bet, addedAt: bet.addedAt ?? Date.now() };
+}
+
 export function BetslipProvider({ children }: { children: React.ReactNode }) {
   const [bets, setBets] = useState<BetSelection[]>(loadFromStorage);
 
@@ -48,12 +62,42 @@ export function BetslipProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(bets));
   }, [bets]);
 
+  // Drop aged picks whose fixture is gone from live/upcoming (finished / ghosts).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/sports/fixtures?scope=ids");
+        if (!res.ok) return;
+        const data = (await res.json()) as { ids?: number[] };
+        if (!Array.isArray(data.ids) || data.ids.length === 0 || cancelled) return;
+        const ok = new Set(data.ids.map(String));
+        const cutoff = Date.now() - PRUNE_AFTER_MS;
+        setBets((prev) => {
+          const next = prev.filter((b) => {
+            const fid = fixtureIdFromSelectionId(b.id);
+            if (!fid || ok.has(fid)) return true;
+            // Legacy slips (no addedAt) and picks older than 24h get pruned.
+            const added = b.addedAt ?? 0;
+            return added > cutoff;
+          });
+          return next.length === prev.length ? prev : next;
+        });
+      } catch {
+        // Ignore network/prune errors — slip stays as-is.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const hasBet = useCallback((id: string) => bets.some((b) => b.id === id), [bets]);
 
   const addBet = useCallback((bet: BetSelection) => {
     setBets((prev) => {
       if (prev.some((b) => b.id === bet.id)) return prev;
-      return [...prev, bet];
+      return [...prev, withAddedAt(bet)];
     });
   }, []);
 
@@ -66,7 +110,7 @@ export function BetslipProvider({ children }: { children: React.ReactNode }) {
   const toggleBet = useCallback((bet: BetSelection) => {
     setBets((prev) => {
       if (prev.some((b) => b.id === bet.id)) return prev.filter((b) => b.id !== bet.id);
-      return [...prev, bet];
+      return [...prev, withAddedAt(bet)];
     });
   }, []);
 

@@ -7,6 +7,34 @@ import { TransactionType, TransactionStatus } from "@prisma/client";
 import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { creditWinnings } from "@/lib/balance";
+import { sendGameResultEmail } from "@/lib/brevo";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://nezeem.com";
+
+async function notifyBetEmail(opts: {
+  email: string | null | undefined;
+  displayName: string;
+  outcome: "WON" | "VOID";
+  stake: number;
+  payout: number;
+  betId: string;
+  summary?: string;
+}) {
+  if (!opts.email) return;
+  try {
+    await sendGameResultEmail(opts.email, opts.displayName, {
+      game: "Sports",
+      outcome: opts.outcome,
+      stake: opts.stake,
+      payout: opts.payout,
+      reference: opts.betId,
+      summary: opts.summary,
+      href: `${APP_URL}/my-bets`,
+    });
+  } catch (err) {
+    console.error(`[settle-bets] email failed for ${opts.betId}:`, err);
+  }
+}
 
 // Vercel Cron invokes endpoints with GET (and an Authorization: Bearer
 // <CRON_SECRET> header when CRON_SECRET is set). Reuse the same handler.
@@ -219,6 +247,18 @@ export async function POST(req: Request) {
 
       if (didSettle) {
         settledCount++;
+        // Email wins + voids only — losses stay in-app notification only.
+        if (betOutcome === "WON" || betOutcome === "VOID") {
+          const displayName = bet.user.firstName || bet.user.username || "Player";
+          void notifyBetEmail({
+            email: bet.user.email,
+            displayName,
+            outcome: betOutcome,
+            stake: Number(bet.stake),
+            payout: betOutcome === "WON" ? winAmount : Number(bet.stake),
+            betId: bet.id,
+          });
+        }
       }
     } catch (err) {
       console.error(`Settlement failed for bet ${bet.id}:`, err);
@@ -289,6 +329,16 @@ export async function POST(req: Request) {
       });
       if (didVoid) {
         voidedCount++;
+        const displayName = bet.user.firstName || bet.user.username || "Player";
+        void notifyBetEmail({
+          email: bet.user.email,
+          displayName,
+          outcome: "VOID",
+          stake: Number(bet.stake),
+          payout: Number(bet.stake),
+          betId: bet.id,
+          summary: "Your sports bet could not be settled from the results feed, so the stake was refunded.",
+        });
       }
     } catch (err) {
       console.error(`Void failed for bet ${bet.id}:`, err);

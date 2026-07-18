@@ -104,6 +104,42 @@ function mergeByEventId(primary: Match[], extra: Match[]): Match[] {
   return out;
 }
 
+/** Drop schedule impossibilities: a team can't play two matches at the same kickoff. */
+function dropTeamKickoffConflicts(matches: Match[]): Match[] {
+  const WINDOW_MS = 3 * 60 * 60 * 1000; // same afternoon/evening slot
+  const kept: Match[] = [];
+  // Prefer fixtures that already have list odds (real betting lines).
+  const ranked = [...matches].sort((a, b) => {
+    const ao = hasListOdds(a) ? 0 : 1;
+    const bo = hasListOdds(b) ? 0 : 1;
+    if (ao !== bo) return ao - bo;
+    return new Date(a.startingAt || 0).getTime() - new Date(b.startingAt || 0).getTime();
+  });
+  for (const m of ranked) {
+    const t = new Date(m.startingAt || 0).getTime();
+    if (!Number.isFinite(t) || t <= 0) {
+      kept.push(m);
+      continue;
+    }
+    const home = m.home.name.trim().toLowerCase();
+    const away = m.away.name.trim().toLowerCase();
+    const sport = (m.sportKey || "").toLowerCase();
+    const clash = kept.some((k) => {
+      if ((k.sportKey || "").toLowerCase() !== sport) return false;
+      const kt = new Date(k.startingAt || 0).getTime();
+      if (!Number.isFinite(kt) || Math.abs(kt - t) > WINDOW_MS) return false;
+      const kh = k.home.name.trim().toLowerCase();
+      const ka = k.away.name.trim().toLowerCase();
+      return kh === home || kh === away || ka === home || ka === away;
+    });
+    if (!clash) kept.push(m);
+  }
+  // Restore kickoff order for display.
+  return kept.sort(
+    (a, b) => new Date(a.startingAt || 0).getTime() - new Date(b.startingAt || 0).getTime(),
+  );
+}
+
 function hasListOdds(m: Match) {
   return (
     m.odds.length > 0 ||
@@ -177,8 +213,12 @@ export default async function SportsPage({ searchParams }: Props) {
   const displayLiveOdds = mergeOddsOntoDisplay(display.live, oddsPool).filter(hasListOdds);
   const displayUpcomingOdds = mergeOddsOntoDisplay(display.upcoming, oddsPool).filter(hasListOdds);
 
-  let liveMatches = mergeByEventId(oddsLive, displayLiveOdds).map(withLeagueCrest);
-  let upcomingMatches = mergeByEventId(oddsUpcoming, displayUpcomingOdds).map(withLeagueCrest);
+  let liveMatches = dropTeamKickoffConflicts(
+    mergeByEventId(oddsLive, displayLiveOdds),
+  ).map(withLeagueCrest);
+  let upcomingMatches = dropTeamKickoffConflicts(
+    mergeByEventId(oddsUpcoming, displayUpcomingOdds),
+  ).map(withLeagueCrest);
   [liveMatches, upcomingMatches] = await Promise.all([
     attachMatchLogos(liveMatches, 64),
     attachMatchLogos(upcomingMatches, 96),

@@ -26,6 +26,15 @@ describe("isStaleUnsettleable — safe stale-bet auto-void", () => {
     })).toBe(false);
   });
 
+  it("defaults the stale window to 3 days", () => {
+    expect(isStaleUnsettleable({
+      createdAtMs: now - 4 * DAY, nowMs: now, feedHealthy: true, alreadySettleable: false,
+    })).toBe(true);
+    expect(isStaleUnsettleable({
+      createdAtMs: now - 2 * DAY, nowMs: now, feedHealthy: true, alreadySettleable: false,
+    })).toBe(false);
+  });
+
   it("never voids a bet that is settleable this run", () => {
     expect(isStaleUnsettleable({
       createdAtMs: now - 30 * DAY, nowMs: now, feedHealthy: true, alreadySettleable: true,

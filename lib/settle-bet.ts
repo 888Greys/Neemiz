@@ -31,7 +31,8 @@ function resolveBTTS(label: string, detail: MatchDetail): SelectionOutcome {
 function resolveDoubleChance(label: string, detail: MatchDetail): SelectionOutcome {
   const h = detail.match.home.score ?? 0;
   const a = detail.match.away.score ?? 0;
-  const norm = label.trim().toLowerCase();
+  // Accept both compact ("12") and prose ("1 OR 2", "1X") labels from the slip.
+  const norm = label.trim().toLowerCase().replace(/\s+/g, "").replace(/or/g, "");
   if (norm === "1x") return a > h ? "LOST" : "WON";  // home win or draw
   if (norm === "12") return h === a ? "LOST" : "WON"; // either team wins
   if (norm === "x2") return h > a ? "LOST" : "WON";  // away win or draw
@@ -115,7 +116,9 @@ export function isStaleUnsettleable(params: {
   alreadySettleable: boolean;
   staleDays?: number;
 }): boolean {
-  const staleDays = params.staleDays ?? 7;
+  // 3 days matches the Odds API results window; longer left phantom WC/stale
+  // rows stuck in Ops for almost a week.
+  const staleDays = params.staleDays ?? 3;
   if (!params.feedHealthy || params.alreadySettleable) return false;
   return params.createdAtMs < params.nowMs - staleDays * 86_400_000;
 }
