@@ -42,8 +42,8 @@ export type LiveChartTheme = {
   lineColor?: string;
 };
 
-// Modest empty space to the right of the live tip (TagOption-like).
-const RIGHT_GAP_BARS = 5;
+/** Small trailing gap so the tip isn’t glued to the price scale. */
+const RIGHT_GAP_BARS = 2;
 const VALUE_EASING = 0.16;
 const DEFAULT_BAR_SPACING = 8;
 
@@ -62,7 +62,7 @@ export function LiveTickChart({
   formatValue,
   pricePrecision = 2,
   topInset = 0,
-  minHeightClass = "min-h-[200px] sm:min-h-[260px]",
+  minHeightClass = "min-h-0",
 }: {
   points: LivePoint[];
   theme: LiveChartTheme;
@@ -121,8 +121,9 @@ export function LiveTickChart({
         borderVisible: false,
         entireTextOnly: false,
         ticksVisible: false,
-        minimumWidth: 72,
-        scaleMargins: { top: 0.28, bottom: 0.28 },
+        minimumWidth: 64,
+        // Tight margins so the series fills the plot (not a thin band mid-panel).
+        scaleMargins: { top: 0.08, bottom: 0.12 },
       },
       timeScale: {
         borderVisible: false, timeVisible: true, secondsVisible: true,
@@ -140,7 +141,7 @@ export function LiveTickChart({
       const { minValue, maxValue } = original.priceRange;
       const span = Math.max(maxValue - minValue, minMove * 40);
       const mid = (minValue + maxValue) / 2;
-      const half = (span / 2) * 1.35;
+      const half = (span / 2) * 1.12;
       return { priceRange: { minValue: mid - half, maxValue: mid + half } };
     };
 
@@ -150,7 +151,9 @@ export function LiveTickChart({
       topColor: theme.areaTop,
       bottomColor: theme.areaBottom,
       lastValueVisible: true,
-      priceLineVisible: false,
+      priceLineVisible: true,
+      priceLineColor: theme.lineColor ?? theme.up,
+      priceLineWidth: 1,
       priceFormat,
       crosshairMarkerVisible: true,
       crosshairMarkerRadius: 4,
