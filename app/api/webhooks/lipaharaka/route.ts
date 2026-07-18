@@ -81,8 +81,9 @@ export async function POST(req: Request) {
   }
   const body = parseCallbackBody(raw);
   if (!body) return new Response("Bad request", { status: 400 });
-  const reference = String(body.checkout_request_id ?? body.CheckoutRequestID ?? body.withdrawal_id ?? body.withdrawalId ?? body.transaction_id ?? "");
-  const amount = Number(body.amount ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "Amount")?.Value);
+  const reference = String(body.checkout_request_id ?? body.CheckoutRequestID ?? body.withdrawal_id ?? body.withdrawalId ?? body.transaction_id ?? body.payment_id ?? "");
+  const rawAmount = body.amount ?? (body.CallbackMetadata as { Item?: Array<{ Name: string; Value: unknown }> } | undefined)?.Item?.find((i) => i.Name === "Amount")?.Value;
+  const amount = Number(String(rawAmount ?? "").replace(/,/g, ""));
   // Normalize the callback phone to the SAME 254XXXXXXXXX shape we store at
   // initiation. Lipa posts numbers in mixed formats (254…, 0…, +254…); comparing
   // raw strings here previously 422'd genuine paid callbacks and left the payer
@@ -99,12 +100,26 @@ export async function POST(req: Request) {
   // Intermediate states (e.g. "processing", "pending") — ack and wait for the final callback.
   if (!paid && !failed) return new Response("OK");
 
-  // Match by provider reference first; fall back to msisdn + amount, since async
-  // withdrawals are often accepted before a reference is assigned. Works for both
-  // DEPOSIT (amount === tx.amount) and WITHDRAWAL (amount === metadata.payout).
+  // Match by provider reference first; then by Lipa payment_id stored in
+  // metadata.lipaTransactionId (older STK responses stored that numeric id as
+  // `reference`, which never equals the ws_CO_ CheckoutRequestID on callback);
+  // finally fall back to msisdn + amount. Works for DEPOSIT and WITHDRAWAL.
   let tx = reference
     ? await db.transaction.findFirst({ where: { reference, provider: "lipaharaka", status: { in: ["PENDING", "FAILED"] } }, orderBy: { createdAt: "desc" } })
     : null;
+  if (!tx && reference) {
+    tx = await db.transaction.findFirst({
+      where: {
+        provider: "lipaharaka",
+        status: { in: ["PENDING", "FAILED"] },
+        OR: [
+          { metadata: { path: ["lipaTransactionId"], equals: reference } },
+          { metadata: { path: ["lipaTransactionId"], equals: String(body.payment_id ?? body.transaction_id ?? "") } },
+        ],
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
   if (!tx && phone && Number.isFinite(amount)) {
     const candidates = await db.transaction.findMany({
       where: { provider: "lipaharaka", status: { in: ["PENDING", "FAILED"] }, metadata: { path: ["msisdn"], equals: phone } },
@@ -117,7 +132,10 @@ export async function POST(req: Request) {
       return expected === amount;
     }) ?? null;
   }
-  if (!tx) return new Response("OK");
+  if (!tx) {
+    console.warn(`[lipa-webhook] no matching tx for status=${statusStr} ref=${reference || "-"} phone=${phone || "-"} amount=${amount}`);
+    return new Response("OK");
+  }
 
   const found = tx;
   const meta = found.metadata as { msisdn?: string; payout?: number } | null;

@@ -89,7 +89,19 @@ export async function POST(req: Request) {
   const transaction = await db.transaction.create({ data: { userId: dbUser.id, type: "DEPOSIT", amount, currency: "KES", status: "PENDING", provider: "lipaharaka", metadata: { msisdn: phone } } });
   try {
     const provider = await initiateLipaHarakaStk(phone, amount);
-    await db.transaction.update({ where: { id: transaction.id }, data: { reference: provider.checkoutRequestId, metadata: { msisdn: phone, lipaTransactionId: provider.transactionId } } });
+    // Only persist CheckoutRequestID (ws_CO_…) as reference — never the numeric
+    // payment_id. Empty checkoutRequestId leaves reference null; webhook still
+    // matches via metadata.lipaTransactionId or phone+amount.
+    await db.transaction.update({
+      where: { id: transaction.id },
+      data: {
+        reference: provider.checkoutRequestId || undefined,
+        metadata: {
+          msisdn: phone,
+          ...(provider.transactionId ? { lipaTransactionId: provider.transactionId } : {}),
+        },
+      },
+    });
     return Response.json({ transactionId: transaction.id, status: "queued" });
   } catch (error) {
     await db.transaction.update({ where: { id: transaction.id }, data: { status: "FAILED" } });

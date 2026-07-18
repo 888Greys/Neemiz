@@ -23,14 +23,37 @@ export async function initiateLipaHarakaStk(phone: string, amount: number) {
     });
     const body = await response.json().catch(() => ({})) as Record<string, unknown>;
     const nested = (body.data ?? body.result ?? {}) as Record<string, unknown>;
-    const checkoutRequestId = body.CheckoutRequestID ?? body.checkout_request_id ?? body.checkoutRequestId ?? body.payment_id ?? nested.CheckoutRequestID ?? nested.checkout_request_id ?? nested.checkoutRequestId ?? nested.payment_id;
+    // CheckoutRequestID (ws_CO_…) is what Lipa's paid callback sends. Never fall
+    // back to payment_id for that field — the numeric id is different, and storing
+    // it as Transaction.reference made webhook matching miss (today: 17/17 numeric
+    // refs FAILED, 19/19 ws_CO_ refs COMPLETED). If Lipa only returns payment_id,
+    // still accept the STK and let the callback match on phone+amount / lipaTransactionId.
+    const checkoutRequestId = body.CheckoutRequestID ?? body.checkout_request_id ?? body.checkoutRequestId
+      ?? nested.CheckoutRequestID ?? nested.checkout_request_id ?? nested.checkoutRequestId;
+    const paymentId = body.payment_id ?? body.transaction_id ?? body.transactionId
+      ?? nested.payment_id ?? nested.transaction_id ?? nested.transactionId;
     const status = String(body.status ?? nested.status ?? "").toLowerCase();
     const success = body.ok === true || body.success === true || body.success === 1 || body.success === "1" || body.success === "true" || status === "success" || status === "successful" || status === "queued";
-    if (!response.ok || !success || !checkoutRequestId) {
-      console.error("Lipa Haraka STK response was not recognized", { status: response.status, keys: Object.keys(body), nestedKeys: Object.keys(nested) });
+    if (!response.ok || !success || (checkoutRequestId == null && paymentId == null)) {
+      console.error("Lipa Haraka STK response was not recognized", {
+        status: response.status,
+        keys: Object.keys(body),
+        nestedKeys: Object.keys(nested),
+        hasCheckoutRequestId: checkoutRequestId != null,
+        hasPaymentId: paymentId != null,
+      });
       throw new Error(String(body.error ?? body.message ?? `Lipa Haraka error ${response.status}`));
     }
-    return { checkoutRequestId: String(checkoutRequestId), transactionId: String(body.transaction_id ?? body.transactionId ?? body.payment_id ?? "") };
+    if (checkoutRequestId == null) {
+      console.warn("Lipa Haraka STK accepted without CheckoutRequestID — callback will match via phone/amount or payment_id", {
+        paymentId: String(paymentId),
+        keys: Object.keys(body),
+      });
+    }
+    return {
+      checkoutRequestId: checkoutRequestId != null ? String(checkoutRequestId) : "",
+      transactionId: paymentId != null ? String(paymentId) : "",
+    };
   } finally { clearTimeout(timer); }
 }
 
