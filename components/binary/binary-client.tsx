@@ -1911,8 +1911,6 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#151518] text-white pb-[env(safe-area-inset-bottom)] sm:block sm:h-auto sm:min-h-full sm:overflow-visible sm:pb-4 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
-      {/* Mobile trade chrome lives under the app header — not a bottom dock. */}
-      <BinaryNativeTabBar panel={panel} positionsCount={openPositions.length} />
       <div data-binary-grid="true" className={`relative flex min-h-0 flex-1 flex-col min-w-0 gap-0 overflow-hidden px-0 py-0 sm:grid sm:flex-none sm:overflow-visible sm:px-2 sm:py-2 xl:grid xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         {pickerOpen && (
           <TradeTypePicker value={tradeType} onSelect={selectTradeType} onClose={() => setPickerOpen(false)} allowed={new Set(liveTypes)} />
@@ -2231,69 +2229,6 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
       {chartSheet === "types" && <ChartTypesSheet onClose={() => setChartSheet(null)} />}
       {chartSheet === "drawing" && <DrawingToolsSheet onClose={() => setChartSheet(null)} />}
     </div>
-  );
-}
-
-function BinaryNativeTabBar({
-  panel,
-  positionsCount,
-}: {
-  panel: string | null;
-  positionsCount: number;
-}) {
-  const tabs = [
-    { key: "menu", label: "Menu", icon: "menu", href: null as string | null },
-    { key: "markets", label: "Markets", icon: "candlestick_chart", href: "/binary?panel=markets" },
-    { key: "trade", label: "Trade", icon: "show_chart", href: "/binary" },
-    { key: "positions", label: "Positions", icon: "schedule", href: "/binary?panel=positions" },
-  ] as const;
-
-  return (
-    <nav
-      aria-label="Trade navigation"
-      className="relative z-30 mx-2 mt-1 mb-1 flex h-11 shrink-0 items-center justify-around gap-0.5 rounded-xl border border-white/[0.08] bg-[#1c1c1e]/90 px-1 shadow-[0_4px_20px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:mx-2 lg:hidden"
-    >
-      {tabs.map((tab) => {
-        const active =
-          tab.key === "trade" ? !panel || panel === "" :
-          tab.key === "markets" ? panel === "markets" :
-          tab.key === "positions" ? panel === "positions" :
-          false;
-        if (tab.key === "menu") {
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => window.dispatchEvent(new Event("neemiz:open-menu"))}
-              className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded-lg text-[9px] text-slate-400 transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-inset"
-            >
-              <Icon name={tab.icon} className="text-[18px]" />
-              <span className="mt-0.5 font-bold leading-none">{tab.label}</span>
-            </button>
-          );
-        }
-        return (
-          <Link
-            key={tab.key}
-            href={tab.href!}
-            prefetch={false}
-            className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded-lg text-[9px] transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-inset ${
-              active ? "bg-white/[0.06] text-emerald-400" : "text-slate-400"
-            }`}
-          >
-            <span className="relative">
-              <Icon name={tab.icon} fill={active} className="text-[18px]" />
-              {tab.key === "positions" && positionsCount > 0 && (
-                <span className="absolute -right-2 -top-2 grid min-w-4 h-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#151518]">
-                  {positionsCount > 99 ? "99+" : positionsCount}
-                </span>
-              )}
-            </span>
-            <span className="mt-0.5 font-bold leading-none">{tab.label}</span>
-          </Link>
-        );
-      })}
-    </nav>
   );
 }
 

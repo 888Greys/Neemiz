@@ -210,14 +210,14 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
     setPendingPath(null); // route arrived — clear the optimistic highlight
   }, [pathname]);
 
-  // Immersive surfaces (Forex trade) open the drawer via a window event so the
-  // in-app tab bar can keep a Menu escape hatch without rendering shell chrome.
+  // Immersive / Binary surfaces open the drawer via a window event so trade
+  // chrome can keep a Menu escape hatch without a bottom dock.
   useEffect(() => {
-    if (!immersive) return;
+    if (!immersive && !binaryOnly) return;
     const open = () => setMobileMenuOpen(true);
     window.addEventListener("neemiz:open-menu", open);
     return () => window.removeEventListener("neemiz:open-menu", open);
-  }, [immersive]);
+  }, [immersive, binaryOnly]);
 
   if (isLogin) return <>{children}</>;
 
@@ -274,7 +274,19 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
         )}
 
         <div className="flex min-w-0 flex-1 items-center justify-between gap-2 lg:gap-5 lg:px-6">
-          <div className="flex min-w-0 items-center gap-3 lg:gap-6">
+          <div className="flex min-w-0 items-center gap-2 lg:gap-6">
+            {/* Binary / immersive: Deriv-style hamburger in the top pill (no bottom nav). */}
+            {(binaryOnly || immersive) && (
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                title="Menu"
+                aria-label="Open menu"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-slate-200 transition hover:bg-white/[0.08] active:scale-[0.97] lg:hidden"
+              >
+                <Icon name="menu" className="text-[22px]" />
+              </button>
+            )}
             <BrandLogo href={binaryOnly ? "/binary" : "/dashboard"} size="sm" />
             <nav className="hidden items-center gap-0.5 rounded-2xl bg-[#18191d] p-1 ring-1 ring-white/[0.06] text-sm font-black md:flex">
               {binaryOnly ? (
@@ -295,6 +307,41 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
           </div>
           {isSignedIn ? (
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+              {binaryOnly && (
+                <>
+                  <Link
+                    href="/binary?panel=markets"
+                    prefetch={false}
+                    title="Markets"
+                    aria-label="Markets"
+                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ring-1 transition lg:hidden ${
+                      currentPanel === "markets"
+                        ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30"
+                        : "bg-[#18191d] text-slate-300 ring-white/[0.08] hover:text-white"
+                    }`}
+                  >
+                    <Icon name="candlestick_chart" className="text-[18px]" />
+                  </Link>
+                  <Link
+                    href="/binary?panel=positions"
+                    prefetch={false}
+                    title="Positions"
+                    aria-label="Positions"
+                    className={`relative grid h-8 w-8 shrink-0 place-items-center rounded-full ring-1 transition lg:hidden ${
+                      currentPanel === "positions"
+                        ? "bg-emerald-500/15 text-emerald-300 ring-emerald-500/30"
+                        : "bg-[#18191d] text-slate-300 ring-white/[0.08] hover:text-white"
+                    }`}
+                  >
+                    <Icon name="schedule" className="text-[18px]" />
+                    {(navBadges.positions ?? 0) > 0 && (
+                      <span className="absolute -right-1 -top-1 grid min-w-4 h-4 place-items-center rounded-full bg-red-500 px-0.5 text-[9px] font-black leading-none text-white">
+                        {(navBadges.positions ?? 0) > 99 ? "99+" : navBadges.positions}
+                      </span>
+                    )}
+                  </Link>
+                </>
+              )}
               <HeaderBalanceChip onOpen={() => openWallet()} />
               {/* Wallet icon — desktop (mobile has it in the bottom nav) */}
               <button
@@ -330,6 +377,17 @@ export function AppShell({ children, rightPanel, mainBg, hideFooter = false, ful
             </div>
           ) : (
             <div className="flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 md:gap-3">
+              {binaryOnly && (
+                <Link
+                  href="/binary?panel=markets"
+                  prefetch={false}
+                  title="Markets"
+                  aria-label="Markets"
+                  className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#18191d] text-slate-300 ring-1 ring-white/[0.08] transition hover:text-white lg:hidden"
+                >
+                  <Icon name="candlestick_chart" className="text-[18px]" />
+                </Link>
+              )}
               <button
                 onClick={() => setLoginOpen(true)}
                 className="rounded-lg bg-white/[0.06] px-2.5 py-2 text-[11px] font-black text-slate-200 ring-1 ring-white/[0.08] transition hover:bg-white/[0.1] hover:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/20 focus-visible:ring-offset-2 focus-visible:ring-offset-[#151518] sm:px-3 sm:text-xs md:rounded-2xl md:px-6 md:py-3 md:text-base"

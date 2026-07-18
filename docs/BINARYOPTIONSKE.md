@@ -118,9 +118,27 @@ Because other products are blocked, **customize Binary alone** by editing:
 | Terminal UI | `components/binary/*`, `app/binary/page.tsx` |
 | Wordmark | `components/brand-logo.tsx` (binary branch → **BinaryKE**) |
 | Favicon / apple icon | `app/icon.tsx`, `app/apple-icon.tsx` (read `PRODUCT_SURFACE` at runtime). Drop custom PNGs here if you want a designed mark — or replace `app/favicon.ico` (Binary host rewrites `/favicon.ico` → `/icon` in `proxy.ts`) |
-| Nav / shell | `components/app-shell.tsx` (binary-only branches); mobile trade tabs live **under the header** in `BinaryNativeTabBar` inside `components/binary/binary-client.tsx` (not bottom dock) |
+| Nav / shell | `components/app-shell.tsx` — Binary mobile uses **top hamburger** + Markets/Positions icons in the header pill (no bottom dock). |
 | Company / legal | `lib/company.ts` |
 | Surface helpers | `lib/product-surface.ts` |
+
+### Deploy note (why live Binary can look “stuck”)
+
+Nezeem blue/green deploy does **not** automatically recreate `binaryoptionske-app`.
+After a `main` push lands a new GHCR tag, bounce Binary explicitly:
+
+```bash
+# on nez — use the same SHA Nezeem is running, or the newest local tag
+IMG=$(docker inspect neemiz-app-3008 -f '{{.Config.Image}}')  # or 3007
+docker rm -f binaryoptionske-app
+docker run -d --name binaryoptionske-app --restart unless-stopped \
+  --env-file /opt/binaryoptionske/runtime.docker.env \
+  --network supabase-prod_default \
+  -p 127.0.0.1:3010:3000 \
+  "$IMG"
+```
+
+Or: `/opt/binaryoptionske/bounce.sh` if present.
 
 **Rule:** when look-and-feel diverges from Nezeem’s `/binary`, wrap changes in
 `isBinarySurface()` / `useIsBinarySurface()` so Nezeem’s casino binary product
