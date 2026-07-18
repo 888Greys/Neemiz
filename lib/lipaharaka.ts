@@ -18,11 +18,13 @@ function asRecord(v: unknown): Record<string, unknown> {
   return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
 }
 
-/** v2 nests ids under `data`; older replies put them on the top level. */
+/** v2 nests ids under `data` / `provider`; older replies put them on the top level. */
 function pick(body: Record<string, unknown>, ...keys: string[]): unknown {
-  const data = asRecord(body.data ?? body.result);
-  for (const key of keys) {
-    if (data[key] != null && data[key] !== "") return data[key];
+  const nests = [asRecord(body.data), asRecord(body.result), asRecord(body.provider)];
+  for (const nest of nests) {
+    for (const key of keys) {
+      if (nest[key] != null && nest[key] !== "") return nest[key];
+    }
   }
   for (const key of keys) {
     if (body[key] != null && body[key] !== "") return body[key];
