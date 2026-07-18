@@ -40,6 +40,12 @@ export async function generateMetadata(): Promise<Metadata> {
     description: binary
       ? `${brand} — binary options trading.`
       : "A premium betting, predictions, P2P, forex, binary, and Aviator prototype.",
+    // Dynamic app/icon.tsx + app/apple-icon.tsx read PRODUCT_SURFACE at runtime.
+    // Static favicon.ico is still Nezeem; Binary rewrites it in proxy.ts.
+    icons: {
+      icon: [{ url: "/icon", type: "image/png" }],
+      apple: [{ url: "/apple-icon", type: "image/png" }],
+    },
   };
 }
 

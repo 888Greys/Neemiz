@@ -116,13 +116,23 @@ Because other products are blocked, **customize Binary alone** by editing:
 | Area | Files |
 |------|-------|
 | Terminal UI | `components/binary/*`, `app/binary/page.tsx` |
-| Nav / shell | `components/app-shell.tsx` (binary-only branches) |
+| Wordmark | `components/brand-logo.tsx` (binary branch → **BinaryKE**) |
+| Favicon / apple icon | `app/icon.tsx`, `app/apple-icon.tsx` (read `PRODUCT_SURFACE` at runtime). Drop custom PNGs here if you want a designed mark — or replace `app/favicon.ico` (Binary host rewrites `/favicon.ico` → `/icon` in `proxy.ts`) |
+| Nav / shell | `components/app-shell.tsx` (binary-only branches); mobile trade tabs live **under the header** in `BinaryNativeTabBar` inside `components/binary/binary-client.tsx` (not bottom dock) |
 | Company / legal | `lib/company.ts` |
 | Surface helpers | `lib/product-surface.ts` |
 
 **Rule:** when look-and-feel diverges from Nezeem’s `/binary`, wrap changes in
 `isBinarySurface()` / `useIsBinarySurface()` so Nezeem’s casino binary product
 stays unchanged. Do **not** fork a second binary app unless UX diverges heavily.
+
+### Favicon — where to put a custom design
+
+1. **Quick (code-generated):** edit `app/icon.tsx` + `app/apple-icon.tsx` (current “B” / “n” marks).
+2. **Designed asset:** export PNG 32×32 (favicon) and 180×180 (apple), then either:
+   - Replace the ImageResponse bodies to load those files from `public/brand/binary-icon.png`, or
+   - Add `public/brand/binary-favicon.ico` and point `generateMetadata().icons` at it when `PRODUCT_SURFACE=binary`.
+3. Do **not** overwrite `app/favicon.ico` with a Binary-only file — that asset is shared with Nezeem in the same Docker image.
 
 ---
 

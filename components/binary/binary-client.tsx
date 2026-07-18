@@ -635,7 +635,7 @@ function TradingViewBinaryChart({ ticks, lines, markers }: { ticks: Tick[]; line
 
       {/* Deriv-style zoom / recenter controls — lifted above the TradingView
           attribution logo and given enough contrast to read on the dark chart */}
-      <div className="absolute bottom-14 left-3 z-10 flex flex-col gap-1 sm:bottom-12">
+      <div className="absolute bottom-3 left-3 z-10 flex flex-col gap-1 sm:bottom-12">
         <button type="button" onClick={() => zoom(1.3)} title="Zoom in" aria-label="Zoom in"
           className="grid h-7 w-7 place-items-center rounded border border-white/10 bg-[#1c1d24]/90 text-slate-100 shadow-lg backdrop-blur transition hover:bg-[#22242a] sm:h-8 sm:w-8">
           <Icon name="add" className="text-[15px] sm:text-[18px]" />
@@ -1910,7 +1910,9 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#151518] text-white pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:block sm:h-auto sm:min-h-full sm:overflow-visible sm:pb-16 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#151518] text-white pb-[env(safe-area-inset-bottom)] sm:block sm:h-auto sm:min-h-full sm:overflow-visible sm:pb-4 xl:flex xl:h-full xl:min-h-0 xl:flex-col xl:overflow-hidden xl:pb-0">
+      {/* Mobile trade chrome lives under the app header — not a bottom dock. */}
+      <BinaryNativeTabBar panel={panel} positionsCount={openPositions.length} />
       <div data-binary-grid="true" className={`relative flex min-h-0 flex-1 flex-col min-w-0 gap-0 overflow-hidden px-0 py-0 sm:grid sm:flex-none sm:overflow-visible sm:px-2 sm:py-2 xl:grid xl:min-h-0 xl:flex-1 xl:gap-0 xl:overflow-hidden xl:border-b xl:border-white/[0.08] xl:p-0 ${railOpen ? "xl:grid-cols-[300px_minmax(0,1fr)_340px]" : "xl:grid-cols-[44px_minmax(0,1fr)_340px]"}`}>
         {pickerOpen && (
           <TradeTypePicker value={tradeType} onSelect={selectTradeType} onClose={() => setPickerOpen(false)} allowed={new Set(liveTypes)} />
@@ -2206,8 +2208,7 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
         </aside>
       </div>
 
-      {/* Mobile-only Positions screen (Deriv-style) — full surface between the
-          app header and bottom nav, opened by the Positions tab (?panel=positions). */}
+      {/* Mobile-only Positions screen — full surface under the app header. */}
       {mobileActivityOpen && (
         <MobilePositions
           tab={tab === "tx" ? "open" : tab} setTab={setTab}
@@ -2229,8 +2230,6 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
 
       {chartSheet === "types" && <ChartTypesSheet onClose={() => setChartSheet(null)} />}
       {chartSheet === "drawing" && <DrawingToolsSheet onClose={() => setChartSheet(null)} />}
-
-      <BinaryNativeTabBar panel={panel} positionsCount={openPositions.length} />
     </div>
   );
 }
@@ -2250,7 +2249,10 @@ function BinaryNativeTabBar({
   ] as const;
 
   return (
-    <nav className="fixed bottom-[max(0.6rem,env(safe-area-inset-bottom))] left-3 right-3 z-50 flex h-14 items-center justify-around gap-1 rounded-2xl border border-white/[0.08] bg-[#1c1c1e]/92 px-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.5)] backdrop-blur-xl lg:hidden">
+    <nav
+      aria-label="Trade navigation"
+      className="relative z-30 mx-2 mt-1 mb-1 flex h-11 shrink-0 items-center justify-around gap-0.5 rounded-xl border border-white/[0.08] bg-[#1c1c1e]/90 px-1 shadow-[0_4px_20px_rgba(0,0,0,0.35)] backdrop-blur-xl sm:mx-2 lg:hidden"
+    >
       {tabs.map((tab) => {
         const active =
           tab.key === "trade" ? !panel || panel === "" :
@@ -2263,9 +2265,9 @@ function BinaryNativeTabBar({
               key={tab.key}
               type="button"
               onClick={() => window.dispatchEvent(new Event("neemiz:open-menu"))}
-              className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] text-on-surface-variant focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset"
+              className="flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded-lg text-[9px] text-slate-400 transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-inset"
             >
-              <Icon name={tab.icon} className="text-[20px]" />
+              <Icon name={tab.icon} className="text-[18px]" />
               <span className="mt-0.5 font-bold leading-none">{tab.label}</span>
             </button>
           );
@@ -2275,12 +2277,12 @@ function BinaryNativeTabBar({
             key={tab.key}
             href={tab.href!}
             prefetch={false}
-            className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded text-[9px] transition-colors duration-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087cff]/70 focus-visible:ring-inset ${
-              active ? "text-[#087cff]" : "text-on-surface-variant"
+            className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-center rounded-lg text-[9px] transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60 focus-visible:ring-inset ${
+              active ? "bg-white/[0.06] text-emerald-400" : "text-slate-400"
             }`}
           >
             <span className="relative">
-              <Icon name={tab.icon} fill={active} className="text-[20px]" />
+              <Icon name={tab.icon} fill={active} className="text-[18px]" />
               {tab.key === "positions" && positionsCount > 0 && (
                 <span className="absolute -right-2 -top-2 grid min-w-4 h-4 place-items-center rounded-full bg-red-500 px-1 text-[9px] font-black leading-none text-white ring-2 ring-[#151518]">
                   {positionsCount > 99 ? "99+" : positionsCount}
@@ -2760,7 +2762,7 @@ function MobilePositions({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-14 top-14 z-40 flex flex-col bg-[#151518] lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 top-14 z-40 flex flex-col bg-[#151518] lg:hidden">
       {/* Open / Closed tabs */}
       <div className="flex shrink-0 items-stretch border-b border-white/[0.07] text-[13px] font-black">
         {(["open", "closed"] as const).map((t) => (

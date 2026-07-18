@@ -66,14 +66,14 @@ export function TradeTypePicker({
     <>
       {/* Backdrop over the chart area only — the trade panel (right) stays
           visible and interactive, like Deriv. */}
-      <div className="fixed inset-x-0 bottom-14 top-14 z-30 bg-black/40 xl:absolute xl:inset-y-0 xl:left-0 xl:right-[340px]" onClick={onClose} />
+      <div className="fixed inset-x-0 bottom-0 top-14 z-30 bg-black/40 xl:absolute xl:inset-y-0 xl:left-0 xl:right-[340px]" onClick={onClose} />
 
       {/* Drawer — slides in from the right, its right edge meeting the trade
           panel so chart (left) + panel (right) stay visible to compare. */}
       <div
         role="dialog"
         aria-label="Trade types"
-        className="fixed inset-x-0 bottom-14 top-14 z-40 flex w-full border-l border-white/10 bg-[#0b0d12] shadow-2xl xl:absolute xl:inset-x-auto xl:inset-y-0 xl:bottom-auto xl:right-[340px] xl:top-auto xl:w-[470px]"
+        className="fixed inset-x-0 bottom-0 top-14 z-40 flex w-full border-l border-white/10 bg-[#0b0d12] shadow-2xl xl:absolute xl:inset-x-auto xl:inset-y-0 xl:bottom-auto xl:right-[340px] xl:top-auto xl:w-[470px]"
       >
       {/* Left rail — categories */}
       <div className="w-[106px] shrink-0 border-r border-white/[0.07] py-2 sm:w-[150px] sm:py-3">

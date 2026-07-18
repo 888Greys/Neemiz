@@ -54,6 +54,13 @@ export default async function middleware(request: NextRequest) {
   // Binary-only brand (binaryoptionske.com): strip every non-binary product path.
   if (isBinarySurface()) {
     const { pathname } = request.nextUrl;
+    // Static favicon.ico is still the Nezeem asset in the image — serve the
+    // surface-aware generated /icon instead.
+    if (pathname === "/favicon.ico") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/icon";
+      return NextResponse.rewrite(url);
+    }
     if (pathname === "/admin" || pathname.startsWith("/admin/")) {
       const url = request.nextUrl.clone();
       url.pathname = "/binary";

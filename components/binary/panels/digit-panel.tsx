@@ -387,7 +387,7 @@ function MobileDerivDigits({
 
       {openPositions.length > 0 && <ActivePositions positions={openPositions} format={format} />}
 
-      {/* One slim, pill-shaped Buy button (Deriv-style), flush above the nav */}
+      {/* One slim, pill-shaped Buy button (Deriv-style), flush above safe area */}
       <div className="px-3 pb-2 pt-1">
         <button
           type="button"
