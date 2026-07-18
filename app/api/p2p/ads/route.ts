@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
+import { p2pBlockedResponse, p2pAllowedCounterparties, p2pPairAllowlist } from "@/lib/p2p/user-guard";
 import { isP2PAdTradable, validateP2PAd } from "@/lib/p2p/ad-guards";
 import { autoApproveIfDue } from "@/lib/p2p/merchant-approval";
 import { isKesCoin, isWalletBackedCoin, defaultNetwork } from "@/lib/p2p/crypto-balance";
@@ -20,7 +20,7 @@ const VALID_CRYPTOS = [...new Set(["USDT", "USDC", "BTC", "ETH", "BNB", ...ACTIV
 const VALID_SIDES: AdSide[] = ["BUY", "SELL"];
 const VALID_FIATS = new Set(FIAT_CURRENCIES.map((f) => f.code));
 
-// GET /api/p2p/ads — browse ads (public)
+// GET /api/p2p/ads — browse ads (public; pair-filters when signed in)
 export async function GET(req: Request) {
   try {
     const url    = new URL(req.url);
@@ -28,6 +28,20 @@ export async function GET(req: Request) {
     const crypto = url.searchParams.get("crypto");
     const payment = url.searchParams.get("payment");
     const fiat   = url.searchParams.get("fiat");
+
+    // Optional session — restricted accounts only see allowed counterparties' ads;
+    // ads from restricted merchants are hidden from everyone else.
+    let viewerEmail: string | null = null;
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) viewerEmail = user.email;
+    } catch {
+      // public browse
+    }
+    const viewerAllowed = await p2pAllowedCounterparties(viewerEmail);
+    const pairAllow = await p2pPairAllowlist();
+    const restrictedMerchantEmails = new Set(pairAllow.keys());
 
     const ads = await db.p2PAd.findMany({
       where: {
@@ -50,7 +64,7 @@ export async function GET(req: Request) {
             completionRate: true,
             avgReleaseTime: true,
             createdAt:       true,
-            user: { select: { imageUrl: true } },
+            user: { select: { imageUrl: true, email: true } },
           },
         },
       },
@@ -58,14 +72,27 @@ export async function GET(req: Request) {
       take: 50,
     });
 
-    const tradableAds = ads.filter((ad) => isP2PAdTradable({
-      crypto: ad.crypto,
-      pricePerUnit: Number(ad.pricePerUnit),
-      availableAmount: Number(ad.availableAmount),
-      totalAmount: Number(ad.totalAmount),
-      minLimit: Number(ad.minLimit),
-      maxLimit: Number(ad.maxLimit),
-    }));
+    const tradableAds = ads.filter((ad) => {
+      const merchantEmail = ad.merchant.user.email?.trim().toLowerCase() ?? "";
+      if (viewerAllowed && !viewerAllowed.has(merchantEmail)) return false;
+      // Hide restricted merchants from the public book (only their allowlisted
+      // counterparties see them — handled above when viewer is that counterpart).
+      if (
+        merchantEmail &&
+        restrictedMerchantEmails.has(merchantEmail) &&
+        !(viewerEmail && pairAllow.get(merchantEmail)?.has(viewerEmail.trim().toLowerCase()))
+      ) {
+        return false;
+      }
+      return isP2PAdTradable({
+        crypto: ad.crypto,
+        pricePerUnit: Number(ad.pricePerUnit),
+        availableAmount: Number(ad.availableAmount),
+        totalAmount: Number(ad.totalAmount),
+        minLimit: Number(ad.minLimit),
+        maxLimit: Number(ad.maxLimit),
+      });
+    });
 
     return Response.json(tradableAds.map((ad) => {
       const totalTrades = ad.merchant.totalTrades;

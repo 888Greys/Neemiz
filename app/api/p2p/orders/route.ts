@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
+import { p2pBlockedResponse, p2pPairDeniedResponse } from "@/lib/p2p/user-guard";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { validateP2PAd } from "@/lib/p2p/ad-guards";
 import { defaultNetwork, lockUserCrypto, unlockUserCrypto, kesLockAmount, isWalletBackedCoin, isKesCoin, lockWalletCoin, unlockWalletCoin, recordWalletCoinMovement } from "@/lib/p2p/crypto-balance";
@@ -187,6 +187,9 @@ export async function POST(req: Request) {
 
     if (!ad || !ad.isActive) return Response.json({ error: "Ad not found or inactive" }, { status: 404 });
     if (ad.merchant.userId === dbUser.id) return Response.json({ error: "Cannot trade with yourself" }, { status: 400 });
+
+    const pairDenied = await p2pPairDeniedResponse(dbUser.email, ad.merchant.user.email);
+    if (pairDenied) return pairDenied;
 
     const adGuardError = validateP2PAd({
       crypto: ad.crypto,

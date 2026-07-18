@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getOrCreateUser } from "@/lib/get-or-create-user";
-import { p2pBlockedResponse } from "@/lib/p2p/user-guard";
+import { p2pBlockedResponse, p2pPairDeniedResponse, p2pAllowedCounterparties } from "@/lib/p2p/user-guard";
 import { withdrawalsDisabledResponse } from "@/lib/withdrawal-guard";
 import { isP2PAdTradable } from "@/lib/p2p/ad-guards";
 import { kesLockAmount, isWalletBackedCoin, isKesCoin, lockWalletCoin, recordWalletCoinMovement, lockUserCrypto, defaultNetwork } from "@/lib/p2p/crypto-balance";
@@ -53,6 +53,7 @@ export async function POST(req: Request) {
     if (!Number.isFinite(amount) || amount <= 0) return Response.json({ error: "Enter a valid amount" }, { status: 400 });
 
     // Candidate SELL ads (merchant sells, user buys), best price first.
+    const allowedCounterparties = await p2pAllowedCounterparties(dbUser.email);
     const candidates = await db.p2PAd.findMany({
       where: {
         side: "SELL",
@@ -70,6 +71,8 @@ export async function POST(req: Request) {
 
     // First ad whose limits cover the amount, has the liquidity, and is tradable.
     const match = candidates.find((ad) => {
+      const merchantEmail = ad.merchant.user.email?.trim().toLowerCase() ?? "";
+      if (allowedCounterparties && !allowedCounterparties.has(merchantEmail)) return false;
       const price = Number(ad.pricePerUnit);
       if (price <= 0) return false;
       if (amount < Number(ad.minLimit) || amount > Number(ad.maxLimit)) return false;
@@ -90,6 +93,9 @@ export async function POST(req: Request) {
         { status: 404 },
       );
     }
+
+    const pairDenied = await p2pPairDeniedResponse(dbUser.email, match.merchant.user.email);
+    if (pairDenied) return pairDenied;
 
     const price        = Number(match.pricePerUnit);
     const cryptoAmount = parseFloat((amount / price).toFixed(8));
