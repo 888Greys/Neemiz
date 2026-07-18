@@ -32,11 +32,9 @@ export async function POST(req: Request) {
   const dbUser = await getOrCreateUser(user.id, { email: user.email });
   if (dbUser.phone === phone) return Response.json({ phone });
 
-  // Locked-for-life: once a withdrawal number is set it is bound to the account
-  // permanently. Changing it to a DIFFERENT number is refused (SIM swap / mule
-  // rerouting needs support/admin). Admins are exempt so they can test payouts
-  // to arbitrary numbers without support tickets.
-  if (dbUser.phone && !dbUser.isAdmin) {
+  // Locked-for-life (players and admins): once set, the number cannot change
+  // without support/DB intervention (stops SIM-swap / shared-admin abuse).
+  if (dbUser.phone) {
     return Response.json(
       { error: "Your withdrawal number is locked and can't be changed. Contact support to update it." },
       { status: 409 },
@@ -46,11 +44,7 @@ export async function POST(req: Request) {
   try {
     await db.user.update({ where: { id: dbUser.id }, data: { phone } });
   } catch (err) {
-    // Unique constraint — the number is linked to a different account.
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      // Admins may still withdraw to that number (withdraw route doesn't re-bind);
-      // just don't steal another account's phone row.
-      if (dbUser.isAdmin) return Response.json({ phone: dbUser.phone, unbound: true });
       return Response.json({ error: "This mobile number is already registered." }, { status: 409 });
     }
     throw err;

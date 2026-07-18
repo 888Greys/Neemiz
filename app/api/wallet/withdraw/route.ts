@@ -98,31 +98,28 @@ export async function POST(req: Request) {
       jar.delete(STEPUP_COOKIE);
     }
 
-    // Bound-number enforcement — TWILIO-INDEPENDENT. Each account is locked to a
-    // single M-Pesa withdrawal number for life, whether or not SMS verification
-    // is available:
+    // Bound-number enforcement — TWILIO-INDEPENDENT. Each account (including
+    // admins) is locked to a single M-Pesa withdrawal number for life:
     //   • if a number is already bound (via first withdrawal, the mpesa route, or
     //     SMS verify), cash-outs may ONLY go to it — no editing/rerouting;
     //   • otherwise the FIRST withdrawal binds this number to the account.
     // The number is also unique per account (User.phone @unique), so it can't be
-    // shared across accounts. Admins are exempt (they test to arbitrary numbers).
-    if (!dbUser.isAdmin) {
-      if (dbUser.phone) {
-        if (msisdn !== dbUser.phone) {
-          return Response.json(
-            { error: `Withdrawals can only be sent to your registered number +${dbUser.phone}. Contact support to change it.` },
-            { status: 400 },
-          );
+    // shared across accounts.
+    if (dbUser.phone) {
+      if (msisdn !== dbUser.phone) {
+        return Response.json(
+          { error: `Withdrawals can only be sent to your registered number +${dbUser.phone}. Contact support to change it.` },
+          { status: 400 },
+        );
+      }
+    } else {
+      try {
+        await db.user.update({ where: { id: dbUser.id }, data: { phone: msisdn } });
+      } catch (bindErr) {
+        if (bindErr instanceof Prisma.PrismaClientKnownRequestError && bindErr.code === "P2002") {
+          return Response.json({ error: "This M-Pesa number is already registered to another account." }, { status: 409 });
         }
-      } else {
-        try {
-          await db.user.update({ where: { id: dbUser.id }, data: { phone: msisdn } });
-        } catch (bindErr) {
-          if (bindErr instanceof Prisma.PrismaClientKnownRequestError && bindErr.code === "P2002") {
-            return Response.json({ error: "This M-Pesa number is already registered to another account." }, { status: 409 });
-          }
-          throw bindErr;
-        }
+        throw bindErr;
       }
     }
 
@@ -433,9 +430,9 @@ export async function GET() {
       resetsAt: null,
       phoneVerifyRequired,
       phoneVerified,
-      // Prefill only — admins may withdraw to any Safaricom number.
+      // Same as players: bound number is locked once set.
       boundPhone,
-      phoneLocked: false,
+      phoneLocked: Boolean(boundPhone),
       isAdmin: true,
     }, { headers: { "Cache-Control": "no-store" } });
   }

@@ -218,7 +218,7 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
   // ── First-withdrawal SMS verification modal ──
   const [phoneVerifyOpen, setPhoneVerifyOpen] = useState(false);
-  const phoneLocked = wdLimit?.phoneLocked ?? Boolean(wdLimit?.boundPhone && !wdLimit?.isAdmin);
+  const phoneLocked = wdLimit?.phoneLocked ?? Boolean(wdLimit?.boundPhone);
 
   // ── "Notify me when M-Pesa withdrawals reopen" opt-in (while paused) ──
   const [notifyState, setNotifyState] = useState<"idle" | "loading" | "subscribed">("idle");
@@ -1225,11 +1225,6 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                       {phoneLocked && (
                         <p className="mt-2 text-[12px] font-medium text-slate-600">
                           Locked to your account. Contact support to change it.
-                        </p>
-                      )}
-                      {!phoneLocked && wdLimit?.isAdmin && (
-                        <p className="mt-2 text-[12px] font-medium text-slate-600">
-                          Admin: you can withdraw to any Safaricom number.
                         </p>
                       )}
                     </section>
