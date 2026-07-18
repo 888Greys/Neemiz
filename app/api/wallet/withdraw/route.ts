@@ -61,7 +61,8 @@ export async function POST(req: Request) {
     const msisdn = normalizeMsisdn(String(phoneNumber ?? ""));
 
     const lipaTestMode = process.env.LIPAHARAKA_TEST_MODE === "true";
-    const minimumWithdrawal = 100;
+    // Admins can withdraw from KSh 1 (cheap live STK/B2C testing), same as deposits.
+    const minimumWithdrawal = dbUser.isAdmin ? 1 : 100;
     // Daily cap: a user may withdraw at most this much across the day's M-Pesa
     // withdrawals. The window resets at 02:00 EAT (see lib/withdrawal-window).
     const limit = dailyLimitKes();
@@ -124,7 +125,9 @@ export async function POST(req: Request) {
       }
     }
 
-    const feeRate   = lipaTestMode ? 0 : WITHDRAWAL_FEE_RATE;
+    // Admins + Lipa test mode: no fee, so a KSh 1 test still yields payout ≥ 1
+    // (Lipa B2C rejects 0). Everyone else pays the normal withdrawal fee.
+    const feeRate   = (lipaTestMode || dbUser.isAdmin) ? 0 : WITHDRAWAL_FEE_RATE;
     // Lipa Haraka B2C only disburses WHOLE shillings, so the payout must be an
     // integer. Floor the payout (i.e. round the fee UP to the next shilling) so
     // we never send more than the net-of-fee amount. Enabling the 13% fee turned

@@ -505,7 +505,9 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
   function requestMpesaWithdraw() {
     if (!isSignedIn) { openLogin(); return; }
     const amt = Number(wdAmount);
+    const minWd = wdLimit?.isAdmin ? 1 : 100;
     if (!wdPhone.trim() || !amt) return;
+    if (amt < minWd) { setWdError(`Minimum withdrawal is KSh ${minWd}`); return; }
     setWdError("");
     setStepUpAction("withdraw");
     if (DEV_AUTH_PUBLIC) { void handleMpesaWithdraw(); return; } // no Supabase in dev
@@ -1172,7 +1174,8 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                         {CURRENCY_SYMBOL} {(wdLimit?.remaining ?? wdLimit?.limit ?? 500).toLocaleString()}
                       </p>
                       <p className="mt-1 text-[12px] font-medium text-slate-600">
-                        of {CURRENCY_SYMBOL} {(wdLimit?.limit ?? 500).toLocaleString()} · {WITHDRAWAL_FEE_PCT} fee · min KSh 100
+                        of {CURRENCY_SYMBOL} {(wdLimit?.limit ?? 500).toLocaleString()}
+                        {wdLimit?.isAdmin ? " · admin test · no fee · min KSh 1" : ` · ${WITHDRAWAL_FEE_PCT} fee · min KSh 100`}
                       </p>
                     </section>
 
@@ -1182,21 +1185,22 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
                         <span className="text-2xl font-black text-slate-500">{CURRENCY_SYMBOL}</span>
                         <input
                           type="number"
-                          min="100"
-                          max="500"
+                          min={wdLimit?.isAdmin ? "1" : "100"}
+                          max={wdLimit?.isAdmin ? "150000" : "500"}
                           value={wdAmount}
                           onChange={(e) => { setWdAmount(e.target.value); setWdError(""); }}
                           placeholder="0"
                           className="min-w-0 flex-1 bg-transparent py-3 text-[2rem] font-black tracking-tight text-white outline-none placeholder:text-slate-700"
                         />
                       </div>
-                      {wdAmount && Number(wdAmount) >= 100 && (
+                      {wdAmount && Number(wdAmount) >= (wdLimit?.isAdmin ? 1 : 100) && (
                         <p className="mt-2 text-[12px] font-medium text-slate-500">
                           You receive{" "}
                           <span className="font-bold text-white">
-                            {CURRENCY_SYMBOL} {Math.floor(Number(wdAmount) * (1 - WITHDRAWAL_FEE_RATE)).toLocaleString(MONEY_LOCALE)}
+                            {CURRENCY_SYMBOL}{" "}
+                            {Math.floor(Number(wdAmount) * (1 - (wdLimit?.isAdmin ? 0 : WITHDRAWAL_FEE_RATE))).toLocaleString(MONEY_LOCALE)}
                           </span>
-                          {" "}after fee
+                          {wdLimit?.isAdmin ? " (no fee)" : " after fee"}
                         </p>
                       )}
                     </section>
@@ -1236,13 +1240,13 @@ export function WalletClient({ wide = false, initialTab = "home" }: { wide?: boo
 
                     <Button
                       onClick={requestMpesaWithdraw}
-                      disabled={wdLoading || !wdAmount || Number(wdAmount) < 100 || !wdPhone.trim()}
+                      disabled={wdLoading || !wdAmount || Number(wdAmount) < (wdLimit?.isAdmin ? 1 : 100) || !wdPhone.trim()}
                       className="h-12 w-full rounded-xl text-sm"
                     >
                       {wdLoading ? (
                         <LoadingDots label="Processing" />
                       ) : (
-                        `Withdraw${wdAmount && Number(wdAmount) >= 100 ? ` ${CURRENCY_SYMBOL} ${Number(wdAmount).toLocaleString()}` : ""}`
+                        `Withdraw${wdAmount && Number(wdAmount) >= (wdLimit?.isAdmin ? 1 : 100) ? ` ${CURRENCY_SYMBOL} ${Number(wdAmount).toLocaleString()}` : ""}`
                       )}
                     </Button>
                     <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-slate-600">
