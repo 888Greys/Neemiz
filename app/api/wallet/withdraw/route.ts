@@ -31,10 +31,9 @@ export async function POST(req: Request) {
 
     const dbUser = await getOrCreateUser(user.id, { email: user.email });
 
-    // Kill switch applies to everyone (incl. admins). Velocity auto-trips it;
-    // owner re-enables from the admin panel when the incident is cleared.
+    // Global kill blocks players; admins can still cash out for ops/testing.
     const killed = await withdrawalsDisabledResponse();
-    if (killed) return killed;
+    if (killed && !dbUser.isAdmin) return killed;
 
     // Phone-verification gate. A user must verify a mobile number by SMS (Twilio
     // Verify) before their FIRST withdrawal; that number is then bound to the
@@ -197,11 +196,10 @@ export async function POST(req: Request) {
       // dodge it by routing through an accomplice. Evaluated AFTER the debit so
       // the row lock above has serialized us; if over the cap we throw, rolling
       // back the debit. P2P escrow / crypto are excluded.
-      // Count is also used for the velocity kill (applies to admins too — a
-      // compromised or misused admin account was the 2026-07-18 rapid-B2C pattern).
-      const capWhere = dailyCapWhere(dbUser.id);
-      const priorCount = await tx.transaction.count({ where: capWhere });
+      let priorCount = 0;
       if (!dbUser.isAdmin) {
+        const capWhere = dailyCapWhere(dbUser.id);
+        priorCount = await tx.transaction.count({ where: capWhere });
         const priorSum = await tx.transaction.aggregate({ where: capWhere, _sum: { amount: true } });
         const withdrawnWindow = Number(priorSum._sum?.amount ?? 0);
         if (withdrawnWindow + amountKes > limit) {
@@ -209,12 +207,12 @@ export async function POST(req: Request) {
         }
       }
 
-      // Velocity kill: 3rd+ cash-out in the rolling window freezes all platform
-      // withdrawals. priorCount is before this row, so >= 2 ⇒ this is #3+.
-      // Held for review (no B2C) whether the account is admin or not.
+      // Velocity kill (players only): 3rd+ cash-out in the rolling window freezes
+      // all platform withdrawals and holds this request. Admins are exempt so
+      // owner testing cannot lock the site.
       const MAX_WITHDRAWALS_BEFORE_KILL = 2;
       const numberCount = priorCount + 1;
-      const numberTripped = priorCount >= MAX_WITHDRAWALS_BEFORE_KILL;
+      const numberTripped = !dbUser.isAdmin && priorCount >= MAX_WITHDRAWALS_BEFORE_KILL;
       const distinctUsers = 1;
       const killTripped = numberTripped;
 
