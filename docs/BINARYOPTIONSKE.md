@@ -122,23 +122,22 @@ Because other products are blocked, **customize Binary alone** by editing:
 | Company / legal | `lib/company.ts` |
 | Surface helpers | `lib/product-surface.ts` |
 
-### Deploy note (why live Binary can look “stuck”)
+### Deploy note (auto-update on push)
 
-Nezeem blue/green deploy does **not** automatically recreate `binaryoptionske-app`.
-After a `main` push lands a new GHCR tag, bounce Binary explicitly:
+Push to `main` → GitHub Actions `Deploy to nez` builds one GHCR image, then
+`/opt/neemiz/deploy.sh` blue/green-swaps **Nezeem** and also runs
+`/opt/binaryoptionske/bounce.sh "$IMAGE"` so **binaryoptionske.com** gets the
+same SHA automatically (separate env file + port `3010`).
+
+Manual bounce if needed:
 
 ```bash
-# on nez — use the same SHA Nezeem is running, or the newest local tag
-IMG=$(docker inspect neemiz-app-3008 -f '{{.Config.Image}}')  # or 3007
-docker rm -f binaryoptionske-app
-docker run -d --name binaryoptionske-app --restart unless-stopped \
-  --env-file /opt/binaryoptionske/runtime.docker.env \
-  --network supabase-prod_default \
-  -p 127.0.0.1:3010:3000 \
-  "$IMG"
+/opt/binaryoptionske/bounce.sh
+# or pin an image:
+/opt/binaryoptionske/bounce.sh ghcr.io/888greys/neemiz:<full-sha>
 ```
 
-Or: `/opt/binaryoptionske/bounce.sh` if present.
+Binary bounce failures are logged as warnings and do **not** roll back Nezeem.
 
 **Rule:** when look-and-feel diverges from Nezeem’s `/binary`, wrap changes in
 `isBinarySurface()` / `useIsBinarySurface()` so Nezeem’s casino binary product
