@@ -8,6 +8,7 @@ import {
   ArrowLeftRight,
   ArrowRight,
   ArrowUp,
+  ArrowUpDown,
   ArrowUpRight,
   BadgeCheck,
   BarChart2,
@@ -263,6 +264,7 @@ const iconMap: Record<string, LucideIcon> = {
 
   // S
   schedule: Clock,
+  swap_vert: ArrowUpDown,
   search: Search,
   security: ShieldCheck,
   send: Send,
