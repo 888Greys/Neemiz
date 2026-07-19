@@ -7,15 +7,14 @@
 // barrier is the *fair* half-width δ = σ·z(g), where σ is the empirical one-tick
 // volatility measured at buy time and z(g) = Φ⁻¹((1+p)/2), p = 1/(1+g). At the
 // fair barrier the per-tick bet is a martingale (E[payout] = stake); the house
-// edge comes solely from the standard 30% profit retention at settlement, so
-// there is never a +EV path for the player.
+// edge comes from (1) selling at BARRIER_HAIRCUT × fair width and (2) Acca
+// profit retention at settlement — not from a kernel price.
 
 export const GROWTH_RATES = [1, 2, 3, 4, 5] as const; // percent per surviving tick
 
-// Per-rate hard cap on surviving ticks. Bounds house liability — every rate
-// caps the payout at roughly 10–11× stake — and guarantees an abandoned
-// contract resolves (rides to bust or cap) instead of growing forever.
-export const MAX_TICKS_BY_RATE: Record<number, number> = { 1: 230, 2: 120, 3: 80, 4: 60, 5: 50 };
+// Per-rate hard cap on surviving ticks. Tightened after all-time Acca RTP ~4.6
+// under the old long caps — liability now ~2–3× gross before retention.
+export const MAX_TICKS_BY_RATE: Record<number, number> = { 1: 80, 2: 50, 3: 35, 4: 25, 5: 20 };
 
 // Volatility window: number of pre-entry ticks used to measure σ.
 export const SIGMA_WINDOW = 120;
@@ -24,6 +23,12 @@ export const SIGMA_WINDOW = 120;
 // volatility can legitimately be below 0.05%, and widening a fair barrier at
 // that point turns an accumulator into a near-guaranteed payout.
 const MAX_BARRIER_FRAC = 0.05;
+/** Sell barriers at this fraction of the fair half-width. Synthetics survive
+ *  fair σ·z bands too often (all-time RTP ~4.6); a haircut restores house edge
+ *  without inventing a fake kernel price. */
+export const BARRIER_HAIRCUT = 0.70;
+/** Profit retention on Acca cash-outs (higher than the global 30% games rate). */
+export const ACCUMULATOR_PROFIT_RETENTION = 0.50;
 // Relative slack on the breach test so a move landing exactly on the barrier
 // isn't a false bust from floating-point error.
 const BREACH_EPS = 1e-9;
@@ -80,10 +85,10 @@ export function computeSigma(prices: number[]): number {
   return sigma;
 }
 
-/** Fair barrier half-width δ (fraction of spot), clamped to sane guardrails. */
+/** Offer barrier half-width δ (fraction of spot): fair width × haircut, capped. */
 export function barrierFracFor(sigma: number, growthRate: number): number {
-  const raw = sigma * zForGrowth(growthRate);
-  return Math.min(MAX_BARRIER_FRAC, raw);
+  const fair = sigma * zForGrowth(growthRate);
+  return Math.min(MAX_BARRIER_FRAC, fair * BARRIER_HAIRCUT);
 }
 
 /** Grown payout after n surviving ticks (unrounded). */

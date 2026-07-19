@@ -9,6 +9,10 @@
 import { applyProfitRetention } from "@/lib/house-retention";
 
 export const DIRECTIONAL_GROSS_EDGE = 0.05;      // 5% gross edge baked into the rate
+/** Vanilla is continuous BS (not kernel-priced) — wider edge for model mismatch. */
+export const VANILLA_GROSS_EDGE = 0.12;
+/** Max |strike − spot| / spot. Farther strikes are deep ITM/OTM BS-model risk. */
+export const VANILLA_MAX_MONEYNESS = 0.05;
 const RISE_FALL_RATE = 1.90;                     // ~50/50, mirrors Even/Odd
 const MIN_RATE = 0.05;                            // deep in-the-money contracts price BELOW 1x
 const MAX_RATE = 50;
@@ -130,6 +134,12 @@ function blackScholes(entrySpot: number, strike: number, sigmaTick: number, dura
     : strike * normalCdf(-d2) - entrySpot * normalCdf(-d1);
 }
 
+/** True when the Vanilla strike is close enough to spot to offer under BS. */
+export function vanillaStrikeOfferable(entrySpot: number, strike: number): boolean {
+  if (!(entrySpot > 0) || !(strike > 0)) return false;
+  return Math.abs(strike - entrySpot) / entrySpot <= VANILLA_MAX_MONEYNESS + 1e-12;
+}
+
 /**
  * Vanilla payout-per-point: the player's `stake` buys this many "contracts",
  * each paying 1 per in-the-money point at expiry. Priced from Black–Scholes
@@ -140,7 +150,7 @@ export function vanillaPayoutPerPoint(params: {
   entrySpot: number; strike: number; side: "CALL" | "PUT"; sigmaTick: number; durationTicks: number; stake: number;
 }): number {
   const price = blackScholes(params.entrySpot, params.strike, params.sigmaTick, params.durationTicks, params.side === "CALL");
-  const premium = Math.max(price * (1 + DIRECTIONAL_GROSS_EDGE), params.entrySpot * 1e-6);
+  const premium = Math.max(price * (1 + VANILLA_GROSS_EDGE), params.entrySpot * 1e-6);
   return params.stake / premium;
 }
 

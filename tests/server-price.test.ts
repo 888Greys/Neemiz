@@ -55,8 +55,8 @@ describe("priceDirectionalServer", () => {
     expect(r.accepted).toBe(true);
   });
 
-  it("rejects HIGHER_LOWER barriers closer than 0.05% of spot", () => {
-    const barrier = START * (1 + 0.0002); // 0.02%
+  it("rejects HIGHER_LOWER barriers closer than 0.1% of spot", () => {
+    const barrier = START * (1 + 0.0005); // 0.05% — under the new floor
     const r = priceDirectionalServer({
       kind: "HIGHER_LOWER", side: "HIGHER", entrySpot: START, barrier,
       durationTicks: 8, stake: 100, ticks, market: "1HZ10V",
@@ -65,8 +65,8 @@ describe("priceDirectionalServer", () => {
     if (!r.accepted) expect(r.reason).toMatch(/too close/i);
   });
 
-  it("accepts HIGHER_LOWER at exactly the 0.05% minimum distance", () => {
-    const barrier = START * (1 + 0.0005);
+  it("accepts HIGHER_LOWER at exactly the 0.1% minimum distance", () => {
+    const barrier = START * (1 + 0.001);
     const r = priceDirectionalServer({
       kind: "HIGHER_LOWER", side: "HIGHER", entrySpot: START, barrier,
       durationTicks: 8, stake: 100, ticks, market: "1HZ25V",
@@ -74,17 +74,28 @@ describe("priceDirectionalServer", () => {
     // May still reject for other reasons (near-certain / thin), but not the distance gate.
     if (!r.accepted) expect(r.reason).not.toMatch(/too close/i);
   });
+
+  it("rejects deep-ITM HIGHER_LOWER under the tightened 80% Wilson cap", () => {
+    // Barrier far below spot ⇒ HIGHER almost never wins; LOWER is near-certain.
+    const barrier = START * (1 - 8 * SIGMA * Math.sqrt(8));
+    const r = priceDirectionalServer({
+      kind: "HIGHER_LOWER", side: "LOWER", entrySpot: START, barrier,
+      durationTicks: 8, stake: 100, ticks,
+    });
+    expect(r.accepted).toBe(false);
+  });
 });
 
 describe("priceDigitServer", () => {
   it("never lets per-symbol calibration lower the digit edge floors", () => {
     expect(resolveDigitEdgeFloor("Even", 0, 0.06)).toBe(0.10);
-    expect(resolveDigitEdgeFloor("Matches", 5, 0.06)).toBe(0.15);
+    expect(resolveDigitEdgeFloor("Matches", 5, 0.06)).toBe(0.20);
     expect(resolveDigitEdgeFloor("Odd", 0, 0.12)).toBe(0.12);
-    expect(resolveDigitEdgeFloor("Matches", 5, 0.18)).toBe(0.18);
+    expect(resolveDigitEdgeFloor("Matches", 5, 0.22)).toBe(0.22);
     expect(resolveDigitEdgeFloor("Under", 5, 0.06)).toBe(0.18);
     expect(resolveDigitEdgeFloor("Under", 4, 0.09)).toBe(0.18);
     expect(resolveDigitEdgeFloor("Under", 3, 0.06)).toBe(0.10);
+    expect(resolveDigitEdgeFloor("Over", 4, 0.06)).toBe(0.15);
   });
 
   it("rejects too-short Over/Under (the R_50 1-tick autocorrelation exploit)", () => {
@@ -126,10 +137,10 @@ describe("priceDigitServer", () => {
     expect(rEven.accepted).toBe(true);
     if (rEven.accepted) expect(rEven.multiplier).toBeCloseTo(1.75, 1);
 
-    // 2. Matches
-    const rMatches = priceDigitServer({ side: "Matches", targetDigit: 5, durationTicks: 5, stake: 100, ticks });
+    // 2. Matches — requires entryDigit (conditional sticky-digit pricing)
+    const rMatches = priceDigitServer({ side: "Matches", targetDigit: 5, durationTicks: 5, stake: 100, ticks, entryDigit: 3 });
     expect(rMatches.accepted).toBe(true);
-    if (rMatches.accepted) expect(rMatches.multiplier).toBeGreaterThan(6.0);
+    if (rMatches.accepted) expect(rMatches.multiplier).toBeGreaterThan(5.0);
 
     // 3. Differs: high-probability contracts must stay offerable instead of
     // being rejected as priced <= 1x when a symbol calibration edge is supplied.
@@ -144,33 +155,64 @@ describe("priceDigitServer", () => {
 
     for (const side of sides) {
       const edge = resolveDigitEdgeFloor(side, 5, 0.09);
-      const result = priceDigitServer({ side, targetDigit: 5, durationTicks: 5, stake: 100, ticks, edgeFloor: edge });
+      const result = priceDigitServer({
+        side, targetDigit: 5, durationTicks: 5, stake: 100, ticks, edgeFloor: edge,
+        entryDigit: side === "Matches" || side === "Over" || side === "Under" ? 5 : undefined,
+      });
       expect(result, side).toMatchObject({ accepted: true });
     }
   });
 
   it("previews digit payouts with the same floor-based math as request pricing", () => {
     expect(previewDigitPayout(1000, "Even", 0)).toBe(1800);
-    expect(previewDigitPayout(1000, "Matches", 5)).toBe(8500);
+    // Matches: winProb 0.1, edge 0.20 → floor((0.80/0.1)*100)/100 = 8.00
+    expect(previewDigitPayout(1000, "Matches", 5)).toBe(8000);
     expect(previewDigitPayout(1000, "Differs", 5)).toBe(1080);
-    expect(previewDigitPayout(1000, "Over", 5)).toBe(2250);
+    // Over 5: winProb 0.4, edge 0.15 → floor((0.85/0.4)*100)/100 = 2.12
+    expect(previewDigitPayout(1000, "Over", 5)).toBe(2120);
     // Under 5: winProb 0.5, edge 0.18 → floor((0.82/0.5)*100)/100 = 1.64
     expect(previewDigitPayout(1000, "Under", 5)).toBe(1640);
   });
 
+  it("rejects Matches without an entry digit (conditional pricing required)", () => {
+    const r = priceDigitServer({ side: "Matches", targetDigit: 5, durationTicks: 5, stake: 100, ticks });
+    expect(r.accepted).toBe(false);
+    if (!r.accepted) expect(r.reason).toMatch(/entry digit/i);
+  });
+
+  it("prices sticky Matches (entry=target) below non-sticky on autocorrelated ticks", () => {
+    // Synthetic sticky digit walk (same construction as digit-conditional tests).
+    const sticky: number[] = [];
+    let d = 5;
+    for (let i = 0; i < 4000; i++) {
+      sticky.push(Number((100 + d / 100).toFixed(2)));
+      if (i % 4 === 0) { d = (d + 1) % 10; }
+    }
+    const stickyMatch = priceDigitServer({
+      side: "Matches", targetDigit: 5, durationTicks: 3, stake: 100, ticks: sticky, entryDigit: 5,
+    });
+    const otherMatch = priceDigitServer({
+      side: "Matches", targetDigit: 5, durationTicks: 3, stake: 100, ticks: sticky, entryDigit: 0,
+    });
+    expect(stickyMatch.accepted && otherMatch.accepted).toBe(true);
+    if (stickyMatch.accepted && otherMatch.accepted) {
+      expect(stickyMatch.multiplier).toBeLessThan(otherMatch.multiplier);
+    }
+  });
+
   it("rejects Matches when the digit distribution is highly skewed (stability gate)", () => {
     // Create highly skewed ticks where exit digits are always 5 (e.g. quote ends in .55555)
-    const skewedTicks = Array.from({ length: 600 }, (_, i) => 100.55);
+    const skewedTicks = Array.from({ length: 600 }, () => 100.55);
     
-    // Target digit 5 has frequency 100% (unstable, > 13%)
-    const rSkewedMatches = priceDigitServer({ side: "Matches", targetDigit: 5, durationTicks: 5, stake: 100, ticks: skewedTicks });
+    // Target digit 5 has frequency 100% (unstable, > 12%)
+    const rSkewedMatches = priceDigitServer({ side: "Matches", targetDigit: 5, durationTicks: 5, stake: 100, ticks: skewedTicks, entryDigit: 5 });
     expect(rSkewedMatches.accepted).toBe(false);
     if (!rSkewedMatches.accepted) {
       expect(rSkewedMatches.reason).toContain("digit distribution unstable");
     }
 
-    // Target digit 0 has frequency 0% (unstable, < 7%)
-    const rSkewedMatchesZero = priceDigitServer({ side: "Matches", targetDigit: 0, durationTicks: 5, stake: 100, ticks: skewedTicks });
+    // Target digit 0 has frequency 0% (unstable, < 8%)
+    const rSkewedMatchesZero = priceDigitServer({ side: "Matches", targetDigit: 0, durationTicks: 5, stake: 100, ticks: skewedTicks, entryDigit: 0 });
     expect(rSkewedMatchesZero.accepted).toBe(false);
     if (!rSkewedMatchesZero.accepted) {
       expect(rSkewedMatchesZero.reason).toContain("digit distribution unstable");

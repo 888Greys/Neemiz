@@ -16,11 +16,10 @@ import { db } from "@/lib/db";
  * Cache TTL is 10s, so a clear takes effect within ~10s without restart.
  */
 const DEFAULT_DISABLED = new Set<string>([
-  // Intentionally empty: digit + directional families are kernel-priced
-  // (lib/binary/*) with runtime RTP auto-halt. Accumulator is soft-reopened on
-  // fair-barrier + 30% retention math in lib/accumulator — NOT kernel-priced
-  // and not covered by rtp-guard. Historical +363% was the old barrier floor;
-  // kill with `accumulator:ALL` in disabled_bet_types if it bleeds.
+  // Intentionally empty after house-safe reopen: digit/directional engine path
+  // + Acca barrier haircut/50% retention + rtp-guard (incl. accumulator:ALL).
+  // R_50 Under remains market-quarantined in lib/binary/quarantine.ts (not a
+  // family kill-switch). Kill any token via disabled_bet_types if it bleeds.
 ]);
 
 const CACHE_TTL_MS = 10_000;

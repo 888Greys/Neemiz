@@ -7,14 +7,26 @@
 // SAFETY: the OPEN -> terminal transition is an atomic updateMany WHERE
 // status=OPEN. Only the worker that flips the row touches the wallet, so a
 // cash-out, the cron, and concurrent requests can never double-pay or pay a
-// busted contract. House edge = the standard 30% profit retention on the grown
-// payout (the barrier itself is fair).
+// busted contract. House edge = Acca-specific profit retention on the grown
+// payout (barrier is fair×haircut — see lib/accumulator.ts).
 
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type AccumulatorTrade } from "@prisma/client";
-import { applyProfitRetention, retainedProfit } from "@/lib/house-retention";
+import { ACCUMULATOR_PROFIT_RETENTION } from "@/lib/accumulator";
 import { CURRENCY_SYMBOL, MONEY_LOCALE } from "@/lib/currency";
 import { creditWinnings } from "@/lib/balance";
+
+function applyAccaRetention(stake: number, grossPayout: number): number {
+  if (!Number.isFinite(stake) || !Number.isFinite(grossPayout)) return 0;
+  if (grossPayout <= stake) return Number(grossPayout.toFixed(2));
+  const keep = 1 - ACCUMULATOR_PROFIT_RETENTION;
+  return Number((stake + (grossPayout - stake) * keep).toFixed(2));
+}
+
+function retainedAccaProfit(stake: number, grossPayout: number): number {
+  if (!Number.isFinite(stake) || !Number.isFinite(grossPayout) || grossPayout <= stake) return 0;
+  return Number(((grossPayout - stake) * ACCUMULATOR_PROFIT_RETENTION).toFixed(2));
+}
 
 export type FinalizeResult = {
   outcome: "closed" | "busted" | "already";
@@ -25,7 +37,7 @@ export type FinalizeResult = {
 
 /**
  * Finalize an OPEN accumulator to a terminal state.
- * - status "CLOSED": pay the grown payout (after 30% profit retention).
+ * - status "CLOSED": pay the grown payout (after Acca profit retention).
  * - status "BUSTED": no payout (the stake was already debited at buy).
  * Returns { outcome: "already" } if another worker settled it first — no wallet
  * change happens in that case.
@@ -43,8 +55,8 @@ export async function finalizeAccumulator(
   const stake = Number(trade.stake);
   const won = opts.status === "CLOSED";
   const grossPayout = won ? Number(opts.grossPayout.toFixed(2)) : 0;
-  const creditedPayout = won ? applyProfitRetention(stake, grossPayout) : 0;
-  const retainedAmount = won ? retainedProfit(stake, grossPayout) : 0;
+  const creditedPayout = won ? applyAccaRetention(stake, grossPayout) : 0;
+  const retainedAmount = won ? retainedAccaProfit(stake, grossPayout) : 0;
   const exitSpot = Number(opts.exitSpot.toFixed(5));
   const now = new Date();
 

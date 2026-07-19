@@ -45,7 +45,9 @@ export async function finalizeDirectional(
   return db.$transaction(async (tx) => {
     const claimed = await tx.directionalTrade.updateMany({
       where: { id: trade.id, status: "PENDING" },
-      data:  { status: opts.won ? "WON" : "LOST", exitSpot: exit, settledAt: now },
+      // Always persist the credited payout (incl. Vanilla ITM amounts). Leaving
+      // payout at the place-time 0 made history/RTP/GGR understate Vanilla wins.
+      data:  { status: opts.won ? "WON" : "LOST", exitSpot: exit, settledAt: now, payout: credit },
     });
     if (claimed.count === 0) return { outcome: "already", winAmount: 0, exitSpot: exit };
 

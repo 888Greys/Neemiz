@@ -24,9 +24,9 @@ export async function POST(req: Request) {
   // per-type kill switch or the Over/Under microstructure floor.
   if (await isBetTypeDisabled("binary", v.side))
     return Response.json({ error: "This bet type is temporarily unavailable while we complete maintenance." }, { status: 503 });
-  // Over/Under are only house-safe under CONDITIONAL (entry-digit-aware) pricing,
-  // which lives in the manual bet route's engine path. The auto engine prices via
-  // the simpler payoutRate, so it must not offer Over/Under (sticky-digit exploit).
+  // Over/Under stay blocked on auto: short-duration microstructure + quarantine
+  // gates are easy to misconfigure in a looping session. Matches/Even/Odd/Differs
+  // now share the kernel priceDigitServer path (incl. sticky Matches).
   if (v.side === "Over" || v.side === "Under")
     return Response.json({ error: "Over/Under isn’t available for auto-trading." }, { status: 400 });
 

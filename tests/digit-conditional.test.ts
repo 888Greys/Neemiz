@@ -116,3 +116,51 @@ describe("conditional digit pricing removes the sticky-digit edge", () => {
     expect(rtpCond).toBeLessThanOrEqual(1); // the fix holds the house edge
   });
 });
+
+describe("conditional Matches pricing removes the sticky-digit edge", () => {
+  it("prices Matches on the sticky entry digit below the unconditional price", () => {
+    // On a sticky series, P(exit=d | entry=d) ≫ 0.1. Unconditional Matches
+    // still pays ~8× → RTP ≫ 1 (live R_50 sticky Matches RTP ~3.4). Conditional
+    // pricing must shrink the multiplier when entry equals the target.
+    const uncond = priceDigitContract("Matches", 5, DUR, ticks, cfg);
+    const sticky = priceDigitContract("Matches", 5, DUR, ticks, cfg, 1, 5);
+    expect(uncond.accepted && sticky.accepted).toBe(true);
+    if (uncond.accepted && sticky.accepted) {
+      expect(sticky.payoutMultiplier).toBeLessThan(uncond.payoutMultiplier);
+    }
+  });
+
+  it("holds Matches RTP ≤ 1 against a sticky-digit exploiter", () => {
+    const stickyMult = new Map<number, number | null>();
+    const uncondQ = priceDigitContract("Matches", 5, DUR, ticks, cfg);
+    const uncondM = uncondQ.accepted ? uncondQ.payoutMultiplier : null;
+
+    const multFor = (entry: number | null): number | null => {
+      if (entry == null) return uncondM;
+      if (stickyMult.has(entry)) return stickyMult.get(entry)!;
+      const q = priceDigitContract("Matches", 5, DUR, ticks, cfg, 1, entry);
+      const m = q.accepted ? q.payoutMultiplier : null;
+      stickyMult.set(entry, m);
+      return m;
+    };
+
+    const simulate = (conditional: boolean): number => {
+      let staked = 0, paid = 0;
+      for (let i = 0; i + DUR < digits.length; i++) {
+        const e = digits[i];
+        // Exploiter only bets when entry == target (the sticky edge).
+        if (e !== 5) continue;
+        const m = multFor(conditional ? e : null);
+        if (m == null) continue;
+        staked += 1;
+        if (digits[i + DUR] === 5) paid += m;
+      }
+      return staked > 0 ? paid / staked : 0;
+    };
+
+    const rtpUncond = simulate(false);
+    const rtpCond = simulate(true);
+    expect(rtpUncond).toBeGreaterThan(1);
+    expect(rtpCond).toBeLessThanOrEqual(1);
+  });
+});

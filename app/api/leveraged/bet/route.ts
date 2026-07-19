@@ -7,6 +7,7 @@ import { TransactionStatus, TransactionType, type LeveragedKind } from "@prisma/
 import { getServerTickHistory } from "@/lib/binary-price";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { CURRENCY_SYMBOL } from "@/lib/currency";
+import { isBetTypeDisabled } from "@/lib/game-guard";
 import {
   isValidMultiplier, multiplierStopOutPrice, clampTurboBarrier, turboPayoutPerPoint,
   LEVERAGED_MAX_MULT, type LeveragedDirection,
@@ -39,6 +40,8 @@ export async function POST(req: Request) {
     return Response.json({ error: "Invalid market" }, { status: 400 });
   if (kind !== "MULTIPLIER" && kind !== "TURBO")
     return Response.json({ error: "Invalid kind" }, { status: 400 });
+  if (await isBetTypeDisabled("leveraged", kind) || await isBetTypeDisabled("leveraged", "ALL"))
+    return Response.json({ error: "This contract type is temporarily unavailable while we complete maintenance." }, { status: 503 });
   if (direction !== "UP" && direction !== "DOWN")
     return Response.json({ error: "Invalid direction" }, { status: 400 });
   if (stakeVal == null)

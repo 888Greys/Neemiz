@@ -1,19 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { barrierFracFor, payoutAtTick, replayAccumulator } from "../lib/accumulator";
+import {
+  ACCUMULATOR_PROFIT_RETENTION,
+  BARRIER_HAIRCUT,
+  barrierFracFor,
+  maxTicksFor,
+  payoutAtTick,
+  replayAccumulator,
+  zForGrowth,
+} from "../lib/accumulator";
 
 describe("accumulator contract math", () => {
-  it("keeps low-volatility barriers at their calculated fair width", () => {
-    // Regression for the live R_10 5% contract that was incorrectly widened
-    // to a 0.05% barrier. Its measured sigma requires a 0.00509% band.
+  it("sells barriers at the fair width × haircut (not a widened floor)", () => {
+    // Regression: never re-introduce a fixed 0.05% floor (that minted RTP ~4–5×).
+    // Offer width = σ·z(g)·BARRIER_HAIRCUT.
     const sigma = 0.000025703806486450255;
+    const fair = sigma * zForGrowth(5);
     const barrier = barrierFracFor(sigma, 5);
 
-    expect(barrier).toBeCloseTo(0.000050912876117766703, 12);
+    expect(barrier).toBeCloseTo(fair * BARRIER_HAIRCUT, 12);
+    expect(barrier).toBeLessThan(fair);
     expect(barrier).toBeLessThan(0.0005);
   });
 
   it("caps only abnormally wide barriers", () => {
     expect(barrierFracFor(1, 1)).toBe(0.05);
+  });
+
+  it("bounds liability with shorter max-tick caps and 50% Acca retention", () => {
+    expect(maxTicksFor(5)).toBe(20);
+    expect(maxTicksFor(1)).toBe(80);
+    expect(ACCUMULATOR_PROFIT_RETENTION).toBe(0.50);
+    expect(BARRIER_HAIRCUT).toBe(0.70);
   });
 
   it("busts on the first barrier breach", () => {

@@ -10,6 +10,9 @@
 // the live low-digit skew, so the multiplier is set far too high. Fail closed
 // until the R_50 digit distribution / quoteToDigit precision is recalibrated and
 // proven RTP ≤ 1. Reversible: remove the symbol once the calibration lands.
+//
+// Note: this is a MARKET quarantine (Under on R_50 only), not a family kill in
+// disabled_bet_types — Over/Under on other markets and Over on R_50 stay live.
 export const UNDER_QUARANTINED_MARKETS = new Set<string>(["R_50"]);
 
 /** True if `Under` must not be offered/priced on this market right now. */

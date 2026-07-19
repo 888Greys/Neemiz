@@ -6,7 +6,7 @@ import { getOrCreateUser } from "@/lib/get-or-create-user";
 import { TransactionStatus, TransactionType } from "@prisma/client";
 import { applyProfitRetention } from "@/lib/house-retention";
 import { computeSigma, SIGMA_WINDOW } from "@/lib/accumulator";
-import { vanillaPayoutPerPoint, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
+import { vanillaPayoutPerPoint, vanillaStrikeOfferable, MAX_VANILLA_MULT, type DirectionalSide, type DirectionalKind } from "@/lib/directional";
 import { isBetTypeDisabled } from "@/lib/game-guard";
 import { getCalibrationTicks } from "@/lib/binary/calibration";
 import { getLiveEntrySpot } from "@/lib/binary-price";
@@ -96,6 +96,9 @@ export async function POST(req: Request) {
   let grossPayout = 0;
   let payoutMultiplier = 0;    // net multiple on a win (fixed kinds; for the fairness proof)
   if (kind === "VANILLA") {
+    if (!vanillaStrikeOfferable(entrySpot, barrier!)) {
+      return Response.json({ error: "Strike too far from spot — pick within 5% of the live price." }, { status: 400 });
+    }
     const sigmaTick = computeSigma(marketPrices.slice(-(SIGMA_WINDOW + 1)));
     payoutPerPoint = Number(vanillaPayoutPerPoint({ entrySpot, strike: barrier!, side: side as "CALL" | "PUT", sigmaTick, durationTicks: ticks, stake: stakeVal }).toFixed(8));
   } else {

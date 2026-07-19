@@ -46,7 +46,7 @@ Settlement and pricing share `resolveContract`, so they cannot disagree.
 
 - **`priceDirectionalContract`** — block-bootstrap `samples` windows from real ticks, run the kernel on each → win frequency; price off the **Wilson upper bound** (house-conservative) with the symbol edge floor, round the payout **down**, cap liability, reject near-certain (`maxWinProb`) / thin (`minTicks`).
 - **`measureSymbolEdge`** — split the window, price Rise/Fall on the first half, measure realized win-rate on the held-out half, size the edge to cover drift **beyond a 1.5×SE noise band**. Clamped `[0.06, 0.15]`; thin data → max. Cached per calibration window.
-- **Digits** — `priceDigitContract` / `priceDigitServer` prices off the **measured** last-digit distribution (never uniform). Wired on `POST /api/binary/bet`. Matches uses a stability gate (reject skewed ~10% freq) and a higher edge floor (15%); Over/Under use sticky-digit conditional pricing + microstructure/quarantine gates.
+- **Digits** — `priceDigitContract` / `priceDigitServer` prices off the **measured** last-digit distribution (never uniform). Wired on `POST /api/binary/bet` and the auto-trader. Matches uses conditional sticky-digit pricing, a stability gate (freq ∈ [8%, 12%]), and a 20% edge floor; Over/Under use conditional pricing + min-ticks/quarantine gates (R_50 Under still market-quarantined).
 
 ## Provably fair
 
@@ -71,7 +71,7 @@ UPDATE system_settings SET value = '' WHERE key = 'disabled_bet_types';
 
 Crons (CRON_SECRET-gated, on nez crontab): `/api/cron/rtp-guard` (every 10m — auto-halt + high-RTP alerts), `/api/cron/rtp-summary` (periodic health digest), `/api/cron/admin-change-alert`. RTP guard env: `RTP_HALT_THRESHOLD` (1.10), `RTP_HALT_MIN_SAMPLE` (200), `RTP_USER_ALERT_THRESHOLD` (1.15), `RTP_WINDOW_HOURS` (12).
 
-**Accumulator note:** soft-reopened on fair-barrier + 30% retention math (`lib/accumulator`), not kernel-priced and not watched by `rtp-guard`. Kill with token `accumulator:ALL` if realized edge turns player-favorable.
+**Accumulator note:** soft-reopened on fair-barrier × 0.70 haircut + 50% Acca retention + shorter max-tick caps (`lib/accumulator`). Still not kernel-priced; watched by `rtp-guard` as `accumulator:ALL`.
 
 ## Testing & proof tools
 

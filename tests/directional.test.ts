@@ -7,8 +7,11 @@ import {
   evaluateDirectional,
   resolveContract,
   vanillaPayoutPerPoint,
+  vanillaStrikeOfferable,
   MAX_WIN_PROB,
   DIRECTIONAL_GROSS_EDGE,
+  VANILLA_GROSS_EDGE,
+  VANILLA_MAX_MONEYNESS,
   type ResolveParams,
 } from "@/lib/directional";
 
@@ -160,5 +163,13 @@ describe("directional settlement — evaluate + resolve", () => {
     };
     const res = resolveContract(p, [{ price: 998, epoch: 1 }, { price: 995, epoch: 2 }]);
     expect(res).toMatchObject({ ready: true, won: false, credit: 0 });
+  });
+
+  it("rejects Vanilla strikes beyond the moneyness gate", () => {
+    expect(VANILLA_GROSS_EDGE).toBeGreaterThan(DIRECTIONAL_GROSS_EDGE);
+    expect(vanillaStrikeOfferable(1000, 1000)).toBe(true);
+    expect(vanillaStrikeOfferable(1000, 1000 * (1 + VANILLA_MAX_MONEYNESS))).toBe(true);
+    expect(vanillaStrikeOfferable(1000, 1000 * (1 + VANILLA_MAX_MONEYNESS + 0.001))).toBe(false);
+    expect(vanillaStrikeOfferable(1000, 900)).toBe(false); // 10% OTM/ITM
   });
 });

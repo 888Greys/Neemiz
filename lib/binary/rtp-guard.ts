@@ -37,11 +37,13 @@ export const DIGIT_SIDES = ["Even", "Odd", "Matches", "Differs", "Over", "Under"
 
 /** Every contract the runtime RTP guard watches, namespaced by game. Exported so
  *  a test can assert the guard covers BOTH directional kinds AND digit sides —
- *  the digit sides were the blind spot that let Over/Under bleed unchecked. */
+ *  the digit sides were the blind spot that let Over/Under bleed unchecked.
+ *  Accumulator uses token `accumulator:ALL` (single family kill). */
 export function guardedContracts(): { game: string; key: string }[] {
   return [
     ...KINDS.map((k) => ({ game: "directional", key: k as string })),
     ...DIGIT_SIDES.map((s) => ({ game: "binary", key: s as string })),
+    { game: "accumulator", key: "ALL" },
   ];
 }
 
@@ -56,7 +58,7 @@ export async function runRtpGuard() {
   const cooldownSince = new Date(Date.now() - cooldownH * 60 * 60_000);
 
   const excluded = new Set(await getExcludedUserIds());
-  const [directional, digits] = await Promise.all([
+  const [directional, digits, accas] = await Promise.all([
     db.directionalTrade.findMany({
       where: { status: { in: ["WON", "LOST"] }, settledAt: { gte: since } },
       select: { kind: true, stake: true, payout: true, status: true, userId: true },
@@ -65,12 +67,16 @@ export async function runRtpGuard() {
       where: { status: { in: ["WON", "LOST"] }, settledAt: { gte: since } },
       select: { side: true, stake: true, payout: true, status: true, userId: true },
     }),
+    db.accumulatorTrade.findMany({
+      where: { status: { in: ["CLOSED", "BUSTED"] }, settledAt: { gte: since } },
+      select: { stake: true, payout: true, status: true, userId: true },
+    }),
   ]);
 
   // Per-contract aggregates are namespaced by game so a directional kind and a
   // digit side can never collide. Per-user aggregates span BOTH products, so a
   // user farming Over/Under is flagged just like a directional exploiter.
-  const byKind = new Map<string, Agg>();   // key: "directional:<kind>" | "binary:<side>"
+  const byKind = new Map<string, Agg>();   // key: "directional:<kind>" | "binary:<side>" | "accumulator:ALL"
   const byUser = new Map<string, Agg>();
   const accumulate = (game: string, key: string, userId: string, stake: number, paid: number) => {
     if (excluded.has(userId)) return;
@@ -85,6 +91,9 @@ export async function runRtpGuard() {
   }
   for (const t of digits) {
     accumulate("binary", t.side, t.userId, Number(t.stake), t.status === "WON" ? Number(t.payout) : 0);
+  }
+  for (const t of accas) {
+    accumulate("accumulator", "ALL", t.userId, Number(t.stake), t.status === "CLOSED" ? Number(t.payout) : 0);
   }
 
   const admins = await db.user.findMany({ where: { isAdmin: true }, select: { id: true } });
@@ -108,7 +117,7 @@ export async function runRtpGuard() {
     const { rtp, breach } = evaluateKind(agg, kindMin, haltRtp);
     if (!breach) continue;
     await disableBetType(game, key);                     // pull it offline now
-    const label = game === "binary" ? `Digit ${key}` : key;
+    const label = game === "binary" ? `Digit ${key}` : game === "accumulator" ? "Accumulator" : key;
     halted.push({ kind: label, rtp });
     sentAlert = (await notify(
       `rtp_halt:${game}:${key}`,

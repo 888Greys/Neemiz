@@ -18,11 +18,18 @@ export type DirectionalPrice =
   | { accepted: true; payout: number; multiplier: number };
 
 /** Minimum |barrier − spot| / spot for HIGHER_LOWER / TOUCH. Closer than this
- *  was the live bleed (engine HIGHER <0.05% → RTP ~2.4 on small samples). */
-export const MIN_BARRIER_FRAC = 0.0005; // 0.05%
+ *  was the live bleed (engine HIGHER <0.05% → RTP ~2.4 on small samples).
+ *  Raised to 0.1% after autopsy: nearly all HL volume sat under 0.05%. */
+export const MIN_BARRIER_FRAC = 0.001; // 0.1%
 
 /** Extra edge floor for short-duration Rise/Fall on 1Hz synthetics. */
 export const SHORT_1HZ_RISE_FALL_EDGE = 0.15;
+
+/** Extra edge floor for Higher/Lower (barrier contracts drift harder than RF). */
+export const HIGHER_LOWER_EDGE_FLOOR = 0.14;
+
+/** Deep-ITM Wilson cap for Higher/Lower — tighter than the engine default 90%. */
+export const HIGHER_LOWER_MAX_WIN_PROB = 0.80;
 
 /**
  * Minimum duration (ticks) for digit Over/Under. Very short Over/Under bets are
@@ -33,6 +40,10 @@ export const SHORT_1HZ_RISE_FALL_EDGE = 0.15;
  * microstructure edge wash out. Mirrors the 1-tick Rise/Fall guard above.
  */
 export const MIN_OVER_UNDER_TICKS = 5;
+
+/** Matches target-digit frequency band. Outside → refuse (biased digit). */
+export const MATCHES_FREQ_LO = 0.08;
+export const MATCHES_FREQ_HI = 0.12;
 
 // Under-quarantine list lives in a tiny shared module so the UI and this server
 // gate share ONE source of truth (see lib/binary/quarantine.ts). Re-exported for
@@ -78,15 +89,19 @@ export function priceDirectionalServer(params: {
 
   if ((kind === "HIGHER_LOWER" || kind === "TOUCH_NO_TOUCH") && barrierFrac != null
       && Math.abs(barrierFrac) + 1e-10 < MIN_BARRIER_FRAC) {
-    return { accepted: false, reason: "barrier too close to spot — pick at least 0.05% away" };
+    return { accepted: false, reason: "barrier too close to spot — pick at least 0.1% away" };
   }
 
   let edgeFloor = params.edgeFloor ?? DEFAULT_CONFIG.edgeFloor;
   if (kind === "RISE_FALL" && isOneHzMarket(market) && durationTicks <= 3) {
     edgeFloor = Math.max(edgeFloor, SHORT_1HZ_RISE_FALL_EDGE);
   }
+  if (kind === "HIGHER_LOWER") {
+    edgeFloor = Math.max(edgeFloor, HIGHER_LOWER_EDGE_FLOOR);
+  }
 
-  const cfg: PricingConfig = params.cfg ?? { ...DEFAULT_CONFIG, edgeFloor };
+  const maxWinProb = kind === "HIGHER_LOWER" ? HIGHER_LOWER_MAX_WIN_PROB : DEFAULT_CONFIG.maxWinProb;
+  const cfg: PricingConfig = params.cfg ?? { ...DEFAULT_CONFIG, edgeFloor, maxWinProb };
   const q = priceDirectionalContract(kind, side, barrierFrac, durationTicks, ticks, cfg);
   if (!q.accepted) return { accepted: false, reason: q.reason };
   const payout = Number((stake * q.payoutMultiplier).toFixed(2));
@@ -100,7 +115,9 @@ export type DigitPrice =
 export function resolveDigitEdgeFloor(side: DigitSide, targetDigit: number, edgeFloor?: number): number {
   let productFloor = 0.10;
   if (side === "Matches") {
-    productFloor = 0.15;
+    // Live R_50 sticky Matches: wr ~34% at ~7.6× (RTP ~3.4). Conditional pricing
+    // is the primary fix; 20% floor absorbs residual regime drift.
+    productFloor = 0.20;
   } else if (side === "Differs") {
     productFloor = 0.025; // 2.5% edge floor for Differs (90% win prob)
   } else if (side === "Over" && targetDigit === 0) {
@@ -110,6 +127,9 @@ export function resolveDigitEdgeFloor(side: DigitSide, targetDigit: number, edge
   } else if (side === "Under" && targetDigit >= 4 && targetDigit <= 6) {
     // Mid Under (esp. R_50 Under 4/5) ran RTP 1.30–1.33 live — widen the floor.
     productFloor = 0.18;
+  } else if (side === "Over" && targetDigit >= 3 && targetDigit <= 5) {
+    // Symmetric mid-Over cushion (R_50 Over short-duration was the other OU bleed).
+    productFloor = 0.15;
   }
   if (side === "Differs" || (side === "Over" && targetDigit === 0) || (side === "Under" && targetDigit === 9)) {
     return productFloor;
@@ -144,8 +164,8 @@ export function priceDigitServer(params: {
   cfg?: PricingConfig;
   /** Deriv symbol — used to quarantine markets whose Under is mis-calibrated. */
   market?: string;
-  /** Live entry digit. When supplied, Over/Under are priced CONDITIONALLY on it
-   *  (removes the sticky-digit autocorrelation edge). */
+  /** Live entry digit. Required for Matches; when supplied, Over/Under are also
+   *  priced CONDITIONALLY on it (removes the sticky-digit autocorrelation edge). */
   entryDigit?: number;
 }): DigitPrice {
   const { side, targetDigit, durationTicks, stake, ticks, entryDigit, market } = params;
@@ -161,9 +181,12 @@ export function priceDigitServer(params: {
     return { accepted: false, reason: "Under is temporarily unavailable on this market" };
   }
 
-  // 1. Stability Gate (Matches only): check if the target digit distribution
-  // in the calibration ticks is skewed (expected ~10%, reject if <7% or >13%)
+  // 1. Stability Gate (Matches only): reject biased target digits. Tightened
+  // from [7%, 13%] → [8%, 12%] after R_50 sticky Matches autopsy (RTP ~3.0).
   if (side === "Matches") {
+    if (ticks.length === 0) {
+      return { accepted: false, reason: "insufficient market data" };
+    }
     let targetCount = 0;
     for (const tick of ticks) {
       if (exitDigitFromQuote(tick) === targetDigit) {
@@ -171,12 +194,16 @@ export function priceDigitServer(params: {
       }
     }
     const freq = targetCount / ticks.length;
-    if (freq < 0.07 || freq > 0.13) {
+    if (freq < MATCHES_FREQ_LO || freq > MATCHES_FREQ_HI) {
       return { accepted: false, reason: `digit distribution unstable (freq ${(freq * 100).toFixed(1)}%)` };
+    }
+    // Sticky Matches MUST be priced conditionally — fail closed without entry digit.
+    if (entryDigit == null || !Number.isInteger(entryDigit) || entryDigit < 0 || entryDigit > 9) {
+      return { accepted: false, reason: "entry digit required for Matches" };
     }
   }
 
-  // Baseline is 10% for Digits, but 15% for Matches to absorb tail-risk drift,
+  // Baseline is 10% for Digits, but 20% for Matches to absorb sticky-digit drift,
   // and 2.5% - 3.0% for high-probability contracts (Differs, Under 9, Over 0).
   const resolvedEdgeFloor = resolveDigitEdgeFloor(side, targetDigit, params.edgeFloor);
 
@@ -192,11 +219,10 @@ export function priceDigitServer(params: {
     maxWinProb: resolvedMaxWinProb,
   };
 
-  // Over/Under are priced conditionally on the live entry digit when we have it
-  // (the sticky-digit exploit fix). Other digit families (Even/Odd/Matches/
-  // Differs) are not entry-digit autocorrelated in an exploitable way, so they
-  // keep the unconditional price.
-  const condEntry = (side === "Over" || side === "Under") ? entryDigit : undefined;
+  // Matches always prices conditionally (sticky entry=target was RTP ~3.4 live).
+  // Over/Under use conditional when entryDigit is supplied (bet route always does).
+  const condEntry =
+    side === "Matches" || side === "Over" || side === "Under" ? entryDigit : undefined;
   const q = priceDigitContract(side, targetDigit, durationTicks, ticks, cfg, 1, condEntry);
   if (!q.accepted) return { accepted: false, reason: q.reason };
   const payout = Number((stake * q.payoutMultiplier).toFixed(2));

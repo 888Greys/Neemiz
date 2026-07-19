@@ -10,10 +10,10 @@
 import { db } from "@/lib/db";
 import { TransactionStatus, TransactionType, type AutoTradeSession } from "@prisma/client";
 import { getLiveEntrySpot } from "@/lib/binary-price";
+import { getCalibrationTicks } from "@/lib/binary/calibration";
 import { exitDigitFromQuote, type DigitSide } from "@/lib/binary/kernel";
-import { payoutRate } from "@/lib/binary-settle";
+import { priceDigitServer, resolveDigitEdgeFloor } from "@/lib/binary/server-price";
 import { buildDigitProof, isProvablyFairConfigured, sha256 } from "@/lib/binary/provably-fair";
-import { applyProfitRetention } from "@/lib/house-retention";
 import { isBetTypeDisabled } from "@/lib/game-guard";
 import { nextStake, stopStatus, type AutoStrategy } from "@/lib/auto-trade";
 import { registerDue } from "@/lib/settle-due-list";
@@ -24,26 +24,41 @@ const n = (d: unknown) => Number(d);
  * Place one binary digit trade for a session at its currentStake. Atomically
  * debits the wallet; links the trade via autoSessionId; records the stake txn.
  * Throws "INSUFFICIENT_BALANCE" if the wallet can't cover the stake.
+ * Throws "PRICE_REJECTED" if the engine refuses the contract (fail-closed).
  */
 async function placeNext(session: AutoTradeSession): Promise<string> {
   const stake = n(session.currentStake);
-  // Fresh, uncached entry tick — we need its epoch so the trade settles on the
-  // deterministic exit tick (entryEpoch + durationTicks), not the latest live
-  // digit at settle time.
-  const entry = await getLiveEntrySpot(session.market);
+  // Fresh entry + calibration window — same pricing path as manual /api/binary/bet
+  // (kernel + conditional Matches/OU). Legacy uniform payoutRate was a reopen leak.
+  const [calib, entry] = await Promise.all([
+    getCalibrationTicks(session.market),
+    getLiveEntrySpot(session.market),
+  ]);
   const entryDigit = exitDigitFromQuote(entry.spot);
+  const side = session.side as DigitSide;
+  const edgeFloor = resolveDigitEdgeFloor(side, session.targetDigit, calib.edge);
+  const priced = priceDigitServer({
+    side,
+    targetDigit: session.targetDigit,
+    durationTicks: session.durationTicks,
+    stake,
+    ticks: calib.prices,
+    edgeFloor,
+    market: session.market,
+    entryDigit,
+  });
+  if (!priced.accepted) throw new Error(`PRICE_REJECTED: ${priced.reason}`);
 
-  const grossPayout = Number((stake * payoutRate(session.side, session.targetDigit)).toFixed(2));
-  const payout      = applyProfitRetention(stake, grossPayout);
+  const payout = priced.payout;
+  const payoutMultiplier = priced.multiplier;
   const settleBefore = new Date(Date.now() + session.durationTicks * 1000 + 90_000);
 
   // Provably-fair proof over the committed terms, same as the manual bet route.
-  const payoutMultiplier = stake > 0 ? Number((payout / stake).toFixed(4)) : 0;
   const clientSeed = sha256(session.id);
   const proof = isProvablyFairConfigured()
     ? buildDigitProof({
         market: session.market,
-        side: session.side as DigitSide,
+        side,
         targetDigit: session.targetDigit,
         entryEpoch: entry.epoch,
         durationTicks: session.durationTicks,

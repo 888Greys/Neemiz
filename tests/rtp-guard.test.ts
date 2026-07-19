@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evaluateKind } from "@/lib/binary/rtp-guard";
+import { evaluateKind, guardedContracts } from "@/lib/binary/rtp-guard";
 
 describe("evaluateKind (runtime RTP guard threshold)", () => {
   const MIN = 200, HALT = 1.10;
@@ -25,5 +25,16 @@ describe("evaluateKind (runtime RTP guard threshold)", () => {
     const r = evaluateKind({ count: 300, staked: 0, paid: 0 }, MIN, HALT);
     expect(r.rtp).toBe(0);
     expect(r.breach).toBe(false);
+  });
+});
+
+describe("guardedContracts", () => {
+  it("watches digit sides, directional kinds, and accumulator:ALL", () => {
+    const tokens = guardedContracts().map((c) => `${c.game}:${c.key}`);
+    expect(tokens).toContain("binary:Matches");
+    expect(tokens).toContain("binary:Over");
+    expect(tokens).toContain("directional:HIGHER_LOWER");
+    expect(tokens).toContain("directional:VANILLA");
+    expect(tokens).toContain("accumulator:ALL");
   });
 });
