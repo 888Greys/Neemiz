@@ -4,6 +4,8 @@ name: Deploy Staging (nez-test)
 # https://nez-test.nezeem.com (separate Supabase DB, real Lipa creds reused
 # from prod). Does NOT touch production. Use this to test a feature branch
 # end-to-end before it is merged to main.
+#
+# Image build ALWAYS runs on GitHub Actions. The VPS only pulls + swaps.
 
 on:
   # Auto-deploy: every push to the `staging` branch goes live on nez-test.
@@ -38,18 +40,28 @@ jobs:
           # manual run → the chosen ref; push to `staging` → the pushed commit
           ref: ${{ github.event.inputs.ref || github.sha }}
 
-      - name: Write build-time public env (STAGING)
-        # NEXT_PUBLIC_* are inlined into the client bundle at build time, so
-        # staging needs its OWN build pointing at the staging Supabase project.
+      - name: Set up SSH
         run: |
-          cat > .env.production <<EOF
-          NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL_STAGING }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY_STAGING }}
-          NEXT_PUBLIC_APP_URL=https://nez-test.nezeem.com
-          NEXT_PUBLIC_AVIATOR_WS_URL=${{ secrets.NEXT_PUBLIC_AVIATOR_WS_URL }}
-          NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
-          NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${{ secrets.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE }}
-          EOF
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.NEZ_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.NEZ_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+
+      - name: Write build-time public env (STAGING)
+        # NEXT_PUBLIC_* are inlined into the client bundle at build time on
+        # GitHub. Fetch staging auth URL/key from the VPS via the forced-command
+        # helper (no image build on the server).
+        run: |
+          {
+            ssh -o ConnectTimeout=20 -i ~/.ssh/id_ed25519 \
+              "${{ secrets.NEZ_USER }}@${{ secrets.NEZ_HOST }}" \
+              "staging-build-env"
+            echo "NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}"
+            echo "NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE=${{ secrets.NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE }}"
+          } > .env.production
+          grep -q '^NEXT_PUBLIC_SUPABASE_URL=https://nez-test.nezeem.com/supabase-auth$' .env.production
+          grep -q '^NEXT_PUBLIC_SUPABASE_ANON_KEY=.' .env.production
+          echo "Staging build env ready (supabase → self-hosted /supabase-auth)"
 
       - name: Set up Buildx
         uses: docker/setup-buildx-action@v4
@@ -72,16 +84,8 @@ jobs:
           secrets: |
             sentry_auth_token=${{ secrets.SENTRY_AUTH_TOKEN }}
 
-      - name: Set up SSH
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.NEZ_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "${{ secrets.NEZ_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-
       - name: Deploy to staging on nez
-        # The forced-command key runs /opt/neemiz/deploy.sh, which dispatches
-        # "deploy-staging <image>" to /opt/neemiz-staging/deploy-staging.sh.
+        # VPS only pulls the GHCR image and swaps the container.
         run: |
           printf '%s\n' "${{ secrets.GITHUB_TOKEN }}" | \
           ssh -o ServerAliveInterval=15 -o ServerAliveCountMax=30 \
