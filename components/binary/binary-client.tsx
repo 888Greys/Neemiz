@@ -39,6 +39,7 @@ import { createClient } from "@/lib/supabase/client";
 import { quoteToDigit } from "@/lib/binary-digit";
 import {
   applyServerBinaryDigits,
+  closedDisplayStatus,
   mergeClosedPositions,
   toAccumulatorClosedPosition,
   toBinaryClosedPosition,
