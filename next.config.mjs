@@ -67,12 +67,11 @@ const nextConfig = {
     const legacyAdmin = ["p2p", "players", "money", "crypto", "risk", "ops", "withdrawals", "broadcast"]
       .map((s) => ({ source: `/admin/${s}`, destination: `/admin/new/${s}`, permanent: false }));
 
+    // Do NOT redirect "/" here. One image serves Nezeem + BinaryKE; "/" is
+    // handled at runtime in app/page.tsx (Nezeem → /dashboard, Binary guests →
+    // marketing landing, Binary signed-in → /binary). A config redirect would
+    // bake into routes-manifest and skip the page on every host.
     return [
-      {
-        source: "/",
-        destination: "/dashboard",
-        permanent: false,
-      },
       { source: "/admin", destination: "/admin/new", permanent: false },
       ...legacyAdmin,
       { source: "/admin/markets/:key", destination: "/admin/new/markets/:key", permanent: false },

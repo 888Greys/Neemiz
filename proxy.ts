@@ -51,8 +51,11 @@ function clearStaleAuthCookies(request: NextRequest, response: NextResponse) {
 }
 
 export default async function middleware(request: NextRequest) {
+  const requestHost =
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+
   // Binary-only brand (binaryoptionske.com): strip every non-binary product path.
-  if (isBinarySurface()) {
+  if (isBinarySurface({ host: requestHost })) {
     const { pathname } = request.nextUrl;
     // Static favicon.ico is still the Nezeem asset in the image — serve the
     // surface-aware generated /icon instead.

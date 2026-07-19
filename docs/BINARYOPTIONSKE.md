@@ -105,6 +105,10 @@ Gate (middleware in `proxy.ts`): on binary surface, non-allowed paths and
 signed-in users hitting `/` are sent to `/binary` by `app/page.tsx`. `/admin`
 is blocked on the Binary host (ops stay on Nezeem).
 
+**Test the marketing site at `https://binaryoptionske.com/` (root), not
+`/dashboard`.** On this surface `/dashboard` → `/binary` is intentional (deep
+links / Nezeem bookmarks). The Olymp-style landing only renders at `/`.
+
 Client: `SiteConfigProvider` in `app/layout.tsx` → `useSiteConfig()` /
 `useIsBinarySurface()`.
 
@@ -117,6 +121,7 @@ Because other products are blocked, **customize Binary alone** by editing:
 | Area | Files |
 |------|-------|
 | Marketing home (`/`) | `components/binary-ke/landing-page.tsx` + `landing.css` — Olymp-style landing for guests; signed-in users redirect to `/binary` via `app/page.tsx` |
+| Terminal chrome | `components/binary-ke/trader.css` + `useIsBinarySurface()` hooks in `app-shell.tsx` / `binary-client.tsx` / `digit-panel.tsx` — black/lime Olymp look (Nezeem `/binary` unchanged) |
 | Terminal UI | `components/binary/*`, `app/binary/page.tsx` |
 | Wordmark | `components/brand-logo.tsx` (binary branch → **BinaryKE**) |
 | Favicon / apple icon | `app/icon.tsx`, `app/apple-icon.tsx` (read `PRODUCT_SURFACE` at runtime). Drop custom PNGs here if you want a designed mark — or replace `app/favicon.ico` (Binary host rewrites `/favicon.ico` → `/icon` in `proxy.ts`) |
@@ -294,8 +299,8 @@ npm run dev
 # or: bun run dev
 ```
 
-Open `http://localhost:3000` → redirects to `/binary`. Sports/P2P/Aviator/etc.
-are blocked.
+Open `http://localhost:3000` → BinaryKE marketing landing (guest). Sign in →
+`/binary`. Sports/P2P/Aviator/etc. are blocked. `/dashboard` → `/binary`.
 
 ### Workflow tips
 

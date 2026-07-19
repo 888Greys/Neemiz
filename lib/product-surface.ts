@@ -12,25 +12,46 @@
 
 export type ProductSurface = "full" | "binary";
 
-export function productSurface(): ProductSurface {
-  // Runtime PRODUCT_SURFACE wins so one GHCR image can serve both Nezeem and
-  // BinaryKE. NEXT_PUBLIC_* is baked at build time and must not override the
-  // container env (empty/full bake would pin every host to Nezeem).
-  const runtime = process.env.PRODUCT_SURFACE?.trim().toLowerCase();
+export type ProductSurfaceOpts = {
+  /** Request Host / x-forwarded-host — belt-and-suspenders when env is wrong. */
+  host?: string | null;
+};
+
+function envSurface(): string | undefined {
+  // Bracket access avoids any bundler inlining of process.env.PRODUCT_SURFACE.
+  const runtime = process.env["PRODUCT_SURFACE"]?.trim().toLowerCase();
   if (runtime === "binary" || runtime === "full") return runtime;
 
-  const pub = (process.env.NEXT_PUBLIC_PRODUCT_SURFACE ?? "full").trim().toLowerCase();
-  return pub === "binary" ? "binary" : "full";
+  const pub = process.env["NEXT_PUBLIC_PRODUCT_SURFACE"]?.trim().toLowerCase();
+  if (pub === "binary" || pub === "full") return pub;
+  return undefined;
 }
 
-export function isBinarySurface(): boolean {
-  return productSurface() === "binary";
+function hostLooksBinary(host: string | null | undefined): boolean {
+  if (!host) return false;
+  const h = host.split(":")[0]?.toLowerCase() ?? "";
+  return h === "binaryoptionske.com" || h.endsWith(".binaryoptionske.com");
+}
+
+export function productSurface(opts?: ProductSurfaceOpts): ProductSurface {
+  // Runtime PRODUCT_SURFACE / NEXT_PUBLIC_* wins so one GHCR image can serve
+  // both Nezeem and BinaryKE without a rebuild.
+  const fromEnv = envSurface();
+  if (fromEnv === "binary" || fromEnv === "full") return fromEnv;
+
+  if (hostLooksBinary(opts?.host)) return "binary";
+
+  return "full";
+}
+
+export function isBinarySurface(opts?: ProductSurfaceOpts): boolean {
+  return productSurface(opts) === "binary";
 }
 
 /** Brand shown in UI / emails when PRODUCT_SURFACE=binary. */
 export function surfaceBrand(): string {
   if (isBinarySurface()) {
-    return (process.env.NEXT_PUBLIC_BRAND_NAME ?? "BinaryOptionsKE").trim() || "BinaryOptionsKE";
+    return (process.env["NEXT_PUBLIC_BRAND_NAME"] ?? "BinaryOptionsKE").trim() || "BinaryOptionsKE";
   }
   return "Nezeem";
 }
@@ -42,7 +63,7 @@ export function surfaceBrand(): string {
 export function phoneAuthEmailDomain(): string {
   if (isBinarySurface()) {
     return (
-      process.env.NEXT_PUBLIC_PHONE_EMAIL_DOMAIN?.trim() || "phone.binaryoptionske.com"
+      process.env["NEXT_PUBLIC_PHONE_EMAIL_DOMAIN"]?.trim() || "phone.binaryoptionske.com"
     );
   }
   return "phone.nezeem.com";
@@ -59,8 +80,8 @@ export function isPhoneAuthEmail(email: string | null | undefined): boolean {
   return (
     email.endsWith("@phone.nezeem.com") ||
     email.endsWith("@phone.binaryoptionske.com") ||
-    (!!process.env.NEXT_PUBLIC_PHONE_EMAIL_DOMAIN &&
-      email.endsWith(`@${process.env.NEXT_PUBLIC_PHONE_EMAIL_DOMAIN.trim()}`))
+    (!!process.env["NEXT_PUBLIC_PHONE_EMAIL_DOMAIN"] &&
+      email.endsWith(`@${process.env["NEXT_PUBLIC_PHONE_EMAIL_DOMAIN"].trim()}`))
   );
 }
 
