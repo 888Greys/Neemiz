@@ -13,9 +13,113 @@ type DirSide = DirectionalSide;
 const CARD = "rounded-lg bg-[#181b22] p-1.5 sm:p-3";
 const FIELD = "flex items-center rounded-md bg-[#0f1319] ring-1 ring-white/[0.06]";
 const RED_SIDES = new Set<DirSide>(["FALL", "LOWER", "NO_TOUCH", "PUT"]);
+const OFFSET_DRAFT_RE = /^-?\d*\.?\d*$/;
 
 function sideLabel(side: DirSide): string {
   return side === "NO_TOUCH" ? "NO TOUCH" : side;
+}
+
+/** Fair-band + server-min clamp. Used on blur/commit and steppers — never while typing. */
+function clampBarrierOffset(v: number, minBarrierOffset: number, maxBarrierOffset: number): number {
+  const capped = Math.max(-maxBarrierOffset, Math.min(maxBarrierOffset, Math.round((v || 0) * 100) / 100));
+  if (capped === 0) return minBarrierOffset;
+  if (Math.abs(capped) < minBarrierOffset) return capped < 0 ? -minBarrierOffset : minBarrierOffset;
+  return capped;
+}
+
+/**
+ * Freely editable signed barrier offset. Draft string while typing so number
+ * inputs / min clamps don’t fight every keystroke or spot tick.
+ */
+function BarrierOffsetField({
+  offset,
+  setOffset,
+  minOffset,
+  maxOffset,
+  step,
+}: {
+  offset: number;
+  setOffset: (v: number) => void;
+  minOffset: number;
+  maxOffset: number;
+  step: number;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
+
+  const committed = Number.isFinite(offset) ? String(Number(offset.toFixed(2))) : "";
+  const shown = draft !== null ? draft : committed;
+
+  useEffect(() => {
+    if (!focused) setDraft(null);
+  }, [offset, focused]);
+
+  function commit(raw: string) {
+    const cleaned = raw.trim();
+    if (cleaned === "" || cleaned === "-" || cleaned === "." || cleaned === "-.") {
+      setOffset(clampBarrierOffset(minOffset, minOffset, maxOffset));
+      setDraft(null);
+      return;
+    }
+    const n = Number(cleaned);
+    if (!Number.isFinite(n)) {
+      setOffset(clampBarrierOffset(minOffset, minOffset, maxOffset));
+      setDraft(null);
+      return;
+    }
+    setOffset(clampBarrierOffset(n, minOffset, maxOffset));
+    setDraft(null);
+  }
+
+  function nudge(dir: 1 | -1) {
+    const base = draft !== null && draft !== "" && draft !== "-" ? Number(draft) : offset;
+    const next = (Number.isFinite(base) ? base : 0) + dir * step;
+    setOffset(clampBarrierOffset(next, minOffset, maxOffset));
+    setDraft(null);
+  }
+
+  return (
+    <div className={`min-w-0 flex-1 ${FIELD}`}>
+      <button
+        type="button"
+        onClick={() => nudge(-1)}
+        className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10"
+        aria-label="Decrease barrier offset"
+      >
+        <Icon name="remove" className="text-[14px] sm:text-[18px]" />
+      </button>
+      <input
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        value={shown}
+        onFocus={() => {
+          setFocused(true);
+          setDraft("");
+        }}
+        onBlur={() => {
+          setFocused(false);
+          commit(draft ?? "");
+        }}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === "" || OFFSET_DRAFT_RE.test(v)) setDraft(v);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none sm:text-[15px]"
+      />
+      <button
+        type="button"
+        onClick={() => nudge(1)}
+        className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10"
+        aria-label="Increase barrier offset"
+      >
+        <Icon name="add" className="text-[14px] sm:text-[18px]" />
+      </button>
+    </div>
+  );
 }
 
 // Rise/Fall (exit vs entry) and Higher/Lower (exit vs a chosen barrier).
@@ -58,15 +162,6 @@ export function DirectionalPanel({
   const { convert, toKes, currency: cc } = useCurrency();
   const needsBarrier = kind !== "RISE_FALL";
   const offsetStep = Math.max(minBarrierOffset, Math.round(latestSpot * 0.0003 * 100) / 100);
-  // Keep the barrier inside the fair band (see maxBarrierOffset). Anything past
-  // it prices out of range and the server rejects it, so we never let the UI go there.
-  // Also enforce the server min distance (0.1% of spot) so Buy never hits the gate.
-  const clampOffset = (v: number) => {
-    const capped = Math.max(-maxBarrierOffset, Math.min(maxBarrierOffset, Math.round((v || 0) * 100) / 100));
-    if (capped === 0) return minBarrierOffset;
-    if (Math.abs(capped) < minBarrierOffset) return capped < 0 ? -minBarrierOffset : minBarrierOffset;
-    return capped;
-  };
   const barrier = latestSpot + barrierOffset;
   const reasonFor = rejectReasonFor ?? (() => null);
   const barrierHint = sides.map(reasonFor).find((r) => r && r !== "Pricing…") ?? null;
@@ -80,13 +175,13 @@ export function DirectionalPanel({
     if (duration < minDuration) setDuration(minDuration);
   }, [duration, minDuration, setDuration]);
 
+  // Seed a default offset when entering a barrier contract — do NOT re-clamp on
+  // every spot tick (that fought the input and made Touch/No Touch uneditable).
   useEffect(() => {
     if (!needsBarrier) return;
-    if (barrierOffset === 0 || Math.abs(barrierOffset) < minBarrierOffset) {
-      setBarrierOffset(clampOffset(barrierOffset || minBarrierOffset));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsBarrier, minBarrierOffset, latestSpot]);
+    if (barrierOffset !== 0) return;
+    setBarrierOffset(clampBarrierOffset(minBarrierOffset, minBarrierOffset, maxBarrierOffset));
+  }, [needsBarrier, barrierOffset, minBarrierOffset, maxBarrierOffset, setBarrierOffset]);
 
   // Mobile uses Deriv's single-CTA model: a side toggle + one Buy button.
   const [armedSide, setArmedSide] = useState<DirSide>(sides[0]);
@@ -165,19 +260,13 @@ export function DirectionalPanel({
             <div className="flex w-[72px] shrink-0 items-center justify-center text-center text-[11px] font-bold text-slate-200 sm:mb-2.5 sm:w-auto sm:text-[13px]">
               Barrier offset
             </div>
-            <div className={`min-w-0 flex-1 ${FIELD}`}>
-              <button type="button" onClick={() => setBarrierOffset(clampOffset(barrierOffset - offsetStep))}
-                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="remove" className="text-[14px] sm:text-[18px]" />
-              </button>
-              <input type="number" value={barrierOffset}
-                onChange={(e) => setBarrierOffset(clampOffset(Number(e.target.value)))}
-                className="w-full min-w-0 bg-transparent text-center text-[14px] font-black text-white outline-none [appearance:textfield] sm:text-[15px] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
-              <button type="button" onClick={() => setBarrierOffset(clampOffset(barrierOffset + offsetStep))}
-                className="grid h-6 w-7 place-items-center text-slate-300 hover:text-white sm:h-9 sm:w-10">
-                <Icon name="add" className="text-[14px] sm:text-[18px]" />
-            </button>
-            </div>
+            <BarrierOffsetField
+              offset={barrierOffset}
+              setOffset={setBarrierOffset}
+              minOffset={minBarrierOffset}
+              maxOffset={maxBarrierOffset}
+              step={offsetStep}
+            />
             <div className="hidden items-center justify-between text-[12px] sm:mt-2 sm:flex">
               <span className="font-bold text-slate-400">Barrier</span>
               <span className="font-mono font-black text-amber-300">{formatSpot(barrier)}</span>
@@ -446,10 +535,19 @@ export function BarrierSheet({
   const [mode, setMode] = useState<Mode>(offset < 0 ? "below" : "above");
   // `amount` means: offset magnitude for above/below, absolute price for fixed.
   const [amount, setAmount] = useState(() => Math.max(minOffset, Math.abs(offset) || offsetStep));
+  const [draft, setDraft] = useState<string | null>(null);
+  const [focused, setFocused] = useState(false);
 
   const round = (v: number) => Number(v.toFixed(2));
+  const shown = draft !== null ? draft : String(amount);
+
+  useEffect(() => {
+    if (!focused) setDraft(null);
+  }, [amount, focused]);
+
   const switchMode = (m: Mode) => {
     if (m === mode) return;
+    setDraft(null);
     if (m === "fixed") {
       const signed = mode === "below" ? -amount : amount;
       setAmount(round(latestSpot + signed));
@@ -464,10 +562,35 @@ export function BarrierSheet({
   // for a fixed absolute price it's spot ± band.
   const amountMax = maxOffset == null ? Infinity : mode === "fixed" ? latestSpot + maxOffset : maxOffset;
   const amountMin = maxOffset != null && mode === "fixed" ? Math.max(min, latestSpot - maxOffset) : min;
-  const step = (dir: 1 | -1) => setAmount((a) => round(Math.min(amountMax, Math.max(amountMin, (a || 0) + dir * offsetStep))));
+  const clampAmount = (v: number) => round(Math.min(amountMax, Math.max(amountMin, v || 0)));
+  const step = (dir: 1 | -1) => {
+    setDraft(null);
+    setAmount((a) => clampAmount((a || 0) + dir * offsetStep));
+  };
+
+  const commitDraft = (raw: string) => {
+    const cleaned = raw.trim();
+    if (cleaned === "" || cleaned === "." || cleaned === "-" || cleaned === "-.") {
+      setAmount(clampAmount(amountMin));
+      setDraft(null);
+      return;
+    }
+    const n = Number(cleaned);
+    if (!Number.isFinite(n)) {
+      setAmount(clampAmount(amountMin));
+      setDraft(null);
+      return;
+    }
+    setAmount(clampAmount(n));
+    setDraft(null);
+  };
 
   const save = () => {
-    let signed = mode === "fixed" ? amount - latestSpot : mode === "below" ? -Math.abs(amount) : Math.abs(amount);
+    const liveAmount = draft !== null ? (() => {
+      const n = Number(draft.trim());
+      return Number.isFinite(n) ? clampAmount(n) : amount;
+    })() : amount;
+    let signed = mode === "fixed" ? liveAmount - latestSpot : mode === "below" ? -Math.abs(liveAmount) : Math.abs(liveAmount);
     if (maxOffset != null) signed = Math.max(-maxOffset, Math.min(maxOffset, signed));
     if (minOffset > 0 && Math.abs(signed) < minOffset) signed = signed < 0 ? -minOffset : minOffset;
     setOffset(round(signed));
@@ -499,9 +622,28 @@ export function BarrierSheet({
             <button type="button" onClick={() => step(-1)} className="grid h-12 w-12 place-items-center text-slate-300">
               <Icon name="remove" className="text-[18px]" />
             </button>
-            <input type="number" inputMode="decimal" value={amount}
-              onChange={(e) => setAmount(Math.min(amountMax, Math.max(amountMin, Number(e.target.value) || 0)))}
-              className="w-full min-w-0 bg-transparent text-center text-[18px] font-black text-white outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" />
+            <input
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              value={shown}
+              onFocus={() => {
+                setFocused(true);
+                setDraft("");
+              }}
+              onBlur={() => {
+                setFocused(false);
+                commitDraft(draft ?? "");
+              }}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "" || OFFSET_DRAFT_RE.test(v)) setDraft(v);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              className="w-full min-w-0 bg-transparent text-center text-[18px] font-black text-white outline-none"
+            />
             <button type="button" onClick={() => step(1)} className="grid h-12 w-12 place-items-center text-slate-300">
               <Icon name="add" className="text-[18px]" />
             </button>

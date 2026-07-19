@@ -1144,10 +1144,15 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
   }, [needsDirQuote, dirKind, market.derivSymbol, stake, duration, barrierOffset, dirSidesKey]);
 
   const dirRejectReason = useCallback((side: DirectionalSide): string | null => {
+    // Client gate matches server MIN_BARRIER_FRAC — disable calmly, never toast "Trade failed".
+    if ((dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH")
+        && (barrierOffset === 0 || Math.abs(barrierOffset) + 1e-10 < minBarrierOffset)) {
+      return BARRIER_TOO_CLOSE_COPY;
+    }
     const q = liveDirQuotes[side];
     if (q && !q.accepted) return shortDirectionalRejectReason(q.reason);
     return null;
-  }, [liveDirQuotes]);
+  }, [liveDirQuotes, dirKind, barrierOffset, minBarrierOffset]);
 
   // Fixed-payout preview: prefer live server quote; else client estimate.
   // Rise/Fall used to hardcode 1.90× + retention while place used Wilson pricing.
@@ -1933,16 +1938,8 @@ function BinaryClientInner({ userId, balance: initialBalance = 0, liveTypes }: B
       return;
     }
     // RISE_FALL has no barrier; the rest take the offset (Vanilla allows 0 = ATM).
+    // Below-min / zero offset already disabled via dirRejectReason — no Trade-failed toast.
     const offset = dirKind === "RISE_FALL" ? 0 : barrierOffset;
-    if ((dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH") && offset === 0) {
-      toast.error("Set a barrier", "Move the barrier above or below the spot.");
-      return;
-    }
-    if ((dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH")
-        && Math.abs(offset) + 1e-10 < minBarrierOffset) {
-      toast.info(BARRIER_TOO_CLOSE_COPY);
-      return;
-    }
     const needsSigma = dirKind === "HIGHER_LOWER" || dirKind === "TOUCH_NO_TOUCH" || dirKind === "VANILLA";
     const settlesAt = Date.now() + duration * Math.max(1000, market.speedMs) + 500;
 
