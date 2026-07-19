@@ -203,7 +203,8 @@ html[data-surface="binary"] .focus-within\:ring-\[\#05b957\]\/50:focus-within {
 
 html[data-surface="binary"] .bok-wallet,
 html[data-surface="binary"] .bok-wallet-sheet,
-html[data-surface="binary"] .bok-mobile-drawer {
+html[data-surface="binary"] .bok-mobile-drawer,
+html[data-surface="binary"] .bok-copy-panel {
   background: var(--bok-bg) !important;
 }
 
